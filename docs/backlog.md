@@ -157,39 +157,83 @@
 
 ---
 
-## F7. 诊断错误码注册表（稳定编号 + `--json` 字段）
+## F7. 诊断错误码注册表（`域.slug` + `--json` 载荷）
 
-**现状**：诊断已经是产品（`AGENTS.md` §12「错误信息是产品」），`packages/parser` 有 `formatDiagnostic`，§10 要求"每条诊断含文件、行列、期望/实际、修复建议；提供 `--json` 输出"——但**诊断没有稳定编号**：文案一改，第三方实现就无法判断"我这条行为与 textEDA 是否一致"。对照 cohdl：它把错误码做成正式注册表（`docs/error-codes.md`），编号分层（E7xx 编译期结构 / E9xx 诊断集合 / E1xxx 其他），`check --json` 的字段与注册表对齐（它的 RFC-010）。
+**现状**：诊断已经是产品（`AGENTS.md` §12「错误信息是产品」），`packages/parser` 有 `formatDiagnostic`，§10 要求"每条诊断含文件、行列、期望/实际、修复建议；提供 `--json` 输出"——但**诊断没有稳定标识**：文案一改，第三方实现就无法判断"我这条行为与 textEDA 是否一致"。对照 cohdl：它把错误码做成正式注册表（`docs/error-codes.md`），并用 `tests/error_registry.rs` 做**双向** completeness 检查（码表每行都要有真实 call site，代码里每个码字面量都要在码表里）——这个机制该抄。
 
 **为什么现在做**：ADR-0015 把项目定位成**标准提案**，标准提案的第一要件是"行为可被第三方实现对齐"，而错误码是对齐行为的最小单位。趁 sch 的解析器还没写（目前只有 symbol / footprint / component），加编号成本最低；等板级描述落地、诊断条数翻倍再补，编号会返工。
 
+**形式（已定，2026-10-21）**：`域.短 slug`，kebab-case slug，域取自**封闭词表**。
+
+- **域按"错误的种类"划分，不按发现阶段**（cohdl RFC-011 的组织原则，他们最聪明的一条）：单位不匹配不管在哪一层发现，都是 `value.unit-mismatch`。
+- **不用 `E+数字`**：数字无语义（`E1105` 是什么要查表）、分类边界只能靠文档裁决（cohdl 为"单位不匹配归 E1xx 还是 E4xx"专门写过 RFC-011，还留下 E402/E404 的 DEPRECATED 重定位）、分配需要中央仲裁。slug 自解释、分配无冲突、与 JSON Pointer 同族。
+- **严重度独立于域**（`error` / `warning` / `note`）：涌现检查天然有 warning，不能因为"它是 DRC"就全是 error（学 cohdl 的 `D00x` 单独一块）。
+
+**域词表（封闭）**：
+
+| 域 | 覆盖 | 例码 |
+|---|---|---|
+| `syntax` | 词法 / 语法 / 解析 | `syntax.unexpected-token` |
+| `value` | 值与量纲（§2.8） | `value.unit-mismatch`、`value.missing-unit` |
+| `ref` | 引用与解析 | `ref.unknown-component`、`ref.anchor-mismatch` |
+| `contract` | IR 契约 / schema（§2.7 未知构造报错） | `contract.schema-violation`、`contract.unknown-field` |
+| `net` | net 完整性（§4.2 三态） | `net.pin-unassigned`、`net.member-unknown` |
+| `bind` | sch↔pcb 绑定（§4.4） | `bind.pin-unmapped`、`bind.undeclared-deviation` |
+| `library` | 库级（ADR-0013） | `library.pad-pin-mismatch`、`library.orphan-symbol` |
+| `format` | 版本 / canonical（ADR-0008） | `format.unsupported-version`、`format.not-canonical` |
+| `drc` | 涌现检查（ERC / DRC） | `drc.floating-net`、`drc.multi-driver` |
+| `cli` | 调用层 | `cli.bad-flag` |
+
+- 新增域要写 ADR（防域膨胀成"按文件分"）；`cli` 域的失败**不进 `--json` 诊断数组**，走 stderr + 退出码（抄 cohdl 的 E000 分类）。
+
+**载荷（agent 与人各取所需）**：
+
+```json
+{
+  "code": "bind.pin-unmapped",
+  "severity": "error",
+  "message": "U1.3 没有对应封装焊盘",
+  "expected": "封装 sot-23-5 的焊盘号应覆盖 U1 的引脚号 {1,2,3}",
+  "actual": "封装缺少焊盘 3",
+  "hint": "删掉 components/regulators/tps7a02.teda 里 3 号引脚，或在符号里补上 3 号脚",
+  "location": { "file": "sch/charger-buck/charger-power.teda", "line": 42, "col": 12 },
+  "related": [ { "file": "components/regulators/tps7a02.teda", "line": 8 } ],
+  "data": { "component_id": "tps7a02", "pin": "3", "footprint": "sot-23-5" },
+  "cause": { "source": "ajv", "instancePath": "/pins/2", "keyword": "required" }
+}
+```
+
+- `code` / `severity` / `location` / `data` = **机器契约**（agent 按 `code` 分支、按 `data` 自动修）。
+- `message` / `expected` / `actual` / `hint` = **人读**（评审者据此改文件）。评审者不关心错误"背后怎么报错"，但必须知道**错在哪一行、期望什么、实际什么、怎么改**——别把"不关心实现机制"误读成"不需要建议"。
+- `cause` 保底：textEDA 大量诊断来自 **schema 校验**（Ajv 报在 IR 上，给的是 `instancePath`）。保留原始 `cause`，**第三方实现直接用 Ajv 也能映射到 `contract.*` 码**，不必各自发明一套——这是 textEDA 相对 cohdl 的优势（它没有 schema 层，第三方必须逐条实现语义检查）。
+- 可机械修的诊断再加 `fix`（`add-suffix` / `replace-token` / `remove-line` 等），给 agent 的 repair loop 抓手。
+
 **要做的事**：
 
-1. 定编号分层（草案）：
-   - `E1xxx` 语法 / 解析（行、列、token）
-   - `E2xxx` 语义（未定义器件、单位与量纲、类型不匹配）
-   - `E3xxx` 契约（schema 不符、canonical 违例、hash 不匹配）
-   - `E4xxx` 绑定与一致性（sch↔pcb 成员投影、pad 与 pin 对不上）
-   - `E5xxx` 库与引用（引用不存在、孤儿库、pin 号与 pad 号不齐）
-2. 每条诊断固定：码、严重度、消息、期望/实际、修复建议、位置（文件/行/列）、相关路径。
-   - **分工要说清**：错误码与 `--json` 字段是给 **agent** 的（机器可解析、可分支处理）；**修复建议文案是给人看的**——评审者不关心错误"背后怎么报错"，但必须知道**错在哪一行、期望什么、实际什么、怎么改**。别把"不关心实现机制"误读成"不需要建议"。
-3. `--json` 输出带 `code` 字段；`formatDiagnostic` 与注册表一致。
-4. 建 `docs/error-codes.md`（码 → 触发条件 → 文案 → 建议），**注册表进 CI 门槛**：码表与注册表不一致即失败。
-5. 写 `docs/adr/0016-diagnostic-error-codes.md`。
+1. 单一真源：`packages/ir/src/diagnostics/codes.ts`（每条含 code、域、严重度、触发条件、建议模板、相关 spec/ADR 引用）。
+2. `docs/error-codes.md` **由 `bun run gen:codes` 生成**（复用仓库已有的 gen 机制，ADR-0009），CI 用 `gen:check` 挡漂移——**不手写注册表**（cohdl 手写 md + 手写测试，能漂移）。
+3. **双向 completeness 检查**（照抄 cohdl 的 `tests/error_registry.rs`）：
+   - 码表里每条都有真实 call site（防"文档写了但没实现"）；
+   - 代码里每个码字面量都在码表里（防"野生码"）。
+4. 诊断结构统一到一个 `Diagnostic` 类型（parser / 语义检查器 / schema 校验三个来源），`--json` 输出带 `code`；`formatDiagnostic` 与注册表一致。
+5. 生命周期规则写进 ADR：码发出即冻结（不可改义、不可重命名、不可复用）；语义变了 → 新码 + 旧码标 `[DEPRECATED → new.code]` 并保留旧行；允许"重定位"但新旧码必须指向同一语义；域词表封闭。
+6. 写 `docs/adr/0016-diagnostic-error-codes.md`。
 
-**涉及**：`packages/parser/src/**`（诊断结构）、`packages/ir/src/**`（契约层诊断）、`docs/error-codes.md`、新增 ADR、`tests/**`。
+**涉及**：`packages/ir/src/diagnostics/**`、`packages/parser/src/**`、`packages/ir/scripts/**`（生成器）、`docs/error-codes.md`、新增 ADR、`tests/**`。
 
 **验收**：
 
 - 同一处错误在不同实现里用同一个码（码表是契约的一部分）。
-- `--json` 的每条诊断都有 `code`。
-- 改了码表没改注册表（或反之）→ CI 失败。
+- `--json` 的每条诊断都有 `code`，且 `data` 字段名稳定。
+- 改了码表没重新生成文档（或反之）→ CI 失败。
+- 码表里有一条没有 call site → CI 失败；代码里出现未登记的码 → CI 失败。
 
 **注意**：
 
-- **编号只增不改**：一个码的语义变了要新增码，不要改老码含义，否则第三方实现的对齐声明会失效。
 - 码表属**契约层**（不变量 19）：不许随实现关起来。
 - 别把码做成粗粒度类别枚举（如 `type_error`）：粒度要细到"这一条行为"能被单独对齐。
+- **位置（文件/行列）依赖 F11**：span 机制没落地前，诊断只能给到文件级 + IR 路径，别在这条里假装行列已经有了。
+- 一次别铺满 100 个码：**按需增长**，码表从代码生成，新增码没有分配成本。
 
 ---
 
@@ -292,3 +336,46 @@
 - **先规范后服务**：不要一上来就写 registry（那是运维与法务问题，cohdl 走了很多年）。先把"库包长什么样、怎么钉版本、怎么验证"定死。
 - 库生态的成败取决于**库的覆盖率与质量**，不取决于注册表的 UI。优先把"自建库能自动生成"（ADR-0010 的 agent 生成路线）做扎实。
 - 与不变量 19 对齐：库规范属契约层，永久开放。
+
+---
+
+## F11. 源码位置（span）机制：诊断要能指到行列
+
+**现状**：`AGENTS.md` §10 要求"每条诊断含文件、行列、期望/实际、修复建议"。但 textEDA 是"源码 → IR"的单向投影（ADR-0004 / ADR-0008），**IR 只含语义、不含源位置**——span 在投影里丢了。两个后果：
+
+1. 语义检查器与 schema 校验的诊断只能指到"哪个文件"，指不到"哪一行哪一列"；
+2. schema 校验（Ajv）报的是 **IR 上的 JSON Pointer**（`/pins/2`），评审者看不懂——他手里是 `.teda` 源文件，不是 IR。
+
+对照：cohdl 的 IR 就是 AST，位置天生带着（它的包级诊断直接锚在 `cohdl.toml` 的行上）；tscircuit 同理。**这是 textEDA 独有的难点**——它刻意让 IR 与源分离（§3 的 S0/S1 分层），代价就是位置要另外解决。
+
+**为什么现在做**：F7 要求诊断带位置，F8 会把一部分检查前移进 schema 校验——**schema 错误的位置就是 IR 路径**，没有 span 就只能给路径。agent 要自动改文件，**没有行列就没法做定点修改**，repair loop 无从下手。
+
+**关键约束（这里有个真冲突）**：§10 明写"打乱行序、换单位写法、换键序的同一描述，编译出的 IR 必须与 canonical 源**字节相同**"。**span 一旦进 IR，这条验收就挂**（行序一变字节就变）。所以 **span 不能进 IR**——这是 ADR-0004「IR 不复制源文本」的延伸。
+
+**要做的事**：
+
+1. **定位置模型**（写进 spec 与 ADR）：
+   - `file`（相对工程根的路径）、`line`、`col`；
+   - **列号的字符语义要写死**：源文件里可能有中文与 `Ω`、`±`——建议同时给 **Unicode 标量列号** 与 **字节偏移**；
+   - `span` 粒度：token 级还是记录级？一条 IR 记录（如 net 的成员列表）对应源里多行 → 建议**记录级**（指向该记录首 token），必要时给 `end`。
+2. **span 不进 IR**，两种落地方式选一（建议 A）：
+   - **A（推荐）**：parse 阶段产出 IR 的同时记录 **IR 路径 → 源 span** 映射（随诊断使用，解析结束即丢，不落盘）；
+   - **B**：落盘一张 span 表（`dist/ir/<shard>.spans.json`），事后可重算定位（支持"IR 已有、源已改"，但多一份产物要管一致性）。
+3. **IR 路径 → 源 span 的反向索引**（给 Ajv 用）：Ajv 的 `instancePath` 是 IR 数组下标，要经索引查到 span。这要求解析器的内部结构在编译成 IR 之前保留来源路径，**编译时剥掉**。
+4. **跨文件引用**的诊断要同时给**引用点**（`location`）与**定义点**（`related`）——sch 引用 `components/xxx.teda` 时两处都要能指。
+5. **canonical 与位置不要混用**：位置基于**原文件**；`fmt` 之后行号会变。
+6. 位置稳定性测试：同一份源两次解析位置一致；打乱行序后 IR 字节不变（§10 验收仍绿）而诊断位置指向新行号。
+
+**涉及**：`packages/parser/src/**`（内部结构与映射表）、`packages/ir/src/**`（诊断类型与位置类型）、`spec/**`（位置模型）、新增 `docs/adr/0018-source-spans.md`、`tests/**`。
+
+**验收**：
+
+- 一条 schema 违规能同时给出 `location`（源行列）与 `cause.instancePath`（IR 路径）。
+- 打乱源文件行序后：IR 字节不变（§10 验收仍绿），诊断位置指向新行号。
+- agent 拿到诊断能定点改文件，不必再解析一次去猜位置。
+
+**注意**：
+
+- **不要为了位置把源文本复制进 IR**（ADR-0004 明令：IR 不复制源文本与注释）。span 是位置元数据，且**不进 IR**。
+- 列号的字符语义（中文、`Ω`、`±` 怎么算列）必须写死并进 spec，否则第三方实现算出来的列号对不上。
+- 这条是 F7 的前置，但**不阻塞 F7 的码表与注册表**（先有码与文件级位置，span 到位后补行列）。
