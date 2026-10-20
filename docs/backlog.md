@@ -28,7 +28,7 @@
 **涉及封装**（16 个）：`chip-0402` `chip-0603` `chip-1210` `chip-2010` `tantalum-7343` `ihlp-4040` `ihlp-2525` `crystal-3225-4` `switch-5x5-4` `sot-23` `sot-23-5` `soic-8-ep` `powerpak-1212-8` `lqfp-100` `vqfn-24-ep` `sma`
 
 **验收**：
-- 每个封装的 body 尺寸、焊盘间距能在对应料号的 datasheet 上逐项对上（datasheet 本地副本在 `examples/reference-project/docs/datasheets/`）。
+- 每个封装的 body 尺寸、焊盘间距能在对应料号的 datasheet 上逐项对上（datasheet **不入库**，自行从厂商官网下载到 `examples/reference-project/docs/datasheets/`，该目录已 gitignore；文件名见 `docs/mcu-board-components.md` 的表）。
 - `bun run lib:verify` 仍全绿（合并板 DRC `violations=0`）。
 - `bun run fmt:teda --check examples/reference-project` 退出 0。
 
@@ -129,25 +129,19 @@
 
 ---
 
-## F6. 仓库可见性切 public（前置：datasheet 版权清理）
+## F6. 仓库可见性切 public（版权清理已完成，待切开关）
 
-**现状**：GitHub 仓库 `luffffyz/textEDA` **仍是私有**。许可与开放承诺已按 ADR-0015 落定（Apache-2.0 + 契约层永久开源），但可见性开关是待执行动作。
+**现状**：GitHub 仓库 `luffffyz/textEDA` **仍是私有**。许可与开放承诺已按 ADR-0015 落定（Apache-2.0 + 契约层永久开源）。**版权前置已清完**（2026-10-21）：
 
-**阻塞点**：`examples/reference-project/docs/datasheets/` 下有 5 个厂商 datasheet PDF，共约 15 MB：
+- 5 个厂商 datasheet PDF（约 15 MB：TI `bq24610` / `tps7a20`、WCH `CH32V307DS0`、四川索斯特 `SST-3225-8M-12PF-10PPM`、硕方精密 `TS-1187`）已从索引移除并加进 `.gitignore`；
+- 这些 PDF 曾在首个提交里进过历史，已用 `git filter-branch --index-filter` **重写历史清除**，并 gc 掉旧对象；
+- `NOTICE` 补了"厂商文档不随仓库分发"声明；`examples/reference-project/docs/` 下的说明与 `mcu-board-components.md` 的表已改成"自行下载到本地"。
 
-```
-CH32V307DS0.pdf  SST-3225-8M-12PF-10PPM.pdf  TS-1187.pdf  bq24610.pdf  tps7a20.pdf
-```
+**还剩下的（都是人工操作）**：
 
-它们是 TI、WCH、晶振厂等第三方的受版权保护文档，**而且已经在 commit `dd12788` 里进了 git 历史**。仓库一旦转 public，这些 PDF 会连历史一起公开——这是版权问题，不是格式问题。
-
-**要做的事**：
-
-1. **先把原文移出仓库**：`git rm --cached examples/reference-project/docs/datasheets/*.pdf`，`.gitignore` 加该目录；`examples/reference-project/docs/README.md` 改成"从厂商官网自行下载，文件名见下表"。
-2. **重写历史**（PDF 已在旧提交里，不重写就等于没删）：`git filter-repo --path examples/reference-project/docs/datasheets --invert-paths`，然后强推。仓库还没公开，重写历史没有外部影响。
-3. **换成自写摘录**：在 `examples/reference-project/docs/` 保留自己整理的参数表（自己写，注明来源文档名与页码），datasheet 原文不入库。
-4. 顺手扫一遍 `docs/trial-run/`、README、示例工程里的内部链接、主机名、密钥。
-5. 全部清完后，把 GitHub 可见性切 public，并同步 README 顶部的措辞（当前写的是"仍为私有"）。
+1. 扫一遍 `docs/trial-run/`、README、示例工程里的内部链接、主机名、密钥、真实项目代号。
+2. 把 GitHub 可见性切 public。
+3. 同步 README 顶部的措辞（当前写的是"仍为私有"）。
 
 **验收**：
 
@@ -158,5 +152,5 @@ CH32V307DS0.pdf  SST-3225-8M-12PF-10PPM.pdf  TS-1187.pdf  bq24610.pdf  tps7a20.p
 **注意**：
 
 - **顺序不能反**：先清历史再切 public。反过来就要二次重写，且届时可能已有 fork。
-- 别用"现在是私有的，等公开时再说"糊过去——那时改历史的成本更高。
-- F1（校准封装几何）依赖 datasheet 原文，清理后按"自行下载到本地"继续，**不要因此把原文塞回仓库**。
+- 以后再往 `docs/` 里放厂商文档，先想一次"这是不是受版权保护的材料"——默认不入库。
+- F1（校准封装几何）依赖 datasheet 原文，按"自行下载到本地"继续，**不要因此把原文塞回仓库**。

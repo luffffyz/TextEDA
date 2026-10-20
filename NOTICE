@@ -28,3 +28,11 @@ External tools referenced but not included:
 - KiCad is a separate project (GPL-3.0-or-later), used only as an external
   tool for manufacturing output and DRC cross-checks. No KiCad source code
   is vendored in this repository. See ADR-0005 and ADR-0014 decision 7.
+
+Third-party documents not included:
+
+- Vendor datasheet PDFs (TI, WCH, 四川索斯特, 硕方精密, ...) are NOT
+  distributed with this repository: they are third-party copyrighted
+  documents. Obtain them from the manufacturer. The local directory
+  examples/reference-project/docs/datasheets/ is git-ignored for that
+  reason. See ADR-0015 decision 1 and docs/backlog.md F6.

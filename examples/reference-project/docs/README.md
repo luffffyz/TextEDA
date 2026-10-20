@@ -34,7 +34,7 @@ reference-project/
 
 ## docs/
 
-- `datasheets/`：器件规格书**本地副本**，文件名与器件对应（`tps7a20.pdf` 服务于 `tps7a2033pdbvr`）。器件一律从 datasheet 建，引脚与参数以本地副本为准；器件文件里的 `datasheet` 字段只记原始 URL。
+- `datasheets/`：器件规格书的**本地副本目录**，**不入库**（`.gitignore` 已排除；厂商 PDF 受版权保护，不随仓库分发）。文件名与器件对应（`tps7a20.pdf` 服务于 `tps7a2033pdbvr`），需要时按 `mcu-board-components.md` 里的表自行从厂商官网下载。器件一律从 datasheet 建，引脚与参数以本地副本为准；器件文件里的 `datasheet` 字段只记原始 URL。
 - `mcu-board-components.md`：MCU 板器件选型、负载电容/电流预算等关键计算与待决项。
 
 ## sch/

@@ -7,6 +7,8 @@
 
 ## datasheet 本地化
 
+> `docs/datasheets/` 里的厂商 PDF **不入库**（受版权保护，`.gitignore` 已排除）。按下表文件名从厂商官网自行下载即可。
+
 | 器件 | 本地文件 | 原始来源 |
 |---|---|---|
 | TPS7A2033PDBVR | `docs/datasheets/tps7a20.pdf` | TI SBVS348H（TPS7A20，2024-07 修订） |

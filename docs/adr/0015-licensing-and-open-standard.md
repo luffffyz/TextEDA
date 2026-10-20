@@ -20,7 +20,7 @@
 
 - 根目录新增 `LICENSE`（Apache-2.0 全文）与 `NOTICE`（归属声明 + 第三方组件说明：Hershey 字形数据公有领域 / 经 `hersheytext`（MIT）取得；KiCad 只是外部工具，不随仓库分发）。
 - 五个 `package.json`（根 + `ir` / `parser` / `exporter` / `renderer`）统一加 `"license": "Apache-2.0"`。
-- **GitHub 可见性本次不变，仍是私有。** 切换为 public 是待执行动作，不是本次提交的附带结果；前置条件是 `examples/reference-project/docs/datasheets/` 里约 15 MB 厂商 datasheet（TI、WCH 等第三方 PDF）清理干净——把厂商 PDF 随仓库公开是版权问题，不是格式问题。清理方案见 `docs/backlog.md` F6。**许可与"将来一定公开"的承诺现在就落定，可见性开关等版权清理完再按。**
+- **GitHub 可见性本次不变，仍是私有。** 切换为 public 是待执行动作，不是本次提交的附带结果；前置条件是 `examples/reference-project/docs/datasheets/` 里约 15 MB 厂商 datasheet（TI、WCH 等第三方 PDF）清理干净——把厂商 PDF 随仓库公开是版权问题，不是格式问题。**补记（2026-10-21）**：该前置已清完——PDF 移出索引、`.gitignore` 排除、`NOTICE` 声明、**git 历史已重写**（`filter-branch` + gc），旧提交里的 PDF 对象已不可达。剩下的只是人工动作：扫一遍内部信息 → GitHub 可见性切 public → 同步 README 措辞（见 `docs/backlog.md` F6）。**许可与"将来一定公开"的承诺现在就落定，可见性开关等人工动作做完再按。**
 - 选 Apache-2.0 而不是 MIT 的理由：**标准类项目需要专利授权**（Apache-2.0 §3 授予贡献者对其贡献的专利许可，MIT 没有）。一个要被别人照着实现、并且可能进商业产品的格式，专利风险必须提前处理掉。MIT 留给纯工具代码，本仓库现阶段用统一许可更简单。
 
 ### 2. 契约层永久开放——这是本 ADR 最硬的一条
