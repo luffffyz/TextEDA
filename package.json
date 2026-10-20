@@ -13,6 +13,7 @@
     "typecheck": "tsc -p packages/ir --noEmit && tsc -p packages/exporter --noEmit && tsc -p packages/parser --noEmit && tsc -p packages/renderer --noEmit",
     "lib:hash": "bun run scripts/libhash.ts",
     "lib:verify": "bun run scripts/verify-libs.ts",
+    "lib:verify:kicad": "bun run scripts/verify-libs.ts --kicad",
     "export:footprint": "bun run packages/exporter/scripts/export-footprint.ts",
     "smoke:footprint": "bun run scripts/smoke-footprint.ts",
     "compile:footprint": "bun run packages/parser/scripts/compile-footprint.ts",

@@ -41,7 +41,7 @@
 - 不是布局布线求解器（借 freerouting / KiCad / tscircuit）。
 - 不是器件库维护者（借 KiCad 符号库、嘉立创料号）；项目自己的封装可以自建，但那是项目产物，不是库产品。
 - 不是 KiCad 的替代品；KiCad 降级为**库 + DRC 引擎 + 制造出口**。
-- 不是制造工具：不自研 Gerber / Excellon 写出器，也不自研 CAM 级 DFM 判定；自研的只是派生层（铜皮填充、阻焊与锡膏开窗规则、丝印 policy）。路径见 `docs/adr/0005-manufacturing-output.md`。**目标形态的补充**：`fab` 的默认产物是**制造中立的数据**（描述层：装配意图、BOM、坐标），Gerber 这类**物理图像**仍由 KiCad 出；"KiCad 是兼容方案"是结构性事实，见 `docs/backlog.md` F14。
+- 不是制造工具：不自研 CAM 级 DFM 判定（那是规则工程，不是格式工程），也不做工艺规则库；**但格式层的写出器自研**——Gerber / Excellon 是派生层图像，RS-274X 是行式文本格式，工作量已知（ADR-0018、backlog F15）。派生层 policy（铜皮填充、阻焊与锡膏开窗规则、丝印 policy）由我们定规则、判定交给专业 CAM。路径见 `docs/adr/0005-manufacturing-output.md`（当前实现路径）与 `docs/adr/0018-zero-dependency-and-manufacturing-target.md`（目标形态与依赖边界）。**`fab` 的默认产物是制造中立的数据**（描述层：装配意图、BOM、坐标），不是 Gerber 本身，见 backlog F14。
 - 不描述固件、外壳结构、供应链流程（后续可作为引用/接口，不进入第一阶段）。
 
 ### 1.1 实现路线（工具侧）
@@ -118,6 +118,7 @@ flowchart LR
 17. **pcb 描述只存物理事实与规则意图**。不存绘图参数、丝印排版、编辑器状态与派生缓存（铜皮填充、量测文本、UUID、net 序号）；连通性由 `connect` 段与 sch 决定，不由几何反推。人在 KiCad 里的改动**不回写** IR。决策见 `docs/adr/0003-agent-first-pcb-ir.md`。
 18. **IR 的对外表示是 canonical JSON，契约是 JSON Schema**。数值只用整数（长度 nm、角度毫度、比例 ppm…完整换算表见 ADR-0008），不写浮点；缺省字段省略而不是写 `null`；落盘必须字节可复现，`source_hash` = SHA-256(canonical 字节)。决策见 `docs/adr/0004-ir-representation.md`；分片、身份键与哈希粒度见 `docs/adr/0008-ir-shard-identity-and-hash.md`（**该 ADR 状态仍是「提议」，未接受**——本条引用的是它的方案）；契约在 `schemas/ir/v0.1/`。
 19. **契约层永久开源**。`teda.md`、`spec/**`、`schemas/ir/**`、`examples/**`、`tests/**` 永远公开、可实现、可再分发，**不因商业理由改为闭源或加附加限制**；实现层（`packages/**`）可另行许可，但不得把"只有官方实现能读"的私有扩展混进契约层。项目按**标准提案**定位（回报来自声誉 / 咨询 / 招聘溢价 / 生态位，不来自 SaaS 订阅）：契约免费且不设限，实现可以是收费的可选实现。决策见 `docs/adr/0015-licensing-and-open-standard.md`。
+20. **核心链路零外部依赖**。装 textEDA 就能走完"描述 → 校验 → 渲染 → 制造包"，**不得要求用户安装 KiCad 或任何其他外部工具**。KiCad 降级为**可选后端**：互操作导出、对照验证、制造出口兜底。**任何门禁都不得依赖外部工具**——KiCad 的读入与 DRC 是"第三方接受我们"的**观测**，不是我们的正确性定义。边界：**格式与描述自己写，判定与工艺规则借专业工具**。决策见 `docs/adr/0018-zero-dependency-and-manufacturing-target.md`。
 
 ---
 
@@ -339,7 +340,7 @@ flowchart LR
 | IDE 集成 | ✅ 薄壳 | LSP over stdio；图与 3D 走 webview，不复制语义 |
 | 布局 / 布线 | ❌ | freerouting、KiCad、tscircuit 授权器 |
 | 器件库 / 封装 / 符号 | 通用库 ❌，**项目自建库 ✅** | 通用库借 KiCad + 嘉立创，不做库产品；但**项目自带的封装库与符号库是一等产物**（我们的格式描述，导出成 `.kicad_mod` / `.kicad_sym`），几何不进语言，只引用；符号的引脚事实归 `component`。ADR-0010、0011、0012、0013 |
-| Gerber / 贴片 / BOM | 图像 ❌，**制造中立数据 ✅** | Gerber/Excellon 是物理图像，借现成工具链（当前是 KiCad）；但"制造与装配意图"（BOM、坐标、层叠规则、装配说明）是**描述**，属于本项目该做的那一层——它是契约层的一部分，导出到 IPC-2581 / Gerber / BOM+坐标。见 `docs/adr/0005-manufacturing-output.md` 与 `docs/backlog.md` F14 |
+| Gerber / 贴片 / BOM | 格式 ✅，**判定 ❌** | Gerber/Excellon 是物理图像，但 RS-274X 是行式文本格式，**写出器自研**（P3，F15）；"制造与装配意图"（BOM、坐标、层叠规则、装配说明）是**描述**，是本项目该做的那一层（契约层的一部分）。**不自研 CAM 级 DFM 判定**——格式自己写，判定借专业工具。ADR-0018 |
 
 最小闭环：`parser → typed IR → ERC → netlist 导出 → sch SVG → KiCad 导出`。pcb 描述与布局布线排在后面。
 
@@ -435,7 +436,7 @@ dist/ir/
 - **库闭环**：`bun run lib:verify` 要求每个 `component.symbol` / `footprint` 都解析到项目内文件（无外部前缀、无孤儿库文件）、符号引脚号集合与器件一致、封装焊盘号覆盖器件引脚、每个库文件可导出且 KiCad 能读入、全部封装合并板 DRC 0 违规。**现状：已落地并通过**。
 - **IR 只依赖语义**：打乱行序、换单位写法、换键序的同一描述，编译出的 IR 必须与 canonical 源**字节相同**。
 - **错误质量**：每条诊断含文件、行列、期望/实际、修复建议；提供 `--json` 输出供 agent 消费。**现状：部分**——parser 层已有 `file:line:col:severity:code:message`（码是无注册表的 `C001`/`F110`/`S202` 式临时编号）；**缺**期望/实际/修复建议与 `--json` 输出；**schema 层诊断只有 IR 路径**（`{path, keyword, message}`），没有文件与行列。完整口径见 `docs/backlog.md` F7（错误码注册表与载荷）与 F11（span 机制）。
-- 提交前必须跑完整检查；不允许“只跑单测”。**现状：仓库没有 CI 配置**（无 `.github/`），这些门槛目前靠本地跑：`bun test`、`bun run typecheck`、`bun run gen:check`、`bun run lib:verify`。
+- 提交前必须跑完整检查；不允许"只跑单测"。**现状：仓库没有 CI 配置**（无 `.github/`），这些门槛目前靠本地跑：`bun test`、`bun run typecheck`、`bun run gen:check`、`bun run lib:verify`。**其中 `lib:verify` 是零依赖必过段**（不需要 KiCad）；KiCad 互操作段是可选的 `bun run lib:verify:kicad`——门禁不得依赖外部工具（不变量 20 / ADR-0018）。
 
 ---
 
@@ -459,7 +460,7 @@ dist/ir/
 14. `components/` 是否需要家族/继承（同封装不同阻值共用一个文件），还是严格一料一号一文件？
 15. 实例与 net 是否在源码里加显式 `id` 列（改名不换身份）？当前身份 = 展平后的名字，改名即换身份，见 `docs/adr/0008-ir-shard-identity-and-hash.md` 决策 3。
 16. **层次（`module` 定义 / 实例化 / 参数）要不要进语言？** **约束已定，实现延后**（`docs/backlog.md` F13）：层次只在源码层、IR 存展平结果（与 page 同构）；参数只做字面量替换、不参与运算；参数化结构不藏事实、参数化取值藏事实（所以不做）。触发条件是出现真实的"同构重复 ≥ 15 行、实例 ≥ 3 次、取值各不相同"。**在此之前不实现。**
-17. **`fab` 描述要不要进语言？** **方向已定，实现延后**（`docs/backlog.md` F14）：**KiCad 是兼容方案，不是目标形态**。`fab` 的默认产物应是**制造中立的数据**（BOM、贴片坐标与朝向、层叠与规则意图、装配说明），Gerber/Excellon 继续借 KiCad（§1「不自研 Gerber 写出器」成立）。先把数据形状想清楚，再决定 `fab` 描述进不进步语言。
+17. **`fab` 描述要不要进语言？** **方向已定，实现延后**（`docs/backlog.md` F14 / F15、ADR-0018）：**KiCad 是兼容方案，不是目标形态**。`fab` 的默认产物应是**制造中立的数据**（BOM、贴片坐标与朝向、层叠与规则意图、装配说明）；Gerber/Excellon 的**写出器自研**（P3），但**CAM 级 DFM 判定不自研**。先把制造中立数据的形状想清楚，再决定 `fab` 描述进不进步语言。
 18. **十用例语料谁来写、什么时候写？** **已决定延后**（`docs/backlog.md` F12）：sch 的 IR 与展平口径定版之后再写。**延后期间用 ADR 代替用例证据**（§5.2 第 1 条暂不可评估）。
 
 **近期已定（不再讨论，细节见对应 backlog / ADR）**：
@@ -467,6 +468,7 @@ dist/ir/
 - 诊断错误码形式 = `域.slug`（封闭域词表），不用 `E+数字`；码冻结、只增不改；注册表由代码生成；`--json` 载荷分机器与人两侧。`docs/backlog.md` F7（ADR-0016 待写）。
 - 事实层不使用表达式；生成器在语言之外、产物是表。`docs/backlog.md` F9（ADR-0017 待写）。
 - 契约层永久开源；项目按标准提案定位。`docs/adr/0015-licensing-and-open-standard.md`（不变量 19）。
+- 核心链路零外部依赖；KiCad 是可选后端；Gerber 写出器自研、CAM 判定不自研；门禁不得依赖外部工具。`docs/adr/0018-zero-dependency-and-manufacturing-target.md`（不变量 20）。
 
 ---
 

@@ -16,7 +16,8 @@
 bun install
 bun test                # 单元 + 契约 + round-trip
 bun run typecheck       # 四个包一起过 tsc
-bun run lib:verify      # 库级闭环：引用可解析、KiCad 能读能渲染、合并板 DRC 0 违规
+bun run lib:verify      # 库级闭环（**零外部依赖**）：引用可解析、导出成功、我们自己的渲染器出图并自检
+bun run lib:verify:kicad  # 可选：追加 KiCad 互操作段（KiCad 能读能渲染、合并板 DRC 0 违规）
 bun run preview symbol bq24610rger     # 画符号（不依赖 KiCad）
 bun run preview component bq24610rger  # 画器件的符号 + 封装
 ```
@@ -35,19 +36,20 @@ bun run preview component bq24610rger  # 画器件的符号 + 封装
 | `packages/exporter` | 封装 / 符号 → KiCad（`.kicad_mod` / `.kicad_sym`） |
 | `packages/renderer` | 参考渲染器：IR → 绘图指令 → SVG（ADR-0014） |
 | `examples/reference-project/` | 自包含的参考工程：22 个器件 / 15 个符号 / 16 个封装，库全部自建 |
-| `docs/adr/` | 决策记录（ADR），从 0001 到 0015 |
+| `docs/adr/` | 决策记录（ADR），从 0001 到 0018 |
 | `docs/backlog.md` | 待办清单 |
 
 ## 决策记录
 
 - [ADR-0003](docs/adr/0003-agent-first-pcb-ir.md) agent-first 的 PCB IR
 - [ADR-0004](docs/adr/0004-ir-representation.md) IR 形态与单位约定
-- [ADR-0005](docs/adr/0005-manufacturing-output.md) 制造出口归 KiCad
+- [ADR-0005](docs/adr/0005-manufacturing-output.md) 制造出口归 KiCad（当前实现路径）
 - [ADR-0010](docs/adr/0010-footprint-and-3d-model-ownership.md) 自建封装与 3D 模型的所有权
 - [ADR-0012](docs/adr/0012-symbol-description.md) 符号描述：引脚名与电气类型归器件
 - [ADR-0013](docs/adr/0013-reference-project-self-built-libraries.md) 参考工程全部自建
 - [ADR-0014](docs/adr/0014-reference-renderer.md) 自研参考渲染器，预览不依赖 KiCad
 - [ADR-0015](docs/adr/0015-licensing-and-open-standard.md) 许可与开放策略：契约层永久开源，按标准提案定位
+- [ADR-0018](docs/adr/0018-zero-dependency-and-manufacturing-target.md) 零依赖原则与制造出口目标形态：KiCad 是可选后端
 
 ## 造器件
 

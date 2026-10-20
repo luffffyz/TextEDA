@@ -1,20 +1,29 @@
 #!/usr/bin/env bun
 // 库级校验：参考工程的每个器件都能解析到自建符号/封装，每个库文件都能编译、
-// 导出、被 KiCad 读进来，全部封装摆在一块板上 DRC 干净。
+// 导出、我们自己的渲染器能画出来。
 //
-// 用法：bun run lib:verify [项目目录]        默认 examples/reference-project
+// 用法：
+//   bun run lib:verify [项目目录]        必过段，**零外部依赖**（不需要 KiCad）
+//   bun run lib:verify:kicad [项目目录]  追加 KiCad 互操作段（可选）
 //
-// 检查项：
+// 必过段（零依赖）：
 //   1. component 的 symbol / footprint 都指向项目自建库（不出现 kicad: 等外部前缀）；
 //   2. 引用的库文件存在；符号引脚号集合 == 器件引脚号集合；封装焊盘号集合 ⊇ 器件引脚号集合；
 //   3. 每个库文件是 canonical form、编译成 IR 且通过契约；
-//   4. 导出 .kicad_sym / .kicad_mod，KiCad 能解析（sym upgrade / fp export svg）；
-//   5. 所有封装放到一块板上，`kicad-cli pcb drc` 0 违规。
+//   4. 导出 .kicad_sym / .kicad_mod 成功；用**我们自己的**渲染器出图并自检。
+//
+// 可选段（--kicad，KiCad 在 PATH 里）：
+//   5. KiCad 能解析 .kicad_sym / .kicad_mod（sym upgrade / fp export svg）；
+//   6. 所有封装放到一块板上，`kicad-cli pcb drc` 0 违规。
+//
+// 为什么要拆：KiCad 的读入与 DRC 是**对照验证**（第三方实现接受我们），
+// 不是我们的正确性定义。把它设成必过项，等于把"第三方接受我们"变成
+// "我们成立的前提"，也会让 textEDA 变成必须装 KiCad 才能用。ADR-0018。
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { validate } from "@texteda/ir";
 import { footprintInline, footprintModule, symbolLibrary } from "@texteda/exporter";
-import { renderSymbol, toSvgText, validateDoc } from "@texteda/renderer";
+import { renderFootprint, renderSymbol, toSvgText, validateDoc } from "@texteda/renderer";
 import {
   canonicalJson,
   formatDiagnostic,
@@ -25,13 +34,16 @@ import {
   readComponentFacts,
 } from "@texteda/parser";
 
-const projectRoot = process.argv[2] ?? "examples/reference-project";
+const useKicad = process.argv.includes("--kicad");
+const positional = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+const projectRoot = positional[0] ?? "examples/reference-project";
 const libName = "project";
 const work = "/tmp/texteda-lib-verify";
 rmSync(work, { recursive: true, force: true });
 mkdirSync(join(work, "project.pretty"), { recursive: true });
 mkdirSync(join(work, "svg"), { recursive: true });
 mkdirSync(join(work, "symbol-svg"), { recursive: true });
+mkdirSync(join(work, "footprint-svg"), { recursive: true });
 
 const problems: string[] = [];
 const fail = (message: string): void => {
@@ -170,11 +182,13 @@ for (const file of symbolFiles) {
   }
   const libPath = join(work, `${name}.kicad_sym`);
   writeFileSync(libPath, symbolLibrary(parsed.ir.symbol, facts.facts));
-  const upgrade = Bun.spawnSync(["kicad-cli", "sym", "upgrade", "--force", "--output", `${work}/${name}.up.kicad_sym`, libPath], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  if (upgrade.exitCode !== 0) fail(`${name}: KiCad 解析失败 ${upgrade.stderr.toString().trim()}`);
+  if (useKicad) {
+    const upgrade = Bun.spawnSync(["kicad-cli", "sym", "upgrade", "--force", "--output", `${work}/${name}.up.kicad_sym`, libPath], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    if (upgrade.exitCode !== 0) fail(`${name}: KiCad 解析失败 ${upgrade.stderr.toString().trim()}`);
+  }
 
   // 用**我们自己的**渲染器出图：不依赖 KiCad，也不依赖系统字体（文字画成路径）。
   // 封装那侧有 KiCad 的渲染图，这里补上符号的——整库一眼能看。
@@ -225,6 +239,12 @@ for (const file of footprintFiles) {
   writeFileSync(join(work, `${name}.json`), canonicalJson(parsed.ir));
   writeFileSync(join(work, "project.pretty", `${name}.kicad_mod`), footprintModule(body));
 
+  // 用**我们自己的**渲染器出图并自检：零外部依赖，符号与封装同一套口径（ADR-0014）。
+  const fpDoc = renderFootprint(body);
+  const fpProblems = validateDoc(fpDoc);
+  if (fpProblems.length > 0) fail(`${name}: 图形自检有 ${fpProblems.length} 处问题：${fpProblems[0]}`);
+  writeFileSync(join(work, "footprint-svg", `${name}.svg`), toSvgText(fpDoc));
+
   const users = footprintUsers.get(name);
   if (!users || users.length === 0) {
     fail(`${name}: 没有任何器件引用它（孤儿封装）`);
@@ -247,12 +267,15 @@ for (const file of footprintFiles) {
   slot += 1;
 }
 
-const svg = Bun.spawnSync(["kicad-cli", "fp", "export", "svg", "--output", join(work, "svg"), join(work, "project.pretty")], {
-  stdout: "pipe",
-  stderr: "pipe",
-});
-if (svg.exitCode !== 0) fail(`kicad-cli fp export svg 失败 ${svg.stderr.toString().trim()}`);
-else console.log(`    KiCad 渲染 ${readdirSync(join(work, "svg")).length} 个封装`);
+if (useKicad) {
+  const svg = Bun.spawnSync(["kicad-cli", "fp", "export", "svg", "--output", join(work, "svg"), join(work, "project.pretty")], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  if (svg.exitCode !== 0) fail(`kicad-cli fp export svg 失败 ${svg.stderr.toString().trim()}`);
+  else console.log(`    KiCad 渲染 ${readdirSync(join(work, "svg")).length} 个封装`);
+}
+console.log(`    我们渲染 ${footprintFiles.length} 个封装（footprint-svg/）`);
 
 // 4) 全部封装摆一块板，DRC
 const cols = Math.min(5, Math.max(1, slot));
@@ -294,17 +317,21 @@ writeFileSync(
   `(fp_lib_table\n  (lib (name "${libName}")(type "KiCad")(uri "\${KIPRJMOD}/project.pretty")(options "")(descr ""))\n)\n`,
 );
 const drcPath = join(work, "drc.json");
-const drc = Bun.spawnSync([
-  "kicad-cli", "pcb", "drc", "--severity-all", "--format", "json", "--output", drcPath, boardPath,
-], { stdout: "pipe", stderr: "pipe" });
-if (drc.exitCode !== 0) {
-  fail(`kicad-cli pcb drc 失败 ${drc.stderr.toString().trim()}`);
+if (useKicad) {
+  const drc = Bun.spawnSync([
+    "kicad-cli", "pcb", "drc", "--severity-all", "--format", "json", "--output", drcPath, boardPath,
+  ], { stdout: "pipe", stderr: "pipe" });
+  if (drc.exitCode !== 0) {
+    fail(`kicad-cli pcb drc 失败 ${drc.stderr.toString().trim()}`);
+  } else {
+    const report = JSON.parse(readFileSync(drcPath, "utf8")) as {
+      violations: { type?: string; description?: string }[];
+    };
+    console.log(`[4] 合并板 DRC：violations=${report.violations.length}`);
+    for (const v of report.violations) fail(`DRC ${v.type ?? "?"}: ${v.description ?? ""}`);
+  }
 } else {
-  const report = JSON.parse(readFileSync(drcPath, "utf8")) as {
-    violations: { type?: string; description?: string }[];
-  };
-  console.log(`[4] 合并板 DRC：violations=${report.violations.length}`);
-  for (const v of report.violations) fail(`DRC ${v.type ?? "?"}: ${v.description ?? ""}`);
+  console.log("[4] 合并板 DRC：跳过（未开 --kicad；合并板文件已生成，供互操作验证用）");
 }
 
 // 5) 汇总
@@ -313,6 +340,7 @@ if (problems.length > 0) {
   process.exit(1);
 }
 console.log(
-  `\n通过：器件 ${components.length} 个 / 符号 ${symbolFiles.length} 个 / 封装 ${footprintFiles.length} 个`,
+  `\n通过：器件 ${components.length} 个 / 符号 ${symbolFiles.length} 个 / 封装 ${footprintFiles.length} 个` +
+  `（${useKicad ? "含 KiCad 互操作段" : "零依赖必过段"}）`,
 );
 console.log(`产物在 ${work}`);
