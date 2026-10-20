@@ -41,7 +41,7 @@
 - 不是布局布线求解器（借 freerouting / KiCad / tscircuit）。
 - 不是器件库维护者（借 KiCad 符号库、嘉立创料号）；项目自己的封装可以自建，但那是项目产物，不是库产品。
 - 不是 KiCad 的替代品；KiCad 降级为**库 + DRC 引擎 + 制造出口**。
-- 不是制造工具：不自研 Gerber / Excellon 写出器，也不自研 CAM 级 DFM 判定；自研的只是派生层（铜皮填充、阻焊与锡膏开窗规则、丝印 policy）。路径见 `docs/adr/0005-manufacturing-output.md`。
+- 不是制造工具：不自研 Gerber / Excellon 写出器，也不自研 CAM 级 DFM 判定；自研的只是派生层（铜皮填充、阻焊与锡膏开窗规则、丝印 policy）。路径见 `docs/adr/0005-manufacturing-output.md`。**目标形态的补充**：`fab` 的默认产物是**制造中立的数据**（描述层：装配意图、BOM、坐标），Gerber 这类**物理图像**仍由 KiCad 出；"KiCad 是兼容方案"是结构性事实，见 `docs/backlog.md` F14。
 - 不描述固件、外壳结构、供应链流程（后续可作为引用/接口，不进入第一阶段）。
 
 ### 1.1 实现路线（工具侧）
@@ -339,7 +339,7 @@ flowchart LR
 | IDE 集成 | ✅ 薄壳 | LSP over stdio；图与 3D 走 webview，不复制语义 |
 | 布局 / 布线 | ❌ | freerouting、KiCad、tscircuit 授权器 |
 | 器件库 / 封装 / 符号 | 通用库 ❌，**项目自建库 ✅** | 通用库借 KiCad + 嘉立创，不做库产品；但**项目自带的封装库与符号库是一等产物**（我们的格式描述，导出成 `.kicad_mod` / `.kicad_sym`），几何不进语言，只引用；符号的引脚事实归 `component`。ADR-0010、0011、0012、0013 |
-| Gerber / 贴片 / BOM | ❌ | 现成工具链；制造出口路径见 `docs/adr/0005-manufacturing-output.md` |
+| Gerber / 贴片 / BOM | 图像 ❌，**制造中立数据 ✅** | Gerber/Excellon 是物理图像，借现成工具链（当前是 KiCad）；但"制造与装配意图"（BOM、坐标、层叠规则、装配说明）是**描述**，属于本项目该做的那一层——它是契约层的一部分，导出到 IPC-2581 / Gerber / BOM+坐标。见 `docs/adr/0005-manufacturing-output.md` 与 `docs/backlog.md` F14 |
 
 最小闭环：`parser → typed IR → ERC → netlist 导出 → sch SVG → KiCad 导出`。pcb 描述与布局布线排在后面。
 
@@ -425,7 +425,7 @@ dist/ir/
 
 ## 10. 验证与验收
 
-- **十用例语料**（先于实现写）：BGA 200 脚、双运放多单元、20 路电源域、差分对、DNP 变体、net tie、总线、层次复用、参数化分压、NC 引脚。**现状：未存在**（`examples/` 下只有 `reference-project/`）——§5.2 的语法准入规则因此暂不可评估。
+- **十用例语料**（先于实现写）：BGA 200 脚、双运放多单元、20 路电源域、差分对、DNP 变体、net tie、总线、层次复用、参数化分压、NC 引脚。**现状：未存在，且已决定延后**（`examples/` 下只有 `reference-project/`）——§5.2 的语法准入规则因此暂不可评估，**延后期间用 ADR 代替用例证据**（ADR 里写清"这个特性解决哪个具体硬件问题"并给最小片段）。见 `docs/backlog.md` F12。
 - **conformance**：`source → IR → netlist` 的黄金文件；任何实现必须通过。**现状：未存在**（netlist 导出也未实现）。
 - **binding**：`sch + pcb` 一致性用例，含 5 类受控偏差的正反例。**现状：未存在**（pcb 解析未实现）。
 - **components**：id/文件名一致、pin 编号与封装一致、`params` 列解析、文件缺失报错。**现状：部分**——前两项在 `lib:verify` 里（符号引脚号集合与器件一致、封装焊盘号覆盖器件引脚）；`params` 列解析依赖 sch 解析器。
@@ -458,9 +458,9 @@ dist/ir/
 13. ~~实现语言与运行时：Rust 还是 Python/TS？~~ **已定**：TypeScript（strict、ESM）+ Bun 作为工具链/CLI/测试；`core` 必须能同时跑在 Node ≥ 20（IDE 扩展宿主）与浏览器（webview）；**不引入 zod**，TS 类型由 JSON Schema 生成。见 `docs/adr/0009-implementation-stack.md`。
 14. `components/` 是否需要家族/继承（同封装不同阻值共用一个文件），还是严格一料一号一文件？
 15. 实例与 net 是否在源码里加显式 `id` 列（改名不换身份）？当前身份 = 展平后的名字，改名即换身份，见 `docs/adr/0008-ir-shard-identity-and-hash.md` 决策 3。
-16. **层次（`module` 定义 / 实例化 / 参数）要不要进语言？** 现状是三处互指、无规范、无实现（§4.2 Hierarchy、`teda.md` §13、`AGENTS.md` §5.3）。要么补一份规范把它做实，要么从文档里删掉这句设计。**动它之前先决定。**
-17. **`fab` 描述要不要进语言？** 现状是连形态都没有（§4.1）：无 spec、无 schema、无类型、无例子。制造出口已定为 KiCad（ADR-0005），`fab` 描述是否有独立价值要单独判断。
-18. **十用例语料谁来写、什么时候写？** §10 说"先于实现写"，但至今不存在；它同时是 §5.2 语法准入规则的唯一证据来源。**这是当前最挡路的一条**：没有它，语法演进缺闸门，conformance 与 binding 用例也无从起步。
+16. **层次（`module` 定义 / 实例化 / 参数）要不要进语言？** **约束已定，实现延后**（`docs/backlog.md` F13）：层次只在源码层、IR 存展平结果（与 page 同构）；参数只做字面量替换、不参与运算；参数化结构不藏事实、参数化取值藏事实（所以不做）。触发条件是出现真实的"同构重复 ≥ 15 行、实例 ≥ 3 次、取值各不相同"。**在此之前不实现。**
+17. **`fab` 描述要不要进语言？** **方向已定，实现延后**（`docs/backlog.md` F14）：**KiCad 是兼容方案，不是目标形态**。`fab` 的默认产物应是**制造中立的数据**（BOM、贴片坐标与朝向、层叠与规则意图、装配说明），Gerber/Excellon 继续借 KiCad（§1「不自研 Gerber 写出器」成立）。先把数据形状想清楚，再决定 `fab` 描述进不进步语言。
+18. **十用例语料谁来写、什么时候写？** **已决定延后**（`docs/backlog.md` F12）：sch 的 IR 与展平口径定版之后再写。**延后期间用 ADR 代替用例证据**（§5.2 第 1 条暂不可评估）。
 
 **近期已定（不再讨论，细节见对应 backlog / ADR）**：
 
