@@ -74,3 +74,89 @@
 
 ---
 
+## F4. 第三方可实现性交叉验证（标准提案的发布门槛）
+
+**现状**：仓库从私有转公开（ADR-0015），项目定位是**标准提案**：让别人照着 `spec/` 与 `schemas/` 实现自己的 parser / 校验器 / 渲染器。当前所有规范知识都沉淀在 `packages/**` 的源码里——读者容易把"实现里怎么做的"当成"规范要求什么"，这是标准失败最常见的方式。
+
+**为什么现在不做**：板级描述（`sch` / `pcb`）还没实现（`AGENTS.md` §1.1 P0），现在做完整验证等于给一个还要改的规范写验收。**但 `sch` 落地前必须做**，否则规范定型后再改代价更大。
+
+**要做的事**：
+
+1. 写一份**最小第三方实现**：只允许读 `teda.md` / `spec/**` / `schemas/ir/**` / `tests/**`，**不许读 `packages/**` 的源码**。目标是 `component` + `symbol` + `footprint` 三种描述的解析与 IR 产出。
+2. 用 `tests/` 里的 conformance 语料与黄金 IR 跑它，比对输出 IR 是否逐字段一致（字节级或语义级，口径写清）。
+3. **规范补漏**：凡是实现时必须回头看 `packages/**` 才能确定的地方，在 `spec/` 里补成规范条款。补不了的（例如刻意留给实现的自由度），在 spec 里显式写"本条不约束实现"。
+4. 产出一份差异报告（`docs/third-party-implementability.md`），列出规范歧义点与已修条款。
+
+**涉及**：`spec/**`、`schemas/ir/v0.1/**`、`tests/**`、新增 `docs/third-party-implementability.md`。
+
+**验收**：
+
+- 第三方实现在**不参考 `packages/**` 源码**的前提下通过 conformance 核心用例。
+- 差异报告里的每条歧义要么在 spec 里被写成条款，要么被显式标注为实现自由度。
+- 结论回写 ADR-0015 决策 4.3。
+
+**注意**：
+
+- 这不是"再写一遍实现"——目的是**发现规范漏洞**，实现只写到能暴露漏洞的深度。发现不了歧义就说明用例覆盖不足。
+- 不要让第三方实现反过来污染参考实现：发现不一致时先判断是"实现错了"还是"规范没写清"，两者的修法不同（前者改 `packages/`，后者改 `spec/`）。
+- 别把它做成"重构 `packages/`"的借口。
+
+---
+
+## F5. 包发布形式与商标（延后，等生态信号）
+
+**现状**：五个包（根 + `packages/ir` / `parser` / `exporter` / `renderer`）都是 `"private": true`、版本 `0.0.0`，未发布到任何 registry。ADR-0015 决策 7 明确延后。
+
+**为什么现在不做**：还没有外部消费者；当前包是 TS 源码（走 git 依赖即可），发布到 npm 只会在没有真实需求时产生"看起来有生态"的假象。
+
+**要做的事（等有信号再做）**：
+
+1. **发布形式**：候选是 npm（`@texteda/*`）、纯 git 依赖、或者只发布 `schemas/ir/**` 与 conformance 语料。判断依据是"第三方实现者实际需要什么"——先看有没有人 clone 了仓库并自己写实现。
+2. **版本号**：发布前把 `0.0.0` 换成真实版本；`format` 与 `ir_version` 独立版本（ADR-0008）不变，发布时把 `ir_version` 打进包元数据。
+3. **商标**：等"符合 textEDA"开始被第三方自称时，再评估注册 `textEDA` 商标与写商标使用指引（Apache-2.0 §6 不授予商标许可，ADR-0015 决策 5）。
+
+**涉及**：`packages/*/package.json`、根 `package.json`、新增 `TRADEMARKS.md`（若注册）。
+
+**验收**：
+
+- 第三方能按文档在一条命令内把 `@texteda/ir` 或 schema 装进自己的工程。
+- 发布产物里的 `ir_version` 与仓库一致。
+
+**注意**：
+
+- 发布不等于放弃契约层开放：发布的是实现，契约层照样公开（ADR-0015 不变量 19）。
+- 别在还没有用户时先做品牌设计、文档站、CI 徽章那一套——那是"看起来在推进"的自我安慰。
+
+---
+
+## F6. 仓库可见性切 public（前置：datasheet 版权清理）
+
+**现状**：GitHub 仓库 `luffffyz/textEDA` **仍是私有**。许可与开放承诺已按 ADR-0015 落定（Apache-2.0 + 契约层永久开源），但可见性开关是待执行动作。
+
+**阻塞点**：`examples/reference-project/docs/datasheets/` 下有 5 个厂商 datasheet PDF，共约 15 MB：
+
+```
+CH32V307DS0.pdf  SST-3225-8M-12PF-10PPM.pdf  TS-1187.pdf  bq24610.pdf  tps7a20.pdf
+```
+
+它们是 TI、WCH、晶振厂等第三方的受版权保护文档，**而且已经在 commit `dd12788` 里进了 git 历史**。仓库一旦转 public，这些 PDF 会连历史一起公开——这是版权问题，不是格式问题。
+
+**要做的事**：
+
+1. **先把原文移出仓库**：`git rm --cached examples/reference-project/docs/datasheets/*.pdf`，`.gitignore` 加该目录；`examples/reference-project/docs/README.md` 改成"从厂商官网自行下载，文件名见下表"。
+2. **重写历史**（PDF 已在旧提交里，不重写就等于没删）：`git filter-repo --path examples/reference-project/docs/datasheets --invert-paths`，然后强推。仓库还没公开，重写历史没有外部影响。
+3. **换成自写摘录**：在 `examples/reference-project/docs/` 保留自己整理的参数表（自己写，注明来源文档名与页码），datasheet 原文不入库。
+4. 顺手扫一遍 `docs/trial-run/`、README、示例工程里的内部链接、主机名、密钥。
+5. 全部清完后，把 GitHub 可见性切 public，并同步 README 顶部的措辞（当前写的是"仍为私有"）。
+
+**验收**：
+
+- `git log --all --name-only | grep -i '\.pdf$'` 无输出。
+- 匿名可 clone（临时目录里用无凭据方式验证）。
+- 仓库里不存在第三方受版权保护的文档。
+
+**注意**：
+
+- **顺序不能反**：先清历史再切 public。反过来就要二次重写，且届时可能已有 fork。
+- 别用"现在是私有的，等公开时再说"糊过去——那时改历史的成本更高。
+- F1（校准封装几何）依赖 datasheet 原文，清理后按"自行下载到本地"继续，**不要因此把原文塞回仓库**。
