@@ -130,6 +130,6 @@ textEDA/
 
 - ~~`packages/` 的构建编排~~ **已定（随 `@texteda/ir` 落地）**：bun workspace + TS 项目引用；`packages/ir` 从 `schemas/ir/<version>/` 生成 `src/generated/{schemas.ts,types/*.ts}`，`bun run gen` 写、`bun run gen:check` 只比对；契约校验用 Ajv 直接吃 schema，类型由 `json-schema-to-typescript` 生成。
 - 其余包（core / render / exporter / lsp / cli / vscode）的构建产物与发布形态，等第二个包落地时定。
-- SVG 的确定性要求（浮点化整、字体回退、`id` 生成）要写成渲染器规范，否则"同 IR 同字节"只是口号。
+- SVG 的确定性要求（浮点化整、`id` 生成）要写成渲染器规范，否则"同 IR 同字节"只是口号。字体这一项已解决：自带 Hershey 笔画字体、文字画成路径，不依赖系统字体（ADR-0014 决策 4）。
 - `kicad-cli pcb render` 依赖 3D 模型库的环境约定（`KICAD*_3DMODEL_DIR` 或随工程携带）要在导出文档里写清。
 - 3D 从 STEP 到 glTF 的转换是否离线预生成（进 `dist/`）还是 webview 里实时做，取决于 22 MB 的加载体验，下一轮实测。

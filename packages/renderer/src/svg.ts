@@ -7,6 +7,10 @@
 //   - 绘图指令是中间表示（`SvgDoc`），不是字符串：可以断言、可以反解（extract），以后也能接别的后端。
 //
 // 这一层不依赖 KiCad：预览是设计回路的事，KiCad 只负责制造出口（ADR-0005）。
+// 也不依赖系统字体：文字画成路径（Hershey 单线字体，见 `font/`）——
+// 没装字体的机器（容器、CI）打开 SVG 一样有字。
+
+import { strokeWidthFor, textStrokes } from "./font/index.ts";
 
 export type SvgOrientation = "y-up" | "y-down";
 
@@ -402,7 +406,6 @@ export function toSvgText(doc: SvgDoc): string {
   out.push(`  <title>${esc(doc.title)}</title>`);
   out.push("  <style>");
   out.push("    .bg { fill: #ffffff; }");
-  out.push("    text { font-family: sans-serif; }");
   out.push("  </style>");
   out.push(`  <rect class="bg" x="${mm(viewX)}" y="${mm(viewY)}" width="${mm(viewW)}" height="${mm(viewH)}"/>`);
 
@@ -483,18 +486,35 @@ function primitiveSvg(
       ];
     }
     case "text": {
-      const [x, yAnchor] = fy(p.x, p.y);
-      // 锚点是**字的视觉中心**；SVG 的基线要下移半个字高（SVG 的 y 向下）。
-      // 不用 dominant-baseline：有些光栅化器不认它，基线算出来更保险。
-      const fontSize = p.sizeNm / 0.75; // 字高（cap height）→ 字号，比例同 KiCad
-      const y = yAnchor + 0.5 * p.sizeNm;
-      const anchor = p.anchor === "start" ? "start" : p.anchor === "end" ? "end" : "middle";
-      const transform = p.rotateMdeg
-        ? ` transform="rotate(${deg(p.rotateMdeg)} ${mm(x)} ${mm(yAnchor)})"`
-        : "";
-      const fill = p.role === "pinName" || p.role === "pinNumber" ? "#6b7280" : "#111827";
+      // 文字画成**路径**（Hershey 单线字体），不依赖系统字体：
+      // 没装字体的机器打开 SVG 也能看见字。
+      const strokes = textStrokes(p.text, {
+        x: p.x,
+        y: p.y,
+        sizeNm: p.sizeNm,
+        anchor: p.anchor,
+        yDown: docOrientation === "y-down",
+      });
+      if (strokes.length === 0) return [];
+      const color = p.role === "pinName" || p.role === "pinNumber" ? "#6b7280" : "#111827";
+      const width = strokeWidthFor(p.sizeNm);
+      // 旋转在**模型坐标系**里做：角度一律按"视觉逆时针"理解（符号 +y 向上、
+      // 封装 +y 向下，数值矩阵的正负相反，见 `rotateModel`）。
+      const rot = p.rotateMdeg ? rotateModel(p.x, p.y, p.rotateMdeg, docOrientation === "y-down") : null;
+      const d = strokes
+        .map((s) => {
+          const pts = s.points.map((pt) => {
+            const q = rot ? rot(pt.x, pt.y) : pt;
+            const [sx, sy] = fy(q.x, q.y);
+            return `${mm(sx)},${mm(sy)}`;
+          });
+          return `M${pts.join("L")}`;
+        })
+        .join("");
       return [
-        `    <text x="${mm(x)}" y="${mm(y)}" font-size="${mm(fontSize)}" text-anchor="${anchor}" fill="${fill}" stroke="none"${transform}>${esc(p.text)}</text>`,
+        `    <g><title>${esc(p.text)}</title>`,
+        `    <path d="${d}" fill="none" stroke="${color}" stroke-width="${mm(width)}" stroke-linecap="round" stroke-linejoin="round"/>`,
+        "    </g>",
       ];
     }
     case "pin": {
@@ -554,6 +574,33 @@ export function pinDirection(rotMdeg: number): { x: number; y: number } {
     default:
       return { x: 1, y: 0 };
   }
+}
+
+/**
+ * 围绕锚点旋转模型坐标里的点。
+ *
+ * 角度按**视觉逆时针**理解（KiCad 的约定）：
+ *   - 符号（+y 向上）：数值矩阵就是标准数学旋转。
+ *   - 封装（+y 向下）：数值矩阵取逆——因为数值 +y 朝下，正角在视觉上是顺时针。
+ */
+function rotateModel(
+  cx: number,
+  cy: number,
+  mdeg: number,
+  yDown: boolean,
+): (x: number, y: number) => { x: number; y: number } {
+  const rad = (mdeg * Math.PI) / 180_000;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const s = yDown ? -sin : sin;
+  return (x, y) => {
+    const dx = x - cx;
+    const dy = y - cy;
+    return {
+      x: Math.round(cx + dx * cos - dy * s),
+      y: Math.round(cy + dx * s + dy * cos),
+    };
+  };
 }
 
 /** 绘图指令的几何自检。返回问题清单，空数组 = 没问题。 */

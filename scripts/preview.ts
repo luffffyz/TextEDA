@@ -12,6 +12,7 @@ import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { formatDiagnostic } from "@texteda/parser";
 import { renderFootprint, renderSymbol, toSvgText, validateDoc } from "@texteda/renderer";
+import { unsupportedChars } from "@texteda/renderer/font";
 import {
   componentUsingSymbol,
   loadComponent,
@@ -98,6 +99,15 @@ mkdirSync(outDir, { recursive: true });
 
 function writeSvg(name: string, doc: ReturnType<typeof renderSymbol>): string {
   const problems = validateDoc(doc);
+  // 自带字体只有 ASCII：画不出来的字符要说出来，不能让它在图上凭空消失。
+  const missing = new Set<string>();
+  for (const p of doc.primitives) {
+    if (p.kind !== "text") continue;
+    for (const ch of unsupportedChars(p.text)) missing.add(ch);
+  }
+  if (missing.size > 0) {
+    console.error(`  ！${name} 有画不出来的字符（自带字体只有 ASCII）：${[...missing].join(" ")}`);
+  }
   if (problems.length > 0) {
     console.error(`  ！${name} 图形自检有 ${problems.length} 处问题：`);
     for (const p of problems.slice(0, 5)) console.error(`    ${p}`);

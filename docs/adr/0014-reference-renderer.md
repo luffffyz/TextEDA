@@ -32,7 +32,8 @@
 4. **引脚文字的位置对齐 KiCad**，免得"预览看着对、KiCad 画出来不一样"：
    - 引脚名在**引脚内端**（贴符号体那一头）沿引脚方向再挪 `pin_name_offset`（缺省 0.508mm）——与 KiCad 的 `(pin_names (offset …))` 同义。`spec/symbol.md` 里"相对引脚端点的偏移"这句话据此写清。
    - 引脚号在**连接点外侧 1.27mm**（KiCad 用 0.05 英寸），字心压在引脚轴上。
-   - 字高按 KiCad 的口径（cap height），SVG 字号 = 字高 / 0.75；**基线自己算**（`anchor + 字高/2`），不依赖 `dominant-baseline`（部分光栅化器不认它）。
+   - 字高按 KiCad 的口径（cap height）；**基线自己算**（`anchor + 字高/2`），不依赖 `dominant-baseline`（部分光栅化器不认它）。
+   - **文字画成路径，不依赖系统字体**：SVG 的 `<text>` 要靠系统字体渲染，没装字体的机器（容器、CI、无字体服务器）打开就是"只有图没有文字"。改成用自带的 Hershey 单线笔画字体把字画成 `<path>`（`packages/renderer/src/font/`），任何渲染器出一样的图；字高仍是 cap height，锚点仍是字的视觉中心，旋转按"视觉逆时针"在模型坐标系里做。字形数据来自 npm `hersheytext`（MIT，© 2014 James T），Hershey 字体本身公有领域。
    - 引脚风格（`inverted` 气泡、`clock` 楔形、`input_low` 低电平弧、`non_logic` 锯齿）要画出来：风格是符号语义，不画等于骗人。
 5. **round-trip 用"语义投影"落地**（`AGENTS.md` §10 的 `extract(render(ir)) == ir`）：
    - 两端各算一次投影——一端从**绘图指令反解**（`extractSymbol` / `extractFootprint`），一端从 **IR 直接算**（`symbolProjection` / `footprintProjection`）——比的是投影。
@@ -50,4 +51,5 @@
 - **好处**：agent 造完符号/封装能立刻自己看图——"看着对不对"不再需要 KiCad；渲染器是纯函数，同一份 IR 字节可复现，可以进回归；引脚文字与 KiCad 对齐，预览不会骗人。
 - **代价**：多一个包要维护；渲染约定（文字位置、图层配色）是新的东西，KiCad 不认，只能自己保一致；符号/封装之外（sch、PCB、3D、铜箔）还没画。
 - **没有代价的部分**：没碰导出器、没碰 IR 契约、没碰 `.teda` 语法。`pin_name_offset` 的语义只是**写清**（本来就是 KiCad 的语义），没有改行为。
-- **实测通过**：`bun test packages/renderer` 10 项全绿（含整库 round-trip 与确定性）；`bun run preview component bq24610rger` 出符号 + 封装两张图（25 个引脚、25 个焊盘）；`bun run preview footprint nonexistent` 报"库里没有封装 project:nonexistent"并退出非 0；`bun run smoke:symbol` / `smoke:footprint` 仍全绿（KiCad 能读我们的导出、DRC 0 违规）。
+- **实测通过**：`bun test packages/renderer` 16 项全绿（含整库 round-trip、确定性与字体排版）；`bun run preview component bq24610rger` 出符号 + 封装两张图（25 个引脚、25 个焊盘）；`bun run preview footprint nonexistent` 报"库里没有封装 project:nonexistent"并退出非 0；`bun run smoke:symbol` / `smoke:footprint` 仍全绿（KiCad 能读我们的导出、DRC 0 违规）。
+- **补记（同日）**：文字原先用 SVG `<text>` + 系统字体，容器里打开就是"只有图没有字"。已改成自带 Hershey 笔画字体、文字画成路径（见决策 4），SVG 里不再有 `<text>`，也不再声明 `font-family`；代价是仓库里多一份 ~9 KB 的字形数据，且字形只有 ASCII（中文等非 ASCII 字符画不出来）。

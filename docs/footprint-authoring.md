@@ -150,6 +150,8 @@ bun run preview footprint sot-23-5 --scale 20 # 放大看焊盘与丝印的细�
 
 看图抓的是 DRC 抓不到的：丝印压焊盘（DRC 才报）、courtyard 圈小了没罩住焊盘、丝印线画到了板边外、1 脚标记没画。
 
+图里的属性文字是**单线笔画字体**画成的路径（Hershey Sans，自带字形数据，不依赖系统字体）。自带字体只有 ASCII，画不出来的字符命令会在 stderr 上点名。
+
 产物默认落 `/tmp/texteda-preview/<id>/`，命令会打印绝对路径。`--lib` 换库名（默认 `project`），`--project` 换项目目录。
 
 ### 7. 冒烟验证

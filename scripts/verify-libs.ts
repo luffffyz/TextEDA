@@ -14,6 +14,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import { basename, dirname, join } from "node:path";
 import { validate } from "@texteda/ir";
 import { footprintInline, footprintModule, symbolLibrary } from "@texteda/exporter";
+import { renderSymbol, toSvgText, validateDoc } from "@texteda/renderer";
 import {
   canonicalJson,
   formatDiagnostic,
@@ -30,6 +31,7 @@ const work = "/tmp/texteda-lib-verify";
 rmSync(work, { recursive: true, force: true });
 mkdirSync(join(work, "project.pretty"), { recursive: true });
 mkdirSync(join(work, "svg"), { recursive: true });
+mkdirSync(join(work, "symbol-svg"), { recursive: true });
 
 const problems: string[] = [];
 const fail = (message: string): void => {
@@ -173,7 +175,17 @@ for (const file of symbolFiles) {
     stderr: "pipe",
   });
   if (upgrade.exitCode !== 0) fail(`${name}: KiCad 解析失败 ${upgrade.stderr.toString().trim()}`);
+
+  // 用**我们自己的**渲染器出图：不依赖 KiCad，也不依赖系统字体（文字画成路径）。
+  // 封装那侧有 KiCad 的渲染图，这里补上符号的——整库一眼能看。
+  const doc = renderSymbol(parsed.ir.symbol, {
+    pins: facts.facts.pins.map((p) => ({ number: p.number, name: p.name, type: p.type })),
+  });
+  const problems = validateDoc(doc);
+  if (problems.length > 0) fail(`${name}: 图形自检有 ${problems.length} 处问题：${problems[0]}`);
+  writeFileSync(join(work, "symbol-svg", `${name}.svg`), toSvgText(doc));
 }
+console.log(`    我们渲染 ${symbolFiles.length} 个符号（symbol-svg/）`);
 
 // 3) 封装：canonical / 契约 / 焊盘号 / 导出 / KiCad 渲染
 const footprintFiles = listTeda(footprintDir);
