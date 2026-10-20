@@ -1,0 +1,18 @@
+{
+  "ir_version": "0.1",
+  "format": "0.4",
+  "board": "demo",
+  "board_thickness_nm": 1600000,
+  "stackup": [
+    { "layer": "F.Cu", "type": "copper", "thickness_nm": 35000, "kind": "signal" },
+    { "layer": "B.Cu", "type": "copper", "thickness_nm": 35000, "kind": "signal" }
+  ],
+  "outline": [
+    { "x_nm": 0, "y_nm": 0 },
+    { "x_nm": 20000000, "y_nm": 0 },
+    { "x_nm": 0, "y_nm": 15000000 }
+  ],
+  "place": [],
+  "connect": [],
+  "rules": [{ "type": "net", "net": "VOUT", "clearance_nm": 300000, "width_nm": 500000, "via_size_nm": 800000 }]
+}

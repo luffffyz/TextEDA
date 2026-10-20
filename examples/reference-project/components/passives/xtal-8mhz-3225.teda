@@ -1,0 +1,19 @@
+version 0.1
+component xtal-8mhz-3225
+
+# 8.000MHz 基频晶振，3225 四脚（3.2×2.5×0.7mm），负载电容 CL=12pF，25±3℃ 偏差 ±10ppm。
+# 依据 datasheet "Connection" 图：2/4 脚为外壳接地，1/3 脚为晶体两极（两极可互换）。
+mpn          SST-3225/8.000M-12PF
+manufacturer 四川索斯特
+category     crystal
+package      SMD-3225-4P
+datasheet    https://www.lcsc.com/datasheet/C5181478.pdf
+
+symbol project:crystal-4
+footprint project:crystal-3225-4
+
+pins
+  1  XOUT  output
+  2  GND   power
+  3  XIN   input
+  4  GND   power

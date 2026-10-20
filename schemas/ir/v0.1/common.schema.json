@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:texteda:ir:0.1:common",
+  "title": "textEDA IR v0.1 — 公共定义",
+  "description": "各分片共享的标量、身份模式与单位约定。字段名后缀即单位：_nm 纳米、_mdeg 毫度、_mohm 毫欧、_uv 微伏、_na 纳安、_uw 微瓦、_mhz 毫赫、_mdegc 毫摄氏度、_ppm 百万分比、_uohm 微欧、_ff 飞法、_ph 皮亨。规则见 docs/adr/0008-ir-shard-identity-and-hash.md。",
+  "$defs": {
+    "ir_version": {
+      "const": "0.1"
+    },
+    "format_version": {
+      "type": "string",
+      "pattern": "^0\\.[1-9][0-9]*$",
+      "description": "产生该分片的 .teda 文件的语言版本，见 teda.md §13。"
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "component_id / board_id / page_id / system_id / variant id 的形态。"
+    },
+    "lib_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "description": "库名（project.toml 的 [libs.<name>] 表名），允许下划线，如 project。"
+    },
+    "refdes": {
+      "type": "string",
+      "pattern": "^[A-Z]+[0-9]+$"
+    },
+    "instance_id": {
+      "type": "string",
+      "pattern": "^([A-Z]+[0-9]+\\.)?[A-Z]+[0-9]+$",
+      "description": "板根实例 U1；页内实例 <page_instance_id>.<refdes>，如 M2.U1。这就是身份键，见 ADR-0008 决策 3。"
+    },
+    "net_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_+-]+(\\.[A-Za-z0-9_+-]+)*$",
+      "description": "展平后的 net 名即身份键：板级 net 用板根名（GND），页内 net 用 <page_instance_id>.<net>（M2.BOOT）。"
+    },
+    "pin_number": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_+-]+$"
+    },
+    "pin_ref": {
+      "type": "string",
+      "pattern": "^([A-Z]+[0-9]+\\.)?[A-Z]+[0-9]+\\.[A-Za-z0-9_+-]+$",
+      "description": "<instance_id>.<pin_number>，如 M2.U1.4、M2.U1.PAD。"
+    },
+    "pad_ref": {
+      "type": "string",
+      "pattern": "^([A-Z]+[0-9]+\\.)?[A-Z]+[0-9]+\\.[A-Za-z0-9_+-]+$",
+      "description": "pcb 的 pad 引用，与 pin_ref 同形；pad 号来自封装。"
+    },
+    "library_ref": {
+      "type": "string",
+      "pattern": "^[^:\\s]+:[^\\s]+$",
+      "description": "库引用 lib:name，如 kicad:Device:R。"
+    },
+    "layer_name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.+-]+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file"],
+      "properties": {
+        "file": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*\\.\\.)[^\\\\]+$",
+          "description": "相对项目根的源文件路径，如 sch/charger-buck/buck-5v.teda。不写绝对路径。"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 2048,
+      "description": "自由文本；canonical JSON 没有注释，这是替代品（ADR-0004 规则 8）。"
+    },
+    "proxy_line": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "该对象在源文件中的起始行，供诊断定位。"
+    }
+  }
+}

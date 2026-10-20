@@ -1,0 +1,18 @@
+version 0.1
+component q-sis412dn
+
+mpn          SiS412DN
+manufacturer Vishay Siliconix
+category     mosfet_n
+package      PowerPAK-1212-8
+
+# KiCad 官方库没有 SiS412DN；借用同封装的 SiS454DN 符号，引脚以内联表为准。
+symbol project:nmos-5
+footprint project:powerpak-1212-8
+
+pins
+  1  S1  passive
+  2  S2  passive
+  3  S3  passive
+  4  G   input
+  5  D   passive

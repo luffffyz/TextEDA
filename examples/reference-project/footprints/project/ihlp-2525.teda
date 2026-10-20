@@ -1,0 +1,16 @@
+version 0.4
+footprint ihlp-2525
+
+description Shielded power inductor IHLP 2.5x2.5mm, generic land pattern
+tags inductor shielded smd
+attr smd
+field Reference at=0,-2.5 layer=F.SilkS size=1,1 thickness=0.15 REF**
+field Value at=0,2.5 layer=F.Fab size=1,1 thickness=0.15 ihlp-2525
+
+pads
+  1  smd  roundrect  -1.15  0  1.4  1.6  rratio=0.1
+  2  smd  roundrect  1.15   0  1.4  1.6  rratio=0.1
+
+graphics
+  rect  F.CrtYd  -1.95,-1.35,1.95,1.35  width=0.05
+  rect  F.Fab    -1.25,-1.25,1.25,1.25  width=0.1

@@ -1,0 +1,14 @@
+version 0.1
+component ntc-103at
+
+mpn          103AT
+manufacturer Semitec
+category     thermistor
+package      0603
+
+symbol project:thermistor
+footprint project:chip-0603
+
+pins
+  1  A  passive
+  2  B  passive

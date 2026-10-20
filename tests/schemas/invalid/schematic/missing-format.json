@@ -1,0 +1,6 @@
+{
+  "ir_version": "0.1",
+  "board": "demo",
+  "instances": [{ "id": "R1", "component": "r-0402" }],
+  "nets": [{ "id": "GND", "members": ["R1.2"] }]
+}

@@ -1,0 +1,97 @@
+version 0.4
+pcb charger-buck
+
+# charger-buck 板的 PCB 描述(B0 层:物理事实与规则意图,不含绘图参数与派生缓存)。
+#
+# 用途:KiCad 导出链的试跑夹具。sch 展平后 charger-buck 板有 M1(charger-power,52 个器件)与
+# M2(buck-5v,9 个器件)两个页面;本描述只放置 M2 页的 9 个器件,M1 页的器件未放置,
+# 按 spec/pcb.md §5.2 规则 1 视为变体状态(不贴)。这是链路验证用的局部板,
+# 不是这块板的量产 PCB——量产 PCB 必须放置全部实例。
+#
+# 实例 ID 用展平后的形式 <page_instance_id>.<refdes>(如 M2.U1);
+# net 名用展平后的 net 名:板级 net 用板名(GND/SYS/VOUT),
+# 页内未暴露的 net 用 <page_instance_id>.<net>(如 M2.BOOT/M2.PH/M2.VFB)。
+#
+# place/connect/trace/via 由一次性工具算出后固化在这里(IR 只存显式几何)。
+
+board_thickness 1.6mm
+
+stackup
+  F.Cu    copper     0.035mm  signal
+  prepreg dielectric 1.53mm  FR4 4.3
+  B.Cu    copper     0.035mm  signal
+
+outline
+  0.0 0.0
+  50.0 0.0
+  50.0 36.0
+  0.0 36.0
+place
+  M2.C1 23.0   18.0   270  top
+  M2.C2 16.0   11.0   90   top
+  M2.C3 36.0   20.0   0    top
+  M2.C4 43.0   14.0   0    top
+  M2.D1 22.0   13.0   0    top
+  M2.L1 33.0   10.0   0    top
+  M2.R1 14.0   25.0   180  top
+  M2.R2 14.0   28.0   180  top
+  M2.U1 16.0   18.0   0    top
+connect
+  M2.U1.1  M2.C2.1
+  M2.C2.2  M2.U1.8
+  M2.U1.8  M2.L1.1
+  M2.L1.1  M2.D1.1
+  M2.C1.1  M2.U1.7
+  M2.L1.2  M2.C4.1
+  M2.C4.1  M2.C3.1
+  M2.C3.1  M2.R1.1
+  M2.U1.4  M2.R1.2
+  M2.R1.2  M2.R2.1
+  M2.U1.6  M2.U1.9
+  M2.U1.6  M2.C1.2
+  M2.U1.6  M2.C3.2
+  M2.U1.6  M2.C4.2
+  M2.U1.6  M2.D1.2
+  M2.U1.6  M2.R2.2
+trace
+  M2.BOOT F.Cu 0.3mm  13.40 16.10  13.40 11.50  16.00 11.50
+  M2.PH F.Cu 0.3mm  20.00 13.00  16.80 13.00  16.80 10.50  16.00 10.50
+  M2.PH F.Cu 0.3mm  28.50 10.00  16.80 10.00  16.80 10.50
+  M2.PH F.Cu 0.3mm  18.60 16.10  18.60 13.00
+  SYS   F.Cu 0.3mm  18.60 17.40  18.60 16.90  23.00 16.90  23.00 16.50
+  M2.VFB F.Cu 0.3mm  14.50 28.00  14.50 25.80  13.50 25.80  13.50 25.00
+  M2.VFB F.Cu 0.3mm  13.40 19.90  13.40 25.00  13.50 25.00
+  VOUT  F.Cu 0.3mm  42.50 14.00  32.90 14.00  32.90 20.00
+  VOUT  F.Cu 0.3mm  37.50 10.00  37.50 14.00
+  VOUT  F.Cu 0.3mm  14.50 25.00  14.50 20.90  32.90 20.90  32.90 20.00
+trace
+  GND   F.Cu 0.3mm  23.00 19.48  24.20 19.48
+  GND   F.Cu 0.3mm  39.12 20.00  40.32 20.00
+  GND   F.Cu 0.3mm  43.48 14.00  44.68 14.00
+  GND   F.Cu 0.3mm  24.00 13.00  25.20 13.00
+  GND   F.Cu 0.3mm  13.49 28.00  13.80 29.16
+  GND   F.Cu 0.3mm  18.56 18.64  19.76 18.64
+  GND   F.Cu 0.3mm  16.00 18.00  17.16 18.31
+via
+  GND   24.20 19.48  0.6mm 0.3mm
+  GND   40.32 20.00  0.6mm 0.3mm
+  GND   44.68 14.00  0.6mm 0.3mm
+  GND   25.20 13.00  0.6mm 0.3mm
+  GND   13.80 29.16  0.6mm 0.3mm
+  GND   19.76 18.64  0.6mm 0.3mm
+  GND   17.16 18.31  0.6mm 0.3mm
+zone
+  GND  B.Cu  0.0 0.0  50.0 0.0  50.0 36.0  0.0 36.0
+
+rules
+  clearance  0.2mm
+  width      0.3mm
+  via        0.6mm  0.3mm
+  mask       0.05mm
+  paste      0.9  -0.02mm
+  thermal    0.25mm  0.4mm
+  min_width  0.15mm
+
+silk
+  refdes  F.SilkS  1.0mm  show
+  value   F.SilkS  0.8mm  hide

@@ -1,0 +1,8 @@
+(fp_lib_table
+  (lib (name "Capacitor_SMD")(type "KiCad")(uri "/nix/store/7bclib7nr2jpf2693729g9gnmg7xykhz-kicad-footprints-25a0b01dd7/share/kicad/footprints/Capacitor_SMD.pretty")(options "")(descr ""))
+  (lib (name "Capacitor_Tantalum_SMD")(type "KiCad")(uri "/nix/store/7bclib7nr2jpf2693729g9gnmg7xykhz-kicad-footprints-25a0b01dd7/share/kicad/footprints/Capacitor_Tantalum_SMD.pretty")(options "")(descr ""))
+  (lib (name "Diode_SMD")(type "KiCad")(uri "/nix/store/7bclib7nr2jpf2693729g9gnmg7xykhz-kicad-footprints-25a0b01dd7/share/kicad/footprints/Diode_SMD.pretty")(options "")(descr ""))
+  (lib (name "Inductor_SMD")(type "KiCad")(uri "/nix/store/7bclib7nr2jpf2693729g9gnmg7xykhz-kicad-footprints-25a0b01dd7/share/kicad/footprints/Inductor_SMD.pretty")(options "")(descr ""))
+  (lib (name "Package_SO")(type "KiCad")(uri "/nix/store/7bclib7nr2jpf2693729g9gnmg7xykhz-kicad-footprints-25a0b01dd7/share/kicad/footprints/Package_SO.pretty")(options "")(descr ""))
+  (lib (name "Resistor_SMD")(type "KiCad")(uri "/nix/store/7bclib7nr2jpf2693729g9gnmg7xykhz-kicad-footprints-25a0b01dd7/share/kicad/footprints/Resistor_SMD.pretty")(options "")(descr ""))
+)

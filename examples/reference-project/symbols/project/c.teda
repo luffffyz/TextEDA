@@ -1,0 +1,16 @@
+version 0.5
+symbol c
+
+description Non-polarized capacitor, 2-pin generic view
+tags capacitor passive
+# 通用无极性电容视图：两片极板。多个器件共享（0402 / 0603 / 1210 等）。
+field Reference at=0,2.54 U
+field Value at=0,-2.54 c
+
+pins
+  1  -3.81  0  0
+  2  3.81   0  180
+
+body
+  line  -1.27,-0.508,1.27,-0.508  width=0.254
+  line  -1.27,0.508,1.27,0.508    width=0.254

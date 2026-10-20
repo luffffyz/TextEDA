@@ -1,0 +1,25 @@
+version 0.5
+symbol dc-dc-soic8
+
+description 8-pin step-down converter with exposed pad in SOIC-8
+tags buck dc-dc regulator
+# 摆位规则：4/5 在左、1/2/3/8 在右、7 在上、6/9 在下；引脚连接点在体边缘外 2.54。
+# 同侧按引脚号自然序：右侧自下而上 1、2、3、8；左侧自下而上 4、5；下方自左而右 6、9。
+# 体宽按 2 脚/侧最小 5.08、体高按 4 脚/侧 10.16；体宽放大到 25.4 给 VSENSE 等长引脚名与下方
+# GND/PAD 的竖排引脚名留净空（仍为 1.27 的倍数）。
+field Reference at=0,10.16 U
+field Value at=0,-10.16 dc-dc-soic8
+
+pins
+  1  15.24   -3.81  180
+  2  15.24   -1.27  180
+  3  15.24   1.27   180
+  4  -15.24  -1.27  0
+  5  -15.24  1.27   0
+  6  -2.54   -7.62  90
+  7  0       7.62   270
+  8  15.24   3.81   180
+  9  2.54    -7.62  90
+
+body
+  rect  -12.7,-5.08,12.7,5.08  fill=background  width=0.254

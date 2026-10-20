@@ -1,0 +1,18 @@
+version 0.5
+symbol dual-diode
+
+description Dual common-cathode diode, 3-pin generic view
+tags common-cathode diode dual
+# 共阴双二极管（BAT54C）：两个阳极各接一只三角，阴极共用右侧横杠。
+field Reference at=0,2.54 U
+field Value at=0,-2.54 dual-diode
+
+pins
+  1  -3.81  0.635   0
+  2  -3.81  -0.635  0
+  3  3.81   0       180
+
+body
+  line  1.27,-1.27,1.27,1.27             width=0.254
+  poly  -1.27,0,1.27,-0.635,-1.27,-1.27  width=0.254
+  poly  -1.27,1.27,1.27,0.635,-1.27,0    width=0.254

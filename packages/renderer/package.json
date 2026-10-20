@@ -1,0 +1,17 @@
+{
+  "name": "@texteda/renderer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./symbol": "./src/symbol.ts",
+    "./footprint": "./src/footprint.ts"
+  },
+  "dependencies": {
+    "@texteda/ir": "workspace:*"
+  },
+  "devDependencies": {
+    "@texteda/parser": "workspace:*"
+  }
+}

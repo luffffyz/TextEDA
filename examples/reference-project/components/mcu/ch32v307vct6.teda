@@ -1,0 +1,114 @@
+version 0.1
+component ch32v307vct6
+
+# 引脚用主功能名；复用功能写在 alt= 列（符号只画摆位，不带名字）。
+mpn          CH32V307VCT6
+manufacturer WCH
+category     mcu
+package      LQFP-100
+datasheet    https://www.wch-ic.com/downloads/CH32V307DS0_PDF.html
+
+symbol project:ch32v307vct6
+footprint project:lqfp-100
+
+pins
+  1    PE2      bidirectional
+  2    PE3      bidirectional
+  3    PE4      bidirectional
+  4    PE5      bidirectional
+  5    PE6      bidirectional
+  6    VBAT     power_in
+  7    PC13     bidirectional
+  8    PC14     bidirectional
+  9    PC15     bidirectional
+  10   VSS_5    power
+  11   VDD_5    power_in
+  12   OSC_IN   input
+  13   OSC_OUT  output
+  14   NRST     input
+  15   PC0      bidirectional
+  16   PC1      bidirectional
+  17   PC2      bidirectional
+  18   PC3      bidirectional
+  19   VSSA     power
+  20   VREF-    power_in
+  21   VREF+    power_in
+  22   VDDA     power_in
+  23   PA0      bidirectional
+  24   PA1      bidirectional
+  25   PA2      bidirectional
+  26   PA3      bidirectional
+  27   VSS_4    power
+  28   VDD_4    power_in
+  29   PA4      bidirectional
+  30   PA5      bidirectional
+  31   PA6      bidirectional
+  32   PA7      bidirectional
+  33   PC4      bidirectional
+  34   PC5      bidirectional
+  35   PB0      bidirectional
+  36   PB1      bidirectional
+  37   PB2      bidirectional
+  38   PE7      bidirectional
+  39   PE8      bidirectional
+  40   PE9      bidirectional
+  41   PE10     bidirectional
+  42   PE11     bidirectional
+  43   PE12     bidirectional
+  44   PE13     bidirectional
+  45   PE14     bidirectional
+  46   PE15     bidirectional
+  47   PB10     bidirectional
+  48   PB11     bidirectional
+  49   VSS_1    power
+  50   VIO_1    power_in
+  51   PB12     bidirectional
+  52   PB13     bidirectional
+  53   PB14     bidirectional
+  54   PB15     bidirectional
+  55   PD8      bidirectional
+  56   PD9      bidirectional
+  57   PD10     bidirectional
+  58   PD11     bidirectional
+  59   PD12     bidirectional
+  60   PD13     bidirectional
+  61   PD14     bidirectional
+  62   PD15     bidirectional
+  63   PC6      bidirectional
+  64   PC7      bidirectional
+  65   PC8      bidirectional
+  66   PC9      bidirectional
+  67   PA8      bidirectional
+  68   PA9      bidirectional
+  69   PA10     bidirectional
+  70   PA11     bidirectional
+  71   PA12     bidirectional
+  72   PA13     bidirectional
+  73   NC       no_connect
+  74   VSS_2    power
+  75   VDD_2    power_in
+  76   PA14     bidirectional
+  77   PA15     bidirectional
+  78   PC10     bidirectional
+  79   PC11     bidirectional
+  80   PC12     bidirectional
+  81   PD0      bidirectional
+  82   PD1      bidirectional
+  83   PD2      bidirectional
+  84   PD3      bidirectional
+  85   PD4      bidirectional
+  86   PD5      bidirectional
+  87   PD6      bidirectional
+  88   PD7      bidirectional
+  89   PB3      bidirectional
+  90   PB4      bidirectional
+  91   PB5      bidirectional
+  92   PB6      bidirectional
+  93   PB7      bidirectional
+  94   BOOT0    input
+  95   PB8      bidirectional
+  96   PB9      bidirectional
+  97   PE0      bidirectional
+  98   PE1      bidirectional
+  99   VSS_3    power
+  100  VIO_3    power_in

@@ -1,0 +1,17 @@
+{
+  "ir_version": "0.1",
+  "footprint": {
+    "library": "project",
+    "name": "th-no-drill",
+    "pads": [
+      {
+        "number": "1",
+        "type": "th",
+        "shape": "circle",
+        "at": { "x_nm": 0, "y_nm": 0 },
+        "size": { "x_nm": 1600000, "y_nm": 1600000 },
+        "layers": ["*.Cu", "*.Mask"]
+      }
+    ]
+  }
+}

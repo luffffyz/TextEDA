@@ -1,0 +1,667 @@
+// `footprint` 描述解析：`.teda` 源码 → IR 分片（spec/footprint.md）。
+//
+// 只做表面解析与单位换算；契约校验交给 @texteda/ir 的 schema 校验（闭集 schema），
+// 库级检查（引脚号比对、DRC）不在这层（ADR-0010 决策 3）。
+import type { Footprint } from "@texteda/ir/footprint";
+import type { Diagnostic } from "./diagnostics.ts";
+import { lex, type Cell, type Line } from "./lexer.ts";
+import { byteCompare, naturalCompare } from "./order.ts";
+import { parseAngleMdeg, parseLengthNm, parsePpm } from "./units.ts";
+
+// 段的键集合导出给 fmt 复用：两处必须认同一个词法，不能各写一份。
+export const SECTIONS = new Set(["pads", "graphics"]);
+export const SCALAR_KEYS = new Set(["description", "tags", "attr", "model", "field"]);
+export const PAD_KEYS = new Set([
+  "rot",
+  "drill",
+  "rratio",
+  "mask",
+  "paste",
+  "zone",
+  "thermal_w",
+  "thermal_g",
+  "layers",
+]);
+export const GRAPHIC_KEYS = new Set(["width", "fill"]);
+export const FIELD_KEYS = new Set(["at", "layer", "hide", "size", "thickness"]);
+export const MODEL_KEYS = new Set(["offset", "scale", "rot"]);
+const PAD_TYPES = new Set(["smd", "th"]);
+const PAD_SHAPES = new Set(["rect", "roundrect", "oval", "circle"]);
+const GRAPHIC_KINDS = new Set(["line", "rect", "circle", "arc", "poly"]);
+const ZONE_KINDS = new Set(["solid", "thermal", "none"]);
+const ATTRS = new Set(["smd", "through_hole", "virtual", "board_only"]);
+const FOOTPRINT_ID_RE = /^[A-Za-z0-9_.+-]+$/;
+const PIN_NUMBER_RE = /^[A-Za-z0-9_+-]+$/;
+const LAYER_RE = /^[A-Za-z0-9_.+-]+$/;
+const VERSION_RE = /^0\.([1-9][0-9]*)$/;
+const SUPPORTED_MINOR = 4;
+
+export interface ParseOptions {
+  /** 文件名（诊断用）。 */
+  file: string;
+  /** 库名；IR 的 `footprint.library` 来自库目录，不来自文件内容。 */
+  library: string;
+}
+
+export interface ParseResult {
+  ok: boolean;
+  ir?: Footprint;
+  diagnostics: Diagnostic[];
+}
+
+type Pad = Footprint["footprint"]["pads"][number];
+type Graphic = NonNullable<Footprint["footprint"]["graphics"]>[number];
+type Field = NonNullable<Footprint["footprint"]["fields"]>[number];
+
+class Collector {
+  readonly diagnostics: Diagnostic[] = [];
+
+  error(file: string, line: number, col: number, code: string, message: string): void {
+    this.diagnostics.push({ file, line, col, severity: "error", code, message });
+  }
+
+  get hasError(): boolean {
+    return this.diagnostics.some((d) => d.severity === "error");
+  }
+}
+
+/** 解析 `key=value` 尾列；未知键报错。 */
+function readKeyValues(
+  cells: Cell[],
+  allowed: Set<string>,
+  file: string,
+  line: number,
+  code: string,
+  out: Map<string, string>,
+  collector: Collector,
+): void {
+  for (const cell of cells) {
+    const eq = cell.text.indexOf("=");
+    if (eq <= 0) {
+      collector.error(file, line, cell.col, code, `无法识别的单元：${cell.text}`);
+      continue;
+    }
+    const key = cell.text.slice(0, eq);
+    if (!allowed.has(key)) {
+      collector.error(file, line, cell.col, code, `未知键：${key}`);
+      continue;
+    }
+    if (out.has(key)) {
+      collector.error(file, line, cell.col, code, `键重复：${key}`);
+      continue;
+    }
+    out.set(key, cell.text.slice(eq + 1));
+  }
+}
+
+/** 解析 `x,y` 形式的数字列表（长度）。 */
+function readLengthList(
+  text: string,
+  file: string,
+  line: number,
+  col: number,
+  code: string,
+  collector: Collector,
+): number[] | null {
+  const parts = text.split(",");
+  const values: number[] = [];
+  for (const part of parts) {
+    const parsed = parseLengthNm(part, file, line, col, "mm", code);
+    if (!parsed.ok) {
+      if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
+      return null;
+    }
+    values.push(parsed.value!);
+  }
+  return values;
+}
+
+function parsePadRow(
+  cells: Cell[],
+  file: string,
+  line: number,
+  collector: Collector,
+): Pad | null {
+  if (cells.length < 7) {
+    collector.error(file, line, cells[0]?.col ?? 1, "F112", "pads 行至少 7 列：number type shape x y w h");
+    return null;
+  }
+  // 上面已校验列数；这里按下标取，前 7 列必定存在。
+  const firstCell = cells[0]!;
+  const number = cells[0]!;
+  const type = cells[1]!;
+  const shape = cells[2]!;
+  const x = cells[3]!;
+  const y = cells[4]!;
+  const w = cells[5]!;
+  const h = cells[6]!;
+  if (!PIN_NUMBER_RE.test(number.text)) {
+    collector.error(file, line, number.col, "F200", `焊盘号不合法：${number.text}`);
+    return null;
+  }
+  if (!PAD_TYPES.has(type.text)) {
+    collector.error(file, line, type.col, "F200", `未知焊盘类型：${type.text}`);
+    return null;
+  }
+  if (!PAD_SHAPES.has(shape.text)) {
+    collector.error(file, line, shape.col, "F200", `未知焊盘形状：${shape.text}`);
+    return null;
+  }
+  const nums: number[] = [];
+  for (const cell of [x, y, w, h]) {
+    const parsed = parseLengthNm(cell.text, file, line, cell.col, "mm", "F200");
+    if (!parsed.ok) {
+      if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
+      return null;
+    }
+    nums.push(parsed.value!);
+  }
+  const sizeX = nums[2]!;
+  const sizeY = nums[3]!;
+  if (sizeX <= 0 || sizeY <= 0) {
+    collector.error(file, line, w.col, "F200", "焊盘尺寸必须为正");
+    return null;
+  }
+
+  const kv = new Map<string, string>();
+  readKeyValues(cells.slice(7), PAD_KEYS, file, line, "F201", kv, collector);
+
+  const pad: Pad = {
+    number: number.text,
+    type: type.text as Pad["type"],
+    shape: shape.text as Pad["shape"],
+    at: { x_nm: nums[0]!, y_nm: nums[1]! },
+    size: { x_nm: sizeX, y_nm: sizeY },
+    layers: type.text === "th" ? ["*.Cu", "*.Mask"] : ["F.Cu", "F.Mask", "F.Paste"],
+  };
+
+  const rot = kv.get("rot");
+  if (rot !== undefined) {
+    const parsed = parseAngleMdeg(rot, file, line, firstCell.col, "deg", "F201");
+    if (!parsed.ok) {
+      if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
+    } else {
+      pad.at.rotation_mdeg = parsed.value;
+    }
+  }
+  const drill = kv.get("drill");
+  if (drill !== undefined) {
+    const parsed = parseLengthNm(drill, file, line, firstCell.col, "mm", "F201");
+    if (!parsed.ok) {
+      if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
+    } else {
+      pad.drill = { x_nm: parsed.value, y_nm: parsed.value };
+    }
+  } else if (type.text === "th") {
+    collector.error(file, line, firstCell.col, "F201", "通孔焊盘必须有 drill=");
+  }
+  const rratio = kv.get("rratio");
+  if (rratio !== undefined) {
+    if (shape.text !== "roundrect") {
+      collector.error(file, line, firstCell.col, "F202", "rratio 只适用于 roundrect");
+    }
+    const parsed = parsePpm(rratio, file, line, firstCell.col, "F202");
+    if (parsed.ok) pad.roundrect_ratio_ppm = parsed.value;
+    else collector.diagnostics.push(parsed.diagnostic);
+  }
+  const mask = kv.get("mask");
+  if (mask !== undefined) {
+    const parsed = parseLengthNm(mask, file, line, firstCell.col, "mm", "F201");
+    if (!parsed.ok) {
+      if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
+    } else {
+      pad.solder_mask_margin_nm = parsed.value;
+    }
+  }
+  const paste = kv.get("paste");
+  if (paste !== undefined) {
+    const parsed = parseLengthNm(paste, file, line, firstCell.col, "mm", "F201");
+    if (!parsed.ok) {
+      if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
+    } else {
+      pad.solder_paste_margin_nm = parsed.value;
+    }
+  }
+  const zone = kv.get("zone");
+  if (zone !== undefined) {
+    if (!ZONE_KINDS.has(zone)) {
+      collector.error(file, line, firstCell.col, "F203", `未知连接方式：${zone}`);
+    } else {
+      pad.zone_connect = zone as NonNullable<Pad["zone_connect"]>;
+    }
+  }
+  const thermalW = kv.get("thermal_w");
+  if (thermalW !== undefined) {
+    const parsed = parseLengthNm(thermalW, file, line, firstCell.col, "mm", "F201");
+    if (!parsed.ok) {
+      if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
+    } else {
+      pad.thermal_width_nm = parsed.value;
+    }
+  }
+  const thermalG = kv.get("thermal_g");
+  if (thermalG !== undefined) {
+    const parsed = parseLengthNm(thermalG, file, line, firstCell.col, "mm", "F201");
+    if (!parsed.ok) {
+      if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
+    } else {
+      pad.thermal_gap_nm = parsed.value;
+    }
+  }
+  const layers = kv.get("layers");
+  if (layers !== undefined) {
+    const list = layers.split(",").filter((l) => l.length > 0);
+    const [first, ...rest] = list;
+    if (first === undefined || list.some((l) => !LAYER_RE.test(l))) {
+      collector.error(file, line, firstCell.col, "F204", `层名不合法：${layers}`);
+    } else {
+      pad.layers = [first, ...rest];
+    }
+  }
+  return pad;
+}
+
+function parseGraphicRow(
+  cells: Cell[],
+  file: string,
+  line: number,
+  collector: Collector,
+): Graphic | null {
+  if (cells.length < 3) {
+    collector.error(file, line, cells[0]?.col ?? 1, "F112", "graphics 行至少 3 列：kind layer geometry");
+    return null;
+  }
+  const firstCell = cells[0]!;
+  const kindCell = cells[0]!;
+  const layerCell = cells[1]!;
+  const geometryCell = cells[2]!;
+  if (!GRAPHIC_KINDS.has(kindCell.text)) {
+    collector.error(file, line, kindCell.col, "F300", `未知图形种类：${kindCell.text}`);
+    return null;
+  }
+  if (!LAYER_RE.test(layerCell.text)) {
+    collector.error(file, line, layerCell.col, "F300", `层名不合法：${layerCell.text}`);
+    return null;
+  }
+  const values = readLengthList(geometryCell.text, file, line, geometryCell.col, "F300", collector);
+  if (values === null) return null;
+
+  const graphic: Graphic = {
+    kind: kindCell.text as Graphic["kind"],
+    layer: layerCell.text,
+  };
+
+  const need = (count: number): boolean => {
+    if (values.length !== count) {
+      collector.error(
+        file,
+        line,
+        geometryCell.col,
+        "F300",
+        `${kindCell.text} 的几何需要 ${count} 个数，得到 ${values.length}`,
+      );
+      return false;
+    }
+    return true;
+  };
+
+  switch (kindCell.text) {
+    case "line":
+    case "rect": {
+      if (!need(4)) return null;
+      graphic.start = { x_nm: values[0]!, y_nm: values[1]! };
+      graphic.end = { x_nm: values[2]!, y_nm: values[3]! };
+      break;
+    }
+    case "circle": {
+      if (!need(3)) return null;
+      if (values[2]! <= 0) {
+        collector.error(file, line, geometryCell.col, "F300", "圆半径必须为正");
+        return null;
+      }
+      graphic.center = { x_nm: values[0]!, y_nm: values[1]! };
+      graphic.radius_nm = values[2]!;
+      break;
+    }
+    case "arc": {
+      if (!need(6)) return null;
+      graphic.start = { x_nm: values[0]!, y_nm: values[1]! };
+      graphic.mid = { x_nm: values[2]!, y_nm: values[3]! };
+      graphic.end = { x_nm: values[4]!, y_nm: values[5]! };
+      break;
+    }
+    case "poly": {
+      if (values.length < 6 || values.length % 2 !== 0) {
+        collector.error(file, line, geometryCell.col, "F300", "poly 至少 3 个点（x,y 交替）");
+        return null;
+      }
+      const points = [];
+      for (let i = 0; i < values.length; i += 2) {
+        points.push({ x_nm: values[i]!, y_nm: values[i + 1]! });
+      }
+      const [p0, p1, p2, ...rest] = points;
+      if (p0 && p1 && p2) graphic.points = [p0, p1, p2, ...rest];
+      break;
+    }
+  }
+
+  const kv = new Map<string, string>();
+  readKeyValues(cells.slice(3), GRAPHIC_KEYS, file, line, "F301", kv, collector);
+  const width = kv.get("width");
+  if (width !== undefined) {
+    const parsed = parseLengthNm(width, file, line, firstCell.col, "mm", "F301");
+    if (!parsed.ok) {
+      if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
+    } else {
+      graphic.width_nm = parsed.value;
+    }
+  }
+  const fill = kv.get("fill");
+  if (fill !== undefined) {
+    if (kindCell.text === "line" || kindCell.text === "arc") {
+      collector.error(file, line, firstCell.col, "F301", "fill 只适用于 rect/circle/poly");
+    } else if (fill !== "solid" && fill !== "none") {
+      collector.error(file, line, firstCell.col, "F301", `未知填充：${fill}`);
+    } else {
+      graphic.filled = fill === "solid";
+    }
+  }
+  return graphic;
+}
+
+function graphicCoords(g: Graphic): number[] {
+  switch (g.kind) {
+    case "circle":
+      return [g.center!.x_nm, g.center!.y_nm, g.radius_nm!];
+    case "poly":
+      return g.points!.flatMap((p) => [p.x_nm, p.y_nm]);
+    case "arc":
+      return [g.start!.x_nm, g.start!.y_nm, g.mid!.x_nm, g.mid!.y_nm, g.end!.x_nm, g.end!.y_nm];
+    default:
+      return [g.start!.x_nm, g.start!.y_nm, g.end!.x_nm, g.end!.y_nm];
+  }
+}
+
+/** 图形的 canonical 顺序：kind → layer → 坐标逐项数值。 */
+function compareGraphics(a: Graphic, b: Graphic): number {
+  const kind = byteCompare(a.kind, b.kind);
+  if (kind !== 0) return kind;
+  const layer = byteCompare(a.layer, b.layer);
+  if (layer !== 0) return layer;
+  const ca = graphicCoords(a);
+  const cb = graphicCoords(b);
+  for (let i = 0; i < Math.min(ca.length, cb.length); i += 1) {
+    const diff = ca[i]! - cb[i]!;
+    if (diff !== 0) return diff;
+  }
+  return ca.length - cb.length;
+}
+
+/** 解析一个 `footprint` 文件。 */
+export function parseFootprint(text: string, options: ParseOptions): ParseResult {
+  const collector = new Collector();
+  const { file } = options;
+  const lines = lex(text);
+
+  let index = 0;
+  const nextMeaningful = (): Line | null => {
+    while (index < lines.length) {
+      const line = lines[index]!;
+      if (line.blank || line.comment) {
+        index += 1;
+        continue;
+      }
+      index += 1; // 消费掉这一行
+      return line;
+    }
+    return null;
+  };
+
+  // 文件头
+  const versionLine = nextMeaningful();
+  if (!versionLine || versionLine.cells.length !== 2 || versionLine.cells[0]!.text !== "version") {
+    collector.error(file, versionLine?.number ?? 1, 1, "F113", "第一行必须是 version <ver>");
+    return { ok: false, diagnostics: collector.diagnostics };
+  }
+  const version = versionLine.cells[1]!.text;
+  const versionMatch = VERSION_RE.exec(version);
+  if (!versionMatch) {
+    collector.error(file, versionLine.number, versionLine.cells[1]!.col, "F113", `版本号不合法：${version}`);
+  } else if (Number(versionMatch[1]) > SUPPORTED_MINOR) {
+    collector.error(
+      file,
+      versionLine.number,
+      versionLine.cells[1]!.col,
+      "F113",
+      `版本 ${version} 高于本工具支持的 0.${SUPPORTED_MINOR}`,
+    );
+  }
+
+  const typeLine = nextMeaningful();
+  if (!typeLine || typeLine.cells.length !== 2 || typeLine.cells[0]!.text !== "footprint") {
+    collector.error(file, typeLine?.number ?? 1, 1, "F113", "第二行必须是 footprint <id>");
+    return { ok: false, diagnostics: collector.diagnostics };
+  }
+  const name = typeLine.cells[1]!.text;
+  if (!FOOTPRINT_ID_RE.test(name)) {
+    collector.error(file, typeLine.number, typeLine.cells[1]!.col, "F113", `封装名不合法：${name}`);
+  }
+
+  // 先攒草稿，最后再组装成闭集契约要求的形状（pads 至少一个）。
+  const body: Omit<Footprint["footprint"], "pads"> & {
+    pads?: Footprint["footprint"]["pads"];
+  } = {
+    library: options.library,
+    name,
+  };
+  const pads: Pad[] = [];
+  const graphics: Graphic[] = [];
+  const fields: Field[] = [];
+  let section: "pads" | "graphics" | null = null;
+  let model3d: Footprint["footprint"]["model3d"];
+
+  while (index < lines.length) {
+    const line = lines[index]!;
+    index += 1;
+    if (line.blank || line.comment) continue;
+
+    if (line.cells.length === 1) {
+      const head = line.cells[0]!.text;
+      if (SECTIONS.has(head)) {
+        section = head as "pads" | "graphics";
+        continue;
+      }
+      if (section === null) {
+        collector.error(file, line.number, line.cells[0]!.col, "F110", `未知段：${head}`);
+        continue;
+      }
+      collector.error(file, line.number, line.cells[0]!.col, "F112", "段内行至少 2 个单元格");
+      continue;
+    }
+
+    if (section === null) {
+      // 标量
+      const key = line.cells[0]!.text;
+      if (!SCALAR_KEYS.has(key)) {
+        collector.error(file, line.number, line.cells[0]!.col, "F111", `未知标量：${key}`);
+        continue;
+      }
+      const rest = line.cells.slice(1);
+      const trailing = (from: number): string => rest.slice(from).map((c) => c.text).join(" ");
+      switch (key) {
+        case "description":
+          body.description = trailing(0);
+          break;
+        case "tags": {
+          const tags = trailing(0).split(/\s+/).filter((t) => t.length > 0);
+          // 是集合：排序后再进 IR，IR 就只依赖语义、不依赖源里的书写顺序。
+          if (tags.length > 0) body.tags = [...tags].sort(byteCompare);
+          break;
+        }
+        case "attr": {
+          const attr = trailing(0);
+          if (!ATTRS.has(attr)) {
+            collector.error(file, line.number, line.cells[1]!.col, "F111", `未知 attr：${attr}`);
+          } else {
+            const attrValue = attr as NonNullable<Footprint["footprint"]["attr"]>[number];
+            body.attr = [attrValue];
+          }
+          break;
+        }
+        case "model": {
+          const path = rest[0]?.text ?? "";
+          if (rest.length === 0) {
+            collector.error(file, line.number, line.cells[0]!.col, "F400", "model 需要路径");
+            break;
+          }
+          const kv = new Map<string, string>();
+          readKeyValues(rest.slice(1), MODEL_KEYS, file, line.number, "F400", kv, collector);
+          const entry: NonNullable<Footprint["footprint"]["model3d"]> = { path };
+          const offset = kv.get("offset");
+          if (offset !== undefined) {
+            const values = readLengthList(offset, file, line.number, rest[0]!.col, "F400", collector);
+            if (values && values.length === 3) {
+              entry.offset_nm = [values[0]!, values[1]!, values[2]!];
+            }
+          }
+          const scale = kv.get("scale");
+          if (scale !== undefined) {
+            const parts = scale.split(",");
+            const ppm: number[] = [];
+            let ok = parts.length === 3;
+            for (const part of parts) {
+              const parsedPpm = parsePpm(part, file, line.number, rest[0]!.col, "F400");
+              if (!parsedPpm.ok) {
+                ok = false;
+                collector.diagnostics.push(parsedPpm.diagnostic);
+                continue;
+              }
+              if (parsedPpm.value <= 0) {
+                ok = false;
+                collector.error(file, line.number, rest[0]!.col, "F400", `缩放必须是正数：${part}`);
+                continue;
+              }
+              ppm.push(parsedPpm.value);
+            }
+            if (ok && ppm.length === 3) {
+              entry.scale_ppm = [ppm[0]!, ppm[1]!, ppm[2]!];
+            } else if (parts.length !== 3) {
+              collector.error(file, line.number, rest[0]!.col, "F400", `scale 需要 3 个数：${scale}`);
+            }
+          }
+          const rot = kv.get("rot");
+          if (rot !== undefined) {
+            const values = rot.split(",");
+            const parsed = values.map((v) => parseAngleMdeg(v, file, line.number, rest[0]!.col, "deg", "F400"));
+            const okAngles = parsed.filter((p) => p.ok);
+            if (okAngles.length === 3) {
+              entry.rotation_mdeg = [okAngles[0]!.value, okAngles[1]!.value, okAngles[2]!.value];
+            }
+            for (const p of parsed) {
+              if (!p.ok) collector.diagnostics.push(p.diagnostic);
+            }
+          }
+          model3d = entry;
+          break;
+        }
+        case "field": {
+          const fieldName = rest[0]?.text ?? "";
+          if (rest.length === 0) {
+            collector.error(file, line.number, line.cells[0]!.col, "F400", "field 需要属性名");
+            break;
+          }
+          if (fields.some((f) => f.name === fieldName)) {
+            collector.error(file, line.number, rest[0]!.col, "F400", `属性名重复：${fieldName}`);
+          }
+          // 尾列里形如 key=value 的先吃掉，剩下的（行尾剩余文本）是值
+          let cursor = 1;
+          const kv = new Map<string, string>();
+          while (cursor < rest.length) {
+            const cell = rest[cursor]!;
+            const eq = cell.text.indexOf("=");
+            if (eq <= 0) break;
+            const key2 = cell.text.slice(0, eq);
+            if (!FIELD_KEYS.has(key2)) break;
+            kv.set(key2, cell.text.slice(eq + 1));
+            cursor += 1;
+          }
+          const field: Field = { name: fieldName, value: trailing(cursor) };
+          const at = kv.get("at");
+          if (at !== undefined) {
+            const values = readLengthList(at, file, line.number, rest[0]!.col, "F400", collector);
+            if (values && values.length === 2) {
+              field.at = { x_nm: values[0]!, y_nm: values[1]! };
+            }
+          }
+          const layer = kv.get("layer");
+          if (layer !== undefined) field.layer = layer;
+          const hide = kv.get("hide");
+          if (hide !== undefined) field.hide = hide === "yes" || hide === "true";
+          const size = kv.get("size");
+          const thickness = kv.get("thickness");
+          if (size !== undefined || thickness !== undefined) {
+            const effects: NonNullable<Field["effects"]> = {};
+            if (size !== undefined) {
+              const values = readLengthList(size, file, line.number, rest[0]!.col, "F400", collector);
+              if (values && values.length === 2) {
+                effects.width_nm = values[0]!;
+                effects.height_nm = values[1]!;
+              }
+            }
+            if (thickness !== undefined) {
+              const parsed = parseLengthNm(thickness, file, line.number, rest[0]!.col, "mm", "F400");
+              if (parsed.ok) effects.thickness_nm = parsed.value;
+              else if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
+            }
+            field.effects = effects;
+          }
+          fields.push(field);
+          break;
+        }
+      }
+      continue;
+    }
+
+    // 段内行
+    if (section === "pads") {
+      const pad = parsePadRow(line.cells, file, line.number, collector);
+      if (pad) pads.push(pad);
+    } else {
+      const graphic = parseGraphicRow(line.cells, file, line.number, collector);
+      if (graphic) graphics.push(graphic);
+    }
+  }
+
+  if (pads.length === 0) {
+    collector.error(file, 1, 1, "F210", "pads 段不能为空");
+  }
+  const seen = new Set<string>();
+  for (const pad of pads) {
+    if (seen.has(pad.number)) {
+      collector.error(file, 1, 1, "F211", `焊盘号重复：${pad.number}`);
+    }
+    seen.add(pad.number);
+  }
+
+  // IR 是语义的函数：焊盘按号自然序、图形按 (kind, layer, 坐标)、字段按名排，不保留源文件顺序。
+  pads.sort((a, b) => naturalCompare(a.number, b.number));
+  graphics.sort(compareGraphics);
+  fields.sort((a, b) => byteCompare(a.name, b.name));
+  if (graphics.length > 0) body.graphics = graphics;
+  if (fields.length > 0) body.fields = fields;
+  if (model3d) body.model3d = model3d;
+  const [firstPad, ...restPads] = pads;
+  if (!firstPad) {
+    return { ok: false, diagnostics: collector.diagnostics };
+  }
+  const finalBody: Footprint["footprint"] = { ...body, pads: [firstPad, ...restPads] };
+
+  const ir: Footprint = {
+    ir_version: "0.1",
+    source: { file, line: 1 },
+    footprint: finalBody,
+  };
+
+  if (collector.hasError) return { ok: false, diagnostics: collector.diagnostics };
+  return { ok: true, ir, diagnostics: collector.diagnostics };
+}

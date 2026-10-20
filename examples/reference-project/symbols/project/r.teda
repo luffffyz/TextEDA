@@ -1,0 +1,15 @@
+version 0.5
+symbol r
+
+description Resistor, 2-pin generic view
+tags passive resistor
+# 通用电阻视图：矩形体 + 左右各一脚。多个器件共享（0402 / 2010 等）。
+field Reference at=0,2.54 U
+field Value at=0,-2.54 r
+
+pins
+  1  -3.81  0  0
+  2  3.81   0  180
+
+body
+  rect  -1.27,-0.635,1.27,0.635  fill=background  width=0.254

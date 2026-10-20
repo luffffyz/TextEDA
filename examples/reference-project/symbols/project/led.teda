@@ -1,0 +1,20 @@
+version 0.5
+symbol led
+
+description LED, 2-pin generic view
+tags diode led
+# 发光二极管：二极管三角 + 阴极横杠 + 两道光线。
+field Reference at=0,2.54 U
+field Value at=0,-2.54 led
+
+pins
+  1  -3.81  0  0
+  2  3.81   0  180
+
+body
+  line  -0.635,0.635,-0.254,1.27               width=0.254
+  line  0,0.635,0.381,1.27                     width=0.254
+  line  1.27,-0.635,1.27,0.635                 width=0.254
+  poly  -0.408,1.013,-0.537,1.09,-0.279,0.936
+  poly  -1.27,0.635,1.27,0,-1.27,-0.635        width=0.254
+  poly  0.227,1.013,0.098,1.09,0.356,0.936

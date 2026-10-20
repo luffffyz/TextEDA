@@ -1,0 +1,16 @@
+{
+  "ir_version": "0.1",
+  "symbol": {
+    "library": "project",
+    "name": "bad-pin",
+    "units": 1,
+    "pin_numbers_hidden": false,
+    "pin_names_hidden": false,
+    "power": false,
+    "in_bom": true,
+    "on_board": true,
+    "pins": [
+      { "number": "1", "at": { "x_nm": 0, "y_nm": 0 }, "length_nm": 2540000, "unit": 1 }
+    ]
+  }
+}

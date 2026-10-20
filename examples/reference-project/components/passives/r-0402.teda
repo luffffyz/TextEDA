@@ -1,0 +1,16 @@
+version 0.1
+component r-0402
+
+category     resistor
+package      0402
+symbol project:r
+footprint project:chip-0402
+
+params
+  value      resistance  required
+  tolerance  percent     optional
+  power      power       optional
+
+pins
+  1  A  passive
+  2  B  passive

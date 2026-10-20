@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:texteda:ir:0.1:schematic",
+  "title": "textEDA IR v0.1 — schematic 分片",
+  "description": "一块板的原理图 IR：板根 + 所有页面的展平结果。只有一份 instances / nets —— 展平即唯一表示，pages 只保留页面实例化关系。见 ADR-0007、ADR-0008 决策 2。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ir_version", "format", "board", "instances", "nets"],
+  "properties": {
+    "ir_version": { "$ref": "urn:texteda:ir:0.1:common#/$defs/ir_version" },
+    "format": { "$ref": "urn:texteda:ir:0.1:common#/$defs/format_version" },
+    "source": { "$ref": "urn:texteda:ir:0.1:common#/$defs/source_ref" },
+    "board": {
+      "$ref": "urn:texteda:ir:0.1:common#/$defs/slug",
+      "description": "与 sch/<board_id>.teda、pcb/<board_id>.teda 共享的 board_id。"
+    },
+    "pages": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/page" },
+      "description": "页面实例化关系，不是网表。缺省表示这块板没有分页。"
+    },
+    "instances": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/instance" }
+    },
+    "nets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/net" }
+    },
+    "ports": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/port" }
+    },
+    "buses": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/bus" }
+    },
+    "constraints": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/constraint" }
+    },
+    "note": { "$ref": "urn:texteda:ir:0.1:common#/$defs/note" }
+  },
+  "$defs": {
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "page", "file"],
+      "properties": {
+        "id": {
+          "$ref": "urn:texteda:ir:0.1:common#/$defs/refdes",
+          "description": "page_instance_id；与板根 refdes 共处板级命名空间。"
+        },
+        "page": {
+          "$ref": "urn:texteda:ir:0.1:common#/$defs/slug",
+          "description": "page_id，解析到 sch/<board_id>/<page_id>.teda。"
+        },
+        "file": {
+          "type": "string",
+          "description": "页面源文件相对路径。"
+        }
+      }
+    },
+    "instance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "component"],
+      "properties": {
+        "id": {
+          "$ref": "urn:texteda:ir:0.1:common#/$defs/instance_id",
+          "description": "展平后的稳定实例 ID：板根 U1、页内 M2.U1。改名即换身份，见 ADR-0008 决策 3。"
+        },
+        "component": { "$ref": "urn:texteda:ir:0.1:common#/$defs/slug" },
+        "page": {
+          "$ref": "urn:texteda:ir:0.1:common#/$defs/refdes",
+          "description": "页内实例的 page_instance_id；板根实例省略。"
+        },
+        "params": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/param_value" },
+          "description": "按器件 params 段声明的顺序排列；optional 列可省略。"
+        },
+        "dnp": { "type": "boolean" },
+        "logical_only": {
+          "type": "boolean",
+          "description": "如 power flag：只存在于逻辑层，不产生物理实体。"
+        },
+        "line": { "$ref": "urn:texteda:ir:0.1:common#/$defs/proxy_line" },
+        "note": { "$ref": "urn:texteda:ir:0.1:common#/$defs/note" }
+      }
+    },
+    "param_value": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "value"],
+          "properties": {
+            "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+            "value": {
+              "type": "integer",
+              "description": "单位由器件 params 段声明的类型决定（resistance→µΩ 等，见 ADR-0008 决策 4）。"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "text"],
+          "properties": {
+            "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+            "text": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "net": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "members"],
+      "properties": {
+        "id": {
+          "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id",
+          "description": "展平后的 net 名即身份键。"
+        },
+        "members": {
+          "type": "array",
+          "items": { "$ref": "urn:texteda:ir:0.1:common#/$defs/pin_ref" },
+          "description": "引脚引用，编号形式（U1.1），不是引脚名。单成员 net 合法但 ERC 警告。"
+        },
+        "note": { "$ref": "urn:texteda:ir:0.1:common#/$defs/note" }
+      }
+    },
+    "port": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "net"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-]+$"
+        },
+        "net": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+        "page": {
+          "$ref": "urn:texteda:ir:0.1:common#/$defs/refdes",
+          "description": "页面端口；省略 = 板级端口。port 不创建节点，只给已有 net 起对外名字。"
+        }
+      }
+    },
+    "bus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "nets"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-]+$"
+        },
+        "type": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-]+$",
+          "description": "v0.4 只有命名意义，不做协议校验。"
+        },
+        "nets": {
+          "type": "array",
+          "items": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" }
+        }
+      }
+    },
+    "net_or_pin_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_+-]+(\\.[A-Za-z0-9_+-]+)*$",
+      "description": "subject 可以是 net（展平后名字）或引脚引用；两者同形，歧义由解析器按上下文判定。"
+    },
+    "constraint": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "subject", "min_uv", "max_uv"],
+          "properties": {
+            "type": { "const": "voltage" },
+            "subject": { "$ref": "#/$defs/net_or_pin_ref" },
+            "min_uv": { "type": "integer" },
+            "max_uv": { "type": "integer" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "subject", "max_na"],
+          "properties": {
+            "type": { "const": "current" },
+            "subject": { "$ref": "#/$defs/net_or_pin_ref" },
+            "max_na": { "type": "integer", "minimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "subject", "max_uw"],
+          "properties": {
+            "type": { "const": "power" },
+            "subject": { "$ref": "#/$defs/net_or_pin_ref" },
+            "max_uw": { "type": "integer", "minimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "net", "value_mohm"],
+          "properties": {
+            "type": { "const": "impedance" },
+            "net": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+            "value_mohm": { "type": "integer", "minimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "net", "min_nm", "max_nm"],
+          "properties": {
+            "type": { "const": "length" },
+            "net": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+            "min_nm": { "type": "integer", "minimum": 0 },
+            "max_nm": { "type": "integer", "minimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "net_a", "net_b", "impedance_mohm"],
+          "properties": {
+            "type": { "const": "diff" },
+            "net_a": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+            "net_b": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+            "impedance_mohm": { "type": "integer", "minimum": 0 },
+            "tolerance_ppm": { "type": "integer", "minimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "net_a", "net_b", "op", "length_nm"],
+          "properties": {
+            "type": { "const": "skew" },
+            "net_a": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+            "net_b": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+            "op": { "enum": ["<", "<=", ">", ">="] },
+            "length_nm": { "type": "integer", "minimum": 0 }
+          }
+        }
+      ]
+    }
+  }
+}

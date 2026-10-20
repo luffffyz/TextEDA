@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:texteda:ir:0.1:system",
+  "title": "textEDA IR v0.1 — system 分片",
+  "description": "多板连接：板间系统级 net。成员只引用板的 port，不引用引脚，也不改写任何板的内部连通性。见 ADR-0001。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ir_version", "format", "system", "boards", "nets"],
+  "properties": {
+    "ir_version": { "$ref": "urn:texteda:ir:0.1:common#/$defs/ir_version" },
+    "format": { "$ref": "urn:texteda:ir:0.1:common#/$defs/format_version" },
+    "source": { "$ref": "urn:texteda:ir:0.1:common#/$defs/source_ref" },
+    "system": { "$ref": "urn:texteda:ir:0.1:common#/$defs/slug" },
+    "boards": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id"],
+        "properties": {
+          "id": { "$ref": "urn:texteda:ir:0.1:common#/$defs/slug" }
+        }
+      }
+    },
+    "nets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "members"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_+-]+$",
+            "description": "系统级 net 名，独立于板内 net 名。"
+          },
+          "members": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_+-]+$",
+              "description": "<board_id>.<port_id>。"
+            }
+          }
+        }
+      }
+    },
+    "note": { "$ref": "urn:texteda:ir:0.1:common#/$defs/note" }
+  }
+}

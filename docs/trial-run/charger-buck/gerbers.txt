@@ -1,0 +1,29 @@
+# 试跑命令(KiCad 10.0.7)
+#   kicad-cli pcb drc --format json --severity-all --refill-zones -o drc.json charger-buck.kicad_pcb
+#   kicad-cli pcb export gerbers --check-zones --output gerbers/ charger-buck.kicad_pcb
+#   kicad-cli pcb export drill  --output drill/  charger-buck.kicad_pcb
+#
+# --check-zones 必须带:否则铺铜不填充,B.Cu 里只有过孔没有铜皮。
+#
+# gerbers/charger-buck-B_Adhesive.gba
+# gerbers/charger-buck-B_Courtyard.gbr
+# gerbers/charger-buck-B_Cu.gbl
+# gerbers/charger-buck-B_Fab.gbr
+# gerbers/charger-buck-B_Mask.gbs
+# gerbers/charger-buck-B_Paste.gbp
+# gerbers/charger-buck-B_Silkscreen.gbo
+# gerbers/charger-buck-Edge_Cuts.gm1
+# gerbers/charger-buck-F_Adhesive.gta
+# gerbers/charger-buck-F_Courtyard.gbr
+# gerbers/charger-buck-F_Cu.gtl
+# gerbers/charger-buck-F_Fab.gbr
+# gerbers/charger-buck-F_Mask.gts
+# gerbers/charger-buck-F_Paste.gtp
+# gerbers/charger-buck-F_Silkscreen.gto
+# gerbers/charger-buck-Margin.gbr
+# gerbers/charger-buck-User_Comments.gbr
+# gerbers/charger-buck-User_Drawings.gbr
+# gerbers/charger-buck-User_Eco1.gbr
+# gerbers/charger-buck-User_Eco2.gbr
+# gerbers/charger-buck-job.gbrjob
+# drill/charger-buck.drl

@@ -1,0 +1,18 @@
+version 0.4
+footprint crystal-3225-4
+
+description Crystal 3.2x2.5mm, 4 pads, generic land pattern
+tags crystal oscillator smd
+attr smd
+field Reference at=0,-2.6 layer=F.SilkS size=1,1 thickness=0.15 REF**
+field Value at=0,2.6 layer=F.Fab size=1,1 thickness=0.15 crystal-3225-4
+
+pads
+  1  smd  roundrect  -1.1  -0.8  1  0.9  rratio=0.15
+  2  smd  roundrect  -1.1  0.8   1  0.9  rratio=0.15
+  3  smd  roundrect  1.1   -0.8  1  0.9  rratio=0.15
+  4  smd  roundrect  1.1   0.8   1  0.9  rratio=0.15
+
+graphics
+  rect  F.CrtYd  -1.75,-1.4,1.75,1.4  width=0.05
+  rect  F.Fab    -1.6,-1.25,1.6,1.25  width=0.1

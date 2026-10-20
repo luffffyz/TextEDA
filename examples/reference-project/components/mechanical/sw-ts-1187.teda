@@ -1,0 +1,20 @@
+version 0.1
+component sw-ts-1187
+
+# 5.2×5.2mm 贴片轻触开关，SPST 常开，四脚两组：1-2 一组、3-4 一组（datasheet 电路图）。
+# 焊盘按 datasheet "P.C.B LAYOUT"：外廓 8.0×4.8mm，内间隙 4.4×2.6mm，即焊盘 1.8×1.1mm。
+# KiCad 官方库无 5.2×5.2 四脚轻触封装，导出 PCB 时按此图自建。
+mpn          TS-1187
+manufacturer 硕方精密
+category     switch
+package      SMD-5.2x5.2mm-4P
+datasheet    https://uploadcdn.oneyac.com/attachments/files/brand_pdf/sofng/TS-1187.pdf
+
+symbol project:sw-push
+footprint project:switch-5x5-4
+
+pins
+  1  A  passive
+  2  A  passive
+  3  B  passive
+  4  B  passive

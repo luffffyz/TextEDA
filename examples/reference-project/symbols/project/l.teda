@@ -1,0 +1,16 @@
+version 0.5
+symbol l
+
+description Inductor, 2-pin generic view
+tags inductor passive
+# 通用电感视图：两段半圆弧。多个器件共享（15uH / 6.8uH 等）。
+field Reference at=0,2.54 U
+field Value at=0,-2.54 l
+
+pins
+  1  -3.81  0  0
+  2  3.81   0  180
+
+body
+  arc  -1.27,0,-0.635,0.635,0,0  width=0.254
+  arc  0,0,0.635,0.635,1.27,0    width=0.254

@@ -1,0 +1,22 @@
+version 0.1
+component tps5430ddar
+
+mpn          TPS5430DDAR
+manufacturer Texas Instruments
+category     regulator
+package      HSOIC-8
+datasheet    https://www.ti.com/lit/ds/symlink/tps5430.pdf
+
+symbol project:dc-dc-soic8
+footprint project:soic-8-ep
+
+pins
+  1  BOOT    passive
+  2  NC1     no_connect
+  3  NC2     no_connect
+  4  VSENSE  input
+  5  ENA     input
+  6  GND     power
+  7  VIN     power_in
+  8  PH      passive
+  9  PAD     power

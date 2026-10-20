@@ -1,0 +1,14 @@
+version 0.1
+component l-6r8
+
+mpn          IHLP2525CZER6R8M01
+manufacturer Vishay Dale
+category     inductor
+package      IHLP-2525CZ
+
+symbol project:l
+footprint project:ihlp-2525
+
+pins
+  1  A  passive
+  2  B  passive

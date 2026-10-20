@@ -1,0 +1,40 @@
+version 0.1
+component bq24610rger
+
+mpn          BQ24610RGER
+manufacturer Texas Instruments
+category     battery_charger
+package      VQFN-24
+datasheet    https://www.ti.com/lit/ds/symlink/bq24610.pdf
+
+# KiCad 官方 Battery_Management 库未收录 BQ24610；首次导出前需在本地库补齐该符号。
+# 引脚以内联表为准，符号仅提供视图。
+symbol project:bq24610rger
+footprint project:vqfn-24-ep
+
+pins
+  1   ACN     input
+  2   ACP     input
+  3   ACDRV   output
+  4   CE      input
+  5   STAT1   open_collector
+  6   TS      input
+  7   TTC     passive
+  8   PG      open_collector
+  9   STAT2   open_collector
+  10  VREF    power_out
+  11  ISET1   input
+  12  VFB     input
+  13  SRN     input
+  14  SRP     input
+  15  ISET2   input
+  16  ACSET   input
+  17  GND     power
+  18  REGN    power_out
+  19  LODRV   output
+  20  PH      passive
+  21  HIDRV   output
+  22  BTST    passive
+  23  BATDRV  output
+  24  VCC     power_in
+  25  PAD     power

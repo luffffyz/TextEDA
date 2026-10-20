@@ -1,0 +1,11 @@
+{
+  "ir_version": "0.1",
+  "format": "0.2",
+  "source": { "file": "system/cabinet.teda" },
+  "system": "cabinet",
+  "boards": [{ "id": "amp" }, { "id": "ctrl" }],
+  "nets": [
+    { "id": "GND", "members": ["amp.GND", "ctrl.GND"] },
+    { "id": "SYS", "members": ["amp.SYS_IN", "ctrl.SYS_OUT"] }
+  ]
+}

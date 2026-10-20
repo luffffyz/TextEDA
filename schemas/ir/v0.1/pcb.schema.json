@@ -1,0 +1,415 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:texteda:ir:0.1:pcb",
+  "title": "textEDA IR v0.1 — pcb 分片",
+  "description": "一块板的物理事实与规则意图（B0 层）。不存绘图参数、丝印排版、填充缓存与 UUID；连通性由 connect 与 schematic 决定，不从几何反推。见 ADR-0003、spec/pcb.md。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ir_version", "format", "board", "board_thickness_nm", "stackup", "outline", "place", "connect", "rules"],
+  "properties": {
+    "ir_version": { "$ref": "urn:texteda:ir:0.1:common#/$defs/ir_version" },
+    "format": { "$ref": "urn:texteda:ir:0.1:common#/$defs/format_version" },
+    "source": { "$ref": "urn:texteda:ir:0.1:common#/$defs/source_ref" },
+    "board": { "$ref": "urn:texteda:ir:0.1:common#/$defs/slug" },
+    "board_thickness_nm": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "板总厚；与 stackup 各层厚度之和一致（阻焊与字符层不计）。"
+    },
+    "stackup": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/stackup_layer" },
+      "description": "顺序即从上到下，不排序。第一项与最后一项必须是铜层。"
+    },
+    "outline": {
+      "type": "array",
+      "minItems": 3,
+      "items": { "$ref": "#/$defs/point" },
+      "description": "板框闭合折线（首尾自动闭合），只支持折线。坐标原点为板框包围盒左下角。"
+    },
+    "place": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/placement" }
+    },
+    "connect": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/connect_edge" },
+      "description": "显式声明哪两个 pad 之间有连续铜箔——连通性的真源之一。"
+    },
+    "trace": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/trace" }
+    },
+    "via": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/via" }
+    },
+    "zone": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/zone" }
+    },
+    "keepout": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/keepout" }
+    },
+    "rules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/rule" },
+      "description": "设计规则必须进 IR：KiCad 把它们放在工程文件而不是板文件里，只拿 .kicad_pcb 的 agent 无法自查。"
+    },
+    "silk": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/silk" }
+    },
+    "physical_only": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/physical_only" }
+    },
+    "deviation": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/deviation" }
+    },
+    "note": { "$ref": "urn:texteda:ir:0.1:common#/$defs/note" }
+  },
+  "$defs": {
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x_nm", "y_nm"],
+      "properties": {
+        "x_nm": { "type": "integer" },
+        "y_nm": { "type": "integer" }
+      }
+    },
+    "stackup_layer": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["layer", "type", "thickness_nm", "kind"],
+          "properties": {
+            "layer": { "$ref": "urn:texteda:ir:0.1:common#/$defs/layer_name" },
+            "type": { "const": "copper" },
+            "thickness_nm": { "type": "integer", "minimum": 1 },
+            "kind": { "enum": ["signal", "power", "plane"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["layer", "type", "thickness_nm", "material"],
+          "properties": {
+            "layer": { "$ref": "urn:texteda:ir:0.1:common#/$defs/layer_name" },
+            "type": { "const": "dielectric" },
+            "thickness_nm": { "type": "integer", "minimum": 1 },
+            "material": { "type": "string", "minLength": 1 },
+            "er_ppm": {
+              "type": "integer",
+              "minimum": 1000000,
+              "description": "介电常数 × 10^6，如 FR4 4.3 = 4300000；省略表示未知。"
+            }
+          }
+        }
+      ]
+    },
+    "placement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["instance_id", "x_nm", "y_nm", "rot_mdeg", "side"],
+      "properties": {
+        "instance_id": { "$ref": "urn:texteda:ir:0.1:common#/$defs/instance_id" },
+        "x_nm": { "type": "integer" },
+        "y_nm": { "type": "integer" },
+        "rot_mdeg": {
+          "type": "integer",
+          "description": "顺时针为正，毫度；按 360000 取模。"
+        },
+        "side": { "enum": ["top", "bottom"] }
+      }
+    },
+    "connect_edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["a", "b"],
+      "properties": {
+        "a": { "$ref": "urn:texteda:ir:0.1:common#/$defs/pad_ref" },
+        "b": { "$ref": "urn:texteda:ir:0.1:common#/$defs/pad_ref" }
+      },
+      "description": "一对 pad 构成一条“有铜箔连通”的边；每对内部按字节序 a ≤ b。"
+    },
+    "trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["net", "layer", "width_nm", "points"],
+      "properties": {
+        "net": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+        "layer": { "$ref": "urn:texteda:ir:0.1:common#/$defs/layer_name" },
+        "width_nm": { "type": "integer", "minimum": 1 },
+        "points": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/point" }
+        }
+      }
+    },
+    "via": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["net", "x_nm", "y_nm", "size_nm", "drill_nm"],
+      "properties": {
+        "net": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+        "x_nm": { "type": "integer" },
+        "y_nm": { "type": "integer" },
+        "size_nm": { "type": "integer", "minimum": 1 },
+        "drill_nm": { "type": "integer", "minimum": 1 },
+        "from_layer": { "$ref": "urn:texteda:ir:0.1:common#/$defs/layer_name" },
+        "to_layer": { "$ref": "urn:texteda:ir:0.1:common#/$defs/layer_name" }
+      },
+      "dependentRequired": {
+        "from_layer": ["to_layer"],
+        "to_layer": ["from_layer"]
+      },
+      "description": "省略 from_layer/to_layer = 通孔；给出时为盲孔/埋孔。"
+    },
+    "zone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["net", "layer", "points"],
+      "properties": {
+        "net": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+        "layer": { "$ref": "urn:texteda:ir:0.1:common#/$defs/layer_name" },
+        "points": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "$ref": "#/$defs/point" }
+        }
+      },
+      "description": "只存意图（轮廓 + net + 层）；填充结果不入 IR，由轮廓 + 规则重算。"
+    },
+    "keepout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "layer", "points"],
+      "properties": {
+        "type": { "enum": ["no_track", "no_pour", "no_place", "no_via"] },
+        "layer": { "$ref": "urn:texteda:ir:0.1:common#/$defs/layer_name" },
+        "points": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "$ref": "#/$defs/point" }
+        }
+      }
+    },
+    "rule": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "value_nm"],
+          "properties": {
+            "type": { "const": "clearance" },
+            "value_nm": { "type": "integer", "minimum": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "value_nm"],
+          "properties": {
+            "type": { "const": "width" },
+            "value_nm": { "type": "integer", "minimum": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "size_nm", "drill_nm"],
+          "properties": {
+            "type": { "const": "via" },
+            "size_nm": { "type": "integer", "minimum": 1 },
+            "drill_nm": { "type": "integer", "minimum": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "net", "clearance_nm", "width_nm", "via_size_nm", "via_drill_nm"],
+          "properties": {
+            "type": { "const": "net" },
+            "net": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+            "clearance_nm": { "type": "integer", "minimum": 1 },
+            "width_nm": { "type": "integer", "minimum": 1 },
+            "via_size_nm": { "type": "integer", "minimum": 1 },
+            "via_drill_nm": { "type": "integer", "minimum": 1 }
+          },
+          "description": "按 net 覆盖默认值；值必须写全，不写“继承”。"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "net_a", "net_b", "impedance_mohm", "gap_nm"],
+          "properties": {
+            "type": { "const": "diff" },
+            "net_a": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+            "net_b": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+            "impedance_mohm": { "type": "integer", "minimum": 1 },
+            "gap_nm": { "type": "integer", "minimum": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "net_a", "net_b", "max_delta_nm"],
+          "properties": {
+            "type": { "const": "match" },
+            "net_a": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+            "net_b": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+            "max_delta_nm": { "type": "integer", "minimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "expansion_nm"],
+          "properties": {
+            "type": { "const": "mask" },
+            "expansion_nm": { "type": "integer", "minimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "ratio_ppm", "offset_nm"],
+          "properties": {
+            "type": { "const": "paste" },
+            "ratio_ppm": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "offset_nm": { "type": "integer" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "gap_nm", "bridge_nm"],
+          "properties": {
+            "type": { "const": "thermal" },
+            "gap_nm": { "type": "integer", "minimum": 1 },
+            "bridge_nm": { "type": "integer", "minimum": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "value_nm"],
+          "properties": {
+            "type": { "const": "min_width" },
+            "value_nm": { "type": "integer", "minimum": 1 }
+          }
+        }
+      ]
+    },
+    "silk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item", "layer", "size_nm", "mode"],
+      "properties": {
+        "item": { "enum": ["refdes", "value"] },
+        "layer": { "enum": ["F.SilkS", "B.SilkS"] },
+        "size_nm": { "type": "integer", "minimum": 1 },
+        "mode": { "enum": ["show", "hide"] }
+      },
+      "description": "只声明出不出、多大、哪层；排版位置不进 IR。"
+    },
+    "physical_only": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "type", "size_nm", "drill_nm"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^[A-Z]+[0-9]+$" },
+            "type": { "const": "mounting" },
+            "size_nm": { "type": "integer", "minimum": 1 },
+            "drill_nm": { "type": "integer", "minimum": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "type", "size_nm", "layer"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^[A-Z]+[0-9]+$" },
+            "type": { "const": "fiducial" },
+            "size_nm": { "type": "integer", "minimum": 1 },
+            "layer": { "$ref": "urn:texteda:ir:0.1:common#/$defs/layer_name" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "type", "net", "size_nm"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^[A-Z]+[0-9]+$" },
+            "type": { "const": "test_point" },
+            "net": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+            "size_nm": { "type": "integer", "minimum": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "type", "net", "size_nm", "drill_nm"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^[A-Z]+[0-9]+$" },
+            "type": { "const": "stitching" },
+            "net": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+            "size_nm": { "type": "integer", "minimum": 1 },
+            "drill_nm": { "type": "integer", "minimum": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "type", "x_nm", "y_nm", "w_nm", "h_nm"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^[A-Z]+[0-9]+$" },
+            "type": { "const": "cutout" },
+            "x_nm": { "type": "integer" },
+            "y_nm": { "type": "integer" },
+            "w_nm": { "type": "integer", "minimum": 1 },
+            "h_nm": { "type": "integer", "minimum": 1 }
+          }
+        }
+      ]
+    },
+    "deviation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "net_a", "net_b"],
+          "properties": {
+            "type": { "const": "net_tie" },
+            "net_a": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
+            "net_b": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" }
+          },
+          "description": "两个 sch net 在物理上短接。"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "net"],
+          "properties": {
+            "type": { "const": "split_ground" },
+            "net": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" }
+          },
+          "description": "一个 sch net 在物理上分成互不连通的区域。"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "ir_version": "0.1",
+  "footprint": {
+    "library": "project",
+    "name": "bad-line",
+    "pads": [
+      {
+        "number": "1",
+        "type": "smd",
+        "shape": "rect",
+        "at": { "x_nm": 0, "y_nm": 0 },
+        "size": { "x_nm": 500000, "y_nm": 500000 },
+        "layers": ["F.Cu", "F.Mask", "F.Paste"]
+      }
+    ],
+    "graphics": [
+      { "kind": "line", "layer": "F.SilkS", "start": { "x_nm": 0, "y_nm": 0 } }
+    ]
+  }
+}

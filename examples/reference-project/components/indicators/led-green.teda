@@ -1,0 +1,14 @@
+version 0.1
+component led-green
+
+mpn          LTST-C190GKT
+manufacturer Lite-On
+category     led
+package      0603
+
+symbol project:led
+footprint project:chip-0603
+
+pins
+  1  K  passive
+  2  A  passive

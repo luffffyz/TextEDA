@@ -1,0 +1,14 @@
+version 0.1
+component d-b340a
+
+mpn          B340A
+manufacturer Diodes Incorporated
+category     diode
+package      SMA
+
+symbol project:d
+footprint project:sma
+
+pins
+  1  K  passive
+  2  A  passive

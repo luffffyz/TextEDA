@@ -1,0 +1,34 @@
+{
+  "name": "texteda",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "gen": "bun run --cwd packages/ir gen",
+    "gen:check": "bun run --cwd packages/ir gen --check",
+    "test": "bun test",
+    "typecheck": "tsc -p packages/ir --noEmit && tsc -p packages/exporter --noEmit && tsc -p packages/parser --noEmit && tsc -p packages/renderer --noEmit",
+    "lib:hash": "bun run scripts/libhash.ts",
+    "lib:verify": "bun run scripts/verify-libs.ts",
+    "export:footprint": "bun run packages/exporter/scripts/export-footprint.ts",
+    "smoke:footprint": "bun run scripts/smoke-footprint.ts",
+    "compile:footprint": "bun run packages/parser/scripts/compile-footprint.ts",
+    "compile:symbol": "bun run packages/parser/scripts/compile-symbol.ts",
+    "export:symbol": "bun run scripts/export-symbol.ts",
+    "fmt:teda": "bun run packages/parser/scripts/fmt-teda.ts",
+    "smoke:symbol": "bun run scripts/smoke-symbol.ts",
+    "preview": "bun run scripts/preview.ts"
+  },
+  "devDependencies": {
+    "@texteda/exporter": "workspace:*",
+    "@texteda/ir": "workspace:*",
+    "@texteda/parser": "workspace:*",
+    "@texteda/renderer": "workspace:*",
+    "@types/bun": "^1.4.3",
+    "@types/node": "^22.10.0",
+    "json-schema-to-typescript": "^15.0.4",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@texteda/ir",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./project": "./src/generated/types/project.ts",
+    "./component": "./src/generated/types/component.ts",
+    "./schematic": "./src/generated/types/schematic.ts",
+    "./pcb": "./src/generated/types/pcb.ts",
+    "./system": "./src/generated/types/system.ts",
+    "./manifest": "./src/generated/types/manifest.ts",
+    "./footprint": "./src/generated/types/footprint.ts",
+    "./symbol": "./src/generated/types/symbol.ts"
+  },
+  "scripts": {
+    "gen": "bun run scripts/generate.ts"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1"
+  }
+}

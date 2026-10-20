@@ -1,0 +1,402 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:texteda:ir:0.1:symbol",
+  "title": "textEDA IR v0.1 — 符号",
+  "description": "自建符号库的一个符号的**视图**：引脚摆位、外形、单元分组、显示开关。引脚名/编号/电气类型归 `component`（单一所有者，ADR-0012）；本分片只描述怎么画。长度一律纳米整数、角度毫度整数（ADR-0004 决策 3）；+x 向右、+y 向上（KiCad 符号约定）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ir_version",
+    "symbol"
+  ],
+  "properties": {
+    "ir_version": {
+      "$ref": "urn:texteda:ir:0.1:common#/$defs/ir_version"
+    },
+    "source": {
+      "$ref": "urn:texteda:ir:0.1:common#/$defs/source_ref"
+    },
+    "symbol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "library",
+        "name",
+        "units",
+        "pin_numbers_hidden",
+        "pin_names_hidden",
+        "power",
+        "in_bom",
+        "on_board",
+        "pins"
+      ],
+      "properties": {
+        "library": {
+          "$ref": "urn:texteda:ir:0.1:common#/$defs/lib_id",
+          "description": "所属库名（project.toml 的 [libs.<name>]）；KiCad 符号 id = <library>:<name>。"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.+-]+$",
+          "description": "符号名，库内唯一；是可复用的视图名（多个器件可共享同一符号），绑定只发生在 component.symbol。"
+        },
+        "description": {
+          "$ref": "urn:texteda:ir:0.1:common#/$defs/note"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "units": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "单元数。多单元器件（双运放等）> 1；`unit=0` 的元素在所有单元共用。"
+        },
+        "pin_numbers_hidden": {
+          "type": "boolean"
+        },
+        "pin_names_hidden": {
+          "type": "boolean"
+        },
+        "pin_name_offset_nm": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "引脚名相对引脚端点的偏移；缺省由导出器给 0.508mm。"
+        },
+        "power": {
+          "type": "boolean",
+          "description": "电源符号（KiCad `(power)`）。"
+        },
+        "in_bom": {
+          "type": "boolean"
+        },
+        "on_board": {
+          "type": "boolean"
+        },
+        "pins": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/pin"
+          }
+        },
+        "body": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/body_item"
+          },
+          "description": "符号外形；不含文字（v0.1）。"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/field"
+          },
+          "description": "属性（Reference / Value / Datasheet / Description 等）。"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x_nm",
+        "y_nm"
+      ],
+      "properties": {
+        "x_nm": {
+          "type": "integer"
+        },
+        "y_nm": {
+          "type": "integer"
+        }
+      }
+    },
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x_nm",
+        "y_nm"
+      ],
+      "properties": {
+        "x_nm": {
+          "type": "integer"
+        },
+        "y_nm": {
+          "type": "integer"
+        },
+        "rotation_mdeg": {
+          "type": "integer"
+        }
+      }
+    },
+    "pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "number",
+        "at",
+        "length_nm",
+        "unit",
+        "style"
+      ],
+      "properties": {
+        "number": {
+          "$ref": "urn:texteda:ir:0.1:common#/$defs/pin_number",
+          "description": "引脚号；名字与电气类型在导出时从 component 按此号查。"
+        },
+        "at": {
+          "$ref": "#/$defs/position",
+          "description": "引脚连接点；rotation 是朝向（0 向右、90 向上、180 向左、270 向下）。"
+        },
+        "length_nm": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unit": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0 = 所有单元共有。"
+        },
+        "style": {
+          "enum": [
+            "line",
+            "inverted",
+            "clock",
+            "inverted_clock",
+            "input_low",
+            "clock_low",
+            "output_low",
+            "edge_clock_high",
+            "non_logic"
+          ]
+        }
+      }
+    },
+    "body_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "line",
+            "rect",
+            "circle",
+            "arc",
+            "poly"
+          ]
+        },
+        "unit": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0 = 所有单元共有。"
+        },
+        "width_nm": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "线宽；0 = 不描边。"
+        },
+        "start": {
+          "$ref": "#/$defs/point"
+        },
+        "end": {
+          "$ref": "#/$defs/point"
+        },
+        "mid": {
+          "$ref": "#/$defs/point",
+          "description": "arc 的中点。"
+        },
+        "center": {
+          "$ref": "#/$defs/point"
+        },
+        "radius_nm": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "points": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "$ref": "#/$defs/point"
+          }
+        },
+        "fill": {
+          "enum": [
+            "none",
+            "outline",
+            "background"
+          ],
+          "description": "KiCad 填充类型；只有 rect/circle/poly 可填。"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "line"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "start",
+              "end"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "rect"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "start",
+              "end"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "circle"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "center",
+              "radius_nm"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "arc"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "start",
+              "mid",
+              "end"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "poly"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "points"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "fill": {
+                "enum": [
+                  "outline",
+                  "background"
+                ]
+              }
+            },
+            "required": [
+              "fill"
+            ]
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "rect",
+                  "circle",
+                  "poly"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "text_effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "width_nm": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "height_nm": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "属性名，如 Reference / Value / Datasheet。"
+        },
+        "value": {
+          "type": "string"
+        },
+        "at": {
+          "$ref": "#/$defs/position"
+        },
+        "hide": {
+          "type": "boolean"
+        },
+        "effects": {
+          "$ref": "#/$defs/text_effects"
+        }
+      }
+    }
+  }
+}

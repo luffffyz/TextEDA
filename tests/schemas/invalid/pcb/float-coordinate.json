@@ -1,0 +1,19 @@
+{
+  "ir_version": "0.1",
+  "format": "0.4",
+  "board": "demo",
+  "board_thickness_nm": 1600000,
+  "stackup": [
+    { "layer": "F.Cu", "type": "copper", "thickness_nm": 35000, "kind": "signal" },
+    { "layer": "prepreg", "type": "dielectric", "thickness_nm": 1530000, "material": "FR4" },
+    { "layer": "B.Cu", "type": "copper", "thickness_nm": 35000, "kind": "signal" }
+  ],
+  "outline": [
+    { "x_nm": 0, "y_nm": 0 },
+    { "x_nm": 20000000.5, "y_nm": 0 },
+    { "x_nm": 0, "y_nm": 15000000 }
+  ],
+  "place": [],
+  "connect": [],
+  "rules": [{ "type": "clearance", "value_nm": 200000 }]
+}

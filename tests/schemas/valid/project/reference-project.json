@@ -1,0 +1,61 @@
+{
+  "ir_version": "0.1",
+  "source": {
+    "file": "project.toml"
+  },
+  "project": {
+    "name": "reference-project",
+    "version": "0.1.0",
+    "format": "0.3",
+    "description": "Reference project for textEDA",
+    "license": "CERN-OHL-S-2.0",
+    "status": "draft",
+    "default_variant": "default",
+    "authors": [
+      {
+        "name": "textEDA"
+      }
+    ],
+    "links": {
+      "repository": "https://example.com/reference-project"
+    }
+  },
+  "boards": [
+    {
+      "id": "charger-buck",
+      "revision": "A",
+      "title": "Charger + 5V buck"
+    },
+    {
+      "id": "mcu-board",
+      "revision": "A",
+      "title": "CH32V307 MCU 最小系统板"
+    }
+  ],
+  "variants": [
+    {
+      "id": "default",
+      "description": "fully populated"
+    }
+  ],
+  "libs": [
+    {
+      "id": "project",
+      "source": "project",
+      "symbols": "symbols/project",
+      "footprints": "footprints/project",
+      "content_hash": "62554fd517982e766c0afb3e43ec110a80649c4bb8780a9f1a2a98bad743bb85"
+    }
+  ],
+  "compliance": {
+    "standards": [
+      "CE",
+      "RoHS"
+    ],
+    "operating_temp": {
+      "min_mdegc": 0,
+      "max_mdegc": 40000
+    }
+  },
+  "ext": {}
+}

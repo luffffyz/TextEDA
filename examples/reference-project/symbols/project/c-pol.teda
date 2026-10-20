@@ -1,0 +1,17 @@
+version 0.5
+symbol c-pol
+
+description Polarized capacitor, 2-pin generic view
+tags capacitor polarized tantalum
+# 有极性电容视图：直板 + 弧板，直板上加一竖杠表示正极。
+field Reference at=0,2.54 U
+field Value at=0,-2.54 c-pol
+
+pins
+  1  -3.81  0  0
+  2  3.81   0  180
+
+body
+  arc   -1.27,0.508,0,1.016,1.27,0.508  width=0.254
+  line  -0.635,-1.016,-0.635,0.254      width=0.254
+  line  -1.27,-0.508,1.27,-0.508        width=0.254

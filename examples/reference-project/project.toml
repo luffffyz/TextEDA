@@ -1,0 +1,53 @@
+# textEDA project file
+# `textEDA init` 生成必填字段；其余为参考工程的元数据示例，按需修改。
+# `format` 是 textEDA 格式版本，由工具维护，不要手改。
+# 参考工程用到了 0.3 的 `page` 描述类型与 `pages` 段；没用到新构造的
+# 描述文件（components/ 下全部）保持自己的旧版本。
+
+[project]
+name = "reference-project"
+version = "0.1.0"
+format = "0.3"
+description = "Reference project for textEDA"
+license = "CERN-OHL-S-2.0"   # SPDX 标识
+status = "draft"             # draft / prototype / frozen / production / deprecated
+default_variant = "default"
+
+[[project.authors]]
+name = "textEDA"
+
+[project.links]
+repository = "https://example.com/reference-project"
+
+# 板列表：id 对应 sch/<id>.teda 与 pcb/<id>.teda（pcb 可后置）。
+[boards.charger-buck]
+revision = "A"
+title = "Charger + 5V buck"
+
+[boards.mcu-board]
+revision = "A"
+title = "CH32V307 MCU 最小系统板"
+
+[variants.default]
+description = "fully populated"
+
+# 变体示例：器件引用用稳定 component_id，不用 refdes。
+# [variants.lite]
+# dnp = ["comp_c7", "comp_c8"]
+# nofit = ["comp_u3"]
+
+# 库锁定：本工程全部自建——器件、符号、封装都在仓库里，不引用外部库。
+# 自建库没有上游 rev，用内容哈希做版本锚点（ADR-0010；重算：bun run lib:hash symbols/project footprints/project）。
+[libs.project]
+source = "project"
+symbols = "symbols/project"
+footprints = "footprints/project"
+content_hash = "62554fd517982e766c0afb3e43ec110a80649c4bb8780a9f1a2a98bad743bb85"
+
+# 合规目标：进入评审/认证清单。
+[compliance]
+standards = ["CE", "RoHS"]
+operating_temp = "0C..40C"
+
+# 唯一的自由扩展区；未知顶层键会报错。
+[ext]

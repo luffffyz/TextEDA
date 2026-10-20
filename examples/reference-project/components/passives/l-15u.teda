@@ -1,0 +1,14 @@
+version 0.1
+component l-15u
+
+mpn          IHLP4040DZER150M11
+manufacturer Vishay Dale
+category     inductor
+package      IHLP-4040
+
+symbol project:l
+footprint project:ihlp-4040
+
+pins
+  1  A  passive
+  2  B  passive
