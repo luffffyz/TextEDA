@@ -4,6 +4,13 @@ Status: Accepted
 Date: 2026-10-21
 Impact: `AGENTS.md` §3, §4.2, §9; `docs/backlog.md` F3; `packages/ir` (a new schema kind); `packages/parser`; `packages/renderer`; `packages/cli`; a future `packages/viewer`
 
+**Amendment (2026-10-21, [ADR-0025](0025-flat-board-and-print-pages.md))**: the view layer's *shape* is
+unchanged, but the board-internal source partition is gone. A view file is now a **print page** of
+one flat board schematic, not the twin of a source page: `sch/<board_id>/<page_id>.view.teda` draws
+**board-level** instance ids and net ids, and its `port` entries name the board's ports. The
+sentence "living next to `schematic` / `page`" in decision 1 no longer holds — there is no `page`
+description type.
+
 ## Background
 
 Two things came up together.

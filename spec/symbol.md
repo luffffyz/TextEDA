@@ -137,7 +137,7 @@ v0.1 不支持：文字标注（极性 `+`/`−`、功能名）、图片、贝�
 1. `pins` 的 `number` 唯一（同一 `unit` 内）；`unit` 在 `0`…`units` 内。
 2. `body` 的 `geometry` 点数与 `kind` 匹配；`poly` 点数 ≥ 3；`fill` 只适用于 `rect` / `circle` / `poly`。
 3. `field` 的 `Name` 唯一；`field` 不接受 `layer`。
-4. 编译产物必须通过 `schemas/ir/v0.1/symbol.schema.json`（closed schema）。
+4. 编译产物必须通过 `schemas/ir/v0.2/symbol.schema.json`（closed schema）。
 5. 库级检查（与 `component` 的引脚号集合比对、与 `footprint` 的引脚号比对、ERC）不属于本描述，属工具链（[ADR-0010](../docs/adr/0010-footprint-and-3d-model-ownership.md) decision 3）。
 6. 编译产物的顺序只依赖语义：`pins` 按 (`unit`, `number` 自然序)、`body` 按 (`kind`, 坐标) 排；`fields` 按 `Name`、`tags` 按字节序。
 

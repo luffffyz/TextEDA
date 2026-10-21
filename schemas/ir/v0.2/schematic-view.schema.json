@@ -1,31 +1,31 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:texteda:ir:0.1:schematic-view",
-  "title": "TextEDA IR v0.1 — schematic view shard",
-  "description": "The view (S1) of one schematic page: where the symbols sit, how the wires run, where the labels and page ports are. This layer carries no electrical facts — it references the logical schematic by instance id, pin number and net id, and the two must agree. Lengths are integer nanometers, angles integer millidegrees (ADR-0008). The origin is the sheet's upper-left corner, +x right, +y down. See ADR-0021.",
+  "$id": "urn:texteda:ir:0.2:schematic-view",
+  "title": "TextEDA IR v0.2 — schematic view shard",
+  "description": "The view (S1) of one print page of a board: where the symbols sit, how the wires run, where the labels and board ports are. This layer carries no electrical facts — it references the board's logical schematic by instance id, pin number and net id, and the two must agree. Lengths are integer nanometers, angles integer millidegrees (ADR-0008). The origin is the sheet's upper-left corner, +x right, +y down. See ADR-0021, ADR-0025.",
   "type": "object",
   "additionalProperties": false,
   "required": ["ir_version", "format", "board", "page", "sheet", "place"],
   "properties": {
     "ir_version": {
-      "$ref": "urn:texteda:ir:0.1:common#/$defs/ir_version",
-      "description": "IR contract version, currently always 0.1."
+      "$ref": "urn:texteda:ir:0.2:common#/$defs/ir_version",
+      "description": "IR contract version, currently always 0.2."
     },
     "format": {
-      "$ref": "urn:texteda:ir:0.1:common#/$defs/format_version",
+      "$ref": "urn:texteda:ir:0.2:common#/$defs/format_version",
       "description": "Language version of the .teda file that produced this shard; see teda.md §13."
     },
     "source": {
-      "$ref": "urn:texteda:ir:0.1:common#/$defs/source_ref",
+      "$ref": "urn:texteda:ir:0.2:common#/$defs/source_ref",
       "description": "Source-file location: path relative to the project root plus an optional line number."
     },
     "board": {
-      "$ref": "urn:texteda:ir:0.1:common#/$defs/slug",
+      "$ref": "urn:texteda:ir:0.2:common#/$defs/slug",
       "description": "The board_id, resolved from the directory sch/<board_id>/."
     },
     "page": {
-      "$ref": "urn:texteda:ir:0.1:common#/$defs/slug",
-      "description": "The page_id this view draws, resolved to sch/<board_id>/<page_id>.teda."
+      "$ref": "urn:texteda:ir:0.2:common#/$defs/slug",
+      "description": "The print page id this view draws, resolved to sch/<board_id>/<page_id>.view.teda. A print page is a drawing and print unit, not a logical partition."
     },
     "sheet": {
       "type": "object",
@@ -47,7 +47,7 @@
     },
     "place": {
       "type": "array",
-      "description": "Where each component instance sits on the page, sorted by instance id.",
+      "description": "Where each component instance sits on the print page, sorted by instance id.",
       "items": { "$ref": "#/$defs/place" }
     },
     "wire": {
@@ -62,7 +62,7 @@
     },
     "port": {
       "type": "array",
-      "description": "Page port symbols; a port names an existing net, it never creates one.",
+      "description": "Board port symbols; a port names an existing net, it never creates one.",
       "items": { "$ref": "#/$defs/port" }
     },
     "text": {
@@ -71,7 +71,7 @@
       "items": { "$ref": "#/$defs/text" }
     },
     "note": {
-      "$ref": "urn:texteda:ir:0.1:common#/$defs/note",
+      "$ref": "urn:texteda:ir:0.2:common#/$defs/note",
       "description": "Free text; canonical JSON has no comments, this is the substitute (ADR-0004 rule 8)."
     }
   },
@@ -79,7 +79,7 @@
     "view_pin_ref": {
       "type": "string",
       "pattern": "^[A-Z]+[0-9]+\\.[A-Za-z0-9_+-]+$",
-      "description": "Page-local pin reference in numbered form: <refdes>.<pin_number>. The view speaks the IR's normalized pin language (no pin names, no multi-unit shorthand, no page prefix), so the page cross-check is a direct comparison of the same strings."
+      "description": "Board-level pin reference in numbered form: <refdes>.<pin_number>. The view speaks the IR's normalized pin language (no pin names, no multi-unit shorthand), so the cross-check against the board is a direct comparison of the same strings."
     },
     "place": {
       "type": "object",
@@ -88,8 +88,8 @@
       "required": ["instance_id", "x_nm", "y_nm"],
       "properties": {
         "instance_id": {
-          "$ref": "urn:texteda:ir:0.1:common#/$defs/refdes",
-          "description": "Page-local refdes of the instance, e.g. U1. Must exist in the page's instances."
+          "$ref": "urn:texteda:ir:0.2:common#/$defs/refdes",
+          "description": "Board-level refdes of the instance, e.g. U1. Must exist in the board's instances."
         },
         "x_nm": {
           "type": "integer",
@@ -109,7 +109,7 @@
           "description": "Which unit of a multi-unit symbol to draw. Omitted means unit 1."
         },
         "line": {
-          "$ref": "urn:texteda:ir:0.1:common#/$defs/proxy_line",
+          "$ref": "urn:texteda:ir:0.2:common#/$defs/proxy_line",
           "description": "Starting line of this row in the source file, for diagnostic locations."
         }
       }
@@ -121,8 +121,8 @@
       "required": ["net", "from_pin", "to_pin"],
       "properties": {
         "net": {
-          "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id",
-          "description": "The net this wire draws; both endpoints must be members of it in the page's nets."
+          "$ref": "urn:texteda:ir:0.2:common#/$defs/net_id",
+          "description": "The net this wire draws; both endpoints must be members of it in the board's nets."
         },
         "from_pin": {
           "$ref": "#/$defs/view_pin_ref",
@@ -138,19 +138,19 @@
           "items": { "$ref": "#/$defs/point" }
         },
         "line": {
-          "$ref": "urn:texteda:ir:0.1:common#/$defs/proxy_line",
+          "$ref": "urn:texteda:ir:0.2:common#/$defs/proxy_line",
           "description": "Starting line of this row in the source file, for diagnostic locations."
         }
       }
     },
     "label": {
       "type": "object",
-      "description": "A net name shown at a point on the page.",
+      "description": "A net name shown at a point on the print page.",
       "additionalProperties": false,
       "required": ["net", "x_nm", "y_nm"],
       "properties": {
         "net": {
-          "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id",
+          "$ref": "urn:texteda:ir:0.2:common#/$defs/net_id",
           "description": "The net whose name is shown. The label text is this id; it cannot be overridden."
         },
         "x_nm": {
@@ -162,21 +162,21 @@
           "description": "Label position, y from the sheet's upper-left corner, increasing downward."
         },
         "line": {
-          "$ref": "urn:texteda:ir:0.1:common#/$defs/proxy_line",
+          "$ref": "urn:texteda:ir:0.2:common#/$defs/proxy_line",
           "description": "Starting line of this row in the source file, for diagnostic locations."
         }
       }
     },
     "port": {
       "type": "object",
-      "description": "The drawn symbol of a page port.",
+      "description": "The drawn symbol of a board port.",
       "additionalProperties": false,
       "required": ["id", "x_nm", "y_nm"],
       "properties": {
         "id": {
           "type": "string",
           "pattern": "^[A-Za-z0-9_+-]+$",
-          "description": "Port name; must exist in the page's ports section."
+          "description": "Port name; must exist in the board's ports section."
         },
         "x_nm": {
           "type": "integer",
@@ -191,14 +191,14 @@
           "description": "Port rotation, clockwise positive, millidegrees; reduced modulo 360000. Omitted means 0."
         },
         "line": {
-          "$ref": "urn:texteda:ir:0.1:common#/$defs/proxy_line",
+          "$ref": "urn:texteda:ir:0.2:common#/$defs/proxy_line",
           "description": "Starting line of this row in the source file, for diagnostic locations."
         }
       }
     },
     "text": {
       "type": "object",
-      "description": "A free-text annotation on the page.",
+      "description": "A free-text annotation on the print page.",
       "additionalProperties": false,
       "required": ["x_nm", "y_nm", "text"],
       "properties": {
@@ -216,7 +216,7 @@
           "description": "The annotation text."
         },
         "line": {
-          "$ref": "urn:texteda:ir:0.1:common#/$defs/proxy_line",
+          "$ref": "urn:texteda:ir:0.2:common#/$defs/proxy_line",
           "description": "Starting line of this row in the source file, for diagnostic locations."
         }
       }

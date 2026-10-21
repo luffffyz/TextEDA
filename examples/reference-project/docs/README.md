@@ -14,7 +14,8 @@ reference-project/
 │   ├── power/
 │   ├── regulators/
 │   └── sensors/
-├── sch/                # schematic descriptions: board root sch/<board_id>.teda, in-board pages sch/<board_id>/<page_id>.teda
+├── sch/                # schematic descriptions: one file per board, sch/<board_id>.teda
+│   └── charger-buck/   # print pages of a board's drawing, sch/<board_id>/<page_id>.view.teda
 ├── pcb/                # PCB description, may come later; this project has one trial-run fixture charger-buck.teda
 ├── system/             # multi-board connection description, one file per system (none in this project yet)
 └── docs/               # design documents, review records, simulation conclusions
@@ -49,62 +50,46 @@ instances
 
 The package is not written in the `instances` row; it is determined by `components/passives/r-0402.teda`.
 
-`mcu-board.teda` is a single-page board root (`version 0.2`, `ports` only): CH32V307VCT6 minimal system + TPS7A2033PDBVR 3.3V LDO, 5V in, 3V3 out, SWD via board-level ports. Component selection and calculations are in `mcu-board-components.md`. If it fits on one page, do not split it.
+`mcu-board.teda` is a single-file board (`version 0.2`, `ports` only): CH32V307VCT6 minimal system + TPS7A2033PDBVR 3.3V LDO, 5V in, 3V3 out, SWD via board-level ports. Component selection and calculations are in `mcu-board-components.md`.
 
-`charger-buck.teda` is a board root: `BQ24610 charging/power path + TPS5430 5V buck`, **one physical board** sharing one BOM and one PCB. It does not fit on one sheet, and reviews read it in sections, so it is split into two pages:
+`charger-buck.teda` (`version 0.7`) is a single-file board: `BQ24610 charging/power path + TPS5430 5V buck`, **one physical board** sharing one BOM and one PCB. `refdes` and net names are unique inside the board, and the two circuits are told apart by numbering and by net prefix:
 
-```
-pages
-  M1  charger-power
-  M2  buck-5v
-```
+- The power path is `C1`..`C18`, `D1`..`D4`, `L1`, `NTC1`, `Q1`..`Q5`, `R1`..`R22`, `U1`; its nets are `AC_*`, `ADAPTER_*`, `BAT*`, `PH`, `SYS`, `TS*`, `VBAT`, `VCC`, `VFB`, `VREF`, …
+- The buck continues the board's numbering: `C19`..`C22`, `D5`, `L2`, `R23`, `R24`, `U2`; its nets carry a `BUCK_` prefix (`BOOT`, `BUCK_PH`, `BUCK_VFB`) and it shares the board's `GND`, `SYS` and `VOUT` rails.
+- The board-level `ports` section declares the board's external terminals (`AC_RET` / `BAT` / `DC_IN` / `GND` / `VOUT_5V`); `SYS` is an internal rail and is not exposed.
 
-- `sch/charger-buck/charger-power.teda`: BQ24610 3-cell charger/power-path example, component values taken from SLUS892D Figure 20 (19V adapter, 4A input current limit, 3A charge, 0.3A precharge/termination, 5-hour timer).
-- `sch/charger-buck/buck-5v.teda`: TPS5430DDAR 5V/3A step-down example, input taken from `SYS` (9–19.8V), component values taken from SLVS632 Figure 7-1.
-- `net` and `refdes` inside a page are **local**: unique only within that page. A page exposes nodes to the board level through a `ports` section; ports are the only cross-boundary mechanism:
+### Print pages (the drawing layer)
 
-  ```
-  ports
-    GND      GND
-    SYS_OUT  SYS
-  ```
+The board's drawing does not fit on one sheet, so it is partitioned in the **view** layer, not in the logic: `sch/charger-buck/*.view.teda` are print pages. They name the board's instances and nets directly, carry no electrical facts, and can be deleted and redrawn at any time without touching the board.
 
-- The board root connects page ports to board-level `nets` using the `M1.SYS_OUT` syntax:
+- `sch/charger-buck/charger-power.view.teda`: placement study of the power path; the wire runs are laid out during review.
+- `sch/charger-buck/buck-5v.view.teda`: the buck, every net drawn as wires.
 
-  ```
-  nets
-    GND:  M1.GND  M2.GND
-    SYS:  M1.SYS_OUT  M2.SYS_IN
-  ```
-
-- **Flattening**: a board = the board root instance plus each page instantiated once. Both ERC and BOM run on the flattened result — hence this board has exactly one BOM.
-- **BOM counting**: a BOM row = (`component_id`, parameter dict, variant status); the aggregation key does **not** include `refdes`. Same-model parts on the two pages merge into one row with quantities summed. `refdes` may repeat within a board (each page names its own), and is renumbered to be board-unique on export.
-- The board-level `ports` section declares the board's external terminals (`DC_IN` / `DC_RET` / `BAT` / `VOUT_5V` / `GND`); `SYS` is an internal rail and is not exposed.
-- Decision records are in the repository's `docs/adr/0002-board-pages-and-bom.md`; syntax is in `teda.md` §7.5–§7.7.
+Decision records are in the repository's `docs/adr/0025-flat-board-and-print-pages.md`; syntax is in `teda.md` §7 and `spec/schematic-view.md`.
 
 ## pcb/
 
-`pcb/charger-buck.teda` (`version 0.4`) is a **trial-run fixture for the KiCad export chain**, not the production PCB of the `charger-buck` board:
+`pcb/charger-buck.teda` (`version 0.7`) is a **trial-run fixture for the KiCad export chain**, not the production PCB of the `charger-buck` board:
 
-- Only the 9 components of the `M2` (buck-5v) page are placed; the components of the `M1` (charger-power) page are not placed and are treated as variant status (not populated) per `spec/pcb.md` §5.2 rule 1. A production PCB must place all instances.
-- Instance IDs use the flattened form `M2.U1`; net names use the flattened names: board-level `GND` / `SYS` / `VOUT`, in-page `M2.BOOT` / `M2.PH` / `M2.VFB` (rules in the repository's `docs/adr/0007-page-internal-net-naming.md`).
+- Only the 9 components of the buck are placed; the components of the power path are not placed and are treated as variant status (not populated) per `spec/pcb.md` §5.2 rule 1. A production PCB must place all instances.
+- Instance ids and net names are the board's own: `U2`, `C19`, … and `GND` / `SYS` / `VOUT` / `BOOT` / `BUCK_PH` / `BUCK_VFB`.
 - The coordinates of `place` / `connect` / `trace` / `via` were computed once by a prototype and then frozen; the IR stores only explicit geometry, with connectivity determined by the `connect` section and the sch.
 - Trial-run baselines (DRC report, Gerber list, KiCad project files) are in the repository's `docs/trial-run/charger-buck/`; the field-level IR → KiCad mapping is in `docs/kicad-pcb-format.md`.
 
 ## Conventions
 
 - `project.toml` is the project entry point; `[project].name` matches the directory name by default.
-- All description files share the `.teda` extension; the first line distinguishes `component` / `schematic` / `pcb` / `system` / `page`.
-- `sch/`, `pcb/`, and `system/` are split by **description type**, not by board; the same board uses the same file name in `sch/` and `pcb/` (`charger-buck.teda`), distinguished by directory. In-board pages are the exception and live in `sch/<board_id>/<page_id>.teda`.
-- One board = one BOM, one PCB. Pages are just division units within a board; do not write a page as an independent board in `[boards]`.
-- File-header versions are declared per file: files using `pages` / `page` are `version 0.3`, files using `ports` are `0.2`, the rest stay at `0.1`; `[project].format` records the highest version used by the project.
+- All description files share the `.teda` extension; the first line distinguishes `component` / `schematic` / `pcb` / `system` / `view`.
+- `sch/`, `pcb/`, and `system/` are split by **description type**, not by board; the same board uses the same file name in `sch/` and `pcb/` (`charger-buck.teda`), distinguished by directory. A board's print pages are the exception and live in `sch/<board_id>/<page_id>.view.teda`.
+- One board = one file, one BOM, one PCB. Do not split a board into several schematic files; partition the drawing instead.
+- File-header versions are declared per file: files using the flat board model are `version 0.7`, files using `ports` are `0.2`, the rest stay at `0.1`; `[project].format` records the highest version used by the project.
 - `pcb/` may be empty; when the PCB description is missing, sch↔pcb binding verification is skipped and the report marks it "not verified".
 - Component references in `variants` use the stable `component_id`, not refdes.
 - Design documents and simulation evidence go in `docs/`; conclusions are bound to the design version they verified.
 
 ## Next steps
 
-1. Board roots live in `sch/<board_id>.teda`, pages live in `sch/<board_id>/<page_id>.teda`; do not split a page that fits on one sheet.
+1. Board schematics live in `sch/<board_id>.teda`, one file per board; the drawing is partitioned in `sch/<board_id>/<page_id>.view.teda`.
 2. When a physical implementation is needed, create a file of the same name under `pcb/`.
-3. Once the board's external interface is settled, add connector components on the corresponding nets; `ports` and the board root need no changes.
-4. Run `texteda check` (not yet implemented) to verify.
+3. Once the board's external interface is settled, add connector components on the corresponding nets; `ports` needs no changes.
+4. Run `bun run check` to verify.

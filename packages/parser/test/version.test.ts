@@ -36,23 +36,23 @@ describe("version parsing", () => {
 });
 
 describe("version acceptance", () => {
-  const range = typeRange(6);
+  const range = typeRange(7);
 
   test("accepts the required version and any of its patches", () => {
-    for (const text of ["0.6", "0.6.0", "0.6.1", "0.6.99"]) {
+    for (const text of ["0.7", "0.7.0", "0.7.1", "0.7.99"]) {
       const verdict = checkVersion(text, range, "view");
       expect({ text, ok: verdict.ok }).toEqual({ text, ok: true });
     }
   });
 
   test("rejects a version below the type's introduction", () => {
-    const verdict = checkVersion("0.5.3", range, "view");
+    const verdict = checkVersion("0.6.3", range, "view");
     expect(verdict.ok).toBe(false);
     expect(verdict.ok === false && verdict.code).toBe("format.unsupported-version");
   });
 
   test("rejects a version the tool does not implement", () => {
-    const verdict = checkVersion("0.7", range, "view");
+    const verdict = checkVersion("0.8", range, "view");
     expect(verdict.ok).toBe(false);
     expect(verdict.ok === false && verdict.code).toBe("format.unsupported-version");
   });
@@ -61,8 +61,8 @@ describe("version acceptance", () => {
     // The upper bound is the language version, not the version that introduced the type: a symbol
     // file written today may declare the current language version.
     const symbol = typeRange(5);
-    expect(checkVersion("0.6", symbol, "symbol").ok).toBe(true);
-    expect(checkVersion("0.6.4", symbol, "symbol").ok).toBe(true);
+    expect(checkVersion("0.7", symbol, "symbol").ok).toBe(true);
+    expect(checkVersion("0.7.4", symbol, "symbol").ok).toBe(true);
     expect(checkVersion("0.4", symbol, "symbol").ok).toBe(false);
   });
 
@@ -75,35 +75,35 @@ describe("version acceptance", () => {
 
 describe("parsers accept a patch version", () => {
   test("a view file may declare a patch version and the IR keeps it", () => {
-    const source = "version 0.6.1\nview main\n\nplace\n  U1  10.0  10.0\n";
+    const source = "version 0.7.1\nview main\n\nplace\n  U1  10.0  10.0\n";
     const result = parseView(source, { file: "v.teda", board: "b" });
     expect(result.diagnostics).toEqual([]);
-    expect(result.ir!.format).toBe("0.6.1");
+    expect(result.ir!.format).toBe("0.7.1");
   });
 
-  test("the patch is canonicalized: 0.6.0 is stored as 0.6", () => {
-    const source = "version 0.6.0\nview main\n\nplace\n  U1  10.0  10.0\n";
+  test("the patch is canonicalized: 0.7.0 is stored as 0.7", () => {
+    const source = "version 0.7.0\nview main\n\nplace\n  U1  10.0  10.0\n";
     const result = parseView(source, { file: "v.teda", board: "b" });
-    expect(result.ir!.format).toBe("0.6");
+    expect(result.ir!.format).toBe("0.7");
   });
 
   test("a schematic file may declare a patch version", () => {
-    const result = parseSchematicDocument("version 0.3.4\nschematic b\n", { file: "b.teda", kind: "schematic" });
+    const result = parseSchematicDocument("version 0.3.4\nschematic b\n", { file: "b.teda" });
     expect(result.ok).toBe(true);
     expect(result.doc!.version).toBe("0.3.4");
   });
 
   test("a schematic file may declare the current language version", () => {
     // The upper bound is the language version the tool supports, not the version that introduced
-    // the type: a board written today declares 0.6, not 0.3.
-    const result = parseSchematicDocument("version 0.6\nschematic b\n", { file: "b.teda", kind: "schematic" });
+    // the type: a board written today declares 0.7, not 0.3.
+    const result = parseSchematicDocument("version 0.7\nschematic b\n", { file: "b.teda" });
     expect(result.ok).toBe(true);
   });
 
-  test("a page file below the version that introduced the page type is rejected", () => {
-    const result = parseSchematicDocument("version 0.2\npage p\n", { file: "p.teda", kind: "page" });
+  test("a page file is rejected: the type was removed in language 0.7", () => {
+    const result = parseSchematicDocument("version 0.3\npage p\n", { file: "p.teda" });
     expect(result.ok).toBe(false);
-    expect(result.diagnostics[0]!.code).toBe("format.unsupported-version");
+    expect(result.diagnostics[0]!.code).toBe("syntax.removed-construct");
   });
 
   test("a component file with a version the tool does not implement is rejected", () => {

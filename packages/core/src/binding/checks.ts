@@ -69,9 +69,9 @@ export function checkBinding(facts: BindingFacts): Diagnostic[] {
     diagnostics.push({
       code: "bind.unknown-instance",
       severity: "error",
-      message: `instance ${item.instance_id} in place does not exist in the flattened sch result`,
+      message: `instance ${item.instance_id} in place does not exist in the sch result`,
       location: at,
-      hint: "instance ids use flattened names (board-root R1, page M1.R1); run check first to see whether the sch side already reports an error",
+      hint: "instance ids are the board's refdes (R1); run check first to see whether the sch side already reports an error",
       data: { instance_id: item.instance_id },
     });
   }
@@ -167,7 +167,7 @@ export function checkBinding(facts: BindingFacts): Diagnostic[] {
       severity: "error",
       message: `pcb references a net that does not exist in sch: ${net}`,
       location: at,
-      hint: "net names use flattened names (a page-local net is M1.NAME); pcb cannot create new logical connections",
+      hint: "net names are the board's net names (GND, BUCK_VFB); pcb cannot create new logical connections",
       data: { net },
     });
   }

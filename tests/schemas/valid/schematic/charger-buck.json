@@ -1,16 +1,12 @@
 {
-  "ir_version": "0.1",
-  "format": "0.3",
+  "ir_version": "0.2",
+  "format": "0.7",
   "source": { "file": "sch/charger-buck.teda" },
   "board": "charger-buck",
-  "pages": [
-    { "id": "M2", "page": "buck-5v", "file": "sch/charger-buck/buck-5v.teda" }
-  ],
   "instances": [
     {
-      "id": "M2.C1",
+      "id": "C19",
       "component": "c-1210",
-      "page": "M2",
       "params": [
         { "name": "value", "value": 10000000000 },
         { "name": "tolerance", "value": 100000 },
@@ -18,9 +14,8 @@
       ]
     },
     {
-      "id": "M2.C2",
+      "id": "C20",
       "component": "c-0402",
-      "page": "M2",
       "params": [
         { "name": "value", "value": 10000000 },
         { "name": "tolerance", "value": 100000 },
@@ -28,9 +23,8 @@
       ]
     },
     {
-      "id": "M2.C3",
+      "id": "C21",
       "component": "c-220u",
-      "page": "M2",
       "params": [
         { "name": "value", "value": 220000000000 },
         { "name": "tolerance", "value": 200000 },
@@ -39,67 +33,53 @@
       ]
     },
     {
-      "id": "M2.C4",
+      "id": "C22",
       "component": "c-0402",
-      "page": "M2",
       "params": [
         { "name": "value", "value": 100000000 },
         { "name": "tolerance", "value": 100000 },
         { "name": "voltage", "value": 16000000 }
       ]
     },
-    { "id": "M2.D1", "component": "d-b340a", "page": "M2" },
-    { "id": "M2.L1", "component": "l-15u", "page": "M2" },
+    { "id": "D5", "component": "d-b340a" },
+    { "id": "L2", "component": "l-15u" },
     {
-      "id": "M2.R1",
+      "id": "R23",
       "component": "r-0402",
-      "page": "M2",
       "params": [
         { "name": "value", "value": 10000000000 },
         { "name": "tolerance", "value": 10000 }
       ]
     },
     {
-      "id": "M2.R2",
+      "id": "R24",
       "component": "r-0402",
-      "page": "M2",
       "params": [
         { "name": "value", "value": 3240000000 },
         { "name": "tolerance", "value": 10000 }
       ]
     },
-    { "id": "M2.U1", "component": "tps5430ddar", "page": "M2" }
+    { "id": "U2", "component": "tps5430ddar" }
   ],
   "nets": [
     {
       "id": "GND",
-      "members": [
-        "M2.U1.6",
-        "M2.U1.9",
-        "M2.C1.2",
-        "M2.C3.2",
-        "M2.C4.2",
-        "M2.D1.2",
-        "M2.R2.2"
-      ]
+      "members": ["U2.6", "U2.9", "C19.2", "C21.2", "C22.2", "D5.2", "R24.2"]
     },
-    { "id": "M2.BOOT", "members": ["M2.U1.1", "M2.C2.1"] },
-    { "id": "M2.PH", "members": ["M2.U1.8", "M2.C2.2", "M2.D1.1", "M2.L1.1"] },
-    { "id": "M2.VFB", "members": ["M2.U1.4", "M2.R1.2", "M2.R2.1"] },
-    { "id": "SYS", "members": ["M2.U1.7", "M2.C1.1"] },
-    { "id": "VOUT", "members": ["M2.L1.2", "M2.R1.1", "M2.C3.1", "M2.C4.1"] }
+    { "id": "BOOT", "members": ["U2.1", "C20.1"] },
+    { "id": "BUCK_PH", "members": ["U2.8", "C20.2", "D5.1", "L2.1"] },
+    { "id": "BUCK_VFB", "members": ["U2.4", "R23.2", "R24.1"] },
+    { "id": "SYS", "members": ["U2.7", "C19.1"] },
+    { "id": "VOUT", "members": ["L2.2", "R23.1", "C21.1", "C22.1"] }
   ],
   "ports": [
     { "id": "GND", "net": "GND" },
-    { "id": "VOUT_5V", "net": "VOUT" },
-    { "id": "GND", "net": "GND", "page": "M2" },
-    { "id": "SYS_IN", "net": "SYS", "page": "M2" },
-    { "id": "VOUT", "net": "VOUT", "page": "M2" }
+    { "id": "VOUT_5V", "net": "VOUT" }
   ],
   "constraints": [
     { "type": "voltage", "subject": "SYS", "min_uv": 9000000, "max_uv": 19800000 },
     { "type": "voltage", "subject": "VOUT", "min_uv": 4850000, "max_uv": 5150000 },
-    { "type": "voltage", "subject": "M2.VFB", "min_uv": 1203000, "max_uv": 1239000 },
+    { "type": "voltage", "subject": "BUCK_VFB", "min_uv": 1203000, "max_uv": 1239000 },
     { "type": "current", "subject": "VOUT", "max_na": 3000000000 }
   ]
 }

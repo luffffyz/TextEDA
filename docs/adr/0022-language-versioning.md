@@ -42,6 +42,10 @@ Each position has one meaning, and the meaning is about **which files are accept
 | MINOR | a description type, a section, or a field is added | the old files stay valid; a file may use the new construct only from this version on |
 | PATCH | **the set of accepted files does not change**: a new diagnostic code, a reworded message, a clarified rule, a stricter check on files that were already invalid | behaviour changes, compatibility does not |
 
+Before `1.0`, a MINOR may also **remove** a construct: the `0.x` line is unstable by definition, and
+the removal is announced with a migration note and a script (decision 6). MAJOR is then reserved for
+the `1.0` semantic freeze, where the language surface stops moving.
+
 ### 2. A Patch Never Breaks Compatibility
 
 Therefore a tool that implements `MAJOR.MINOR` accepts **every** patch of it: the patch number is
@@ -72,6 +76,28 @@ new sections, no new fields. A version number that runs out is not a reason to s
 acceptance rule. Every description parser uses it, so the accepted grammar and the diagnostics are
 the same everywhere. A malformed version is `format.invalid-version`; a version the tool cannot
 handle is `format.unsupported-version`.
+
+### 6. Before `1.0`, a MINOR May Remove
+
+The `0.x` line is unstable by definition: nothing promises that a `0.x` file stays valid, and
+`1.0` is the release that freezes the surface. Waiting for `1.0` before removing anything would
+mean carrying dead constructs — and their diagnostics, their schemas and their tests — for the sake
+of a stability promise the project has not made yet.
+
+So, before `1.0`:
+
+- a MINOR may **remove** a construct (a description type, a section, a field) as well as add one;
+- the removal must come with a **migration note** (what changed, how to migrate, with an example)
+  and a **migration script** where the change is mechanical;
+- the affected files must be raised to the new MINOR when they use the new surface; a file that
+  still uses the removed construct must fail with a diagnostic that names the removal and points at
+  the migration note — not with a generic "unknown construct";
+- the IR contract version moves independently, when the IR's own shape changes
+  ([ADR-0008](0008-ir-shard-identity-and-hash.md)).
+
+The first use of this decision is [ADR-0025](0025-flat-board-and-print-pages.md): language `0.7`
+removes the `page` description type and the `pages` section, and moves the IR contract to `0.2`.
+MAJOR remains the language version of the `1.0` freeze; after `1.0` only PATCH releases follow.
 
 ## Consequences
 

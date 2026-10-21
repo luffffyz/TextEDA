@@ -1,12 +1,12 @@
-// `view` description parsing: `.teda` source → the S1 view IR (spec/schematic-view.md, ADR-0021).
+// `view` description parsing: `.teda` source → the S1 view IR (spec/schematic-view.md, ADR-0021, ADR-0025).
 //
 // The view is the drawing layer: it says where the symbols sit and how the wires run, and it
-// references the page's instances / nets / ports by their page-local names. It restates no electrical
+// references the board's instances / nets / ports by their board-level names. It restates no electrical
 // fact and it never changes connectivity (spec/schematic-view.md §0).
 //
 // What is checked here is what the file can know by itself: the syntax, the right-angle rule, the
-// sheet bounds, and "the endpoint's instance is placed". Everything that needs the page (does this net
-// exist? is this pin one of its members?) is the page cross-check's job, not the parser's.
+// sheet bounds, and "the endpoint's instance is placed". Everything that needs the board (does this net
+// exist? is this pin one of its members?) is the board cross-check's job, not the parser's.
 import type { SchematicView } from "@texteda/ir/schematic-view";
 import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
 import { lex, type Cell, type Line } from "./lexer.ts";
@@ -22,10 +22,13 @@ const PLACE_KEYS = new Set(["unit"]);
 const VIEW_ID_RE = /^[A-Za-z0-9_+-]+$/;
 const REFDES_RE = /^[A-Z]+[0-9]+$/;
 const NET_ID_RE = /^[A-Za-z0-9_+-]+$/;
-/** Page-local pin reference in numbered form: `<refdes>.<pin_number>`. */
+/** Board-level pin reference in numbered form: `<refdes>.<pin_number>`. */
 const PIN_REF_RE = /^[A-Z]+[0-9]+\.[A-Za-z0-9_+-]+$/;
-/** `view` was introduced in language version 0.6 (teda.md §13). */
-const VERSION_RANGE = typeRange(6);
+/**
+ * `view` was introduced in language version 0.6 (teda.md §13); since 0.7 it names board-level ids
+ * (ADR-0025), so a 0.6 view file is no longer accepted.
+ */
+const VERSION_RANGE = typeRange(7);
 /** A4 landscape, in nanometers. */
 export const DEFAULT_SHEET_WIDTH_NM = 297_000_000;
 export const DEFAULT_SHEET_HEIGHT_NM = 210_000_000;
@@ -110,7 +113,7 @@ function parseRotation(
 /**
  * Parse a `view` description.
  *
- * The page id comes from the type line (`view <page_id>`); the board id comes from the directory
+ * The print page id comes from the type line (`view <page_id>`); the board id comes from the directory
  * `sch/<board_id>/` and is passed in by the caller.
  */
 export function parseView(text: string, options: ViewParseOptions): ViewParseResult {
@@ -147,7 +150,7 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
   }
   const page = typeLine.cells[1]!.text;
   if (!VIEW_ID_RE.test(page)) {
-    collector.error(file, typeLine.number, typeLine.cells[1]!.col, "syntax.invalid-token", `not a valid page id: ${page}`);
+    collector.error(file, typeLine.number, typeLine.cells[1]!.col, "syntax.invalid-token", `not a valid print page id: ${page}`);
   }
 
   let section: ViewSection | null = null;
@@ -376,8 +379,8 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
   if (collector.hasError) return { ok: false, diagnostics: collector.diagnostics };
 
   const ir: SchematicView = {
-    ir_version: "0.1",
-    // The canonical spelling of the version: `0.6` and `0.6.0` are the same version, so the IR stores one of them.
+    ir_version: "0.2",
+    // The canonical spelling of the version: `0.7` and `0.7.0` are the same version, so the IR stores one of them.
     format: verdict.ok ? verdict.text : version,
     source: { file: options.file, line: 1 },
     board: options.board,

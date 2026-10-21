@@ -1,25 +1,133 @@
-version 0.3
+version 0.7
 schematic charger-buck
 
-nets
-  AC_COMMON:  M1.AC_RET
-  ADAPTER_P:  M1.AC_IN
-  GND:        M1.GND  M2.GND
-  SYS:        M1.SYS_OUT  M2.SYS_IN
-  VBAT:       M1.BAT_OUT
-  VOUT:       M2.VOUT
-
 # One physical board: BQ24610 charge/power path + TPS5430 5V buck, sharing one BOM and one PCB.
-# Pages are division units inside a board (the canvas won't fit, reviews want chunks), not two boards:
-# a page yields neither a separate PCB nor a separate BOM.
-# Board-level nets reach pages only through page ports (M1.AC_IN etc.); the board-level ports section declares this board's external terminals.
-pages
-  M1  charger-power
-  M2  buck-5v
+# One file per board (ADR-0025): refdes and net names are unique inside the board, and there is no
+# second namespace. The buck's parts continue the board's numbering (C19..C22, D5, L2, R23, R24,
+# U2) and its nets carry a BUCK_ prefix, so the two circuits stay readable in the flat list.
+# The drawing is partitioned separately: the print pages live in sch/charger-buck/*.view.teda.
+instances
+  C1    c-0402       100n    10%  25V
+  C2    c-0402       100n    10%  50V
+  C3    c-0402       100n    10%  50V
+  C4    c-0603       1u      10%  10V
+  C5    c-0603       1u      10%  10V
+  C6    c-0402       100n    10%  25V
+  C7    c-0603       1u      10%  35V
+  C8    c-1210       10u     10%  35V
+  C9    c-1210       10u     10%  35V
+  C10   c-0402       100n    10%  25V
+  C11   c-0402       100n    10%  25V
+  C12   c-1210       10u     10%  25V
+  C13   c-1210       10u     10%  35V
+  C14   c-0402       100n    10%  50V
+  C15   c-0402       100n    10%  50V
+  C16   c-1210       2u2     10%  35V
+  C17   c-0402       56n     10%  16V
+  C18   c-0402       22p     5%   50V
+  C19   c-1210       10u     10%  35V
+  C20   c-0402       10n     10%  25V
+  C21   c-220u       220u    20%  10V  40mΩ
+  C22   c-0402       100n    10%  16V
+  D1    d-bat54c
+  D2    led-green
+  D3    led-green
+  D4    led-green
+  D5    d-b340a
+  L1    l-6r8
+  L2    l-15u
+  NTC1  ntc-103at
+  Q1    q-si7617dn
+  Q2    q-si7616dn
+  Q3    q-si7617dn
+  Q4    q-sis412dn
+  Q5    q-sis412dn
+  R1    r-0402       100k    ±1%
+  R2    r-0402       500k    ±1%
+  R3    r-0402       100k    ±1%
+  R4    r-0402       32.4k   ±1%
+  R5    r-0402       100k    ±1%
+  R6    r-0402       10k     ±1%
+  R7    r-0402       100k    ±1%
+  R8    r-0402       22.1k   ±1%
+  R9    r-0402       9.31k   ±1%
+  R10   r-0402       430k    ±1%
+  R11   r-0402       10k     ±5%
+  R12   r-0402       10k     ±5%
+  R13   r-0402       10k     ±5%
+  R14   r-0402       100k    ±5%
+  R15   r-0402       100k    ±5%
+  R16   r-0402       100Ω    ±1%
+  R17   r-0402       10Ω     ±5%
+  R18   r-0402       1k      ±5%
+  R19   r-0402       1k      ±5%
+  R20   r-0402       2Ω      ±5%
+  R21   r-2010       0.010Ω  ±1%  1W
+  R22   r-2010       0.010Ω  ±1%  1W
+  R23   r-0402       10k     ±1%
+  R24   r-0402       3.24k   ±1%
+  U1    bq24610rger
+  U2    tps5430ddar
 
+# The power path (BQ24610, datasheet SLUS892D Figure 20): 19V adapter, 3-cell Li-ion (12.6V),
+# 4A adapter limit, 3A charge, 0.3A precharge/termination, 5-hour safety timer.
+# The buck (TPS5430, datasheet SLVS632 Figure 7-1): 12V to 5V, 3A.
+nets
+  ACDRV:         R18.2  U1.ACDRV
+  ACP:           C3.1  Q2.D  R21.1  U1.ACP
+  ACSET:         R3.2  R4.1  U1.ACSET
+  AC_COMMON:     C14.1  Q1.S1  Q1.S2  Q1.S3  Q2.S1  Q2.S2  Q2.S3  R14.1  R17.1
+  AC_GATE:       C14.2  Q1.G  Q2.G  R14.2  R18.1
+  ADAPTER_DAMP:  C16.1  R20.2
+  ADAPTER_P:     Q1.D  R11.1  R12.1  R13.1  R20.1
+  BATDRV:        R19.2  U1.BATDRV
+  BAT_GATE:      C15.2  Q3.G  R15.2  R19.1
+  BOOT:          C20.1  U2.BOOT
+  BTST:          C6.2  D1.K  U1.BTST
+  BUCK_PH:       C20.2  D5.K  L2.1  U2.PH
+  BUCK_VFB:      R23.2  R24.1  U2.VSENSE
+  GND:           C1.2  C2.2  C4.2  C5.2  C7.2  C8.2  C9.2  C11.2  C12.2  C13.2
+  :              C16.2  C17.2  C19.2  C21.N  C22.2  D5.A  NTC1.2  Q5.S1  Q5.S2
+  :              Q5.S3  R1.2  R4.2  R6.2  R8.2  R10.2  R24.2  U1.GND  U1.PAD
+  :              U2.GND  U2.PAD
+  HIDRV:         Q4.G  U1.HIDRV
+  ISET1:         R7.2  R8.1  U1.ISET1
+  ISET2:         R5.2  R6.1  U1.ISET2
+  LED1_A:        D2.A  R11.2
+  LED2_A:        D3.A  R12.2
+  LED3_A:        D4.A  R13.2
+  LODRV:         Q5.G  U1.LODRV
+  PG:            D4.K  U1.PG
+  PH:            C6.1  L1.1  Q4.S1  Q4.S2  Q4.S3  Q5.D  U1.PH
+  REGN:          C5.1  D1.A1  U1.REGN
+  SRP:           C10.1  L1.2  Q3.D  R22.1  U1.SRP
+  STAT1:         D2.K  U1.STAT1
+  STAT2:         D3.K  U1.STAT2
+  SYS:           C2.1  C3.2  C8.1  C9.1  C15.1  C19.1  Q3.S1  Q3.S2  Q3.S3
+  :              Q4.D  R15.1  R21.2  U1.ACN  U2.VIN
+  TS:            C1.1  R16.2  U1.TS
+  TS_SENSE:      NTC1.1  R9.2  R10.1  R16.1
+  TTC:           C17.1  U1.TTC
+  VBAT:          C10.2  C11.1  C12.1  C13.1  C18.1  R2.1  R22.2  U1.SRN
+  VCC:           C7.1  R17.2  U1.VCC
+  VFB:           C18.2  R1.1  R2.2  U1.VFB
+  VOUT:          C21.P  C22.1  L2.2  R23.1
+  VREF:          C4.1  R3.1  R5.1  R7.1  R9.1  U1.CE  U1.VREF
+
+# The board's external interface: what the board offers to the system description.
 ports
   AC_RET   AC_COMMON
   BAT      VBAT
   DC_IN    ADAPTER_P
   GND      GND
   VOUT_5V  VOUT
+
+constraints
+  voltage  VCC       5V..28V
+  voltage  VBAT      9V..12.6V
+  voltage  SYS       9V..19.8V
+  voltage  VOUT      4.85V..5.15V
+  voltage  VFB       2.079V..2.121V
+  voltage  BUCK_VFB  1.203V..1.239V
+  current  VBAT      3A
+  current  VOUT      3A

@@ -4,6 +4,14 @@ Status: Accepted
 Date: 2026-10-20
 Impact: `teda.md` §2, §7.6, §7.7, §11, §12, §13, §14; `AGENTS.md` §2, §4.1, §9, §11; `examples/reference-project/`
 
+**Amendment (2026-10-21, [ADR-0025](0025-flat-board-and-print-pages.md))**: the page *mechanism* —
+the `page` description type, the `pages` section, page ports, the per-page namespace and the
+flattening (decisions 2 to 6) — is **withdrawn**: a board has one flat schematic file, and the
+partition of the drawing is a print page in the view layer. What survives unchanged is decision 1
+(**one board = one PCB = one BOM**, and a partition is not a board) and decision 7 (**BOM counting**:
+the aggregation key is (`component_id`, parameters, variant status), and the quantity is the physical
+count of the board's parts). The reasons for the withdrawal are in [ADR-0025](0025-flat-board-and-print-pages.md).
+
 ## Background
 
 A real project is **one board**, but the schematic does not fit on a single page: a BQ24610 charger / power path plus a TPS5430 5V buck will not fit on one page, and reviewers cannot take it all in either. The natural move is to split the board into several "pages" (page / sheet).

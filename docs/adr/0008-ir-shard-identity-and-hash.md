@@ -1,8 +1,10 @@
 # ADR-0008: IR Sharding, Identity Keys, Units, and Hash Granularity
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-20
 Impact: `schemas/ir/v0.1/`; `AGENTS.md` §2 rule 18, §9; the four "follow-up" items in `docs/adr/0004-ir-representation.md`
+
+Extended by [ADR-0023](0023-ir-layer-on-disk.md): the shard layout below is implemented on disk, and the writer (`texteda ir`) and the hash aggregation are specified there.
 
 ## Background
 

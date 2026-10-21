@@ -41,28 +41,28 @@
 
 ## F3. 原理图的 SVG 渲染（sch renderer）
 
-**现状**：sch 页面渲染**已落地**。`packages/renderer` 的 `renderSchematic(view: SchematicView, instances)` 把视图 IR 画成 `SvgDoc`（图幅框、摆位符号、走线折线、标签、端口、注释），调用方负责把每个 `place.instance_id` 解析成符号 IR 与器件引脚事实——渲染器仍然不碰文件系统、不排版。`bun run preview view <board>/<page>` 能出图；参考工程有两份视图文件：`sch/charger-buck/buck-5v.view.teda`（全部 net 走线，GND 走一条总线）与 `sch/charger-buck/charger-power.view.teda`（摆位研究，线在评审时逐网补）。**未落地**：`packages/core` 的页面交叉校验、可读性检查、sch 的 round-trip 反解、与 `.kicad_sch` 的人工比对。旧状态见 [ADR-0014](adr/0014-reference-renderer.md)（符号/封装先落地）。
+**现状**：sch 打印页渲染**已落地**。`packages/renderer` 的 `renderSchematic(view: SchematicView, instances)` 把视图 IR 画成 `SvgDoc`（图幅框、摆位符号、走线折线、标签、端口、注释），调用方负责把每个 `place.instance_id` 解析成符号 IR 与器件引脚事实——渲染器仍然不碰文件系统、不排版。`bun run preview view <board>/<page>` 能出图；参考工程有两份打印页：`sch/charger-buck/buck-5v.view.teda`（全部 net 走线，GND 走一条总线）与 `sch/charger-buck/charger-power.view.teda`（摆位研究，线在评审时逐网补）。**未落地**：`packages/core` 的板 ↔ 打印页交叉校验、可读性检查、sch 的 round-trip 反解、与 `.kicad_sch` 的人工比对。旧状态见 [ADR-0014](adr/0014-reference-renderer.md)（符号/封装先落地）。
 
 **为什么现在做**：
 
-- **sch 的错误只有看图才发现**：ERC 能抓悬空引脚、短路、电源域冲突，抓不到"两个 net 的标签压在一起"、"引脚名糊成一片"、"连线穿过符号"、"页面元素越界"。这些在 P0 的 ERC 里全是绿的。
+- **sch 的错误只有看图才发现**：ERC 能抓悬空引脚、短路、电源域冲突，抓不到"两个 net 的标签压在一起"、"引脚名糊成一片"、"连线穿过符号"、"打印页元素越界"。这些在 P0 的 ERC 里全是绿的。
 - **符号与封装的经验可以直接复用**：中间表示（绘图指令列表）、坐标约定（整数纳米）、确定性（字节可复现）、round-trip 的"语义投影"两端对比，这四样已经定型了（[ADR-0014](adr/0014-reference-renderer.md)），sch 只是多一种图元与一层布局。
 
 **要做的事**：
 
 1. ~~`packages/renderer` 加 `renderSchematic(...)`~~ **已落地**（2026-10-21）：
-   - 页内元素按 IR 的坐标画：器件（用它的符号视图摆位）、导线、net 标签、页面端口、文本注释；**页内电源符号**未做——`view` 描述没有这个段，GND 目前靠 net 标签表达；
+   - 打印页内的元素按 IR 的坐标画：器件（用它的符号视图摆位）、导线、net 标签、端口、文本注释；**电源符号**未做——`view` 描述没有这个段，GND 目前靠 net 标签表达；
    - 器件的引脚连接点与符号渲染器用同一份 `renderSymbol` 几何（走线端点直接取变换后的引脚连接点，不另算）；
    - 走线是"引脚连接点 → IR 折点 → 引脚连接点"的折线，不做自动布线。
-2. ~~预览命令扩一档~~ **已落地**：`bun run preview view <board>/<page>`（旧的 `preview schematic <board_id> --page` 方案改成按页面取 `sch/<board>/<page>.view.teda`，与文件布局一致）。
+2. ~~预览命令扩一档~~ **已落地**：`bun run preview view <board>/<page>`（旧的 `preview schematic <board_id> --page` 方案改成按打印页取 `sch/<board>/<page>.view.teda`，与文件布局一致）。
 3. **可读性检查**（`AGENTS.md` §6："文字重叠、线压引脚、标签碰撞、越界、连线穿过符号"）——**未落地**。越界已由 `view` 解析器的 `view.out-of-sheet` 覆盖；其余仍是 `spec/schematic-view.md` §9.2 的待实现项。
 4. **round-trip**——**未落地**：sch 的语义投影两端对比（跟符号/封装同一口径，见 [ADR-0014](adr/0014-reference-renderer.md) decision 5）。绘制指令里的 `pin`（旋转后的编号与方向）、`text`（`role` 区分字段/引脚名/标签/端口/注释）已经能反解，但视图 IR 的"摆位 + 折点"需要从图元逆推，且 `unit` 的共享项与字段要按实例归并。
 5. 与 KiCad 的 `.kicad_sch` 渲染做**一次性人工比对**——**未落地**（不进 CI）。
-6. **页面交叉校验**（`packages/core`）——**未落地**：`spec/schematic-view.md` §9.1 标"待实现"的那几条（实例 / net / port 是否存在、端点引脚是否属于该 net、`net-not-drawn`）。渲染器对未知实例或未知符号引脚是**抛错**，不是发诊断——诊断归 core，渲染器不伪造几何。
+6. **板 ↔ 打印页交叉校验**（`packages/core`）——**未落地**：`spec/schematic-view.md` §9.1 标"待实现"的那几条（实例 / net / port 是否存在、端点引脚是否属于该 net、`net-not-drawn`）。渲染器对未知实例或未知符号引脚是**抛错**，不是发诊断——诊断归 core，渲染器不伪造几何。
 
 **验收**：
 
-- ~~`bun run preview view <board>/<page>` 出整页 SVG~~ **已满足**：器件、导线、net 标签、页面端口都在图上（参考工程两页）。
+- ~~`bun run preview view <board>/<page>` 出整页 SVG~~ **已满足**：器件、导线、net 标签、端口都在图上（参考工程两份打印页）。
 - ~~同一份 IR 渲染两次字节相同~~ **已满足**（`packages/renderer/test/schematic.test.ts`）。
 - sch 的 round-trip 测试通过——**未满足**（见第 4 条）。
 - 越界与"连线穿符号"能被报出来——**部分**：越界在解析器，穿符号未做。
@@ -70,7 +70,7 @@
 **注意**：
 
 - **sch 的逻辑 IR 仍然没有坐标**（`instances` / `nets` / `ports` 只有身份与成员），画在独立的 `view` IR 里；渲染器的输入因此是 `view` + 调用方解析好的符号事实（符号 IR、器件引脚事实），仍然不碰文件系统。
-- **S1 视图层已闭环到渲染**：`spec/schematic-view.md`、`schemas/ir/v0.1/schematic-view.schema.json`、`packages/parser` 的 `view` 解析与 canonical `fmt`（语言版本 0.6）、`packages/renderer` 的 `renderSchematic`、`preview view`、参考工程两页视图。**下一步**：`packages/core` 的页面交叉校验（视图引用的实例 / net / port 是否存在、端点引脚是否属于该 net），再把可读性检查与 round-trip 反解补上。
+- **S1 视图层已闭环到渲染**：`spec/schematic-view.md`、`schemas/ir/v0.2/schematic-view.schema.json`、`packages/parser` 的 `view` 解析与 canonical `fmt`（语言版本 0.7）、`packages/renderer` 的 `renderSchematic`、`preview view`、参考工程两份打印页。**下一步**：`packages/core` 的板 ↔ 打印页交叉校验（视图引用的实例 / net / port 是否存在、端点引脚是否属于该 net），再把可读性检查与 round-trip 反解补上。
 - **已知口径冲突（`view.label-not-on-net` 落地前必须定）**：`view` 坐标限制在 0.1mm 栅格（`VIEW_GRID_NM`），而符号引脚偏移是 2.54 / 3.81mm 的倍数，**不在 0.1mm 栅格上**。所以"标签必须精确落在引脚连接点上"对标准符号不可满足。参考工程的标签全部落在走线的网格折点 / 直段上（buck-5v 的 GND 走一条位总线，引脚到总线用带折点的 wire 连），没有标签落在引脚端点上。
 - 布局不自动排版：sch 的坐标来自 IR，渲染器只画。多单元器件（双运放）要按 `unit` 选对符号视图。
 - 不要顺手做自动布线或自动排版——那是 `AGENTS.md` §1「不是」里明确不做的东西。**自动排版尤其不可取**：如果渲染器自己排版，人就无法把重叠的标签挪开，"可读性检查"（文字重叠、线压引脚）也失去意义——每次渲染的图都不一样，评审无从进行。
@@ -90,7 +90,7 @@
 3. **规范补漏**：凡是实现时必须回头看 `packages/**` 才能确定的地方，在 `spec/` 里补成规范条款。补不了的（例如刻意留给实现的自由度），在 spec 里显式写"本条不约束实现"。
 4. 产出一份差异报告（`docs/third-party-implementability.md`），列出规范歧义点与已修条款。
 
-**涉及**：`spec/**`、`schemas/ir/v0.1/**`、`tests/**`、新增 `docs/third-party-implementability.md`。
+**涉及**：`spec/**`、`schemas/ir/v0.2/**`、`tests/**`、新增 `docs/third-party-implementability.md`。
 
 **验收**：
 
@@ -194,7 +194,7 @@
 4. 封装侧：pin 号集合与 pad 号集合的一致性（`lib:verify` 已有）下沉到 schema 能表达的部分。
 5. 补 conformance 正反例（`tests/schemas/`）。
 
-**涉及**：`schemas/ir/v0.1/**`、`packages/ir/src/**`、`packages/parser/src/**`（sch 解析器）、`tests/schemas/**`、ADR（并入 P0 的 sch ADR 或单开一条）。
+**涉及**：`schemas/ir/v0.2/**`、`packages/ir/src/**`、`packages/parser/src/**`（sch 解析器）、`tests/schemas/**`、ADR（并入 P0 的 sch ADR 或单开一条）。
 
 **验收**：
 
@@ -265,7 +265,7 @@
 4. 定**第三方库的要求**：库文件必须过 schema、必须能导出成 KiCad、必须能过 `lib:verify`（[ADR-0013](adr/0013-reference-project-self-built-libraries.md)）；不合规不收。
 5. 复用 F7 的错误码与 F8 的 schema 义务——**库是契约层的延伸，不是另一个标准**。
 
-**涉及**：`spec/`（库包规范）、`schemas/ir/v0.1/**`（库 manifest）、`AGENTS.md` §9（`[libs]` 键的最终形态）、ADR（并入 [ADR-0011](adr/0011-library-format-and-footprint-ir.md) 的补充或单开）、`examples/reference-project/project.toml`（样例）。
+**涉及**：`spec/`（库包规范）、`schemas/ir/v0.2/**`（库 manifest）、`AGENTS.md` §9（`[libs]` 键的最终形态）、ADR（并入 [ADR-0011](adr/0011-library-format-and-footprint-ir.md) 的补充或单开）、`examples/reference-project/project.toml`（样例）。
 
 **验收**：
 
@@ -348,7 +348,7 @@
    ```
    examples/cases/<case_id>/
    ├── README.md      # 这个用例要证明什么、期望 IR 是什么
-   ├── <描述>.teda    # 源描述（可能多份：sch + page + pcb + component）
+   ├── <描述>.teda    # 源描述（可能多份：sch + view + pcb + component）
    └── expected/      # 期望 IR（canonical JSON）
    ```
 2. 十个用例逐个落地，每个至少含：源描述、期望 IR（canonical）、**以及这个用例触发的检查点**（哪些错误码、哪些断言）。
@@ -380,8 +380,8 @@
 
 **已定的约束（2026-10-21 讨论，先写死以免被随手设计掉）**：
 
-1. **层次只在源码层，IR 存展平结果**——与 page 的展平口径一致（[ADR-0002](adr/0002-board-pages-and-bom.md) / [ADR-0007](adr/0007-page-internal-net-naming.md)）。IR 里不留 module 结构，否则第三方实现要额外实现 module 解析 / 展开 / 端口解析三套语义。
-2. **module 与 page 同构**：都有 ports，展平命名复用 `<instance_id>.<net>`（[ADR-0007](adr/0007-page-internal-net-naming.md)），未连接端口必须显式（与 F8 的 pin 归属三态同构）。实现上应当只有**一套展开器**。
+1. **层次只在源码层，IR 存展平结果**——展平口径由 module 自己定义（旧的页面展平机制已随语言 0.7 撤销，见 [ADR-0025](adr/0025-flat-board-and-print-pages.md)）。IR 里不留 module 结构，否则第三方实现要额外实现 module 解析 / 展开 / 端口解析三套语义。
+2. **module 是唯一的层次**：有 ports，展平命名用 `<instance_id>.<net>`（[ADR-0024](adr/0024-level-tags-in-flattened-names.md)），未连接端口必须显式（与 F8 的 pin 归属三态同构）。**外层 id 的层级标记**：module 实例用 `M` 开头（`M1.R1`）；`P`（页面）已随页面机制撤销，`MOD` 不用（[ADR-0025](adr/0025-flat-board-and-print-pages.md) decision 5）。
 3. **参数只做字面量替换，不参与运算**：参数值与实例覆盖值都必须是字面量（可带单位）；禁止 `VOUT = $vin * $ratio`、禁止参数引用参数、禁止函数调用。派生值由语言外的生成器算好后写成字面量（与 F9 同源）。
 4. **评审可见性**：module 体里的 `$rset` 意味着"值来自实例"，评审者看实例行即可（**一跳**，不是程序语义）；实例行里的值是字面量。参数化**结构**不藏事实，参数化**取值**才藏事实——后者不做。
 
@@ -390,14 +390,14 @@
 - **同构重复**（例如 4 路一模一样的 LDO，块 ≥ ~15 行、实例 ≥ 3 次）→ 值得。
 - **同构带差异**（20 路电源域：结构同、值不同）→ **多半不值得**——层次会把 20 份字面量收成 1 份体 + 20 个覆盖，评审要跨 20 处对照；写开是 20 份可并排看的表，而**表很便宜**（一行一个事实，diff 干净）。
 - 层次**不解决**：BGA 200 脚引脚表太长、电源域公共点太多——那些是 pin 表与 net 表问题。
-- §7 的"规模 >100 器件上下文爆炸"由分页 + 展平后的净表缓解，层次只是其中一种手段。
+- §7 的"规模 >100 器件上下文爆炸"由展平后的净表 + 打印页分块缓解，层次只是其中一种手段。
 
 **要做的事**（触发后）：
 
 1. 写 `spec/hierarchy.md`：module 体语法、ports、参数、实例语法、展开规则、命名规则。
 2. 决定 module 定义的存放位置：先只支持**工程内**（`modules/` 目录，或直接放在 `sch/<board_id>/` 旁），跨工程复用等 F10 的库包规范（module 进库包）。
 3. 校验规则：端口必须全部连接或显式 `nc`；未定义/未使用参数报错；实例化深度上限（防展开爆炸，参考 cohdl 的展开预算）；循环检测；展开后与 sch 的 net/器件命名不冲突。
-4. 展平后的结果进板级 IR，器件身份沿用 `component_id`，BOM 计数按 [ADR-0002](adr/0002-board-pages-and-bom.md) 的展平口径。
+4. 展平后的结果进板级 IR，器件身份沿用 `component_id`，BOM 计数按 [ADR-0002](adr/0002-board-pages-and-bom.md) decision 7 的口径（聚合键不含 refdes）。
 
 **触发条件**：出现第一个真实的"同构重复 ≥ 15 行、实例 ≥ 3 次、且取值各不相同"的场景。**在此之前不实现。**
 
@@ -477,7 +477,7 @@
 
 ## F16. 网表与 KiCad 原理图导出（P1）
 
-**现状**：`packages/parser` 能把板根 + 页面编译成板级 IR 分片（`bun run compile:schematic <项目目录> <board_id>`），IR 里已有实例、net（编号形式的引脚引用）、端口与约束。**网表已落地**：`texteda netlist <项目目录> [--board <id>] [--json] [--out <文件>]`，实现在 `packages/exporter/src/netlist.ts`，是 IR 的纯函数投影（net/成员/实例都排序，逐字节可复现；有 error 时拒绝导出）。**netlist 只带连通性**：值、容差、封装属于 BOM，不进来。**KiCad 原理图导出仍是空的**：`packages/exporter` 只有封装与符号；原记录：`packages/exporter` 只做封装（`.kicad_mod`）与符号（`.kicad_sym`）→ KiCad，没有原理图方向的产物；BOM 与网表也没做。
+**现状**：`packages/parser` 能把板文件编译成板级 IR 分片（`bun run compile:schematic <项目目录> <board_id>`），IR 里已有实例、net（编号形式的引脚引用）、端口与约束。**网表已落地**：`texteda netlist <项目目录> [--board <id>] [--json] [--out <文件>]`，实现在 `packages/exporter/src/netlist.ts`，是 IR 的纯函数投影（net/成员/实例都排序，逐字节可复现；有 error 时拒绝导出）。**netlist 只带连通性**：值、容差、封装属于 BOM，不进来。**KiCad 原理图导出仍是空的**：`packages/exporter` 只有封装与符号；原记录：`packages/exporter` 只做封装（`.kicad_mod`）与符号（`.kicad_sym`）→ KiCad，没有原理图方向的产物；BOM 与网表也没做。
 
 **要做的事**：
 
@@ -503,7 +503,7 @@
 
 ## F17. `project.toml` 与 `system` 描述的解析（语言表面的最后两块）
 
-**现状**：语言表面还差两块没实现——`project.toml`（项目元数据：名称、版本、板列表、变体、库引用）与 `system`（板间连接）。`scripts/lib/project.ts` 里有一份只够库校验用的手写 TOML 读取，不是解析器；`system` 描述完全没有代码。`sch` 解析器已经能读板根与页面，但**读不到板列表**，所以跨板校验（teda.md §11 第 9 条：两侧电压区间不相交报错）做不了。
+**现状**：语言表面还差两块没实现——`project.toml`（项目元数据：名称、版本、板列表、变体、库引用）与 `system`（板间连接）。`scripts/lib/project.ts` 里有一份只够库校验用的手写 TOML 读取，不是解析器；`system` 描述完全没有代码。`sch` 解析器已经能读板文件，但**读不到板列表**，所以跨板校验（teda.md §11 第 9 条：两侧电压区间不相交报错）做不了。
 
 **要做的事**：
 
@@ -571,14 +571,14 @@
 
 **要做的事**：
 
-1. 给 `schemas/ir/v0.1/pcb.schema.json` 的字段补 `description`（`pcb` 描述落地时一并做，否则会返工）。
+1. 给 `schemas/ir/v0.2/pcb.schema.json` 的字段补 `description`（`pcb` 描述落地时一并做，否则会返工）。
 2. 把"缺说明字段数"变成一个门槛（`gen:check` 或 CI 里卡覆盖率），防止新字段裸奔。
 
 **注意**：description 是**契约的一部分**（写的是这个字段装什么），不是文档润色；补它等于把 IR 语义写进唯一真源。补说明时若给 `$ref` 加兄弟 `description`，生成器必须开 `unreachableDefinitions`，否则命名类型会被内联掉（[ADR-0019](adr/0019-agent-contract-reference-and-check-entry.md)）。
 
 ## F21. pcb 描述：绑定校验、`fmt`、参考工程的 pcb
 
-**现状**：`pcb` 12 段的解析已落地（`packages/parser/src/pcb.ts` → `schemas/ir/v0.1/pcb.schema.json`，`texteda compile <dir> <id> --pcb`）。覆盖面是规范 §1–§6 的全部段与 10 种规则；`stackup` 顺序/编号、板厚与叠层之和、板框闭合与自交、重复放置、重复 pad 对都在解析期报。
+**现状**：`pcb` 12 段的解析已落地（`packages/parser/src/pcb.ts` → `schemas/ir/v0.2/pcb.schema.json`，`texteda compile <dir> <id> --pcb`）。覆盖面是规范 §1–§6 的全部段与 10 种规则；`stackup` 顺序/编号、板厚与叠层之和、板框闭合与自交、重复放置、重复 pad 对都在解析期报。
 
 **没做的三件**：
 
@@ -596,7 +596,7 @@
 
 **要做的事**：
 
-1. 给 `schemas/ir/v0.1/symbol.schema.json` 与 `footprint.schema.json` 加 `format`（或引用 `common` 的 `format_version`），与其它分片对齐——**先定用哪个名字**，别一个用 `format` 一个用 `format_version`。
+1. 给 `schemas/ir/v0.2/symbol.schema.json` 与 `footprint.schema.json` 加 `format`（或引用 `common` 的 `format_version`），与其它分片对齐——**先定用哪个名字**，别一个用 `format` 一个用 `format_version`。
 2. 解析器写入规范化的版本号（补丁位为 0 时省略，`0.6` 与 `0.6.0` 存成同一个字符串）。
 3. 这是 **IR 契约变更**：`ir_version` 要不要跟着动（当前 `0.1`）按 [ADR-0008](adr/0008-ir-shard-identity-and-hash.md) 的分片约定决定，别顺手改。
 4. 补 `tests/schemas/` 的正反例与 `bun run gen` 生成的类型。
@@ -615,7 +615,7 @@
 
 **要做的事**：
 
-1. 写 `docs/skills/new-project.md`：**给 agent 的操作手册**（**英文**——skill 是 agent 读的操作手册，不是设计文档，见 AGENTS.md §12 的语言例外）。每一步 = 一条命令 + 预期输出 + **失败时怎么办**（指到诊断码与修复动作，不写"照着做"）。步骤：`init` → 建符号/封装/器件 → 写板根与页面 → `texteda check` → `texteda compile` → 导出网表与 KiCad 库。**每条命令都必须真的能跑**（由第 2 条逐条验证）。
+1. 写 `docs/skills/new-project.md`：**给 agent 的操作手册**（**英文**——skill 是 agent 读的操作手册，不是设计文档，见 AGENTS.md §12 的语言例外）。每一步 = 一条命令 + 预期输出 + **失败时怎么办**（指到诊断码与修复动作，不写"照着做"）。步骤：`init` → 建符号/封装/器件 → 写板文件与打印页 → `texteda check` → `texteda compile` → 导出网表与 KiCad 库。**每条命令都必须真的能跑**（由第 2 条逐条验证）。
 2. 写 `scripts/skill-new-project.ts`：把上面那串步骤做成**可执行、可断言**的脚本——在临时目录里从零建一个最小工程（一条电源轨 + 一路分压 + 一颗去耦），跑 `check`（必须**零 error**）、导出网表与符号/封装，并断言：产物存在、**同输入逐字节相同**（`init` 的确定性契约要一路守到终点）。这是 skill 的**可执行形态**：文档会烂，脚本不会。
 3. 给它 `bun run skill:new-project`，并**接进门禁**（`bun test` 的一个 case，或并进 `scripts/verify-libs.ts` 那一串）。**不接进门禁的 skill 等于没有**。
 4. 终点分两段接：**先到 `.kicad_pcb`**（依赖第 5 条的板文件导出器），**再到 Gerber / Excellon**（F15）。skill 每一步都要标出"这一步依赖什么"；依赖没到的步骤就写到"到此为止"，**不要写仓库里并不存在的命令**（"然后在 KiCad 里导出 Gerber"这种是给 KiCad 用户的，不是给本仓库的）。
@@ -627,3 +627,25 @@
 - skill 相对"教程"的唯一增量是**出错时怎么办**——教程给顺序，skill 给诊断码与修复动作（"错误信息是产品"，AGENTS.md §12）。每一步都要能回答"这一步失败了，看哪个码、改哪里"。
 - **别把 skill 写成"复制参考工程改改"**：那会让人绕过 `init` 契约与自建库的边界（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) 的 `project:` 库约定），也绕过了"每个文件最小化"的写作纪律。
 - 这条 skill 是 F12 十用例语料的**种子**：先把"最小可跑工程"这条路径钉死并做成脚本，再扩到 BGA、多电源域、差分对那些难例。
+
+## F24. IR 分片树剩下的三种分片（`project` / `component` / `system`）
+
+**现状**：`bun run texteda ir <工程目录>` 已经写出整棵分片树——`boards/<board_id>/{schematic,pcb}.json`、`boards/<board_id>/view/<page_id>.json`、`symbols/<lib>/<id>.json`、`footprints/<lib>/<id>.json`，外加 `manifest.json`（每片 sha256 + 工程哈希），布局与哈希规则见 [ADR-0023](adr/0023-ir-layer-on-disk.md)。但 [ADR-0008](adr/0008-ir-shard-identity-and-hash.md) decision 1 里定的另外三种分片**一片都没有**：
+
+- `project.json`——`project.toml` 的 IR 投影（字段对字段：`name`/`version`/`format`/`description`/`license`/`status`/`default_variant`/`authors`/`links`/`boards`/`variants`/`libs`/`compliance`/`ext`）。**`project.toml` 至今没有解析器**（F17）。
+- `components/<component_id>.json`——器件描述的 IR 分片。`components/**` 今天只有只读事实读取 `readComponentFacts`（给符号/封装导出合并引脚用），**没有 IR schema 的生产者**；`schemas/ir/v0.2/component.schema.json` 在，但没人往里填语义。
+- `systems/<system_id>.json`——多板连接描述的 IR 分片。`system` 描述**连语法都没有**（只有 `teda.md` 的一段与 schema）。
+
+**要做的事**：
+
+1. `project.toml` 解析器 → `project.json` 分片（连带 `project.toml` 的解析错误诊断码，`域.slug` 形式，登记进 `packages/ir/src/diagnostics/codes.ts`）。
+2. `component` 描述的 IR 投影 → `components/<component_id>.json` 分片（引脚的电学事实仍归 `component`，符号/封装只存视图，[ADR-0012](adr/0012-symbol-description.md)）。
+3. `system` 描述的语法与解析器 → `systems/<system_id>.json` 分片（`system` 描述进不进语言本身见 `AGENTS.md` §11 Q7 / F17）。
+4. 三种分片进 `manifest.json` 后，**工程哈希的含义会变**——哈希覆盖的分片集合变了，旧哈希与新哈希不可比。这不是 bug，但**要写进迁移说明**（`AGENTS.md` §2 不变量 10 要求破坏性变更附迁移说明）。
+5. 每种新分片都要补 `tests/schemas/` 正反例，并过 `bun run gen:check`。
+
+**注意**：
+
+- **不要为了"树看起来完整"而写空分片**：没有生产者的类型不能出现空目录或空分片（[ADR-0023](adr/0023-ir-layer-on-disk.md) decision 2）。
+- 分片路径与源码目录一一对应（`components/<component_id>.json` ↔ `components/**/<component_id>.teda`，`systems/<system_id>.json` ↔ `system/<system_id>.teda`），不要另发明映射表。
+- 这条不是"补三个文件"，是"补三种描述的解析器"——工作量在解析器，不在写 JSON。

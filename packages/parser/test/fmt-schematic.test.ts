@@ -1,4 +1,4 @@
-// Tests for the `schematic` / `page` canonical form (teda.md §12).
+// Tests for the `schematic` canonical form (teda.md §12).
 //
 // Asserts three things: idempotence (fmt(fmt(x)) == fmt(x)), semantic invariance (parse(fmt(x)) equivalent to parse(x)),
 // and a few concrete canonical rules (section order, row order, the colon and alignment of net rows).
@@ -25,14 +25,13 @@ describe("canonical form (schematic)", () => {
   });
 
   test("semantics unchanged: parsed section contents match", () => {
-    const before = parseSchematicDocument(text, { file, kind: "schematic" });
-    const after = parseSchematicDocument(canonical, { file, kind: "schematic" });
+    const before = parseSchematicDocument(text, { file });
+    const after = parseSchematicDocument(canonical, { file });
     expect(after.ok).toBe(true);
     // Locations (line/col) change with layout, and row order within a section may be rearranged by the canonical form;
     // when comparing semantics, sort by key and compare as sets.
     const normalize = (doc: Document): string =>
       JSON.stringify({
-        kind: doc.kind,
         id: doc.id,
         version: doc.version,
         instances: doc.instances
@@ -42,7 +41,6 @@ describe("canonical form (schematic)", () => {
           .map((n) => `${n.name}: ${[...n.memberRefs].sort().join(" ")}`)
           .sort(),
         ports: doc.ports.map((p) => `${p.id} ${p.net}`).sort(),
-        pages: doc.pages.map((p) => `${p.id} ${p.pageId}`).sort(),
         constraints: doc.constraints.map((c) => `${c.type} ${c.args.join(" ")}`),
         buses: doc.buses.map((b) => `${b.id}=${b.type}`),
       });
@@ -78,29 +76,29 @@ describe("canonical form (schematic)", () => {
   });
 });
 
-describe("canonical form (pages and board root)", () => {
+describe("canonical form (a board with many instances)", () => {
   const boardFile = `${projectDir}/sch/charger-buck.teda`;
   const boardText = readFileSync(boardFile, "utf8");
   const boardCanonical = fmt(boardFile, boardText);
 
-  test("board root idempotent", () => {
+  test("board file idempotent", () => {
     expect(fmt(boardFile, boardCanonical)).toBe(boardCanonical);
   });
 
-  test("board root section order: nets before pages", () => {
+  test("board section order: nets before ports", () => {
     const netsAt = boardCanonical.indexOf("\nnets\n");
-    const pagesAt = boardCanonical.indexOf("\npages\n");
+    const portsAt = boardCanonical.indexOf("\nports\n");
     expect(netsAt).toBeGreaterThan(0);
-    expect(pagesAt).toBeGreaterThan(netsAt);
+    expect(portsAt).toBeGreaterThan(netsAt);
   });
 
-  test("page file is idempotent with correct section order", () => {
-    const file = `${projectDir}/sch/charger-buck/buck-5v.teda`;
-    const text = readFileSync(file, "utf8");
-    const canonical = fmt(file, text);
-    expect(fmt(file, canonical)).toBe(canonical);
-    const order = [...canonical.matchAll(/^(\w+)$/gm)].map((m) => m[1]!);
-    expect(order).toEqual(["instances", "nets", "ports", "constraints"]);
+  test("the instances of both circuits are in one list, in natural order", () => {
+    const rows = boardCanonical.split("\n").filter((l) => /^  [A-Z]+\d+\s/.test(l));
+    const refs = rows.map((l) => l.trim().split(/\s+/)[0]!);
+    expect(refs).toContain("U1");
+    expect(refs).toContain("U2");
+    expect(refs).toContain("C19");
+    expect(refs).toContain("R24");
   });
 });
 

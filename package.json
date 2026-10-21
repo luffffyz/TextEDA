@@ -1,5 +1,6 @@
 {
   "name": "texteda",
+  "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
   "repository": {
@@ -19,6 +20,7 @@
     "check:links": "bun run scripts/check-links.ts",
     "check:public": "bun run scripts/check-public.ts",
     "lib:hash": "bun run scripts/libhash.ts",
+    "migrate:0.7": "bun run scripts/migrate-0.7.ts",
     "lib:verify": "bun run scripts/verify-libs.ts",
     "lib:verify:kicad": "bun run scripts/verify-libs.ts --kicad",
     "export:footprint": "bun run packages/exporter/scripts/export-footprint.ts",
@@ -30,7 +32,8 @@
     "fmt:teda": "bun run packages/parser/scripts/fmt-teda.ts",
     "smoke:symbol": "bun run scripts/smoke-symbol.ts",
     "preview": "bun run scripts/preview.ts",
-    "check": "bun run packages/cli/scripts/texteda.ts check"
+    "check": "bun run packages/cli/scripts/texteda.ts check",
+    "ir": "bun run packages/cli/scripts/texteda.ts ir"
   },
   "devDependencies": {
     "@texteda/exporter": "workspace:*",

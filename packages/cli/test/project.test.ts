@@ -1,5 +1,5 @@
-// Board loading: a page directory contains both page descriptions (`<page>.teda`) and their
-// drawings (`<page>.view.teda`, ADR-0021). Only the former are pages.
+// Board loading: a board is one schematic file, and its drawing lives in a directory of print pages
+// (`<page>.view.teda`, ADR-0021, ADR-0025). The directory holds drawings only.
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,12 +9,14 @@ const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const projectRoot = join(repoRoot, "examples/reference-project");
 
 describe("loadBoard", () => {
-  test("lists page descriptions and skips their view files", () => {
+  test("reads the board's schematic file and its print pages", () => {
     const board = loadBoard(projectRoot, "charger-buck");
     expect(board).not.toBeNull();
-    expect(board!.pages.map((p) => p.pageId)).toEqual(["buck-5v", "charger-power"]);
-    for (const page of board!.pages) {
-      expect(page.text.split("\n")[1]).toBe(`page ${page.pageId}`);
+    expect(board!.file).toBe("sch/charger-buck.teda");
+    expect(board!.text.split("\n")[1]).toBe("schematic charger-buck");
+    expect(board!.views.map((v) => v.pageId)).toEqual(["buck-5v", "charger-power"]);
+    for (const view of board!.views) {
+      expect(view.text.split("\n")[1]).toBe(`view ${view.pageId}`);
     }
   });
 

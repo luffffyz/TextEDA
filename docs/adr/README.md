@@ -11,7 +11,7 @@ Every architecture decision record in this repository, in numeric order.
 | [ADR-0005](0005-manufacturing-output.md) | Manufacturing Output Path (IR → KiCad → Gerber/Excellon) | Accepted | 2026-10-20 |
 | [ADR-0006](0006-jlc-prototype-delivery.md) | JLC Prototype Delivery (BOM / Coordinates / Part Number) | Accepted | 2026-10-21 |
 | [ADR-0007](0007-page-internal-net-naming.md) | The Net Set and Its Names After Flattening (What Happens to In-Page Nets) | Accepted | 2026-10-20 |
-| [ADR-0008](0008-ir-shard-identity-and-hash.md) | IR Sharding, Identity Keys, Units, and Hash Granularity | Proposed | 2026-10-20 |
+| [ADR-0008](0008-ir-shard-identity-and-hash.md) | IR Sharding, Identity Keys, Units, and Hash Granularity | Accepted | 2026-10-20 |
 | [ADR-0009](0009-implementation-stack.md) | Implementation Stack (TypeScript + Bun), Render Layering, and the IDE Integration Surface | Accepted | 2026-10-20 |
 | [ADR-0010](0010-footprint-and-3d-model-ownership.md) | Footprint Geometry and 3D Models Do Not Enter the Language; the Project's Self-Built Footprint Library Is a First-Class Artifact | Accepted | 2026-10-20 |
 | [ADR-0011](0011-library-format-and-footprint-ir.md) | Self-Built Footprint Libraries Use Our Own Format; the KiCad Format Is an Export Artifact | Accepted | 2026-10-20 |
@@ -24,6 +24,9 @@ Every architecture decision record in this repository, in numeric order.
 | [ADR-0019](0019-agent-contract-reference-and-check-entry.md) | Contract Reference and Check Entry Point for Agents | Accepted | 2026-10-21 |
 | [ADR-0021](0021-schematic-view-layer.md) | The Schematic View Layer (S1) Is an Independent Description; the Review UI Is Browser-First | Accepted | 2026-10-21 |
 | [ADR-0022](0022-language-versioning.md) | Language Versioning — MAJOR.MINOR.PATCH, and 1.0 as a Milestone | Accepted | 2026-10-21 |
+| [ADR-0023](0023-ir-layer-on-disk.md) | The IR Layer on Disk (Shard Tree, Manifest, Hashes) | Accepted | 2026-10-21 |
+| [ADR-0024](0024-level-tags-in-flattened-names.md) | Level Tags in Flattened Names — `P` for Pages, `MOD` for Modules | Accepted | 2026-10-21 |
+| [ADR-0025](0025-flat-board-and-print-pages.md) | One Flat Schematic per Board, Pages Become Print Pages in the View Layer | Accepted | 2026-10-21 |
 
 ## Reserved Numbers
 

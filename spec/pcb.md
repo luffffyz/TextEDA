@@ -115,12 +115,12 @@ outline
 ```
 place
   U1    12.0 12.0  0   top
-  M1.R1 18.0 12.0  90  bottom
+  P1.R1 18.0 12.0  90  bottom
 ```
 
 列：`<instance_id> <x> <y> <rot> <side>`。
 
-- `instance_id` 是**稳定实例 ID**（板根实例 `R1`，页面实例 `M1.R1`，见 `teda.md` §7.7），不是 refdes：refdes 可改名，ID 不变（`AGENTS.md` §2 第 5 条、§4.4）。
+- `instance_id` 是**稳定实例 ID**（板级实例 `R1`，层次落地后模块实例 `M1.R1`，见 `teda.md` §7.7），不是 refdes：refdes 可改名，ID 不变（`AGENTS.md` §2 第 5 条、§4.4）。
 - 必须解析到 `sch` 展平后的实例；未放置的 sch 实例按变体状态处理（DNP 不占位）。
 - `side` ∈ `top` / `bottom`；`rot` 单位为度，顺时针为正。
 - 坐标单位 mm，原点为板框包围盒的左下角。
@@ -287,11 +287,11 @@ deviation
 | 实体 | 键 |
 |---|---|
 | 器件 | `component_id`（`AGENTS.md` §4.4） |
-| 实例 | 稳定实例 ID（`R1` / `M1.R1`） |
+| 实例 | 稳定实例 ID（`R1`；层次落地后 `M1.R1`） |
 | 引脚 / pad | `(instance_id, pin_number)`；pad 号来自封装 |
 | net | `net_id`（= net 名，sch 与 pcb 同一命名空间） |
 
-pcb 里写的 net 名是**展平后**的名字：板级 net 用板根的名字，页内 net 用 `<page_instance_id>.<net>`（如 `M2.BOOT`），见 `teda.md` §7.7。IR 里的身份键是 `net_id`，不是名字；名字只是表面语法的引用形式。
+pcb 里写的 net 名就是**板级** net 名，与 sch 同一命名空间（层次落地后模块内的 net 用 `<module_instance_id>.<net>`），见 `teda.md` §7.7。IR 里的身份键是 `net_id`，不是名字；名字只是表面语法的引用形式。
 
 ### 5.2 校验规则
 

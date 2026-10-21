@@ -1,4 +1,4 @@
-// Canonical form for `.teda` `schematic` / `page` (teda.md §12).
+// Canonical form for `.teda` `schematic` (teda.md §12).
 //
 // Kept separate from the footprint / symbol formatters: here we must handle the `bus` instruction block (`bus <id> = <type>`
 // followed by member rows), which is not a single-line section header, so the generic table walker cannot express it; this file brings its own line scan.
@@ -26,10 +26,9 @@ export interface SchematicFormatResult {
   diagnostics: Diagnostic[];
 }
 
-const SCHEMATIC_SECTIONS = ["instances", "nets", "pages", "ports", "bus", "constraints"] as const;
-const PAGE_SECTIONS = ["instances", "nets", "ports", "constraints"] as const;
+const SCHEMATIC_SECTIONS = ["instances", "nets", "ports", "bus", "constraints"] as const;
 
-const SECTION_NAMES = new Set<string>([...SCHEMATIC_SECTIONS, ...PAGE_SECTIONS]);
+const SECTION_NAMES = new Set<string>(SCHEMATIC_SECTIONS);
 
 /** One row (comments attach to the row that follows). */
 interface Row {
@@ -229,12 +228,11 @@ function alignTableRows(rows: Row[], indent: string): string[] {
 }
 
 /**
- * Format a `schematic` / `page` file. No text is produced when there are semantic errors.
+ * Format a `schematic` file. No text is produced when there are semantic errors.
  */
 export function formatSchematic(text: string, options: SchematicFormatOptions): SchematicFormatResult {
   const walk = walkSchematic(text);
-  const kind = walk?.header[1]?.cells[0] === "page" ? "page" : "schematic";
-  const parsed = parseSchematicDocument(text, { file: options.file, kind });
+  const parsed = parseSchematicDocument(text, { file: options.file });
   if (!parsed.ok) return { ok: false, diagnostics: parsed.diagnostics };
   if (!walk) return { ok: false, diagnostics: parsed.diagnostics };
 
@@ -246,8 +244,7 @@ export function formatSchematic(text: string, options: SchematicFormatOptions): 
     walk.header[1]!.cells.join(" "),
   ]);
 
-  const order = kind === "page" ? PAGE_SECTIONS : SCHEMATIC_SECTIONS;
-  for (const name of order) {
+  for (const name of SCHEMATIC_SECTIONS) {
     const section = walk.sections.get(name);
     if (!section) continue;
     const block: string[] = [...section.comments, ...section.header];
@@ -258,7 +255,7 @@ export function formatSchematic(text: string, options: SchematicFormatOptions): 
     } else if (name === "instances") {
       const rows = [...section.rows].sort((a, b) => naturalCompare(a.cells[0]!, b.cells[0]!));
       block.push(...alignTableRows(rows, "  "));
-    } else if (name === "pages" || name === "ports") {
+    } else if (name === "ports") {
       const rows = [...section.rows].sort((a, b) => byteCompare(a.cells[0]!, b.cells[0]!));
       block.push(...alignTableRows(rows, "  "));
     } else {

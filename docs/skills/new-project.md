@@ -41,7 +41,7 @@ read". A step that does not say "on failure, look at code X" is not finished.
 |---|---|---|
 | `texteda init <dir>` | Scaffold an empty project | directories + `project.toml` |
 | `texteda check <dir>` | Parse → contract validation → ERC | diagnostics (human readable; `--json` for machines) |
-| `texteda compile <dir> <board>` | Board root + pages → board-level IR | IR JSON (stdout, or `--out`) |
+| `texteda compile <dir> <board>` | One board file → board-level IR | IR JSON (stdout, or `--out`) |
 | `texteda netlist <dir>` | The connectivity projection of the IR | netlist text |
 
 - **The CLI has no `export` subcommand**: KiCad symbol/footprint export goes through repository
@@ -193,8 +193,7 @@ changes** — `lib:verify` reports the mismatch.
 
 ## 6. Step 4: the schematic
 
-Board root `sch/demo.teda` (a one-page board; a multi-page board adds a `pages` section, see
-`teda.md` §7):
+One board file `sch/demo.teda` (a board is one schematic file; see `teda.md` §7):
 
 ```
 version 0.2
@@ -301,7 +300,7 @@ ones you actually hit:
 | `The id declared in the file header is c-0402x, the file name is c-0402` | `ref.component-id-mismatch` | Make the header id and the file name agree |
 | `component r-0402 has 1 required parameters, but the row gives only 0` | `value.param-count-mismatch` | Supply as many values as the `params` section declares, in its order |
 | `pin R1.2 belongs to both net MID and VCC2` | `net.pin-in-two-nets` | A pin belongs to one net; drop the extra member |
-| `version 0.9 is newer than the 0.6 supported by this tool` | `format.unsupported-version` | Lower the file version, or upgrade the tool. **The version rules are in `teda.md` §13** |
+| `version 0.9 is newer than the 0.7 supported by this tool` | `format.unsupported-version` | Lower the file version, or upgrade the tool. **The version rules are in `teda.md` §13** |
 | `not a valid version number: 0.06` | `format.invalid-version` | A version is `MAJOR.MINOR[.PATCH]`, no leading zeros |
 | `an instances row needs at least 2 columns: refdes component_id` | `syntax.row-too-short` | Fill in the missing columns |
 | `invalid refdes: VCC` | `syntax.invalid-identifier` | A refdes looks like `R1` / `U12`; a net name is not a refdes |

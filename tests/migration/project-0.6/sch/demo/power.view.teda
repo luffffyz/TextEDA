@@ -1,0 +1,21 @@
+version 0.6
+view power
+
+# The power print page, in the 0.6 shape: the page's own net names.
+place
+  C1  40.0  40.0  0
+  R1  70.0  40.0  0
+  U1  100.0  40.0  0
+
+wire
+  GND  C1.2  U1.GND
+  GND  R1.2  U1.GND
+  SYS  C1.1  U1.VIN
+  SYS  R1.1  U1.VIN
+
+label
+  SYS   55.0  36.0
+  VOUT  100.0  36.0
+
+port
+  GND  40.0  44.0

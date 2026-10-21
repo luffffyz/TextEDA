@@ -1,4 +1,4 @@
-// `pcb` description → IR (`schemas/ir/v0.1/pcb.schema.json`). See `spec/pcb.md` for the spec.
+// `pcb` description → IR (`schemas/ir/v0.2/pcb.schema.json`). See `spec/pcb.md` for the spec.
 //
 // This layer only does "text → structure": read sections, validate column counts and enums,
 // and replace unit-bearing literals with integers.
@@ -55,8 +55,11 @@ export const PCB_SECTIONS = [
 type Section = (typeof PCB_SECTIONS)[number];
 
 const SECTION_SET: ReadonlySet<string> = new Set(PCB_SECTIONS);
-/** `pcb` was introduced in 0.4: files below 0.4 do not have this type. */
-const VERSION_RANGE = typeRange(4);
+/**
+ * `pcb` was introduced in language version 0.4; since 0.7 its instance ids and net names are the
+ * board's own (no page prefix, ADR-0025), so a 0.4 pcb file has to be re-checked.
+ */
+const VERSION_RANGE = typeRange(7);
 
 const SCALARS = new Set(["board_thickness"]);
 
@@ -936,7 +939,7 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
   }
 
   const ir: Pcb = {
-    ir_version: "0.1",
+    ir_version: "0.2",
     // The canonical spelling of the version: `0.6` and `0.6.0` are the same version, so the IR stores one of them.
     format: verdict.ok ? verdict.text : format,
     source: { file, line: 1 },

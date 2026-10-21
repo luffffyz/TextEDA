@@ -134,7 +134,7 @@ graphics
 1. `pads` 的 `number` 唯一；`type=th` 必须有 `drill`；`shape=roundrect` 才允许 `rratio`。
 2. `graphics` 的 `geometry` 单元格点数与 `kind` 匹配；`poly` 点数 ≥ 3。
 3. `field` 的 `Name` 唯一。
-4. 编译产物必须通过 `schemas/ir/v0.1/footprint.schema.json`（closed schema）。
+4. 编译产物必须通过 `schemas/ir/v0.2/footprint.schema.json`（closed schema）。
 5. 库级检查（与符号引脚号比对、DRC）不属于本描述，属工具链（[ADR-0010](../docs/adr/0010-footprint-and-3d-model-ownership.md) decision 3）。
 6. 编译产物的顺序只依赖语义，不依赖源文件书写顺序：`pads` 按号自然序、`graphics` 按 `(kind, layer, 坐标)`、`fields` 按 `Name`、`tags` 按字节序。同一封装换个写法编译出的 IR 必须字节相同（这是 `content_hash` 与产物可复现的前提）。
 

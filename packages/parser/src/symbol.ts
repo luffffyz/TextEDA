@@ -553,7 +553,7 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
   if (fields.length > 0) body.fields = fields;
 
   const ir: Symbol = {
-    ir_version: "0.1",
+    ir_version: "0.2",
     source: { file, line: 1 },
     symbol: body,
   };

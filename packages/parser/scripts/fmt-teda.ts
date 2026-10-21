@@ -8,8 +8,11 @@
 //   --stdout   write to stdout, leaving files untouched.
 //   --library  library name; defaults to the containing directory name.
 //
-// Dispatch on the file's type line: currently `footprint`, `symbol`, `schematic`/`page`, `pcb` and `view` are implemented; other description types are
+// Dispatch on the file's type line: currently `footprint`, `symbol`, `schematic`, `pcb` and `view` are implemented; other description types are
 // skipped for now (their fmt is not implemented yet); naming one explicitly is an error, to avoid "thought it was formatted".
+//
+// Pre-0.7 sources kept as inputs for the migration tool are skipped: the current language rejects
+// them, so they are not formatting candidates. The migration tool owns them.
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { formatDiagnostic, type Diagnostic } from "@texteda/ir/diagnostics";
@@ -50,12 +53,21 @@ interface Work {
   fromDirectory: boolean;
 }
 
+/** Pre-0.7 sources kept as migration inputs: the current language rejects them. */
+const LEGACY_PATHS = ["tests/migration/"];
+
+function isLegacy(file: string): boolean {
+  const path = file.split("\\").join("/");
+  return LEGACY_PATHS.some((legacy) => path.includes(legacy));
+}
+
 /** Recursively expand a directory (only .teda), keeping byte order for stable output. */
 function expand(target: string): Work[] {
   if (!statSync(target).isDirectory()) return [{ file: target, fromDirectory: false }];
   return readdirSync(target, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith(".teda"))
     .map((entry) => ({ file: join(entry.parentPath, entry.name), fromDirectory: true }))
+    .filter((work) => !isLegacy(work.file))
     .sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
 }
 
@@ -88,8 +100,16 @@ for (const { file, fromDirectory } of files) {
     result = formatFootprint(text, { file, library });
   } else if (type === "symbol") {
     result = formatSymbol(text, { file, library });
-  } else if (type === "schematic" || type === "page") {
+  } else if (type === "schematic") {
     result = formatSchematic(text, { file });
+  } else if (type === "page") {
+    // The `page` description type was removed in language 0.7 (ADR-0025): say so instead of
+    // silently skipping a leftover file.
+    console.error(
+      `${file}: the \`page\` description type was removed in language 0.7: a board has one schematic file`,
+    );
+    failed = true;
+    continue;
   } else if (type === "pcb") {
     result = formatPcb(text, { file });
   } else if (type === "view") {

@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test";
 import { parsePcb } from "../src/pcb.ts";
 
-const valid = `version 0.4
+const valid = `version 0.7
 pcb main
 board_thickness 1.6mm
 
@@ -46,7 +46,7 @@ describe("complete file", () => {
     expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
     const ir = result.ir!;
     expect(ir.board).toBe("main");
-    expect(ir.format).toBe("0.4");
+    expect(ir.format).toBe("0.7");
     expect(ir.board_thickness_nm).toBe(1_600_000);
     expect(ir.stackup).toHaveLength(3);
     expect(ir.stackup[1]).toEqual({

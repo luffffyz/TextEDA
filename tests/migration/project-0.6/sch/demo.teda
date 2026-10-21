@@ -1,0 +1,16 @@
+version 0.3
+schematic demo
+
+# A board that was split into two pages, in the 0.3 shape.
+nets
+  GND:   P1.GND   P2.GND
+  SYS:   P1.SYS_OUT  P2.SYS_IN
+  VOUT:  P1.VOUT_OUT
+
+pages
+  P1  power
+  P2  sense
+
+ports
+  GND   GND
+  VOUT  VOUT

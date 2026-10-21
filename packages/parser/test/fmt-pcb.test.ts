@@ -5,7 +5,7 @@ import { describe, expect, test } from "bun:test";
 import { formatPcb } from "../src/fmt-pcb.ts";
 import { parsePcb } from "../src/pcb.ts";
 
-const messy = `version 0.4
+const messy = `version 0.7
 # header comment must be kept
 pcb main
 board_thickness 1.6mm

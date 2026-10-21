@@ -2,16 +2,15 @@
 // `packages/core` / `packages/ir` / `packages/parser` never touch the disk.
 //
 // Project layout (AGENTS.md §9):
-//   components/**/*.teda       components (one part per file, id taken from the file name)
-//   sch/<board>.teda           board root
-//   sch/<board>/<page>.teda    page inside a board (a subdivision of the board, not a standalone board)
+//   components/**/*.teda              components (one part per file, id taken from the file name)
+//   sch/<board>.teda                  the board's schematic (one file per board, ADR-0025)
+//   sch/<board>/<page>.view.teda      a print page of the board's drawing (ADR-0021, ADR-0025)
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import {
   readComponentIndex,
   type ComponentFactsLite,
   type ComponentResolver,
-  type PageSource,
 } from "@texteda/parser";
 import type { DiagnosticCodeId } from "@texteda/ir/diagnostics";
 
@@ -86,12 +85,21 @@ export function loadComponents(root: string): LoadedComponents {
 export interface LoadedBoard {
   /** Board id. */
   board: string;
-  /** Board root file (relative to the project root). */
+  /** The board's schematic file (relative to the project root). */
   file: string;
-  /** Board root text. */
+  /** The board's schematic text. */
   text: string;
-  /** Pages inside the board. */
-  pages: PageSource[];
+  /** The board's print pages (the drawing layer, ADR-0021). */
+  views: ViewSource[];
+}
+
+/** A print page of a board's drawing: `sch/<board>/<page_id>.view.teda`. */
+export interface ViewSource {
+  /** Print page id (the view file's id). */
+  pageId: string;
+  /** Path relative to the project root. */
+  file: string;
+  text: string;
 }
 
 /** List the project's boards (`sch/<board>.teda`). Returns an empty array when the directory does not exist. */
@@ -104,20 +112,20 @@ export function listBoards(root: string): string[] {
     .sort();
 }
 
-/** Read the board root and its pages. Returns `null` when the board root does not exist. */
+/** Read the board's schematic file and its print pages. Returns `null` when the schematic file does not exist. */
 export function loadBoard(root: string, board: string): LoadedBoard | null {
   const file = join(root, "sch", `${board}.teda`);
   if (!existsSync(file)) return null;
-  const pageDir = join(root, "sch", board);
-  const pages: PageSource[] = [];
-  if (existsSync(pageDir)) {
-    for (const name of readdirSync(pageDir).sort()) {
-      // `<page>.view.teda` is the page's drawing (ADR-0021), not a page description.
-      if (!name.endsWith(".teda") || name.endsWith(".view.teda")) continue;
-      pages.push({
-        pageId: name.slice(0, name.length - ".teda".length),
-        file: relative(root, join(pageDir, name)),
-        text: readFileSync(join(pageDir, name), "utf8"),
+  const viewDir = join(root, "sch", board);
+  const views: ViewSource[] = [];
+  if (existsSync(viewDir)) {
+    for (const name of readdirSync(viewDir).sort()) {
+      // Only print pages live in this directory: `<page_id>.view.teda` (ADR-0021, ADR-0025).
+      if (!name.endsWith(".view.teda")) continue;
+      views.push({
+        pageId: name.slice(0, name.length - ".view.teda".length),
+        file: relative(root, join(viewDir, name)),
+        text: readFileSync(join(viewDir, name), "utf8"),
       });
     }
   }
@@ -125,7 +133,7 @@ export function loadBoard(root: string, board: string): LoadedBoard | null {
     board,
     file: relative(root, file),
     text: readFileSync(file, "utf8"),
-    pages,
+    views,
   };
 }
 
@@ -137,6 +145,6 @@ export function loadPcb(root: string, board: string): LoadedBoard | null {
     board,
     file: relative(root, file),
     text: readFileSync(file, "utf8"),
-    pages: [],
+    views: [],
   };
 }

@@ -1,8 +1,8 @@
-version 0.6
+version 0.7
 view charger-power
 
 # BQ24610 power path, placement study. The parts sit on a review grid; the wire runs are
-# laid out during review, one net at a time. Ports mark the five board interfaces this page exposes.
+# laid out during review, one net at a time. Ports mark the board interfaces this page reaches.
 place
   C1    22.0   22.0  0
   C2    57.0   22.0  0
@@ -58,11 +58,10 @@ place
   U1    150.0  185.0  0
 
 port
-  AC_IN    20.0   8.0  0
-  AC_RET   80.0   8.0  0
-  BAT_OUT  140.0  8.0  0
-  GND      200.0  8.0  0
-  SYS_OUT  260.0  8.0  0
+  AC_RET  80.0   8.0  0
+  BAT     140.0  8.0  0
+  DC_IN   20.0   8.0  0
+  GND     200.0  8.0  0
 
 text
   20.0  205.0  Power path placement; wire runs are laid out during review

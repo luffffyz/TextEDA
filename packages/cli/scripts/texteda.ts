@@ -8,11 +8,13 @@
 //   texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb]
 //   texteda check <project dir> [--json]
 //   texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]
+//   texteda ir <project dir> [--out <dir>] [--json]
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { initTree, projectNameFromDir } from "../src/init.ts";
 import { runCompile } from "../src/compile.ts";
 import { analyzeProject, checkProject } from "../src/check.ts";
+import { runIr } from "../src/ir.ts";
 import { formatNetlist, toNetlist } from "@texteda/exporter/netlist";
 import { writeOut } from "../src/output.ts";
 import { countByStage, diagnosticsToPayload, hintFor } from "@texteda/ir/diagnostics";
@@ -32,6 +34,7 @@ function fail(code: "cli.bad-flag" | "cli.bad-usage", message: string): never {
         "  texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb]",
         "  texteda check <project dir> [--json]",
         "  texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]",
+        "  texteda ir <project dir> [--out <dir>] [--json]",
       ].join("\n"),
     );
   }
@@ -204,6 +207,16 @@ if (command === "init") {
   runCheck(args);
 } else if (command === "netlist") {
   runNetlist(args);
+} else if (command === "ir") {
+  const root = args.positional[0] ?? fail("cli.bad-usage", "Missing project directory");
+  if (args.positional.length > 1) fail("cli.bad-usage", "Too many arguments");
+  process.exit(
+    runIr({
+      root: resolve(root),
+      outDir: args.values.get("--out"),
+      json: args.flags.has("--json"),
+    }),
+  );
 } else {
   fail("cli.bad-usage", command === undefined ? "Missing command" : `Unknown command: ${command}`);
 }

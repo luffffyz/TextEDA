@@ -61,6 +61,13 @@ export const DIAGNOSTIC_CODES = {
     hint: "Check the spelling of the section name; see teda.md §3 for section names",
     spec: ["teda.md §3"],
   },
+  "syntax.removed-construct": {
+    domain: "syntax",
+    severity: "error",
+    summary: "The file uses a construct that was removed from the language",
+    hint: "Migrate the file to the current language version; the migration note is in teda.md §13.4",
+    spec: ["teda.md §13.4", "docs/adr/0025-flat-board-and-print-pages.md"],
+  },
   "syntax.unknown-field": {
     domain: "syntax",
     severity: "error",
@@ -291,12 +298,6 @@ export const DIAGNOSTIC_CODES = {
     summary: "Reference to a nonexistent instance",
     spec: ["teda.md §7.2"],
   },
-  "ref.unknown-page": {
-    domain: "ref",
-    severity: "error",
-    summary: "Reference to a nonexistent page",
-    spec: ["teda.md §7.6"],
-  },
   "ref.unknown-net": {
     domain: "ref",
     severity: "error",
@@ -304,25 +305,12 @@ export const DIAGNOSTIC_CODES = {
     hint: "Declare this net in the nets section first",
     spec: ["teda.md §7.2"],
   },
-  "ref.unknown-port": {
-    domain: "ref",
-    severity: "error",
-    summary: "Reference to a nonexistent port",
-    spec: ["teda.md §7.5"],
-  },
   "ref.ambiguous-pin": {
     domain: "ref",
     severity: "error",
     summary: "Ambiguous pin reference (matches multiple pins)",
     hint: "Use the pin number instead",
     spec: ["teda.md §4.5"],
-  },
-  "ref.dangling-port": {
-    domain: "ref",
-    severity: "error",
-    summary: "Port has no corresponding net",
-    hint: "Reference it as M1.<port_id> in the board root's nets section, or delete this port",
-    spec: ["teda.md §7.5"],
   },
   "ref.duplicate-refdes": {
     domain: "ref",
@@ -379,12 +367,6 @@ export const DIAGNOSTIC_CODES = {
     summary: "A pin does not belong to any net",
     hint: "Connect it to a net, or mark the pin as no_connect in the component file",
     spec: ["teda.md §11"],
-  },
-  "net.port-in-two-nets": {
-    domain: "net",
-    severity: "error",
-    summary: "A port appears in two nets",
-    spec: ["teda.md §7.5"],
   },
 
   // ---- drc: emergent checks ----
@@ -562,11 +544,18 @@ export const DIAGNOSTIC_CODES = {
     summary: "Wrong command or argument count",
     spec: [],
   },
+  "cli.empty-project": {
+    domain: "cli",
+    severity: "error",
+    summary: "The project holds no description that can be compiled",
+    hint: "Add a board description (sch/<board_id>.teda), a PCB description, or a library file; or point at the right project directory",
+    spec: [],
+  },
 
   // ---- view: the schematic view layer (S1) ----
-  // Only the codes the view parser emits are registered here; the page cross-check and the
-  // readability checks register theirs when they land (the registry is the source of truth for
-  // what is actually emitted, ADR-0016).
+  // Only the codes the view parser emits are registered here; the board <-> print page cross-check
+  // and the readability checks register theirs when they land (the registry is the source of truth
+  // for what is actually emitted, ADR-0016).
   "view.out-of-sheet": {
     domain: "view",
     severity: "error",

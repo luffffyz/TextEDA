@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:texteda:ir:0.1:common",
-  "title": "TextEDA IR v0.1 — common definitions",
+  "$id": "urn:texteda:ir:0.2:common",
+  "title": "TextEDA IR v0.2 — common definitions",
   "description": "Scalars, identity patterns and unit conventions shared by all shards. The field-name suffix is the unit: _nm nanometers, _mdeg millidegrees, _mohm milliohms, _uv microvolts, _na nanoamps, _uw microwatts, _mhz millihertz, _mdegc millidegrees Celsius, _ppm parts per million, _uohm microohms, _ff femtofarads, _ph picohenries. Rules: docs/adr/0008-ir-shard-identity-and-hash.md.",
   "$defs": {
     "ir_version": {
-      "const": "0.1",
-      "description": "IR contract version, currently always 0.1."
+      "const": "0.2",
+      "description": "IR contract version, currently always 0.2."
     },
     "format_version": {
       "type": "string",
@@ -16,7 +16,7 @@
     "slug": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]*$",
-      "description": "Shape of component_id / board_id / page_id / system_id / variant id."
+      "description": "Shape of component_id / board_id / view page_id / system_id / variant id."
     },
     "lib_id": {
       "type": "string",
@@ -31,12 +31,12 @@
     "instance_id": {
       "type": "string",
       "pattern": "^([A-Z]+[0-9]+\\.)?[A-Z]+[0-9]+$",
-      "description": "Board-root instance U1; in-page instance <page_instance_id>.<refdes>, e.g. M2.U1. This is the identity key; see ADR-0008 decision 3."
+      "description": "Instance id of the board's flat list: U1. The qualified form <module_instance_id>.<refdes> (M1.U1) is reserved for the module hierarchy, which is not implemented yet. This is the identity key; see ADR-0008 decision 3."
     },
     "net_id": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_+-]+(\\.[A-Za-z0-9_+-]+)*$",
-      "description": "The flattened net name is the identity key: board-level nets use the board-root name (GND), in-page nets use <page_instance_id>.<net> (M2.BOOT)."
+      "description": "The net name is the identity key: GND, BUCK_VFB. The qualified form is reserved for the module hierarchy."
     },
     "pin_number": {
       "type": "string",
@@ -46,7 +46,7 @@
     "pin_ref": {
       "type": "string",
       "pattern": "^([A-Z]+[0-9]+\\.)?[A-Z]+[0-9]+\\.[A-Za-z0-9_+-]+$",
-      "description": "<instance_id>.<pin_number>, e.g. M2.U1.4, M2.U1.PAD."
+      "description": "<instance_id>.<pin_number>, e.g. U1.4, U1.PAD."
     },
     "pad_ref": {
       "type": "string",

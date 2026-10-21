@@ -24,15 +24,16 @@ bun run check:links      # 全部 Markdown 链接与 ADR 交叉引用可解析
 bun run check:public     # 公开清扫：查全历史——没有厂商 PDF、没有凭据、没有维护者路径
 bun run preview symbol bq24610rger     # 画符号（不依赖 KiCad）
 bun run preview component bq24610rger  # 画器件的符号 + 封装
-bun run preview view charger-buck/buck-5v  # 画原理图页面（从视图文件，不依赖 KiCad）
+bun run preview view charger-buck/buck-5v  # 画原理图打印页（从视图文件，不依赖 KiCad）
 bun run fmt:teda --check examples/reference-project   # canonical form 检查
 bun run compile:schematic examples/reference-project mcu-board   # 板级 IR（诊断带错误码）
 bun run check examples/reference-project          # 校验工程里全部板（ERC + IR 契约）
 bun run texteda netlist examples/reference-project --board mcu-board  # 网表 = IR 的连通性投影
+bun run texteda ir examples/reference-project      # 写出 IR 分片树（canonical JSON + manifest + 哈希）
 bun run texteda init ./my-board        # 生成空工程骨架
 ```
 
-当前状态：工具链前半段已落地（语言 → IR → KiCad 导出 → 预览渲染）。`schematic` / `page` 解析（实例、net、port、约束、bus、页面展平）、`view` 解析（S1 摆位与走线）、`pcb` 解析（12 段 → `pcb` IR）、footprint / symbol / schematic-page / pcb / view 的 canonical formatter、连通性 ERC 与 sch↔pcb 绑定校验（`packages/core`）都能用，原理图页面可从视图文件出图（`bun run preview view <board>/<page>`）。板级设计（布局、布线、制造出口）未实现；KiCad 仍是制造出口（[ADR-0005](docs/adr/0005-manufacturing-output.md)）。
+当前状态：工具链前半段已落地（语言 → IR → KiCad 导出 → 预览渲染）。`schematic` 解析（实例、net、port、约束、bus——一块板一份扁平文件，[ADR-0025](docs/adr/0025-flat-board-and-print-pages.md)）、`view` 解析（S1 打印页）、`pcb` 解析（12 段 → `pcb` IR）、footprint / symbol / schematic / pcb / view 的 canonical formatter、连通性 ERC 与 sch↔pcb 绑定校验（`packages/core`）都能用，原理图打印页可从视图文件出图（`bun run preview view <board>/<page>`），整个工程可编译成带 manifest 与哈希的 IR 分片树（`bun run texteda ir <工程目录>`，[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)）。板级设计（布局、布线、制造出口）未实现；KiCad 仍是制造出口（[ADR-0005](docs/adr/0005-manufacturing-output.md)）。
 
 给 agent 用的两份派生物（都由 `bun run gen` 生成，不手改）：
 
@@ -75,15 +76,15 @@ KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.
 | `LICENSE` / `NOTICE` | Apache-2.0 与归属声明 |
 | `teda.md` | `.teda` 语法总览 |
 | `spec/` | 分描述规范：`project` / `schematic` / `pcb` / `symbol` / `footprint` / `system` |
-| `schemas/ir/v0.1/` | IR 契约（JSON Schema 2020-12，唯一契约） |
+| `schemas/ir/v0.2/` | IR 契约（JSON Schema 2020-12，唯一契约） |
 | `packages/ir` | IR 类型与契约校验 |
 | `packages/parser` | `.teda` → IR，含 `fmt`（canonical form） |
 | `packages/core` | 纯规则：连通性 ERC 与 sch↔pcb 绑定，不碰 fs |
 | `packages/exporter` | 封装 / 符号 → KiCad（`.kicad_mod` / `.kicad_sym`）；网表 |
 | `packages/renderer` | 参考渲染器：IR → 绘图指令 → SVG（[ADR-0014](docs/adr/0014-reference-renderer.md)） |
-| `packages/cli` | `texteda init` / `compile` / `check` / `netlist`（[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)） |
+| `packages/cli` | `texteda init` / `compile` / `check` / `netlist` / `ir`（[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)、[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)） |
 | `examples/reference-project/` | 自包含的参考工程：22 个器件 / 15 个符号 / 16 个封装，库全部自建 |
-| `docs/adr/` | 决策记录（ADR），0001–0019（[完整索引](docs/adr/README.md)；0017 与 0020 已预留） |
+| `docs/adr/` | 决策记录（ADR），0001–0025（[完整索引](docs/adr/README.md)；0017 与 0020 已预留） |
 | `docs/backlog.md` | 待办清单 |
 | `docs/comparison.md` | 与 KiCad、EasyEDA、tscircuit 的对比（带出处） |
 
@@ -107,6 +108,11 @@ KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.
 - [ADR-0016](docs/adr/0016-diagnostic-error-codes.md) 诊断错误码注册表：`域.slug`，发出即冻结
 - [ADR-0018](docs/adr/0018-zero-dependency-and-manufacturing-target.md) 零依赖原则与制造出口目标形态：KiCad 是可选后端
 - [ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md) agent 契约参考与 `check` 入口
+- [ADR-0021](docs/adr/0021-schematic-view-layer.md) S1 视图层：画法是独立的描述类型
+- [ADR-0022](docs/adr/0022-language-versioning.md) 语言版本：`MAJOR.MINOR[.PATCH]`，`1.0` 是冻结点
+- [ADR-0023](docs/adr/0023-ir-layer-on-disk.md) 落盘的 IR 层：分片树、manifest、哈希
+- [ADR-0024](docs/adr/0024-level-tags-in-flattened-names.md) 展平名字里的层级标记（`M1.R1`）
+- [ADR-0025](docs/adr/0025-flat-board-and-print-pages.md) 一板一份扁平原理图；页面变成视图层的打印页
 
 完整索引（含标题、状态、日期）见 [docs/adr/README.md](docs/adr/README.md)。
 

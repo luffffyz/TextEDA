@@ -1,16 +1,9 @@
-// `schematic` / `page` description parsing: source text → board-level IR pieces (teda.md §7, ADR-0002 decisions, ADR-0007).
+// `schematic` description parsing: source text → board-level IR (teda.md §7, ADR-0025).
 //
-// Two stages:
-//   1. `parseSchematicDocument` parses a single document (board root or page), doing only surface parsing and unit conversion;
-//   2. `parseSchematic` flattens board root + pages into one board-level IR.
+// One board = one file: `sch/<board_id>.teda` holds the board's instances, nets, ports and constraints.
+// There is no page level, no second namespace and no flattening (ADR-0025 decision 1-3).
 //
-// Flattening rules (teda.md §7.7, ADR-0007):
-//   - board = board root instance + one instance per page; in-page instance id = `<page_instance_id>.<refdes>`;
-//   - a page net referenced by the board root through `ports` is merged into that board-level net, taking the board-level net's name;
-//   - unreferenced in-page nets stay in the flattened result, named `<page_instance_id>.<net>`;
-//   - board-level net names must not contain `.` (to avoid clashing with the namespace form above); bus member nets are the exception (`<bus_id>.<member>`).
-//
-// The parser never touches the filesystem: component and page contents are supplied by the caller (`ComponentResolver` / `PageSource`),
+// The parser never touches the filesystem: component contents are supplied by the caller (`ComponentResolver`),
 // so the `parser` package still runs in the browser (ADR-0009 decision 1).
 import type {
   Bus,
@@ -30,10 +23,9 @@ import { byteCompare, naturalCompare, pinRefCompare } from "@texteda/ir/order";
 import { parseQuantity, parseQuantityRange, type QuantityKind } from "./quantities.ts";
 import { parseLengthNm } from "./units.ts";
 
-/** `page` was introduced in 0.3; the `schematic` type exists since 0.1 (teda.md §13). */
+/** The `schematic` type exists since 0.1 (teda.md §13). */
 const VERSION_RANGE: Record<DocumentKind, VersionRange> = {
   schematic: typeRange(1),
-  page: typeRange(3),
 };
 
 const REFDES_RE = /^[A-Z]+[0-9]+$/;
@@ -74,21 +66,11 @@ export interface ComponentResolver {
   resolve(componentId: string): ComponentFactsLite | undefined;
 }
 
-/** Page source file. */
-export interface PageSource {
-  pageId: string;
-  /** Path relative to the project root, written into the IR's `pages[].file`. */
-  file: string;
-  text: string;
-}
-
 export interface SchematicParseOptions {
-  /** Board root file (relative to the project root), written into the IR's `source.file`. */
+  /** Board file (relative to the project root), written into the IR's `source.file`. */
   file: string;
   /** board_id. */
   board: string;
-  /** Page source files; pages referenced by the `pages` section must be present here. */
-  pages?: PageSource[];
   /** Component resolver; if omitted, every `instances` row reports "component not found". */
   components?: ComponentResolver;
 }
@@ -122,12 +104,6 @@ interface RawPort {
   col: number;
 }
 
-interface RawPageRef {
-  id: string;
-  pageId: string;
-  line: number;
-}
-
 interface RawConstraint {
   type: string;
   args: string[];
@@ -148,25 +124,22 @@ interface RawBus {
   line: number;
 }
 
-/** The two schematic document types: a board root and a board-internal page. */
-export type DocumentKind = "schematic" | "page";
+/** The document type of a board file. */
+export type DocumentKind = "schematic";
 
 export interface Document {
-  kind: DocumentKind;
   id: string;
   version: string;
   file: string;
   instances: RawInstance[];
   nets: RawNet[];
   ports: RawPort[];
-  pages: RawPageRef[];
   constraints: RawConstraint[];
   buses: RawBus[];
 }
 
 export interface DocumentParseOptions {
   file: string;
-  kind: DocumentKind;
 }
 
 export interface DocumentParseResult {
@@ -218,11 +191,10 @@ const SECTION_NAMES: Record<string, true> = {
   instances: true,
   nets: true,
   ports: true,
-  pages: true,
   constraints: true,
 };
 
-/** Parse a single `schematic` or `page` document. */
+/** Parse a single `schematic` document. */
 export function parseSchematicDocument(text: string, options: DocumentParseOptions): DocumentParseResult {
   const { file } = options;
   const diagnostics = new Diagnostics();
@@ -234,7 +206,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
     return { ok: false, diagnostics: diagnostics.items };
   }
   const version = versionLine.cells[1]?.text ?? "";
-  const verdict = checkVersion(version, VERSION_RANGE[options.kind], options.kind);
+  const verdict = checkVersion(version, VERSION_RANGE.schematic, "schematic");
   if (!verdict.ok) {
     diagnostics.add(
       "error",
@@ -251,9 +223,24 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
   const versionText = verdict.text;
 
   const typeLine = lines[1];
-  const expectedType = options.kind;
+  const expectedType = "schematic";
   if (!typeLine || typeLine.cells.length !== 2 || typeLine.cells[0]!.text !== expectedType) {
-    diagnostics.add("error", "syntax.header-invalid", `the second line must be ${expectedType} <id>`, file, typeLine?.number ?? 2, 1);
+    // The `page` description type was removed in language 0.7 (ADR-0025): say so instead of "unknown type".
+    if (typeLine?.cells[0]?.text === "page") {
+      diagnostics.add(
+        "error",
+        "syntax.removed-construct",
+        "the `page` description type was removed in language 0.7: a board has one schematic file",
+        file,
+        typeLine.number,
+        typeLine.cells[0]!.col,
+        {
+          hint: "merge this file's instances, nets and constraints into sch/<board_id>.teda and delete the pages section; see teda.md §13.4 and docs/adr/0025-flat-board-and-print-pages.md",
+        },
+      );
+    } else {
+      diagnostics.add("error", "syntax.header-invalid", `the second line must be ${expectedType} <id>`, file, typeLine?.number ?? 2, 1);
+    }
     return { ok: false, diagnostics: diagnostics.items };
   }
   const id = typeLine.cells[1]!.text;
@@ -262,14 +249,12 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
   }
 
   const doc: Document = {
-    kind: expectedType,
     id,
     version: versionText,
     file,
     instances: [],
     nets: [],
     ports: [],
-    pages: [],
     constraints: [],
     buses: [],
   };
@@ -286,10 +271,6 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
     const head = cells[0]!.text;
 
     if (head === "bus") {
-      if (expectedType !== "schematic") {
-        diagnostics.add("error", "syntax.unknown-section", "page files do not support the bus section", file, line.number, cells[0]!.col);
-        continue;
-      }
       if (cells.length !== 4 || cells[2]!.text !== "=") {
         diagnostics.add("error", "syntax.row-too-short", "a bus row must be written as bus <id> = <type>", file, line.number, cells[0]!.col);
         continue;
@@ -300,11 +281,23 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
       continue;
     }
 
+    if (head === "pages") {
+      // The `pages` section was removed in language 0.7 (ADR-0025): say so instead of "unknown section".
+      diagnostics.add(
+        "error",
+        "syntax.removed-construct",
+        "the `pages` section was removed in language 0.7: a board has one schematic file",
+        file,
+        line.number,
+        cells[0]!.col,
+        {
+          hint: "merge the page files' instances, nets and constraints into this file and delete the pages section; see teda.md §13.4 and docs/adr/0025-flat-board-and-print-pages.md",
+        },
+      );
+      continue;
+    }
+
     if (SECTION_NAMES[head] === true) {
-      if (expectedType === "page" && head === "pages") {
-        diagnostics.add("error", "syntax.unknown-section", "page files have no pages section", file, line.number, cells[0]!.col);
-        continue;
-      }
       section = head;
       bus = null;
       lastNetName = null;
@@ -369,7 +362,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
           continue;
         }
         if (!NET_ID_RE.test(name)) {
-          // net names must not contain a dot: board-level net names must not contain `.`, and in-page nets carry the `<page_instance_id>.` prefix (teda.md §7.7).
+          // Net names are board-level and must not contain a dot (the qualified form is reserved for the module hierarchy; teda.md §7.6).
           diagnostics.add(
             "error",
             "syntax.invalid-identifier",
@@ -412,14 +405,6 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
           continue;
         }
         doc.ports.push({ id: portId, net: cells[1]!.text, line: line.number, col: cells[0]!.col });
-        continue;
-      }
-      case "pages": {
-        if (cells.length !== 2) {
-          diagnostics.add("error", "syntax.row-too-short", "a pages row must be written as page_instance_id page_id", file, line.number, cells[0]!.col);
-          continue;
-        }
-        doc.pages.push({ id: cells[0]!.text, pageId: cells[1]!.text, line: line.number });
         continue;
       }
       case "constraints": {
@@ -501,234 +486,82 @@ function splitNetRow(cells: Cell[]): { name: string; members: string[] } {
   return { name: first, members: cells.slice(1).map((c) => c.text) };
 }
 
-/* ------------------------------------------------------------------ flattening */
+/* ------------------------------------------------------------------ board assembly */
 
-/** Scope: the instances, nets, and ports of one document (board root or a page instance). */
+/** Scope: the instances, nets and ports of one board. */
 interface Scope {
-  /** Instance id prefix: `""` for the board root, `<page_instance_id>.` for a page. */
-  prefix: string;
-  /** Local refdes → instance. */
+  /** refdes → instance. */
   instances: Map<string, RawInstance>;
-  /** Local net name → net. */
+  /** net name → net. */
   nets: Map<string, RawNet>;
-  /** port_id → local net name. */
+  /** port_id → net name. */
   ports: Map<string, string>;
   doc: Document;
-  /** Page instance id (undefined for the board root). */
-  pageInstanceId?: string;
 }
 
 export function parseSchematic(text: string, options: SchematicParseOptions): SchematicParseResult {
   const diagnostics = new Diagnostics();
-  const board = parseSchematicDocument(text, { file: options.file, kind: "schematic" });
+  const board = parseSchematicDocument(text, { file: options.file });
   for (const d of board.diagnostics) diagnostics.items.push(d);
   if (!board.doc) return { ok: false, diagnostics: diagnostics.items };
 
   const boardDoc = board.doc;
   const resolver = options.components;
 
-  // Pages: find source files via the pages section.
-  const pageSources = new Map<string, PageSource>();
-  for (const page of options.pages ?? []) pageSources.set(page.pageId, page);
-
-  const boardScope: Scope = {
-    prefix: "",
+  const scope: Scope = {
     instances: new Map(),
     nets: new Map(boardDoc.nets.map((n) => [n.name, n])),
     ports: new Map(boardDoc.ports.map((p) => [p.id, p.net])),
     doc: boardDoc,
   };
   for (const inst of boardDoc.instances) {
-    if (boardScope.instances.has(inst.refdes)) {
+    if (scope.instances.has(inst.refdes)) {
       diagnostics.add("error", "ref.duplicate-refdes", `duplicate refdes: ${inst.refdes}`, boardDoc.file, inst.line, inst.col);
       continue;
     }
-    boardScope.instances.set(inst.refdes, inst);
-  }
-
-  const pageScopes: Scope[] = [];
-  const pageInstanceIds = new Set<string>();
-  for (const pageRef of boardDoc.pages) {
-    if (!REFDES_RE.test(pageRef.id)) {
-      diagnostics.add("error", "syntax.invalid-identifier", `invalid page_instance_id: ${pageRef.id}`, boardDoc.file, pageRef.line, 1);
-      continue;
-    }
-    if (pageInstanceIds.has(pageRef.id)) {
-      diagnostics.add("error", "value.duplicate-field", `duplicate page_instance_id: ${pageRef.id}`, boardDoc.file, pageRef.line, 1);
-      continue;
-    }
-    if (boardScope.instances.has(pageRef.id)) {
-      diagnostics.add(
-        "error",
-        "ref.duplicate-refdes",
-        `page_instance_id ${pageRef.id} has the same name as a board-root refdes`,
-        boardDoc.file,
-        pageRef.line,
-        1,
-      );
-      continue;
-    }
-    pageInstanceIds.add(pageRef.id);
-
-    const source = pageSources.get(pageRef.pageId);
-    if (!source) {
-      diagnostics.add(
-        "error",
-        "ref.unknown-page",
-        `page ${pageRef.pageId} has no corresponding source file`,
-        boardDoc.file,
-        pageRef.line,
-        1,
-        { expected: `sch/${options.board}/${pageRef.pageId}.teda` },
-      );
-      continue;
-    }
-    const parsed = parseSchematicDocument(source.text, { file: source.file, kind: "page" });
-    for (const d of parsed.diagnostics) diagnostics.items.push(d);
-    if (!parsed.doc) continue;
-    if (parsed.doc.id !== pageRef.pageId) {
-      diagnostics.add(
-        "error",
-        "ref.unknown-page",
-        `page file header id does not match the pages section: ${parsed.doc.id} ≠ ${pageRef.pageId}`,
-        source.file,
-        2,
-        1,
-      );
-      continue;
-    }
-    const scope: Scope = {
-      prefix: `${pageRef.id}.`,
-      instances: new Map(),
-      nets: new Map(parsed.doc.nets.map((n) => [n.name, n])),
-      ports: new Map(parsed.doc.ports.map((p) => [p.id, p.net])),
-      doc: parsed.doc,
-      pageInstanceId: pageRef.id,
-    };
-    for (const inst of parsed.doc.instances) {
-      if (scope.instances.has(inst.refdes)) {
-        diagnostics.add("error", "ref.duplicate-refdes", `duplicate refdes: ${inst.refdes}`, source.file, inst.line, inst.col);
-        continue;
-      }
-      scope.instances.set(inst.refdes, inst);
-    }
-    pageScopes.push(scope);
+    scope.instances.set(inst.refdes, inst);
   }
 
   /* -------- instances -------- */
 
   const instances: Instance[] = [];
-  const scopes: Scope[] = [boardScope, ...pageScopes];
   const instanceOrigin = new Map<string, { file: string; line: number; col: number }>();
-  for (const scope of scopes) {
-    for (const inst of scope.instances.values()) {
-      const id = `${scope.prefix}${inst.refdes}`;
-      const facts = resolver?.resolve(inst.componentId);
-      if (!facts) {
-        diagnostics.add(
-          "error",
-          "ref.unknown-component",
-          `component ${inst.componentId} not found`,
-          scope.doc.file,
-          inst.line,
-          inst.col,
-          { expected: `components/ contains ${inst.componentId}.teda`, data: { component_id: inst.componentId, refdes: inst.refdes } },
-        );
-        continue;
-      }
-      const params = resolveParams(inst, facts, scope.doc.file, diagnostics);
-      instanceOrigin.set(id, { file: scope.doc.file, line: inst.line, col: inst.col });
-      instances.push({
-        id,
-        component: inst.componentId,
-        ...(scope.pageInstanceId !== undefined ? { page: scope.pageInstanceId } : {}),
-        ...(params.length > 0 ? { params } : {}),
-        line: inst.line,
-      });
+  for (const inst of scope.instances.values()) {
+    const facts = resolver?.resolve(inst.componentId);
+    if (!facts) {
+      diagnostics.add(
+        "error",
+        "ref.unknown-component",
+        `component ${inst.componentId} not found`,
+        boardDoc.file,
+        inst.line,
+        inst.col,
+        { expected: `components/ contains ${inst.componentId}.teda`, data: { component_id: inst.componentId, refdes: inst.refdes } },
+      );
+      continue;
     }
+    const params = resolveParams(inst, facts, boardDoc.file, diagnostics);
+    instanceOrigin.set(inst.refdes, { file: boardDoc.file, line: inst.line, col: inst.col });
+    instances.push({
+      id: inst.refdes,
+      component: inst.componentId,
+      ...(params.length > 0 ? { params } : {}),
+      line: inst.line,
+    });
   }
 
-  /* -------- net ownership -------- */
+  /* -------- nets -------- */
 
-  // A board-level net may contain page port references (`M1.AC_RET`): each merges its in-page net into the board-level net.
-  const boardNetMembers = new Map<string, string[]>();
-  const pageNetOwner = new Map<string, string>(); // `${pageInstanceId}.${pageNet}` → board-level net name
-  const usedPagePorts = new Set<string>();
-
+  const nets: Net[] = [];
+  const netOrigin = new Map<string, { file: string; line: number }>(); // net → declaration location
   for (const net of boardDoc.nets) {
     const members: string[] = [];
     for (const ref of net.memberRefs) {
-      const parts = ref.split(".");
-      const target = parts.length === 2 ? pageScopes.find((s) => s.pageInstanceId === parts[0]) : undefined;
-      if (target) {
-        const portId = parts[1]!;
-        const pageNetName = target.ports.get(portId);
-        if (pageNetName === undefined) {
-          diagnostics.add(
-            "error",
-            "ref.unknown-port",
-            `page ${target.pageInstanceId} does not declare port ${portId}`,
-            boardDoc.file,
-            net.line,
-            1,
-          );
-          continue;
-        }
-        const key = `${target.pageInstanceId}.${pageNetName}`;
-        const owner = pageNetOwner.get(key);
-        if (owner !== undefined && owner !== net.name) {
-          diagnostics.add(
-            "error",
-            "net.port-in-two-nets",
-            `page net ${key} is referenced by both net ${owner} and net ${net.name}`,
-            boardDoc.file,
-            net.line,
-            1,
-          );
-          continue;
-        }
-        pageNetOwner.set(key, net.name);
-        usedPagePorts.add(key);
-        continue;
-      }
-      const resolved = resolvePinRef(boardScope, ref, resolver, diagnostics);
+      const resolved = resolvePinRef(scope, ref, resolver, diagnostics);
       if (resolved !== null) members.push(resolved);
     }
-    boardNetMembers.set(net.name, members);
-  }
-
-  /* -------- net flattening -------- */
-
-  const nets: Net[] = [];
-  const pageNetFlattenedName = new Map<string, string>(); // `${pageInstanceId}.${pageNet}` → flattened net name
-  const netOrigin = new Map<string, { file: string; line: number }>(); // net → declaration location
-  for (const net of boardDoc.nets) {
-    nets.push({ id: net.name, members: boardNetMembers.get(net.name) ?? [] });
+    nets.push({ id: net.name, members });
     netOrigin.set(net.name, { file: boardDoc.file, line: net.line });
-  }
-  for (const scope of pageScopes) {
-    const pageId = scope.pageInstanceId!;
-    for (const net of scope.doc.nets) {
-      const key = `${pageId}.${net.name}`;
-      const owner = pageNetOwner.get(key);
-      const members: string[] = [];
-      for (const ref of net.memberRefs) {
-        const resolved = resolvePinRef(scope, ref, resolver, diagnostics);
-        if (resolved !== null) members.push(resolved);
-      }
-      if (owner !== undefined) {
-        pageNetFlattenedName.set(key, owner);
-        const target = nets.find((n) => n.id === owner);
-        if (target) target.members.push(...members);
-        // This in-page net was merged into a board-level net: after merging members, the
-        // board-level rule decides (a board-level net with ports is not a dangling connection, so this side must not report it again).
-        continue;
-      }
-      const flattenedId = `${pageId}.${net.name}`;
-      pageNetFlattenedName.set(key, flattenedId);
-      netOrigin.set(flattenedId, { file: scope.doc.file, line: net.line });
-      nets.push({ id: flattenedId, members });
-    }
   }
 
   /* -------- bus -------- */
@@ -740,7 +573,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
       const netId = `${bus.id}.${member.member}`;
       const members: string[] = [];
       for (const ref of member.refs) {
-        const resolved = resolvePinRef(boardScope, ref, resolver, diagnostics);
+        const resolved = resolvePinRef(scope, ref, resolver, diagnostics);
         if (resolved !== null) members.push(resolved);
       }
       nets.push({ id: netId, members });
@@ -757,7 +590,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
   nets.sort((a, b) => byteCompare(a.id, b.id));
 
   // Connectivity rules live in `@texteda/core` (ADR-0019 / backlog F19): this file only lays out the facts—
-  // the flattened nets, each instance's pins, which nets carry board-level ports, and the locations.
+  // the board's nets, each instance's pins, which nets carry board ports, and the locations.
   const pins: ConnectivityPin[] = [];
   for (const instance of instances) {
     const facts = resolver?.resolve(instance.component);
@@ -788,80 +621,45 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
   /* -------- ports -------- */
 
   const ports: Port[] = [];
-  // A single net is referenced by at most one port (per scope: ports from two pages pointing at the same board-level net is normal).
-  const portNets = new Map<string, string>(); // `${scopeId}|${net}` → port id
-  const checkPortNet = (scopeId: string, portId: string, net: string, file: string, line: number, col: number): void => {
-    const key = `${scopeId}|${net}`;
-    const owner = portNets.get(key);
+  // A single net is referenced by at most one port.
+  const portNets = new Map<string, string>(); // net → port id
+  for (const port of boardDoc.ports) {
+    const owner = portNets.get(port.net);
     if (owner !== undefined) {
       diagnostics.add(
         "error",
         "ref.duplicate-port-net",
-        `net ${net} is referenced by both port ${owner} and port ${portId}`,
-        file,
-        line,
-        col,
+        `net ${port.net} is referenced by both port ${owner} and port ${port.id}`,
+        boardDoc.file,
+        port.line,
+        port.col,
         { hint: "at most one port per net; to break out in multiple places, use a different net" },
       );
-      return;
+      continue;
     }
-    portNets.set(key, portId);
-  };
-
-  for (const port of boardDoc.ports) {
-    checkPortNet("", port.id, port.net, boardDoc.file, port.line, port.col);
+    portNets.set(port.net, port.id);
     ports.push({ id: port.id, net: port.net });
-  }
-  for (const scope of pageScopes) {
-    const pageId = scope.pageInstanceId!;
-    for (const port of scope.doc.ports) {
-      const key = `${pageId}.${port.net}`;
-      const flattened = pageNetFlattenedName.get(key) ?? key;
-      if (!usedPagePorts.has(key)) {
-        diagnostics.add(
-          "warning",
-          "ref.dangling-port",
-          `page ${pageId} declares port ${port.id}, but the board root never references it`,
-          scope.doc.file,
-          port.line,
-          port.col,
-          { hint: "reference it from the board root's nets section as M1." + port.id + ", or delete this port" },
-        );
-      }
-      checkPortNet(pageId, port.id, port.net, scope.doc.file, port.line, port.col);
-      ports.push({ id: port.id, net: flattened, page: pageId });
-    }
   }
 
   /* -------- constraints -------- */
 
   const constraints: Constraint[] = [];
-  for (const scope of scopes) {
-    for (const raw of scope.doc.constraints) {
-      const constraint = buildConstraint(raw, scope, resolver, pageNetFlattenedName, diagnostics);
-      if (constraint !== null) constraints.push(constraint);
-    }
+  for (const raw of boardDoc.constraints) {
+    const constraint = buildConstraint(raw, scope, resolver, diagnostics);
+    if (constraint !== null) constraints.push(constraint);
   }
 
   /* -------- assembly -------- */
 
   instances.sort((a, b) => naturalCompare(a.id, b.id));
   nets.sort((a, b) => byteCompare(a.id, b.id));
-  ports.sort((a, b) => byteCompare(a.page ? `${a.page}.${a.id}` : a.id, b.page ? `${b.page}.${b.id}` : b.id));
+  ports.sort((a, b) => byteCompare(a.id, b.id));
 
   const ir: Schematic = {
-    ir_version: "0.1",
+    ir_version: "0.2",
     format: boardDoc.version,
     source: { file: boardDoc.file, line: 1 },
     board: options.board,
-    ...(boardDoc.pages.length > 0
-      ? {
-          pages: boardDoc.pages.map((p) => {
-            const source = pageSources.get(p.pageId);
-            return { id: p.id, page: p.pageId, file: source?.file ?? `sch/${options.board}/${p.pageId}.teda` };
-          }),
-        }
-      : {}),
     instances,
     nets,
     ...(ports.length > 0 ? { ports } : {}),
@@ -960,7 +758,7 @@ const PARAM_TYPE_KINDS: Record<string, QuantityKind> = {
   temperature: "temperature",
 };
 
-/** Resolve a pin reference → flattened `<instance_id>.<pin_number>`. */
+/** Resolve a pin reference → `<instance_id>.<pin_number>`. */
 function resolvePinRef(
   scope: Scope,
   ref: string,
@@ -978,7 +776,7 @@ function resolvePinRef(
     diagnostics.add(
       "error",
       "ref.unknown-instance",
-      `instance ${refdes} does not exist (neither an instance in this file nor a declared page)`,
+      `instance ${refdes} does not exist in this board`,
       scope.doc.file,
       1,
       1,
@@ -998,7 +796,7 @@ function resolvePinRef(
     );
     return null;
   }
-  const instanceId = `${scope.prefix}${refdes}`;
+  const instanceId = refdes;
 
   if (parts.length === 3) {
     const unit = Number(parts[1]);
@@ -1055,7 +853,6 @@ function buildConstraint(
   raw: RawConstraint,
   scope: Scope,
   resolver: ComponentResolver | undefined,
-  pageNetFlattenedName: Map<string, string>,
   diagnostics: Diagnostics,
 ): Constraint | null {
   const file = scope.doc.file;
@@ -1069,12 +866,7 @@ function buildConstraint(
 
   // subject: nets first, then pin references.
   const resolveSubject = (text: string, netOnly: boolean): string | null => {
-    const scopeNets = scope.nets;
-    if (scopeNets.has(text)) {
-      if (!scope.pageInstanceId) return text;
-      const key = `${scope.pageInstanceId}.${text}`;
-      return pageNetFlattenedName.get(key) ?? key;
-    }
+    if (scope.nets.has(text)) return text;
     if (netOnly || !text.includes(".")) {
       diagnostics.add("error", "ref.unknown-net", `net ${text} does not exist`, file, raw.line, raw.col);
       return null;

@@ -49,10 +49,10 @@ export function naturalCompare(a: string, b: string): number {
 }
 
 /**
- * Order pin references (`U1.2`, `U1.VSS_1`, `M2.U1.74`).
+ * Order pin references (`U1.2`, `U1.VSS_1`).
  *
  * The instance part comes first (natural order), then the pin. The instance part is everything before the last dot,
- * because an instance id may itself carry a page prefix (`M2.U1`). A pin number is compared numerically when both
+ * because a pin name may itself contain dots. A pin number is compared numerically when both
  * sides are numeric; otherwise the names compare by natural order, so `VSS_2` comes before `VSS_10`.
  */
 export function pinRefCompare(a: string, b: string): number {

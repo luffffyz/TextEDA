@@ -4,6 +4,17 @@ Status: Accepted (2026-10-20)
 Date: 2026-10-20
 Impact: `teda.md` §7.7; `spec/pcb.md` §5.1, §5.2; amends `docs/adr/0002-board-pages-and-bom.md` (board-level visibility of in-page nets)
 
+**Amendment (2026-10-21, [ADR-0025](0025-flat-board-and-print-pages.md))**: this record is
+**withdrawn** — the flattening it describes no longer exists. A board has one flat schematic file,
+one namespace, and one set of board-level net names; the qualified form `<page_instance_id>.<net>`
+is gone, and so is the port binding that produced it. The record is kept because the *problem* it
+solved is real and reappears wherever a source is partitioned: a net name that is unique inside one
+file is not unique in the board. The flat model answers it by requiring board-unique names, and the
+remaining source partition (modules) answers it with a qualified name again — `M1.R1` — with the
+level tag `M` ([ADR-0024](0024-level-tags-in-flattened-names.md) amended).
+
+The examples below use the `P` level tag (`P1`, `P2`) for page instances; the original `M1` / `M2` examples are updated by [ADR-0024](0024-level-tags-in-flattened-names.md). The decisions below are the record of the withdrawn mechanism (see the amendment above).
+
 ## Background
 
 - A page is a partitioning unit inside the board, and board-level nets are visible only through page `ports` (`docs/adr/0002-board-pages-and-bom.md`). As `teda.md` §7.7 originally read: **a net in a page that is not exposed by any `port` is an internal page node and does not take part in board-level nets**.
@@ -17,10 +28,10 @@ Impact: `teda.md` §7.7; `spec/pcb.md` §5.1, §5.2; amends `docs/adr/0002-board
 ## Decision
 
 1. **The net set after flattening = the nets declared by the board root + the in-page nets of each page that the board root does not reference**. An in-page net is not "nonexistent", it is "not merged into a board-level net".
-2. **Referenced page nets are merged into the board-level net and take the board-level net's name**. If the board root writes `SYS: M1.SYS_OUT M2.SYS_IN`, then both the `SYS` of page `M1` and the `SYS` of page `M2` are the `SYS` after flattening; in-page nets the board root does not write out do not sneak in.
-3. **Unreferenced in-page nets stay in the flattened result, under the name `<page_instance_id>.<net>`** (e.g. `M2.BOOT`, `M1.PH`). The prefix is the page instance ID, consistent with the instance-ID namespace (`M1.R1`).
+2. **Referenced page nets are merged into the board-level net and take the board-level net's name**. If the board root writes `SYS: P1.SYS_OUT P2.SYS_IN`, then both the `SYS` of page `P1` and the `SYS` of page `P2` are the `SYS` after flattening; in-page nets the board root does not write out do not sneak in.
+3. **Unreferenced in-page nets stay in the flattened result, under the name `<page_instance_id>.<net>`** (e.g. `P2.BOOT`, `P1.PH`). The prefix is the page instance ID, consistent with the instance-ID namespace (`P1.R1`).
 4. **Board-level net names must not contain `.`**. Otherwise a board-level name could collide with the namespace form of in-page nets, and the two could not be told apart after flattening.
-5. **The pcb references the flattened net names**: `trace` / `via` / `zone` / `deviation` write names such as `M2.BOOT`; a `connect` pair may fall inside the same in-page net (it is one net after flattening, so the rule holds).
+5. **The pcb references the flattened net names**: `trace` / `via` / `zone` / `deviation` write names such as `P2.BOOT`; a `connect` pair may fall inside the same in-page net (it is one net after flattening, so the rule holds).
 6. **Dangling port (the page declares a port, the board root does not reference it) → warning**; the corresponding net of that page keeps its in-page naming and is not merged into any board-level net.
 7. **The IR semantics do not change**: the identity key of a net in the IR is still `net_id` (`AGENTS.md` §4.4); this decision only constrains the form of the surface syntax and the flattening algorithm. The flattened result (net set + names + members) is the common input of ERC, BOM and pcb binding checks.
 
@@ -35,10 +46,10 @@ Impact: `teda.md` §7.7; `spec/pcb.md` §5.1, §5.2; amends `docs/adr/0002-board
 
 ## Consequences
 
-- Page-prefixed net names after flattening are the norm: `GND` / `SYS` / `VOUT` are board-level nets, `M2.BOOT` / `M2.PH` / `M2.VFB` / `M1.PH` are in-page nets. Which is which is visible in the name.
+- Page-prefixed net names after flattening are the norm: `GND` / `SYS` / `VOUT` are board-level nets, `P2.BOOT` / `P2.PH` / `P2.VFB` / `P1.PH` are in-page nets. Which is which is visible in the name.
 - The validator must implement flattening (board root + pages + port binding), and ERC, BOM and pcb binding checks share the same flattened result — this is just what `docs/adr/0002-board-pages-and-bom.md` already demanded ("one BOM, one PCB"), extended to nets.
-- A wrong port reference in the board root (writing `M2.SYS_IN` when page `M2` has no such port) is still an error; a missing reference in the board root (nobody connects a page port) becomes a dangling-port warning, and the in-page net stays in the flattened result.
-- Cost: net names no longer "look like" signal names in a circuit (`M2.BOOT` is more verbose than `BOOT`). That is the price of moving "name uniqueness" off the author and onto the tool.
+- A wrong port reference in the board root (writing `P2.SYS_IN` when page `P2` has no such port) is still an error; a missing reference in the board root (nobody connects a page port) becomes a dangling-port warning, and the in-page net stays in the flattened result.
+- Cost: net names no longer "look like" signal names in a circuit (`P2.BOOT` is more verbose than `BOOT`). That is the price of moving "name uniqueness" off the author and onto the tool.
 
 ## Follow-up
 

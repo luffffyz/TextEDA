@@ -1,0 +1,32 @@
+version 0.4
+pcb demo
+
+board_thickness  1.6
+
+stackup
+  F.Cu     copper      0.035  signal
+  prepreg  dielectric  1.53   FR4     4.3
+  B.Cu     copper      0.035  signal
+
+outline
+  0  0
+  40  0
+  40  30
+  0  30
+
+place
+  P1.C1  10  10  0  top
+  P1.R1  20  10  0  top
+  P1.U1  30  10  0  top
+
+connect
+  P1.C1.1  P1.U1.1
+  P1.C1.2  P1.U1.2
+
+trace
+  GND  F.Cu  0.3  10  11  30  11
+  SYS  F.Cu  0.3  10  9  30  9
+
+rules
+  clearance  0.2
+  width  0.3

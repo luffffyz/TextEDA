@@ -649,7 +649,7 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
   const finalBody: Footprint["footprint"] = { ...body, pads: [firstPad, ...restPads] };
 
   const ir: Footprint = {
-    ir_version: "0.1",
+    ir_version: "0.2",
     source: { file, line: 1 },
     footprint: finalBody,
   };

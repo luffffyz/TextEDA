@@ -1,4 +1,4 @@
-// Schematic page -> drawing primitives.
+// Schematic print page -> drawing primitives.
 //
 // The view (S1) knows only *where*: symbol placements, wire runs, labels, ports, notes (ADR-0021).
 // The electrical facts -- which pin belongs to which net, what the pin is called -- live in the
@@ -192,10 +192,10 @@ function rotateVector(rot: 0 | 90 | 180 | 270, x: number, y: number): Point {
 }
 
 /**
- * Draw one page: the sheet frame, every placed symbol, the wire runs, then the labels, ports and notes.
+ * Draw one print page: the sheet frame, every placed symbol, the wire runs, then the labels, ports and notes.
  *
  * Throws on a view that references an instance, symbol pin, or instance geometry that the caller did
- * not supply. Silence would draw a lie; the page cross-check (packages/core, backlog F3) owns the
+ * not supply. Silence would draw a lie; the board cross-check (packages/core, backlog F3) owns the
  * diagnostic report, this renderer only refuses to invent geometry.
  */
 export function renderSchematic(

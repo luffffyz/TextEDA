@@ -1,0 +1,21 @@
+version 0.3
+page power
+
+# The power page of the demo board.
+instances
+  C1  c-0402  100n
+  R1  r-0402  10k
+  U1  ldo
+
+nets
+  GND:   C1.2  R1.2  U1.GND
+  SYS:   C1.1  R1.1  U1.VIN
+  VOUT:  U1.VOUT
+
+ports
+  GND       GND
+  SYS_OUT   SYS
+  VOUT_OUT  VOUT
+
+constraints
+  voltage  SYS   9V..19.8V

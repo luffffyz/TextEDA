@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.1",
+  "ir_version": "0.2",
   "format": "0.1",
   "source": { "file": "components/passives/r-0402.teda" },
   "component": {

@@ -11,7 +11,7 @@ import type { Schematic } from "@texteda/ir/schematic";
 import { byteCompare, pinRefCompare } from "@texteda/ir/order";
 
 export interface NetlistComponent {
-  /** Flattened instance id (`<page_instance_id>.<refdes>`, or `<refdes>` at the board root). */
+  /** The board's instance id (the refdes). */
   id: string;
   /** Component id (the file name under `components/`). */
   component: string;

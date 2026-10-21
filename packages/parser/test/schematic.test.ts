@@ -1,6 +1,6 @@
-// Unit tests for `schematic` / `page` parsing and flattening.
+// Unit tests for `schematic` parsing (one flat file per board, ADR-0025).
 //
-// Positive cases use real descriptions from the reference project (mcu-board single-file board, charger-buck board root + two pages);
+// Positive cases use real descriptions from the reference project (mcu-board, charger-buck);
 // negative cases use minimal inline sources -- each negative case breaks exactly one thing, and the diagnostic code must line up.
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
@@ -11,7 +11,6 @@ import {
   parseSchematic,
   type ComponentFactsLite,
   type ComponentResolver,
-  type PageSource,
 } from "../src/schematic.ts";
 
 const projectDir = "examples/reference-project";
@@ -44,16 +43,6 @@ function fileToId(file: string): string {
   return base.slice(0, base.length - ".teda".length);
 }
 
-function pageSources(board: string): PageSource[] {
-  const dir = join(projectDir, "sch", board);
-  const files = readdirSync(dir).filter((f) => f.endsWith(".teda") && !f.endsWith(".view.teda"));
-  return files.map((f) => ({
-    pageId: f.slice(0, f.length - ".teda".length),
-    file: `sch/${board}/${f}`,
-    text: readFileSync(join(dir, f), "utf8"),
-  }));
-}
-
 const resolver = loadResolver();
 
 describe("single-file board (mcu-board)", () => {
@@ -71,13 +60,12 @@ describe("single-file board (mcu-board)", () => {
     expect(check.ok).toBe(true);
   });
 
-  test("instances and nets are both flattened unique sets", () => {
+  test("instances and nets are unique sets of the board", () => {
     const ir = result.ir!;
     expect(ir.board).toBe("mcu-board");
     expect(ir.format).toBe("0.2");
     expect(ir.instances.length).toBe(21);
     expect(ir.nets.length).toBe(10);
-    expect(ir.pages).toBeUndefined();
   });
 
   test("pin references use numbers, not pin names", () => {
@@ -139,12 +127,11 @@ describe("single-file board (mcu-board)", () => {
   });
 });
 
-describe("board root + pages (charger-buck)", () => {
+describe("flat board (charger-buck)", () => {
   const text = readFileSync(join(projectDir, "sch", "charger-buck.teda"), "utf8");
   const result = parseSchematic(text, {
     file: "sch/charger-buck.teda",
     board: "charger-buck",
-    pages: pageSources("charger-buck"),
     components: resolver,
   });
 
@@ -154,56 +141,55 @@ describe("board root + pages (charger-buck)", () => {
     expect(check.errors).toEqual([]);
   });
 
-  test("page instantiation relationships stay in the pages section", () => {
-    expect(result.ir!.pages).toEqual([
-      { id: "M1", page: "charger-power", file: "sch/charger-buck/charger-power.teda" },
-      { id: "M2", page: "buck-5v", file: "sch/charger-buck/buck-5v.teda" },
-    ]);
-  });
-
-  test("in-page instance ids carry the page prefix", () => {
+  test("the whole board is one file, with board-level instance ids", () => {
     const ids = result.ir!.instances.map((i) => i.id);
-    // The board root has no instances; every instance comes from a page and carries the page prefix.
-    expect(ids.every((id) => id.startsWith("M1.") || id.startsWith("M2."))).toBe(true);
-    expect(ids.filter((id) => id.startsWith("M1.")).length).toBe(52);
-    expect(ids.filter((id) => id.startsWith("M2.")).length).toBe(9);
+    // The power path and the buck share the board's namespace: no page prefix anywhere.
+    expect(ids.every((id) => !id.includes("."))).toBe(true);
+    expect(ids.length).toBe(61);
+    expect(ids).toContain("U1");
+    expect(ids).toContain("U2");
+    expect(ids).toContain("C19");
   });
 
-  test("in-page nets referenced by the board root via ports merge into the board-level net", () => {
-    const sys = result.ir!.nets.find((n) => n.id === "SYS")!;
-    // The board-level net SYS gains members from both pages.
-    expect(sys.members.some((m) => m.startsWith("M1."))).toBe(true);
-    expect(sys.members.some((m) => m.startsWith("M2."))).toBe(true);
-    // The page port references themselves are not pins and do not appear among the members.
-    expect(sys.members.some((m) => m.includes("SYS_OUT") || m.includes("SYS_IN"))).toBe(false);
-  });
-
-  test("unreferenced in-page nets are kept as <page_instance_id>.<net>", () => {
+  test("the two circuits are told apart by numbering and by net prefix", () => {
     const ids = result.ir!.nets.map((n) => n.id);
-    expect(ids).toContain("M2.BOOT");
-    expect(ids).toContain("M2.PH");
-    expect(ids).toContain("M1.VCC");
-    // Board-level net names contain no dot.
-    expect(ids.filter((id) => id.includes(".")).every((id) => /^M\d+\./.test(id))).toBe(true);
+    expect(ids).toContain("BOOT");
+    expect(ids).toContain("BUCK_PH");
+    expect(ids).toContain("BUCK_VFB");
+    expect(ids).toContain("PH");
+    expect(ids).toContain("VFB");
+    // No qualified names are left.
+    expect(ids.every((id) => !id.includes("."))).toBe(true);
   });
 
-  test("page ports in the IR point at the flattened net and carry the page tag", () => {
+  test("the nets both circuits share are one net", () => {
+    const sys = result.ir!.nets.find((n) => n.id === "SYS")!;
+    // The power path's SYS and the buck's SYS are one board net. The IR names pins by number.
+    expect(sys.members).toContain("U1.1");
+    expect(sys.members).toContain("U2.7");
+    const gnd = result.ir!.nets.find((n) => n.id === "GND")!;
+    expect(gnd.members).toContain("U1.17");
+    expect(gnd.members).toContain("U2.6");
+  });
+
+  test("the board's ports name board nets", () => {
     const ports = result.ir!.ports!;
-    const vout = ports.find((p) => p.page === "M2" && p.id === "VOUT")!;
-    expect(vout.net).toBe("VOUT");
-    const gnd = ports.find((p) => p.page === "M1" && p.id === "GND")!;
-    expect(gnd.net).toBe("GND");
+    expect(ports.length).toBe(5);
+    expect(ports.find((p) => p.id === "VOUT_5V")!.net).toBe("VOUT");
+    expect(ports.find((p) => p.id === "GND")!.net).toBe("GND");
   });
 
-  test("constraints travel with their page, subject replaced by the flattened name", () => {
+  test("the constraints name the board's nets", () => {
     const constraints = result.ir!.constraints!;
-    const buckVfb = constraints.find((c) => c.type === "voltage" && c.subject === "M2.VFB");
-    expect(buckVfb).toEqual({ type: "voltage", subject: "M2.VFB", min_uv: 1_203_000, max_uv: 1_239_000 });
+    const buckVfb = constraints.find((c) => c.type === "voltage" && c.subject === "BUCK_VFB");
+    expect(buckVfb).toEqual({ type: "voltage", subject: "BUCK_VFB", min_uv: 1_203_000, max_uv: 1_239_000 });
+    const chargerVfb = constraints.find((c) => c.type === "voltage" && c.subject === "VFB");
+    expect(chargerVfb).toEqual({ type: "voltage", subject: "VFB", min_uv: 2_079_000, max_uv: 2_121_000 });
   });
 
   test("ERC warning: ENA intentionally left open (internal pull-up)", () => {
     const warnings = result.diagnostics.filter((d) => d.severity === "warning");
-    expect(warnings.map((w) => w.message)).toEqual(["pin M2.U1.5 (ENA) is not connected"]);
+    expect(warnings.map((w) => w.message)).toEqual(["pin U2.5 (ENA) is not connected"]);
   });
 });
 
@@ -351,17 +337,19 @@ describe("negative cases", () => {
     expect(diagnostic?.message).toContain("net A");
   });
 
-  test("referenced page has no source file", () => {
-    const text = board + "\n\npages\n  M1  some-page";
-    expect(codes(text)).toContain("ref.unknown-page");
+  test("the `pages` section is gone: it says so instead of 'unknown section'", () => {
+    const text = board + "\n\npages\n  P1  some-page";
+    const result = parseSchematic(text, { file: "sch/b.teda", board: "b", components: resolver });
+    const diagnostic = result.diagnostics.find((d) => d.code === "syntax.removed-construct")!;
+    expect(diagnostic.message).toContain("pages");
+    expect(diagnostic.hint).toContain("teda.md §13.4");
   });
 
-  test("port not declared in the referenced page", () => {
-    const text = board + "\n\npages\n  M1  p1\n\nnets\n  A:  R1.1  M1.NOPE";
-    const pages: PageSource[] = [
-      { pageId: "p1", file: "sch/b/p1.teda", text: "version 0.3\npage p1\n\ninstances\n  R2  r-0402  10k" },
-    ];
-    expect(codes(text, { pages })).toContain("ref.unknown-port");
+  test("the `page` description type is gone: it says so instead of 'unknown type'", () => {
+    const text = "version 0.3\npage p1\n\ninstances\n  R2  r-0402  10k";
+    const result = parseSchematic(text, { file: "sch/b/p1.teda", board: "b", components: resolver });
+    const diagnostic = result.diagnostics.find((d) => d.code === "syntax.removed-construct")!;
+    expect(diagnostic.message).toContain("page");
   });
 
   test("version higher than the tool supports", () => {
@@ -387,46 +375,23 @@ describe("negative cases", () => {
 });
 
 describe("single-member net semantics (teda.md §11.4)", () => {
-  // A board-root net made up only of page ports: it is an on-board node declaration, so it is not warned as "single-member".
-  const boardWithPort = [
-    "version 0.3",
-    "schematic b",
-    "",
-    "instances",
-    "  R1  r-0402  10k",
-    "",
-    "pages",
-    "  M1  p1",
-    "",
-    "nets",
-    "  A:  M1.P1",
-  ].join("\n");
-
-  const pageWithOnePin = [
-    "version 0.3",
-    "page p1",
-    "",
-    "instances",
-    "  R2  r-0402  10k",
-    "",
-    "nets",
-    "  N1:  R2.1",
-    "",
-    "ports",
-    "  P1  N1",
-  ].join("\n");
-
-  const pages: PageSource[] = [{ pageId: "p1", file: "sch/b/p1.teda", text: pageWithOnePin }];
-
-  test("judged by the flattened net: an in-page net merged into a board-level net is reported once", () => {
-    const result = parseSchematic(boardWithPort, {
+  test("a net with one pin is reported", () => {
+    const boardWithOnePin = [
+      "version 0.3",
+      "schematic b",
+      "",
+      "instances",
+      "  R1  r-0402  10k",
+      "",
+      "nets",
+      "  A:  R1.1",
+    ].join("\n");
+    const result = parseSchematic(boardWithOnePin, {
       file: "sch/b.teda",
       board: "b",
-      pages,
       components: resolver,
     });
     const warnings = result.diagnostics.filter((d) => d.code === "drc.single-member-net");
-    // After flattening, board-level net A's member is the one pin from in-page N1: it really is a single-pin net, reported once, at the board level.
     expect(warnings.length).toBe(1);
     expect(warnings[0]!.message).toContain("A");
     expect(warnings[0]!.location?.file).toBe("sch/b.teda");

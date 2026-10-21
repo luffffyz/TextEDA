@@ -1,4 +1,4 @@
-# `.teda` 格式规范（v0.5，草案）
+# `.teda` 格式规范（v0.7，草案）
 
 状态：草案。`AGENTS.md` 记录设计决策与边界，本文件定义具体格式。两者冲突时，以 `AGENTS.md` 的不变量为准，并修本文件。
 
@@ -48,20 +48,19 @@ nets
 | 末尾 | 必须有换行 |
 | 大小写 | 敏感 |
 
-八种文件类型：
+七种文件类型：
 
 | 类型 | 位置 | 说明 |
 |---|---|---|
 | `component` | `components/**/<component_id>.teda` | 一块料一个文件，可放子目录 |
-| `schematic` | `sch/<board_id>.teda` | 一块板一个文件 |
+| `schematic` | `sch/<board_id>.teda` | 一块板一个文件（v0.7 起：板内不再有页面文件） |
 | `pcb` | `pcb/<board_id>.teda` | 可后置，可为空 |
 | `system` | `system/<system_id>.teda` | 多板连接描述，一份系统一个文件（v0.2 新增） |
-| `page` | `sch/<board_id>/<page_id>.teda` | 板内页面，板的一个划分单元（v0.3 新增） |
 | `footprint` | `footprints/<lib>/<footprint_id>.teda` | 库产物：一个封装的规范几何（v0.4 新增） |
 | `symbol` | `symbols/<lib>/<symbol_id>.teda` | 库产物：一个符号的视图（v0.5 新增） |
-| `view` | `sch/<board_id>/<page_id>.view.teda` | 某个页面的"画"：S1 视图层（v0.6 新增，语法见 `spec/schematic-view.md`） |
+| `view` | `sch/<board_id>/<page_id>.view.teda` | 一块板的一个"打印页"：S1 视图层（v0.6 新增，v0.7 起引用板级 id，语法见 `spec/schematic-view.md`） |
 
-文件名必须等于头部 id；不一致报错。`components/` 允许子目录，子目录只用于分类；`component_id` 取文件名（不含 `.teda`），不取相对路径，同一 id 在 `components/` 树内必须唯一。顶层目录与文件类型必须一致（`components/` 只放 `component`，以此类推）；`sch/` 下有两种：`sch/<board_id>.teda` 是板根（`schematic`），`sch/<board_id>/<page_id>.teda` 是该板的页面（`page`）。`view` 与 `page` 同目录，靠 `.view` 后缀区分（`sch/<board_id>/<page_id>.view.teda` ↔ `view <page_id>`），它是该页面的孪生文件。`footprints/` 与 `symbols/` 是**库目录**而不是描述目录：它们按库分子目录（`footprints/<lib>/`、`symbols/<lib>/`），库名由目录决定（IR 的 `footprint.library` / `symbol.library`），不进文件内容。
+文件名必须等于头部 id；不一致报错。`components/` 允许子目录，子目录只用于分类；`component_id` 取文件名（不含 `.teda`），不取相对路径，同一 id 在 `components/` 树内必须唯一。顶层目录与文件类型必须一致（`components/` 只放 `component`，以此类推）；`sch/<board_id>.teda` 是板的文件（`schematic`），`sch/<board_id>/` 目录里只放该板的视图文件（`view`），靠 `.view` 后缀区分（`sch/<board_id>/<page_id>.view.teda` ↔ `view <page_id>`）。`footprints/` 与 `symbols/` 是**库目录**而不是描述目录：它们按库分子目录（`footprints/<lib>/`、`symbols/<lib>/`），库名由目录决定（IR 的 `footprint.library` / `symbol.library`），不进文件内容。
 
 ---
 
@@ -87,7 +86,7 @@ nets
 - **标量只在第一个段之前**。进入段之后，所有非段头、非空、非注释行都按行解析。
 - **注释只整行**。`#` 出现在值或单元格中间时是普通字符（避免截断 URL 片段）。
 - **`:` 只用于 net/bus 成员行**。`name: member...` 表示“名字 → 成员列表”；其余段是固定列元组，不加冒号。
-- **冒号与续行同域**。只有“名字 + 不定长列表”的行（`nets`、`bus` 成员）才既用冒号界定名字与列表的边界，又可能长到一行放不下，所以也只有它们支持续行：首列是裸 `:` 的行延续上一行命名的 net。其余段要么列数固定（`instances`、`ports`、`pages`、`constraints`），要么是成对坐标、拆行会断配对（`trace`、`zone`、`keepout`、`outline`），都不需要续行。
+- **冒号与续行同域**。只有“名字 + 不定长列表”的行（`nets`、`bus` 成员）才既用冒号界定名字与列表的边界，又可能长到一行放不下，所以也只有它们支持续行：首列是裸 `:` 的行延续上一行命名的 net。其余段要么列数固定（`instances`、`ports`、`constraints`），要么是成对坐标、拆行会断配对（`trace`、`zone`、`keepout`、`outline`），都不需要续行。
 
 ---
 
@@ -227,7 +226,7 @@ instances
 
 - `component_id` 必须在 `components/` 树中按文件名找到；同一 id 只允许一个文件；否则报错。
 - 额外列与该器件 `params` 段**声明的顺序**一一对应（不按名字或类型猜）；`optional` 列只能从右往左省略，`required` 列不能省略。
-- `refdes` 在本文件内唯一。板根与页面各自是独立命名空间，跨页面可重复；展平时重编（§7.7）。
+- `refdes` 在本文件内唯一。板只有一份原理图文件，板内没有第二套命名空间（v0.7 起，§7.6）。
 - 封装不在 `instances` 行写，由器件文件决定。
 
 ### 7.2 `nets` 段
@@ -287,7 +286,7 @@ constraints
 
 ### 7.5 `ports` 段（可选，v0.2）
 
-`port` 是**容器内 `net` 的对外名字**。声明 `ports` 的容器只有两个：页面与板，用的是同一套语法；系统级描述消费板级端口（§8）。
+`port` 是**板的 `net` 的对外名字**。系统级描述消费板级端口（§8）。
 
 ```
 ports
@@ -301,64 +300,19 @@ ports
 - `net` 必须是本文件 `nets` 段里已存在的 `net`；不存在即报错（`port` 不创建节点）。
 - 同一个 `net` 最多被一个 `port` 引用。
 - `port` 不新增连通性：它引用的仍然是原来那些 `net`。
-- 容器内的 `net` 名不参与跨容器对齐，跨容器只靠 `port` 对齐。
 - 板级 `ports` 声明这块板对外的接口，`system` 文件用它连接多块板（§8）。
-- 页面 `ports` 声明页内 `net` 对板级的接口，板根用它把页面接到板级 `net`（§7.6、§7.7）。
 
 ---
 
-### 7.6 `pages` 段（可选，v0.3）
+### 7.6 板只有一份原理图文件（v0.7）
 
-一块板可以拆成多个页面。页面是板内的**划分单元**：一个 page 画不下，或者评审要分块看。页面不是独立板，不产生独立 PCB，也不产生独立 BOM。决策见 `docs/adr/0002-board-pages-and-bom.md`。
+一块板 = 一份 `sch/<board_id>.teda`。板内**没有**第二层划分：没有 `pages` 段，没有 `page` 描述类型，没有页内 `net` 的局部命名空间，也没有展平。决策与理由见 `docs/adr/0025-flat-board-and-print-pages.md`。
 
-```
-pages
-  M1  charger-power
-  M2  buck-5v
-```
-
-列：`page_instance_id page_id`。
-
-- `page_instance_id` 是板内唯一的页面实例名，命名规则同 `refdes`（§4.2）；它与板根的 `refdes` 共处板级命名空间，不得同名。
-- `page_id` 解析到 `sch/<board_id>/<page_id>.teda`（按约定解析，规范不写项目里的具体路径）；该文件必须是 `page` 类型，头部 id 与文件名一致。
-- 每个页面在板里**实例化一次**；同一页在一块板上出现多份属于复用，v0.4 再谈（§15）。
-- 页面被声明后，它的每个实例都参与展平（§7.7）：板级 ERC 与 BOM 都包含页面内的器件。
-
----
-
-### 7.7 页面文件（`page`，v0.3）
-
-页面文件描述板内的一个划分。它与 `schematic` 同构但更窄：有 `instances`、`nets`、`ports`、`constraints`，没有 `pages` 段。
-
-```
-version 0.3
-page charger-power
-
-instances
-  R1    r-0402       100k    ±1%
-  U1    bq24610rger
-
-nets
-  GND:  U1.GND  R1.2
-  VFB:  U1.VFB  R1.1
-
-ports
-  GND      GND
-  VFB_OUT  VFB
-
-constraints
-  voltage  VFB   2.079V..2.121V
-```
-
-- 段顺序：`instances`、`nets`、`ports`、`constraints`。
-- 页面里的 `net` 与 `refdes` 是**局部**的：只在页面内唯一，只在页面内可见。
-- `ports` 段语法同 §7.5；`port` 是页内 `net` 的页面外名字。
-- 板根 net 引用页面端口写作 `M1.SYS_OUT`（`<page_instance_id>.<port_id>`）。引用不存在的页面、或页面没声明的端口，都报错。
-- 页面里不被任何 `port` 暴露的 `net` 是页面内部节点，不参与板级 `net`，合法。页面声明了端口但板根没用它 → 警告（悬空端口）。
-- **展平后的 net 集合与命名**：板根的 `net` 取板根的名字；页面里经 `port` 被板根引用的 `net` 并入那个板级 net，改用板级 net 的名字；页面里没被引用的页内 `net` 仍留在展平结果里（pcb 要连它、ERC 要查它），名字是 `<page_instance_id>.<net>`（如 `M2.BOOT`）——不同页面可以有同名页内 net（`charger-power` 页与 `buck-5v` 页各有一个 `PH`），不限定名就会撞车。板级 net 名不得含 `.`，免得与这种命名空间形式重名。决策见 `docs/adr/0007-page-internal-net-naming.md`。
-- **展平**：板 = 板根实例 + 每个页面实例化一次后的实例。ERC 与 BOM 都在展平结果上跑。
-- **稳定 id**：页内实例 = `M1.R1`（`<page_instance_id>.<refdes>`），板根实例 = `R1`。`refdes` 只是显示名，跨页允许重复；导出网表、贴片、BOM 时重编为板级唯一（KiCad 式自动注解），页面归属记在注释里。
-- **BOM**：行 = (`component_id`, 参数字典, 变体状态)，聚合键**不含** `refdes`；数量 = 展平后的实物数。详见 §11。
+- `refdes` 与 `net` 名在板内唯一。撞名由作者改名解决（工具不限定名、不重编号）。
+- 板的 `ports` 段是它对外的唯一接口（§7.5）。
+- 板内的**绘制划分**（"这块图画不下"、评审想分块看）属于**视图层**：`sch/<board_id>/<page_id>.view.teda` 是一个**打印页**，它引用板级的 `instance_id` 与 `net_id`，语法见 `spec/schematic-view.md`。打印页可以随时丢弃、随时重画；删掉全部打印页，板的逻辑依然完整、可校验、可导网表。
+- **BOM**：行 = (`component_id`, 参数字典, 变体状态)，聚合键**不含** `refdes`；数量 = 板上的实物数。详见 §11。
+- **未来的层次**：模块（backlog F13）是板内唯一的层次，模块实例 id 带层级标记 `M`（`M1.R1`）。模块是**带端口的层次**，不是可丢弃的绘制划分，两者不混用。
 
 ---
 
@@ -465,20 +419,19 @@ nets
 1. 文件头：版本、文件类型、id/文件名、顶层目录/类型一致；`components/` 的子目录只做分类，不参与 `component_id`。
 2. 词法：未知段、未知键、单元格数量、非法标识符。
 3. 器件：`instances` 引用的 id 存在；`params` 数量/类型匹配；引脚编号唯一，引脚名在 `unit` 内唯一；`symbol` 指向自建库时必须有 `pins` 段（自建符号不带引脚事实）；`category` 为通用无源件且 `params` 含 `value` 时 `mpn` 可省，否则必须有 `mpn`；`lcsc` 若出现必须匹配 `C[0-9]+`。
-4. 连接：引脚引用可解析；每个引脚最多一个 net；`no_connect` 不得连接；单成员 net 警告（**按展平后的 net 判**：板级只由页面端口组成的 net 不算单成员，它是板内的节点声明；带板级端口的 net 不算单成员，那个引脚是往板外走的）。
+4. 连接：引脚引用可解析；每个引脚最多一个 net；`no_connect` 不得连接；单成员 net 警告（**按板级 net 判**：带板级端口的 net 不算单成员，那个引脚是往板外走的）。
 5. 约束：subject 存在；单位/量纲兼容；区间有效。
 6. 变体（`project.toml`）：`dnp`/`nofit` 引用的 component_id 存在。
 7. sch↔pcb（两者都存在时）：按 `AGENTS.md` §4.4 的绑定规则。
 8. 端口（`ports` 段）：引用的 `net` 存在；`port_id` 不重复；同一个 `net` 最多被一个 `port` 引用。
 9. 系统（`system` 文件）：`boards` 的 `board_id` 在 `project.toml` 的 `[boards]` 中存在且有 `sch` 文件；`nets` 成员是已声明的 `port`；每条系统 `net` 至少两个成员；同一块板的同一个 `net` 不被并进两条系统 `net`；两侧电压约束区间不相交时报错。
 10. canonical form（§12）：不满足的文件在 `fmt --check` 下报错；`fmt` 修复后语义不变。
-11. 页面（`pages` 段与 `page` 文件）：`page_id` 解析到的文件存在、是 `page` 类型、头部 id 与文件名一致；`page_instance_id` 板内唯一，且不与板根 `refdes` 同名；板根 net 引用的页面端口可解析；页面声明了端口但板根未引用 → 警告。
-12. 展平：板 = 板根实例 + 每个页面实例化一次后的实例；展平后每个引脚最多属于一个 net，`no_connect` 不得连接。
-13. BOM：行 = (`component_id`, 参数字典, 变体状态)；聚合键不含 `refdes`；数量 = 展平后的实物数。
-14. 变体：只影响 BOM 与制造，不改变连通性；引用 `component_id` 作用于该型号的所有实例，引用稳定 id 只作用于该实例；不影响 ERC 结果。
-15. pcb（`pcb` 文件存在时）：按 `spec/pcb.md` §5.2 执行；sch↔pcb 绑定与偏差白名单见 `AGENTS.md` §4.4。
-16. footprint（库文件存在时）：按 `spec/footprint.md` §7 执行；库级检查（引脚号比对、DRC）不在这层。
-17. symbol（库文件存在时）：按 `spec/symbol.md` §7 执行；库级检查（与 `component` 的引脚号集合比对）不在这层。
+11. 板（v0.7）：一块板一份 `schematic` 文件；`refdes` 与 `net` 名在板内唯一；没有 `pages` 段、没有 `page` 文件（见到即报错，见迁移说明）。
+12. BOM：行 = (`component_id`, 参数字典, 变体状态)；聚合键不含 `refdes`；数量 = 板上的实物数。
+13. 变体：只影响 BOM 与制造，不改变连通性；引用 `component_id` 作用于该型号的所有实例，引用稳定 id 只作用于该实例；不影响 ERC 结果。
+14. pcb（`pcb` 文件存在时）：按 `spec/pcb.md` §5.2 执行；sch↔pcb 绑定与偏差白名单见 `AGENTS.md` §4.4。
+15. footprint（库文件存在时）：按 `spec/footprint.md` §7 执行；库级检查（引脚号比对、DRC）不在这层。
+16. symbol（库文件存在时）：按 `spec/symbol.md` §7 执行；库级检查（与 `component` 的引脚号集合比对）不在这层。
 
 诊断格式：`file:line:col: <severity> <code>: <message>`；`--json` 输出同字段。严重级别：`error` / `warning`。
 
@@ -492,8 +445,7 @@ nets
 
 1. 段顺序固定：
    - component：`params`、`pins`
-   - schematic：`instances`、`nets`、`pages`、`ports`、`bus`、`constraints`
-   - page：`instances`、`nets`、`ports`、`constraints`
+   - schematic：`instances`、`nets`、`ports`、`bus`、`constraints`
    - system：`boards`、`nets`
    - pcb：见 `spec/pcb.md` §6.1（`stackup`、`outline`、`place`、`connect`、`trace`、`via`、`zone`、`keepout`、`rules`、`silk`、`physical_only`、`deviation`）
    - footprint：`pads`、`graphics`；标量顺序与行的排序见 `spec/footprint.md` §8
@@ -503,7 +455,6 @@ nets
    - `instances` 按 refdes 自然序
    - `nets` 按 net 名
    - `nets` 的成员按引脚引用自然序：先比实例（自然序，数字按数值比较），再比引脚（编号按数值，名称按自然序）
-   - `pages` 按 page_instance_id
    - `ports` 按 port_id
    - system 的 `boards` 按 board_id
    - system `nets` 的成员按 `<board_id>.<port_id>` 字典序
@@ -547,7 +498,7 @@ nets
 
 1. 版本号是合法的 `MAJOR.MINOR[.PATCH]`（否则 `format.invalid-version`）；
 2. MAJOR 与工具支持的 MAJOR 相同（否则 `format.unsupported-version`）；
-3. MINOR **不低于该描述类型诞生的版本**——`view` 文件不能写 `0.5`，`page` 文件不能写 `0.2`；
+3. MINOR **不低于该描述类型诞生的版本**——`view` 文件不能写 `0.5`；
 4. MINOR **不高于工具支持的语言版本**——上界是语言版本，不是该类型最后一次改动的版本：今天写的 `symbol` 文件写 `0.6` 是对的（只要不高于工具支持的版本）。
 
 PATCH 位不参与判定（见 §13.1 的硬规则）。
@@ -555,10 +506,17 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
 ### 13.4 版本沿革
 
 - `0.2` 新增：`sch` 的 `ports` 段、`system` 描述类型（决策见 `docs/adr/0001-board-linking.md`）。未使用新构造的文件保持 `0.1`。
-- `0.3` 新增：`page` 描述类型、`sch` 的 `pages` 段、板内展平与 BOM 计数规则（决策见 `docs/adr/0002-board-pages-and-bom.md`）。用到页面或 `pages` 段的板根与页面文件写 `version 0.3`。
+- `0.3` 新增：`page` 描述类型、`sch` 的 `pages` 段、板内展平与 BOM 计数规则（决策见 `docs/adr/0002-board-pages-and-bom.md`）。**这两项在 `0.7` 被删除**（见下）。用到页面或 `pages` 段的板根与页面文件写 `version 0.3`。
 - `0.4` 新增：`pcb` 描述的完整段集（决策见 `docs/adr/0003-agent-first-pcb-ir.md`，语法见 `spec/pcb.md`）；`component` 的 `lcsc` 标量（决策见 `docs/adr/0006-jlc-prototype-delivery.md`）；`footprint` 描述类型（决策见 `docs/adr/0011-library-format-and-footprint-ir.md`，语法见 `spec/footprint.md`）。用到 `pcb` 段、`lcsc` 或 `footprint` 的文件写 `version 0.4`。
 - `0.5` 新增：`symbol` 描述类型（决策见 `docs/adr/0012-symbol-description.md`，语法见 `spec/symbol.md`）。用到 `symbol` 的文件写 `version 0.5`。
 - `0.6` 新增：`view` 描述类型——原理图的 S1 视图层，页面文件的孪生文件（决策见 `docs/adr/0021-schematic-view-layer.md`，语法见 `spec/schematic-view.md`）。用到 `view` 的文件写 `version 0.6`。
+- `0.7` **删除**：`page` 描述类型、`sch` 的 `pages` 段、页内命名空间与展平。一块板只有一份 `schematic` 文件；绘制划分移到视图层，成为**打印页**（决策见 `docs/adr/0025-flat-board-and-print-pages.md`）。`view` 文件的 `place` / `wire` / `label` / `port` 改为引用**板级** id（决策同前）。用到新表面的 `schematic` 与 `view` 文件写 `version 0.7`。
+  - **迁移 0.6 → 0.7**（`bun run migrate:0.7 <project dir>` 做机械部分）：
+    1. 把每个页面文件的 `instances`、`nets`、`constraints` 并进板文件；页面的 `ports` 行删掉，板根里引用页面端口的 net 行改成板级 net 本身。
+    2. 板内撞名的 `refdes` 与 `net` 由作者改名（工具不替你决定，报错并列出冲突）。
+    3. `view` 文件里的页内 id 改成板级 id，页端口改成板端口；文件名保持 `<page_id>.view.teda`。
+    4. `pcb` 文件里的实例 id 与 net 名去掉页面前缀。
+    5. 仍带 `page` 头或 `pages` 段的文件，诊断指向本条迁移说明。
 - 未知构造默认报错；`--allow-unknown` 仅用于前向兼容检查，不用于生产。
 - 所有破坏性变更必须提供迁移说明；`fmt` 不自动跨 MAJOR 迁移。
 
@@ -627,69 +585,46 @@ ports
   VIN_IN  VIN
 ```
 
-`sch/power.teda`（板根，两个页面）：
+`sch/power.teda`（一块板 = 一份文件，两个电路写在同一份里）：
 
 ```
-version 0.3
+version 0.7
 schematic power
 
-pages
-  M1  charger
-  M2  regulator
+instances
+  R1   r-0402       100k   ±1%
+  R2   r-0402       10k    ±1%
+  U1   bq24610rger
+  U2   tps7a02
 
 nets
-  GND:  M1.GND  M2.GND
-  VFB:  M1.VFB_OUT  M2.VFB_IN
+  GND:    U1.GND  R1.2  U2.GND  R2.2
+  VFB:    U1.VFB  R1.1  U2.OUT  R2.1
 
 ports
   GND  GND
-```
-
-`sch/power/charger.teda`（页面）：
-
-```
-version 0.3
-page charger
-
-instances
-  R1  r-0402  100k  ±1%
-  U1  bq24610rger
-
-nets
-  GND:  U1.GND  R1.2
-  VFB:  U1.VFB  R1.1
-
-ports
-  GND      GND
-  VFB_OUT  VFB
 
 constraints
   voltage  VFB   2.079V..2.121V
 ```
 
-`sch/power/regulator.teda`（页面）：
+板内的 `refdes` 与 `net` 名唯一；两个电路的撞名由作者改名（上面两块电路的 `R1` 分别写成 `R1` 与 `R2`）。BOM 按 (`component_id`, 参数字典) 聚合：两块电路里的同型号同参数件合并成一行、数量相加。
+
+`sch/power/charger.view.teda`（同一个板的第一个打印页，画给评审看）：
 
 ```
-version 0.3
-page regulator
+version 0.7
+view charger
 
-instances
-  R1  r-0402  100k  ±1%
-  U1  tps7a02
+place
+  R1  40  30  0
+  U1  80  30  0
 
-nets
-  GND:  U1.GND  R1.2
-  VFB:  U1.OUT  R1.1
-
-ports
-  GND     GND
-  VFB_IN  VFB
-
-constraints
-  voltage  VFB   2.079V..2.121V
+wire
+  VFB  U1.VFB  R1.1
 ```
 
-展平后板上有 `M1.R1`、`M1.U1`、`M2.R1`、`M2.U1`；BOM 按 (`component_id`, 参数字典) 聚合，两个页面里的同型号同参数件合并成一行、数量相加。
+打印页引用**板级**的 `refdes` 与 `net` 名；它不创建任何连接，删掉它，板照样成立（语法见 `spec/schematic-view.md`）。
 
 `system/main-stack.teda`：
 
@@ -708,13 +643,13 @@ nets
 
 ---
 
-## 15. 尚未定义（v0.5 之外）
+## 15. 尚未定义（v0.7 之外）
 
 以下未定或明确不支持：
 
 - 行尾注释、引号单元格、转义、跨行值。
-- `module` / `blocks` 板内层次与端口映射（草案见 `AGENTS.md` §5.3；与板间连接正交）。
-- 同一页面在一块板上实例化多次（页面参数与端口映射，v0.4 讨论；见 `docs/adr/0002-board-pages-and-bom.md`）。
+- `module` / `blocks` 板内层次与端口映射（backlog F13；与板间连接正交）。
+- 板内**源码**的划分：一块板只有一份 `schematic` 文件，没有"把板拆成几份源码"的机制（`docs/adr/0025-flat-board-and-print-pages.md`；绘制划分在视图层的打印页里）。
 - 一个 `port` 暴露多个 `net`；板外端点（适配器、电池、负载）；跨板线束与连接器对（见 `docs/adr/0001-board-linking.md`）。
 - 生成器 / 循环 / 条件。
 - 表达式语言；v0.2 只允许约束里的比较与区间。
@@ -733,7 +668,7 @@ file       = header, { line }, EOF ;
 header     = { blank | comment }, version_line, { blank | comment }, type_line ;
 version_line = WS0, "version", WS1, version, WS0, NL ;
 type_line  = WS0, file_type, WS1, id, WS0, NL ;
-file_type  = "component" | "schematic" | "pcb" | "system" | "page" | "footprint" | "symbol" ;
+file_type  = "component" | "schematic" | "pcb" | "system" | "footprint" | "symbol" | "view" ;
 version    = digit, ".", digit ;
 
 line       = blank | comment | section | scalar | directive | row | single_row ;
@@ -751,10 +686,11 @@ non_ws     = any - ( " " | "\t" | NL ) ;
 key        = lower, { lower | digit | "_" } ;
 id         = lower, { lower | digit | "-" } ;
 bus_type   = upper, { upper | digit | "_" } ;
-section_name = "params" | "pins" | "instances" | "nets" | "pages" | "ports" | "boards"
+section_name = "params" | "pins" | "instances" | "nets" | "ports" | "boards"
              | "constraints" | "stackup" | "outline" | "place" | "connect" | "trace"
              | "via" | "zone" | "keepout" | "rules" | "silk" | "physical_only"
-             | "deviation" | "pads" | "graphics" | "body" ;
+             | "deviation" | "pads" | "graphics" | "body"
+             | "wire" | "label" | "text" ;
 WS0        = { " " | "\t" } ;
 WS1        = ( " " | "\t" ), { " " | "\t" } ;
 ```
@@ -766,12 +702,12 @@ WS1        = ( " " | "\t" ), { " " | "\t" } ;
 3. `row` 只能出现在 `section` 或 `bus` 块内。
 4. `section_name` 必须属于当前文件类型：
    - `component`：`params`、`pins`
-   - `schematic`：`instances`、`nets`、`pages`、`ports`、`constraints`
-   - `page`：`instances`、`nets`、`ports`、`constraints`
+   - `schematic`：`instances`、`nets`、`ports`、`constraints`
    - `system`：`boards`、`nets`
    - `pcb`：`stackup`、`outline`、`place`、`connect`、`trace`、`via`、`zone`、`keepout`、`rules`、`silk`、`physical_only`、`deviation`
    - `footprint`：`pads`、`graphics`
    - `symbol`：`pins`、`body`
+   - `view`：`place`、`wire`、`label`、`port`、`text`
 5. 单单元格的非空行只能是 `section`；唯一例外是 `system` 的 `boards` 段，那里的单单元格行是 `board_id` 数据行（`single_row`）。
 6. `bus` 指令只出现在 `schematic`，canonical form 中位于 `nets` 之后、`constraints` 之前。
 7. `id` 的具体字符集按 §4.2；net 名允许 `.`、`+`、`-`，与文件 id 不同。

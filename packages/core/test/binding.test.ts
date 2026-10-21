@@ -6,8 +6,8 @@ import type { Pcb } from "@texteda/ir/pcb";
 import type { Schematic } from "@texteda/ir/schematic";
 
 const schematic: Schematic = {
-  ir_version: "0.1",
-  format: "0.3",
+  ir_version: "0.2",
+  format: "0.7",
   board: "b",
   instances: [
     { id: "R1", component: "r-0402" },
@@ -22,8 +22,8 @@ const schematic: Schematic = {
 };
 
 const pcbBase: Pcb = {
-  ir_version: "0.1",
-  format: "0.4",
+  ir_version: "0.2",
+  format: "0.7",
   board: "b",
   board_thickness_nm: 1_600_000,
   stackup: [

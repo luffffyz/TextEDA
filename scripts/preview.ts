@@ -4,7 +4,7 @@
 //   bun run preview symbol   <id> [--lib <name>] [--out <dir>] [--project <dir>] [--scale <n>]
 //   bun run preview footprint <id> [--lib <name>] [--out <dir>] [--project <dir>] [--scale <n>]
 //   bun run preview component <id> [--out <dir>] [--project <dir>] [--scale <n>]
-//   bun run preview view      <board>/<page> [--out <dir>] [--project <dir>] [--scale <n>]
+//   bun run preview view      <board>/<print_page> [--out <dir>] [--project <dir>] [--scale <n>]
 //
 // Purpose: after an agent builds a footprint/symbol it wants to take an immediate look (pin orientation, arrows, courtyard, silkscreen over pads);
 // these all pass green in the IR and contract validation — validation only checks self-consistency, not whether it looks right.
@@ -70,7 +70,7 @@ function parseArgs(argv: string[]): Options {
   }
   if (!id) fail("usage: preview symbol|footprint|component|view <id>");
   if (kind === "view" && !/^[^/]+\/[^/]+$/.test(id)) {
-    fail("usage: preview view <board>/<page>");
+    fail("usage: preview view <board>/<print_page>");
   }
   if (!Number.isFinite(scale) || scale <= 0) fail("--scale must be a positive number");
   return { kind, id, lib, out, project, scale };
@@ -227,21 +227,19 @@ if (options.kind === "footprint" || options.kind === "component") {
 
 if (options.kind === "view") {
   const [board, page] = options.id.split("/") as [string, string];
-  const pageFile = join(projectRoot, "sch", board, `${page}.teda`);
-  if (!existsFile(pageFile)) fail(`page not found: ${pageFile}`);
-  const pageText = readFileSync(pageFile, "utf8");
-  const parsedPage = parseSchematicDocument(pageText, {
-    file: `sch/${board}/${page}.teda`,
-    kind: "page",
+  const boardFile = join(projectRoot, "sch", `${board}.teda`);
+  if (!existsFile(boardFile)) fail(`board not found: ${boardFile}`);
+  const parsedBoard = parseSchematicDocument(readFileSync(boardFile, "utf8"), {
+    file: `sch/${board}.teda`,
   });
-  if (!parsedPage.ok || !parsedPage.doc) {
-    console.error(parsedPage.diagnostics.map((d) => `  ${formatDiagnostic(d)}`).join("\n"));
-    fail(`page ${options.id} failed to parse`);
+  if (!parsedBoard.ok || !parsedBoard.doc) {
+    console.error(parsedBoard.diagnostics.map((d) => `  ${formatDiagnostic(d)}`).join("\n"));
+    fail(`board ${board} failed to parse`);
   }
 
   const viewFile = join(projectRoot, "sch", board, `${page}.view.teda`);
   if (!existsFile(viewFile)) {
-    fail(`no view for page ${options.id} (looked for ${viewFile})`);
+    fail(`no print page ${options.id} (looked for ${viewFile})`);
   }
   const parsedView = parseView(readFileSync(viewFile, "utf8"), {
     file: `sch/${board}/${page}.view.teda`,
@@ -252,13 +250,13 @@ if (options.kind === "view") {
     fail(`view ${options.id} failed to parse`);
   }
 
-  // The view is page-local: its refdes resolve against the page's instances, not the flattened board.
-  const componentOf = new Map(parsedPage.doc.instances.map((i) => [i.refdes, i.componentId]));
+  // The view names the board's instances by their board-level refdes (ADR-0025).
+  const componentOf = new Map(parsedBoard.doc.instances.map((i) => [i.refdes, i.componentId]));
   const instances = new Map<string, SchematicInstance>();
   for (const place of parsedView.ir.place) {
     const componentId = componentOf.get(place.instance_id);
     if (!componentId) {
-      fail(`view places ${place.instance_id}, which is not an instance of page ${options.id}`);
+      fail(`view places ${place.instance_id}, which is not an instance of board ${board}`);
     }
     const componentFile = findComponentFile(projectRoot, componentId);
     if (!componentFile) fail(`no component ${componentId} for instance ${place.instance_id}`);

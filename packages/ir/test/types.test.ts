@@ -7,18 +7,18 @@ import type { Component } from "../src/generated/types/component.ts";
 import type { Pcb } from "../src/generated/types/pcb.ts";
 
 const minimalSchematic: Schematic = {
-  ir_version: "0.1",
-  format: "0.3",
+  ir_version: "0.2",
+  format: "0.7",
   board: "demo",
   instances: [],
   nets: [],
 };
 
-// @ts-expect-error ir_version is currently only 0.1; once the type widens, this assertion fails to compile
-const wrongVersion: Schematic = { ...minimalSchematic, ir_version: "0.2" };
+// @ts-expect-error ir_version is currently only 0.2; once the type widens, this assertion fails to compile
+const wrongVersion: Schematic = { ...minimalSchematic, ir_version: "0.3" };
 
 const minimalComponent: Component = {
-  ir_version: "0.1",
+  ir_version: "0.2",
   component: {
     id: "r-0402",
     package: "0402",
@@ -36,8 +36,8 @@ const wrongPinsSource: Component = {
 };
 
 const minimalPcb: Pcb = {
-  ir_version: "0.1",
-  format: "0.4",
+  ir_version: "0.2",
+  format: "0.7",
   board: "demo",
   board_thickness_nm: 1600000,
   stackup: [
@@ -58,7 +58,7 @@ test("generated types match the contract", () => {
   expect(validate("schematic", minimalSchematic).ok).toBe(true);
   expect(validate("component", minimalComponent).ok).toBe(true);
   expect(validate("pcb", minimalPcb).ok).toBe(true);
-  expect(String(wrongVersion.ir_version)).toBe("0.2");
+  expect(String(wrongVersion.ir_version)).toBe("0.3");
   expect(String(wrongPinsSource.component.pins_source)).toBe("nope");
 });
 

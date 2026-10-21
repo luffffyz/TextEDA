@@ -61,15 +61,15 @@ describe("preview command", () => {
     const svg = readFileSync(files[0]!, "utf8");
     expect(svg).toContain("<title>charger-buck/buck-5v</title>");
     // The placed instances name themselves; the library placeholder (`U`) must not survive.
-    expect(svg).toContain("<title>C1</title>");
-    expect(svg).toContain("<title>U1</title>");
+    expect(svg).toContain("<title>C19</title>");
+    expect(svg).toContain("<title>U2</title>");
     expect(svg).toContain("<title>GND</title>");
   });
 
   test("view without a view file: report it clearly and exit non-zero", () => {
     const run = runPreview(["view", "charger-buck/nonexistent"]);
     expect(run.code).not.toBe(0);
-    expect(run.stderr).toContain("page not found");
+    expect(run.stderr).toContain("no print page");
   });
 
   test("unknown argument: report it clearly and exit non-zero", () => {

@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.1",
+  "ir_version": "0.2",
   "format": "0.3",
   "board": "demo",
   "instances": [{ "id": "R1", "component": "r-0402" }],
