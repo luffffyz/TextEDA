@@ -10,7 +10,7 @@
 >
 > **契约层永久开源**：`teda.md` / `spec/` / `schemas/` / `examples/` / `tests/` 永远公开可实现，不因商业理由关闭；实现层（`packages/`）可另行许可。定位是**标准提案**——让别人围绕它建工具。
 >
-> GitHub 上仓库**当前仍是私有**：许可与"将来一定公开"的承诺已经落定，切到 public 是待执行的一步，前置条件（厂商 datasheet 版权清理）已完成，剩下的是一次人工扫内部信息 + 可见性开关。详见 [ADR-0015](docs/adr/0015-licensing-and-open-standard.md) 与 `docs/backlog.md` F6。
+> GitHub 上仓库**当前仍是私有**：许可与"将来一定公开"的承诺已经落定，公开前的内部信息清扫也已完成（`bun run check:public` 通过：历史里没有厂商 datasheet、没有凭据、没有维护者的机器路径）。剩下的是切开关这一步人工操作。详见 [ADR-0015](docs/adr/0015-licensing-and-open-standard.md) 与 `docs/backlog.md` F6。
 
 ## 现在能做什么
 
@@ -20,6 +20,8 @@ bun test                # 单元 + 契约 + round-trip
 bun run typecheck       # 六个包一起过 tsc
 bun run lib:verify      # 库级闭环（**零外部依赖**）
 bun run lib:verify:kicad  # 可选：追加 KiCad 互操作段（KiCad 能读能渲染、合并板 DRC 0 违规）
+bun run check:links      # 全部 Markdown 链接与 ADR 交叉引用可解析
+bun run check:public     # 公开前清扫：历史里没有厂商 PDF、没有凭据
 bun run preview symbol bq24610rger     # 画符号（不依赖 KiCad）
 bun run preview component bq24610rger  # 画器件的符号 + 封装
 bun run fmt:teda --check examples/reference-project   # canonical form 检查

@@ -10,7 +10,7 @@ Built for agents: machine-parsable, verifiable, locatable errors. Humans only re
 >
 > **The contract layer is open source forever**: `teda.md` / `spec/` / `schemas/` / `examples/` / `tests/` stay public and implementable, never closed for commercial reasons. The implementation layer (`packages/`) may be relicensed separately. The positioning is a **standard proposal** — let others build tools around it.
 >
-> The GitHub repo is **currently private**. The license and the "will be public" commitment are settled; flipping the switch is a pending manual step, blocked on an internal-info sweep. See [ADR-0015](docs/adr/0015-licensing-and-open-standard.md) and `docs/backlog.md` F6.
+> The GitHub repo is **currently private**. The license and the "will be public" commitment are settled, and the pre-publication sweep is done (`bun run check:public` passes: no vendor PDFs in the history, no credentials, no maintainer paths). Flipping the switch is a pending manual step. See [ADR-0015](docs/adr/0015-licensing-and-open-standard.md) and `docs/backlog.md` F6.
 
 ## What works now
 
@@ -20,6 +20,8 @@ bun test                # unit + contract + round-trip
 bun run typecheck       # all six packages through tsc
 bun run lib:verify      # library closure, **zero external dependencies**
 bun run lib:verify:kicad  # optional: adds the KiCad interoperability section
+bun run check:links      # every Markdown link and ADR cross-reference resolves
+bun run check:public     # pre-publication sweep: no vendor PDFs in the history, no credentials
 bun run preview symbol bq24610rger     # draw a symbol (no KiCad needed)
 bun run preview component bq24610rger  # draw a component's symbol + footprint
 bun run fmt:teda --check examples/reference-project   # canonical-form check

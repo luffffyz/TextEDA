@@ -442,6 +442,7 @@ dist/ir/
 - **交叉引用可解析**：`bun run check:links` 校验全部 Markdown 链接目标存在、ADR 编号能解析到文件、链接文字与目标一致、`docs/adr/README.md` 索引与磁盘上的决策记录一一对应、ADR 头部格式统一。**现状：已落地并通过**。
 - **错误质量**：每条诊断含文件、行列、期望/实际、修复建议；提供 `--json` 输出供 agent 消费。**现状：部分**——parser 层已有 `file:line:col:severity:code:message`（码是无注册表的 `C001`/`F110`/`S202` 式临时编号）；**缺**期望/实际/修复建议与 `--json` 输出；**schema 层诊断只有 IR 路径**（`{path, keyword, message}`），没有文件与行列。完整口径见 `docs/backlog.md` F7（错误码注册表与载荷）与 F11（span 机制）。
 - 提交前必须跑完整检查；不允许"只跑单测"。**现状：仓库没有 CI 配置**（无 `.github/`），这些门槛目前靠本地跑：`bun test`、`bun run typecheck`、`bun run gen:check`、`bun run lib:verify`、`bun run check:links`。**其中 `lib:verify` 是零依赖必过段**（不需要 KiCad）；KiCad 互操作段是可选的 `bun run lib:verify:kicad`——门禁不得依赖外部工具（不变量 20 / [ADR-0018](docs/adr/0018-zero-dependency-and-manufacturing-target.md)）。
+- **公开仓库的每次 push 前要跑 `bun run check:public`**（[ADR-0015](docs/adr/0015-licensing-and-open-standard.md) decision 1 / `docs/backlog.md` F6）。仓库一旦公开就是**单向门**：进过历史的文件永久可读，fork 已经存在就收不回来。所以这一项查的是**历史**而不只是工作区——厂商 datasheet PDF、凭据、维护者机器的绝对路径、邮箱，都不能出现在任何可达提交里。检查项：① 历史里没有 PDF；② 没有凭据形状的字符串（私钥、GitHub/AWS/Slack token、API key 赋值）；③ 没有 `/home/<user>`、`/Users/<user>` 这类绝对路径（`/tmp` 通用临时目录不算）；④ 没有邮箱；⑤ 每个 `package.json` 有 `license` 与 `private: true`；⑥ `NOTICE` 附上被内置的第三方组件的许可正文（内置 Hershey 字形数据 → 必须有 MIT 正文）。**往 `docs/` 里放厂商文档前先想一次"是不是受版权保护的材料"——默认不入库**；真需要时放 `examples/reference-project/docs/datasheets/`，该目录已被 gitignore。
 
 ---
 

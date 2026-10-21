@@ -139,12 +139,23 @@
 
 **还剩下的（都是人工操作）**：
 
-1. 扫一遍 `docs/trial-run/`、README、示例工程里的内部链接、主机名、密钥、真实项目代号。
+1. ~~扫一遍 `docs/trial-run/`、README、示例工程里的内部链接、主机名、密钥、真实项目代号~~ **已完成**（2026-10-21，审计结论见下）。
 2. 把 GitHub 可见性切 public。
 3. 同步 README 顶部的措辞（当前写的是"仍为私有"）。
 
+**审计结论（2026-10-21，`bun run check:public`）**：
+
+- **历史干净**：13 个可达提交、325 个曾被跟踪的路径，**零个 PDF**；`git fsck --unreachable` 无残留；远端 `main` 与本地逐 commit 一致，GitHub 上没有旧 ref、tag 或 PR 引用指向重写前的历史（`git rev-list --objects origin/main | grep -i pdf` 为空）。
+- **无凭据、无维护者痕迹**：私钥 / GitHub / AWS / Slack token / API key 赋值均无命中；无邮箱；无 `/home/<user>`、`/Users/<user>`、`C:\Users` 绝对路径（`/tmp/texteda-*` 是通用临时目录，不泄露身份）。
+- **无未公开产品**：参考工程的 22 个料号全是公开在售芯片（TI `BQ24610`、WCH `CH32V307`、Vishay `IHLP4040` 等），不含真实客户项目、代号或厂牌。
+- **许可齐备**：7 个 `package.json` 都有 `license: Apache-2.0` 与 `private: true`；`NOTICE` 覆盖内置的 Hershey 字形数据（MIT 正文已附）、KiCad（外部工具，未随仓库分发）、厂商 datasheet（不入库）。
+- **补了一处合规缺口**：`NOTICE` 原先只提了一句 "MIT, (c) 2014 James T"，**没有 MIT 许可正文**——MIT 要求随分发附上正文。已补全。
+
+**检查已固化为门禁**：`bun run check:public`（`scripts/check-public.ts`）。它查的是**历史**而不只是工作区——公开后进过历史的文件永久可读，fork 已存在就收不回来。检查项见 `AGENTS.md` §10。
+
 **验收**：
 
+- `bun run check:public` 通过。
 - `git log --all --name-only | grep -i '\.pdf$'` 无输出。
 - 匿名可 clone（临时目录里用无凭据方式验证）。
 - 仓库里不存在第三方受版权保护的文档。
