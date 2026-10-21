@@ -18,7 +18,7 @@
 //
 // Why split them: KiCad's parsing and DRC are **cross-validation** (a third-party implementation accepts us),
 // not our definition of correctness. Making it a required item turns "a third party accepts us" into
-// "the premise of our existence", and would also make textEDA require KiCad to be used. ADR-0018.
+// "the premise of our existence", and would also make TextEDA require KiCad to be used. ADR-0018.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { validate } from "@texteda/ir";
@@ -288,7 +288,7 @@ const edge = (x1: number, y1: number, x2: number, y2: number): string =>
 const board = [
   "(kicad_pcb",
   "\t(version 20241229)",
-  '\t(generator "textEDA")',
+  '\t(generator "TextEDA")',
   "\t(general (thickness 1.6))",
   '\t(paper "A4")',
   "\t(layers",

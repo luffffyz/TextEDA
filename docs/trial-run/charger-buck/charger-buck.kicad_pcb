@@ -1,6 +1,6 @@
 (kicad_pcb
 	(version 20241229)
-	(generator "textEDA")
+	(generator "TextEDA")
 	(generator_version "0.1")
 	(general
 		(thickness 1.6)

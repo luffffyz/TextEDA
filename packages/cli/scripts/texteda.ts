@@ -1,13 +1,13 @@
 #!/usr/bin/env bun
-// `textEDA` command-line entry point.
+// `texteda` command-line entry point.
 //
 // The file system appears only at this layer: the CLI does not enter core/ir/parser (ADR-0009 decision 1).
 //
 // Usage:
-//   textEDA init <dir> [--force] [--name <project name>]
-//   textEDA compile <project dir> <board_id> [--json] [--out <file>] [--pcb]
-//   textEDA check <project dir> [--json]
-//   textEDA netlist <project dir> [--board <board_id>] [--json] [--out <file>]
+//   texteda init <dir> [--force] [--name <project name>]
+//   texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb]
+//   texteda check <project dir> [--json]
+//   texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { initTree, projectNameFromDir } from "../src/init.ts";
@@ -27,10 +27,10 @@ function fail(code: "cli.bad-flag" | "cli.bad-usage", message: string): never {
     console.error(
       [
         "Usage:",
-        "  textEDA init <dir> [--force] [--name <project name>]",
-        "  textEDA compile <project dir> <board_id> [--json] [--out <file>] [--pcb]",
-        "  textEDA check <project dir> [--json]",
-        "  textEDA netlist <project dir> [--board <board_id>] [--json] [--out <file>]",
+        "  texteda init <dir> [--force] [--name <project name>]",
+        "  texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb]",
+        "  texteda check <project dir> [--json]",
+        "  texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]",
       ].join("\n"),
     );
   }
@@ -148,7 +148,7 @@ function runNetlist(args: ParsedArgs): void {
   }
   const errors = result.diagnostics.filter((d) => d.severity === "error").length;
   if (errors > 0) {
-    console.error(`Netlist not exported: ${errors} errors (run textEDA check first to see how to fix them)`);
+    console.error(`Netlist not exported: ${errors} errors (run texteda check first to see how to fix them)`);
     process.exit(1);
   }
 

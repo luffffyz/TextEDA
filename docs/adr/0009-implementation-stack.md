@@ -20,7 +20,7 @@ The user has settled on **Bun** as the toolchain. Bun solves the CLI and the tes
 
 | Role | Runtime | Notes |
 |---|---|---|
-| CLI (`textEDA`) and CI | **Bun** | `bun build --compile` produces a single-file binary; `bun test` runs the tests |
+| CLI (`texteda`) and CI | **Bun** | `bun build --compile` produces a single-file binary; `bun test` runs the tests |
 | IDE extension host | **Node ≥ 20** | VS Code and other LSP clients are all Node |
 | Rendering and the 3D view | **browser / WebView** | the webview and the future web version share the same code |
 | `packages/core` | **all three** | pure functions: they only take strings/bytes and never touch the filesystem, network, clock, or random sources |
@@ -103,14 +103,14 @@ In the JS ecosystem **everything that can read STEP embeds OCCT**, so switching 
 ### 6. Repository structure (target, replacing the placeholder in AGENTS.md §9)
 
 ```
-textEDA/
+texteda/
 ├── packages/
 │   ├── ir/         # schema → TS types + Ajv validation
 │   ├── core/       # parser → IR → checks (pure functions)
 │   ├── render/     # SVG (sch / pcb)
 │   ├── exporter/   # KiCad / netlist / BOM (calls kicad-cli)
 │   ├── lsp/        # language service
-│   ├── cli/        # textEDA command (compiled with Bun)
+│   ├── cli/        # texteda command (compiled with Bun)
 │   └── vscode/     # VS Code extension (thin shell)
 ├── schemas/ir/     # the contract (sole source of truth)
 ├── tests/          # unit + conformance + binding + round-trip + schemas

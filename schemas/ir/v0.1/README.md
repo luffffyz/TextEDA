@@ -1,6 +1,6 @@
 # IR v0.1 — contract notes
 
-This is the **only** contract for the textEDA IR: JSON Schema 2020-12. The semantic model and on-disk layout are in `docs/adr/0004-ir-representation.md`; sharding, identity keys, units and hash granularity are in `docs/adr/0008-ir-shard-identity-and-hash.md`; TS types are generated from this directory with no zod, see `docs/adr/0009-implementation-stack.md`.
+This is the **only** contract for the TextEDA IR: JSON Schema 2020-12. The semantic model and on-disk layout are in `docs/adr/0004-ir-representation.md`; sharding, identity keys, units and hash granularity are in `docs/adr/0008-ir-shard-identity-and-hash.md`; TS types are generated from this directory with no zod, see `docs/adr/0009-implementation-stack.md`.
 
 ## Files and `$id`
 

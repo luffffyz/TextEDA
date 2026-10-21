@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:texteda:ir:0.1:component",
-  "title": "textEDA IR v0.1 — component shard",
+  "title": "TextEDA IR v0.1 — component shard",
   "description": "Semantic projection of one .teda component file. Pins must already be materialized in the IR: inline pins are copied verbatim; when `symbol` points to a third-party library that carries pin facts and the file omits `pins`, the parser expands them from the library and `pins_source` records the source. A self-built `symbol` stores only the view, without pin facts (ADR-0012), so a component pointing at a self-built symbol must inline `pins`.",
   "type": "object",
   "additionalProperties": false,

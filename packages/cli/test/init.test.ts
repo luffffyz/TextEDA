@@ -1,4 +1,4 @@
-// Contract tests for `textEDA init` (AGENTS.md "init contract (settled)").
+// Contract tests for `texteda init` (AGENTS.md "init contract (settled)").
 //
 // Two layers: pure logic (which files to write and what their contents are) and disk writes (refusing non-empty directories, --force overwrite, deterministic output).
 import { describe, expect, test } from "bun:test";
@@ -16,7 +16,7 @@ function runInit(args: string[]): { code: number; stdout: string; stderr: string
   console.log = (...args: unknown[]) => stdout.push(args.join(" "));
   console.error = (...args: unknown[]) => stderr.push(args.join(" "));
   try {
-    const proc = Bun.spawnSync(["bun", "run", join(import.meta.dir, "../scripts/textEDA.ts"), ...args], {
+    const proc = Bun.spawnSync(["bun", "run", join(import.meta.dir, "../scripts/texteda.ts"), ...args], {
       stdout: "pipe",
       stderr: "pipe",
     });

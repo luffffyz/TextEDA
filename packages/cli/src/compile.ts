@@ -1,9 +1,9 @@
-// `textEDA compile`: compile a board's schematic into an IR shard (canonical JSON).
+// `texteda compile`: compile a board's schematic into an IR shard (canonical JSON).
 //
 // Usage:
-//   textEDA compile <project dir> <board_id>              print canonical JSON
-//   textEDA compile <project dir> <board_id> --json       print only the diagnostic payload (ADR-0016)
-//   textEDA compile <project dir> <board_id> --out <file>  write the IR to a file
+//   texteda compile <project dir> <board_id>              print canonical JSON
+//   texteda compile <project dir> <board_id> --json       print only the diagnostic payload (ADR-0016)
+//   texteda compile <project dir> <board_id> --out <file>  write the IR to a file
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
 import { diagnosticsToPayload } from "@texteda/ir/diagnostics";

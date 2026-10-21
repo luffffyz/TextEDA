@@ -1,4 +1,4 @@
-# ADR-0015: Licensing and Openness Policy — The Contract Layer Is Open Source Forever, the Project Is Positioned as a Standard Proposal
+# ADR-0015: Licensing and Openness Policy — The Contract Layer Is Open Source Forever, the Project Is a Pure Open Technical Specification
 
 Status: Accepted
 Date: 2026-10-21
@@ -19,13 +19,13 @@ This must be decided today, for three reasons:
 ### 1. Apache-2.0 across the whole repository; repository visibility stays private for now, public is the next step
 
 - The root gains a `LICENSE` (the full Apache-2.0 text) and a `NOTICE` (attribution statement + third-party component notes: Hershey glyph data is public domain, obtained via `hersheytext` (MIT); KiCad is only an external tool and is not distributed with this repository).
-- The five `package.json` files that existed at the time (root + `ir` / `parser` / `exporter` / `renderer`) uniformly gain `"license": "Apache-2.0"`. **Addendum (2026-10-21)**: two packages were added later — `core` (pure connectivity rules) and `cli` (the `textEDA` command line). The rule is now **seven** `package.json` files (root + `ir` / `parser` / `exporter` / `renderer` / `core` / `cli`), and all seven carry `"license": "Apache-2.0"` and `"private": true`. The rule itself did not change: every `package.json` in the repository, present or future, follows it.
+- The five `package.json` files that existed at the time (root + `ir` / `parser` / `exporter` / `renderer`) uniformly gain `"license": "Apache-2.0"`. **Addendum (2026-10-21)**: two packages were added later — `core` (pure connectivity rules) and `cli` (the `texteda` command line). The rule is now **seven** `package.json` files (root + `ir` / `parser` / `exporter` / `renderer` / `core` / `cli`), and all seven carry `"license": "Apache-2.0"` and `"private": true`. The rule itself did not change: every `package.json` in the repository, present or future, follows it.
 - **GitHub visibility does not change in this round; it stays private.** Switching to public is a pending manual action, not a side effect of this commit; the precondition is that the roughly 15 MB of vendor datasheets (TI, WCH and other third-party PDFs) under `examples/reference-project/docs/datasheets/` are cleaned out — distributing vendor PDFs alongside the repository is a copyright problem, not a format problem. **Addendum (2026-10-21)**: that precondition has now been cleared — the PDFs were removed from the index, excluded via `.gitignore`, declared in `NOTICE`, and **the git history was rewritten** (`filter-branch` + gc), so the PDF objects in old commits are no longer reachable. All that remains is manual work: scan for internal information → switch the GitHub visibility to public → sync the README wording (see `docs/backlog.md` F6). **The license and the "we will definitely open-source later" commitment are settled now; the visibility switch waits until the manual work is done.**
-- Why Apache-2.0 rather than MIT: **standard-like projects need patent licensing** (Apache-2.0 §3 grants contributors a patent license over their contributions; MIT does not). A format that others are meant to implement and that may end up inside commercial products must have its patent risk handled up front. MIT is reserved for pure tooling code; a single uniform license for this repository is simpler at this stage.
+- Why Apache-2.0 rather than MIT: **standard-like projects need patent licensing** (Apache-2.0 §3 grants contributors a patent license over their contributions; MIT does not). A format that others are meant to implement must have its patent risk handled up front. MIT is reserved for pure tooling code; a single uniform license for this repository is simpler at this stage.
 
 ### 2. The Contract Layer Is Open Forever — The Hardest Rule in This ADR
 
-The paths below belong to the **contract layer**: they are public forever, freely implementable, freely redistributable, and **must never be closed-sourced or given extra restrictions for any commercial reason**:
+The paths below belong to the **contract layer**: they are public forever, freely implementable, freely redistributable, and **must never be closed-sourced or given extra restrictions**:
 
 |Path|What it is|
 |---|---|
@@ -51,18 +51,18 @@ We explicitly **do not pursue** making the implementation a subscription service
 
 ### 4. Acting Like a Standard Means Paying a Standard's Obligations
 
-"Public" does not mean "a standard". As a specification proposal, textEDA takes on these obligations:
+"Public" does not mean "a standard". As a specification proposal, TextEDA takes on these obligations:
 
 1. **Normative**: `spec/**` must be written so that others can implement against it — clear MUST / SHOULD semantics, defined error behavior, not a description of this repository's implementation alone. The machine-readable part is carried by `schemas/ir/v0.1/**`.
-2. **The conformance suite is part of the standard**: the cases and golden IR in `tests/**` are the acceptance suite for others. A third-party implementation that passes this suite may claim conformance with "textEDA v0.x".
+2. **The conformance suite is part of the standard**: the cases and golden IR in `tests/**` are the acceptance suite for others. A third-party implementation that passes this suite may claim conformance with "TextEDA v0.x".
 3. **Implementability is a release gate**: before v0.1 ships, there must be a minimal implementation that depends only on `spec/**` and `schemas/**` — and does not read `packages/**` source — that passes the core of the conformance suite. This rule is testable: you know the moment you write it. It prevents the most common way a standard fails: "only my implementation understands the spec".
 4. **Versioning and compatibility**: `format` (syntax) and `ir_version` (IR shape) are versioned independently ([ADR-0008](0008-ir-shard-identity-and-hash.md)); breaking changes must ship a migration script and migration notes (`AGENTS.md` §2 invariant 10). No SLA is promised — only semantic versioning plus a migration path.
 5. **Do not treat the reference implementation as the spec**: the reference implementation (`packages/**`) is "an implementation", not "the only correct behavior". When the spec and the implementation conflict, change the spec — do not bend the implementation to fit the implementation.
 
 ### 5. Trademarks and Naming
 
-- Apache-2.0 §6 grants no trademark license. Third-party implementations should call themselves "textEDA v0.x-conformant" or "textEDA-compatible" and **must not** use textEDA as their product name (unless a separate trademark license is granted). No trademark is registered yet; it will be reconsidered once the ecosystem actually takes off.
-- The project name textEDA itself implies no endorsement of KiCad / Altium / EAGLE trademarks; this project is a complement and an upstream for those tools, not a replacement (`AGENTS.md` §1 "not").
+- Apache-2.0 §6 grants no trademark license. Third-party implementations should call themselves "TextEDA v0.x-conformant" or "TextEDA-compatible" and **must not** use TextEDA as their product name (unless a separate trademark license is granted). No trademark is registered.
+- The project name TextEDA itself implies no endorsement of KiCad / Altium / EAGLE trademarks; this project is a complement and an upstream for those tools, not a replacement (`AGENTS.md` §1 "not").
 
 ### 6. Governance and Contribution
 
@@ -78,7 +78,7 @@ We explicitly **do not pursue** making the implementation a subscription service
 
 ## Consequences
 
-- **Benefits**: the contract can be implemented and consumed by third parties; agents get a stable public input format; "the IR can be reimplemented" stops being a slogan and becomes an enforceable premise; with the license and the openness commitment settled, switching to public later is a single settings operation that needs no further negotiation; the business model no longer depends on "lock the format down and charge for it", which does not work.
+- **Benefits**: the contract can be implemented and consumed by third parties; agents get a stable public input format; "the IR can be reimplemented" stops being a slogan and becomes an enforceable premise; with the license and the openness commitment settled, switching to public later is a single settings operation that needs no further negotiation.
 - **Costs**: normative text becomes a public commitment and is slower to change than in the private era (every breaking change needs a migration script and notes); the reference implementation is demoted from "product" to "example + acceptance baseline", and we have to accept others writing different implementations; once we go public there is no way back, and the repository's rough edges stay visible for good.
 - **The parts that cost nothing**: the language syntax, the IR contract and the `packages/**` implementation code are untouched; `package.json` only gained one `license` field, and both `private: true` and the repository visibility stay unchanged.
 - **The main risk**: the biggest risk of the standard-proposal model is **adoption rate** — a specification nobody uses is nothing, and going public only makes that visible earlier. The mitigations are the three items in decision 4: the conformance suite as a distribution vehicle, the reference project as a copyable sample, and the "implementable from the spec alone" gate, which is testable. This risk is not dissolved by staying closed (closing only lowers the adoption rate); it can only be addressed through spec quality and usability. **The cost of this is that the risk stays hidden while the repository is still private** — that is a known cost of keeping it private, and F4's implementability check plus F6's cleanup are meant to surface it early.

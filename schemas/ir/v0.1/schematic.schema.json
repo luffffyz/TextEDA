@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:texteda:ir:0.1:schematic",
-  "title": "textEDA IR v0.1 — schematic shard",
+  "title": "TextEDA IR v0.1 — schematic shard",
   "description": "Schematic IR of one board: the flattened result of the board root plus all pages. There is only one instances / nets list — flattening is the single representation; pages keep only the page instantiation relations. See ADR-0007, ADR-0008 decision 2.",
   "type": "object",
   "additionalProperties": false,

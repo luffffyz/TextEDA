@@ -7,13 +7,13 @@
     "name": "reference-project",
     "version": "0.1.0",
     "format": "0.3",
-    "description": "Reference project for textEDA",
+    "description": "Reference project for TextEDA",
     "license": "CERN-OHL-S-2.0",
     "status": "draft",
     "default_variant": "default",
     "authors": [
       {
-        "name": "textEDA"
+        "name": "TextEDA"
       }
     ],
     "links": {

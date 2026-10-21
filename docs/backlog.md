@@ -103,17 +103,17 @@
 
 ---
 
-## F5. 包发布形式与商标（延后，等生态信号）
+## F5. 包发布形式与商标（延后，等真实使用信号）
 
 **现状**：七个包（根 + `packages/ir` / `parser` / `exporter` / `renderer` / `core` / `cli`）都是 `"private": true`、版本 `0.0.0`，未发布到任何 registry。[ADR-0015](adr/0015-licensing-and-open-standard.md) decision 7 明确延后。
 
-**为什么现在不做**：还没有外部消费者；当前包是 TS 源码（走 git 依赖即可），发布到 npm 只会在没有真实需求时产生"看起来有生态"的假象。
+**为什么现在不做**：还没有外部消费者；当前包是 TS 源码（走 git 依赖即可），发布到 npm 只会在没有真实需求时产生"看起来有人在用"的假象。
 
 **要做的事（等有信号再做）**：
 
 1. **发布形式**：候选是 npm（`@texteda/*`）、纯 git 依赖、或者只发布 `schemas/ir/**` 与 conformance 语料。判断依据是"第三方实现者实际需要什么"——先看有没有人 clone 了仓库并自己写实现。
 2. **版本号**：发布前把 `0.0.0` 换成真实版本；`format` 与 `ir_version` 独立版本（[ADR-0008](adr/0008-ir-shard-identity-and-hash.md)）不变，发布时把 `ir_version` 打进包元数据。
-3. **商标**：等"符合 textEDA"开始被第三方自称时，再评估注册 `textEDA` 商标与写商标使用指引（Apache-2.0 §6 不授予商标许可，[ADR-0015](adr/0015-licensing-and-open-standard.md) decision 5）。
+3. **商标**：目前没有注册任何商标（[ADR-0015](adr/0015-licensing-and-open-standard.md) decision 5）。若将来第三方开始自称"符合 TextEDA"，再评估是否注册 `TextEDA` 商标并写使用指引（Apache-2.0 §6 不授予商标许可）。
 
 **涉及**：`packages/*/package.json`、根 `package.json`、新增 `TRADEMARKS.md`（若注册）。
 
@@ -131,7 +131,7 @@
 
 ## F6. 仓库可见性切 public（版权清理已完成，待切开关）
 
-**现状**：GitHub 仓库 `luffffyz/textEDA` **仍是私有**。许可与开放承诺已按 [ADR-0015](adr/0015-licensing-and-open-standard.md) 落定（Apache-2.0 + 契约层永久开源）。**版权前置已清完**（2026-10-21）：
+**现状**：GitHub 仓库 `luffffyz/texteda` **仍是私有**。许可与开放承诺已按 [ADR-0015](adr/0015-licensing-and-open-standard.md) 落定（Apache-2.0 + 契约层永久开源）。**版权前置已清完**（2026-10-21）：
 
 - 5 个厂商 datasheet PDF（约 15 MB：TI `bq24610` / `tps7a20`、WCH `CH32V307DS0`、四川索斯特 `SST-3225-8M-12PF-10PPM`、硕方精密 `TS-1187`）已从索引移除并加进 `.gitignore`；
 - 这些 PDF 曾在首个提交里进过历史，已用 `git filter-branch --index-filter` **重写历史清除**，并 gc 掉旧对象；
@@ -201,11 +201,11 @@
 
 ## F9. 事实层禁止表达式 / 生成器在语言之外（写成 ADR）
 
-**现状**：这条线现在散落在 §5.1（"一行一个事实"、"禁止需要跨行阅读的结构"）与 §5.3（"生成器/循环 v0.1 不支持……后续生成层输出表"），**没有一份文件正面声明"事实层不得出现表达式"**。而它恰是 textEDA 对 tscircuit / cohdl 的核心差异：
+**现状**：这条线现在散落在 §5.1（"一行一个事实"、"禁止需要跨行阅读的结构"）与 §5.3（"生成器/循环 v0.1 不支持……后续生成层输出表"），**没有一份文件正面声明"事实层不得出现表达式"**。而它恰是 TextEDA 对 tscircuit / cohdl 的核心差异：
 
 - tscircuit：JSX 属性是任意表达式（`resistance={compute()}`），同一块板写法不唯一，canonical 化极难（只有 Circuit JSON 的 schema，没有源码 canonical 形式）；
 - cohdl：`fn` / 泛型 / 循环在语言内，撞到同一堵墙，于是被迫写 `cohdl fmt --check`；
-- textEDA：值是字面量（`3.3V`、`100nF`、`±1%`），事实用表，**生成发生在语言之外，产物是表**。
+- TextEDA：值是字面量（`3.3V`、`100nF`、`±1%`），事实用表，**生成发生在语言之外，产物是表**。
 
 **为什么现在做**：§11 Q1（表格 vs 链式）与 Q2（表达式/参数化程度）仍是**待定问题**。定得太早会被实现细节绑架，定得太晚会破坏已有语法。这条 ADR 的作用是**把已经生效的事实写成原则，并给出"什么情况下允许修订"的判据**——不是关闭 Q1/Q2。
 
@@ -241,11 +241,11 @@
 
 ---
 
-## F10. 库生态的入场券：库包规范与分发（registry 前置）
+## F10. 库包规范与分发（registry 前置）
 
-**现状**：[ADR-0015](adr/0015-licensing-and-open-standard.md) 承诺"让别人围绕它建工具"。但**语言的标准不产生生态**——cohdl 的生态靠 `registry.cohdl.org`（命名空间、包、精确版本钉死、`cohdl search`）加 LSP 加 VS Code 扩展加 Explorer 应用。textEDA 侧还没有任何"分发"概念：`components/` / `symbols/` / `footprints/` 只存在于本地工程，库引用靠 `project.toml` 的 `[libs.<name>]` 指向本地路径或 `project:` 库（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) 的内容哈希锚点），**没有跨工程、跨组织的库获取方式**。
+**现状**：[ADR-0015](adr/0015-licensing-and-open-standard.md) 承诺"让别人围绕它建工具"。但**光有语言规范不够**——别人要建工具，第一件事是"我从哪拿封装库"。Cohdl 的做法是 `registry.cohdl.org`（命名空间、包、精确版本钉死、`cohdl search`）加 LSP 加 VS Code 扩展加 Explorer 应用。TextEDA 侧还没有任何"分发"概念：`components/` / `symbols/` / `footprints/` 只存在于本地工程，库引用靠 `project.toml` 的 `[libs.<name>]` 指向本地路径或 `project:` 库（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) 的内容哈希锚点），**没有跨工程、跨组织的库获取方式**。
 
-**为什么现在做**：这是"别人建工具"的真正入口——第三方要做 KiCad 侧 / PLM 侧 / CI 侧工具，第一件事是"我从哪拿封装库"。库规范定不下来，生态就是空谈。
+**为什么现在做**：这是"别人建工具"的真正入口——第三方要做 KiCad 侧 / PLM 侧 / CI 侧工具，第一件事是"我从哪拿封装库"。库规范定不下来，工具就无从下手。
 
 **要做的事**（先只做规范，不做服务）：
 
@@ -264,20 +264,20 @@
 
 **注意**：
 
-- **先规范后服务**：不要一上来就写 registry（那是运维与法务问题，cohdl 走了很多年）。先把"库包长什么样、怎么钉版本、怎么验证"定死。
-- 库生态的成败取决于**库的覆盖率与质量**，不取决于注册表的 UI。优先把"自建库能自动生成"（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) 的 agent 生成路线）做扎实。
+- **先规范后服务**：不要一上来就写 registry（那需要长期运维，cohdl 走了很多年）。先把"库包长什么样、怎么钉版本、怎么验证"定死。
+- 库能不能被用起来，取决于**库的覆盖率与质量**，不取决于注册表的 UI。优先把"自建库能自动生成"（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) 的 agent 生成路线）做扎实。
 - 与不变量 19 对齐：库规范属契约层，永久开放。
 
 ---
 
 ## F11. 源码位置（span）机制：诊断要能指到行列
 
-**现状**：`AGENTS.md` §10 要求"每条诊断含文件、行列、期望/实际、修复建议"。但 textEDA 是"源码 → IR"的单向投影（[ADR-0004](adr/0004-ir-representation.md) / [ADR-0008](adr/0008-ir-shard-identity-and-hash.md)），**IR 只含语义、不含源位置**——span 在投影里丢了。两个后果：
+**现状**：`AGENTS.md` §10 要求"每条诊断含文件、行列、期望/实际、修复建议"。但 TextEDA 是"源码 → IR"的单向投影（[ADR-0004](adr/0004-ir-representation.md) / [ADR-0008](adr/0008-ir-shard-identity-and-hash.md)），**IR 只含语义、不含源位置**——span 在投影里丢了。两个后果：
 
 1. 语义检查器与 schema 校验的诊断只能指到"哪个文件"，指不到"哪一行哪一列"；
 2. schema 校验（Ajv）报的是 **IR 上的 JSON Pointer**（`/pins/2`），评审者看不懂——他手里是 `.teda` 源文件，不是 IR。
 
-对照：cohdl 的 IR 就是 AST，位置天生带着（它的包级诊断直接锚在 `cohdl.toml` 的行上）；tscircuit 同理。**这是 textEDA 独有的难点**——它刻意让 IR 与源分离（§3 的 S0/S1 分层），代价就是位置要另外解决。
+对照：cohdl 的 IR 就是 AST，位置天生带着（它的包级诊断直接锚在 `cohdl.toml` 的行上）；tscircuit 同理。**这是 TextEDA 独有的难点**——它刻意让 IR 与源分离（§3 的 S0/S1 分层），代价就是位置要另外解决。
 
 **为什么现在做**：F7 要求诊断带位置，F8 会把一部分检查前移进 schema 校验——**schema 错误的位置就是 IR 路径**，没有 span 就只能给路径。agent 要自动改文件，**没有行列就没法做定点修改**，repair loop 无从下手。
 
@@ -436,7 +436,7 @@
 
 ## F15. 自研 Gerber / Excellon 写出器（零依赖制造出口）
 
-**现状**：制造出口的当前路径是 IR → KiCad → Gerber / Excellon（[ADR-0005](adr/0005-manufacturing-output.md)）。这要求用户安装 KiCad，与 [ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md) 的零依赖原则（不变量 20）冲突：textEDA 的目标是"装 textEDA 就能走完描述 → 校验 → 渲染 → 制造包"。
+**现状**：制造出口的当前路径是 IR → KiCad → Gerber / Excellon（[ADR-0005](adr/0005-manufacturing-output.md)）。这要求用户安装 KiCad，与 [ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md) 的零依赖原则（不变量 20）冲突：TextEDA 的目标是"装 TextEDA 就能走完描述 → 校验 → 渲染 → 制造包"。
 
 **为什么工作量是已知的**：RS-274X 是行式文本格式（aperture 定义 + draw / flash + 坐标），**不需要几何内核**；本仓已有 pcb IR 的层、焊盘、走线、过孔、丝印事实，缺的是画布展开与坐标变换。对照自建符号库与封装库的实际经验（[ADR-0011](adr/0011-library-format-and-footprint-ir.md) ~ [ADR-0013](adr/0013-reference-project-self-built-libraries.md)）——"自建比想象中容易"已经被验证过一次，别再靠猜。
 
@@ -453,7 +453,7 @@
 
 **验收**：
 
-- 在**没有 KiCad 的机器上**跑通 `textEDA export gerbers <board>`，产出分层 Gerber + 钻孔文件。
+- 在**没有 KiCad 的机器上**跑通 `texteda export gerbers <board>`，产出分层 Gerber + 钻孔文件。
 - 与 KiCad 产物在层集合、孔位、图形数量上一致（对照测试）。
 - 同一 IR 两次导出逐字节相同。
 
@@ -467,7 +467,7 @@
 
 ## F16. 网表与 KiCad 原理图导出（P1）
 
-**现状**：`packages/parser` 能把板根 + 页面编译成板级 IR 分片（`bun run compile:schematic <项目目录> <board_id>`），IR 里已有实例、net（编号形式的引脚引用）、端口与约束。**网表已落地**：`textEDA netlist <项目目录> [--board <id>] [--json] [--out <文件>]`，实现在 `packages/exporter/src/netlist.ts`，是 IR 的纯函数投影（net/成员/实例都排序，逐字节可复现；有 error 时拒绝导出）。**netlist 只带连通性**：值、容差、封装属于 BOM，不进来。**KiCad 原理图导出仍是空的**：`packages/exporter` 只有封装与符号；原记录：`packages/exporter` 只做封装（`.kicad_mod`）与符号（`.kicad_sym`）→ KiCad，没有原理图方向的产物；BOM 与网表也没做。
+**现状**：`packages/parser` 能把板根 + 页面编译成板级 IR 分片（`bun run compile:schematic <项目目录> <board_id>`），IR 里已有实例、net（编号形式的引脚引用）、端口与约束。**网表已落地**：`texteda netlist <项目目录> [--board <id>] [--json] [--out <文件>]`，实现在 `packages/exporter/src/netlist.ts`，是 IR 的纯函数投影（net/成员/实例都排序，逐字节可复现；有 error 时拒绝导出）。**netlist 只带连通性**：值、容差、封装属于 BOM，不进来。**KiCad 原理图导出仍是空的**：`packages/exporter` 只有封装与符号；原记录：`packages/exporter` 只做封装（`.kicad_mod`）与符号（`.kicad_sym`）→ KiCad，没有原理图方向的产物；BOM 与网表也没做。
 
 **要做的事**：
 
@@ -499,9 +499,9 @@
 
 1. **`project.toml` 解析**：按 AGENTS.md §9 的键表实现（`[project]` 必填三项、`[boards.*]`、`[variants.*]`、`[libs.*]`、`[compliance]`、`[ext]`）；未知顶层键报错；不写时间戳、绝对路径、随机 ID、派生数据。
 2. **`system` 描述解析**：段只有 `boards` 与 `nets`；成员是 `<board_id>.<port_id>` 引用，不是引脚引用。校验项见 teda.md §8.1/§8.2 与 §11 第 9 条。
-3. 把两者接到 CLI：`textEDA check` 先要能列出工程里的板与系统。
+3. 把两者接到 CLI：`texteda check` 先要能列出工程里的板与系统。
 
-**涉及文件**：`packages/parser/src/project.ts`（新）、`packages/parser/src/system.ts`（新）、`packages/cli/scripts/textEDA.ts`。
+**涉及文件**：`packages/parser/src/project.ts`（新）、`packages/parser/src/system.ts`（新）、`packages/cli/scripts/texteda.ts`。
 
 **验收**：
 
@@ -517,7 +517,7 @@
 
 ---
 
-## F18. `textEDA check`：一条命令跑完解析、契约校验与 ERC
+## F18. `texteda check`：一条命令跑完解析、契约校验与 ERC
 
 **现状**：**sch 级已落地**（[ADR-0019](adr/0019-agent-contract-reference-and-check-entry.md)）。`bun run check <项目目录>` 遍历工程里的全部板（`sch/<board>.teda`），逐板解析 → 语义层 ERC → 契约层 schema 校验，诊断走 [ADR-0016](adr/0016-diagnostic-error-codes.md) 的统一载荷（`code` / `severity` / `location` / `data` / `hint`），`--json` 打到 stdout、人读模式打到 stderr；有 error 退出码 1，只有 warning 退出码 0。器件文件解析失败（`syntax.component-invalid`）与器件文件头 id 与文件名不一致（`ref.component-id-mismatch`）也走同一条通道。
 
@@ -529,7 +529,7 @@
 
 **验收（已过的部分）**：
 
-- 对参考工程跑 `textEDA check`，退出码 0，诊断里只有已知的 ERC 警告（未连接引脚）。✓
+- 对参考工程跑 `texteda check`，退出码 0，诊断里只有已知的 ERC 警告（未连接引脚）。✓
 - 故意写坏一个文件（器件找不到、器件文件解析失败），退出码非 0，`--json` 里有文件、行列与码。✓（`packages/cli/test/check.test.ts`）
 
 **注意**：
@@ -545,7 +545,7 @@
 
 1. 建 `packages/core`（[ADR-0009](adr/0009-implementation-stack.md) 已规划：纯函数，禁 `Bun.*` 与 `process.env`），把 ERC 规则作为独立阶段放进去：输入是解析结果，输出是 ERC 诊断。
 2. `packages/parser` 只出语法与语义层面的"读不出来"（器件找不到、引脚不存在这类解析失败），不出规则违规。
-3. ~~`textEDA check` 的载荷里区分两类~~ **已落地（第一步）**：诊断按**域**归到三个阶段（`parse` / `contract` / `semantic`），载荷带 `countsByStage`，`check` 的人读输出也打印阶段分布。不需要调用点声明阶段——域是封闭词表，一个域只可能属于一个阶段。剩下的是真正的迁移：把 `net` / `drc` 域的规则从 parser 挪进 `packages/core`。
+3. ~~`texteda check` 的载荷里区分两类~~ **已落地（第一步）**：诊断按**域**归到三个阶段（`parse` / `contract` / `semantic`），载荷带 `countsByStage`，`check` 的人读输出也打印阶段分布。不需要调用点声明阶段——域是封闭词表，一个域只可能属于一个阶段。剩下的是真正的迁移：把 `net` / `drc` 域的规则从 parser 挪进 `packages/core`。
 
 **第二步已落地**：`packages/core` 建包，连通性四条规则（`drc.single-member-net` / `net.pin-in-two-nets` / `net.pin-unassigned` / `net.no-connect-connected`）移出 parser，改成纯函数 `checkConnectivity(facts)`——吃展平后的 net、每个实例的引脚、带端口的 net 集合与定位回调，不认识语法也不碰 fs。parser 只负责摆事实（约 25 行），行为等价（参考工程仍是 79 警告，`pin-in-two-nets` 的定位从"板文件首行"变成该 net 的真实行）。规则自带 8 条单测，不需要构造 `.teda` 源。
 
@@ -568,11 +568,11 @@
 
 ## F21. pcb 描述：绑定校验、`fmt`、参考工程的 pcb
 
-**现状**：`pcb` 12 段的解析已落地（`packages/parser/src/pcb.ts` → `schemas/ir/v0.1/pcb.schema.json`，`textEDA compile <dir> <id> --pcb`）。覆盖面是规范 §1–§6 的全部段与 10 种规则；`stackup` 顺序/编号、板厚与叠层之和、板框闭合与自交、重复放置、重复 pad 对都在解析期报。
+**现状**：`pcb` 12 段的解析已落地（`packages/parser/src/pcb.ts` → `schemas/ir/v0.1/pcb.schema.json`，`texteda compile <dir> <id> --pcb`）。覆盖面是规范 §1–§6 的全部段与 10 种规则；`stackup` 顺序/编号、板厚与叠层之和、板框闭合与自交、重复放置、重复 pad 对都在解析期报。
 
 **没做的三件**：
 
-1. ~~**绑定校验**~~ **已落地（规则 1–5）**：`packages/core/src/binding/checks.ts` 的 `checkBinding()`，接在 `textEDA check` 里（有 `pcb/<board>.teda` 就跑）。覆盖：未知实例、未放置 pad、跨 net 短接（`net_tie` 可豁免）、未布线（warning）、未知 net。**还差**规则 6–8（`rules`/`trace` 的层名与 net 存在性已做，`physical_only` 的 `fiducial` 不得挂 net、`deviation` 白名单类型完整性）与规则 10–11（多边形自交已在解析期做，丝印层枚举已做）。
+1. ~~**绑定校验**~~ **已落地（规则 1–5）**：`packages/core/src/binding/checks.ts` 的 `checkBinding()`，接在 `texteda check` 里（有 `pcb/<board>.teda` 就跑）。覆盖：未知实例、未放置 pad、跨 net 短接（`net_tie` 可豁免）、未布线（warning）、未知 net。**还差**规则 6–8（`rules`/`trace` 的层名与 net 存在性已做，`physical_only` 的 `fiducial` 不得挂 net、`deviation` 白名单类型完整性）与规则 10–11（多边形自交已在解析期做，丝印层枚举已做）。
 2. ~~**`pcb` 的 canonical formatter**~~ **已落地**：`packages/parser/src/fmt-pcb.ts`，`fmt --check` 已覆盖 pcb（参考工程的 `pcb/charger-buck.teda` 已重排成 canonical）。三条不变量都有测试：`parse(fmt(x))` 与 `parse(x)` 产出**逐字节相同**的 IR、`fmt(fmt(x)) == fmt(x)`、注释原地保留。**canonical 归一口径在解析器里**（`connect` 对内排序、`trace` 折线方向、`rules` 类型序），formatter 复用同一口径——否则 IR 与源文件会各排各的。
 3. ~~**参考工程的 pcb**~~ **已有**：`examples/reference-project/pcb/charger-buck.teda`（放置 M2 页 9 个器件 + `connect` + `trace`/`via`/`zone` + `rules`/`silk`），跑 `check` 零诊断。含两个真实约束，已补进实现与规范：**同一段可以重复出现**（该文件把 `trace` 分了两段，行按出现顺序拼接）、**段头独占一行**。
 

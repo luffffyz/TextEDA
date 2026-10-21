@@ -1,11 +1,11 @@
-# textEDA — Agent 工作指南
+# TextEDA — Agent 工作指南
 
 > **本文件怎么读（2026-10-21 起）**：这里混了三类东西，效力不同：
 > - **不变量**（§2）——少而硬，破坏要写 ADR 并说明为什么值得破坏。
 > - **方向**（§1、§3、§4、§5）——设计意图，**可被 ADR 推翻**；推翻时改本文件，不算"违反规矩"。
 > - **实现现状**——**以代码、测试、ADR、backlog 为准**，本文件只标注"已落地 / 只有设计 / 未落地"，不复制细节。细节过期不算违规，但标注错了要改。
 >
-> 状态（2026-10-21）：**工具链起步**。已落地：`packages/ir`（IR 与契约，9 份 schema）、`packages/parser`（`footprint` / `symbol` 解析 + 对应 `fmt`；`pcb` 解析（12 段 → `pcb` IR，`textEDA compile --pcb`）+ `pcb` canonical formatter（`fmt --check` 已覆盖）+ sch↔pcb 绑定校验（`packages/core`）；`schematic` / `page` 解析（实例、net、port、约束、bus、页面展平）+ 对应 `fmt`（连通性 ERC 已移出，见 `packages/core`）；`component` 只有只读事实读取 `readComponentFacts`）、`packages/core`（纯规则：连通性 ERC，不碰 fs，解析器与 LSP 共用）、`packages/exporter`（封装/符号 → KiCad `.kicad_mod` / `.kicad_sym`；网表 = IR 的连通性投影）、`packages/renderer`（符号/封装 → SVG，[ADR-0014](docs/adr/0014-reference-renderer.md)）、`packages/cli`（`textEDA init` / `compile` / `check` / `netlist`，[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)）、**诊断错误码注册表**（`域.slug`，[ADR-0016](docs/adr/0016-diagnostic-error-codes.md)；真源 `packages/ir/src/diagnostics/codes.ts`，文档 `docs/error-codes.md` 由 `bun run gen` 生成，双向完整性检查见 `packages/ir/test/codes.test.ts`）。**未落地**：`pcb` / `system` 的解析器、`project.toml` 解析、CLI 的 `check`、BOM 与网表导出、KiCad 原理图导出、sch 渲染器（F3）、sch 规范文件（`spec/` 现只有 `symbol` / `footprint` / `pcb`）、层次（module/参数）、`fab` 描述、conformance / binding / 十用例语料、CI 配置。
+> 状态（2026-10-21）：**工具链起步**。已落地：`packages/ir`（IR 与契约，9 份 schema）、`packages/parser`（`footprint` / `symbol` 解析 + 对应 `fmt`；`pcb` 解析（12 段 → `pcb` IR，`texteda compile --pcb`）+ `pcb` canonical formatter（`fmt --check` 已覆盖）+ sch↔pcb 绑定校验（`packages/core`）；`schematic` / `page` 解析（实例、net、port、约束、bus、页面展平）+ 对应 `fmt`（连通性 ERC 已移出，见 `packages/core`）；`component` 只有只读事实读取 `readComponentFacts`）、`packages/core`（纯规则：连通性 ERC，不碰 fs，解析器与 LSP 共用）、`packages/exporter`（封装/符号 → KiCad `.kicad_mod` / `.kicad_sym`；网表 = IR 的连通性投影）、`packages/renderer`（符号/封装 → SVG，[ADR-0014](docs/adr/0014-reference-renderer.md)）、`packages/cli`（`texteda init` / `compile` / `check` / `netlist`，[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)）、**诊断错误码注册表**（`域.slug`，[ADR-0016](docs/adr/0016-diagnostic-error-codes.md)；真源 `packages/ir/src/diagnostics/codes.ts`，文档 `docs/error-codes.md` 由 `bun run gen` 生成，双向完整性检查见 `packages/ir/test/codes.test.ts`）。**未落地**：`pcb` / `system` 的解析器、`project.toml` 解析、CLI 的 `check`、BOM 与网表导出、KiCad 原理图导出、sch 渲染器（F3）、sch 规范文件（`spec/` 现只有 `symbol` / `footprint` / `pcb`）、层次（module/参数）、`fab` 描述、conformance / binding / 十用例语料、CI 配置。
 > 标记约定：**已定** = 不再讨论；**提议** = 默认按此执行，可被 ADR 推翻；**待定** = 未决定，不要擅自选边。**未落地** = 只有设计，没有实现。
 
 ---
@@ -118,7 +118,7 @@ flowchart LR
 17. **pcb 描述只存物理事实与规则意图**。不存绘图参数、丝印排版、编辑器状态与派生缓存（铜皮填充、量测文本、UUID、net 序号）；连通性由 `connect` 段与 sch 决定，不由几何反推。人在 KiCad 里的改动**不回写** IR。决策见 `docs/adr/0003-agent-first-pcb-ir.md`。
 18. **IR 的对外表示是 canonical JSON，契约是 JSON Schema**。数值只用整数（长度 nm、角度毫度、比例 ppm…完整换算表见 [ADR-0008](docs/adr/0008-ir-shard-identity-and-hash.md)），不写浮点；缺省字段省略而不是写 `null`；落盘必须字节可复现，`source_hash` = SHA-256(canonical 字节)。决策见 `docs/adr/0004-ir-representation.md`；分片、身份键与哈希粒度见 `docs/adr/0008-ir-shard-identity-and-hash.md`（**该 ADR 状态仍是「提议」，未接受**——本条引用的是它的方案）；契约在 `schemas/ir/v0.1/`。
 19. **契约层永久开源**。`teda.md`、`spec/**`、`schemas/ir/**`、`examples/**`、`tests/**` 永远公开、可实现、可再分发，**不因商业理由改为闭源或加附加限制**；实现层（`packages/**`）可另行许可，但不得把"只有官方实现能读"的私有扩展混进契约层。项目按**标准提案**定位（回报来自声誉 / 咨询 / 招聘溢价 / 生态位，不来自 SaaS 订阅）：契约免费且不设限，实现可以是收费的可选实现。决策见 `docs/adr/0015-licensing-and-open-standard.md`。
-20. **核心链路零外部依赖**。装 textEDA 就能走完"描述 → 校验 → 渲染 → 制造包"，**不得要求用户安装 KiCad 或任何其他外部工具**。KiCad 降级为**可选后端**：互操作导出、对照验证、制造出口兜底。**任何门禁都不得依赖外部工具**——KiCad 的读入与 DRC 是"第三方接受我们"的**观测**，不是我们的正确性定义。边界：**格式与描述自己写，判定与工艺规则借专业工具**。决策见 `docs/adr/0018-zero-dependency-and-manufacturing-target.md`。
+20. **核心链路零外部依赖**。装 TextEDA 就能走完"描述 → 校验 → 渲染 → 制造包"，**不得要求用户安装 KiCad 或任何其他外部工具**。KiCad 降级为**可选后端**：互操作导出、对照验证、制造出口兜底。**任何门禁都不得依赖外部工具**——KiCad 的读入与 DRC 是"第三方接受我们"的**观测**，不是我们的正确性定义。边界：**格式与描述自己写，判定与工艺规则借专业工具**。决策见 `docs/adr/0018-zero-dependency-and-manufacturing-target.md`。
 
 ---
 
@@ -349,7 +349,7 @@ flowchart LR
 ## 9. 仓库结构（目标）
 
 ```
-textEDA/
+texteda/
 ├── AGENTS.md
 ├── teda.md           # `.teda` 格式规范
 ├── README.md
@@ -360,11 +360,11 @@ textEDA/
 ├── spec/            # 分描述规范。**现只有 3 个文件**：`symbol` / `footprint` / `pcb`；`project` / `schematic` / `system` / `fab` 的规范尚未成文（`project` / `schematic` / `system` 目前只在 `teda.md` 里，`fab` 还没有任何形态）
 ├── schemas/ir/v0.1/ # IR 的契约：JSON Schema 2020-12（唯一契约；TS 类型由 schema 生成，不引入 zod）。现 9 份：common / project / component / footprint / manifest / pcb / schematic / symbol / system
 ├── examples/        # 参考工程 reference-project/。**十个困难用例与期望 IR 尚未存在**（§10 / §5.2 的门槛因此不可评估）
-├── packages/        # **已落地 6 个**：`ir`（IR 与契约校验）/ `parser`（footprint / symbol / schematic / page 解析 + fmt；component 只读事实）/ `core`（纯规则：连通性 ERC，ADR-0019）/ `exporter`（封装与符号 → KiCad）/ `renderer`（符号与封装 → SVG）/ `cli`（`textEDA init` / `compile` / `check` / `netlist`）。**计划未建**：`lsp` / `vscode`（见 docs/adr/0009-implementation-stack.md）
+├── packages/        # **已落地 6 个**：`ir`（IR 与契约校验）/ `parser`（footprint / symbol / schematic / page 解析 + fmt；component 只读事实）/ `core`（纯规则：连通性 ERC，ADR-0019）/ `exporter`（封装与符号 → KiCad）/ `renderer`（符号与封装 → SVG）/ `cli`（`texteda init` / `compile` / `check` / `netlist`）。**计划未建**：`lsp` / `vscode`（见 docs/adr/0009-implementation-stack.md）
 └── tests/           # 现只有 `tests/schemas/`（IR 契约正反例，由 `packages/ir/test/contract.test.ts` 驱动）。单元与 round-trip 测试在各包自己的 `test/` 目录；**conformance / binding / 十用例尚未存在**
 ```
 
-一个**使用**本语言的工程由 `textEDA init <dir>` 生成，结构已定：
+一个**使用**本语言的工程由 `texteda init <dir>` 生成，结构已定：
 
 ```
 examples/reference-project/
@@ -390,9 +390,9 @@ dist/ir/
 └── systems/<system_id>.json
 ```
 
-**init 契约（已定，**已落地**：`bun run textEDA init <dir>`，见 `packages/cli`）**
+**init 契约（已定，**已落地**：`bun run texteda init <dir>`，见 `packages/cli`）**
 
-- `textEDA init <dir>` 创建目录，且仅创建：`project.toml`、`components/`、`sch/`、`pcb/`、`system/`、`docs/`、`docs/README.md`；`components/`、`sch/`、`pcb/` 与 `system/` 放 `.gitkeep` 以保留空目录。
+- `texteda init <dir>` 创建目录，且仅创建：`project.toml`、`components/`、`sch/`、`pcb/`、`system/`、`docs/`、`docs/README.md`；`components/`、`sch/`、`pcb/` 与 `system/` 放 `.gitkeep` 以保留空目录。
 - `project.toml` 必含 `[project].name`、`version`、`format`；`name` 默认取目录名。
 - 目标目录非空时拒绝执行（`--force` 才覆盖），不合并、不猜测。
 - 不联网、不拉模板、不生成 `dist/`；`dist/` 由导出命令创建。
@@ -490,6 +490,7 @@ dist/ir/
 - **仿真结论不得只写成注释或散文**；作为 `Analysis` 证据绑定 `source_hash` 与假设，否则视为未验证。
 - **sch 不内联器件**；新增料号先落 `components/**/<id>.teda`，再在 `instances` 引用。
 - **源码只允许英文**：`.ts` 的注释、文档字符串、字符串字面量（诊断文案、CLI 输出、错误消息）都是源码，一律英文；`schemas/ir/**` 的 `description` / `title` 同样英文（它会流进生成产物与 `docs/ir-reference.md`）；`examples/**` 的 `.teda` 注释与 `project.toml` 注释、`title`、`manufacturer` 等值也一律英文。检查口径：`git grep -lP '[\x{4e00}-\x{9fff}]' -- packages schemas examples` 应为空（用 `git grep` 而不是 `grep -r`，因为 `examples/reference-project/docs/datasheets/` 是 gitignore 的本地厂商 PDF，不属于仓库内容）。**根 README 双语**：`README.md` 英文（对外入口），`README_cn.md` 中文。
+- **项目名的写法分层**（2026-10-21 定）：品牌与散文一律写 `TextEDA`（大写 T）；命令行、仓库名、包名、域名一律小写 `texteda`（`bun run texteda check`、`@texteda/ir`、`texteda.dev`）；文件扩展名 `.teda` 不变。**不写 `textEDA`**。检查口径：`git grep -n 'textEDA' -- . ':!AGENTS.md'` 应无输出（`packages/ir/src/generated/` 里的 `TextEDAIRV01*` 类型名是代码标识符，不算品牌写法）。
 - **设计文档用中文**：`docs/`（`docs/adr/` 除外）、`spec/`、`teda.md`、`AGENTS.md` 保持中文。但**生成的文档**（`docs/error-codes.md`、`docs/ir-reference.md`）跟着生成源走——源已英文化，这两份就是英文，不要手工改回中文（改生成器模板才是正解）。
 - **`docs/adr/` 用英文**：ADR 是契约层的一部分——`spec/`、`schemas/` 与 `teda.md` 按编号引用它的决策（`ADR-00NN decision N`），第三方实现者要读得懂。ADR 编号与文件名永不改（外部靠文件名链接），标题与正文用英文，引用它的文档按编号引用，不按标题引用。检查口径：正文不得有中文，**唯一例外是外部专有名词与官方文档标题的括注**（`JLC (嘉立创)`、`official *JLC BOM and Coordinate Format Specification* (嘉立创BOM&坐标相关格式规范)`）——读者要靠原名去找原始资料。可执行检查（应无输出）：
   ```bash

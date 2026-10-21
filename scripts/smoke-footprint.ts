@@ -74,7 +74,7 @@ console.log(`[3] KiCad parsed the library file successfully, SVG: ${readdirSync(
 const board = [
   `(kicad_pcb`,
   `\t(version 20241229)`,
-  `\t(generator "textEDA")`,
+  `\t(generator "TextEDA")`,
   `\t(general (thickness 1.6))`,
   `\t(paper "A4")`,
   `\t(layers`,

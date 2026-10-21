@@ -1,4 +1,4 @@
-// `textEDA check`: validate a project's schematics.
+// `texteda check`: validate a project's schematics.
 //
 // Validation has two layers (AGENTS.md §10 "error quality"):
 //   1. Semantic layer: parsing and ERC from `packages/parser` (unconnected pins, net member conflicts, missing components, ...);

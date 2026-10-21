@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 
-const script = join(import.meta.dir, "../scripts/textEDA.ts");
+const script = join(import.meta.dir, "../scripts/texteda.ts");
 
 /** Run the CLI once, capturing the exit code and output. */
 function run(args: string[]): { code: number; stdout: string; stderr: string } {
@@ -50,7 +50,7 @@ describe("argument parsing", () => {
     const result = run(["frobnicate"]);
     expect(result.code).toBe(2);
     expect(result.stderr).toContain("cli.bad-usage");
-    expect(result.stderr).toContain("textEDA check");
+    expect(result.stderr).toContain("texteda check");
   });
 
   test("a missing command prints usage", () => {

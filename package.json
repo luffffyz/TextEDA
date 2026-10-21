@@ -11,7 +11,7 @@
     "gen:check": "bun run --cwd packages/ir gen --check",
     "test": "bun test",
     "typecheck": "tsc -p packages/core --noEmit && tsc -p packages/ir --noEmit && tsc -p packages/exporter --noEmit && tsc -p packages/parser --noEmit && tsc -p packages/renderer --noEmit && tsc -p packages/cli --noEmit",
-    "textEDA": "bun run packages/cli/scripts/textEDA.ts",
+    "texteda": "bun run packages/cli/scripts/texteda.ts",
     "check:links": "bun run scripts/check-links.ts",
     "check:public": "bun run scripts/check-public.ts",
     "lib:hash": "bun run scripts/libhash.ts",
@@ -21,12 +21,12 @@
     "smoke:footprint": "bun run scripts/smoke-footprint.ts",
     "compile:footprint": "bun run packages/parser/scripts/compile-footprint.ts",
     "compile:symbol": "bun run packages/parser/scripts/compile-symbol.ts",
-    "compile:schematic": "bun run packages/cli/scripts/textEDA.ts compile",
+    "compile:schematic": "bun run packages/cli/scripts/texteda.ts compile",
     "export:symbol": "bun run scripts/export-symbol.ts",
     "fmt:teda": "bun run packages/parser/scripts/fmt-teda.ts",
     "smoke:symbol": "bun run scripts/smoke-symbol.ts",
     "preview": "bun run scripts/preview.ts",
-    "check": "bun run packages/cli/scripts/textEDA.ts check"
+    "check": "bun run packages/cli/scripts/texteda.ts check"
   },
   "devDependencies": {
     "@texteda/exporter": "workspace:*",

@@ -1,4 +1,4 @@
-// Contract tests for `textEDA check`.
+// Contract tests for `texteda check`.
 //
 // Covers three things: a clean project yields zero diagnostics; a broken project reports codes from the registry; the exit code is non-zero when there are errors.
 import { describe, expect, test } from "bun:test";

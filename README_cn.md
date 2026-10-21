@@ -1,4 +1,4 @@
-# textEDA
+# TextEDA
 
 [English](README.md) | [简体中文](README_cn.md)
 
@@ -27,8 +27,8 @@ bun run preview component bq24610rger  # 画器件的符号 + 封装
 bun run fmt:teda --check examples/reference-project   # canonical form 检查
 bun run compile:schematic examples/reference-project mcu-board   # 板级 IR（诊断带错误码）
 bun run check examples/reference-project          # 校验工程里全部板（ERC + IR 契约）
-bun run textEDA netlist examples/reference-project --board mcu-board  # 网表 = IR 的连通性投影
-bun run textEDA init ./my-board        # 生成空工程骨架
+bun run texteda netlist examples/reference-project --board mcu-board  # 网表 = IR 的连通性投影
+bun run texteda init ./my-board        # 生成空工程骨架
 ```
 
 当前状态：工具链前半段已落地（语言 → IR → KiCad 导出 → 预览渲染）。`schematic` / `page` 解析（实例、net、port、约束、bus、页面展平）、`pcb` 解析（12 段 → `pcb` IR）、四种描述的 canonical formatter、连通性 ERC 与 sch↔pcb 绑定校验（`packages/core`）都能用。板级设计（布局、布线、制造出口）未实现；KiCad 仍是制造出口（[ADR-0005](docs/adr/0005-manufacturing-output.md)）。
@@ -54,7 +54,7 @@ bun run textEDA init ./my-board        # 生成空工程骨架
 | `packages/core` | 纯规则：连通性 ERC 与 sch↔pcb 绑定，不碰 fs |
 | `packages/exporter` | 封装 / 符号 → KiCad（`.kicad_mod` / `.kicad_sym`）；网表 |
 | `packages/renderer` | 参考渲染器：IR → 绘图指令 → SVG（[ADR-0014](docs/adr/0014-reference-renderer.md)） |
-| `packages/cli` | `textEDA init` / `compile` / `check` / `netlist`（[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)） |
+| `packages/cli` | `texteda init` / `compile` / `check` / `netlist`（[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)） |
 | `examples/reference-project/` | 自包含的参考工程：22 个器件 / 15 个符号 / 16 个封装，库全部自建 |
 | `docs/adr/` | 决策记录（ADR），0001–0019（[完整索引](docs/adr/README.md)；0017 与 0020 已预留） |
 | `docs/backlog.md` | 待办清单 |

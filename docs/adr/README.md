@@ -18,7 +18,7 @@ Every architecture decision record in this repository, in numeric order.
 | [ADR-0012](0012-symbol-description.md) | Self-Built Symbol Libraries Use Our Own Format; the Electrical Facts of Pins Belong to `component` | Accepted | 2026-10-20 |
 | [ADR-0013](0013-reference-project-self-built-libraries.md) | The Reference Project Is Entirely Self-Built — Symbol and Footprint Libraries Live in the Project, and Library-Level Checks Close the Loop | Accepted | 2026-10-20 |
 | [ADR-0014](0014-reference-renderer.md) | Our Own Reference Renderer — IR → Drawing Commands → SVG, with a Preview That Does Not Depend on KiCad | Accepted | 2026-10-20 |
-| [ADR-0015](0015-licensing-and-open-standard.md) | Licensing and Openness Policy — The Contract Layer Is Open Source Forever, the Project Is Positioned as a Standard Proposal | Accepted | 2026-10-21 |
+| [ADR-0015](0015-licensing-and-open-standard.md) | Licensing and Openness Policy — The Contract Layer Is Open Source Forever, the Project Is a Pure Open Technical Specification | Accepted | 2026-10-21 |
 | [ADR-0016](0016-diagnostic-error-codes.md) | Diagnostic Error Code Registry (`domain.slug`) | Accepted | 2026-10-21 |
 | [ADR-0018](0018-zero-dependency-and-manufacturing-target.md) | Zero-Dependency Principle and the Target Form of the Manufacturing Output | Accepted | 2026-10-21 |
 | [ADR-0019](0019-agent-contract-reference-and-check-entry.md) | Contract Reference and Check Entry Point for Agents | Accepted | 2026-10-21 |

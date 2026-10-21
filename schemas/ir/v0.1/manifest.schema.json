@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:texteda:ir:0.1:manifest",
-  "title": "textEDA IR v0.1 — manifest shard",
+  "title": "TextEDA IR v0.1 — manifest shard",
   "description": "Shard manifest and hashes: one sha256 per shard (computed over the canonical JSON bytes); the board hash and project hash are recomputed by rule and not persisted. See ADR-0008 decision 5.",
   "type": "object",
   "additionalProperties": false,

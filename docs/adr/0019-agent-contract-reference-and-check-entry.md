@@ -2,7 +2,7 @@
 
 Status: Accepted
 Date: 2026-10-21
-Impact: `packages/ir/scripts/generate.ts`, `packages/ir/src/units.ts`, `packages/cli` (`textEDA check` / `compile`), `docs/ir-reference.md`
+Impact: `packages/ir/scripts/generate.ts`, `packages/ir/src/units.ts`, `packages/cli` (`texteda check` / `compile`), `docs/ir-reference.md`
 
 ## Background
 
@@ -31,13 +31,13 @@ The canonical units of the IR are determined by field-name suffixes ([ADR-0008](
 - The parser and the generator share one copy (instead of each writing their own);
 - `packages/ir` still has zero runtime dependencies (this table is pure data).
 
-### 3. `textEDA check` Is the Only Check Entry Point
+### 3. `texteda check` Is the Only Check Entry Point
 
 ```
-textEDA init <dir> [--force] [--name <project name>]
-textEDA compile <project dir> <board_id> [--json] [--out <file>] [--pcb]
-textEDA check <project dir> [--json]
-textEDA netlist <project dir> [--board <board_id>] [--json] [--out <file>]
+texteda init <dir> [--force] [--name <project name>]
+texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb]
+texteda check <project dir> [--json]
+texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]
 ```
 
 `check` covers **all** boards in the project (`sch/<board>.teda`), parsing each board → semantic-layer ERC → contract-layer schema validation;
@@ -50,7 +50,7 @@ textEDA netlist <project dir> [--board <board_id>] [--json] [--out <file>]
 
 ### 4. The File System Is Confined to the CLI Layer
 
-`packages/parser/scripts/compile-schematic.ts` is moved to `packages/cli` (`textEDA compile`): it is a user command, not library code. Per [ADR-0009](0009-implementation-stack.md) decision 1, only the CLI/export layer may touch disk; leaving a command script in the parser package blurs the "library packages do not touch fs" boundary.
+`packages/parser/scripts/compile-schematic.ts` is moved to `packages/cli` (`texteda compile`): it is a user command, not library code. Per [ADR-0009](0009-implementation-stack.md) decision 1, only the CLI/export layer may touch disk; leaving a command script in the parser package blurs the "library packages do not touch fs" boundary.
 
 ### 5. Diagnostics Carry a Stage: Parse / Contract / Design
 
