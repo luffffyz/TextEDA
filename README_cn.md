@@ -21,7 +21,7 @@ bun run typecheck       # 六个包一起过 tsc
 bun run lib:verify      # 库级闭环（**零外部依赖**）
 bun run lib:verify:kicad  # 可选：追加 KiCad 互操作段（KiCad 能读能渲染、合并板 DRC 0 违规）
 bun run check:links      # 全部 Markdown 链接与 ADR 交叉引用可解析
-bun run check:public     # 公开前清扫：历史里没有厂商 PDF、没有凭据
+bun run check:public     # 公开清扫：查全历史——没有厂商 PDF、没有凭据、没有维护者路径
 bun run preview symbol bq24610rger     # 画符号（不依赖 KiCad）
 bun run preview component bq24610rger  # 画器件的符号 + 封装
 bun run fmt:teda --check examples/reference-project   # canonical form 检查
@@ -39,6 +39,14 @@ bun run texteda init ./my-board        # 生成空工程骨架
 |---|---|
 | `docs/error-codes.md` | 诊断码 → 含义、严重度、对应规范 |
 | `docs/ir-reference.md` | IR 字段 → 类型、必填、**单位**、说明（覆盖率清单在文末） |
+
+## CI
+
+`.github/workflows/ci.yml` 在每次 push 与指向 `main` 的 PR 上运行。**必过段零外部依赖**——只要 Bun，不需要 KiCad：
+
+`bun test` · `bun run typecheck` · `bun run gen:check` · `bun run lib:verify` · `bun run check:links` · `bun run check:public` · `bun run fmt:teda --check .`
+
+KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.yml`，定时 + 手动触发），因为门禁不得依赖外部软件（[ADR-0018](docs/adr/0018-zero-dependency-and-manufacturing-target.md)）。
 
 ## 结构
 

@@ -1,0 +1,61 @@
+name: CI
+
+# Zero-dependency gate. Every check here runs without KiCad or any other
+# external tool: a gate must never depend on software the contributor may
+# not have (AGENTS.md invariant 20, ADR-0018).
+#
+# The KiCad interoperability section of `lib:verify` is deliberately NOT
+# a gate - it needs a KiCad install, so it is a separate, opt-in workflow
+# (ci-kicad.yml).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: the public-sweep gate inspects every reachable
+          # commit, so a shallow clone would check only the tip.
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Unit, contract and round-trip tests
+        run: bun test
+
+      - name: Type check all packages
+        run: bun run typecheck
+
+      - name: Generated artifacts are up to date
+        run: bun run gen:check
+
+      - name: Library closure (zero external dependencies)
+        run: bun run lib:verify
+
+      - name: Cross-references resolve
+        run: bun run check:links
+
+      - name: Public sweep (history-wide)
+        run: bun run check:public
+
+      - name: Canonical formatting
+        run: bun run fmt:teda --check .

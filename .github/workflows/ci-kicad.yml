@@ -1,0 +1,41 @@
+name: KiCad interoperability (optional)
+
+# NOT a gate. This workflow needs a KiCad install, so it must never be a
+# required check: a gate may not depend on external tools (AGENTS.md
+# invariant 20, ADR-0018). It runs on a schedule and on manual dispatch
+# so that drift against the current KiCad release is noticed without
+# blocking contributors.
+#
+# The required gate lives in ci.yml and needs no external tool.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly, Monday 03:17 UTC (off the hour so it does not pile onto
+    # the busiest slot).
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  kicad-interop:
+    name: KiCad interoperability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install KiCad
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y kicad
+
+      - name: Library closure with the KiCad interoperability section
+        run: bun run lib:verify:kicad
