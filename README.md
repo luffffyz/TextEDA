@@ -4,7 +4,7 @@
 
 Describe a piece of hardware as **human-written text**: the schematic (`sch`) and the PCB (`pcb`) are two independent, sibling descriptions; the IR is the single source of truth, and both the source syntax and any rendered output are derivatives.
 
-Built for agents: machine-parsable, verifiable, locatable errors. Humans only review.
+**Agent first, human reviewable.** A machine reads, checks, and edits the design; a human reads it before it ships. Everything is plain text — including the errors, which point at a file and a line.
 
 > Licensed under **Apache-2.0** (see `LICENSE` / `NOTICE`). The project is a work in progress.
 >
