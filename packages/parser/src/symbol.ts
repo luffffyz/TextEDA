@@ -1,9 +1,9 @@
-// `symbol` 描述解析：`.teda` 源码 → IR 分片（spec/symbol.md，ADR-0012）。
+// `symbol` description parsing: `.teda` source → IR fragments (spec/symbol.md, ADR-0012).
 //
-// 只做表面解析与单位换算；引脚名/电气类型不在这里——它们归 `component`，
-// 导出 `.kicad_sym` 时按引脚号合并。契约校验交给 @texteda/ir 的 closed schema。
+// Surface parsing and unit conversion only; pin names/electrical types do not live here — they belong to `component`,
+// merged by pin number when exporting `.kicad_sym`. Contract validation is delegated to the closed schema in @texteda/ir.
 import type { Symbol } from "@texteda/ir/symbol";
-import type { Diagnostic } from "./diagnostics.ts";
+import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
 import { lex, type Cell, type Line } from "./lexer.ts";
 import { byteCompare, naturalCompare } from "./order.ts";
 import { parseAngleMdeg, parseLengthNm } from "./units.ts";
@@ -11,7 +11,7 @@ import { parseAngleMdeg, parseLengthNm } from "./units.ts";
 export const SYMBOL_SECTIONS = new Set(["pins", "body"]);
 export const SYMBOL_PIN_KEYS = new Set(["length", "unit", "style"]);
 export const SYMBOL_BODY_KEYS = new Set(["width", "fill", "unit"]);
-/** 符号字段没有 layer（符号不分层）。 */
+/** Symbol fields have no `layer` (symbols are not layered). */
 export const SYMBOL_FIELD_KEYS = new Set(["at", "hide", "size"]);
 const PIN_STYLES = new Set([
   "line",
@@ -30,14 +30,14 @@ const SHOW_HIDE = new Set(["show", "hide"]);
 const SYMBOL_ID_RE = /^[A-Za-z0-9_.+-]+$/;
 const PIN_NUMBER_RE = /^[A-Za-z0-9_+-]+$/;
 const VERSION_RE = /^0\.([1-9][0-9]*)$/;
-/** `symbol` 由 0.5 引入：低于 0.5 的文件没有这个类型。 */
+/** `symbol` was introduced in 0.5: files below 0.5 do not have this type. */
 const REQUIRED_MINOR = 5;
 const SUPPORTED_MINOR = 5;
 
 export interface SymbolParseOptions {
-  /** 文件名（诊断用）。 */
+  /** File name (used for diagnostics). */
   file: string;
-  /** 库名；IR 的 `symbol.library` 来自库目录，不来自文件内容。 */
+  /** Library name; the IR's `symbol.library` comes from the library directory, not from the file content. */
   library: string;
 }
 
@@ -55,8 +55,8 @@ type Field = NonNullable<SymbolBody["fields"]>[number];
 class Collector {
   readonly diagnostics: Diagnostic[] = [];
 
-  error(file: string, line: number, col: number, code: string, message: string): void {
-    this.diagnostics.push({ file, line, col, severity: "error", code, message });
+  error(file: string, line: number, col: number, code: DiagnosticCodeId, message: string): void {
+    this.diagnostics.push({ code, severity: "error", message, location: { file, line, col } });
   }
 
   get hasError(): boolean {
@@ -64,29 +64,28 @@ class Collector {
   }
 }
 
-/** 解析 `key=value` 尾列；未知键报错。 */
+/** Parse the trailing `key=value` columns; unknown keys are errors. Structural problems always use syntax-domain codes, separate from "invalid value". */
 function readKeyValues(
   cells: Cell[],
   allowed: Set<string>,
   file: string,
   line: number,
-  code: string,
   out: Map<string, string>,
   collector: Collector,
 ): void {
   for (const cell of cells) {
     const eq = cell.text.indexOf("=");
     if (eq <= 0) {
-      collector.error(file, line, cell.col, code, `无法识别的单元：${cell.text}`);
+      collector.error(file, line, cell.col, "syntax.invalid-token", `unrecognized cell: ${cell.text}`);
       continue;
     }
     const key = cell.text.slice(0, eq);
     if (!allowed.has(key)) {
-      collector.error(file, line, cell.col, code, `未知键：${key}`);
+      collector.error(file, line, cell.col, "syntax.unknown-field", `unknown key: ${key}`);
       continue;
     }
     if (out.has(key)) {
-      collector.error(file, line, cell.col, code, `键重复：${key}`);
+      collector.error(file, line, cell.col, "syntax.duplicate-key", `duplicate key: ${key}`);
       continue;
     }
     out.set(key, cell.text.slice(eq + 1));
@@ -98,7 +97,7 @@ function readLengthList(
   file: string,
   line: number,
   col: number,
-  code: string,
+  code: DiagnosticCodeId,
   collector: Collector,
 ): number[] | null {
   const values: number[] = [];
@@ -115,12 +114,12 @@ function readLengthList(
 
 function parseUnit(raw: string, file: string, line: number, col: number, units: number, collector: Collector): number | null {
   if (!/^\d+$/.test(raw)) {
-    collector.error(file, line, col, "S202", `unit 必须是整数：${raw}`);
+    collector.error(file, line, col, "value.invalid-unit", `unit must be a non-negative integer: ${raw}`);
     return null;
   }
   const unit = Number(raw);
   if (unit > units) {
-    collector.error(file, line, col, "S202", `unit 超出 units=${units}：${raw}`);
+    collector.error(file, line, col, "value.invalid-unit", `unit exceeds units=${units}: ${raw}`);
     return null;
   }
   return unit;
@@ -134,7 +133,7 @@ function parsePinRow(
   collector: Collector,
 ): Pin | null {
   if (cells.length < 4) {
-    collector.error(file, line, cells[0]?.col ?? 1, "S212", "pins 行至少 4 列：number x y rot");
+    collector.error(file, line, cells[0]?.col ?? 1, "syntax.row-too-short", "a pins row needs at least 4 columns: number x y rot");
     return null;
   }
   const firstCell = cells[0]!;
@@ -143,26 +142,26 @@ function parsePinRow(
   const y = cells[2]!;
   const rot = cells[3]!;
   if (!PIN_NUMBER_RE.test(number.text)) {
-    collector.error(file, line, number.col, "S200", `引脚号不合法：${number.text}`);
+    collector.error(file, line, number.col, "value.pin-number-invalid", `invalid pin number: ${number.text}`);
     return null;
   }
   const positions: number[] = [];
   for (const cell of [x, y]) {
-    const parsed = parseLengthNm(cell.text, file, line, cell.col, "mm", "S200");
+    const parsed = parseLengthNm(cell.text, file, line, cell.col, "mm", "value.pin-geometry-invalid");
     if (!parsed.ok) {
       collector.diagnostics.push(parsed.diagnostic);
       return null;
     }
     positions.push(parsed.value);
   }
-  const parsedRot = parseAngleMdeg(rot.text, file, line, rot.col, "deg", "S200");
+  const parsedRot = parseAngleMdeg(rot.text, file, line, rot.col, "deg", "value.pin-geometry-invalid");
   if (!parsedRot.ok) {
     collector.diagnostics.push(parsedRot.diagnostic);
     return null;
   }
 
   const kv = new Map<string, string>();
-  readKeyValues(cells.slice(4), SYMBOL_PIN_KEYS, file, line, "S201", kv, collector);
+  readKeyValues(cells.slice(4), SYMBOL_PIN_KEYS, file, line, kv, collector);
 
   const pin: Pin = {
     number: number.text,
@@ -174,7 +173,7 @@ function parsePinRow(
 
   const length = kv.get("length");
   if (length !== undefined) {
-    const parsed = parseLengthNm(length, file, line, firstCell.col, "mm", "S201");
+    const parsed = parseLengthNm(length, file, line, firstCell.col, "mm", "value.pin-attribute-invalid");
     if (parsed.ok) pin.length_nm = parsed.value;
     else collector.diagnostics.push(parsed.diagnostic);
   }
@@ -186,7 +185,7 @@ function parsePinRow(
   const style = kv.get("style");
   if (style !== undefined) {
     if (!PIN_STYLES.has(style)) {
-      collector.error(file, line, firstCell.col, "S201", `未知引脚图形：${style}`);
+      collector.error(file, line, firstCell.col, "value.pin-attribute-invalid", `unknown pin style: ${style}`);
     } else {
       pin.style = style as Pin["style"];
     }
@@ -202,16 +201,16 @@ function parseBodyRow(
   collector: Collector,
 ): BodyItem | null {
   if (cells.length < 2) {
-    collector.error(file, line, cells[0]?.col ?? 1, "S312", "body 行至少 2 列：kind geometry");
+    collector.error(file, line, cells[0]?.col ?? 1, "syntax.row-too-short", "a body row needs at least 2 columns: kind geometry");
     return null;
   }
   const kindCell = cells[0]!;
   const geometryCell = cells[1]!;
   if (!BODY_KINDS.has(kindCell.text)) {
-    collector.error(file, line, kindCell.col, "S300", `未知图形种类：${kindCell.text}`);
+    collector.error(file, line, kindCell.col, "value.graphic-invalid", `unknown graphic kind: ${kindCell.text}`);
     return null;
   }
-  const values = readLengthList(geometryCell.text, file, line, geometryCell.col, "S300", collector);
+  const values = readLengthList(geometryCell.text, file, line, geometryCell.col, "value.graphic-invalid", collector);
   if (values === null) return null;
 
   const item: BodyItem = { kind: kindCell.text as BodyItem["kind"], unit: 1 };
@@ -222,8 +221,8 @@ function parseBodyRow(
         file,
         line,
         geometryCell.col,
-        "S300",
-        `${kindCell.text} 的几何需要 ${count} 个数，得到 ${values.length}`,
+        "value.graphic-invalid",
+        `${kindCell.text} geometry needs ${count} numbers, got ${values.length}`,
       );
       return false;
     }
@@ -241,7 +240,7 @@ function parseBodyRow(
     case "circle": {
       if (!need(3)) return null;
       if (values[2]! <= 0) {
-        collector.error(file, line, geometryCell.col, "S300", "圆半径必须为正");
+        collector.error(file, line, geometryCell.col, "value.graphic-invalid", "circle radius must be positive");
         return null;
       }
       item.center = { x_nm: values[0]!, y_nm: values[1]! };
@@ -257,7 +256,7 @@ function parseBodyRow(
     }
     case "poly": {
       if (values.length < 6 || values.length % 2 !== 0) {
-        collector.error(file, line, geometryCell.col, "S300", "poly 至少 3 个点（x,y 交替）");
+        collector.error(file, line, geometryCell.col, "value.graphic-invalid", "poly needs at least 3 points (x,y alternating)");
         return null;
       }
       const points = [];
@@ -271,19 +270,19 @@ function parseBodyRow(
   }
 
   const kv = new Map<string, string>();
-  readKeyValues(cells.slice(2), SYMBOL_BODY_KEYS, file, line, "S301", kv, collector);
+  readKeyValues(cells.slice(2), SYMBOL_BODY_KEYS, file, line, kv, collector);
   const width = kv.get("width");
   if (width !== undefined) {
-    const parsed = parseLengthNm(width, file, line, kindCell.col, "mm", "S301");
+    const parsed = parseLengthNm(width, file, line, kindCell.col, "mm", "value.graphic-attribute-invalid");
     if (parsed.ok) item.width_nm = parsed.value;
     else collector.diagnostics.push(parsed.diagnostic);
   }
   const fill = kv.get("fill");
   if (fill !== undefined) {
     if (kindCell.text === "line" || kindCell.text === "arc") {
-      collector.error(file, line, kindCell.col, "S301", "fill 只适用于 rect/circle/poly");
+      collector.error(file, line, kindCell.col, "value.graphic-attribute-invalid", "fill only applies to rect/circle/poly");
     } else if (!FILLS.has(fill)) {
-      collector.error(file, line, kindCell.col, "S301", `未知填充：${fill}`);
+      collector.error(file, line, kindCell.col, "value.graphic-attribute-invalid", `unknown fill: ${fill}`);
     } else {
       item.fill = fill as NonNullable<BodyItem["fill"]>;
     }
@@ -316,7 +315,7 @@ function graphicCoords(item: BodyItem): number[] {
   }
 }
 
-/** body 的 canonical 顺序：unit → kind → 坐标逐项数值。 */
+/** Canonical order for body: unit → kind → coordinates item by item. */
 function compareBody(a: BodyItem, b: BodyItem): number {
   const byUnit = (a.unit ?? 1) - (b.unit ?? 1);
   if (byUnit !== 0) return byUnit;
@@ -331,7 +330,7 @@ function compareBody(a: BodyItem, b: BodyItem): number {
   return ca.length - cb.length;
 }
 
-/** 解析一个 `symbol` 文件。 */
+/** Parse a `symbol` file. */
 export function parseSymbol(text: string, options: SymbolParseOptions): SymbolParseResult {
   const collector = new Collector();
   const { file } = options;
@@ -350,42 +349,42 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
 
   const versionLine = nextMeaningful();
   if (!versionLine || versionLine.cells.length !== 2 || versionLine.cells[0]!.text !== "version") {
-    collector.error(file, versionLine?.number ?? 1, 1, "S113", "第一行必须是 version <ver>");
+    collector.error(file, versionLine?.number ?? 1, 1, "syntax.header-invalid", "the first line must be version <ver>");
     return { ok: false, diagnostics: collector.diagnostics };
   }
   const version = versionLine.cells[1]!.text;
   const versionMatch = VERSION_RE.exec(version);
   if (!versionMatch) {
-    collector.error(file, versionLine.number, versionLine.cells[1]!.col, "S113", `版本号不合法：${version}`);
+    collector.error(file, versionLine.number, versionLine.cells[1]!.col, "format.invalid-version", `not a valid version number: ${version}`);
   } else if (Number(versionMatch[1]) < REQUIRED_MINOR) {
     collector.error(
       file,
       versionLine.number,
       versionLine.cells[1]!.col,
-      "S113",
-      `symbol 类型需要 version ${(REQUIRED_MINOR / 10).toFixed(1)}（当前 ${version}）`,
+      "format.unsupported-version",
+      `the symbol type requires version ${(REQUIRED_MINOR / 10).toFixed(1)} (current: ${version})`,
     );
   } else if (Number(versionMatch[1]) > SUPPORTED_MINOR) {
     collector.error(
       file,
       versionLine.number,
       versionLine.cells[1]!.col,
-      "S113",
-      `版本 ${version} 高于本工具支持的 0.${SUPPORTED_MINOR}`,
+      "format.unsupported-version",
+      `version ${version} is newer than the 0.${SUPPORTED_MINOR} supported by this tool`,
     );
   }
 
   const typeLine = nextMeaningful();
   if (!typeLine || typeLine.cells.length !== 2 || typeLine.cells[0]!.text !== "symbol") {
-    collector.error(file, typeLine?.number ?? 1, 1, "S113", "第二行必须是 symbol <id>");
+    collector.error(file, typeLine?.number ?? 1, 1, "syntax.header-invalid", "the second line must be symbol <id>");
     return { ok: false, diagnostics: collector.diagnostics };
   }
   const name = typeLine.cells[1]!.text;
   if (!SYMBOL_ID_RE.test(name)) {
-    collector.error(file, typeLine.number, typeLine.cells[1]!.col, "S113", `符号名不合法：${name}`);
+    collector.error(file, typeLine.number, typeLine.cells[1]!.col, "syntax.invalid-token", `not a valid symbol name: ${name}`);
   }
 
-  // 标量有默认值，先全部落成显式值：IR 只依赖语义（spec/symbol.md §7 规则 6）。
+  // Scalars have defaults; materialize them all as explicit values first: the IR depends only on semantics (spec/symbol.md §7 rule 6).
   const body: SymbolBody = {
     library: options.library,
     name,
@@ -406,7 +405,7 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
   const readBool = (line: Line, key: Cell, value: string): boolean | null => {
     if (value === "yes") return true;
     if (value === "no") return false;
-    collector.error(file, line.number, key.col, "S111", `${key.text} 只能是 yes/no：${value}`);
+    collector.error(file, line.number, key.col, "syntax.invalid-literal", `${key.text} can only be yes/no: ${value}`);
     return null;
   };
 
@@ -422,10 +421,10 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
         continue;
       }
       if (section === null) {
-        collector.error(file, line.number, line.cells[0]!.col, "S110", `未知段：${head}`);
+        collector.error(file, line.number, line.cells[0]!.col, "syntax.unknown-section", `unknown section: ${head}`);
         continue;
       }
-      collector.error(file, line.number, line.cells[0]!.col, "S112", "段内行至少 2 个单元格");
+      collector.error(file, line.number, line.cells[0]!.col, "syntax.row-too-short", "a row inside a section needs at least 2 cells");
       continue;
     }
 
@@ -445,7 +444,7 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
         case "units": {
           const raw = trailing(0);
           if (!/^\d+$/.test(raw) || Number(raw) < 1) {
-            collector.error(file, line.number, line.cells[1]!.col, "S111", `units 必须是正整数：${raw}`);
+            collector.error(file, line.number, line.cells[1]!.col, "syntax.invalid-literal", `units must be a positive integer: ${raw}`);
           } else {
             body.units = Number(raw);
           }
@@ -455,7 +454,7 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
         case "pin_names": {
           const raw = trailing(0);
           if (!SHOW_HIDE.has(raw)) {
-            collector.error(file, line.number, line.cells[1]!.col, "S111", `${key} 只能是 show/hide：${raw}`);
+            collector.error(file, line.number, line.cells[1]!.col, "syntax.invalid-literal", `${key} can only be show/hide: ${raw}`);
           } else if (key === "pin_numbers") {
             body.pin_numbers_hidden = raw === "hide";
           } else {
@@ -464,7 +463,7 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
           break;
         }
         case "pin_name_offset": {
-          const parsed = parseLengthNm(trailing(0), file, line.number, line.cells[1]!.col, "mm", "S111");
+          const parsed = parseLengthNm(trailing(0), file, line.number, line.cells[1]!.col, "mm", "value.length-invalid");
           if (parsed.ok) body.pin_name_offset_nm = parsed.value;
           else collector.diagnostics.push(parsed.diagnostic);
           break;
@@ -490,13 +489,13 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
         case "field": {
           const fieldName = rest[0]?.text ?? "";
           if (rest.length === 0) {
-            collector.error(file, line.number, line.cells[0]!.col, "S400", "field 需要属性名");
+            collector.error(file, line.number, line.cells[0]!.col, "library.field-invalid", "a field needs a name");
             break;
           }
           if (fields.some((f) => f.name === fieldName)) {
-            collector.error(file, line.number, rest[0]!.col, "S400", `属性名重复：${fieldName}`);
+            collector.error(file, line.number, rest[0]!.col, "library.field-invalid", `duplicate field name: ${fieldName}`);
           }
-          // 键一律在值之前：先吃掉连续的 key=value 单元格，再校验键名。
+          // Keys always come before values: consume consecutive key=value cells first, then validate key names.
           let cursor = 1;
           const kv = new Map<string, string>();
           while (cursor < rest.length) {
@@ -512,23 +511,23 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
               file,
               line.number,
               line.cells[0]!.col,
-              "S400",
+              "library.field-invalid",
               fieldKey === "layer"
-                ? "符号没有层：field 不接受 layer"
-                : `未知字段键：${fieldKey}`,
+                ? "symbols have no layers: field does not accept layer"
+                : `unknown field key: ${fieldKey}`,
             );
           }
           const field: Field = { name: fieldName, value: trailing(cursor) };
           const at = kv.get("at");
           if (at !== undefined) {
-            const values = readLengthList(at, file, line.number, rest[0]!.col, "S400", collector);
+            const values = readLengthList(at, file, line.number, rest[0]!.col, "library.field-invalid", collector);
             if (values && values.length === 2) field.at = { x_nm: values[0]!, y_nm: values[1]! };
           }
           const hide = kv.get("hide");
           if (hide !== undefined) field.hide = hide === "yes" || hide === "true";
           const size = kv.get("size");
           if (size !== undefined) {
-            const values = readLengthList(size, file, line.number, rest[0]!.col, "S400", collector);
+            const values = readLengthList(size, file, line.number, rest[0]!.col, "library.field-invalid", collector);
             if (values && values.length === 2) {
               field.effects = { width_nm: values[0]!, height_nm: values[1]! };
             }
@@ -537,7 +536,7 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
           break;
         }
         default:
-          collector.error(file, line.number, line.cells[0]!.col, "S110", `未知标量：${key}`);
+          collector.error(file, line.number, line.cells[0]!.col, "syntax.unknown-field", `unknown scalar: ${key}`);
       }
       continue;
     }
@@ -551,15 +550,15 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
     }
   }
 
-  if (pins.length === 0) collector.error(file, 1, 1, "S210", "pins 段不能为空");
+  if (pins.length === 0) collector.error(file, 1, 1, "library.pins-empty", "the pins section must not be empty");
   const seen = new Set<string>();
   for (const pin of pins) {
     const key = `${pin.unit}:${pin.number}`;
-    if (seen.has(key)) collector.error(file, 1, 1, "S211", `引脚号重复：${pin.number}（unit ${pin.unit}）`);
+    if (seen.has(key)) collector.error(file, 1, 1, "library.duplicate-pin-number", `duplicate pin number: ${pin.number} (unit ${pin.unit})`);
     seen.add(key);
   }
 
-  // IR 是语义的函数：引脚按 (unit, 号)、外形按 (unit, kind, 坐标)、字段按名排。
+  // The IR is a function of semantics: pins sorted by (unit, number), body by (unit, kind, coordinates), fields by name.
   pins.sort((a, b) => (a.unit !== b.unit ? a.unit - b.unit : naturalCompare(a.number, b.number)));
   bodyItems.sort(compareBody);
   fields.sort((a, b) => byteCompare(a.name, b.name));

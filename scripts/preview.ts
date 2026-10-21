@@ -1,13 +1,13 @@
 #!/usr/bin/env bun
-// 预览：把库里的符号 / 封装画成 SVG，自己画，不借 KiCad。
+// Preview: draw symbols / footprints from the library as SVG, drawn by ourselves, without borrowing KiCad.
 //
 //   bun run preview symbol   <id> [--lib <name>] [--out <dir>] [--project <dir>] [--scale <n>]
 //   bun run preview footprint <id> [--lib <name>] [--out <dir>] [--project <dir>] [--scale <n>]
 //   bun run preview component <id> [--out <dir>] [--project <dir>] [--scale <n>]
 //
-// 用途：agent 造完一个封装/符号要立刻看一眼（引脚朝向、箭头、courtyard、丝印压焊盘），
-// 这些在 IR 与契约校验里全是绿的——校验只看自洽，不看像不像。
-// 输出：SVG 路径打印到 stdout；产物落在 /tmp/texteda-preview/<id>/（可用 --out 改）。
+// Purpose: after an agent builds a footprint/symbol it wants to take an immediate look (pin orientation, arrows, courtyard, silkscreen over pads);
+// these all pass green in the IR and contract validation — validation only checks self-consistency, not whether it looks right.
+// Output: the SVG path is printed to stdout; artifacts land in /tmp/texteda-preview/<id>/ (changeable with --out).
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { formatDiagnostic } from "@texteda/parser";
@@ -31,7 +31,7 @@ interface Options {
 }
 
 function fail(message: string): never {
-  console.error(`预览失败：${message}`);
+  console.error(`preview failed: ${message}`);
   process.exit(1);
 }
 
@@ -43,20 +43,20 @@ function parseArgs(argv: string[]): Options {
   let scale = 1;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]!;
-    if (arg === "--lib") lib = argv[++i] ?? fail("--lib 后面要跟库名");
-    else if (arg === "--out") out = argv[++i] ?? fail("--out 后面要跟目录");
-    else if (arg === "--project") project = argv[++i] ?? fail("--project 后面要跟目录");
-    else if (arg === "--scale") scale = Number(argv[++i] ?? fail("--scale 后面要跟倍数"));
-    else if (arg.startsWith("--")) fail(`未知参数 ${arg}`);
+    if (arg === "--lib") lib = argv[++i] ?? fail("--lib must be followed by a library name");
+    else if (arg === "--out") out = argv[++i] ?? fail("--out must be followed by a directory");
+    else if (arg === "--project") project = argv[++i] ?? fail("--project must be followed by a directory");
+    else if (arg === "--scale") scale = Number(argv[++i] ?? fail("--scale must be followed by a multiplier"));
+    else if (arg.startsWith("--")) fail(`unknown argument ${arg}`);
     else positional.push(arg);
   }
   const kind = positional[0];
   const id = positional[1];
   if (kind !== "symbol" && kind !== "footprint" && kind !== "component") {
-    fail("用法：preview symbol|footprint|component <id>");
+    fail("usage: preview symbol|footprint|component <id>");
   }
-  if (!id) fail("用法：preview symbol|footprint|component <id>");
-  if (!Number.isFinite(scale) || scale <= 0) fail("--scale 要是正数");
+  if (!id) fail("usage: preview symbol|footprint|component <id>");
+  if (!Number.isFinite(scale) || scale <= 0) fail("--scale must be a positive number");
   return { kind, id, lib, out, project, scale };
 }
 
@@ -81,7 +81,7 @@ function readRef(text: string, key: "symbol" | "footprint"): string | null {
   return m ? m[1]! : null;
 }
 
-/** `lib:name` → 库名与名字；没写库名就用默认库。 */
+/** `lib:name` → library name and name; if no library is given, use the default library. */
 function splitRef(ref: string, defaultLib: string): { lib: string; name: string } {
   const i = ref.indexOf(":");
   if (i < 0) return { lib: defaultLib, name: ref };
@@ -90,7 +90,7 @@ function splitRef(ref: string, defaultLib: string): { lib: string; name: string 
 
 const options = parseArgs(process.argv.slice(2));
 const projectRoot = resolve(options.project);
-if (!existsDir(projectRoot)) fail(`项目目录不存在：${options.project}`);
+if (!existsDir(projectRoot)) fail(`project directory does not exist: ${options.project}`);
 
 const outDir = options.out
   ? resolve(options.out)
@@ -99,21 +99,21 @@ mkdirSync(outDir, { recursive: true });
 
 function writeSvg(name: string, doc: ReturnType<typeof renderSymbol>): string {
   const problems = validateDoc(doc);
-  // 自带字体只有 ASCII：画不出来的字符要说出来，不能让它在图上凭空消失。
+  // The built-in font is ASCII only: characters that cannot be drawn must be reported, not silently vanish from the image.
   const missing = new Set<string>();
   for (const p of doc.primitives) {
     if (p.kind !== "text") continue;
     for (const ch of unsupportedChars(p.text)) missing.add(ch);
   }
   if (missing.size > 0) {
-    console.error(`  ！${name} 有画不出来的字符（自带字体只有 ASCII）：${[...missing].join(" ")}`);
+    console.error(`  ! ${name} has characters that cannot be drawn (built-in font is ASCII only): ${[...missing].join(" ")}`);
   }
   if (problems.length > 0) {
-    console.error(`  ！${name} 图形自检有 ${problems.length} 处问题：`);
+    console.error(`  ! ${name} graphics self-check found ${problems.length} problems:`);
     for (const p of problems.slice(0, 5)) console.error(`    ${p}`);
   }
   const path = join(outDir, `${name}.svg`);
-  // 放大只改 width/height，不动 viewBox：几何比例不变，方便肉眼看细节。
+  // Scaling only changes width/height, not the viewBox: the geometric proportions stay the same, making details easy to inspect by eye.
   const svg = toSvgText(doc).replace(
     /width="([\d.]+)mm" height="([\d.]+)mm"/,
     (_, w: string, h: string) =>
@@ -133,15 +133,15 @@ if (options.kind === "symbol" || options.kind === "component") {
     const file = tedaFiles(join(projectRoot, "components")).find(
       (f) => basename(f, ".teda") === options.id,
     );
-    if (!file) fail(`项目里没有器件 ${options.id}`);
+    if (!file) fail(`no component ${options.id} in the project`);
     const text = readFileSync(file, "utf8");
     const ref = readRef(text, "symbol");
-    if (!ref) fail(`器件 ${options.id} 没有 symbol 引用`);
+    if (!ref) fail(`component ${options.id} has no symbol reference`);
     const split = splitRef(ref, options.lib);
     symbolLib = split.lib;
     symbolId = split.name;
     const facts = loadComponent(file);
-    if (!facts.ok) fail(`器件 ${options.id} 读不出来`);
+    if (!facts.ok) fail(`component ${options.id} could not be read`);
     part = {
       pins: facts.value.pins.map((p) => ({ number: p.number, name: p.name, type: p.type })),
     };
@@ -159,16 +159,16 @@ if (options.kind === "symbol" || options.kind === "component") {
   }
   const file = join(projectRoot, "symbols", symbolLib, `${symbolId}.teda`);
   if (!existsDir(join(projectRoot, "symbols", symbolLib)) || !existsFile(file)) {
-    fail(`库里没有符号 ${symbolLib}:${symbolId}（找 ${file}）`);
+    fail(`symbol not in library ${symbolLib}:${symbolId} (looked for ${file})`);
   }
   const parsed = loadSymbol(file, symbolLib);
   if (!parsed.ok) {
     console.error(parsed.diagnostics.map((d) => `  ${formatDiagnostic(d)}`).join("\n"));
-    fail(`符号 ${symbolId} 编译失败`);
+    fail(`symbol ${symbolId} failed to compile`);
   }
   if (!part) {
     console.error(
-      `  ！没有器件引用 ${symbolLib}:${symbolId}，引脚名画不出来（用空名渲染）`,
+      `  ! no component references ${symbolLib}:${symbolId}, pin names cannot be drawn (rendered with empty names)`,
     );
   }
   const doc = renderSymbol(parsed.value.symbol, { pins: part?.pins ?? [] });
@@ -182,21 +182,21 @@ if (options.kind === "footprint" || options.kind === "component") {
     const file = tedaFiles(join(projectRoot, "components")).find(
       (f) => basename(f, ".teda") === options.id,
     );
-    if (!file) fail(`项目里没有器件 ${options.id}`);
+    if (!file) fail(`no component ${options.id} in the project`);
     const ref = readRef(readFileSync(file, "utf8"), "footprint");
-    if (!ref) fail(`器件 ${options.id} 没有 footprint 引用`);
+    if (!ref) fail(`component ${options.id} has no footprint reference`);
     const split = splitRef(ref, options.lib);
     footprintLib = split.lib;
     footprintId = split.name;
   }
   const file = join(projectRoot, "footprints", footprintLib, `${footprintId}.teda`);
   if (!existsDir(join(projectRoot, "footprints", footprintLib)) || !existsFile(file)) {
-    fail(`库里没有封装 ${footprintLib}:${footprintId}（找 ${file}）`);
+    fail(`footprint not in library ${footprintLib}:${footprintId} (looked for ${file})`);
   }
   const parsed = loadFootprint(file, footprintLib);
   if (!parsed.ok) {
     console.error(parsed.diagnostics.map((d) => `  ${formatDiagnostic(d)}`).join("\n"));
-    fail(`封装 ${footprintId} 编译失败`);
+    fail(`footprint ${footprintId} failed to compile`);
   }
   const doc = renderFootprint(parsed.value.footprint);
   written.push(writeSvg(`${footprintId}.footprint`, doc));

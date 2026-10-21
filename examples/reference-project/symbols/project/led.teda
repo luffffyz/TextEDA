@@ -3,7 +3,7 @@ symbol led
 
 description LED, 2-pin generic view
 tags diode led
-# 发光二极管：二极管三角 + 阴极横杠 + 两道光线。
+# LED: diode triangle + cathode bar + two light rays.
 field Reference at=0,2.54 U
 field Value at=0,-2.54 led
 

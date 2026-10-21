@@ -1,4 +1,4 @@
-// `footprint` canonical form 的单元测试（spec/footprint.md §8）。
+// Unit tests for the `footprint` canonical form (spec/footprint.md §8).
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import {
@@ -15,29 +15,29 @@ const example = readFileSync("examples/reference-project/footprints/project/sot-
 function format(text: string): string {
   const result = formatFootprint(text, { file: "x.teda", library: "project" });
   if (!result.ok || result.text === undefined) {
-    throw new Error(`格式化失败：${JSON.stringify(result.diagnostics)}`);
+    throw new Error(`formatting failed: ${JSON.stringify(result.diagnostics)}`);
   }
   return result.text;
 }
 
 describe("canonical form", () => {
-  test("示例文件本身就是 canonical", () => {
+  test("the example file itself is already canonical", () => {
     expect(format(example)).toBe(example);
   });
 
-  test("幂等", () => {
+  test("idempotent", () => {
     const once = format(example);
     expect(format(once)).toBe(once);
   });
 
-  test("行/键/注释/单位一次归一", () => {
+  test("rows/keys/comments/units normalize in one pass", () => {
     const messy = [
-      "# 文件眉注",
+      "# file header comment",
       "version 0.4",
       "footprint   messy",
       "",
       "field Value   R_0402",
-      "# 这条属于 description",
+      "# this belongs to description",
       "description   a  b",
       "tags   b  a",
       "attr smd",
@@ -50,11 +50,11 @@ describe("canonical form", () => {
 
     expect(format(messy)).toBe(
       [
-        "# 文件眉注",
+        "# file header comment",
         "version 0.4",
         "footprint messy",
         "",
-        "# 这条属于 description",
+        "# this belongs to description",
         "description a b",
         "tags a b",
         "attr smd",
@@ -68,7 +68,7 @@ describe("canonical form", () => {
     );
   });
 
-  test("非默认单位换算成 mm 后省略单位", () => {
+  test("non-default units convert to mm, then the unit suffix is omitted", () => {
     const text = [
       "version 0.4",
       "footprint t",
@@ -80,7 +80,7 @@ describe("canonical form", () => {
     expect(format(text)).toContain("  1  smd  rect  0.254  0  1.016  0.508");
   });
 
-  test("图形按 (kind, layer, geometry) 排序；th 焊盘保留 drill", () => {
+  test("graphics sort by (kind, layer, geometry); th pads keep drill", () => {
     const text = [
       "version 0.4",
       "footprint t",
@@ -98,7 +98,7 @@ describe("canonical form", () => {
     expect(out.indexOf("line  F.SilkS")).toBeLessThan(out.indexOf("rect  F.Fab"));
   });
 
-  test("语义不变：IR 只依赖语义（与源里的顺序、单位写法无关）", () => {
+  test("semantics unchanged: the IR depends only on semantics (independent of source order and unit spelling)", () => {
     const messy = [
       "version 0.4",
       "footprint t",
@@ -120,39 +120,39 @@ describe("canonical form", () => {
     expect(canonicalJson(after.ir)).toBe(canonicalJson(before.ir));
   });
 
-  test("注释跟着它所属的行一起移动", () => {
-    const text = ["version 0.4", "footprint t", "", "pads", "# 属于焊盘 2", "  2  smd  rect  0  0  1  1", "  1  smd  rect  0  0  1  1", ""].join("\n");
+  test("a comment moves together with the row it belongs to", () => {
+    const text = ["version 0.4", "footprint t", "", "pads", "# belongs to pad 2", "  2  smd  rect  0  0  1  1", "  1  smd  rect  0  0  1  1", ""].join("\n");
     expect(format(text)).toBe(
-      ["version 0.4", "footprint t", "", "pads", "  1  smd  rect  0  0  1  1", "# 属于焊盘 2", "  2  smd  rect  0  0  1  1", ""].join("\n"),
+      ["version 0.4", "footprint t", "", "pads", "  1  smd  rect  0  0  1  1", "# belongs to pad 2", "  2  smd  rect  0  0  1  1", ""].join("\n"),
     );
   });
 
-  test("重复的段头归并成一个", () => {
+  test("duplicate section headers merge into one", () => {
     const text = ["version 0.4", "footprint t", "", "pads", "  1  smd  rect  0  0  1  1", "", "pads", "  2  smd  rect  0  0  1  1", ""].join("\n");
     const out = format(text);
     expect(out.split("\npads\n").length - 1).toBe(1);
     expect(out).toContain("  2  smd  rect  0  0  1  1");
   });
 
-  test("段顺序固定为 pads → graphics；空 graphics 段与它的注释都保留", () => {
+  test("section order is fixed to pads → graphics; an empty graphics section and its comment are both kept", () => {
     const text = [
       "version 0.4",
       "footprint t",
       "",
       "graphics",
-      "# 这个封装暂时没有图形",
+      "# this footprint has no graphics yet",
       "",
       "pads",
       "  1  smd  rect  0  0  1  1",
       "",
     ].join("\n");
-    // 规则是"注释跟随其后第一条有效行"：段内没有行时，它跟随的是下一个段头。
+    // The rule is "a comment follows the next effective line": when a section has no rows, it follows the next section header.
     expect(format(text)).toBe(
       [
         "version 0.4",
         "footprint t",
         "",
-        "# 这个封装暂时没有图形",
+        "# this footprint has no graphics yet",
         "pads",
         "  1  smd  rect  0  0  1  1",
         "",
@@ -162,13 +162,13 @@ describe("canonical form", () => {
     );
   });
 
-  test("类型行识别（CLI 按它分发；其他描述类型先跳过）", () => {
-    expect(descriptionType("# 注释\nversion 0.4\nfootprint t\n")).toBe("footprint");
+  test("type line detection (the CLI dispatches on it; other description types are skipped first)", () => {
+    expect(descriptionType("# comment\nversion 0.4\nfootprint t\n")).toBe("footprint");
     expect(descriptionType("version 0.4\npcb charger-buck\n")).toBe("pcb");
     expect(descriptionType("")).toBeNull();
   });
 
-  test("有错误的输入不产出文本（先修错再格式化）", () => {
+  test("input with errors produces no text (fix errors before formatting)", () => {
     const result = formatFootprint("version 0.4\nfootprint t\n\npads\n  1  th  circle  0  0  1.6  1.6\n", {
       file: "x.teda",
       library: "project",
@@ -178,27 +178,27 @@ describe("canonical form", () => {
   });
 });
 
-describe("symbol 的 canonical form", () => {
+describe("canonical form of symbol", () => {
   const symbolExample = readFileSync("examples/reference-project/symbols/project/bq24610rger.teda", "utf8");
 
   function formatSymbolText(text: string): string {
     const result = formatSymbol(text, { file: "x.teda", library: "project" });
     if (!result.ok || result.text === undefined) {
-      throw new Error(`格式化失败：${JSON.stringify(result.diagnostics)}`);
+      throw new Error(`formatting failed: ${JSON.stringify(result.diagnostics)}`);
     }
     return result.text;
   }
 
-  test("示例文件本身就是 canonical", () => {
+  test("the example file itself is already canonical", () => {
     expect(formatSymbolText(symbolExample)).toBe(symbolExample);
   });
 
-  test("幂等", () => {
+  test("idempotent", () => {
     const once = formatSymbolText(symbolExample);
     expect(formatSymbolText(once)).toBe(once);
   });
 
-  test("缺省值不写：length/unit/style 与 units/power 等标量", () => {
+  test("defaults are not written: length/unit/style and scalars like units/power", () => {
     const text = [
       "version 0.5",
       "symbol t",
@@ -221,7 +221,7 @@ describe("symbol 的 canonical form", () => {
     expect(out).not.toContain("pin_numbers show");
   });
 
-  test("引脚按 (unit, 号) 排序；语义不变", () => {
+  test("pins sort by (unit, number); semantics unchanged", () => {
     const text = [
       "version 0.5",
       "symbol t",

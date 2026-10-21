@@ -7,8 +7,8 @@ category     battery_charger
 package      VQFN-24
 datasheet    https://www.ti.com/lit/ds/symlink/bq24610.pdf
 
-# KiCad 官方 Battery_Management 库未收录 BQ24610；首次导出前需在本地库补齐该符号。
-# 引脚以内联表为准，符号仅提供视图。
+# KiCad official Battery_Management library does not include BQ24610; add the symbol to the local library before the first export.
+# Pins are governed by the inline table; the symbol only provides the view.
 symbol project:bq24610rger
 footprint project:vqfn-24-ep
 

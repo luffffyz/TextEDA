@@ -1,24 +1,31 @@
 #!/usr/bin/env bun
-// `.teda` 表面格式化：canonical form（各描述规范 §8）。
+// `.teda` surface formatting: canonical form (per-description specs §8).
 //
-// 用法：bun run scripts/fmt-teda.ts [--check] [--stdout] [--library <name>] <file.teda|dir>...
-//   目录   递归处理其中的 *.teda。
-//   默认   就地重写（内容没变就不写）。
-//   --check 只检查；不是 canonical 时打印文件并退出 1（CI / pre-commit 用）。
-//   --stdout 打到标准输出，不改文件。
-//   --library 库名；缺省取文件所在目录名。
+// Usage: bun run scripts/fmt-teda.ts [--check] [--stdout] [--library <name>] <file.teda|dir>...
+//   Directory  process its *.teda files recursively.
+//   Default    rewrite in place (skip files whose content is unchanged).
+//   --check    check only; print files that are not canonical form and exit 1 (for CI / pre-commit).
+//   --stdout   write to stdout, leaving files untouched.
+//   --library  library name; defaults to the containing directory name.
 //
-// 按文件的类型行分发：目前实现了 `footprint` 与 `symbol`；其他描述类型先跳过
-// （它们的 fmt 还没实现），显式点名则报错，避免"以为格式化过了"。
+// Dispatch on the file's type line: currently `footprint`, `symbol`, and `schematic`/`page` are implemented; other description types are skipped for now
+// (their fmt is not implemented yet); naming one explicitly is an error, to avoid "thought it was formatted".
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import { formatDiagnostic, type Diagnostic } from "@texteda/ir/diagnostics";
 import {
   descriptionType,
-  formatDiagnostic,
   formatFootprint,
+  formatPcb,
+  formatSchematic,
   formatSymbol,
-  type FormatResult,
 } from "../src/index.ts";
+
+interface FormatterOutput {
+  ok: boolean;
+  text?: string;
+  diagnostics: Diagnostic[];
+}
 
 const argv = process.argv.slice(2);
 const check = argv.includes("--check");
@@ -31,18 +38,18 @@ const targets = argv.filter(
 
 if (targets.length === 0) {
   console.error(
-    "用法：bun run scripts/fmt-teda.ts [--check] [--stdout] [--library <name>] <file.teda|dir>...",
+    "Usage: bun run scripts/fmt-teda.ts [--check] [--stdout] [--library <name>] <file.teda|dir>...",
   );
   process.exit(2);
 }
 
 interface Work {
   file: string;
-  /** 来自目录展开：类型还没实现的直接跳过。 */
+  /** From directory expansion: types not yet implemented are skipped directly. */
   fromDirectory: boolean;
 }
 
-/** 目录递归展开（只收 .teda），保持字节序，输出稳定。 */
+/** Recursively expand a directory (only .teda), keeping byte order for stable output. */
 function expand(target: string): Work[] {
   if (!statSync(target).isDirectory()) return [{ file: target, fromDirectory: false }];
   return readdirSync(target, { recursive: true, withFileTypes: true })
@@ -57,7 +64,7 @@ for (const target of targets) {
   try {
     files.push(...expand(target));
   } catch (error) {
-    console.error(`${target}: 无法读取（${(error as Error).message}）`);
+    console.error(`${target}: unreadable (${(error as Error).message})`);
     unreadable = true;
   }
 }
@@ -69,21 +76,25 @@ for (const { file, fromDirectory } of files) {
   try {
     text = readFileSync(file, "utf8");
   } catch (error) {
-    console.error(`${file}: 无法读取（${(error as Error).message}）`);
+    console.error(`${file}: unreadable (${(error as Error).message})`);
     failed = true;
     continue;
   }
   const type = descriptionType(text);
   const library = libraryFlag ?? basename(dirname(file));
-  let result: FormatResult;
+  let result: FormatterOutput;
   if (type === "footprint") {
     result = formatFootprint(text, { file, library });
   } else if (type === "symbol") {
     result = formatSymbol(text, { file, library });
+  } else if (type === "schematic" || type === "page") {
+    result = formatSchematic(text, { file });
+  } else if (type === "pcb") {
+    result = formatPcb(text, { file });
   } else if (fromDirectory) {
     continue;
   } else {
-    console.error(`${file}: 还没有实现这种描述类型的格式化（${type ?? "未知类型"}）`);
+    console.error(`${file}: formatting this description type is not implemented yet (${type ?? "unknown type"})`);
     failed = true;
     continue;
   }
@@ -99,7 +110,7 @@ for (const { file, fromDirectory } of files) {
   }
   if (result.text === text) continue;
   if (check) {
-    console.error(`${file}: 不是 canonical form（运行 fmt:teda 修复）`);
+    console.error(`${file}: not canonical form (run fmt:teda to fix)`);
     failed = true;
     continue;
   }

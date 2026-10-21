@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
-// 端到端冒烟：`.teda` 源码 → IR → KiCad 产物 → KiCad 能读、能 DRC、能出 Gerber。
+// End-to-end smoke: `.teda` source → IR → KiCad artifacts → KiCad can read, run DRC, and export Gerber.
 //
-// 用法：bun run scripts/smoke-footprint.ts [示例封装.teda]
-// 产物写在 /tmp/texteda-fp-smoke/ 下。
+// Usage: bun run scripts/smoke-footprint.ts [example-footprint.teda]
+// Artifacts are written under /tmp/texteda-fp-smoke/.
 import { mkdirSync, readFileSync, writeFileSync, rmSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { validate } from "@texteda/ir";
@@ -21,38 +21,38 @@ function isFootprintDoc(value: unknown): value is Footprint {
   return typeof value === "object" && value !== null && "footprint" in value;
 }
 
-// 0) canonical form：源文件必须是 fmt 的固定点，否则评审看到的是噪声
+// 0) canonical form: the source file must be a fixed point of fmt, otherwise what review sees is noise
 const source = readFileSync(example, "utf8");
 const formatted = formatFootprint(source, { file: example, library: "project" });
 if (!formatted.ok || formatted.text !== source) {
   for (const d of formatted.diagnostics) console.error(formatDiagnostic(d));
-  console.error("源文件不是 canonical form：运行 bun run fmt:teda " + example);
+  console.error("source file is not in canonical form: run bun run fmt:teda " + example);
   process.exit(1);
 }
-console.log(`[0] canonical form：${example} 是 fmt 固定点`);
+console.log(`[0] canonical form: ${example} is a fmt fixed point`);
 
-// 1) 编译：.teda → IR
+// 1) compile: .teda → IR
 const parsed = loadFootprint(example, "project");
 for (const d of parsed.diagnostics) console.error(formatDiagnostic(d));
 if (!parsed.ok) {
-  console.error("编译失败");
+  console.error("compilation failed");
   process.exit(1);
 }
 const check = validate("footprint", parsed.value);
 if (!check.ok) {
-  console.error("契约校验失败：", check.errors);
+  console.error("contract validation failed:", check.errors);
   process.exit(1);
 }
 const fp: FootprintBody = parsed.value.footprint;
 writeFileSync(join(work, "footprint.json"), canonicalJson(parsed.value));
-console.log(`[1] 编译 ${example} → IR（契约通过）`);
+console.log(`[1] compiled ${example} → IR (contract passed)`);
 
-// 2) 独立库文件
+// 2) standalone library file
 const modPath = join(work, "project.pretty", `${fp.name}.kicad_mod`);
 writeFileSync(modPath, footprintModule(fp));
-console.log(`[2] 写出 ${modPath}`);
+console.log(`[2] wrote ${modPath}`);
 
-// 3) KiCad 能解析这个库文件（导出 SVG 即证明能读）
+// 3) KiCad can parse this library file (exporting SVG proves it can read it)
 const svgOut = join(work, "svg");
 mkdirSync(svgOut, { recursive: true });
 const svg = Bun.spawnSync([
@@ -65,12 +65,12 @@ const svg = Bun.spawnSync([
   join(work, "project.pretty"),
 ]);
 if (svg.exitCode !== 0) {
-  console.error("kicad-cli fp export svg 失败：", svg.stderr.toString());
+  console.error("kicad-cli fp export svg failed:", svg.stderr.toString());
   process.exit(1);
 }
-console.log(`[3] KiCad 解析库文件成功，SVG：${readdirSync(svgOut).join(", ")}`);
+console.log(`[3] KiCad parsed the library file successfully, SVG: ${readdirSync(svgOut).join(", ")}`);
 
-// 4) 板文件：内联封装 + 板框
+// 4) board file: inline footprint + board outline
 const board = [
   `(kicad_pcb`,
   `\t(version 20241229)`,
@@ -108,12 +108,12 @@ const board = [
 ].join("\n");
 const boardPath = join(work, "smoke.kicad_pcb");
 writeFileSync(boardPath, board);
-// 库表：板里的封装 id 是 "project:sot-23-5"，KiCad 要能按前缀找到库，否则 DRC 报 lib_footprint_issues。
+// Library table: the footprint id in the board is "project:sot-23-5"; KiCad must be able to find the library by prefix, otherwise DRC reports lib_footprint_issues.
 writeFileSync(
   join(work, "fp-lib-table"),
   `(fp_lib_table\n  (lib (name "project")(type "KiCad")(uri "\${KIPRJMOD}/project.pretty")(options "")(descr ""))\n)\n`,
 );
-console.log(`[4] 写出板文件 ${boardPath}`);
+console.log(`[4] wrote board file ${boardPath}`);
 
 // 5) DRC
 const drcJson = join(work, "drc.json");
@@ -129,7 +129,7 @@ const drc = Bun.spawnSync([
   boardPath,
 ]);
 if (drc.exitCode !== 0) {
-  console.error("kicad-cli pcb drc 失败：", drc.stderr.toString());
+  console.error("kicad-cli pcb drc failed:", drc.stderr.toString());
   process.exit(1);
 }
 const drcReport = JSON.parse(readFileSync(drcJson, "utf8")) as {
@@ -137,7 +137,7 @@ const drcReport = JSON.parse(readFileSync(drcJson, "utf8")) as {
   unconnected_items: unknown[];
 };
 console.log(
-  `[5] DRC：violations=${drcReport.violations.length} unconnected=${drcReport.unconnected_items.length}`,
+  `[5] DRC: violations=${drcReport.violations.length} unconnected=${drcReport.unconnected_items.length}`,
 );
 if (drcReport.violations.length > 0) console.error(JSON.stringify(drcReport.violations, null, 2));
 
@@ -152,10 +152,10 @@ const gerb = Bun.spawnSync([
   boardPath,
 ]);
 if (gerb.exitCode !== 0) {
-  console.error("kicad-cli pcb export gerbers 失败：", gerb.stderr.toString());
+  console.error("kicad-cli pcb export gerbers failed:", gerb.stderr.toString());
   process.exit(1);
 }
-console.log(`[6] Gerber：${readdirSync(join(work, "gerbers")).sort().join(", ")}`);
+console.log(`[6] Gerber: ${readdirSync(join(work, "gerbers")).sort().join(", ")}`);
 
 if (drcReport.violations.length > 0) process.exit(1);
-console.log("冒烟通过");
+console.log("smoke passed");

@@ -1,6 +1,6 @@
-// canonical JSON：ADR-0004 决策 3 的规则 1–9。
-// 键按 Unicode 码位升序；只允许整数；缺省字段省略；不写时间戳、绝对路径、随机 id。
-// 输出用 2 空格缩进（dist/ir/ 下的文件要能被人 diff），末尾一个换行。
+// canonical JSON: rules 1–9 of ADR-0004 decision 3.
+// Keys sorted by Unicode code point ascending; integers only; default fields omitted; no timestamps, absolute paths, or random ids.
+// Output uses 2-space indentation (files under dist/ir/ must be human-diffable), with a single trailing newline.
 
 export function canonicalJson(value: unknown): string {
   return `${render(value, 0)}\n`;
@@ -9,7 +9,7 @@ export function canonicalJson(value: unknown): string {
 function render(value: unknown, indent: number): string {
   if (value === null) return "null";
   if (typeof value === "number") {
-    if (!Number.isInteger(value)) throw new Error(`canonical JSON 不允许浮点：${value}`);
+    if (!Number.isInteger(value)) throw new Error(`canonical JSON does not allow floats: ${value}`);
     return String(value);
   }
   if (typeof value === "boolean") return value ? "true" : "false";
@@ -29,7 +29,7 @@ function render(value: unknown, indent: number): string {
     );
     return `{\n${items.join(",\n")}\n${pad(indent)}}`;
   }
-  throw new Error(`canonical JSON 不支持的类型：${typeof value}`);
+  throw new Error(`canonical JSON unsupported type: ${typeof value}`);
 }
 
 function pad(indent: number): string {

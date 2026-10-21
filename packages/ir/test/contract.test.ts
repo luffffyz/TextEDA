@@ -1,5 +1,5 @@
-// 契约测试：valid/ 必须通过、invalid/ 必须失败。
-// 这些夹具只证明 schema 自洽；`source → IR` 的黄金文件随解析器一起落。
+// Contract test: valid/ must pass, invalid/ must fail.
+// These fixtures only prove the schema is self-consistent; golden files for `source → IR` land with the parser.
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -21,14 +21,14 @@ function fixturesIn(dir: string): string[] {
 
 const kinds = schemaKinds as readonly SchemaKind[];
 
-describe("IR 契约夹具", () => {
+describe("IR contract fixtures", () => {
   for (const kind of kinds) {
     const validDir = join(fixtureRoot, "valid", kind);
     const invalidDir = join(fixtureRoot, "invalid", kind);
-    // common 是共享定义，不是可落盘的分片，没有夹具。
+    // common holds shared definitions, not a persistable shard, so it has no fixtures.
     if (!existsSync(validDir)) continue;
 
-    test(`${kind}: valid/ 通过、invalid/ 失败`, () => {
+    test(`${kind}: valid/ passes, invalid/ fails`, () => {
       const validFiles = fixturesIn(validDir);
       expect(validFiles.length).toBeGreaterThan(0);
       for (const file of validFiles) {

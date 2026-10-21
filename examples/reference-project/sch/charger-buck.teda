@@ -1,22 +1,21 @@
 version 0.3
 schematic charger-buck
 
-# 一块物理板：BQ24610 充电/电源路径 + TPS5430 5V buck，共用一份 BOM、一个 PCB。
-# 页面是板内的划分单元（画布放不下、评审要分块看），不是两块板：
-# 页面不产生独立 PCB，也不产生独立 BOM。
-# 板级 net 只通过页面端口（M1.AC_IN 等）连到页面；板级 ports 段声明这块板的对外端子。
-
-pages
-  M1  charger-power
-  M2  buck-5v
-
 nets
   AC_COMMON:  M1.AC_RET
   ADAPTER_P:  M1.AC_IN
   GND:        M1.GND  M2.GND
   SYS:        M1.SYS_OUT  M2.SYS_IN
-  VOUT:       M2.VOUT
   VBAT:       M1.BAT_OUT
+  VOUT:       M2.VOUT
+
+# One physical board: BQ24610 charge/power path + TPS5430 5V buck, sharing one BOM and one PCB.
+# Pages are division units inside a board (the canvas won't fit, reviews want chunks), not two boards:
+# a page yields neither a separate PCB nor a separate BOM.
+# Board-level nets reach pages only through page ports (M1.AC_IN etc.); the board-level ports section declares this board's external terminals.
+pages
+  M1  charger-power
+  M2  buck-5v
 
 ports
   AC_RET   AC_COMMON

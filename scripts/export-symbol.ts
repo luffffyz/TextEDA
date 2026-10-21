@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
-// 符号 → KiCad `.kicad_sym`：IR 分片 + `component` 描述 → 符号库文件。
+// Symbol → KiCad `.kicad_sym`: IR shards + `component` description → symbol library file.
 //
-// 用法：bun run scripts/export-symbol.ts <symbol.json> --component <component.teda> [--out <file>]
+// Usage: bun run scripts/export-symbol.ts <symbol.json> --component <component.teda> [--out <file>]
 //
-// 引脚名/电气类型来自 component（单一所有者，ADR-0012）；引脚号两边都要有：
-// 符号里有、器件里没有 → 错误；器件里有、符号里没画 → 警告（可以是有意隐藏的电源脚）。
+// Pin names/electrical types come from the component (single owner, ADR-0012); pin numbers must exist on both sides:
+// present in the symbol but not in the component → error; present in the component but not drawn in the symbol → warning (may be intentionally hidden power pins).
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Symbol } from "@texteda/ir/symbol";
@@ -18,7 +18,7 @@ const componentIdx = args.indexOf("--component");
 const outIdx = args.indexOf("--out");
 if (!file || componentIdx < 0 || !args[componentIdx + 1]) {
   console.error(
-    "用法：bun run scripts/export-symbol.ts <symbol.json> --component <component.teda> [--out <file>]",
+    "usage: bun run scripts/export-symbol.ts <symbol.json> --component <component.teda> [--out <file>]",
   );
   process.exit(2);
 }
@@ -42,21 +42,21 @@ const sym = ir.symbol;
 const missing = missingPartPins(sym, component.facts);
 if (missing.length > 0) {
   console.error(
-    `${componentFile}:1:1: error SYMBOL: 符号 ${sym.name} 的引脚在器件里不存在：${missing.join(", ")}`,
+    `${componentFile}:1:1: error SYMBOL: pins of symbol ${sym.name} do not exist in the component: ${missing.join(", ")}`,
   );
   process.exit(1);
 }
 const unplaced = unplacedPartPins(sym, component.facts);
 if (unplaced.length > 0) {
   console.error(
-    `${componentFile}:1:1: warning SYMBOL: 器件的引脚没有在符号里画出来：${unplaced.join(", ")}`,
+    `${componentFile}:1:1: warning SYMBOL: component pins are not drawn in the symbol: ${unplaced.join(", ")}`,
   );
 }
 
 const text = symbolLibrary(sym, component.facts);
 if (outIdx >= 0) {
   const out = args[outIdx + 1]!;
-  // --out 给目录时按库名写 <lib>.kicad_sym（KiCad 库目录的惯例）。
+  // When --out is given a directory, write <lib>.kicad_sym by library name (the KiCad library directory convention).
   const isDirectory = out.endsWith("/") || existsSync(out);
   const target = isDirectory ? join(out, `${sym.library}.kicad_sym`) : out;
   mkdirSync(dirname(target), { recursive: true });

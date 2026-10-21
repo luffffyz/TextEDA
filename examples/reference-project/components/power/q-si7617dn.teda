@@ -6,7 +6,7 @@ manufacturer Vishay Siliconix
 category     mosfet_p
 package      PowerPAK-1212-8
 
-# KiCad 官方库没有 Si7617DN；借用同封装的 SiS443DN 符号，引脚以内联表为准。
+# KiCad official library has no Si7617DN; it borrows the SiS443DN symbol with the same package, pins are governed by the inline table.
 symbol project:nmos-5
 footprint project:powerpak-1212-8
 

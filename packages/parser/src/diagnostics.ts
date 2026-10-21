@@ -1,15 +1,13 @@
-// 诊断格式与 teda.md §11 一致：file:line:col: <severity> <code>: <message>
-export type Severity = "error" | "warning";
-
-export interface Diagnostic {
-  file: string;
-  line: number;
-  col: number;
-  severity: Severity;
-  code: string;
-  message: string;
-}
-
-export function formatDiagnostic(d: Diagnostic): string {
-  return `${d.file}:${d.line}:${d.col}: ${d.severity} ${d.code}: ${d.message}`;
-}
+// The shared types and helpers for diagnostics live in `@texteda/ir/diagnostics` (ADR-0016: error-code registry and unified shape).
+//
+// This file only re-exports, so callers of `packages/parser` can keep importing from the local path;
+// new code may also import `@texteda/ir/diagnostics` directly.
+export type {
+  Diagnostic,
+  DiagnosticCause,
+  DiagnosticCodeId,
+  DiagnosticLocation,
+  DiagnosticsPayload,
+  Severity,
+} from "@texteda/ir/diagnostics";
+export { diagnosticsToPayload, formatDiagnostic, isDiagnosticCode } from "@texteda/ir/diagnostics";

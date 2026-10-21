@@ -3,7 +3,7 @@ symbol sw-push
 
 description Tactile push switch, 4-pin generic view
 tags push switch tactile
-# 四脚轻触开关：左右各一对引脚，中间是触点与按键杆。
+# Four-pin tactile switch: one pin pair on each side, contact and button stem in the middle.
 field Reference at=0,2.54 U
 field Value at=0,-2.54 sw-push
 

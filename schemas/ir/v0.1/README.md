@@ -1,39 +1,39 @@
-# IR v0.1 — 契约说明
+# IR v0.1 — contract notes
 
-这是 textEDA IR 的**唯一契约**：JSON Schema 2020-12。语义模型与落盘布局见 `docs/adr/0004-ir-representation.md`，分片、身份键、单位与哈希粒度见 `docs/adr/0008-ir-shard-identity-and-hash.md`，TS 类型由本目录生成、不引入 zod 见 `docs/adr/0009-implementation-stack.md`。
+This is the **only** contract for the textEDA IR: JSON Schema 2020-12. The semantic model and on-disk layout are in `docs/adr/0004-ir-representation.md`; sharding, identity keys, units and hash granularity are in `docs/adr/0008-ir-shard-identity-and-hash.md`; TS types are generated from this directory with no zod, see `docs/adr/0009-implementation-stack.md`.
 
-## 文件与 `$id`
+## Files and `$id`
 
-| 文件 | `$id` | 对应源文件 |
+| File | `$id` | Corresponding source |
 |---|---|---|
-| `common.schema.json` | `urn:texteda:ir:0.1:common` | 无（共享 `$defs`） |
+| `common.schema.json` | `urn:texteda:ir:0.1:common` | none (shared `$defs`) |
 | `project.schema.json` | `urn:texteda:ir:0.1:project` | `project.toml` |
 | `component.schema.json` | `urn:texteda:ir:0.1:component` | `components/**/<id>.teda` |
-| `schematic.schema.json` | `urn:texteda:ir:0.1:schematic` | `sch/<board_id>.teda` + `sch/<board_id>/<page_id>.teda`（展平后一份） |
+| `schematic.schema.json` | `urn:texteda:ir:0.1:schematic` | `sch/<board_id>.teda` + `sch/<board_id>/<page_id>.teda` (one document after flattening) |
 | `pcb.schema.json` | `urn:texteda:ir:0.1:pcb` | `pcb/<board_id>.teda` |
 | `system.schema.json` | `urn:texteda:ir:0.1:system` | `system/<system_id>.teda` |
-| `manifest.schema.json` | `urn:texteda:ir:0.1:manifest` | 无（`dist/ir/manifest.json`） |
+| `manifest.schema.json` | `urn:texteda:ir:0.1:manifest` | none (`dist/ir/manifest.json`) |
 
-所有 schema 都是 **closed**（`additionalProperties: false`），枚举穷举；未知字段一律拒绝，不降级为警告。
+Every schema is **closed** (`additionalProperties: false`) with exhaustive enums. Unknown fields are rejected outright, never downgraded to warnings.
 
-## 序列化
+## Serialization
 
-canonical JSON，规则同 ADR-0004 决策 3：UTF-8 无 BOM、LF、末尾一个换行；键按码位升序；`snake_case`；**只有整数**；不写 `null`、不写空集合、不写时间戳与绝对路径；`source_hash = SHA-256(canonical 字节)`。
+Canonical JSON, per ADR-0004 decision 3: UTF-8 without BOM, LF, exactly one trailing newline; keys sorted by code point; `snake_case`; **integers only**; no `null`, no empty collections, no timestamps or absolute paths; `source_hash = SHA-256(canonical bytes)`.
 
-## 单位
+## Units
 
-字段名后缀即单位（`_nm`、`_mdeg`、`_mohm`、`_uv`、`_na`、`_uw`、`_mhz`、`_mdegc`、`_ppm`）；器件参数值（`params[].value`）的整数单位由器件声明里的参数类型决定（`resistance`→µΩ、`capacitance`→fF、`inductance`→pH …）。完整换算表见 ADR-0008 决策 4。
+The field-name suffix is the unit (`_nm`, `_mdeg`, `_mohm`, `_uv`, `_na`, `_uw`, `_mhz`, `_mdegc`, `_ppm`). For device parameter values (`params[].value`) the integer unit comes from the declared parameter type (`resistance`→µΩ, `capacitance`→fF, `inductance`→pH …). The full conversion table is ADR-0008 decision 4.
 
-## 测
+## Testing
 
 ```sh
 bun install
-bun run gen        # 从本目录生成 packages/ir/src/generated（schema + TS 类型）
-bun run gen:check  # 只比对：生成物与 schema 不一致就失败（CI 用）
-bun test           # 契约正反例 + 类型层断言
+bun run gen        # generate packages/ir/src/generated from this directory (schema + TS types)
+bun run gen:check  # compare only: fail if generated artifacts drift from the schemas (used in CI)
+bun test           # contract positive/negative fixtures + type-level assertions
 bun run typecheck
 ```
 
-- `tests/schemas/valid/<schema 名>/` 的每个夹具必须通过，`tests/schemas/invalid/<schema 名>/` 的必须失败（由 `packages/ir/test/contract.test.ts` 跑）。
-- 运行时校验直接用 Ajv 吃这些 schema 文件，**没有第二份校验实现**；TS 类型由 schema 生成（`packages/ir/scripts/generate.ts`），生成物不手改。
-- 夹具只证明 schema 自洽，不证明解析器正确；`source → IR` 的黄金文件随解析器一起落。
+- Every fixture in `tests/schemas/valid/<schema name>/` must pass and every fixture in `tests/schemas/invalid/<schema name>/` must fail (run by `packages/ir/test/contract.test.ts`).
+- Runtime validation consumes these schema files with Ajv — **there is no second validation implementation**. TS types are generated from the schemas (`packages/ir/scripts/generate.ts`); the generated output is never hand-edited.
+- Fixtures prove the schema is self-consistent, not that the parser is correct; `source → IR` golden files land together with the parser.

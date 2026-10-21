@@ -1,7 +1,7 @@
-// 封装 IR → 绘图指令。
+// Footprint IR → drawing commands.
 //
-// 封装是纯几何（ADR-0010）：焊盘、丝印/装配/courtyard 图形、属性文字。
-// 坐标 +x 向右、+y 向下（PCB 约定），转 SVG 时不用翻转。
+// A footprint is pure geometry (ADR-0010): pads, silkscreen/assembly/courtyard graphics, field text.
+// Coordinates: +x right, +y down (PCB convention), so no flip is needed when converting to SVG.
 import type { Footprint } from "@texteda/ir/footprint";
 import type { SvgDoc, SvgFill, SvgPrimitive } from "./svg.ts";
 
@@ -75,7 +75,7 @@ export function renderFootprint(fp: FootprintBody): SvgDoc {
   };
 }
 
-/** IR 的焊盘形状 → 画法。roundrect 用"矩形 + 圆角比例"表达，反解时能推回去。 */
+/** IR pad shape → drawing style. roundrect is expressed as "rectangle + corner-radius ratio", so it can be derived back during reverse engineering. */
 function padShape(pad: Pad): "rect" | "oval" | "circle" {
   switch (pad.shape) {
     case "roundrect":
@@ -150,7 +150,7 @@ function graphicPrimitives(g: Graphic): SvgPrimitive[] {
   }
 }
 
-// ---------------------------------------------------------------- 反解
+// ---------------------------------------------------------------- reverse engineering
 
 export interface FootprintPadProjection {
   number: string;
@@ -229,7 +229,7 @@ export interface FootprintProjection {
   texts: FootprintTextProjection[];
 }
 
-/** 从绘图指令反解出封装的语义投影（round-trip 的一端）。 */
+/** Reverse-engineer the footprint's semantic projection from the drawing commands (one end of the round-trip). */
 export function extractFootprint(doc: SvgDoc): FootprintProjection {
   const pads: FootprintPadProjection[] = [];
   const graphics: FootprintGraphicProjection[] = [];
@@ -341,7 +341,7 @@ export function extractFootprint(doc: SvgDoc): FootprintProjection {
   return { pads, graphics, fields, texts };
 }
 
-/** 从封装 IR 直接算出的语义投影（round-trip 的另一端）。 */
+/** The semantic projection computed directly from the footprint IR (the other end of the round-trip). */
 export function footprintProjection(fp: FootprintBody): FootprintProjection {
   const pads: FootprintPadProjection[] = fp.pads.map((pad) => ({
     number: pad.number,

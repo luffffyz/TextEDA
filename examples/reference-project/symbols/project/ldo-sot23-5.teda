@@ -3,9 +3,9 @@ symbol ldo-sot23-5
 
 description 5-pin LDO regulator in SOT-23-5
 tags ldo regulator
-# 摆位规则：1/3 在左、4/5 在右、2 在下；引脚连接点在体边缘外 2.54。
-# 同侧按引脚号自然序：左侧自下而上 1、3；右侧自下而上 4、5。
-# 体宽按 2 脚/侧最小 5.08，放大到 12.7 给引脚名留出左右各 6.35 的净空（均为 1.27 的倍数）。
+# Placement rules: 1/3 on the left, 4/5 on the right, 2 on the bottom; pin connection points sit 2.54 outside the body edge.
+# Same-side pins follow natural pin-number order: left side bottom to top 1, 3; right side bottom to top 4, 5.
+# Body width is the 2-pin/side minimum 5.08, widened to 12.7 to leave 6.35 clearance for pin names on each side (all multiples of 1.27).
 field Reference at=0,8.89 U
 field Value at=0,-8.89 ldo-sot23-5
 

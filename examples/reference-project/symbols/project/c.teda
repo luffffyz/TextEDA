@@ -3,7 +3,7 @@ symbol c
 
 description Non-polarized capacitor, 2-pin generic view
 tags capacitor passive
-# 通用无极性电容视图：两片极板。多个器件共享（0402 / 0603 / 1210 等）。
+# Generic non-polarized capacitor view: two plates. Shared by several components (0402 / 0603 / 1210 etc.).
 field Reference at=0,2.54 U
 field Value at=0,-2.54 c
 

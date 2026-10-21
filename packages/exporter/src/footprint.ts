@@ -1,11 +1,11 @@
-// 封装 → KiCad 产物。
+// Footprint → KiCad artifacts.
 //
-// 真源是 IR 里的 footprint 分片（schemas/ir/v0.1/footprint.schema.json），
-// 本文件把它写成两种 KiCad 产物（ADR-0011）：
-//   1. footprintModule —— 独立的 .kicad_mod（放进 .pretty 库目录，KiCad 能当普通库用）
-//   2. footprintInline —— 板文件里的内联封装块（KiCad 6+ 板文件自带几何，不依赖库）
+// The source of truth is the footprint shard in the IR (schemas/ir/v0.1/footprint.schema.json);
+// this file writes it out as two KiCad artifacts (ADR-0011):
+//   1. footprintModule — a standalone .kicad_mod (drop it into a .pretty library directory; KiCad uses it as a normal library)
+//   2. footprintInline — an inline footprint block in the board file (KiCad 6+ board files carry their own geometry and need no library)
 //
-// 两种产物共用同一份 body 生成逻辑，所以不会出现"库里的封装和板上的不一致"。
+// Both artifacts share the same body-generation logic, so "library footprint disagrees with the one on the board" cannot happen.
 import { createHash } from "node:crypto";
 import type { Footprint } from "@texteda/ir/footprint";
 
@@ -15,17 +15,17 @@ type Graphic = NonNullable<FootprintBody["graphics"]>[number];
 type TextItem = NonNullable<FootprintBody["texts"]>[number];
 type Field = NonNullable<FootprintBody["fields"]>[number];
 
-/** KiCad 10 封装文件格式版本。 */
+/** KiCad 10 footprint file format version. */
 export const KICAD_FOOTPRINT_VERSION = "20260206";
 
-/** 纳米 → 毫米，最多 6 位小数，去掉尾随零。 */
+/** Nanometers → millimeters, at most 6 decimal places, trailing zeros removed. */
 export function mm(nm: number): string {
   const s = (nm / 1e6).toFixed(6);
   const trimmed = s.includes(".") ? s.replace(/0+$/, "").replace(/\.$/, "") : s;
   return trimmed === "-0" ? "0" : trimmed;
 }
 
-/** 毫度 → 度。 */
+/** Millidegrees → degrees. */
 export function deg(mdeg: number): string {
   const s = (mdeg / 1000).toFixed(6);
   const trimmed = s.includes(".") ? s.replace(/0+$/, "").replace(/\.$/, "") : s;
@@ -34,7 +34,7 @@ export function deg(mdeg: number): string {
 
 const q = (s: string) => `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 
-/** 百万分比 → 十进制（KiCad 侧要浮点，IR 侧不许）。 */
+/** Parts per million → decimal (the KiCad side needs a float; the IR side forbids one). */
 function ratio(ppm: number): string {
   const s = (ppm / 1e6).toFixed(6);
   const trimmed = s.includes(".") ? s.replace(/0+$/, "").replace(/\.$/, "") : s;
@@ -135,17 +135,17 @@ function modelSexp(m: NonNullable<FootprintBody["model3d"]>): string {
   return `(model ${q(m.path)} (offset (xyz ${mm(off[0])} ${mm(off[1])} ${mm(off[2])})) (scale (xyz ${sc[0]} ${sc[1]} ${sc[2]})) (rotate (xyz ${deg(rot[0])} ${deg(rot[1])} ${deg(rot[2])})))`;
 }
 
-/** 板内联时覆盖的属性值（位号、值）。 */
+/** Property values overridden when inlined into a board (reference designator, value). */
 interface FieldOverrides {
   reference?: string | undefined;
   value?: string | undefined;
 }
 
-/** 封装体（不含最外层 footprint 与 placement 属性），两种产物共用。 */
+/** The footprint body (excluding the outermost footprint and placement properties), shared by both artifacts. */
 function body(fp: FootprintBody, rotationMdeg: number, overrides?: FieldOverrides): string[] {
   const out: string[] = [];
   if (fp.description) out.push(`(descr ${q(fp.description)})`);
-  // KiCad 的 tags 是**一个**引号字符串，标签之间用空格分隔；写成多个字符串会让 KiCad 拒绝加载库。
+  // KiCad's tags is **one** quoted string with tags separated by spaces; writing multiple strings makes KiCad refuse to load the library.
   if (fp.tags?.length) out.push(`(tags ${q(fp.tags.join(" "))})`);
   for (const f of fp.fields ?? []) {
     const override =
@@ -161,7 +161,7 @@ function body(fp: FootprintBody, rotationMdeg: number, overrides?: FieldOverride
   return out;
 }
 
-/** 独立 .kicad_mod 文件内容（放进 `<lib>.pretty/` 即可被 KiCad 当普通库使用）。 */
+/** Standalone .kicad_mod file content (drop it into `<lib>.pretty/` and KiCad uses it as a normal library). */
 export function footprintModule(fp: FootprintBody, options?: { generator?: string }): string {
   const head = [
     `(footprint ${q(fp.name)}`,
@@ -174,22 +174,22 @@ export function footprintModule(fp: FootprintBody, options?: { generator?: strin
 }
 
 export interface Placement {
-  /** 板级位置，纳米。 */
+  /** Board-level position, nanometers. */
   xNm: number;
   yNm: number;
-  /** 板级旋转，毫度。 */
+  /** Board-level rotation, millidegrees. */
   rotationMdeg?: number;
-  /** 位号，写进 Reference 属性。 */
+  /** Reference designator, written into the Reference property. */
   reference?: string;
-  /** 值，写进 Value 属性。 */
+  /** Value, written into the Value property. */
   value?: string;
-  /** 底面放置时为 true（几何镜像到 B.Cu）。 */
+  /** True when placed on the bottom side (geometry mirrored to B.Cu). */
   back?: boolean;
-  /** 显式 uuid；不给则按内容派生（确定性）。 */
+  /** Explicit uuid; if omitted, derived from content (deterministic). */
   uuid?: string;
 }
 
-/** 板文件里的内联封装块。 */
+/** Inline footprint block in the board file. */
 export function footprintInline(fp: FootprintBody, placement: Placement): string {
   const rot = placement.rotationMdeg ?? 0;
   const layer = placement.back ? "B.Cu" : "F.Cu";
@@ -209,11 +209,11 @@ export function footprintInline(fp: FootprintBody, placement: Placement): string
   return [...head, ...rest, "\t)", ""].join("\n");
 }
 
-/** 确定性 uuid：同一输入永远得到同一个 id，导出可字节复现。 */
+/** Deterministic uuid: the same input always yields the same id, so exports are byte-reproducible. */
 export function deriveUuid(seed: string): string {
   const h = createHash("sha256").update(seed).digest();
   const bytes = Buffer.from(h.subarray(0, 16));
-  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40; // version 4 位型
+  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40; // version nibble (4)
   bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80; // variant
   const hex = bytes.toString("hex");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;

@@ -1,7 +1,8 @@
-// IR 契约的运行时入口：schema 是唯一真源，这里直接用 Ajv 校验同一份 schema，
-// 类型由 schema 生成（见 scripts/generate.ts）。不引入第二份校验实现。
+// Runtime entry of the IR contract: the schema is the single source of truth, so this file validates
+// the very same schema with Ajv; the types are generated from the schema (see scripts/generate.ts).
+// No second validation implementation is introduced.
 //
-// 运行时中立：只用 Web 标准 API 与 Ajv，不碰 Bun.*、不碰 process.env、不碰文件系统。
+// Runtime-neutral: uses only Web standard APIs and Ajv — no Bun.*, no process.env, no file system.
 import Ajv2020 from "ajv/dist/2020.js";
 import type { AnySchema, ErrorObject, ValidateFunction } from "ajv";
 import { schemas, schemaKinds, irVersion } from "./generated/schemas.ts";
@@ -9,8 +10,12 @@ import { schemas, schemaKinds, irVersion } from "./generated/schemas.ts";
 export { irVersion, schemaKinds };
 export type SchemaKind = (typeof schemaKinds)[number];
 
-export interface Diagnostic {
-  /** JSON Pointer 路径，空串表示根。 */
+export * from "./diagnostics/index.ts";
+import type { Diagnostic } from "./diagnostics/index.ts";
+
+/** Schema-validation diagnostics: only an IR path, no file/line/column (the IR has no line numbers). */
+export interface SchemaDiagnostic {
+  /** JSON Pointer path; the empty string means the root. */
   path: string;
   keyword: string;
   message: string;
@@ -19,8 +24,8 @@ export interface Diagnostic {
 const ajv = new Ajv2020({
   allErrors: true,
   strict: true,
-  // `anyOf: [{required:["rev"]},{required:["version"]}]` 这类“至少一个”惯用法
-  // 会让 Ajv 误报 required 未在同层声明。
+  // The `anyOf: [{required:["rev"]},{required:["version"]}]` "at-least-one" idiom
+  // makes Ajv falsely report required as not declared at the same level.
   strictRequired: false,
 });
 
@@ -28,26 +33,41 @@ for (const schema of schemas) {
   ajv.addSchema(schema as AnySchema);
 }
 
-/** 按需编译：CLI 冷启动不必一次性编译六份 schema。 */
+/** Compile on demand: CLI cold start need not compile all six schemas at once. */
 const validators: Partial<Record<SchemaKind, ValidateFunction>> = {};
 
 function validatorFor(kind: SchemaKind): ValidateFunction {
   const cached = validators[kind];
   if (cached) return cached;
   const compiled = ajv.getSchema(`urn:texteda:ir:${irVersion}:${kind}`);
-  if (!compiled) throw new Error(`没有 ${kind} 的 schema`);
+  if (!compiled) throw new Error(`no schema for ${kind}`);
   validators[kind] = compiled;
   return compiled;
 }
 
-/** 校验一份分片；诊断里的行列由调用方补（IR 不含行号，只有 `source` 指针）。 */
-export function validate(kind: SchemaKind, data: unknown): { ok: boolean; errors: Diagnostic[] } {
+/** Validate one shard; the caller fills in line/column of the diagnostics (the IR carries no line numbers, only `source` pointers). */
+export function validate(kind: SchemaKind, data: unknown): { ok: boolean; errors: SchemaDiagnostic[] } {
   const validateFn = validatorFor(kind);
   if (validateFn(data)) return { ok: true, errors: [] };
-  const errors: Diagnostic[] = (validateFn.errors ?? []).map((e: ErrorObject) => ({
+  const errors: SchemaDiagnostic[] = (validateFn.errors ?? []).map((e: ErrorObject) => ({
     path: e.instancePath,
     keyword: e.keyword,
-    message: e.message ?? "不合法",
+    message: e.message ?? "is not valid",
   }));
   return { ok: false, errors };
+}
+
+/**
+ * Map schema-validation errors onto unified diagnostics (ADR-0016).
+ *
+ * Third-party implementations using Ajv directly can also map to `contract.*` codes without
+ * inventing their own scheme — the raw `cause` is preserved alongside.
+ */
+export function schemaDiagnosticsToDiagnostics(errors: readonly SchemaDiagnostic[]): Diagnostic[] {
+  return errors.map((e) => ({
+    code: e.keyword === "additionalProperties" ? "contract.unknown-field" : "contract.schema-violation",
+    severity: "error",
+    message: `${e.path === "" ? "/" : e.path} ${e.message}`,
+    cause: { source: "ajv", instancePath: e.path, keyword: e.keyword },
+  }));
 }

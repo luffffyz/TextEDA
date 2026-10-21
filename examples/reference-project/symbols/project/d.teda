@@ -3,7 +3,7 @@ symbol d
 
 description Diode, 2-pin generic view
 tags diode
-# 普通二极管：阳极在右（脚 2）、阴极在左（脚 1）。
+# Plain diode: anode on the right (pin 2), cathode on the left (pin 1).
 field Reference at=0,2.54 U
 field Value at=0,-2.54 d
 

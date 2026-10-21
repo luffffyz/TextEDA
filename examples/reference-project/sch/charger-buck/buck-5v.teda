@@ -5,8 +5,7 @@ page buck-5v
 # Component values follow datasheet SLVS632 Figure 7-1 (12V to 5V, 3A).
 # SYS is 9V..19.8V: battery 9V..12.6V or adapter up to 19.8V.
 # ENA is intentionally left floating; the internal 1.5M pullup enables the device.
-# charger-buck 板的第二个页面：输入 SYS 由板根接到 charger-power 页面的 SYS_OUT。
-
+# Second page of the charger-buck board: input SYS is wired from the board root to the charger-power page's SYS_OUT.
 instances
   C1  c-1210       10u    10%  35V
   C2  c-0402       10n    10%  25V

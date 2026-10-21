@@ -1,12 +1,12 @@
-// 从 `component` 描述里取出**导出符号需要的那几件事**：引脚表、footprint、datasheet、描述。
+// Extract from a `component` description **the few facts exporting a symbol needs**: the pin table, footprint, datasheet, description.
 //
-// 这不是 `component` 的解析器：完整的 component 解析（`params` 列类型、category/mpn 规则、
-// lcsc 校验）还没落地（AGENTS.md §11）。本投影只读它需要的东西，且对读到的部分严格校验；
-// 其余段与标量原样跳过，不假装校验过。
-import type { Diagnostic } from "./diagnostics.ts";
+// This is not the `component` parser: full component parsing (`params` column types, category/mpn rules,
+// lcsc validation) is not implemented yet (AGENTS.md §11). This projection only reads what it needs and strictly validates what it reads;
+// all other sections and scalars are passed through as-is, without pretending they were validated.
+import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
 import { lex } from "./lexer.ts";
 
-/** `teda.md` §10.1 的引脚电气类型。 */
+/** Pin electrical types from `teda.md` §10.1. */
 export const PIN_TYPES = new Set([
   "input",
   "output",
@@ -48,8 +48,8 @@ const PIN_NAME_RE = /^[A-Za-z0-9_+-]+$/;
 export function readComponentFacts(text: string, options: { file: string }): ComponentFactsResult {
   const { file } = options;
   const diagnostics: Diagnostic[] = [];
-  const error = (line: number, col: number, code: string, message: string) => {
-    diagnostics.push({ file, line, col, severity: "error", code, message });
+  const error = (line: number, col: number, code: DiagnosticCodeId, message: string) => {
+    diagnostics.push({ code, severity: "error", message, location: { file, line, col } });
   };
 
   const lines = lex(text);
@@ -66,12 +66,12 @@ export function readComponentFacts(text: string, options: { file: string }): Com
 
   const versionLine = next();
   if (!versionLine || versionLine.cells[0]?.text !== "version") {
-    error(versionLine?.number ?? 1, 1, "C001", "第一行必须是 version <ver>");
+    error(versionLine?.number ?? 1, 1, "syntax.header-invalid", "the first line must be version <ver>");
     return { ok: false, diagnostics };
   }
   const typeLine = next();
   if (!typeLine || typeLine.cells.length !== 2 || typeLine.cells[0]!.text !== "component") {
-    error(typeLine?.number ?? 1, 1, "C001", "第二行必须是 component <id>");
+    error(typeLine?.number ?? 1, 1, "syntax.header-invalid", "the second line must be component <id>");
     return { ok: false, diagnostics };
   }
 
@@ -92,7 +92,7 @@ export function readComponentFacts(text: string, options: { file: string }): Com
     }
     if (section !== "pins") continue;
     if (line.cells.length < 3) {
-      error(line.number, line.cells[0]!.col, "C002", "pins 行至少 3 列：number name type");
+      error(line.number, line.cells[0]!.col, "syntax.row-too-short", "a pins row needs at least 3 columns: number name type");
       continue;
     }
     const [number, name, type] = line.cells as [
@@ -100,7 +100,7 @@ export function readComponentFacts(text: string, options: { file: string }): Com
       (typeof line.cells)[number],
       (typeof line.cells)[number],
     ];
-    // 尾列是 `teda.md` §6.3 允许的可选列（unit / alt）；本投影用不到，但语法要校。
+    // The trailing columns are the optional columns allowed by `teda.md` §6.3 (unit / alt); this projection does not use them, but the syntax must be checked.
     let tailOk = true;
     for (const cell of line.cells.slice(3)) {
       const eq = cell.text.indexOf("=");
@@ -108,42 +108,42 @@ export function readComponentFacts(text: string, options: { file: string }): Com
       const value = eq > 0 ? cell.text.slice(eq + 1) : "";
       if (key === "unit") {
         if (!/^\d+$/.test(value) || Number(value) < 0) {
-          error(line.number, cell.col, "C007", `unit 必须是非负整数：${value}`);
+          error(line.number, cell.col, "value.pin-column-invalid", `unit must be a non-negative integer: ${value}`);
           tailOk = false;
         }
       } else if (key === "alt") {
         if (!PIN_NAME_RE.test(value)) {
-          error(line.number, cell.col, "C007", `alt 不合法：${value}`);
+          error(line.number, cell.col, "value.pin-column-invalid", `invalid alt: ${value}`);
           tailOk = false;
         }
       } else {
-        error(line.number, cell.col, "C007", `未知引脚列：${cell.text}`);
+        error(line.number, cell.col, "value.pin-column-invalid", `unknown pin column: ${cell.text}`);
         tailOk = false;
       }
     }
     if (!tailOk) continue;
     if (!PIN_NUMBER_RE.test(number.text)) {
-      error(line.number, number.col, "C003", `引脚号不合法：${number.text}`);
+      error(line.number, number.col, "value.pin-number-invalid", `invalid pin number: ${number.text}`);
       continue;
     }
     if (!PIN_NAME_RE.test(name.text)) {
-      error(line.number, name.col, "C003", `引脚名不合法：${name.text}`);
+      error(line.number, name.col, "value.pin-name-invalid", `invalid pin name: ${name.text}`);
       continue;
     }
     if (!PIN_TYPES.has(type.text)) {
-      error(line.number, type.col, "C004", `未知电气类型：${type.text}`);
+      error(line.number, type.col, "value.electrical-type-unknown", `unknown electrical type: ${type.text}`);
       continue;
     }
     if (facts.pins.some((p) => p.number === number.text)) {
-      error(line.number, number.col, "C005", `引脚号重复：${number.text}`);
+      error(line.number, number.col, "library.duplicate-pin-number", `duplicate pin number: ${number.text}`);
       continue;
     }
     facts.pins.push({ number: number.text, name: name.text, type: type.text });
   }
 
-  // 自建符号只存视图（ADR-0012）：导出符号所需的引脚事实只能来自 component。
+  // Self-authored symbols store only views (ADR-0012): the pin facts needed to export a symbol can only come from a component.
   if (facts.pins.length === 0) {
-    error(1, 1, "C006", "pins 段不能为空：自建符号的引脚事实只能来自 component");
+    error(1, 1, "library.pins-empty", "the pins section must not be empty: pin facts for a self-authored symbol can only come from a component");
   }
   if (diagnostics.some((d) => d.severity === "error")) return { ok: false, diagnostics };
   return { ok: true, facts, diagnostics };

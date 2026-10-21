@@ -1,5 +1,5 @@
-// 预览命令的行为（薄壳，但失败信息要说清是哪一步）。
-// 渲染本身在 packages/renderer/test/roundtrip.test.ts 里验。
+// Behavior of the preview command (a thin shell, but failure messages must clearly say which step failed).
+// The rendering itself is verified in packages/renderer/test/roundtrip.test.ts.
 import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,8 +22,8 @@ function runPreview(args: string[]): { code: number; stdout: string; stderr: str
   };
 }
 
-describe("preview 命令", () => {
-  test("component：出符号与封装两张图", () => {
+describe("preview command", () => {
+  test("component: emits a symbol drawing and a footprint drawing", () => {
     const out = mkdtempSync(join(tmpdir(), "texteda-preview-test-"));
     const run = runPreview(["component", "bq24610rger", "--out", out]);
     expect(run.stderr).toBe("");
@@ -35,25 +35,25 @@ describe("preview 命令", () => {
     }
     const symbol = files.find((f) => f.endsWith(".symbol.svg"))!;
     const footprint = files.find((f) => f.endsWith(".footprint.svg"))!;
-    // 符号图里 25 条引脚线（外形是 rect，不混进来）。
+    // 25 pin lines in the symbol drawing (the outline is a rect and does not count).
     const symbolSvg = readFileSync(symbol, "utf8");
     expect((symbolSvg.match(/<line /g) ?? []).length).toBe(25);
     expect(symbolSvg).toContain("<rect");
-    // 封装图里 25 个焊盘（铜层颜色 #b45309 的填充矩形）。
+    // 25 pads in the footprint drawing (filled rectangles in copper color #b45309).
     const footprintSvg = readFileSync(footprint, "utf8");
     expect((footprintSvg.match(/fill="#b45309" stroke="none"/g) ?? []).length).toBe(25);
   });
 
-  test("库里没有这个 id：报清楚并退出非 0", () => {
+  test("id not in library: report it clearly and exit non-zero", () => {
     const run = runPreview(["footprint", "nonexistent"]);
     expect(run.code).not.toBe(0);
     expect(run.stderr).toContain("nonexistent");
-    expect(run.stderr).toContain("库里没有");
+    expect(run.stderr).toContain("not in library");
   });
 
-  test("未知参数：报清楚并退出非 0", () => {
+  test("unknown argument: report it clearly and exit non-zero", () => {
     const run = runPreview(["footprint", "sot-23", "--nope"]);
     expect(run.code).not.toBe(0);
-    expect(run.stderr).toContain("未知参数");
+    expect(run.stderr).toContain("unknown argument");
   });
 });

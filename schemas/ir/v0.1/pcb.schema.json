@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:texteda:ir:0.1:pcb",
-  "title": "textEDA IR v0.1 — pcb 分片",
-  "description": "一块板的物理事实与规则意图（B0 层）。不存绘图参数、丝印排版、填充缓存与 UUID；连通性由 connect 与 schematic 决定，不从几何反推。见 ADR-0003、spec/pcb.md。",
+  "title": "textEDA IR v0.1 — pcb shard",
+  "description": "Physical facts and rule intent of one board (layer B0). No drawing parameters, silkscreen layout, fill caches or UUIDs; connectivity is decided by connect and the schematic and is never back-derived from geometry. See ADR-0003, spec/pcb.md.",
   "type": "object",
   "additionalProperties": false,
   "required": ["ir_version", "format", "board", "board_thickness_nm", "stackup", "outline", "place", "connect", "rules"],
@@ -14,19 +14,19 @@
     "board_thickness_nm": {
       "type": "integer",
       "minimum": 1,
-      "description": "板总厚；与 stackup 各层厚度之和一致（阻焊与字符层不计）。"
+      "description": "Total board thickness; matches the sum of the stackup layer thicknesses (solder-mask and silkscreen layers excluded)."
     },
     "stackup": {
       "type": "array",
       "minItems": 2,
       "items": { "$ref": "#/$defs/stackup_layer" },
-      "description": "顺序即从上到下，不排序。第一项与最后一项必须是铜层。"
+      "description": "Order is top to bottom; not sorted. The first and last entries must be copper layers."
     },
     "outline": {
       "type": "array",
       "minItems": 3,
       "items": { "$ref": "#/$defs/point" },
-      "description": "板框闭合折线（首尾自动闭合），只支持折线。坐标原点为板框包围盒左下角。"
+      "description": "Closed board-outline polyline (closed automatically from first to last); only polylines are supported. The coordinate origin is the lower-left corner of the outline's bounding box."
     },
     "place": {
       "type": "array",
@@ -35,7 +35,7 @@
     "connect": {
       "type": "array",
       "items": { "$ref": "#/$defs/connect_edge" },
-      "description": "显式声明哪两个 pad 之间有连续铜箔——连通性的真源之一。"
+      "description": "Explicitly declares which two pads have continuous copper between them — one of the sources of truth for connectivity."
     },
     "trace": {
       "type": "array",
@@ -56,7 +56,7 @@
     "rules": {
       "type": "array",
       "items": { "$ref": "#/$defs/rule" },
-      "description": "设计规则必须进 IR：KiCad 把它们放在工程文件而不是板文件里，只拿 .kicad_pcb 的 agent 无法自查。"
+      "description": "Design rules must enter the IR: KiCad keeps them in the project file rather than the board file, so an agent holding only the .kicad_pcb cannot check them itself."
     },
     "silk": {
       "type": "array",
@@ -107,7 +107,7 @@
             "er_ppm": {
               "type": "integer",
               "minimum": 1000000,
-              "description": "介电常数 × 10^6，如 FR4 4.3 = 4300000；省略表示未知。"
+              "description": "Dielectric constant × 10^6, e.g. FR4 4.3 = 4300000; omitted means unknown."
             }
           }
         }
@@ -123,7 +123,7 @@
         "y_nm": { "type": "integer" },
         "rot_mdeg": {
           "type": "integer",
-          "description": "顺时针为正，毫度；按 360000 取模。"
+          "description": "Clockwise positive, millidegrees; reduced modulo 360000."
         },
         "side": { "enum": ["top", "bottom"] }
       }
@@ -136,7 +136,7 @@
         "a": { "$ref": "urn:texteda:ir:0.1:common#/$defs/pad_ref" },
         "b": { "$ref": "urn:texteda:ir:0.1:common#/$defs/pad_ref" }
       },
-      "description": "一对 pad 构成一条“有铜箔连通”的边；每对内部按字节序 a ≤ b。"
+      "description": "A pad pair forms an edge \"connected by copper\"; within each pair, byte order a ≤ b."
     },
     "trace": {
       "type": "object",
@@ -170,7 +170,7 @@
         "from_layer": ["to_layer"],
         "to_layer": ["from_layer"]
       },
-      "description": "省略 from_layer/to_layer = 通孔；给出时为盲孔/埋孔。"
+      "description": "Omitting from_layer/to_layer means a through hole; when given, it is a blind/buried via."
     },
     "zone": {
       "type": "object",
@@ -185,7 +185,7 @@
           "items": { "$ref": "#/$defs/point" }
         }
       },
-      "description": "只存意图（轮廓 + net + 层）；填充结果不入 IR，由轮廓 + 规则重算。"
+      "description": "Only the intent is stored (outline + net + layer); the fill result never enters the IR and is recomputed from the outline + rules."
     },
     "keepout": {
       "type": "object",
@@ -243,7 +243,7 @@
             "via_size_nm": { "type": "integer", "minimum": 1 },
             "via_drill_nm": { "type": "integer", "minimum": 1 }
           },
-          "description": "按 net 覆盖默认值；值必须写全，不写“继承”。"
+          "description": "Overrides the default per net; the value must be written out in full — there is no \"inherit\"."
         },
         {
           "type": "object",
@@ -322,7 +322,7 @@
         "size_nm": { "type": "integer", "minimum": 1 },
         "mode": { "enum": ["show", "hide"] }
       },
-      "description": "只声明出不出、多大、哪层；排版位置不进 IR。"
+      "description": "Declares only whether it appears, how large it is and on which layer; layout position never enters the IR."
     },
     "physical_only": {
       "oneOf": [
@@ -397,7 +397,7 @@
             "net_a": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" },
             "net_b": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" }
           },
-          "description": "两个 sch net 在物理上短接。"
+          "description": "Two sch nets are physically shorted together."
         },
         {
           "type": "object",
@@ -407,7 +407,7 @@
             "type": { "const": "split_ground" },
             "net": { "$ref": "urn:texteda:ir:0.1:common#/$defs/net_id" }
           },
-          "description": "一个 sch net 在物理上分成互不连通的区域。"
+          "description": "One sch net is physically split into mutually disconnected regions."
         }
       ]
     }

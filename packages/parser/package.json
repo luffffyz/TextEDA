@@ -8,6 +8,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@texteda/core": "workspace:*",
     "@texteda/ir": "workspace:*"
   }
 }

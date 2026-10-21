@@ -1,4 +1,4 @@
-// `component` 事实投影的单元测试：只覆盖导出符号需要的部分。
+// Unit tests for the `component` facts projection: covers only the part needed for symbol export.
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { readComponentFacts } from "../src/index.ts";
@@ -8,8 +8,8 @@ const example = readFileSync(
   "utf8",
 );
 
-describe("component 事实投影", () => {
-  test("读出引脚表、footprint、datasheet 与描述", () => {
+describe("component facts projection", () => {
+  test("reads pin table, footprint, datasheet and description", () => {
     const result = readComponentFacts(example, { file: "x.teda" });
     expect(result.diagnostics).toEqual([]);
     expect(result.ok).toBe(true);
@@ -21,7 +21,7 @@ describe("component 事实投影", () => {
     expect(facts.datasheet).toContain("bq24610");
   });
 
-  test("可选尾列 unit / alt 被接受", () => {
+  test("optional trailing columns unit / alt are accepted", () => {
     const text = [
       "version 0.1",
       "component opamp",
@@ -36,39 +36,39 @@ describe("component 事实投影", () => {
     expect(result.facts!.pins.length).toBe(2);
   });
 
-  test("未知尾列报错", () => {
+  test("unknown trailing column reports an error", () => {
     const text = ["version 0.1", "component c", "", "pins", "  1  IN  input  colour=red"].join("\n");
     const result = readComponentFacts(text, { file: "x.teda" });
     expect(result.ok).toBe(false);
-    expect(result.diagnostics[0]!.code).toBe("C007");
+    expect(result.diagnostics[0]!.code).toBe("value.pin-column-invalid");
   });
 
-  test("引脚号重复报错", () => {
+  test("duplicate pin number reports an error", () => {
     const text = ["version 0.1", "component c", "", "pins", "  1  IN  input", "  1  OUT output"].join(
       "\n",
     );
     const result = readComponentFacts(text, { file: "x.teda" });
     expect(result.ok).toBe(false);
-    expect(result.diagnostics.some((d) => d.code === "C005")).toBe(true);
+    expect(result.diagnostics.some((d) => d.code === "library.duplicate-pin-number")).toBe(true);
   });
 
-  test("未知电气类型报错", () => {
+  test("unknown electrical type reports an error", () => {
     const text = ["version 0.1", "component c", "", "pins", "  1  IN  weird"].join("\n");
     const result = readComponentFacts(text, { file: "x.teda" });
     expect(result.ok).toBe(false);
-    expect(result.diagnostics[0]!.code).toBe("C004");
+    expect(result.diagnostics[0]!.code).toBe("value.electrical-type-unknown");
   });
 
-  test("省略 pins（委托第三方库）在符号导出路径上被拒绝", () => {
+  test("omitting pins (delegating to a third-party library) is rejected on the symbol export path", () => {
     const text = ["version 0.1", "component r-0402", "", "symbol kicad:Device:R", ""].join("\n");
     const result = readComponentFacts(text, { file: "x.teda" });
     expect(result.ok).toBe(false);
-    expect(result.diagnostics.some((d) => d.code === "C006")).toBe(true);
+    expect(result.diagnostics.some((d) => d.code === "library.pins-empty")).toBe(true);
   });
 
-  test("类型行不是 component 报错", () => {
+  test("type line that is not component reports an error", () => {
     const result = readComponentFacts("version 0.1\nsymbol s\n", { file: "x.teda" });
     expect(result.ok).toBe(false);
-    expect(result.diagnostics[0]!.code).toBe("C001");
+    expect(result.diagnostics[0]!.code).toBe("syntax.header-invalid");
   });
 });

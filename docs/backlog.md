@@ -2,7 +2,7 @@
 
 工作项清单，不进 `AGENTS.md` §11（那里是**待定问题**：需要人拍板的取舍）。每条写清：现状、要做的事、涉及文件、验收、注意事项。
 
-编号只增不减：做掉的条目从清单里移除，结论留在对应的 ADR 里。**F2（自研参考渲染器）已关闭** → `docs/adr/0014-reference-renderer.md`（符号与封装渲染 + `bun run preview` 已落地；剩下的 sch 渲染另开 F3）。
+编号只增不减：做掉的条目从清单里移除，结论留在对应的 ADR 里。**F2（自研参考渲染器）已关闭** → `docs/adr/0014-reference-renderer.md`（符号与封装渲染 + `bun run preview` 已落地；剩下的 sch 渲染另开 F3）。**F7（诊断错误码注册表）已关闭** → `docs/adr/0016-diagnostic-error-codes.md`（`域.slug` 码表 + 生成的 `docs/error-codes.md` + 双向完整性检查已落地）。
 
 ---
 
@@ -154,88 +154,6 @@
 - **顺序不能反**：先清历史再切 public。反过来就要二次重写，且届时可能已有 fork。
 - 以后再往 `docs/` 里放厂商文档，先想一次"这是不是受版权保护的材料"——默认不入库。
 - F1（校准封装几何）依赖 datasheet 原文，按"自行下载到本地"继续，**不要因此把原文塞回仓库**。
-
----
-
-## F7. 诊断错误码注册表（`域.slug` + `--json` 载荷）
-
-**现状**：诊断已经是产品（`AGENTS.md` §12「错误信息是产品」），`packages/parser` 有 `formatDiagnostic`，§10 要求"每条诊断含文件、行列、期望/实际、修复建议；提供 `--json` 输出"——但**诊断没有稳定标识**：文案一改，第三方实现就无法判断"我这条行为与 textEDA 是否一致"。对照 cohdl：它把错误码做成正式注册表（`docs/error-codes.md`），并用 `tests/error_registry.rs` 做**双向** completeness 检查（码表每行都要有真实 call site，代码里每个码字面量都要在码表里）——这个机制该抄。
-
-**为什么现在做**：ADR-0015 把项目定位成**标准提案**，标准提案的第一要件是"行为可被第三方实现对齐"，而错误码是对齐行为的最小单位。趁 sch 的解析器还没写（目前只有 symbol / footprint / component），加编号成本最低；等板级描述落地、诊断条数翻倍再补，编号会返工。
-
-**形式（已定，2026-10-21）**：`域.短 slug`，kebab-case slug，域取自**封闭词表**。
-
-- **域按"错误的种类"划分，不按发现阶段**（cohdl RFC-011 的组织原则，他们最聪明的一条）：单位不匹配不管在哪一层发现，都是 `value.unit-mismatch`。
-- **不用 `E+数字`**：数字无语义（`E1105` 是什么要查表）、分类边界只能靠文档裁决（cohdl 为"单位不匹配归 E1xx 还是 E4xx"专门写过 RFC-011，还留下 E402/E404 的 DEPRECATED 重定位）、分配需要中央仲裁。slug 自解释、分配无冲突、与 JSON Pointer 同族。
-  - **为什么紧凑数字码是历史产物**：`E101` / `errno` 这类密集编号来自载荷带不动文本的环境（早期编译器诊断、嵌入式控制台、8 位错误字节），以及"码本身就是 ABI 契约"的场合（系统调用返回值表、LSP 的整数 `code`）。textEDA 的诊断面向人和 agent，**文本载荷不受带宽与存储约束**，所以数字码在这里只剩坏处：无语义、要查表、插入新码要重排。真正该从 C 那里学的不是"别用数字"，而是"**码一旦发布就是 ABI**"——所以我们的码冻结，但用 slug 冻结成本低得多（新增不重排，旧码语义不动）。
-  - **若将来接入 LSP / JSON-RPC 这类要求整数 `code` 的传输**：整数码在**边界上**由 slug 映射生成，且必须稳定；slug 始终是真源。这是传输层的要求，不是诊断层的设计。
-- **严重度独立于域**（`error` / `warning` / `note`）：涌现检查天然有 warning，不能因为"它是 DRC"就全是 error（学 cohdl 的 `D00x` 单独一块）。
-
-**域词表（封闭）**：
-
-| 域 | 覆盖 | 例码 |
-|---|---|---|
-| `syntax` | 词法 / 语法 / 解析 | `syntax.unexpected-token` |
-| `value` | 值与量纲（§2.8） | `value.unit-mismatch`、`value.missing-unit` |
-| `ref` | 引用与解析 | `ref.unknown-component`、`ref.anchor-mismatch` |
-| `contract` | IR 契约 / schema（§2.7 未知构造报错） | `contract.schema-violation`、`contract.unknown-field` |
-| `net` | net 完整性（§4.2 三态） | `net.pin-unassigned`、`net.member-unknown` |
-| `bind` | sch↔pcb 绑定（§4.4） | `bind.pin-unmapped`、`bind.undeclared-deviation` |
-| `library` | 库级（ADR-0013） | `library.pad-pin-mismatch`、`library.orphan-symbol` |
-| `format` | 版本 / canonical（ADR-0008） | `format.unsupported-version`、`format.not-canonical` |
-| `drc` | 涌现检查（ERC / DRC） | `drc.floating-net`、`drc.multi-driver` |
-| `cli` | 调用层 | `cli.bad-flag` |
-
-- 新增域要写 ADR（防域膨胀成"按文件分"）；`cli` 域的失败**不进 `--json` 诊断数组**，走 stderr + 退出码（抄 cohdl 的 E000 分类）。
-
-**载荷（agent 与人各取所需）**：
-
-```json
-{
-  "code": "bind.pin-unmapped",
-  "severity": "error",
-  "message": "U1.3 没有对应封装焊盘",
-  "expected": "封装 sot-23-5 的焊盘号应覆盖 U1 的引脚号 {1,2,3}",
-  "actual": "封装缺少焊盘 3",
-  "hint": "删掉 components/regulators/tps7a02.teda 里 3 号引脚，或在符号里补上 3 号脚",
-  "location": { "file": "sch/charger-buck/charger-power.teda", "line": 42, "col": 12 },
-  "related": [ { "file": "components/regulators/tps7a02.teda", "line": 8 } ],
-  "data": { "component_id": "tps7a02", "pin": "3", "footprint": "sot-23-5" },
-  "cause": { "source": "ajv", "instancePath": "/pins/2", "keyword": "required" }
-}
-```
-
-- `code` / `severity` / `location` / `data` = **机器契约**（agent 按 `code` 分支、按 `data` 自动修）。
-- `message` / `expected` / `actual` / `hint` = **人读**（评审者据此改文件）。评审者不关心错误"背后怎么报错"，但必须知道**错在哪一行、期望什么、实际什么、怎么改**——别把"不关心实现机制"误读成"不需要建议"。
-- `cause` 保底：textEDA 大量诊断来自 **schema 校验**（Ajv 报在 IR 上，给的是 `instancePath`）。保留原始 `cause`，**第三方实现直接用 Ajv 也能映射到 `contract.*` 码**，不必各自发明一套——这是 textEDA 相对 cohdl 的优势（它没有 schema 层，第三方必须逐条实现语义检查）。
-- 可机械修的诊断再加 `fix`（`add-suffix` / `replace-token` / `remove-line` 等），给 agent 的 repair loop 抓手。
-
-**要做的事**：
-
-1. 单一真源：`packages/ir/src/diagnostics/codes.ts`（每条含 code、域、严重度、触发条件、建议模板、相关 spec/ADR 引用）。
-2. `docs/error-codes.md` **由 `bun run gen:codes` 生成**（复用仓库已有的 gen 机制，ADR-0009），CI 用 `gen:check` 挡漂移——**不手写注册表**（cohdl 手写 md + 手写测试，能漂移）。
-3. **双向 completeness 检查**（照抄 cohdl 的 `tests/error_registry.rs`）：
-   - 码表里每条都有真实 call site（防"文档写了但没实现"）；
-   - 代码里每个码字面量都在码表里（防"野生码"）。
-4. 诊断结构统一到一个 `Diagnostic` 类型（parser / 语义检查器 / schema 校验三个来源），`--json` 输出带 `code`；`formatDiagnostic` 与注册表一致。
-5. 生命周期规则写进 ADR：码发出即冻结（不可改义、不可重命名、不可复用）；语义变了 → 新码 + 旧码标 `[DEPRECATED → new.code]` 并保留旧行；允许"重定位"但新旧码必须指向同一语义；域词表封闭。
-6. 写 `docs/adr/0016-diagnostic-error-codes.md`。
-
-**涉及**：`packages/ir/src/diagnostics/**`、`packages/parser/src/**`、`packages/ir/scripts/**`（生成器）、`docs/error-codes.md`、新增 ADR、`tests/**`。
-
-**验收**：
-
-- 同一处错误在不同实现里用同一个码（码表是契约的一部分）。
-- `--json` 的每条诊断都有 `code`，且 `data` 字段名稳定。
-- 改了码表没重新生成文档（或反之）→ CI 失败。
-- 码表里有一条没有 call site → CI 失败；代码里出现未登记的码 → CI 失败。
-
-**注意**：
-
-- 码表属**契约层**（不变量 19）：不许随实现关起来。
-- 别把码做成粗粒度类别枚举（如 `type_error`）：粒度要细到"这一条行为"能被单独对齐。
-- **位置（文件/行列）依赖 F11**：span 机制没落地前，诊断只能给到文件级 + IR 路径，别在这条里假装行列已经有了。
-- 一次别铺满 100 个码：**按需增长**，码表从代码生成，新增码没有分配成本。
 
 ---
 
@@ -533,3 +451,118 @@
 - 这一条的价值不只是"少一个依赖"，更是**契约层自足**：第三方实现者拿到 IR 就能出制造包，不必安装 KiCad，也不必实现 KiCad 的语义（不变量 19 的兑现）。
 - **不要顺手把 CAM 规则塞进来**：格式层与判定层分开，否则这条会变成无底洞。
 - 极性与 D-code 的选择写进规范并冻结——Gerber 一旦流到工厂就是 ABI。
+
+---
+
+## F16. 网表与 KiCad 原理图导出（P1）
+
+**现状**：`packages/parser` 能把板根 + 页面编译成板级 IR 分片（`bun run compile:schematic <项目目录> <board_id>`），IR 里已有实例、net（编号形式的引脚引用）、端口与约束。**网表已落地**：`textEDA netlist <项目目录> [--board <id>] [--json] [--out <文件>]`，实现在 `packages/exporter/src/netlist.ts`，是 IR 的纯函数投影（net/成员/实例都排序，逐字节可复现；有 error 时拒绝导出）。**netlist 只带连通性**：值、容差、封装属于 BOM，不进来。**KiCad 原理图导出仍是空的**：`packages/exporter` 只有封装与符号；原记录：`packages/exporter` 只做封装（`.kicad_mod`）与符号（`.kicad_sym`）→ KiCad，没有原理图方向的产物；BOM 与网表也没做。
+
+**要做的事**：
+
+1. **网表导出**：从板级 IR 出网表（先定中间形态：项目自己的 JSON 网表，还是直接 KiCad 的 `.net`）。这一层是**纯连通性**（实例、引脚、net 名），没有几何。
+2. **KiCad 原理图导出**（`.kicad_sch`）：目标是 KiCad 能打开、能读出同样的连通性。**连线几何属于 S1 视图层**（可自由），但导出物必须能被反解校验：`kicad-cli sch export netlist` 出来的 netlist 与源 IR 的连通性一致。
+3. **BOM**：按 AGENTS.md §4.2 的聚合键（`component_id` + 参数字典 + 变体状态，不含 refdes）出 CSV 与 JSON。
+
+**涉及文件**：`packages/exporter/src/`（新增网表 / BOM / 原理图导出）、`packages/ir/src/generated/types/schematic.ts`（若 IR 要补字段，先改 schema 再改生成物）。
+
+**验收**：
+
+- 参考工程两块板（`mcu-board`、`charger-buck`）都能出网表；网表里的 net 成员集合与板级 IR 的 `nets[].members` **逐条相等**。
+- KiCad 导出的原理图能被 `kicad-cli` 读入并导出 netlist，导出的 netlist 与源 IR 连通性一致（`extract(export(ir)) == ir` 的连通性口径）。
+- 同一 IR 两次导出逐字节相同（UUID 必须由内容派生，不能随机——不变量 11 的可复现要求）。
+
+**注意**：
+
+- **网表/BOM 不是渲染**：不要在导出器里塞"排版好看"的目标；KiCad 原理图里的符号摆放与连线走向属于 S1，可以任意，只要连通性对。
+- BOM 的参数值要人读（`10k` 而不是 `10000000 µΩ`），所以需要"规范单位 → 显示值"的换算；**规范单位表只有一份**（ADR-0008 决策 4），不要在导出器里另抄一张。
+- 变体（DNP / 不贴）还没进 IR，BOM 的"变体状态"这一列先留空，等 P3。
+
+---
+
+## F17. `project.toml` 与 `system` 描述的解析（语言表面的最后两块）
+
+**现状**：语言表面还差两块没实现——`project.toml`（项目元数据：名称、版本、板列表、变体、库引用）与 `system`（板间连接）。`scripts/lib/project.ts` 里有一份只够库校验用的手写 TOML 读取，不是解析器；`system` 描述完全没有代码。`sch` 解析器已经能读板根与页面，但**读不到板列表**，所以跨板校验（teda.md §11 第 9 条：两侧电压区间不相交报错）做不了。
+
+**要做的事**：
+
+1. **`project.toml` 解析**：按 AGENTS.md §9 的键表实现（`[project]` 必填三项、`[boards.*]`、`[variants.*]`、`[libs.*]`、`[compliance]`、`[ext]`）；未知顶层键报错；不写时间戳、绝对路径、随机 ID、派生数据。
+2. **`system` 描述解析**：段只有 `boards` 与 `nets`；成员是 `<board_id>.<port_id>` 引用，不是引脚引用。校验项见 teda.md §8.1/§8.2 与 §11 第 9 条。
+3. 把两者接到 CLI：`textEDA check` 先要能列出工程里的板与系统。
+
+**涉及文件**：`packages/parser/src/project.ts`（新）、`packages/parser/src/system.ts`（新）、`packages/cli/scripts/textEDA.ts`。
+
+**验收**：
+
+- 解析参考工程的 `project.toml` 与（新增的）一份 `system` 描述，板列表与实际 `sch/` 文件对得上。
+- `system` 的每条 net 至少两个成员、成员都是已声明的 port、同一个板内 net 不被并进两条系统 net；两侧电压区间不相交时报错。
+- 未知顶层键、未知段名都报错并给出行列。
+
+**注意**：
+
+- **TOML 解析不要引依赖**：项目默认零运行时依赖；手写一个够用的子集解析器（键值、表、数组 of tables、字符串/数字/布尔/数组），遇到子集外的语法就明确报错，不要"尽力解析"。
+- `system` **不改写板内连通性**（不变量 15）：删掉 system 文件，各板依然独立成立；这条要有测试兜着。
+- `project.toml` 只承载元数据，**不承载电路**。
+
+---
+
+## F18. `textEDA check`：一条命令跑完解析、契约校验与 ERC
+
+**现状**：**sch 级已落地**（ADR-0019）。`bun run check <项目目录>` 遍历工程里的全部板（`sch/<board>.teda`），逐板解析 → 语义层 ERC → 契约层 schema 校验，诊断走 ADR-0016 的统一载荷（`code` / `severity` / `location` / `data` / `hint`），`--json` 打到 stdout、人读模式打到 stderr；有 error 退出码 1，只有 warning 退出码 0。器件文件解析失败（`syntax.component-invalid`）与器件文件头 id 与文件名不一致（`ref.component-id-mismatch`）也走同一条通道。
+
+**还没做的**：
+
+1. `project.toml` / `system` / `pcb` 的解析还没接进 `check`（`pcb` 描述本身还没实现；`project.toml` 与 `system` 是 F17）。
+2. **ERC 与契约校验分层计数**：现在两类诊断在同一个数组里（`severity` 能区分 error/warning，但"契约错"与"设计错"没有分开统计）。
+3. 诊断顺序稳定 ✓（板按 id 排序、板内按产出顺序），但还没写成测试。
+
+**验收（已过的部分）**：
+
+- 对参考工程跑 `textEDA check`，退出码 0，诊断里只有已知的 ERC 警告（未连接引脚）。✓
+- 故意写坏一个文件（器件找不到、器件文件解析失败），退出码非 0，`--json` 里有文件、行列与码。✓（`packages/cli/test/check.test.ts`）
+
+**注意**：
+
+- **`check` 不改文件**：只报告，不修；修是 `fmt` 与显式 patch 的事。
+- 警告不阻止退出码 0（ERC 警告是设计信息，不是失败）——这条要写进 CLI 的帮助文本，否则 agent 会误判。
+
+## F19. ERC 从 parser 外移到 core：让第三方分清"语法错"和"设计错"
+
+**现状**：解析器（`packages/parser/src/schematic.ts`）同时报语法错误与 ERC 规则违规——同一个诊断数组里既有 `syntax.row-too-short`，也有 `net.pin-in-two-nets`。对本项目没问题，但**第三方实现者**没法据此判断"是我的语法实现写错了"还是"这个设计本身有问题"。
+
+**要做的事**：
+
+1. 建 `packages/core`（ADR-0009 已规划：纯函数，禁 `Bun.*` 与 `process.env`），把 ERC 规则作为独立阶段放进去：输入是解析结果，输出是 ERC 诊断。
+2. `packages/parser` 只出语法与语义层面的"读不出来"（器件找不到、引脚不存在这类解析失败），不出规则违规。
+3. ~~`textEDA check` 的载荷里区分两类~~ **已落地（第一步）**：诊断按**域**归到三个阶段（`parse` / `contract` / `semantic`），载荷带 `countsByStage`，`check` 的人读输出也打印阶段分布。不需要调用点声明阶段——域是封闭词表，一个域只可能属于一个阶段。剩下的是真正的迁移：把 `net` / `drc` 域的规则从 parser 挪进 `packages/core`。
+
+**第二步已落地**：`packages/core` 建包，连通性四条规则（`drc.single-member-net` / `net.pin-in-two-nets` / `net.pin-unassigned` / `net.no-connect-connected`）移出 parser，改成纯函数 `checkConnectivity(facts)`——吃展平后的 net、每个实例的引脚、带端口的 net 集合与定位回调，不认识语法也不碰 fs。parser 只负责摆事实（约 25 行），行为等价（参考工程仍是 79 警告，`pin-in-two-nets` 的定位从"板文件首行"变成该 net 的真实行）。规则自带 8 条单测，不需要构造 `.teda` 源。
+
+**还剩**：`ref.duplicate-port-net` / `ref.port-net-undecided` / bus 相关规则仍长在 parser 里；`check` 的编排也还在 CLI。真正的收口是让 `core` 提供 `analyzeBoard()`（parse → ERC → 契约），CLI 只剩读文件与打印。
+
+**为什么现在做**：F16（网表导出）与 LSP 都要复用同一套检查；规则散在 parser 里时，每加一个导出格式就要抄一遍判断。
+
+**注意**：规则**保持代码**，不做规则 DSL（AGENTS.md §11 Q2/Q9：表达式与生成器都推过）。外移的是**边界**，不是表达方式。
+
+## F20. IR 契约参考的字段说明补齐 + `pcb` 分片
+
+**现状**：`docs/ir-reference.md`（ADR-0019）已生成，每个字段一行（类型 / 必填 / 单位 / 说明），联合类型按分支展开（`constraint（type=voltage）` …），文末有"缺说明"清单。**非 pcb 分片已 100% 覆盖**（common / component / schematic / manifest / system / project / symbol / footprint）；**`pcb` 分片还剩 81 个字段没说明**，而 `pcb` 描述本身还没实现。
+
+**要做的事**：
+
+1. 给 `schemas/ir/v0.1/pcb.schema.json` 的字段补 `description`（`pcb` 描述落地时一并做，否则会返工）。
+2. 把"缺说明字段数"变成一个门槛（`gen:check` 或 CI 里卡覆盖率），防止新字段裸奔。
+
+**注意**：description 是**契约的一部分**（写的是这个字段装什么），不是文档润色；补它等于把 IR 语义写进唯一真源。补说明时若给 `$ref` 加兄弟 `description`，生成器必须开 `unreachableDefinitions`，否则命名类型会被内联掉（ADR-0019）。
+
+## F21. pcb 描述：绑定校验、`fmt`、参考工程的 pcb
+
+**现状**：`pcb` 12 段的解析已落地（`packages/parser/src/pcb.ts` → `schemas/ir/v0.1/pcb.schema.json`，`textEDA compile <dir> <id> --pcb`）。覆盖面是规范 §1–§6 的全部段与 10 种规则；`stackup` 顺序/编号、板厚与叠层之和、板框闭合与自交、重复放置、重复 pad 对都在解析期报。
+
+**没做的三件**：
+
+1. ~~**绑定校验**~~ **已落地（规则 1–5）**：`packages/core/src/binding/checks.ts` 的 `checkBinding()`，接在 `textEDA check` 里（有 `pcb/<board>.teda` 就跑）。覆盖：未知实例、未放置 pad、跨 net 短接（`net_tie` 可豁免）、未布线（warning）、未知 net。**还差**规则 6–8（`rules`/`trace` 的层名与 net 存在性已做，`physical_only` 的 `fiducial` 不得挂 net、`deviation` 白名单类型完整性）与规则 10–11（多边形自交已在解析期做，丝印层枚举已做）。
+2. ~~**`pcb` 的 canonical formatter**~~ **已落地**：`packages/parser/src/fmt-pcb.ts`，`fmt --check` 已覆盖 pcb（参考工程的 `pcb/charger-buck.teda` 已重排成 canonical）。三条不变量都有测试：`parse(fmt(x))` 与 `parse(x)` 产出**逐字节相同**的 IR、`fmt(fmt(x)) == fmt(x)`、注释原地保留。**canonical 归一口径在解析器里**（`connect` 对内排序、`trace` 折线方向、`rules` 类型序），formatter 复用同一口径——否则 IR 与源文件会各排各的。
+3. ~~**参考工程的 pcb**~~ **已有**：`examples/reference-project/pcb/charger-buck.teda`（放置 M2 页 9 个器件 + `connect` + `trace`/`via`/`zone` + `rules`/`silk`），跑 `check` 零诊断。含两个真实约束，已补进实现与规范：**同一段可以重复出现**（该文件把 `trace` 分了两段，行按出现顺序拼接）、**段头独占一行**。
+
+**注意**：`via` 既是段名又是 `rules` 的行首列，语法上靠"段头独占一行"消歧（已写进 `spec/pcb.md` §1）。加新段名时要检查是否与规则类型/物理实体类型重名。

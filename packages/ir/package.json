@@ -6,6 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./diagnostics": "./src/diagnostics/index.ts",
+    "./units": "./src/units.ts",
     "./project": "./src/generated/types/project.ts",
     "./component": "./src/generated/types/component.ts",
     "./schematic": "./src/generated/types/schematic.ts",

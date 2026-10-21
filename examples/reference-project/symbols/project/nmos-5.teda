@@ -3,7 +3,7 @@ symbol nmos-5
 
 description N-channel MOSFET, 5-pin generic view
 tags mosfet n-channel power
-# N 沟道 MOSFET：栅极在左（脚 4），漏极在右上（脚 5），源极三个脚在右下（1/2/3）。
+# N-channel MOSFET: gate on the left (pin 4), drain at the upper right (pin 5), the three source pins at the lower right (1/2/3).
 field Reference at=0,5.08 U
 field Value at=0,-5.08 nmos-5
 

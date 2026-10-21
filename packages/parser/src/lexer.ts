@@ -1,23 +1,23 @@
-// 行级词法：把一行切成单元格，并记住每格的起始列（诊断要行列定位）。
-// 规则见 teda.md §3–§4：空白是分隔符，缩进不表达语义，注释只整行。
+// Line-level lexer: split a line into cells, remembering each cell's starting column (for diagnostic row/column positions).
+// Rules: see teda.md §3–§4: whitespace separates cells, indentation is not semantic, comments occupy a whole line.
 
 export interface Cell {
   text: string;
-  /** 1 起始列。 */
+  /** 1-based starting column. */
   col: number;
 }
 
 export interface Line {
-  /** 1 起始行号。 */
+  /** 1-based line number. */
   number: number;
-  /** 去掉首尾空白后的原文。 */
+  /** Original text with leading/trailing whitespace trimmed. */
   text: string;
   cells: Cell[];
   blank: boolean;
   comment: boolean;
 }
 
-/** 切分一行；连续空白算一个分隔符。 */
+/** Split one line; consecutive whitespace counts as a single separator. */
 export function splitCells(text: string): Cell[] {
   const cells: Cell[] = [];
   const re = /\S+/g;

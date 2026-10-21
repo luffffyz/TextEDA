@@ -3,7 +3,7 @@ symbol dual-diode
 
 description Dual common-cathode diode, 3-pin generic view
 tags common-cathode diode dual
-# 共阴双二极管（BAT54C）：两个阳极各接一只三角，阴极共用右侧横杠。
+# Common-cathode dual diode (BAT54C): each anode connects to its own triangle, the cathodes share the bar on the right.
 field Reference at=0,2.54 U
 field Value at=0,-2.54 dual-diode
 

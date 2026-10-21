@@ -1,5 +1,5 @@
-// 符号导出（IR + component → .kicad_sym）的单元测试。
-// KiCad 能不能读、渲染，由 scripts/smoke-symbol.ts 负责。
+// Unit tests for symbol export (IR + component → .kicad_sym).
+// Whether KiCad can read and render it is covered by scripts/smoke-symbol.ts.
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { parseSymbol } from "@texteda/parser";
@@ -10,7 +10,7 @@ const smallSymbol = parseSymbol(
     "version 0.5",
     "symbol demo",
     "",
-    "description 演示符号",
+    "description demo symbol",
     "field Reference at=-6.35,17.78 U",
     "",
     "pins",
@@ -33,27 +33,27 @@ const part = {
   datasheet: "https://example.invalid/ds.pdf",
 };
 
-describe("符号库导出", () => {
-  test("头部是 KiCad 符号库、版本正确", () => {
+describe("Symbol library export", () => {
+  test("header is a KiCad symbol library with the correct version", () => {
     const text = symbolLibrary(smallSymbol, part);
     expect(text.startsWith("(kicad_symbol_lib")).toBe(true);
     expect(text).toContain("(version 20251024)");
     expect(text).toContain('(symbol "demo"');
   });
 
-  test("引脚名与电气类型来自 component，位置来自 symbol", () => {
+  test("pin names and electrical types come from component, positions come from symbol", () => {
     const text = symbolLibrary(smallSymbol, part);
     expect(text).toContain('(name "IN"');
     expect(text).toContain('(number "1"');
     expect(text).toContain("(pin input line (at -12.7 2.54 0) (length 2.54)");
   });
 
-  test("power 电气类型映射成 KiCad 的 power_in", () => {
+  test("power electrical type maps to KiCad's power_in", () => {
     const text = symbolLibrary(smallSymbol, part);
     expect(text).toContain("(pin power_in line");
   });
 
-  test("属性带 footprint 与 datasheet，Reference/Value 用字段值", () => {
+  test("properties carry footprint and datasheet; Reference/Value use the field values", () => {
     const text = symbolLibrary(smallSymbol, part);
     expect(text).toContain('(property "Footprint" "project:sot-23-5"');
     expect(text).toContain('(property "Datasheet" "https://example.invalid/ds.pdf"');
@@ -61,7 +61,7 @@ describe("符号库导出", () => {
     expect(text).toContain('(property "Value" "demo"');
   });
 
-  test("不描边的图形也必须是 KiCad 认的 stroke（没有 type none）", () => {
+  test("graphics without stroking still get a stroke KiCad accepts (no type none)", () => {
     const symbol = parseSymbol(
       [
         "version 0.5",
@@ -81,12 +81,12 @@ describe("符号库导出", () => {
     expect(text).toContain("(stroke (width 0) (type default))");
   });
 
-  test("引脚号在器件里缺失时报错而不是静默产出", () => {
+  test("missing pin numbers in the component raise an error instead of silently producing output", () => {
     expect(missingPartPins(smallSymbol, { pins: [] })).toEqual(["1", "2"]);
-    expect(() => symbolLibrary(smallSymbol, { pins: [] })).toThrow(/引脚在器件里不存在/);
+    expect(() => symbolLibrary(smallSymbol, { pins: [] })).toThrow(/pins not present in component/);
   });
 
-  test("器件里有、符号里没画的引脚被列出来（警告素材）", () => {
+  test("pins present in the component but not drawn in the symbol are listed (warning material)", () => {
     const symbol = parseSymbol(
       ["version 0.5", "symbol t", "", "pins", "  1  0  0  0", ""].join("\n"),
       { file: "x.teda", library: "project" },
@@ -95,7 +95,7 @@ describe("符号库导出", () => {
   });
 });
 
-describe("示例符号", () => {
+describe("Example symbol", () => {
   const symbolText = readFileSync("examples/reference-project/symbols/project/bq24610rger.teda", "utf8");
   const example = parseSymbol(symbolText, { file: "x.teda", library: "project" }).ir!.symbol;
   const fullPart = {
@@ -106,11 +106,11 @@ describe("示例符号", () => {
     ],
   };
 
-  test("缺引脚时列出来", () => {
+  test("missing pins are listed", () => {
     expect(missingPartPins(example, fullPart).length).toBe(22);
   });
 
-  test("符号里没画的器件引脚也列出来", () => {
+  test("unplaced component pins are also listed", () => {
     expect(unplacedPartPins(example, fullPart)).toEqual([]);
   });
 });

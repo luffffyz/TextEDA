@@ -1,24 +1,24 @@
 #!/usr/bin/env bun
-// 库级校验：参考工程的每个器件都能解析到自建符号/封装，每个库文件都能编译、
-// 导出、我们自己的渲染器能画出来。
+// Library-level validation: every component in the reference project resolves to self-built symbols/footprints, and every library file compiles,
+// exports, and can be drawn by our own renderer.
 //
-// 用法：
-//   bun run lib:verify [项目目录]        必过段，**零外部依赖**（不需要 KiCad）
-//   bun run lib:verify:kicad [项目目录]  追加 KiCad 互操作段（可选）
+// Usage:
+//   bun run lib:verify [project dir]        required section, **zero external dependencies** (no KiCad needed)
+//   bun run lib:verify:kicad [project dir]  append the KiCad interoperability section (optional)
 //
-// 必过段（零依赖）：
-//   1. component 的 symbol / footprint 都指向项目自建库（不出现 kicad: 等外部前缀）；
-//   2. 引用的库文件存在；符号引脚号集合 == 器件引脚号集合；封装焊盘号集合 ⊇ 器件引脚号集合；
-//   3. 每个库文件是 canonical form、编译成 IR 且通过契约；
-//   4. 导出 .kicad_sym / .kicad_mod 成功；用**我们自己的**渲染器出图并自检。
+// Required section (zero dependencies):
+//   1. every component's symbol / footprint points to a project self-built library (no external prefixes like kicad:);
+//   2. referenced library files exist; symbol pin number set == component pin number set; footprint pad number set ⊇ component pin number set;
+//   3. every library file is canonical form, compiles to IR, and passes the contract;
+//   4. exporting .kicad_sym / .kicad_mod succeeds; render with **our own** renderer and self-check.
 //
-// 可选段（--kicad，KiCad 在 PATH 里）：
-//   5. KiCad 能解析 .kicad_sym / .kicad_mod（sym upgrade / fp export svg）；
-//   6. 所有封装放到一块板上，`kicad-cli pcb drc` 0 违规。
+// Optional section (--kicad, KiCad on PATH):
+//   5. KiCad can parse .kicad_sym / .kicad_mod (sym upgrade / fp export svg);
+//   6. all footprints placed on one board, `kicad-cli pcb drc` 0 violations.
 //
-// 为什么要拆：KiCad 的读入与 DRC 是**对照验证**（第三方实现接受我们），
-// 不是我们的正确性定义。把它设成必过项，等于把"第三方接受我们"变成
-// "我们成立的前提"，也会让 textEDA 变成必须装 KiCad 才能用。ADR-0018。
+// Why split them: KiCad's parsing and DRC are **cross-validation** (a third-party implementation accepts us),
+// not our definition of correctness. Making it a required item turns "a third party accepts us" into
+// "the premise of our existence", and would also make textEDA require KiCad to be used. ADR-0018.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { validate } from "@texteda/ir";
@@ -70,20 +70,20 @@ interface ComponentEntry {
   pins: string[];
 }
 
-// 1) 扫器件：解析 symbol/footprint 引用与引脚号
+// 1) scan components: resolve symbol/footprint references and pin numbers
 const components: ComponentEntry[] = [];
 for (const file of listTeda(join(projectRoot, "components"))) {
   const text = readFileSync(file, "utf8");
   const facts = readComponentFacts(text, { file });
   if (!facts.ok || !facts.facts) {
     for (const d of facts.diagnostics) console.error(`  ${formatDiagnostic(d)}`);
-    fail(`${file}: 器件描述读不出来`);
+    fail(`${file}: component description could not be read`);
     continue;
   }
   const symbol = /^symbol\s+(\S+)$/m.exec(text)?.[1];
   const footprint = /^footprint\s+(\S+)$/m.exec(text)?.[1];
   if (!symbol || !footprint) {
-    fail(`${file}: 缺 symbol 或 footprint`);
+    fail(`${file}: missing symbol or footprint`);
     continue;
   }
   components.push({
@@ -104,7 +104,7 @@ const parseRef = (ref: string): { lib: string; name: string } | null => {
 const symbolDir = join(projectRoot, "symbols", libName);
 const footprintDir = join(projectRoot, "footprints", libName);
 
-console.log(`[1] 器件 ${components.length} 个`);
+console.log(`[1] ${components.length} components`);
 for (const c of components) {
   for (const [kind, ref] of [
     ["symbol", c.symbol],
@@ -112,21 +112,21 @@ for (const c of components) {
   ] as const) {
     const parsed = parseRef(ref);
     if (!parsed) {
-      fail(`${c.id}: ${kind} 引用格式不对：${ref}`);
+      fail(`${c.id}: ${kind} reference has a bad format: ${ref}`);
       continue;
     }
     if (parsed.lib !== libName) {
-      fail(`${c.id}: ${kind} 指向外部库 ${parsed.lib}（应全部自建）`);
+      fail(`${c.id}: ${kind} points to external library ${parsed.lib} (all should be self-built)`);
       continue;
     }
     const dir = kind === "symbol" ? symbolDir : footprintDir;
     if (!existsSync(join(dir, `${parsed.name}.teda`))) {
-      fail(`${c.id}: ${kind} 指向不存在的文件 ${join(dir, `${parsed.name}.teda`)}`);
+      fail(`${c.id}: ${kind} points to a nonexistent file ${join(dir, `${parsed.name}.teda`)}`);
     }
   }
 }
 
-// 2) 符号：canonical / 契约 / 引脚号 / 导出 / KiCad 解析
+// 2) symbols: canonical / contract / pin numbers / export / KiCad parsing
 const symbolFiles = listTeda(symbolDir);
 const symbolUsers = new Map<string, ComponentEntry[]>();
 for (const c of components) {
@@ -137,47 +137,47 @@ for (const c of components) {
   symbolUsers.set(parsed.name, list);
 }
 
-console.log(`[2] 符号 ${symbolFiles.length} 个`);
+console.log(`[2] ${symbolFiles.length} symbols`);
 for (const file of symbolFiles) {
   const name = basename(file, ".teda");
   const source = readFileSync(file, "utf8");
   const formatted = formatSymbol(source, { file, library: libName });
   if (!formatted.ok || formatted.text !== source) {
     for (const d of formatted.diagnostics) console.error(`  ${formatDiagnostic(d)}`);
-    fail(`${name}: 不是 canonical form`);
+    fail(`${name}: not in canonical form`);
     continue;
   }
   const parsed = parseSymbol(source, { file, library: libName });
   if (!parsed.ok || !parsed.ir) {
     for (const d of parsed.diagnostics) console.error(`  ${formatDiagnostic(d)}`);
-    fail(`${name}: 编译失败`);
+    fail(`${name}: compilation failed`);
     continue;
   }
   const check = validate("symbol", parsed.ir);
   if (!check.ok) {
-    fail(`${name}: 契约校验失败 ${JSON.stringify(check.errors)}`);
+    fail(`${name}: contract validation failed ${JSON.stringify(check.errors)}`);
     continue;
   }
   writeFileSync(join(work, `${name}.json`), canonicalJson(parsed.ir));
 
   const users = symbolUsers.get(name);
   if (!users || users.length === 0) {
-    fail(`${name}: 没有任何器件引用它（孤儿符号）`);
+    fail(`${name}: no component references it (orphan symbol)`);
     continue;
   }
-  // 引脚号集合必须与每个引用它的器件一致
+  // The pin number set must be consistent with every component that references it
   const symbolPins = new Set(parsed.ir.symbol.pins.map((p) => p.number));
   for (const user of users) {
     const missing = user.pins.filter((p) => !symbolPins.has(p));
     const extra = [...symbolPins].filter((p) => !user.pins.includes(p));
-    if (missing.length > 0) fail(`${name}: 器件 ${user.id} 的引脚 ${missing.join(",")} 没画`);
-    if (extra.length > 0) fail(`${name}: 画了器件 ${user.id} 没有的引脚 ${extra.join(",")}`);
+    if (missing.length > 0) fail(`${name}: pins ${missing.join(",")} of component ${user.id} are not drawn`);
+    if (extra.length > 0) fail(`${name}: drawn pins ${extra.join(",")} that component ${user.id} does not have`);
   }
 
-  // 导出 .kicad_sym（用第一个引用它的器件提供引脚名/电气类型）
+  // Export .kicad_sym (use the first component referencing it to provide pin names/electrical types)
   const facts = readComponentFacts(readFileSync(users[0]!.file, "utf8"), { file: users[0]!.file });
   if (!facts.ok || !facts.facts) {
-    fail(`${name}: 引用的器件读不出来`);
+    fail(`${name}: the referencing component could not be read`);
     continue;
   }
   const libPath = join(work, `${name}.kicad_sym`);
@@ -187,21 +187,21 @@ for (const file of symbolFiles) {
       stdout: "pipe",
       stderr: "pipe",
     });
-    if (upgrade.exitCode !== 0) fail(`${name}: KiCad 解析失败 ${upgrade.stderr.toString().trim()}`);
+    if (upgrade.exitCode !== 0) fail(`${name}: KiCad parsing failed ${upgrade.stderr.toString().trim()}`);
   }
 
-  // 用**我们自己的**渲染器出图：不依赖 KiCad，也不依赖系统字体（文字画成路径）。
-  // 封装那侧有 KiCad 的渲染图，这里补上符号的——整库一眼能看。
+  // Render with **our own** renderer: no KiCad dependency, no system font dependency (text drawn as paths).
+  // The footprint side has KiCad's rendering; this fills in the symbols — the whole library can be reviewed at a glance.
   const doc = renderSymbol(parsed.ir.symbol, {
     pins: facts.facts.pins.map((p) => ({ number: p.number, name: p.name, type: p.type })),
   });
   const problems = validateDoc(doc);
-  if (problems.length > 0) fail(`${name}: 图形自检有 ${problems.length} 处问题：${problems[0]}`);
+  if (problems.length > 0) fail(`${name}: graphics self-check found ${problems.length} problems: ${problems[0]}`);
   writeFileSync(join(work, "symbol-svg", `${name}.svg`), toSvgText(doc));
 }
-console.log(`    我们渲染 ${symbolFiles.length} 个符号（symbol-svg/）`);
+console.log(`    we rendered ${symbolFiles.length} symbols (symbol-svg/)`);
 
-// 3) 封装：canonical / 契约 / 焊盘号 / 导出 / KiCad 渲染
+// 3) footprint: canonical / contract / pad numbers / export / KiCad rendering
 const footprintFiles = listTeda(footprintDir);
 const footprintUsers = new Map<string, ComponentEntry[]>();
 for (const c of components) {
@@ -212,7 +212,7 @@ for (const c of components) {
   footprintUsers.set(parsed.name, list);
 }
 
-console.log(`[3] 封装 ${footprintFiles.length} 个`);
+console.log(`[3] ${footprintFiles.length} footprints`);
 const inlineBlocks: string[] = [];
 let slot = 0;
 for (const file of footprintFiles) {
@@ -221,44 +221,44 @@ for (const file of footprintFiles) {
   const formatted = formatFootprint(source, { file, library: libName });
   if (!formatted.ok || formatted.text !== source) {
     for (const d of formatted.diagnostics) console.error(`  ${formatDiagnostic(d)}`);
-    fail(`${name}: 不是 canonical form`);
+    fail(`${name}: not in canonical form`);
     continue;
   }
   const parsed = parseFootprint(source, { file, library: libName });
   if (!parsed.ok || !parsed.ir) {
     for (const d of parsed.diagnostics) console.error(`  ${formatDiagnostic(d)}`);
-    fail(`${name}: 编译失败`);
+    fail(`${name}: compilation failed`);
     continue;
   }
   const check = validate("footprint", parsed.ir);
   if (!check.ok) {
-    fail(`${name}: 契约校验失败 ${JSON.stringify(check.errors)}`);
+    fail(`${name}: contract validation failed ${JSON.stringify(check.errors)}`);
     continue;
   }
   const body = parsed.ir.footprint;
   writeFileSync(join(work, `${name}.json`), canonicalJson(parsed.ir));
   writeFileSync(join(work, "project.pretty", `${name}.kicad_mod`), footprintModule(body));
 
-  // 用**我们自己的**渲染器出图并自检：零外部依赖，符号与封装同一套口径（ADR-0014）。
+  // Render with **our own** renderer and self-check: zero external dependencies, symbols and footprints use the same standard (ADR-0014).
   const fpDoc = renderFootprint(body);
   const fpProblems = validateDoc(fpDoc);
-  if (fpProblems.length > 0) fail(`${name}: 图形自检有 ${fpProblems.length} 处问题：${fpProblems[0]}`);
+  if (fpProblems.length > 0) fail(`${name}: graphics self-check found ${fpProblems.length} problems: ${fpProblems[0]}`);
   writeFileSync(join(work, "footprint-svg", `${name}.svg`), toSvgText(fpDoc));
 
   const users = footprintUsers.get(name);
   if (!users || users.length === 0) {
-    fail(`${name}: 没有任何器件引用它（孤儿封装）`);
+    fail(`${name}: no component references it (orphan footprint)`);
     continue;
   }
   const pads = new Set(body.pads.map((p) => p.number));
   for (const user of users) {
     const missing = user.pins.filter((p) => !pads.has(p));
-    if (missing.length > 0) fail(`${name}: 器件 ${user.id} 的引脚 ${missing.join(",")} 没有焊盘`);
+    if (missing.length > 0) fail(`${name}: no pads for pins ${missing.join(",")} of component ${user.id}`);
     const extra = [...pads].filter((p) => !user.pins.includes(p));
-    if (extra.length > 0) console.error(`  ! ${name}: 多出焊盘 ${extra.join(",")}（${user.id} 没有对应引脚）`);
+    if (extra.length > 0) console.error(`  ! ${name}: extra pads ${extra.join(",")} (component ${user.id} has no matching pins)`);
   }
 
-  // 摆到板上的网格里（5 个一行，间距 25mm）
+  // Arrange into a grid on the board (5 per row, 25mm spacing)
   const x = 25_000_000 * (slot % 5) + 25_000_000;
   const y = 25_000_000 * Math.floor(slot / 5) + 25_000_000;
   inlineBlocks.push(
@@ -272,12 +272,12 @@ if (useKicad) {
     stdout: "pipe",
     stderr: "pipe",
   });
-  if (svg.exitCode !== 0) fail(`kicad-cli fp export svg 失败 ${svg.stderr.toString().trim()}`);
-  else console.log(`    KiCad 渲染 ${readdirSync(join(work, "svg")).length} 个封装`);
+  if (svg.exitCode !== 0) fail(`kicad-cli fp export svg failed ${svg.stderr.toString().trim()}`);
+  else console.log(`    KiCad rendered ${readdirSync(join(work, "svg")).length} footprints`);
 }
-console.log(`    我们渲染 ${footprintFiles.length} 个封装（footprint-svg/）`);
+console.log(`    we rendered ${footprintFiles.length} footprints (footprint-svg/)`);
 
-// 4) 全部封装摆一块板，DRC
+// 4) all footprints placed on one board, DRC
 const cols = Math.min(5, Math.max(1, slot));
 const rows = Math.ceil(slot / 5);
 const width = 25_000_000 * cols + 25_000_000;
@@ -322,25 +322,25 @@ if (useKicad) {
     "kicad-cli", "pcb", "drc", "--severity-all", "--format", "json", "--output", drcPath, boardPath,
   ], { stdout: "pipe", stderr: "pipe" });
   if (drc.exitCode !== 0) {
-    fail(`kicad-cli pcb drc 失败 ${drc.stderr.toString().trim()}`);
+    fail(`kicad-cli pcb drc failed ${drc.stderr.toString().trim()}`);
   } else {
     const report = JSON.parse(readFileSync(drcPath, "utf8")) as {
       violations: { type?: string; description?: string }[];
     };
-    console.log(`[4] 合并板 DRC：violations=${report.violations.length}`);
+    console.log(`[4] merged board DRC: violations=${report.violations.length}`);
     for (const v of report.violations) fail(`DRC ${v.type ?? "?"}: ${v.description ?? ""}`);
   }
 } else {
-  console.log("[4] 合并板 DRC：跳过（未开 --kicad；合并板文件已生成，供互操作验证用）");
+  console.log("[4] merged board DRC: skipped (--kicad not enabled; merged board file generated for interoperability verification)");
 }
 
-// 5) 汇总
+// 5) summary
 if (problems.length > 0) {
-  console.error(`\n失败 ${problems.length} 项`);
+  console.error(`\n${problems.length} failures`);
   process.exit(1);
 }
 console.log(
-  `\n通过：器件 ${components.length} 个 / 符号 ${symbolFiles.length} 个 / 封装 ${footprintFiles.length} 个` +
-  `（${useKicad ? "含 KiCad 互操作段" : "零依赖必过段"}）`,
+  `\npassed: ${components.length} components / ${symbolFiles.length} symbols / ${footprintFiles.length} footprints` +
+  ` (${useKicad ? "including KiCad interoperability section" : "zero-dependency required section"})`,
 );
-console.log(`产物在 ${work}`);
+console.log(`artifacts in ${work}`);

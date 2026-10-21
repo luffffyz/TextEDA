@@ -1,25 +1,25 @@
-// IR → 绘图指令 → SVG：参考渲染器的底座（AGENTS.md §1 的"参考渲染器"）。
+// IR → drawing commands → SVG: the foundation of the reference renderer (the "reference renderer" of AGENTS.md §1).
 //
-// 约定：
-//   - 坐标一律**整数纳米**，方向跟源一致：符号 +y 向上、封装 +y 向下（ADR-0012 决策 5）；
-//     转 SVG 时按 `orientation` 翻转 y（SVG 的 y 向下）。
-//   - 同一份 IR 渲染两次，输出**字节相同**：没有时间戳、没有随机数、没有依赖外部状态。
-//   - 绘图指令是中间表示（`SvgDoc`），不是字符串：可以断言、可以反解（extract），以后也能接别的后端。
+// Conventions:
+//   - Coordinates are always **integer nanometers**; orientation matches the source: symbols +y up, footprints +y down (ADR-0012 decision 5);
+//     when converting to SVG, flip y according to `orientation` (SVG's y points down).
+//   - Rendering the same IR twice yields **byte-identical** output: no timestamps, no random numbers, no dependence on external state.
+//   - Drawing commands are an intermediate representation (`SvgDoc`), not strings: they can be asserted on, reverse-engineered (extract), and plugged into other backends later.
 //
-// 这一层不依赖 KiCad：预览是设计回路的事，KiCad 只负责制造出口（ADR-0005）。
-// 也不依赖系统字体：文字画成路径（Hershey 单线字体，见 `font/`）——
-// 没装字体的机器（容器、CI）打开 SVG 一样有字。
+// This layer does not depend on KiCad: previews belong to the design loop, KiCad only owns the manufacturing exit (ADR-0005).
+// It also does not depend on system fonts: text is drawn as paths (Hershey single-stroke font, see `font/`) --
+// machines without fonts installed (containers, CI) still show text when opening the SVG.
 
 import { strokeWidthFor, textStrokes } from "./font/index.ts";
 
 export type SvgOrientation = "y-up" | "y-down";
 
-/** 填充语义。符号沿用 `none` / `outline` / `background`（spec/symbol.md §5），封装用 `solid` / `none`。 */
+/** Fill semantics. Symbols reuse `none` / `outline` / `background` (spec/symbol.md §5); footprints use `solid` / `none`. */
 export type SvgFill = "none" | "solid" | "outline" | "background";
 
 export type SvgAnchor = "start" | "middle" | "end";
 
-/** 文字的语义角色：属性文字、引脚名、引脚号、封装自由文字。 */
+/** Semantic role of text: field text, pin name, pin number, footprint free text. */
 export type SvgTextRole = "field" | "text" | "pinName" | "pinNumber";
 
 export interface SvgPoint {
@@ -75,7 +75,7 @@ export interface SvgArc {
   unit?: number;
 }
 
-/** 折线（不闭合、不填充）：引脚的时钟楔形、非逻辑引脚的锯齿。 */
+/** Polyline (open, unfilled): clock wedges for pins, zigzags for non-logical pins. */
 export interface SvgPolyline {
   kind: "polyline";
   points: { x: number; y: number }[];
@@ -103,15 +103,15 @@ export interface SvgText {
   anchor: SvgAnchor;
   rotateMdeg?: number;
   role: SvgTextRole;
-  /** 属性名（role=field 时有）。 */
+  /** Field name (present when role=field). */
   name?: string;
   layer?: string;
-  /** 引脚号（role=pinName / pinNumber 时有）。 */
+  /** Pin number (present when role=pinName / pinNumber). */
   pin?: string;
   unit?: number;
 }
 
-/** 符号引脚：连接点 + 朝向 + 长度 + 样式。名字与电气类型来自 `component`（ADR-0012）。 */
+/** Symbol pin: connection point + orientation + length + style. Name and electrical type come from `component` (ADR-0012). */
 export interface SvgPin {
   kind: "pin";
   number: string;
@@ -126,8 +126,8 @@ export interface SvgPin {
 }
 
 /**
- * 封装焊盘。`shape` 是**画法**（rect / oval / circle），IR 的 roundrect 由
- * `rratioPpm` 表达——这样反解时能从画法推回 IR 的形状，而不是抄一份。
+ * Footprint pad. `shape` is the **drawing style** (rect / oval / circle); the IR's roundrect is
+ * expressed via `rratioPpm` -- so reverse engineering can derive the IR shape from the drawing style rather than duplicating it.
  */
 export interface SvgPad {
   kind: "pad";
@@ -138,7 +138,7 @@ export interface SvgPad {
   hNm: number;
   shape: "rect" | "oval" | "circle";
   rratioPpm?: number;
-  /** 钻孔（纳米）；椭圆钻孔 x≠y。 */
+  /** Drill (nanometers); oval drills have x≠y. */
   drill?: { xNm: number; yNm: number };
   rotationMdeg?: number;
   layers: string[];
@@ -162,14 +162,14 @@ export interface SvgDoc {
   primitives: SvgPrimitive[];
 }
 
-/** 纳米 → 毫米，最多 6 位小数，去掉尾随零（与导出器同一套写法）。 */
+/** Nanometers → millimeters, at most 6 decimal places, trailing zeros stripped (same formatting as the exporter). */
 export function mm(nm: number): string {
   const s = (nm / 1e6).toFixed(6);
   const trimmed = s.includes(".") ? s.replace(/0+$/, "").replace(/\.$/, "") : s;
   return trimmed === "-0" ? "0" : trimmed;
 }
 
-/** 毫度 → 度。 */
+/** Millidegrees → degrees. */
 export function deg(mdeg: number): string {
   const s = (mdeg / 1000).toFixed(6);
   const trimmed = s.includes(".") ? s.replace(/0+$/, "").replace(/\.$/, "") : s;
@@ -179,7 +179,7 @@ export function deg(mdeg: number): string {
 const esc = (s: string): string =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-/** 图层 → 颜色。认不出的图层走中性灰。 */
+/** Layer → color. Unrecognized layers fall back to neutral gray. */
 const LAYER_STYLE: Record<string, { stroke: string; fill: string }> = {
   symbol: { stroke: "#111827", fill: "#111827" },
   power: { stroke: "#111827", fill: "#111827" },
@@ -202,7 +202,7 @@ const LAYER_STYLE: Record<string, { stroke: string; fill: string }> = {
 
 const DEFAULT_STYLE = { stroke: "#374151", fill: "none" };
 
-/** 图层的画法：描边色 + 实心填充色。 */
+/** Drawing style of a layer: stroke color + solid fill color. */
 interface LayerStyle {
   stroke: string;
   fill: string;
@@ -212,7 +212,7 @@ function styleOf(layer: string): LayerStyle {
   return LAYER_STYLE[layer] ?? DEFAULT_STYLE;
 }
 
-/** SvgFill → SVG 的 fill 属性。 */
+/** SvgFill → the SVG fill attribute. */
 function fillAttr(fill: SvgFill, style: LayerStyle): string {
   switch (fill) {
     case "solid":
@@ -225,7 +225,7 @@ function fillAttr(fill: SvgFill, style: LayerStyle): string {
   }
 }
 
-/** 画图顺序：先铜后丝印后装配层，符号件在后。 */
+/** Draw order: copper first, then silkscreen, then assembly layers; symbol items last. */
 const LAYER_ORDER = [
   "F.Cu",
   "B.Cu",
@@ -252,7 +252,7 @@ export interface SvgBounds {
   maxY: number;
 }
 
-/** 绘图指令的外接框（纳米）。文字按字号估一个方框，够用即可。 */
+/** Bounding box of the drawing commands (nanometers). Text gets an estimated box from its font size; good enough. */
 export function bounds(doc: SvgDoc): SvgBounds {
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
@@ -305,24 +305,24 @@ export function bounds(doc: SvgDoc): SvgBounds {
   return { minX, minY, maxX, maxY };
 }
 
-/** y 向上 → y 向下（SVG 坐标）。 */
+/** y-up → y-down (SVG coordinates). */
 function flip(doc: SvgDoc): (x: number, y: number) => [number, number] {
   return doc.orientation === "y-up" ? (x, y) => [x, -y] : (x, y) => [x, y];
 }
 
 export interface ArcGeometry {
-  /** 圆弧半径（纳米）。 */
+  /** Arc radius (nanometers). */
   radiusNm: number;
-  /** 是否是大弧（> 180°）。 */
+  /** Whether it is a large arc (> 180°). */
   largeArc: 0 | 1;
-  /** SVG sweep-flag：1 = 顺时针（SVG 坐标里角度增大的方向）。 */
+  /** SVG sweep-flag: 1 = clockwise (the direction of increasing angle in SVG coordinates). */
   sweep: 0 | 1;
 }
 
 /**
- * 圆弧（起点/中点/终点）→ SVG 的 A 指令参数。
- * 方向由三点决定：先算圆心与半径，再看"从起点到终点的正向角增量"能不能经过中点；
- * 不能就绕另一边。返回的 `sweep` 已经按**源坐标**给出，调用方在翻转 y 时要自己取反。
+ * Arc (start/mid/end) → the SVG A-command parameters.
+ * The direction is determined by the three points: first solve the center and radius, then check whether "the positive angular increment from start to end" passes through the mid point;
+ * if not, go around the other side. The returned `sweep` is already given in **source coordinates**; callers must negate it themselves when flipping y.
  */
 export function arcGeometry(
   x1: number,
@@ -332,7 +332,7 @@ export function arcGeometry(
   x2: number,
   y2: number,
 ): ArcGeometry | null {
-  // 三点定圆：解圆心与半径。共线时没有圆弧。
+  // Circle through three points: solve for the center and radius. No arc when collinear.
   const d = 2 * (x1 * (ym - y2) + xm * (y2 - y1) + x2 * (y1 - ym));
   if (d === 0) return null;
   const s1 = x1 * x1 + y1 * y1;
@@ -348,19 +348,19 @@ export function arcGeometry(
   const norm = (a: number): number => ((a % twoPi) + twoPi) % twoPi;
   const forward = norm(a2 - a1);
   const midForward = norm(am - a1);
-  // 从起点到终点的角增量：正向能不能经过中点？不能就绕另一边。
+  // Angular increment from start to end: does the positive direction pass through the mid point? If not, go around the other side.
   const positive = midForward <= forward;
   const sweep = positive ? forward : forward - twoPi;
   const largeArc = Math.abs(sweep) > Math.PI ? 1 : 0;
   return { radiusNm, largeArc, sweep: positive ? 1 : 0 };
 }
 
-/** 绘图指令 → SVG 文本。同一份 doc 输出字节相同。 */
+/** Drawing commands → SVG text. The same doc produces byte-identical output. */
 export function toSvgText(doc: SvgDoc): string {
-  const pad = 2_000_000; // 2mm 留白
+  const pad = 2_000_000; // 2mm margin
   const b = bounds(doc);
   const fy = flip(doc);
-  // 外接框搬到 SVG 坐标（y 向下）：y 向上 的源要先翻。
+  // Move the bounding box into SVG coordinates (y down): y-up sources must be flipped first.
   const [x0, y0] =
     doc.orientation === "y-up" ? [b.minX, -b.maxY] : [b.minX, b.minY];
   const [x1, y1] =
@@ -455,12 +455,12 @@ function primitiveSvg(
       const [bx, by] = fy(p.x2, p.y2);
       const arc = arcGeometry(p.x1, p.y1, p.xm, p.ym, p.x2, p.y2);
       if (!arc) {
-        // 三点共线：没有圆弧，画折线。
+        // The three points are collinear: no arc, draw a polyline.
         return [
           `    <polyline points="${mm(ax)},${mm(ay)} ${mm(bx)},${mm(by)}" fill="none" stroke-width="${mm(p.widthNm)}"/>`,
         ];
       }
-      // 翻转 y 会把手性翻过来：源坐标是"负向绕行"时，SVG 里要改成正向。
+      // Flipping y mirrors the handedness: when the source coordinates "sweep in the negative direction", switch to the positive direction in SVG.
       const mirrored = docOrientation === "y-up";
       const sweep = mirrored ? (arc.sweep === 1 ? 0 : 1) : arc.sweep;
       return [
@@ -486,8 +486,8 @@ function primitiveSvg(
       ];
     }
     case "text": {
-      // 文字画成**路径**（Hershey 单线字体），不依赖系统字体：
-      // 没装字体的机器打开 SVG 也能看见字。
+      // Text is drawn as **paths** (Hershey single-stroke font), with no system font dependency:
+      // machines without fonts installed can still see the text when opening the SVG.
       const strokes = textStrokes(p.text, {
         x: p.x,
         y: p.y,
@@ -498,8 +498,8 @@ function primitiveSvg(
       if (strokes.length === 0) return [];
       const color = p.role === "pinName" || p.role === "pinNumber" ? "#6b7280" : "#111827";
       const width = strokeWidthFor(p.sizeNm);
-      // 旋转在**模型坐标系**里做：角度一律按"视觉逆时针"理解（符号 +y 向上、
-      // 封装 +y 向下，数值矩阵的正负相反，见 `rotateModel`）。
+      // Rotation happens in the **model coordinate system**: angles are always interpreted as "visually counterclockwise" (symbols +y up,
+      // footprints +y down, so the signs in the numeric matrix are reversed; see `rotateModel`).
       const rot = p.rotateMdeg ? rotateModel(p.x, p.y, p.rotateMdeg, docOrientation === "y-down") : null;
       const d = strokes
         .map((s) => {
@@ -559,8 +559,8 @@ function primitiveSvg(
 }
 
 /**
- * 引脚朝向 → 单位方向（符号坐标：+x 右、+y 上）。
- * `rotMdeg` 是**毫度**（IR 约定，ADR-0004 决策 3）：90° = 90000。
+ * Pin orientation → unit direction (symbol coordinates: +x right, +y up).
+ * `rotMdeg` is in **millidegrees** (IR convention, ADR-0004 decision 3): 90° = 90000.
  */
 export function pinDirection(rotMdeg: number): { x: number; y: number } {
   const r = ((rotMdeg % 360_000) + 360_000) % 360_000;
@@ -577,11 +577,11 @@ export function pinDirection(rotMdeg: number): { x: number; y: number } {
 }
 
 /**
- * 围绕锚点旋转模型坐标里的点。
+ * Rotate a point in model coordinates around an anchor.
  *
- * 角度按**视觉逆时针**理解（KiCad 的约定）：
- *   - 符号（+y 向上）：数值矩阵就是标准数学旋转。
- *   - 封装（+y 向下）：数值矩阵取逆——因为数值 +y 朝下，正角在视觉上是顺时针。
+ * Angles are interpreted as **visually counterclockwise** (KiCad's convention):
+ *   - Symbols (+y up): the numeric matrix is the standard mathematical rotation.
+ *   - Footprints (+y down): the numeric matrix is inverted -- because numeric +y points down, a positive angle is visually clockwise.
  */
 function rotateModel(
   cx: number,
@@ -603,7 +603,7 @@ function rotateModel(
   };
 }
 
-/** 绘图指令的几何自检。返回问题清单，空数组 = 没问题。 */
+/** Geometric self-check of the drawing commands. Returns a list of problems; empty array = no problems. */
 export function validateDoc(doc: SvgDoc): string[] {
   const problems: string[] = [];
   const isInt = (v: number): boolean => Number.isInteger(v);
@@ -611,41 +611,41 @@ export function validateDoc(doc: SvgDoc): string[] {
     const tag = `${p.kind}${p.kind === "pin" || p.kind === "pad" || p.kind === "text" ? `(${p.kind === "pin" || p.kind === "pad" ? p.number : p.text})` : ""}`;
     switch (p.kind) {
       case "line":
-        if (![p.x1, p.y1, p.x2, p.y2, p.widthNm].every(isInt)) problems.push(`${tag}: 坐标不是整数纳米`);
-        if (p.x1 === p.x2 && p.y1 === p.y2) problems.push(`${tag}: 零长线`);
+        if (![p.x1, p.y1, p.x2, p.y2, p.widthNm].every(isInt)) problems.push(`${tag}: coordinates are not integer nanometers`);
+        if (p.x1 === p.x2 && p.y1 === p.y2) problems.push(`${tag}: zero-length line`);
         break;
       case "rect":
-        if (![p.x1, p.y1, p.x2, p.y2, p.widthNm].every(isInt)) problems.push(`${tag}: 坐标不是整数纳米`);
-        if (p.x1 === p.x2 || p.y1 === p.y2) problems.push(`${tag}: 退化成线`);
+        if (![p.x1, p.y1, p.x2, p.y2, p.widthNm].every(isInt)) problems.push(`${tag}: coordinates are not integer nanometers`);
+        if (p.x1 === p.x2 || p.y1 === p.y2) problems.push(`${tag}: degenerates to a line`);
         break;
       case "circle":
-        if (![p.cx, p.cy, p.rNm].every(isInt)) problems.push(`${tag}: 坐标不是整数纳米`);
-        if (p.rNm <= 0) problems.push(`${tag}: 半径非正`);
+        if (![p.cx, p.cy, p.rNm].every(isInt)) problems.push(`${tag}: coordinates are not integer nanometers`);
+        if (p.rNm <= 0) problems.push(`${tag}: non-positive radius`);
         break;
       case "arc":
-        if (![p.x1, p.y1, p.xm, p.ym, p.x2, p.y2].every(isInt)) problems.push(`${tag}: 坐标不是整数纳米`);
+        if (![p.x1, p.y1, p.xm, p.ym, p.x2, p.y2].every(isInt)) problems.push(`${tag}: coordinates are not integer nanometers`);
         break;
       case "poly":
-        if (p.points.length < 3) problems.push(`${tag}: 多边形点数 < 3`);
-        if (!p.points.every((pt) => isInt(pt.x) && isInt(pt.y))) problems.push(`${tag}: 坐标不是整数纳米`);
+        if (p.points.length < 3) problems.push(`${tag}: polygon point count < 3`);
+        if (!p.points.every((pt) => isInt(pt.x) && isInt(pt.y))) problems.push(`${tag}: coordinates are not integer nanometers`);
         break;
       case "polyline":
-        if (p.points.length < 2) problems.push(`${tag}: 折线点数 < 2`);
-        if (!p.points.every((pt) => isInt(pt.x) && isInt(pt.y))) problems.push(`${tag}: 坐标不是整数纳米`);
+        if (p.points.length < 2) problems.push(`${tag}: polyline point count < 2`);
+        if (!p.points.every((pt) => isInt(pt.x) && isInt(pt.y))) problems.push(`${tag}: coordinates are not integer nanometers`);
         break;
       case "text":
-        if (![p.x, p.y, p.sizeNm].every(isInt)) problems.push(`${tag}: 坐标不是整数纳米`);
-        if (p.sizeNm <= 0) problems.push(`${tag}: 字号非正`);
-        if (p.text.length === 0) problems.push(`${tag}: 空文字`);
+        if (![p.x, p.y, p.sizeNm].every(isInt)) problems.push(`${tag}: coordinates are not integer nanometers`);
+        if (p.sizeNm <= 0) problems.push(`${tag}: non-positive font size`);
+        if (p.text.length === 0) problems.push(`${tag}: empty text`);
         break;
       case "pin":
-        if (![p.x, p.y, p.lengthNm, p.rotMdeg].every(isInt)) problems.push(`${tag}: 坐标不是整数纳米`);
-        if (p.lengthNm <= 0) problems.push(`${tag}: 引脚长度非正`);
-        if (p.unit < 0) problems.push(`${tag}: 单元号非法`);
+        if (![p.x, p.y, p.lengthNm, p.rotMdeg].every(isInt)) problems.push(`${tag}: coordinates are not integer nanometers`);
+        if (p.lengthNm <= 0) problems.push(`${tag}: non-positive pin length`);
+        if (p.unit < 0) problems.push(`${tag}: invalid unit number`);
         break;
       case "pad":
-        if (![p.x, p.y, p.wNm, p.hNm].every(isInt)) problems.push(`${tag}: 坐标不是整数纳米`);
-        if (p.wNm <= 0 || p.hNm <= 0) problems.push(`${tag}: 焊盘尺寸非正`);
+        if (![p.x, p.y, p.wNm, p.hNm].every(isInt)) problems.push(`${tag}: coordinates are not integer nanometers`);
+        if (p.wNm <= 0 || p.hNm <= 0) problems.push(`${tag}: non-positive pad size`);
         break;
     }
   }

@@ -1,7 +1,7 @@
-// 符号 IR → 绘图指令。
+// Symbol IR -> drawing primitives.
 //
-// 符号是**视图**（ADR-0012）：引脚摆位、外形、单元、显示开关在这里；
-// 引脚名与电气类型归 `component`，渲染时按引脚号查进来。
+// Symbols are **views** (ADR-0012): pin placement, outline, units, and visibility toggles live here;
+// pin names and electrical types belong to `component`, looked up by pin number at render time.
 import type { Symbol } from "@texteda/ir/symbol";
 import { pinDirection, type SvgDoc, type SvgFill, type SvgPrimitive } from "./svg.ts";
 
@@ -10,7 +10,7 @@ type Pin = SymbolBody["pins"][number];
 type BodyItem = NonNullable<SymbolBody["body"]>[number];
 type Field = NonNullable<SymbolBody["fields"]>[number];
 
-/** `component` 里渲染符号需要的那部分事实（与导出器同口径）。 */
+/** The facts from `component` needed to render a symbol (same conventions as the exporter). */
 export interface SymbolPartPin {
   number: string;
   name: string;
@@ -24,15 +24,15 @@ export interface SymbolPart {
 const DEFAULT_NAME_OFFSET_NM = 508_000;
 const DEFAULT_TEXT_SIZE_NM = 1_270_000;
 const NUMBER_TEXT_SIZE_NM = 1_270_000;
-/** 引脚号离连接点的距离（KiCad 用 0.05 英寸 = 1.27mm）。 */
+/** Distance of the pin number from the connection point (KiCad uses 0.05 inch = 1.27mm). */
 const NUMBER_TEXT_OUT_NM = 1_270_000;
-/** 反相气泡半径（KiCad 默认 0.254mm）。 */
+/** Inversion bubble radius (KiCad default 0.254mm). */
 const BUBBLE_RADIUS_NM = 254_000;
-/** 时钟楔形的长度与半宽。 */
+/** Clock wedge length and half-width. */
 const CLOCK_WEDGE_LEN_NM = 508_000;
 const CLOCK_WEDGE_HALF_NM = 254_000;
 
-/** 符号引脚的画法：连接点在引脚"外面"，线朝符号体内部走（spec/symbol.md §4）。 */
+/** How a symbol pin is drawn: the connection point is at the pin's "outer" end and the line runs toward the inside of the symbol body (spec/symbol.md §4). */
 export function renderSymbol(sym: SymbolBody, part: SymbolPart): SvgDoc {
   const primitives: SvgPrimitive[] = [];
   const names = new Map(part.pins.map((p) => [p.number, p]));
@@ -62,17 +62,17 @@ export function renderSymbol(sym: SymbolBody, part: SymbolPart): SvgDoc {
     const dir = pinDirection(rot);
     const away = { x: -dir.x, y: -dir.y };
     const horizontal = dir.x !== 0;
-    // 引脚内端（贴符号体那一头）：引脚线从连接点朝符号体内部走。
+    // Pin inner end (the side against the symbol body): the pin line runs from the connection point toward the inside of the symbol body.
     const inner = {
       x: pin.at.x_nm + dir.x * pin.length_nm,
       y: pin.at.y_nm + dir.y * pin.length_nm,
     };
     primitives.push(...pinStylePrimitives(pin, dir));
 
-    // 引脚名：贴着内端、沿引脚方向往符号体里挪（与 KiCad 的 pin_names offset 同义）。
+    // Pin name: placed against the inner end and shifted along the pin direction into the symbol body (same meaning as KiCad's pin_names offset).
     const offset = sym.pin_name_offset_nm ?? DEFAULT_NAME_OFFSET_NM;
     const nameX = inner.x + dir.x * offset;
-    // 文字锚点：字的**视觉中心**落在锚点上（SVG 用 dominant-baseline="central"）。
+    // Text anchor: the text's **visual center** lands on the anchor point (SVG uses dominant-baseline="central").
     const nameY = inner.y + dir.y * offset;
     const anchor = dir.x < 0 ? "end" : "start";
 
@@ -96,7 +96,7 @@ export function renderSymbol(sym: SymbolBody, part: SymbolPart): SvgDoc {
       primitives.push({
         kind: "text",
         x: pin.at.x_nm + away.x * NUMBER_TEXT_OUT_NM,
-        // 水平引脚：字心压在引脚轴上；垂直引脚：字心落在外推的锚点上。
+        // Horizontal pin: the text center sits on the pin axis; vertical pin: the text center lands on the extrapolated anchor point.
         y: horizontal ? pin.at.y_nm : pin.at.y_nm + away.y * NUMBER_TEXT_OUT_NM,
         text: pin.number,
         sizeNm: NUMBER_TEXT_SIZE_NM,
@@ -195,8 +195,8 @@ function bodyPrimitives(item: BodyItem, power: boolean): SvgPrimitive[] {
 }
 
 /**
- * 引脚图形：KiCad 的引脚风格（反相气泡、时钟楔形、低电平、非逻辑锯齿）。
- * 画在 "pin" 层——反解时不算符号外形（外形只认 "symbol" 层）。
+ * Pin graphics: KiCad pin styles (inversion bubble, clock wedge, active-low, non-logic zigzag).
+ * Drawn on the "pin" layer -- not counted as the symbol outline during extraction (only the "symbol" layer defines the outline).
  */
 export function pinStylePrimitives(pin: Pin, dir: { x: number; y: number }): SvgPrimitive[] {
   const out: SvgPrimitive[] = [];
@@ -240,7 +240,7 @@ export function pinStylePrimitives(pin: Pin, dir: { x: number; y: number }): Svg
   }
 
   if (style === "input_low" || style === "output_low" || style === "clock_low") {
-    // 低电平：在引脚内端画一段开口朝符号体的弧。
+    // Active-low: draw an arc at the pin's inner end, opening toward the symbol body.
     const c = {
       x: inner.x - dir.x * BUBBLE_RADIUS_NM,
       y: inner.y - dir.y * BUBBLE_RADIUS_NM,
@@ -261,7 +261,7 @@ export function pinStylePrimitives(pin: Pin, dir: { x: number; y: number }): Svg
   }
 
   if (style === "non_logic") {
-    // 非逻辑引脚：引脚线画成锯齿（这里把整条线替换成折线）。
+    // Non-logic pin: draw the pin line as a zigzag (here the whole line is replaced by a polyline).
     const steps = 4;
     const pts: { x: number; y: number }[] = [];
     for (let i = 0; i <= steps; i += 1) {
@@ -285,7 +285,7 @@ export function pinStylePrimitives(pin: Pin, dir: { x: number; y: number }): Svg
   return out;
 }
 
-/** 电源符号：引脚内端画一根横杠（KiCad 电源符号的形状）。 */
+/** Power symbol: draw a horizontal bar at the pin's inner end (the shape of a KiCad power symbol). */
 export function powerBarPrimitives(pin: Pin): SvgPrimitive[] {
   const dir = pinDirection(pin.at.rotation_mdeg ?? 0);
   const inner = {
@@ -307,7 +307,7 @@ export function powerBarPrimitives(pin: Pin): SvgPrimitive[] {
   ];
 }
 
-// ---------------------------------------------------------------- 反解
+// ---------------------------------------------------------------- reverse extraction
 
 export interface SymbolPinProjection {
   number: string;
@@ -376,7 +376,7 @@ export interface SymbolProjection {
   fields: SymbolFieldProjection[];
 }
 
-/** 从绘图指令反解出符号的语义投影（round-trip 的一端）。 */
+/** Reverse-solves the symbol's semantic projection from the drawing primitives (one end of the round trip). */
 export function extractSymbol(doc: SvgDoc): SymbolProjection {
   const pins: SymbolPinProjection[] = [];
   const body: SymbolBodyProjection[] = [];
@@ -416,7 +416,7 @@ export function extractSymbol(doc: SvgDoc): SymbolProjection {
             x2: p.x2,
             y2: p.y2,
             width_nm: p.widthNm,
-            // 线不填色：IR schema 规定 fill 只对 rect/circle/poly 有效。
+            // Lines take no fill: the IR schema says fill only applies to rect/circle/poly.
             fill: "none",
             unit: p.unit ?? 1,
           });
@@ -493,7 +493,7 @@ export function extractSymbol(doc: SvgDoc): SymbolProjection {
   };
 }
 
-/** 从符号 IR 直接算出的语义投影（round-trip 的另一端）。 */
+/** The semantic projection computed directly from the symbol IR (the other end of the round trip). */
 export function symbolProjection(sym: SymbolBody): SymbolProjection {
   const body: SymbolBodyProjection[] = [];
   let units = 1;

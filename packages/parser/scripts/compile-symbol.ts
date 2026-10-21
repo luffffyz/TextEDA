@@ -1,45 +1,88 @@
 #!/usr/bin/env bun
-// 编译 `symbol` 描述：`.teda` 源码 → IR 分片（canonical JSON）。
+// Compile a `symbol` description: `.teda` source -> IR shard (canonical JSON).
 //
-// 用法：bun run scripts/compile-symbol.ts <file.teda> [--library <name>] [--out <file>]
-//   --library  库名（IR 的 symbol.library）；缺省取文件所在目录名。
-//   --out      输出文件；缺省打到标准输出。
+// Usage: bun run scripts/compile-symbol.ts <file.teda> [--library <name>] [--json] [--out <file>]
+//   --library  library name (IR's symbol.library); defaults to the containing directory name.
+//   --json     output only the diagnostics payload (ADR-0016): stdout has the shape of `diagnosticsToPayload`.
+//   --out      output file; defaults to stdout (in --json mode the IR only goes through --out).
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { basename, dirname } from "node:path";
-import { validate } from "@texteda/ir";
+import { basename, dirname, relative, resolve } from "node:path";
+import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
+import { diagnosticsToPayload, type Diagnostic } from "@texteda/ir/diagnostics";
 import { canonicalJson, formatDiagnostic, parseSymbol } from "../src/index.ts";
 
 const args = process.argv.slice(2);
-const file = args[0];
+/** Flags that take a value: the next argument is not positional. */
+const VALUE_FLAGS: Record<string, true> = { "--library": true, "--out": true };
+
+const positional: string[] = [];
+let library: string | undefined;
+let outFile: string | undefined;
+let jsonMode = false;
+for (let i = 0; i < args.length; i++) {
+  const arg = args[i]!;
+  if (arg === "--json") {
+    jsonMode = true;
+    continue;
+  }
+  if (VALUE_FLAGS[arg] === true) {
+    const value = args[i + 1];
+    if (value === undefined) {
+      console.error(`Usage: bun run scripts/compile-symbol.ts <file.teda> [--library <name>] [--json] [--out <file>]`);
+      console.error(`flag ${arg} is missing its value`);
+      process.exit(2);
+    }
+    if (arg === "--library") library = value;
+    else outFile = value;
+    i++;
+    continue;
+  }
+  if (arg.startsWith("--")) continue;
+  positional.push(arg);
+}
+
+const file = positional[0];
 if (!file) {
-  console.error("用法：bun run scripts/compile-symbol.ts <file.teda> [--library <name>] [--out <file>]");
+  console.error("Usage: bun run scripts/compile-symbol.ts <file.teda> [--library <name>] [--json] [--out <file>]");
   process.exit(2);
 }
-
-const libraryIdx = args.indexOf("--library");
-const outIdx = args.indexOf("--out");
-const library = libraryIdx >= 0 ? args[libraryIdx + 1]! : basename(dirname(file));
+if (library === undefined) library = basename(dirname(file));
 
 const text = readFileSync(file, "utf8");
-const parsed = parseSymbol(text, { file, library });
+// IR's `source.file` must be a path relative to the project root (schema contract); an absolute path violates it outright.
+const sourceFile = relative(process.cwd(), resolve(file));
+if (sourceFile.startsWith("..")) {
+  console.error(`file must be under the current directory: ${file} (the IR contract requires source.file to be relative)`);
+  process.exit(2);
+}
+const parsed = parseSymbol(text, { file: sourceFile, library });
 
-for (const d of parsed.diagnostics) console.error(formatDiagnostic(d));
-if (!parsed.ok || !parsed.ir) process.exit(1);
-
-const check = validate("symbol", parsed.ir);
-if (!check.ok) {
-  for (const e of check.errors) {
-    console.error(`${file}:1:1: error SCHEMA: ${e.path || "/"}: ${e.message}`);
+// Merge parse diagnostics and schema diagnostics into one payload: agents only need a single array.
+const diagnostics: Diagnostic[] = [...parsed.diagnostics];
+let schemaFailed = false;
+if (parsed.ir) {
+  const check = validate("symbol", parsed.ir);
+  if (!check.ok) {
+    diagnostics.push(...schemaDiagnosticsToDiagnostics(check.errors));
+    schemaFailed = true;
   }
-  process.exit(1);
 }
 
-const json = canonicalJson(parsed.ir);
-if (outIdx >= 0) {
-  const out = args[outIdx + 1]!;
-  mkdirSync(dirname(out), { recursive: true });
-  writeFileSync(out, json);
-  console.log(`wrote ${out}`);
+if (jsonMode) {
+  // Payload shape see ADR-0016: code / severity / location / data are the machine contract.
+  console.log(JSON.stringify(diagnosticsToPayload(diagnostics), null, 2));
 } else {
-  process.stdout.write(json);
+  for (const d of diagnostics) console.error(formatDiagnostic(d));
+}
+
+if (!parsed.ok || !parsed.ir || schemaFailed) process.exit(1);
+
+const json = canonicalJson(parsed.ir);
+if (outFile !== undefined) {
+  mkdirSync(dirname(outFile), { recursive: true });
+  writeFileSync(outFile, json);
+  console.error(`wrote ${outFile}`);
+} else if (!jsonMode) {
+  // --json means "diagnostics as JSON output": stdout is already taken by diagnostics, so the IR only lands on disk via --out or in default mode.
+  console.log(json);
 }

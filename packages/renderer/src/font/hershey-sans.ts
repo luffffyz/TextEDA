@@ -1,20 +1,25 @@
-// Hershey 单线笔画字体（"Sans 1-stroke"，键名 futural）——**数据不是手写的**。
+// Hershey single-stroke font ("Sans 1-stroke", key name futural) --
+// **the data is not hand-written**.
 //
-// 为什么要自带字体：SVG 的 `<text>` 要靠系统字体渲染，没装字体的机器（容器、
-// CI、无字体的服务器）打开就是"只有图没有文字"。改成把字画成路径，任何渲染器
-// 都能出一样的图。
+// Why we bundle our own font: SVG `<text>` relies on system fonts to render, so on
+// machines without fonts installed (containers, CI, font-less servers) the output is
+// "the picture but no text". Drawing the glyphs as paths instead produces the same
+// figure in any renderer.
 //
-// 上游：`hersheytext`（npm，MIT，© 2014 James T）导出的 Hershey 字体数据；
-// Hershey 字体本身出自美国海军军械实验室，公有领域。
-// 重新生成：把 hersheytext 的 hersheytext.json 里 `futural` 的 chars 取出来，
-// 按 ASCII 33 起顺序写成 [路径, 步进] 对即可（共 95 个字形，覆盖 ASCII 33..127）。
+// Upstream: Hershey font data exported by `hersheytext` (npm, MIT, © 2014 James T);
+// the Hershey fonts themselves come from the U.S. Naval Weapons Laboratory and are in
+// the public domain. To regenerate: take the `futural` chars from hersheytext's
+// hersheytext.json and write them in ASCII order starting at 33 as [path, advance]
+// pairs (95 glyphs total, covering ASCII 33..127).
 //
-// 步进（每项的第二个数）是上游的原始 `o`：**与笔画坐标不是同一把尺子**，
-// 换算系数 1.68 见 `font/index.ts` 的 `ADVANCE_SCALE`。
-// 空格上游没给字形，宽度取它自己的默认字宽 10（`horiz-adv-x`）。
+// The advance (the second number in each entry) is the raw upstream `o`: **not on the
+// same scale as the stroke coordinates**; see `ADVANCE_SCALE` in `font/index.ts` for
+// the 1.68 conversion factor. Upstream gives no glyph for the space character, so its
+// width uses its own default advance of 10 (`horiz-adv-x`).
 //
-// 坐标：字体的 y 轴**向下**（基线在 y=22，字高 21，x 高 14，降部到 y=29）。
-// 渲染时按文档朝向翻转，见 `font/index.ts`。
+// Coordinates: the font's y axis **points down** (baseline at y=22, cap height 21,
+// x-height 14, descenders reach y=29). It is flipped to document orientation at
+// render time; see `font/index.ts`.
 //
 // ------------------------------------------------------------------
 // The MIT License (MIT)
@@ -40,7 +45,7 @@
 // SOFTWARE.
 // ------------------------------------------------------------------
 
-/** 每个字形：`[笔画路径, 步进宽]`，路径是 Hershey 的 "M x,y L x,y …" 写法。 */
+/** Each glyph: `[stroke path, advance]`; the path uses Hershey's "M x,y L x,y ..." notation. */
 export const GLYPHS: readonly (readonly [string, number])[] = [
   ["M5,1 L5,15 M5,20 L4,21 5,22 6,21 5,20", 5],
   ["M4,1 L4,8 M12,1 L12,8", 8],
@@ -139,10 +144,10 @@ export const GLYPHS: readonly (readonly [string, number])[] = [
   ["M0,1 L0,22 1,22 1,1 2,1 2,22 3,22 3,1 4,1 4,22 5,22 5,1 6,1 6,22 7,22 7,1 8,1 8,22 9,22 9,1 10,1 10,22 11,22 11,1 12,1 12,22 13,22 13,1 14,1 14,22 15,22 15,1 16,1 16,22", 8],
 ];
 
-/** 空格的步进宽（Hershey 的默认字宽）。 */
+/** Space advance (Hershey's default glyph width). */
 export const SPACE_ADVANCE = 10;
 
-/** 字符 → 字形下标：ASCII 33（'!'）起。 */
+/** Character -> glyph index: ASCII 33 ('!') and up. */
 export function glyphIndex(ch: string): number {
   return ch.charCodeAt(0) - 33;
 }

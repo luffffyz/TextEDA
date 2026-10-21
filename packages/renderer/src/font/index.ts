@@ -1,26 +1,29 @@
-// 字形排版：字符串 → 笔画折线（模型坐标，整数纳米）。
+// Glyph layout: string -> stroke polylines (model coordinates, integer nanometers).
 //
-// 用 Hershey 单线字体（`hershey-sans.ts`）：字画成**路径**，不依赖系统字体——
-// 没装字体的机器打开 SVG 也不会"只有图没有文字"。
+// Uses the Hershey single-stroke font (`hershey-sans.ts`): glyphs are drawn as **paths**,
+// independent of system fonts -- machines without fonts installed still open the SVG
+// without getting "the picture but no text".
 //
-// 坐标约定：字体自身的 y 轴**向下**（基线 y=22，字高 21，x 高 14，降部到 29）。
-// 模型坐标的朝向随文档走（符号 +y 向上、封装 +y 向下），所以排版要带 `yDown`。
+// Coordinate convention: the font's own y axis **points down** (baseline y=22, cap height
+// 21, x-height 14, descenders reach 29). Model coordinates follow the document's
+// orientation (+y up for symbols, +y down for footprints), so layout takes a `yDown` flag.
 import { GLYPHS, SPACE_ADVANCE, glyphIndex } from "./hershey-sans.ts";
 
 export type TextAnchor = "start" | "middle" | "end";
 
-/** 字体度量（字体坐标系，y 向下）。 */
+/** Font metrics (font coordinate system, y down). */
 const BASELINE_Y = 22;
-/** 字高（cap height）：从 y=1 到基线 y=22。 */
+/** Cap height: from y=1 to the baseline at y=22. */
 const CAP_HEIGHT = 21;
-/** 大写字框（y=1..22）的中心——文字按它居中挂在锚点上。 */
+/** Center of the cap box (y=1..22) -- text hangs centered on the anchor by it. */
 const CAP_CENTER_Y = 11.5;
 /**
- * 步进宽的换算系数。
+ * Conversion factor for advance widths.
  *
- * Hershey 数据里每个字形的 `o`（步进）与笔画坐标**不是同一把尺子**：笔画坐标
- * 以字高 21 为单位，`o` 却是按 em 记的。上游 `hersheytext` 自己渲染时用 1.68
- * 把两者对上（`multiplyer`），照抄这个系数，字母才不会互相压。
+ * In the Hershey data, each glyph's `o` (advance) is **not on the same scale as the
+ * stroke coordinates**: the strokes are measured in units of the cap height 21, while
+ * `o` is per em. Upstream `hersheytext` reconciles the two with 1.68 when rendering
+ * itself (`multiplyer`); copying that factor keeps the letters from crowding together.
  */
 const ADVANCE_SCALE = 1.68;
 
@@ -34,15 +37,15 @@ export interface FontStroke {
 }
 
 interface Glyph {
-  /** 笔画折线（字体坐标）。 */
+  /** Stroke polylines (font coordinates). */
   strokes: FontPoint[][];
-  /** 步进宽（字体坐标单位，与笔画同一把尺子）。 */
+  /** Advance width (font coordinate units, same scale as the strokes). */
   advance: number;
 }
 
 const glyphCache = new Map<string, Glyph | null>();
 
-/** 取字形；空格只有步进宽，没有笔画。 */
+/** Get the glyph; a space has an advance only, no strokes. */
 function glyph(ch: string): Glyph | null {
   if (ch === " ") return { strokes: [], advance: SPACE_ADVANCE };
   const cached = glyphCache.get(ch);
@@ -56,7 +59,7 @@ function glyph(ch: string): Glyph | null {
   return parsed;
 }
 
-/** Hershey 的路径写法只有 M 与 L：M 起一条新折线，后面的坐标对接着画。 */
+/** Hershey's path notation has only M and L: M starts a new polyline; the following coordinate pairs continue it. */
 function parseStrokes(d: string): FontPoint[][] {
   const strokes: FontPoint[][] = [];
   let current: FontPoint[] = [];
@@ -67,7 +70,7 @@ function parseStrokes(d: string): FontPoint[][] {
       if (current.length > 0) strokes.push(current);
       current = [];
     } else if (m[1] === "L") {
-      // 只是继续当前折线。
+      // Just continues the current polyline.
     } else {
       current.push({ x: Number(m[2]), y: Number(m[3]) });
     }
@@ -76,7 +79,7 @@ function parseStrokes(d: string): FontPoint[][] {
   return strokes;
 }
 
-/** 一串文字的宽度（纳米）。`sizeNm` 是字高（cap height）。 */
+/** Width of a text string (nanometers). `sizeNm` is the cap height. */
 export function textAdvance(text: string, sizeNm: number): number {
   const scale = sizeNm / CAP_HEIGHT;
   let total = 0;
@@ -88,11 +91,12 @@ export function textAdvance(text: string, sizeNm: number): number {
 }
 
 /**
- * 排版：把文字变成模型坐标里的笔画折线。
+ * Layout: turn text into stroke polylines in model coordinates.
  *
- * `x` / `y` 是文字的**视觉中心**锚点（与 `<text dominant-baseline="central">` 同义）：
- * 大写字框（字高那一条）居中挂在锚点上，降部往下伸。
- * `yDown` 说明模型坐标的 y 方向：符号是 false（+y 向上），封装是 true。
+ * `x` / `y` anchor the **visual center** of the text (equivalent to `<text
+ * dominant-baseline="central">`): the cap box (the cap-height band) hangs centered on
+ * the anchor, with descenders extending below. `yDown` states the model y direction:
+ * false for symbols (+y up), true for footprints (+y down).
  */
 export function textStrokes(
   text: string,
@@ -122,15 +126,16 @@ export function textStrokes(
   return out;
 }
 
-/** 描边线宽（纳米）：单线字体的笔画粗细，跟字高挂钩。 */
+/** Stroke width (nanometers): stroke weight of the single-stroke font, tied to cap height. */
 export function strokeWidthFor(sizeNm: number): number {
   return Math.max(1, Math.round(sizeNm * 0.1));
 }
 
 /**
- * 画不出来的字符（自带字体只有 ASCII）。
+ * Characters that cannot be drawn (the bundled font is ASCII-only).
  *
- * 预览要**说出来**：不然一个中文引脚名在图上凭空消失，看图的人会以为引脚没名字。
+ * The preview must **say so**: otherwise a pin name in Chinese silently disappears from
+ * the diagram, and the viewer would think the pin has no name.
  */
 export function unsupportedChars(text: string): string[] {
   const bad = new Set<string>();

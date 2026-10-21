@@ -1,8 +1,9 @@
-// round-trip：`extract(render(ir)) == ir`（AGENTS.md §10）。
+// Round-trip: `extract(render(ir)) == ir` (AGENTS.md §10).
 //
-// 两端各算一次"语义投影"，比的是投影不是 IR 本体——
-// IR 里有些字段（比如符号的单元数）图形上表达不出来，投影里只留能反解的部分。
-// 覆盖面用参考工程的整库（16 个封装 + 全部符号），不是几个手挑样例。
+// Each end computes a "semantic projection" once; what is compared is the projection, not the IR itself --
+// some IR fields (such as a symbol's unit count) cannot be expressed graphically, so the projection
+// keeps only the parts that can be reverse-parsed.
+// Coverage uses the whole reference project library (16 footprints plus all symbols), not a few hand-picked samples.
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -35,7 +36,7 @@ const symbolFiles = tedaFiles(join(projectRoot, "symbols", "project"));
 const footprintFiles = tedaFiles(join(projectRoot, "footprints", "project"));
 const componentFiles = tedaFiles(join(projectRoot, "components"));
 
-/** 引用某个符号的器件（引脚名与电气类型的唯一所有者，ADR-0012）。 */
+/** The part that references a given symbol (the sole owner of pin names and electrical types, ADR-0012). */
 function partForSymbol(ref: string): { pins: { number: string; name: string; type: string }[] } {
   for (const file of componentFiles) {
     const text = readFileSync(file, "utf8");
@@ -50,8 +51,8 @@ function partForSymbol(ref: string): { pins: { number: string; name: string; typ
   return { pins: [] };
 }
 
-describe("符号 round-trip", () => {
-  test("参考工程的每个符号：渲染后能反解回等价投影", () => {
+describe("symbol round-trip", () => {
+  test("every symbol in the reference project: rendering can be reverse-extracted into an equivalent projection", () => {
     expect(symbolFiles.length).toBeGreaterThan(0);
     for (const file of symbolFiles) {
       const parsed = parseSymbol(readFileSync(file, "utf8"), { file, library: "project" });
@@ -64,7 +65,7 @@ describe("符号 round-trip", () => {
     }
   });
 
-  test("引脚名与电气类型不写进符号：换个器件渲染，符号投影不变", () => {
+  test("pin names and electrical types are not baked into the symbol: rendering with a different part leaves the symbol projection unchanged", () => {
     const file = symbolFiles.find((f) => f.endsWith("bq24610rger.teda"))!;
     const parsed = parseSymbol(readFileSync(file, "utf8"), { file, library: "project" });
     expect(parsed.ok).toBe(true);
@@ -79,16 +80,16 @@ describe("符号 round-trip", () => {
     const strip = (doc: ReturnType<typeof renderSymbol>) =>
       extractSymbol(doc).pins.map((p) => ({ ...p }));
     expect(strip(withNames)).toEqual(strip(withOtherNames));
-    // 名字会出现在图上，但不在投影里（名字归器件所有）。
+    // Names do appear on the drawing, but not in the projection (names belong to the part).
     expect(toSvgText(withNames)).not.toBe(toSvgText(withOtherNames));
   });
 });
 
-describe("投影的敏感度", () => {
-  test("改一个焊盘的位置，反解结果就不同（round-trip 不是空转）", () => {
+describe("projection sensitivity", () => {
+  test("moving one pad changes the reverse-extracted result (the round-trip is not a no-op)", () => {
     const file = footprintFiles.find((f) => f.endsWith("vqfn-24-ep.teda"))!;
     const parsed = parseFootprint(readFileSync(file, "utf8"), { file, library: "project" });
-    if (!parsed.ok || !parsed.ir) throw new Error("参考封装解析失败");
+    if (!parsed.ok || !parsed.ir) throw new Error("failed to parse reference footprint");
     const before = extractFootprint(renderFootprint(parsed.ir.footprint));
     const moved = structuredClone(parsed.ir.footprint);
     moved.pads[0]!.at.x_nm += 1_000_000;
@@ -97,7 +98,7 @@ describe("投影的敏感度", () => {
     expect(after).not.toEqual(before);
   });
 
-  test("符号引脚都能在器件里找到名字（隐藏开关才可反解）", () => {
+  test("every symbol pin can find its name in the part (only then can it be reverse-extracted)", () => {
     for (const file of symbolFiles) {
       const parsed = parseSymbol(readFileSync(file, "utf8"), { file, library: "project" });
       if (!parsed.ok || !parsed.ir) continue;
@@ -112,8 +113,8 @@ describe("投影的敏感度", () => {
   });
 });
 
-describe("封装 round-trip", () => {
-  test("参考工程的每个封装：渲染后能反解回等价投影", () => {
+describe("footprint round-trip", () => {
+  test("every footprint in the reference project: rendering can be reverse-extracted into an equivalent projection", () => {
     expect(footprintFiles.length).toBeGreaterThan(0);
     for (const file of footprintFiles) {
       const parsed = parseFootprint(readFileSync(file, "utf8"), { file, library: "project" });
@@ -126,27 +127,27 @@ describe("封装 round-trip", () => {
   });
 });
 
-describe("确定性", () => {
-  test("同一份 IR 渲染两次：字节相同", () => {
+describe("determinism", () => {
+  test("rendering the same IR twice produces identical bytes", () => {
     const symbolFile = symbolFiles[0]!;
     const parsed = parseSymbol(readFileSync(symbolFile, "utf8"), {
       file: symbolFile,
       library: "project",
     });
-    if (!parsed.ok || !parsed.ir) throw new Error("参考符号解析失败");
+    if (!parsed.ok || !parsed.ir) throw new Error("failed to parse reference symbol");
     const part = partForSymbol(`project:${parsed.ir.symbol.name}`);
     const a = toSvgText(renderSymbol(parsed.ir.symbol, part));
     const b = toSvgText(renderSymbol(parsed.ir.symbol, part));
     expect(a).toBe(b);
   });
 
-  test("同一份封装 IR 渲染两次：字节相同", () => {
+  test("rendering the same footprint IR twice produces identical bytes", () => {
     const fpFile = footprintFiles[0]!;
     const parsed = parseFootprint(readFileSync(fpFile, "utf8"), {
       file: fpFile,
       library: "project",
     });
-    if (!parsed.ok || !parsed.ir) throw new Error("参考封装解析失败");
+    if (!parsed.ok || !parsed.ir) throw new Error("failed to parse reference footprint");
     const a = toSvgText(renderFootprint(parsed.ir.footprint));
     const b = toSvgText(renderFootprint(parsed.ir.footprint));
     expect(a).toBe(b);

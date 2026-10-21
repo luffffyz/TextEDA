@@ -1,14 +1,14 @@
-// `footprint` 描述解析：`.teda` 源码 → IR 分片（spec/footprint.md）。
+// `footprint` description parsing: `.teda` source → IR fragment (spec/footprint.md).
 //
-// 只做表面解析与单位换算；契约校验交给 @texteda/ir 的 schema 校验（闭集 schema），
-// 库级检查（引脚号比对、DRC）不在这层（ADR-0010 决策 3）。
+// Surface parsing and unit conversion only; contract validation is delegated to @texteda/ir schema validation (closed-set schema);
+// library-level checks (pin number comparison, DRC) do not live at this layer (ADR-0010 decision 3).
 import type { Footprint } from "@texteda/ir/footprint";
-import type { Diagnostic } from "./diagnostics.ts";
+import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
 import { lex, type Cell, type Line } from "./lexer.ts";
 import { byteCompare, naturalCompare } from "./order.ts";
 import { parseAngleMdeg, parseLengthNm, parsePpm } from "./units.ts";
 
-// 段的键集合导出给 fmt 复用：两处必须认同一个词法，不能各写一份。
+// Section key sets are exported for fmt reuse: both places must agree on one lexicon, not each write its own.
 export const SECTIONS = new Set(["pads", "graphics"]);
 export const SCALAR_KEYS = new Set(["description", "tags", "attr", "model", "field"]);
 export const PAD_KEYS = new Set([
@@ -37,9 +37,9 @@ const VERSION_RE = /^0\.([1-9][0-9]*)$/;
 const SUPPORTED_MINOR = 4;
 
 export interface ParseOptions {
-  /** 文件名（诊断用）。 */
+  /** File name (for diagnostics). */
   file: string;
-  /** 库名；IR 的 `footprint.library` 来自库目录，不来自文件内容。 */
+  /** Library name; IR's `footprint.library` comes from the library catalog, not from the file content. */
   library: string;
 }
 
@@ -56,8 +56,8 @@ type Field = NonNullable<Footprint["footprint"]["fields"]>[number];
 class Collector {
   readonly diagnostics: Diagnostic[] = [];
 
-  error(file: string, line: number, col: number, code: string, message: string): void {
-    this.diagnostics.push({ file, line, col, severity: "error", code, message });
+  error(file: string, line: number, col: number, code: DiagnosticCodeId, message: string): void {
+    this.diagnostics.push({ code, severity: "error", message, location: { file, line, col } });
   }
 
   get hasError(): boolean {
@@ -65,42 +65,41 @@ class Collector {
   }
 }
 
-/** 解析 `key=value` 尾列；未知键报错。 */
+/** Parse trailing `key=value` columns; report an error for unknown keys. Structural problems always use syntax-domain codes, separate from "invalid value". */
 function readKeyValues(
   cells: Cell[],
   allowed: Set<string>,
   file: string,
   line: number,
-  code: string,
   out: Map<string, string>,
   collector: Collector,
 ): void {
   for (const cell of cells) {
     const eq = cell.text.indexOf("=");
     if (eq <= 0) {
-      collector.error(file, line, cell.col, code, `无法识别的单元：${cell.text}`);
+      collector.error(file, line, cell.col, "syntax.invalid-token", `unrecognized cell: ${cell.text}`);
       continue;
     }
     const key = cell.text.slice(0, eq);
     if (!allowed.has(key)) {
-      collector.error(file, line, cell.col, code, `未知键：${key}`);
+      collector.error(file, line, cell.col, "syntax.unknown-field", `unknown key: ${key}`);
       continue;
     }
     if (out.has(key)) {
-      collector.error(file, line, cell.col, code, `键重复：${key}`);
+      collector.error(file, line, cell.col, "syntax.duplicate-key", `duplicate key: ${key}`);
       continue;
     }
     out.set(key, cell.text.slice(eq + 1));
   }
 }
 
-/** 解析 `x,y` 形式的数字列表（长度）。 */
+/** Parse a list of numbers in `x,y` form (lengths). */
 function readLengthList(
   text: string,
   file: string,
   line: number,
   col: number,
-  code: string,
+  code: DiagnosticCodeId,
   collector: Collector,
 ): number[] | null {
   const parts = text.split(",");
@@ -123,10 +122,10 @@ function parsePadRow(
   collector: Collector,
 ): Pad | null {
   if (cells.length < 7) {
-    collector.error(file, line, cells[0]?.col ?? 1, "F112", "pads 行至少 7 列：number type shape x y w h");
+    collector.error(file, line, cells[0]?.col ?? 1, "syntax.row-too-short", "a pads row needs at least 7 columns: number type shape x y w h");
     return null;
   }
-  // 上面已校验列数；这里按下标取，前 7 列必定存在。
+  // Column count already validated above; indexing here, the first 7 columns are guaranteed to exist.
   const firstCell = cells[0]!;
   const number = cells[0]!;
   const type = cells[1]!;
@@ -136,20 +135,20 @@ function parsePadRow(
   const w = cells[5]!;
   const h = cells[6]!;
   if (!PIN_NUMBER_RE.test(number.text)) {
-    collector.error(file, line, number.col, "F200", `焊盘号不合法：${number.text}`);
+    collector.error(file, line, number.col, "value.pad-number-invalid", `invalid pad number: ${number.text}`);
     return null;
   }
   if (!PAD_TYPES.has(type.text)) {
-    collector.error(file, line, type.col, "F200", `未知焊盘类型：${type.text}`);
+    collector.error(file, line, type.col, "value.pad-type-unknown", `unknown pad type: ${type.text}`);
     return null;
   }
   if (!PAD_SHAPES.has(shape.text)) {
-    collector.error(file, line, shape.col, "F200", `未知焊盘形状：${shape.text}`);
+    collector.error(file, line, shape.col, "value.pad-shape-unknown", `unknown pad shape: ${shape.text}`);
     return null;
   }
   const nums: number[] = [];
   for (const cell of [x, y, w, h]) {
-    const parsed = parseLengthNm(cell.text, file, line, cell.col, "mm", "F200");
+    const parsed = parseLengthNm(cell.text, file, line, cell.col, "mm", "value.pad-size-invalid");
     if (!parsed.ok) {
       if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
       return null;
@@ -159,12 +158,12 @@ function parsePadRow(
   const sizeX = nums[2]!;
   const sizeY = nums[3]!;
   if (sizeX <= 0 || sizeY <= 0) {
-    collector.error(file, line, w.col, "F200", "焊盘尺寸必须为正");
+    collector.error(file, line, w.col, "value.pad-size-invalid", "pad size must be positive");
     return null;
   }
 
   const kv = new Map<string, string>();
-  readKeyValues(cells.slice(7), PAD_KEYS, file, line, "F201", kv, collector);
+  readKeyValues(cells.slice(7), PAD_KEYS, file, line, kv, collector);
 
   const pad: Pad = {
     number: number.text,
@@ -177,7 +176,7 @@ function parsePadRow(
 
   const rot = kv.get("rot");
   if (rot !== undefined) {
-    const parsed = parseAngleMdeg(rot, file, line, firstCell.col, "deg", "F201");
+    const parsed = parseAngleMdeg(rot, file, line, firstCell.col, "deg", "value.pad-attribute-invalid");
     if (!parsed.ok) {
       if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
     } else {
@@ -186,27 +185,27 @@ function parsePadRow(
   }
   const drill = kv.get("drill");
   if (drill !== undefined) {
-    const parsed = parseLengthNm(drill, file, line, firstCell.col, "mm", "F201");
+    const parsed = parseLengthNm(drill, file, line, firstCell.col, "mm", "value.pad-attribute-invalid");
     if (!parsed.ok) {
       if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
     } else {
       pad.drill = { x_nm: parsed.value, y_nm: parsed.value };
     }
   } else if (type.text === "th") {
-    collector.error(file, line, firstCell.col, "F201", "通孔焊盘必须有 drill=");
+    collector.error(file, line, firstCell.col, "value.pad-attribute-invalid", "a through-hole pad must have drill=");
   }
   const rratio = kv.get("rratio");
   if (rratio !== undefined) {
     if (shape.text !== "roundrect") {
-      collector.error(file, line, firstCell.col, "F202", "rratio 只适用于 roundrect");
+      collector.error(file, line, firstCell.col, "value.pad-ratio-invalid", "rratio only applies to roundrect");
     }
-    const parsed = parsePpm(rratio, file, line, firstCell.col, "F202");
+    const parsed = parsePpm(rratio, file, line, firstCell.col, "value.pad-ratio-invalid");
     if (parsed.ok) pad.roundrect_ratio_ppm = parsed.value;
     else collector.diagnostics.push(parsed.diagnostic);
   }
   const mask = kv.get("mask");
   if (mask !== undefined) {
-    const parsed = parseLengthNm(mask, file, line, firstCell.col, "mm", "F201");
+    const parsed = parseLengthNm(mask, file, line, firstCell.col, "mm", "value.pad-attribute-invalid");
     if (!parsed.ok) {
       if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
     } else {
@@ -215,7 +214,7 @@ function parsePadRow(
   }
   const paste = kv.get("paste");
   if (paste !== undefined) {
-    const parsed = parseLengthNm(paste, file, line, firstCell.col, "mm", "F201");
+    const parsed = parseLengthNm(paste, file, line, firstCell.col, "mm", "value.pad-attribute-invalid");
     if (!parsed.ok) {
       if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
     } else {
@@ -225,14 +224,14 @@ function parsePadRow(
   const zone = kv.get("zone");
   if (zone !== undefined) {
     if (!ZONE_KINDS.has(zone)) {
-      collector.error(file, line, firstCell.col, "F203", `未知连接方式：${zone}`);
+      collector.error(file, line, firstCell.col, "value.pad-connection-unknown", `unknown connection type: ${zone}`);
     } else {
       pad.zone_connect = zone as NonNullable<Pad["zone_connect"]>;
     }
   }
   const thermalW = kv.get("thermal_w");
   if (thermalW !== undefined) {
-    const parsed = parseLengthNm(thermalW, file, line, firstCell.col, "mm", "F201");
+    const parsed = parseLengthNm(thermalW, file, line, firstCell.col, "mm", "value.pad-attribute-invalid");
     if (!parsed.ok) {
       if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
     } else {
@@ -241,7 +240,7 @@ function parsePadRow(
   }
   const thermalG = kv.get("thermal_g");
   if (thermalG !== undefined) {
-    const parsed = parseLengthNm(thermalG, file, line, firstCell.col, "mm", "F201");
+    const parsed = parseLengthNm(thermalG, file, line, firstCell.col, "mm", "value.pad-attribute-invalid");
     if (!parsed.ok) {
       if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
     } else {
@@ -253,7 +252,7 @@ function parsePadRow(
     const list = layers.split(",").filter((l) => l.length > 0);
     const [first, ...rest] = list;
     if (first === undefined || list.some((l) => !LAYER_RE.test(l))) {
-      collector.error(file, line, firstCell.col, "F204", `层名不合法：${layers}`);
+      collector.error(file, line, firstCell.col, "value.layer-name-invalid", `invalid layer name: ${layers}`);
     } else {
       pad.layers = [first, ...rest];
     }
@@ -268,7 +267,7 @@ function parseGraphicRow(
   collector: Collector,
 ): Graphic | null {
   if (cells.length < 3) {
-    collector.error(file, line, cells[0]?.col ?? 1, "F112", "graphics 行至少 3 列：kind layer geometry");
+    collector.error(file, line, cells[0]?.col ?? 1, "syntax.row-too-short", "a graphics row needs at least 3 columns: kind layer geometry");
     return null;
   }
   const firstCell = cells[0]!;
@@ -276,14 +275,14 @@ function parseGraphicRow(
   const layerCell = cells[1]!;
   const geometryCell = cells[2]!;
   if (!GRAPHIC_KINDS.has(kindCell.text)) {
-    collector.error(file, line, kindCell.col, "F300", `未知图形种类：${kindCell.text}`);
+    collector.error(file, line, kindCell.col, "value.graphic-invalid", `unknown graphic kind: ${kindCell.text}`);
     return null;
   }
   if (!LAYER_RE.test(layerCell.text)) {
-    collector.error(file, line, layerCell.col, "F300", `层名不合法：${layerCell.text}`);
+    collector.error(file, line, layerCell.col, "value.graphic-invalid", `invalid layer name: ${layerCell.text}`);
     return null;
   }
-  const values = readLengthList(geometryCell.text, file, line, geometryCell.col, "F300", collector);
+  const values = readLengthList(geometryCell.text, file, line, geometryCell.col, "value.graphic-invalid", collector);
   if (values === null) return null;
 
   const graphic: Graphic = {
@@ -297,8 +296,8 @@ function parseGraphicRow(
         file,
         line,
         geometryCell.col,
-        "F300",
-        `${kindCell.text} 的几何需要 ${count} 个数，得到 ${values.length}`,
+        "value.graphic-invalid",
+        `${kindCell.text} geometry needs ${count} numbers, got ${values.length}`,
       );
       return false;
     }
@@ -316,7 +315,7 @@ function parseGraphicRow(
     case "circle": {
       if (!need(3)) return null;
       if (values[2]! <= 0) {
-        collector.error(file, line, geometryCell.col, "F300", "圆半径必须为正");
+        collector.error(file, line, geometryCell.col, "value.graphic-invalid", "circle radius must be positive");
         return null;
       }
       graphic.center = { x_nm: values[0]!, y_nm: values[1]! };
@@ -332,7 +331,7 @@ function parseGraphicRow(
     }
     case "poly": {
       if (values.length < 6 || values.length % 2 !== 0) {
-        collector.error(file, line, geometryCell.col, "F300", "poly 至少 3 个点（x,y 交替）");
+        collector.error(file, line, geometryCell.col, "value.graphic-invalid", "poly needs at least 3 points (x,y alternating)");
         return null;
       }
       const points = [];
@@ -346,10 +345,10 @@ function parseGraphicRow(
   }
 
   const kv = new Map<string, string>();
-  readKeyValues(cells.slice(3), GRAPHIC_KEYS, file, line, "F301", kv, collector);
+  readKeyValues(cells.slice(3), GRAPHIC_KEYS, file, line, kv, collector);
   const width = kv.get("width");
   if (width !== undefined) {
-    const parsed = parseLengthNm(width, file, line, firstCell.col, "mm", "F301");
+    const parsed = parseLengthNm(width, file, line, firstCell.col, "mm", "value.graphic-attribute-invalid");
     if (!parsed.ok) {
       if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
     } else {
@@ -359,9 +358,9 @@ function parseGraphicRow(
   const fill = kv.get("fill");
   if (fill !== undefined) {
     if (kindCell.text === "line" || kindCell.text === "arc") {
-      collector.error(file, line, firstCell.col, "F301", "fill 只适用于 rect/circle/poly");
+      collector.error(file, line, firstCell.col, "value.graphic-attribute-invalid", "fill only applies to rect/circle/poly");
     } else if (fill !== "solid" && fill !== "none") {
-      collector.error(file, line, firstCell.col, "F301", `未知填充：${fill}`);
+      collector.error(file, line, firstCell.col, "value.graphic-attribute-invalid", `unknown fill: ${fill}`);
     } else {
       graphic.filled = fill === "solid";
     }
@@ -382,7 +381,7 @@ function graphicCoords(g: Graphic): number[] {
   }
 }
 
-/** 图形的 canonical 顺序：kind → layer → 坐标逐项数值。 */
+/** Canonical order of graphics: kind → layer → numeric coordinates item by item. */
 function compareGraphics(a: Graphic, b: Graphic): number {
   const kind = byteCompare(a.kind, b.kind);
   if (kind !== 0) return kind;
@@ -397,7 +396,7 @@ function compareGraphics(a: Graphic, b: Graphic): number {
   return ca.length - cb.length;
 }
 
-/** 解析一个 `footprint` 文件。 */
+/** Parse a `footprint` file. */
 export function parseFootprint(text: string, options: ParseOptions): ParseResult {
   const collector = new Collector();
   const { file } = options;
@@ -411,43 +410,43 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
         index += 1;
         continue;
       }
-      index += 1; // 消费掉这一行
+      index += 1; // consume this line
       return line;
     }
     return null;
   };
 
-  // 文件头
+  // file header
   const versionLine = nextMeaningful();
   if (!versionLine || versionLine.cells.length !== 2 || versionLine.cells[0]!.text !== "version") {
-    collector.error(file, versionLine?.number ?? 1, 1, "F113", "第一行必须是 version <ver>");
+    collector.error(file, versionLine?.number ?? 1, 1, "syntax.header-invalid", "the first line must be version <ver>");
     return { ok: false, diagnostics: collector.diagnostics };
   }
   const version = versionLine.cells[1]!.text;
   const versionMatch = VERSION_RE.exec(version);
   if (!versionMatch) {
-    collector.error(file, versionLine.number, versionLine.cells[1]!.col, "F113", `版本号不合法：${version}`);
+    collector.error(file, versionLine.number, versionLine.cells[1]!.col, "format.invalid-version", `invalid version number: ${version}`);
   } else if (Number(versionMatch[1]) > SUPPORTED_MINOR) {
     collector.error(
       file,
       versionLine.number,
       versionLine.cells[1]!.col,
-      "F113",
-      `版本 ${version} 高于本工具支持的 0.${SUPPORTED_MINOR}`,
+      "format.unsupported-version",
+      `version ${version} is higher than the supported 0.${SUPPORTED_MINOR}`,
     );
   }
 
   const typeLine = nextMeaningful();
   if (!typeLine || typeLine.cells.length !== 2 || typeLine.cells[0]!.text !== "footprint") {
-    collector.error(file, typeLine?.number ?? 1, 1, "F113", "第二行必须是 footprint <id>");
+    collector.error(file, typeLine?.number ?? 1, 1, "syntax.header-invalid", "the second line must be footprint <id>");
     return { ok: false, diagnostics: collector.diagnostics };
   }
   const name = typeLine.cells[1]!.text;
   if (!FOOTPRINT_ID_RE.test(name)) {
-    collector.error(file, typeLine.number, typeLine.cells[1]!.col, "F113", `封装名不合法：${name}`);
+    collector.error(file, typeLine.number, typeLine.cells[1]!.col, "syntax.invalid-token", `invalid footprint name: ${name}`);
   }
 
-  // 先攒草稿，最后再组装成闭集契约要求的形状（pads 至少一个）。
+  // Build a draft first, then assemble into the shape required by the closed-set contract (at least one pad).
   const body: Omit<Footprint["footprint"], "pads"> & {
     pads?: Footprint["footprint"]["pads"];
   } = {
@@ -472,18 +471,18 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
         continue;
       }
       if (section === null) {
-        collector.error(file, line.number, line.cells[0]!.col, "F110", `未知段：${head}`);
+        collector.error(file, line.number, line.cells[0]!.col, "syntax.unknown-section", `unknown section: ${head}`);
         continue;
       }
-      collector.error(file, line.number, line.cells[0]!.col, "F112", "段内行至少 2 个单元格");
+      collector.error(file, line.number, line.cells[0]!.col, "syntax.row-too-short", "a row in a section needs at least 2 cells");
       continue;
     }
 
     if (section === null) {
-      // 标量
+      // scalar
       const key = line.cells[0]!.text;
       if (!SCALAR_KEYS.has(key)) {
-        collector.error(file, line.number, line.cells[0]!.col, "F111", `未知标量：${key}`);
+        collector.error(file, line.number, line.cells[0]!.col, "syntax.unknown-field", `unknown scalar: ${key}`);
         continue;
       }
       const rest = line.cells.slice(1);
@@ -494,14 +493,14 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
           break;
         case "tags": {
           const tags = trailing(0).split(/\s+/).filter((t) => t.length > 0);
-          // 是集合：排序后再进 IR，IR 就只依赖语义、不依赖源里的书写顺序。
+          // It is a set: sort before entering the IR, so the IR depends only on semantics, not on the spelling order in the source.
           if (tags.length > 0) body.tags = [...tags].sort(byteCompare);
           break;
         }
         case "attr": {
           const attr = trailing(0);
           if (!ATTRS.has(attr)) {
-            collector.error(file, line.number, line.cells[1]!.col, "F111", `未知 attr：${attr}`);
+            collector.error(file, line.number, line.cells[1]!.col, "syntax.unknown-field", `unknown attr: ${attr}`);
           } else {
             const attrValue = attr as NonNullable<Footprint["footprint"]["attr"]>[number];
             body.attr = [attrValue];
@@ -511,15 +510,15 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
         case "model": {
           const path = rest[0]?.text ?? "";
           if (rest.length === 0) {
-            collector.error(file, line.number, line.cells[0]!.col, "F400", "model 需要路径");
+            collector.error(file, line.number, line.cells[0]!.col, "library.model-invalid", "model requires a path");
             break;
           }
           const kv = new Map<string, string>();
-          readKeyValues(rest.slice(1), MODEL_KEYS, file, line.number, "F400", kv, collector);
+          readKeyValues(rest.slice(1), MODEL_KEYS, file, line.number, kv, collector);
           const entry: NonNullable<Footprint["footprint"]["model3d"]> = { path };
           const offset = kv.get("offset");
           if (offset !== undefined) {
-            const values = readLengthList(offset, file, line.number, rest[0]!.col, "F400", collector);
+            const values = readLengthList(offset, file, line.number, rest[0]!.col, "library.model-invalid", collector);
             if (values && values.length === 3) {
               entry.offset_nm = [values[0]!, values[1]!, values[2]!];
             }
@@ -530,7 +529,7 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
             const ppm: number[] = [];
             let ok = parts.length === 3;
             for (const part of parts) {
-              const parsedPpm = parsePpm(part, file, line.number, rest[0]!.col, "F400");
+              const parsedPpm = parsePpm(part, file, line.number, rest[0]!.col, "library.model-invalid");
               if (!parsedPpm.ok) {
                 ok = false;
                 collector.diagnostics.push(parsedPpm.diagnostic);
@@ -538,7 +537,7 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
               }
               if (parsedPpm.value <= 0) {
                 ok = false;
-                collector.error(file, line.number, rest[0]!.col, "F400", `缩放必须是正数：${part}`);
+                collector.error(file, line.number, rest[0]!.col, "library.model-invalid", `scale must be a positive number: ${part}`);
                 continue;
               }
               ppm.push(parsedPpm.value);
@@ -546,13 +545,13 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
             if (ok && ppm.length === 3) {
               entry.scale_ppm = [ppm[0]!, ppm[1]!, ppm[2]!];
             } else if (parts.length !== 3) {
-              collector.error(file, line.number, rest[0]!.col, "F400", `scale 需要 3 个数：${scale}`);
+              collector.error(file, line.number, rest[0]!.col, "library.model-invalid", `scale requires 3 numbers: ${scale}`);
             }
           }
           const rot = kv.get("rot");
           if (rot !== undefined) {
             const values = rot.split(",");
-            const parsed = values.map((v) => parseAngleMdeg(v, file, line.number, rest[0]!.col, "deg", "F400"));
+            const parsed = values.map((v) => parseAngleMdeg(v, file, line.number, rest[0]!.col, "deg", "library.model-invalid"));
             const okAngles = parsed.filter((p) => p.ok);
             if (okAngles.length === 3) {
               entry.rotation_mdeg = [okAngles[0]!.value, okAngles[1]!.value, okAngles[2]!.value];
@@ -567,13 +566,13 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
         case "field": {
           const fieldName = rest[0]?.text ?? "";
           if (rest.length === 0) {
-            collector.error(file, line.number, line.cells[0]!.col, "F400", "field 需要属性名");
+            collector.error(file, line.number, line.cells[0]!.col, "library.field-invalid", "field requires a name");
             break;
           }
           if (fields.some((f) => f.name === fieldName)) {
-            collector.error(file, line.number, rest[0]!.col, "F400", `属性名重复：${fieldName}`);
+            collector.error(file, line.number, rest[0]!.col, "library.field-invalid", `duplicate field name: ${fieldName}`);
           }
-          // 尾列里形如 key=value 的先吃掉，剩下的（行尾剩余文本）是值
+          // Consume key=value pairs from the trailing columns first; the rest (remaining text at line end) is the value
           let cursor = 1;
           const kv = new Map<string, string>();
           while (cursor < rest.length) {
@@ -588,7 +587,7 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
           const field: Field = { name: fieldName, value: trailing(cursor) };
           const at = kv.get("at");
           if (at !== undefined) {
-            const values = readLengthList(at, file, line.number, rest[0]!.col, "F400", collector);
+            const values = readLengthList(at, file, line.number, rest[0]!.col, "library.field-invalid", collector);
             if (values && values.length === 2) {
               field.at = { x_nm: values[0]!, y_nm: values[1]! };
             }
@@ -602,14 +601,14 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
           if (size !== undefined || thickness !== undefined) {
             const effects: NonNullable<Field["effects"]> = {};
             if (size !== undefined) {
-              const values = readLengthList(size, file, line.number, rest[0]!.col, "F400", collector);
+              const values = readLengthList(size, file, line.number, rest[0]!.col, "library.field-invalid", collector);
               if (values && values.length === 2) {
                 effects.width_nm = values[0]!;
                 effects.height_nm = values[1]!;
               }
             }
             if (thickness !== undefined) {
-              const parsed = parseLengthNm(thickness, file, line.number, rest[0]!.col, "mm", "F400");
+              const parsed = parseLengthNm(thickness, file, line.number, rest[0]!.col, "mm", "library.field-invalid");
               if (parsed.ok) effects.thickness_nm = parsed.value;
               else if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
             }
@@ -622,7 +621,7 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
       continue;
     }
 
-    // 段内行
+    // rows inside a section
     if (section === "pads") {
       const pad = parsePadRow(line.cells, file, line.number, collector);
       if (pad) pads.push(pad);
@@ -633,17 +632,17 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
   }
 
   if (pads.length === 0) {
-    collector.error(file, 1, 1, "F210", "pads 段不能为空");
+    collector.error(file, 1, 1, "library.pads-empty", "the pads section must not be empty");
   }
   const seen = new Set<string>();
   for (const pad of pads) {
     if (seen.has(pad.number)) {
-      collector.error(file, 1, 1, "F211", `焊盘号重复：${pad.number}`);
+      collector.error(file, 1, 1, "library.duplicate-pad-number", `duplicate pad number: ${pad.number}`);
     }
     seen.add(pad.number);
   }
 
-  // IR 是语义的函数：焊盘按号自然序、图形按 (kind, layer, 坐标)、字段按名排，不保留源文件顺序。
+  // The IR is a function of semantics: pads sorted by natural number order, graphics by (kind, layer, coordinates), fields by name; source file order is not preserved.
   pads.sort((a, b) => naturalCompare(a.number, b.number));
   graphics.sort(compareGraphics);
   fields.sort((a, b) => byteCompare(a.name, b.name));

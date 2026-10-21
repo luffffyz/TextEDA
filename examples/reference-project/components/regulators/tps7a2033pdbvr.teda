@@ -1,9 +1,9 @@
 version 0.1
 component tps7a2033pdbvr
 
-# 3.3V/300mA LDO，SOT-23-5 (DBV)。依据 TI SBVS348H (TPS7A20) 第 4 节 Pin Functions：
-# SOT-23 封装 IN=1 / GND=2 / EN=3 / N/C=4 / OUT=5。
-# KiCad 官方库无 TPS7A20 符号，此处用引脚完全一致的 TPS7A02 符号作视图。
+# 3.3V/300mA LDO, SOT-23-5 (DBV). Per TI SBVS348H (TPS7A20) section 4 Pin Functions:
+# SOT-23 package: IN=1 / GND=2 / EN=3 / N/C=4 / OUT=5.
+# KiCad official library has no TPS7A20 symbol; the pin-identical TPS7A02 symbol is used here as the view.
 mpn          TPS7A2033PDBVR
 manufacturer Texas Instruments
 category     regulator

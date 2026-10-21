@@ -3,7 +3,7 @@ symbol r
 
 description Resistor, 2-pin generic view
 tags passive resistor
-# 通用电阻视图：矩形体 + 左右各一脚。多个器件共享（0402 / 2010 等）。
+# Generic resistor view: rectangular body + one pin on each side. Shared by several components (0402 / 2010 etc.).
 field Reference at=0,2.54 U
 field Value at=0,-2.54 r
 

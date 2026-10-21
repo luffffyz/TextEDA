@@ -3,10 +3,10 @@ symbol dc-dc-soic8
 
 description 8-pin step-down converter with exposed pad in SOIC-8
 tags buck dc-dc regulator
-# 摆位规则：4/5 在左、1/2/3/8 在右、7 在上、6/9 在下；引脚连接点在体边缘外 2.54。
-# 同侧按引脚号自然序：右侧自下而上 1、2、3、8；左侧自下而上 4、5；下方自左而右 6、9。
-# 体宽按 2 脚/侧最小 5.08、体高按 4 脚/侧 10.16；体宽放大到 25.4 给 VSENSE 等长引脚名与下方
-# GND/PAD 的竖排引脚名留净空（仍为 1.27 的倍数）。
+# Placement rules: 4/5 on the left, 1/2/3/8 on the right, 7 on top, 6/9 on bottom; pin connection points sit 2.54 outside the body edge.
+# Same-side pins follow natural pin-number order: right side bottom to top 1, 2, 3, 8; left side bottom to top 4, 5; bottom side left to right 6, 9.
+# Body width is the 2-pin/side minimum 5.08, body height the 4-pin/side 10.16; body width is widened to 25.4 to leave clearance for long pin
+# names like VSENSE and for the vertical pin names of GND/PAD below (still multiples of 1.27).
 field Reference at=0,10.16 U
 field Value at=0,-10.16 dc-dc-soic8
 

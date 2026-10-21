@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:texteda:ir:0.1:component",
-  "title": "textEDA IR v0.1 — component 分片",
-  "description": "一个 .teda component 文件的语义投影。引脚在 IR 里必须已物化：内联的照抄；`symbol` 指向自带引脚事实的第三方库、文件省略 `pins` 时由解析器从库展开，`pins_source` 记录来源。自建 `symbol` 只存视图、不带引脚事实（ADR-0012），所以指向自建符号的器件必须内联 `pins`。",
+  "title": "textEDA IR v0.1 — component shard",
+  "description": "Semantic projection of one .teda component file. Pins must already be materialized in the IR: inline pins are copied verbatim; when `symbol` points to a third-party library that carries pin facts and the file omits `pins`, the parser expands them from the library and `pins_source` records the source. A self-built `symbol` stores only the view, without pin facts (ADR-0012), so a component pointing at a self-built symbol must inline `pins`.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,16 +11,20 @@
   ],
   "properties": {
     "ir_version": {
-      "$ref": "urn:texteda:ir:0.1:common#/$defs/ir_version"
+      "$ref": "urn:texteda:ir:0.1:common#/$defs/ir_version",
+      "description": "IR contract version, currently always 0.1."
     },
     "format": {
-      "$ref": "urn:texteda:ir:0.1:common#/$defs/format_version"
+      "$ref": "urn:texteda:ir:0.1:common#/$defs/format_version",
+      "description": "Language version of the .teda file that produced this shard; see teda.md §13."
     },
     "source": {
-      "$ref": "urn:texteda:ir:0.1:common#/$defs/source_ref"
+      "$ref": "urn:texteda:ir:0.1:common#/$defs/source_ref",
+      "description": "Source-file location: path relative to the project root plus an optional line number."
     },
     "component": {
       "type": "object",
+      "description": "The component itself: id, classification, library references and the materialized pin table.",
       "additionalProperties": false,
       "required": [
         "id",
@@ -33,41 +37,47 @@
       "properties": {
         "id": {
           "$ref": "urn:texteda:ir:0.1:common#/$defs/slug",
-          "description": "等于文件名（去扩展名），不是相对路径。"
+          "description": "Equals the file name without the extension; not a relative path."
         },
         "mpn": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "Manufacturer part number; may be omitted for generic passives whose params include a value."
         },
         "manufacturer": {
-          "type": "string"
+          "type": "string",
+          "description": "Manufacturer name."
         },
         "category": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$",
-          "description": "开放取值集：mcu / resistor / capacitor / inductor / led / diode / mosfet_p / regulator / battery_charger / …。只做分类与免 mpn 判定。"
+          "description": "Open value set: mcu / resistor / capacitor / inductor / led / diode / mosfet_p / regulator / battery_charger / …. Used only for classification and the mpn-exemption check."
         },
         "package": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "Package name, e.g. SOT-23-5, LQFP-100."
         },
         "datasheet": {
-          "type": "string"
+          "type": "string",
+          "description": "Datasheet URL."
         },
         "lcsc": {
           "type": "string",
           "pattern": "^C[0-9]+$",
-          "description": "嘉立创商城料号，见 ADR-0006。"
+          "description": "LCSC part number; see ADR-0006."
         },
         "symbol": {
-          "$ref": "urn:texteda:ir:0.1:common#/$defs/library_ref"
+          "$ref": "urn:texteda:ir:0.1:common#/$defs/library_ref",
+          "description": "Symbol library reference lib:name; a self-built symbol stores only the view, without pin facts."
         },
         "footprint": {
-          "$ref": "urn:texteda:ir:0.1:common#/$defs/library_ref"
+          "$ref": "urn:texteda:ir:0.1:common#/$defs/library_ref",
+          "description": "Footprint library reference lib:name; geometry is a fact of the component library and does not enter the board description."
         },
         "params": {
           "type": "array",
-          "description": "声明 instances 行允许的额外列，顺序即列序；required 必须排在 optional 之前（teda.md §12）。",
+          "description": "Declares the extra columns allowed in instances rows; the order is the column order; required must precede optional (teda.md §12).",
           "items": {
             "$ref": "#/$defs/param_decl"
           }
@@ -75,6 +85,7 @@
         "pins": {
           "type": "array",
           "minItems": 1,
+          "description": "Pin table; pin numbers are unique and form the key that aligns with the footprint.",
           "items": {
             "$ref": "#/$defs/pin"
           }
@@ -84,12 +95,13 @@
             "inline",
             "symbol"
           ],
-          "description": "inline = 文件里有 pins 段（内联优先）；symbol = 文件省略 pins，引脚从自带引脚事实的第三方库解析（自建 symbol 不带引脚事实，不能成为这个来源）。两者同时存在时取 inline，差异由校验报告输出，不进 IR。"
+          "description": "inline = the file has a pins section (inline wins); symbol = the file omits pins and the pins are resolved from a third-party library that carries pin facts (a self-built symbol has no pin facts and cannot be this source). When both are present, inline is taken; the difference is reported by validation and does not enter the IR."
         }
       }
     },
     "note": {
-      "$ref": "urn:texteda:ir:0.1:common#/$defs/note"
+      "$ref": "urn:texteda:ir:0.1:common#/$defs/note",
+      "description": "Free text; canonical JSON has no comments, this is the substitute."
     }
   },
   "$defs": {
@@ -104,13 +116,16 @@
       "properties": {
         "name": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$"
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Parameter name, matching the column name declared in the component's params section."
         },
         "type": {
-          "$ref": "#/$defs/param_type"
+          "$ref": "#/$defs/param_type",
+          "description": "Parameter type; determines the unit of this column's integer values."
         },
         "required": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether this column is required; required columns must precede optional ones."
         }
       }
     },
@@ -129,7 +144,7 @@
         "integer",
         "string"
       ],
-      "description": "参数类型决定 IR 里的整数单位：resistance→µΩ、capacitance→fF、inductance→pH、voltage→µV、current→nA、power→µW、frequency→mHz、length→nm、temperature→m°C、percent→ppm、integer→1。见 ADR-0008 决策 4。"
+      "description": "The parameter type determines the integer unit in the IR: resistance→µΩ, capacitance→fF, inductance→pH, voltage→µV, current→nA, power→µW, frequency→mHz, length→nm, temperature→m°C, percent→ppm, integer→1. See ADR-0008 decision 4."
     },
     "pin": {
       "type": "object",
@@ -142,20 +157,21 @@
       "properties": {
         "number": {
           "$ref": "urn:texteda:ir:0.1:common#/$defs/pin_number",
-          "description": "与封装 pad 对应的键；是身份的一部分。"
+          "description": "Key matching the footprint pad; part of the identity."
         },
         "name": {
           "type": "string",
           "pattern": "^[A-Za-z0-9_+-]+$",
-          "description": "功能名，人可读；复用功能写在 alternates。"
+          "description": "Human-readable function name; reused functions go in alternates."
         },
         "electrical_type": {
-          "$ref": "#/$defs/electrical_type"
+          "$ref": "#/$defs/electrical_type",
+          "description": "Pin electrical type, e.g. input, power_in, passive."
         },
         "unit": {
           "type": "integer",
           "minimum": 1,
-          "description": "多单元器件的单元号；缺省 1。"
+          "description": "Unit number of a multi-unit device; defaults to 1."
         },
         "alternates": {
           "type": "array",
@@ -163,7 +179,7 @@
             "type": "string",
             "pattern": "^[A-Za-z0-9_+-]+$"
           },
-          "description": "复用功能名，如 GPIO0/BOOT 里的 BOOT。"
+          "description": "Alternate function name, e.g. BOOT in GPIO0/BOOT."
         }
       }
     },

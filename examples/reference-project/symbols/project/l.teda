@@ -3,7 +3,7 @@ symbol l
 
 description Inductor, 2-pin generic view
 tags inductor passive
-# 通用电感视图：两段半圆弧。多个器件共享（15uH / 6.8uH 等）。
+# Generic inductor view: two semicircular arcs. Shared by several components (15uH / 6.8uH etc.).
 field Reference at=0,2.54 U
 field Value at=0,-2.54 l
 

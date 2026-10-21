@@ -1,7 +1,7 @@
-// 文字排版的契约：字画成**路径**，不靠系统字体。
+// The typography contract: glyphs are drawn as **paths**, never relying on system fonts.
 //
-// 这一层一旦退回去用 `<text>`，没装字体的机器上预览就只剩图形——
-// 所以"没有 <text> 元素"是硬约束，不是实现细节。
+// If this layer ever falls back to `<text>`, previews on machines without the font
+// would degrade to shapes only -- so "no <text> elements" is a hard constraint, not an implementation detail.
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -24,14 +24,14 @@ const xs = (text: string, anchor: "start" | "middle" | "end") =>
 const ys = (text: string, yDown: boolean) =>
   strokesOf(text, yDown).flatMap((s) => s.points.map((p) => p.y));
 
-describe("字形排版", () => {
-  test("字高就是 sizeNm：大写字框高度等于字高", () => {
+describe("glyph layout", () => {
+  test("cap height equals sizeNm: the height of the uppercase box is the glyph size", () => {
     const y = ys("H", false);
     expect(Math.max(...y) - Math.min(...y)).toBe(SIZE);
   });
 
-  test("朝向不同，降部的方向相反：符号（+y 向上）降部在下，封装（+y 向下）降部在上", () => {
-    // 'g' 有降部：符号里降部落在锚点下方（模型 y 更小），封装里落在上方（模型 y 更大）。
+  test("orientation flips descender direction: in a symbol (+y up) the descender points down, in a footprint (+y down) it points up", () => {
+    // 'g' has a descender: in a symbol it lands below the anchor (smaller model y), in a footprint above it (larger model y).
     const up = ys("g", false);
     const down = ys("g", true);
     expect(Math.min(...up)).toBeLessThan(-SIZE / 2);
@@ -40,44 +40,44 @@ describe("字形排版", () => {
     expect(Math.min(...down)).toBeGreaterThan(-SIZE / 2);
   });
 
-  test("对齐方式决定横向起点：start 贴左、middle 居中、end 贴右", () => {
+  test("alignment sets the horizontal start: start is flush left, middle is centered, end is flush right", () => {
     const width = textAdvance("ABC", SIZE);
-    // start：第一个字形从锚点往右排（左边距留在字形自身）。
+    // start: the first glyph starts at the anchor and extends right (the left side bearing belongs to the glyph itself).
     expect(Math.min(...xs("ABC", "start"))).toBeGreaterThanOrEqual(0);
     expect(Math.min(...xs("ABC", "start"))).toBeLessThan(SIZE);
     expect(Math.max(...xs("ABC", "start"))).toBeLessThanOrEqual(width);
-    // middle：整串以锚点为中心。
+    // middle: the whole string is centered on the anchor.
     expect(Math.min(...xs("ABC", "middle"))).toBeLessThan(0);
     expect(Math.max(...xs("ABC", "middle"))).toBeGreaterThan(0);
-    // end：整串以锚点收尾。
+    // end: the whole string ends at the anchor.
     expect(Math.max(...xs("ABC", "end"))).toBeLessThanOrEqual(0);
     expect(Math.max(...xs("ABC", "end"))).toBeGreaterThan(-SIZE);
   });
 
-  test("字宽随字高线性变化", () => {
+  test("advance width scales linearly with glyph size", () => {
     expect(textAdvance("ABC", SIZE * 2)).toBe(textAdvance("ABC", SIZE) * 2);
   });
 
-  test("画不出来的字符要点名：自带字体只有 ASCII", () => {
+  test("characters that cannot be drawn are named: the built-in font covers only ASCII", () => {
     expect(unsupportedChars("IN")).toEqual([]);
-    expect(unsupportedChars("稳压器")).toEqual(["稳", "压", "器"]);
+    expect(unsupportedChars("\u7a33\u538b\u5668")).toEqual(["\u7a33", "\u538b", "\u5668"]);
   });
 
-  test("字与字之间留得开：步进不小于字形宽度（字母不压在一起）", () => {
-    // 三个 'M'（最宽的字形之一）排下来的宽度要大于单个 'M' 的墨迹宽度。
+  test("glyphs are spaced apart: the step is no smaller than a glyph's advance (letters do not collide)", () => {
+    // Three 'M's (one of the widest glyphs) laid out end to end must be wider than a single 'M'.
     const one = Math.max(...xs("M", "start")) - Math.min(...xs("M", "start"));
     const three = Math.max(...xs("MMM", "start")) - Math.min(...xs("MMM", "start"));
     expect(three).toBeGreaterThan(one * 2);
   });
 });
 
-describe("SVG 输出不依赖系统字体", () => {
-  test("没有 <text> 元素：文字画成路径", () => {
+describe("SVG output does not depend on system fonts", () => {
+  test("no <text> elements: text is drawn as paths", () => {
     const parsed = parseSymbol(readFileSync(symbolFile, "utf8"), {
       file: symbolFile,
       library: "project",
     });
-    if (!parsed.ok || !parsed.ir) throw new Error("参考符号解析失败");
+    if (!parsed.ok || !parsed.ir) throw new Error("failed to parse reference symbol");
     const sym = parsed.ir.symbol;
     const doc = renderSymbol(sym, {
       pins: sym.pins.map((p) => ({ number: p.number, name: "IN", type: "input" })),
@@ -85,7 +85,7 @@ describe("SVG 输出不依赖系统字体", () => {
     const svg = toSvgText(doc);
     expect(svg).not.toContain("<text");
     expect(svg).not.toContain("font-family");
-    // 文字仍然在图上（路径 + 可搜索的 title）。
+    // The text is still on the drawing (paths plus a searchable title).
     expect(svg).toContain("<path d=");
     expect(svg).toContain("<title>IN</title>");
   });

@@ -3,7 +3,7 @@ symbol c-pol
 
 description Polarized capacitor, 2-pin generic view
 tags capacitor polarized tantalum
-# 有极性电容视图：直板 + 弧板，直板上加一竖杠表示正极。
+# Polarized capacitor view: straight plate + curved plate, a vertical tick on the straight plate marks the positive pin.
 field Reference at=0,2.54 U
 field Value at=0,-2.54 c-pol
 

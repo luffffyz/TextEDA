@@ -1,19 +1,19 @@
 #!/usr/bin/env bun
-// 封装 IR → KiCad 产物。
+// Footprint IR → KiCad artifacts.
 //
-// 用法：
+// Usage:
 //   bun run scripts/export-footprint.ts <footprint.json> [--out <dir>] [--inline <x> <y>]
 //
-//   --out <dir>   写成 <dir>/<name>.kicad_mod（放进 .pretty 目录即为 KiCad 库）
-//   --inline x y  改成板文件里的内联封装块（坐标单位 mm）
-// 不给 --out 就打到标准输出。
+//   --out <dir>   Write <dir>/<name>.kicad_mod (drop the directory into a .pretty folder and it is a KiCad library)
+//   --inline x y  Instead emit an inline footprint block for a board file (coordinates in mm)
+// Without --out, print to stdout.
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { validate } from "@texteda/ir";
 import type { Footprint } from "@texteda/ir/footprint";
 import { footprintModule, footprintInline, type FootprintBody } from "../src/footprint.ts";
 
-/** 校验通过后再收窄类型：ajv 校验过 schema，但 TS 不知道。 */
+/** Narrow the type after validation: ajv checked against the schema, but TS does not know that. */
 function isFootprintDoc(value: unknown): value is Footprint {
   return typeof value === "object" && value !== null && "footprint" in value;
 }
@@ -21,7 +21,7 @@ function isFootprintDoc(value: unknown): value is Footprint {
 const args = process.argv.slice(2);
 const file = args[0];
 if (!file) {
-  console.error("用法：bun run scripts/export-footprint.ts <footprint.json> [--out <dir>] [--inline <x> <y>]");
+  console.error("Usage: bun run scripts/export-footprint.ts <footprint.json> [--out <dir>] [--inline <x> <y>]");
   process.exit(2);
 }
 
@@ -32,7 +32,7 @@ if (!result.ok) {
   process.exit(1);
 }
 if (!isFootprintDoc(doc)) {
-  console.error("不是 footprint 分片");
+  console.error("Not a footprint shard");
   process.exit(1);
 }
 const fp: FootprintBody = doc.footprint;

@@ -29,7 +29,7 @@
     {
       "id": "mcu-board",
       "revision": "A",
-      "title": "CH32V307 MCU 最小系统板"
+      "title": "CH32V307 MCU minimum system board"
     }
   ],
   "variants": [

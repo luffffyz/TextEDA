@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./footprint": "./src/footprint.ts",
-    "./symbol": "./src/symbol.ts"
+    "./symbol": "./src/symbol.ts",
+    "./netlist": "./src/netlist.ts"
   },
   "dependencies": {
     "@texteda/ir": "workspace:*"

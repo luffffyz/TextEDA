@@ -1,7 +1,7 @@
 version 0.1
 component ch32v307vct6
 
-# 引脚用主功能名；复用功能写在 alt= 列（符号只画摆位，不带名字）。
+# Pins use their primary function names; alternate functions go in the alt= column (the symbol only draws placement, without names).
 mpn          CH32V307VCT6
 manufacturer WCH
 category     mcu

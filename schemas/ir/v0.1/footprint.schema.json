@@ -1,78 +1,107 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:texteda:ir:0.1:footprint",
-  "title": "textEDA IR v0.1 — 封装",
-  "description": "自建封装库的一个封装：规范描述。这是**真源**；KiCad .kicad_mod 是导出产物（ADR-0011）。长度一律纳米整数、角度毫度整数（ADR-0008）；原点是封装中心，+x 向右、+y 向下（KiCad 约定）。",
+  "title": "textEDA IR v0.1 — footprint",
+  "description": "One footprint of a self-built footprint library: the canonical description. This is the **source of truth**; the KiCad .kicad_mod is an export artifact (ADR-0011). Lengths are always integer nanometers, angles integer millidegrees (ADR-0008); the origin is the footprint center, +x right, +y down (KiCad convention).",
   "type": "object",
   "additionalProperties": false,
   "required": ["ir_version", "footprint"],
   "properties": {
-    "ir_version": { "$ref": "urn:texteda:ir:0.1:common#/$defs/ir_version" },
-    "source": { "$ref": "urn:texteda:ir:0.1:common#/$defs/source_ref" },
+    "ir_version": {
+      "$ref": "urn:texteda:ir:0.1:common#/$defs/ir_version",
+      "description": "IR contract version, currently always 0.1."
+    },
+    "source": {
+      "$ref": "urn:texteda:ir:0.1:common#/$defs/source_ref",
+      "description": "Source-file location: path relative to the project root plus an optional line number."
+    },
     "footprint": {
       "type": "object",
+      "description": "The footprint itself: pads, graphics, attributes and the 3D model reference.",
       "additionalProperties": false,
       "required": ["library", "name", "pads"],
       "properties": {
         "library": {
           "$ref": "urn:texteda:ir:0.1:common#/$defs/lib_id",
-          "description": "所属库名（project.toml 的 [libs.<name>]）；KiCad 封装 id = <library>:<name>。"
+          "description": "Owning library name ([libs.<name>] in project.toml); KiCad footprint id = <library>:<name>."
         },
         "name": {
           "type": "string",
           "pattern": "^[A-Za-z0-9_.+-]+$",
-          "description": "封装名，如 ti-sot-23-5。库内唯一。"
+          "description": "Footprint name, e.g. ti-sot-23-5. Unique within the library."
         },
-        "description": { "$ref": "urn:texteda:ir:0.1:common#/$defs/note" },
-        "tags": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "description": {
+          "$ref": "urn:texteda:ir:0.1:common#/$defs/note",
+          "description": "Free-text description; becomes the description in the IR."
+        },
+        "tags": {
+          "type": "array",
+          "description": "Tag list, sorted by byte order (a set; order carries no semantics).",
+          "items": { "type": "string", "minLength": 1 }
+        },
         "attr": {
           "type": "array",
           "items": { "enum": ["smd", "through_hole", "virtual", "board_only"] },
-          "description": "KiCad (attr …) 标志；缺省按 pads 推断（全是 smd → smd）。"
+          "description": "KiCad (attr …) flags; by default inferred from the pads (all smd → smd)."
         },
-        "pads": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/pad" } },
+        "pads": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Pad table; pad numbers in natural order; numbering must match the symbol pin numbers.",
+          "items": { "$ref": "#/$defs/pad" }
+        },
         "graphics": {
           "type": "array",
           "items": { "$ref": "#/$defs/graphic" },
-          "description": "丝印/装配/阻焊/ courtyard 等图形。"
+          "description": "Silkscreen/assembly/solder-mask/courtyard and other graphics."
         },
-        "texts": { "type": "array", "items": { "$ref": "#/$defs/text_item" } },
+        "texts": {
+          "type": "array",
+          "description": "Text primitives on the footprint (silkscreen/assembly markings).",
+          "items": { "$ref": "#/$defs/text_item" }
+        },
         "fields": {
           "type": "array",
           "items": { "$ref": "#/$defs/field" },
-          "description": "封装属性（Reference / Value / Datasheet 等）。"
+          "description": "Footprint attributes (Reference / Value / Datasheet etc.)."
         },
-        "model3d": { "$ref": "#/$defs/model3d" }
+        "model3d": {
+          "$ref": "#/$defs/model3d",
+          "description": "3D model reference: file path plus offset/scale/rotation."
+        }
       }
     }
   },
   "$defs": {
     "point": {
       "type": "object",
+      "description": "Planar coordinate point; origin at the footprint center, +x right, +y down.",
       "additionalProperties": false,
       "required": ["x_nm", "y_nm"],
       "properties": {
-        "x_nm": { "type": "integer" },
-        "y_nm": { "type": "integer" }
+        "x_nm": { "type": "integer", "description": "x coordinate, nanometers." },
+        "y_nm": { "type": "integer", "description": "y coordinate, nanometers." }
       }
     },
     "position": {
       "type": "object",
+      "description": "Point with orientation: coordinates plus a rotation angle.",
       "additionalProperties": false,
       "required": ["x_nm", "y_nm"],
       "properties": {
-        "x_nm": { "type": "integer" },
-        "y_nm": { "type": "integer" },
-        "rotation_mdeg": { "type": "integer" }
+        "x_nm": { "type": "integer", "description": "x coordinate, nanometers." },
+        "y_nm": { "type": "integer", "description": "y coordinate, nanometers." },
+        "rotation_mdeg": { "type": "integer", "description": "Rotation angle, millidegrees." }
       }
     },
     "size": {
       "type": "object",
+      "description": "Rectangle size: width and height.",
       "additionalProperties": false,
       "required": ["x_nm", "y_nm"],
       "properties": {
-        "x_nm": { "type": "integer", "minimum": 1 },
-        "y_nm": { "type": "integer", "minimum": 1 }
+        "x_nm": { "type": "integer", "minimum": 1, "description": "Width, nanometers." },
+        "y_nm": { "type": "integer", "minimum": 1, "description": "Height, nanometers." }
       }
     },
     "pad": {
@@ -82,35 +111,65 @@
       "properties": {
         "number": {
           "$ref": "urn:texteda:ir:0.1:common#/$defs/pin_number",
-          "description": "焊盘号，必须与符号引脚号一致（ADR-0010 决策 3）。"
+          "description": "Pad number; must match the symbol pin number (ADR-0010 decision 3)."
         },
-        "type": { "enum": ["smd", "th"], "description": "SMD 贴片或通孔。" },
-        "shape": { "enum": ["rect", "roundrect", "oval", "circle"] },
-        "at": { "$ref": "#/$defs/position" },
-        "size": { "$ref": "#/$defs/size" },
-        "drill": { "$ref": "#/$defs/size", "description": "通孔钻孔尺寸（th 必填）。" },
+        "type": { "enum": ["smd", "th"], "description": "SMD or through-hole." },
+        "shape": {
+          "enum": ["rect", "roundrect", "oval", "circle"],
+          "description": "Pad shape, e.g. rect, roundrect, oval, circle."
+        },
+        "at": {
+          "$ref": "#/$defs/position",
+          "description": "Pad center position; origin at the footprint center."
+        },
+        "size": {
+          "$ref": "#/$defs/size",
+          "description": "Pad size (width × height)."
+        },
+        "drill": { "$ref": "#/$defs/size", "description": "Through-hole drill size (required for th)." },
         "layers": {
           "type": "array",
           "minItems": 1,
           "items": { "$ref": "urn:texteda:ir:0.1:common#/$defs/layer_name" },
-          "description": "焊盘所在层，如 [\"F.Cu\",\"F.Mask\",\"F.Paste\"]；通孔用 [\"*.Cu\",\"*.Mask\"]。"
+          "description": "Layers the pad is on, e.g. [\"F.Cu\",\"F.Mask\",\"F.Paste\"]; through-hole uses [\"*.Cu\",\"*.Mask\"]."
         },
         "roundrect_ratio_ppm": {
           "type": "integer",
           "minimum": 0,
           "maximum": 500000,
-          "description": "roundrect 圆角比例，百万分比（0=方，500000=胶囊）。IR 不允许浮点（ADR-0004 决策 3）。"
+          "description": "Roundrect corner ratio in parts per million (0 = square, 500000 = capsule). The IR allows no floating point (ADR-0004 decision 3)."
         },
-        "solder_mask_margin_nm": { "type": "integer" },
-        "solder_paste_margin_nm": { "type": "integer" },
-        "clearance_nm": { "type": "integer", "minimum": 0 },
-        "zone_connect": { "enum": ["solid", "thermal", "none"] },
-        "thermal_width_nm": { "type": "integer", "minimum": 0 },
-        "thermal_gap_nm": { "type": "integer", "minimum": 0 }
+        "solder_mask_margin_nm": {
+          "type": "integer",
+          "description": "Solder-mask expansion relative to the pad, nanometers; may be negative."
+        },
+        "solder_paste_margin_nm": {
+          "type": "integer",
+          "description": "Solder-paste expansion relative to the pad, nanometers; may be negative."
+        },
+        "clearance_nm": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Clearance distance around the pad, nanometers."
+        },
+        "zone_connect": {
+          "enum": ["solid", "thermal", "none"],
+          "description": "Pad connection to copper pours: solid for a full connection, thermal for thermal relief spokes, none for none."
+        },
+        "thermal_width_nm": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Thermal-relief spoke width, nanometers."
+        },
+        "thermal_gap_nm": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Thermal-relief gap between pad and pour, nanometers."
+        }
       },
       "allOf": [
         {
-          "if": { "properties": { "type": { "const": "th" } }, "required": ["type"] },
+          "if": { "properties": { "type": { "const": "th", "description": "Conditional field: type is fixed to th." } }, "required": ["type"] },
           "then": { "required": ["drill"] }
         }
       ]
@@ -120,37 +179,67 @@
       "additionalProperties": false,
       "required": ["kind", "layer"],
       "properties": {
-        "kind": { "enum": ["line", "rect", "circle", "arc", "poly"] },
-        "layer": { "$ref": "urn:texteda:ir:0.1:common#/$defs/layer_name" },
-        "width_nm": { "type": "integer", "minimum": 0, "description": "线宽；0 用层默认。rect/circle/poly 可省。poly 是闭合轮廓。" },
-        "start": { "$ref": "#/$defs/point" },
-        "end": { "$ref": "#/$defs/point" },
-        "mid": { "$ref": "#/$defs/point", "description": "arc 的中点。" },
-        "center": { "$ref": "#/$defs/point" },
-        "radius_nm": { "type": "integer", "minimum": 0 },
-        "points": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/point" } },
-        "filled": { "type": "boolean" },
-        "locked": { "type": "boolean" }
+        "kind": {
+          "enum": ["line", "rect", "circle", "arc", "poly"],
+          "description": "Graphic kind, e.g. line, rect, circle, arc, poly."
+        },
+        "layer": {
+          "$ref": "urn:texteda:ir:0.1:common#/$defs/layer_name",
+          "description": "Layer the graphic is on, e.g. F.SilkS, F.CrtYd."
+        },
+        "width_nm": { "type": "integer", "minimum": 0, "description": "Line width; 0 uses the layer default. Optional for rect/circle/poly. poly is a closed outline." },
+        "start": {
+          "$ref": "#/$defs/point",
+          "description": "Start-point coordinates (used by line/rect/poly)."
+        },
+        "end": {
+          "$ref": "#/$defs/point",
+          "description": "End-point coordinates (used by line/rect)."
+        },
+        "mid": { "$ref": "#/$defs/point", "description": "Midpoint of the arc." },
+        "center": {
+          "$ref": "#/$defs/point",
+          "description": "Center coordinates of the circle/arc."
+        },
+        "radius_nm": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Radius of the circle, nanometers."
+        },
+        "points": {
+          "type": "array",
+          "minItems": 3,
+          "description": "Polygon vertex list, a closed outline, at least three points.",
+          "items": { "$ref": "#/$defs/point" }
+        },
+        "filled": {
+          "type": "boolean",
+          "description": "Whether it is filled (rect/circle/poly)."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "Whether editing is forbidden."
+        }
       },
       "allOf": [
         {
-          "if": { "properties": { "kind": { "const": "line" } }, "required": ["kind"] },
+          "if": { "properties": { "kind": { "const": "line", "description": "Conditional field: kind is fixed to line." } }, "required": ["kind"] },
           "then": { "required": ["start", "end"] }
         },
         {
-          "if": { "properties": { "kind": { "const": "rect" } }, "required": ["kind"] },
+          "if": { "properties": { "kind": { "const": "rect", "description": "Conditional field: kind is fixed to rect." } }, "required": ["kind"] },
           "then": { "required": ["start", "end"] }
         },
         {
-          "if": { "properties": { "kind": { "const": "circle" } }, "required": ["kind"] },
+          "if": { "properties": { "kind": { "const": "circle", "description": "Conditional field: kind is fixed to circle." } }, "required": ["kind"] },
           "then": { "required": ["center", "radius_nm"] }
         },
         {
-          "if": { "properties": { "kind": { "const": "arc" } }, "required": ["kind"] },
+          "if": { "properties": { "kind": { "const": "arc", "description": "Conditional field: kind is fixed to arc." } }, "required": ["kind"] },
           "then": { "required": ["start", "mid", "end"] }
         },
         {
-          "if": { "properties": { "kind": { "const": "poly" } }, "required": ["kind"] },
+          "if": { "properties": { "kind": { "const": "poly", "description": "Conditional field: kind is fixed to poly." } }, "required": ["kind"] },
           "then": { "required": ["points"] }
         }
       ]
@@ -159,36 +248,56 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "width_nm": { "type": "integer", "minimum": 0 },
-        "height_nm": { "type": "integer", "minimum": 0 },
-        "thickness_nm": { "type": "integer", "minimum": 0 },
-        "bold": { "type": "boolean" },
-        "italic": { "type": "boolean" }
+        "width_nm": { "type": "integer", "minimum": 0, "description": "Character width, nanometers." },
+        "height_nm": { "type": "integer", "minimum": 0, "description": "Character height, nanometers." },
+        "thickness_nm": { "type": "integer", "minimum": 0, "description": "Stroke thickness, nanometers." },
+        "bold": { "type": "boolean", "description": "Whether the text is bold." },
+        "italic": { "type": "boolean", "description": "Whether the text is italic." }
       }
     },
     "text_item": {
       "type": "object",
+      "description": "One text primitive on the footprint.",
       "additionalProperties": false,
       "required": ["text", "at", "layer"],
       "properties": {
-        "text": { "type": "string", "minLength": 1 },
-        "at": { "$ref": "#/$defs/position" },
-        "layer": { "$ref": "urn:texteda:ir:0.1:common#/$defs/layer_name" },
-        "hide": { "type": "boolean" },
-        "effects": { "$ref": "#/$defs/text_effects" }
+        "text": { "type": "string", "minLength": 1, "description": "Text content." },
+        "at": {
+          "$ref": "#/$defs/position",
+          "description": "Text anchor position; origin at the footprint center."
+        },
+        "layer": {
+          "$ref": "urn:texteda:ir:0.1:common#/$defs/layer_name",
+          "description": "Layer the text is on, e.g. F.SilkS, F.Fab."
+        },
+        "hide": { "type": "boolean", "description": "Whether this text is hidden." },
+        "effects": {
+          "$ref": "#/$defs/text_effects",
+          "description": "Font size and style effects of the text."
+        }
       }
     },
     "field": {
       "type": "object",
+      "description": "Footprint attribute (replaceable text such as designator, value).",
       "additionalProperties": false,
       "required": ["name", "value"],
       "properties": {
-        "name": { "type": "string", "minLength": 1, "description": "属性名，如 Reference / Value / Datasheet。" },
-        "value": { "type": "string" },
-        "at": { "$ref": "#/$defs/position" },
-        "layer": { "$ref": "urn:texteda:ir:0.1:common#/$defs/layer_name" },
-        "hide": { "type": "boolean" },
-        "effects": { "$ref": "#/$defs/text_effects" }
+        "name": { "type": "string", "minLength": 1, "description": "Attribute name, e.g. Reference / Value / Datasheet." },
+        "value": { "type": "string", "description": "Attribute text content." },
+        "at": {
+          "$ref": "#/$defs/position",
+          "description": "Attribute text anchor position."
+        },
+        "layer": {
+          "$ref": "urn:texteda:ir:0.1:common#/$defs/layer_name",
+          "description": "Layer the attribute is on, e.g. F.SilkS, F.Fab."
+        },
+        "hide": { "type": "boolean", "description": "Whether this attribute is hidden." },
+        "effects": {
+          "$ref": "#/$defs/text_effects",
+          "description": "Font size and style effects of the attribute text."
+        }
       }
     },
     "model3d": {
@@ -199,28 +308,28 @@
         "path": {
           "type": "string",
           "pattern": "^(?!/)(?!.*\\.\\.)[^\\\\]+$",
-          "description": "3D 模型文件路径，项目相对（.stp / .stpZ / .wrl）。"
+          "description": "3D model file path, relative to the project (.stp / .stpZ / .wrl)."
         },
         "offset_nm": {
           "type": "array",
           "minItems": 3,
           "maxItems": 3,
           "items": { "type": "integer" },
-          "description": "偏移 x/y/z，纳米。"
+          "description": "Offset x/y/z, nanometers."
         },
         "scale_ppm": {
           "type": "array",
           "minItems": 3,
           "maxItems": 3,
           "items": { "type": "integer", "minimum": 1 },
-          "description": "缩放 x/y/z，百万分比（1000000 = 1 倍）。IR 不允许浮点。"
+          "description": "Scale x/y/z in parts per million (1000000 = 1×). The IR allows no floating point."
         },
         "rotation_mdeg": {
           "type": "array",
           "minItems": 3,
           "maxItems": 3,
           "items": { "type": "integer" },
-          "description": "旋转 x/y/z，毫度。"
+          "description": "Rotation x/y/z, millidegrees."
         }
       }
     }

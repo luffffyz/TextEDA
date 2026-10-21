@@ -1,7 +1,7 @@
-// 项目库读取：预览命令与冒烟脚本共用"编译"这一半。
+// Project library reading: the "compile" half shared by the preview command and the smoke scripts.
 //
-// 三件事：找文件、编译（.teda → IR）、把器件事实读出来。
-// 渲染在 @texteda/renderer，导出在 @texteda/exporter——这里只管"读进来"。
+// Three things: find files, compile (.teda → IR), read component facts.
+// Rendering lives in @texteda/renderer, exporting in @texteda/exporter — this module only handles "reading in".
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -14,7 +14,7 @@ import {
 import type { Footprint } from "@texteda/ir/footprint";
 import type { Symbol } from "@texteda/ir/symbol";
 
-/** 递归列出目录下的 `.teda` 源文件（按路径排序，顺序稳定）。 */
+/** Recursively list `.teda` source files under a directory (sorted by path for a stable order). */
 export function tedaFiles(dir: string): string[] {
   const out: string[] = [];
   let entries: string[];
@@ -35,28 +35,28 @@ export type Loaded<T> =
   | { ok: true; value: T; diagnostics: Diagnostic[] }
   | { ok: false; diagnostics: Diagnostic[] };
 
-/** 编译一个符号源文件。 */
+/** Compile a symbol source file. */
 export function loadSymbol(file: string, library: string): Loaded<Symbol> {
   const parsed = parseSymbol(readFileSync(file, "utf8"), { file, library });
   if (!parsed.ok || !parsed.ir) return { ok: false, diagnostics: parsed.diagnostics };
   return { ok: true, value: parsed.ir, diagnostics: parsed.diagnostics };
 }
 
-/** 编译一个封装源文件。 */
+/** Compile a footprint source file. */
 export function loadFootprint(file: string, library: string): Loaded<Footprint> {
   const parsed = parseFootprint(readFileSync(file, "utf8"), { file, library });
   if (!parsed.ok || !parsed.ir) return { ok: false, diagnostics: parsed.diagnostics };
   return { ok: true, value: parsed.ir, diagnostics: parsed.diagnostics };
 }
 
-/** 读一个器件描述的事实（引脚名与电气类型的唯一所有者，ADR-0012）。 */
+/** Read the facts of a component description (the single owner of pin names and electrical types, ADR-0012). */
 export function loadComponent(file: string): Loaded<ComponentFacts> {
   const facts = readComponentFacts(readFileSync(file, "utf8"), { file });
   if (!facts.ok || !facts.facts) return { ok: false, diagnostics: facts.diagnostics };
   return { ok: true, value: facts.facts, diagnostics: facts.diagnostics };
 }
 
-/** 引用某个符号的器件（一个符号可被多个器件复用，取第一个）。 */
+/** The component referencing a given symbol (a symbol can be reused by multiple components; take the first). */
 export function componentUsingSymbol(
   projectRoot: string,
   ref: string,

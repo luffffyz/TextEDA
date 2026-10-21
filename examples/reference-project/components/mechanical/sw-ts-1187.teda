@@ -1,11 +1,11 @@
 version 0.1
 component sw-ts-1187
 
-# 5.2×5.2mm 贴片轻触开关，SPST 常开，四脚两组：1-2 一组、3-4 一组（datasheet 电路图）。
-# 焊盘按 datasheet "P.C.B LAYOUT"：外廓 8.0×4.8mm，内间隙 4.4×2.6mm，即焊盘 1.8×1.1mm。
-# KiCad 官方库无 5.2×5.2 四脚轻触封装，导出 PCB 时按此图自建。
+# 5.2×5.2mm SMD tactile switch, SPST normally open, four pins in two pairs: 1-2 and 3-4 (datasheet schematic).
+# Pads per datasheet "P.C.B LAYOUT": outline 8.0×4.8mm, inner gap 4.4×2.6mm, i.e. pads 1.8×1.1mm.
+# KiCad official library has no 5.2×5.2 four-pin tactile footprint; build one from this diagram when exporting the PCB.
 mpn          TS-1187
-manufacturer 硕方精密
+manufacturer Shuofang Precision
 category     switch
 package      SMD-5.2x5.2mm-4P
 datasheet    https://uploadcdn.oneyac.com/attachments/files/brand_pdf/sofng/TS-1187.pdf

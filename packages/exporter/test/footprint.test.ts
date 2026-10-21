@@ -1,5 +1,5 @@
-// 封装导出器的单元测试：不依赖 KiCad，只验生成的 S-expression 文本。
-// 端到端（KiCad 能读、DRC 干净、能出 Gerber）由 scripts/smoke-footprint.ts 负责。
+// Unit tests for the footprint exporter: no KiCad dependency, only the generated S-expression text is checked.
+// End-to-end behavior (KiCad reads it, DRC is clean, Gerbers come out) is covered by scripts/smoke-footprint.ts.
 import { describe, expect, test } from "bun:test";
 import { deriveUuid, deg, footprintInline, footprintModule, mm, type FootprintBody } from "../src/footprint.ts";
 
@@ -16,7 +16,7 @@ const thruHolePad: FootprintBody["pads"][number] = {
 const fp: FootprintBody = {
   library: "project",
   name: "demo-part",
-  description: "示例",
+  description: "example",
   tags: ["tag-a", "tag-b"],
   pads: [
     {
@@ -45,29 +45,29 @@ const fp: FootprintBody = {
   ],
 };
 
-describe("单位换算", () => {
-  test("纳米转毫米并去掉尾随零", () => {
+describe("Unit conversion", () => {
+  test("nanometers convert to millimeters with trailing zeros removed", () => {
     expect(mm(510000)).toBe("0.51");
     expect(mm(0)).toBe("0");
     expect(mm(1)).toBe("0.000001");
     expect(mm(-500000)).toBe("-0.5");
   });
 
-  test("毫度转度", () => {
+  test("millidegrees convert to degrees", () => {
     expect(deg(90000)).toBe("90");
     expect(deg(0)).toBe("0");
   });
 });
 
-describe("库文件", () => {
+describe("Library file", () => {
   const out = footprintModule(fp);
 
-  test("tags 必须是一个引号字符串（多个字符串会让 KiCad 拒绝加载库）", () => {
+  test("tags must be one quoted string (multiple strings make KiCad refuse to load the library)", () => {
     expect(out).toContain('(tags "tag-a tag-b")');
     expect(out).not.toContain('"tag-a" "tag-b"');
   });
 
-  test("焊盘、图层、几何、属性都在", () => {
+  test("pads, layers, geometry, and attributes are all present", () => {
     expect(out).toContain(
       '(pad "1" smd roundrect (at -0.95 0.95) (size 1.1 0.6) (layers "F.Cu" "F.Mask" "F.Paste") (roundrect_rratio 0.25))',
     );
@@ -81,7 +81,7 @@ describe("库文件", () => {
     expect(out).toContain("(attr smd)");
   });
 
-  test("通孔钻孔为椭圆时写 oval", () => {
+  test("oblong through-hole drill writes oval", () => {
     const oval = footprintModule({
       ...fp,
       pads: [fp.pads[0], { ...thruHolePad, drill: { x_nm: 700000, y_nm: 2500000 } }],
@@ -90,7 +90,7 @@ describe("库文件", () => {
   });
 });
 
-describe("板内联块", () => {
+describe("Board inline block", () => {
   const out = footprintInline(fp, {
     xNm: 25_000_000,
     yNm: 20_000_000,
@@ -98,14 +98,14 @@ describe("板内联块", () => {
     value: "SOT-23-5",
   });
 
-  test("位置、库前缀、位号与值都进去", () => {
+  test("position, library prefix, reference, and value all make it in", () => {
     expect(out).toContain('(footprint "project:demo-part"');
     expect(out).toContain("(at 25 20)");
     expect(out).toContain('(property "Reference" "U1"');
     expect(out).toContain('(property "Value" "SOT-23-5"');
   });
 
-  test("uuid 由内容派生，同输入同输出", () => {
+  test("uuid is derived from content: same input, same output", () => {
     const again = footprintInline(fp, {
       xNm: 25_000_000,
       yNm: 20_000_000,

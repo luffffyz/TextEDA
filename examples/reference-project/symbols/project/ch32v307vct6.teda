@@ -3,10 +3,10 @@ symbol ch32v307vct6
 
 description CH32V307 RISC-V MCU in LQFP-100
 tags mcu risc-v wch
-# 摆位规则：9 个 power_in 全部在上、6 个 power 全部在下；上下两侧补满信号脚（上 16、下 19），
-# 其余信号脚左右各 25，四边各 25 脚。体高 63.5 = 25 脚 x 2.54；体宽 76.2 是在 63.5 基础上加宽，
-# 让顶部/底部竖排引脚名与左右引脚名不压字（均为 1.27 的倍数）；引脚连接点在体边缘外 2.54。
-# 同侧按引脚号自然序：左右两侧自下而上，上下两侧自左而右。
+# Placement rules: all 9 power_in pins on top, all 6 power pins on bottom; top/bottom sides are then filled with signal pins (16 top, 19 bottom),
+# the remaining signal pins are 25 per left/right side, 25 pins per side. Body height 63.5 = 25 pins x 2.54; body width 76.2 widens 63.5,
+# so vertical pin names at top/bottom do not collide with left/right pin names (both multiples of 1.27); pin connection points sit 2.54 outside the body edge.
+# Same-side pins follow natural pin-number order: left/right sides bottom to top, top/bottom sides left to right.
 field Reference at=0,36.83 U
 field Value at=0,-36.83 ch32v307vct6
 

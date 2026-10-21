@@ -1,9 +1,9 @@
-// 符号 → KiCad `.kicad_sym`。
+// Symbol → KiCad `.kicad_sym`.
 //
-// 真源分两半（ADR-0012）：
-//   - `symbol` 分片（schemas/ir/v0.1/symbol.schema.json）提供视图：引脚摆位、外形、单元、显示开关；
-//   - `component` 提供电学事实：引脚名、电气类型、footprint、datasheet。
-// 导出时按**引脚号**把两边合起来；这是"一个事实一个所有者"的落点。
+// The source of truth is split in two (ADR-0012):
+//   - the `symbol` shard (schemas/ir/v0.1/symbol.schema.json) provides the view: pin placement, outline, units, visibility toggles;
+//   - `component` provides the electrical facts: pin names, electrical types, footprint, datasheet.
+// On export the two are joined by **pin number**; this is where "one fact, one owner" lands.
 import type { Symbol } from "@texteda/ir/symbol";
 import { mm } from "./footprint.ts";
 
@@ -12,30 +12,30 @@ type Pin = SymbolBody["pins"][number];
 type BodyItem = NonNullable<SymbolBody["body"]>[number];
 type Field = NonNullable<SymbolBody["fields"]>[number];
 
-/** KiCad 10 符号库格式版本。 */
+/** KiCad 10 symbol library format version. */
 export const KICAD_SYMBOL_VERSION = "20251024";
 
 const INDENT = "\t";
 const q = (s: string) => `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 
-/** `component` 里导出符号需要的那部分事实。 */
+/** The subset of facts from `component` needed to export a symbol. */
 export interface PartPin {
   number: string;
   name: string;
-  /** teda 的电气类型（`teda.md` §10.1）。 */
+  /** teda electrical type (`teda.md` §10.1). */
   type: string;
 }
 
 export interface PartInfo {
   pins: PartPin[];
-  /** `<lib>:<name>`，原样写进 Footprint 属性。 */
+  /** `<lib>:<name>`, written verbatim into the Footprint property. */
   footprint?: string;
   datasheet?: string;
-  /** 器件描述；符号自己有 description 时以符号为准。 */
+  /** Component description; when the symbol carries its own description, the symbol wins. */
   description?: string;
 }
 
-/** teda 电气类型 → KiCad 引脚类型。`power` 在 teda 里表示地/参考节点。 */
+/** teda electrical type → KiCad pin type. `power` denotes a ground/reference node in teda. */
 const PIN_TYPE_MAP: Record<string, string> = {
   input: "input",
   output: "output",
@@ -51,13 +51,13 @@ const PIN_TYPE_MAP: Record<string, string> = {
   unspecified: "unspecified",
 };
 
-/** 符号里有、器件里没有的引脚号（缺一个就不能导出）。 */
+/** Pin numbers present in the symbol but absent from the component (any missing one blocks export). */
 export function missingPartPins(sym: SymbolBody, part: PartInfo): string[] {
   const known = new Set(part.pins.map((p) => p.number));
   return [...new Set(sym.pins.map((p) => p.number))].filter((n) => !known.has(n)).sort();
 }
 
-/** 器件里有、符号里没画的引脚号（只是警告：可以隐藏电源脚）。 */
+/** Pin numbers present in the component but not drawn in the symbol (warning only: power pins may be hidden). */
 export function unplacedPartPins(sym: SymbolBody, part: PartInfo): string[] {
   const drawn = new Set(sym.pins.map((p) => p.number));
   return part.pins.map((p) => p.number).filter((n) => !drawn.has(n)).sort();
@@ -86,8 +86,9 @@ function propertySexp(field: Field | undefined, name: string, value: string, hid
 }
 
 function strokeSexp(widthNm: number | undefined): string[] {
-  // KiCad 的 stroke type 只有 default/dash/dash_dot/dot/dash_dot_dot；
-  // "none" 不是合法值，KiCad 会拒绝整个符号库。线宽 0 表示不描边，用 width 0 + default。
+  // KiCad's stroke type only accepts default/dash/dash_dot/dot/dash_dot_dot;
+  // "none" is not a valid value, and KiCad rejects the whole symbol library for it.
+  // A line width of 0 means no stroking: use width 0 + default.
   const width = widthNm === undefined || widthNm === 0 ? 0 : mm(widthNm);
   return [`${INDENT}${INDENT}${INDENT}(stroke (width ${width}) (type default))`];
 }
@@ -172,9 +173,10 @@ function pinSexp(pin: Pin, partPin: PartPin, hideNames: boolean, hideNumbers: bo
 }
 
 /**
- * 一个符号 → 一个只含该符号的 `.kicad_sym` 库文本。
+ * One symbol → the text of a `.kicad_sym` library containing only that symbol.
  *
- * 引脚号在 `part` 里查不到时抛错：调用方应先跑 `missingPartPins` 给出干净诊断。
+ * Throws when a pin number cannot be found in `part`: callers should run `missingPartPins`
+ * first to get a clean diagnostic.
  */
 export function symbolLibrary(
   sym: SymbolBody,
@@ -183,7 +185,7 @@ export function symbolLibrary(
 ): string {
   const missing = missingPartPins(sym, part);
   if (missing.length > 0) {
-    throw new Error(`符号引脚在器件里不存在：${missing.join(", ")}`);
+    throw new Error(`Symbol pins not present in component: ${missing.join(", ")}`);
   }
   const byNumber = new Map(part.pins.map((p) => [p.number, p]));
   const generator = options?.generator ?? "texteda";
@@ -222,7 +224,7 @@ export function symbolLibrary(
     ),
   );
 
-  // 单元 0 = 所有单元共用的外形（KiCad 的 <name>_0_1）。
+  // Unit 0 = the outline shared by all units (KiCad's <name>_0_1).
   const common = (sym.body ?? []).filter((item) => (item.unit ?? 1) === 0);
   if (common.length > 0) {
     lines.push(`${INDENT}${INDENT}(symbol ${q(`${sym.name}_0_1`)}`);

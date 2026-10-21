@@ -62,7 +62,7 @@ dist/ir/
 | 参数类型 | IR 单位 | 换算 |
 |---|---|---|
 | `resistance` | µΩ | 4R7 = 4.7 Ω = 4700000 |
-| `capacitance` | fF | 100n = 100 nF = 100000000000 |
+| `capacitance` | fF | 100n = 100 nF = 100000000 |
 | `inductance` | pH | 15u = 15 µH = 15000000 |
 | `voltage` | µV | 3.3V = 3300000 |
 | `current` | nA | 500mA = 500000000 |

@@ -1,0 +1,19 @@
+{
+  "name": "@texteda/cli",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./init": "./src/init.ts",
+    "./check": "./src/check.ts",
+    "./compile": "./src/compile.ts",
+    "./project": "./src/project.ts"
+  },
+  "dependencies": {
+    "@texteda/core": "workspace:*",
+    "@texteda/ir": "workspace:*",
+    "@texteda/parser": "workspace:*"
+  }
+}
