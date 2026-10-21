@@ -2,6 +2,10 @@
   "name": "texteda",
   "private": true,
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/luffffyz/TextEDA.git"
+  },
   "type": "module",
   "workspaces": [
     "packages/*"
