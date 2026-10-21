@@ -10,13 +10,13 @@
 
 `footprint` 描述表达**一个封装的规范几何**：焊盘、图形、属性、3D 模型引用。
 
-三条底线（`AGENTS.md` §2、ADR-0010 决策 1）：
+三条底线（`AGENTS.md` §2、[ADR-0010](../docs/adr/0010-footprint-and-3d-model-ownership.md) decision 1）：
 
 1. **几何不进板描述**。`pcb` 描述里只有 `component.footprint`（`lib:name` 引用），没有焊盘尺寸、没有 3D 尺寸。几何是器件库的事实。
-2. **源格式是 `.teda`，IR 是编译产物**。agent 的工作面是 `.teda` 源码 + 校验报告（ADR-0004 决策 5），不是 IR JSON。
+2. **源格式是 `.teda`，IR 是编译产物**。agent 的工作面是 `.teda` 源码 + 校验报告（[ADR-0004](../docs/adr/0004-ir-representation.md) decision 5），不是 IR JSON。
 3. **KiCad 格式是导出产物**。`.kicad_mod` 与板文件内联块都由 `packages/exporter` 从 IR 生成；库的几何改动**不回写** IR 之外的东西。
 
-`footprint` 描述是**库产物**，不是板描述：它不进 `dist/ir/` 的描述分片树，而进库目录（`footprints/<lib>/`），单独编译、单独哈希（`libs.<name>.content_hash`，ADR-0010 决策 2）。
+`footprint` 描述是**库产物**，不是板描述：它不进 `dist/ir/` 的描述分片树，而进库目录（`footprints/<lib>/`），单独编译、单独哈希（`libs.<name>.content_hash`，[ADR-0010](../docs/adr/0010-footprint-and-3d-model-ownership.md) decision 2）。
 
 ---
 
@@ -71,7 +71,7 @@ pads
 
 | 列 | 取值 | 单位 |
 |---|---|---|
-| `number` | 焊盘号，必须与符号引脚编号一致（ADR-0010 决策 3） | — |
+| `number` | 焊盘号，必须与符号引脚编号一致（[ADR-0010](../docs/adr/0010-footprint-and-3d-model-ownership.md) decision 3） | — |
 | `type` | `smd` / `th` | — |
 | `shape` | `rect` / `roundrect` / `oval` / `circle` | — |
 | `x` `y` | 焊盘中心，原点在封装中心，+x 向右、+y 向下 | 长度 |
@@ -123,7 +123,7 @@ graphics
 
 长度的列类型给出默认单位 **mm**，可显式写 `mm` / `mil` / `in` / `m`（`teda.md` §10.2）。角度默认 **度**，可写 `deg`。
 
-换算只发生在边界：`.teda` 解析进来时换算成 **整数纳米 / 整数毫度**（ADR-0004 决策 3）；换算结果不是整数时**报错**（"精度超过纳米"），不四舍五入。
+换算只发生在边界：`.teda` 解析进来时换算成 **整数纳米 / 整数毫度**（[ADR-0004](../docs/adr/0004-ir-representation.md) decision 3）；换算结果不是整数时**报错**（"精度超过纳米"），不四舍五入。
 
 ---
 
@@ -135,7 +135,7 @@ graphics
 2. `graphics` 的 `geometry` 单元格点数与 `kind` 匹配；`poly` 点数 ≥ 3。
 3. `field` 的 `Name` 唯一。
 4. 编译产物必须通过 `schemas/ir/v0.1/footprint.schema.json`（closed schema）。
-5. 库级检查（与符号引脚号比对、DRC）不属于本描述，属工具链（ADR-0010 决策 3）。
+5. 库级检查（与符号引脚号比对、DRC）不属于本描述，属工具链（[ADR-0010](../docs/adr/0010-footprint-and-3d-model-ownership.md) decision 3）。
 6. 编译产物的顺序只依赖语义，不依赖源文件书写顺序：`pads` 按号自然序、`graphics` 按 `(kind, layer, 坐标)`、`fields` 按 `Name`、`tags` 按字节序。同一封装换个写法编译出的 IR 必须字节相同（这是 `content_hash` 与产物可复现的前提）。
 
 诊断格式：`file:line:col: <severity> <code>: <message>`。

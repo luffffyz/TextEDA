@@ -8,7 +8,7 @@
 
 ## F1. 校准自建封装的几何（footprint 校准）
 
-**现状**：`examples/reference-project/footprints/project/` 下的 16 个封装是**通用 land pattern**——焊盘尺寸与间距按 IPC 通用推荐取整，不是各料号 datasheet 的精确 land pattern（见 `docs/adr/0013-reference-project-self-built-libraries.md` 决策 5）。每个文件的 `description` 里都写了 `generic land pattern` 作为标记。
+**现状**：`examples/reference-project/footprints/project/` 下的 16 个封装是**通用 land pattern**——焊盘尺寸与间距按 IPC 通用推荐取整，不是各料号 datasheet 的精确 land pattern（见 `docs/adr/0013-reference-project-self-built-libraries.md` decision 5）。每个文件的 `description` 里都写了 `generic land pattern` 作为标记。
 
 **为什么现在不做**：库级闭环（`bun run lib:verify`：引用可解析、canonical、契约通过、KiCad 能读能渲染、合并板 DRC 0 违规）已经成立，几何精度不影响链路验证。参考工程的价值是"可复现的样本"，不是"厂商级库"。
 
@@ -16,7 +16,7 @@
 
 1. 抄 **body 尺寸**（F.Fab 外形）、**焊盘尺寸与中心距**、**courtyard**、**丝印**；丝印别压到焊盘上（合并板 DRC 会报）。
 2. 改 `description`，去掉 `generic land pattern`，写上真实封装代号与 body 尺寸。
-3. 有 3D 模型的话补 `model` 行（项目相对路径的 STEP/WRL，ADR-0010 允许）。
+3. 有 3D 模型的话补 `model` 行（项目相对路径的 STEP/WRL，[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) 允许）。
 4. 改完重算库内容哈希并同步两处：
    ```bash
    cd examples/reference-project && bun run ../../scripts/libhash.ts symbols/project footprints/project
@@ -28,7 +28,7 @@
 **涉及封装**（16 个）：`chip-0402` `chip-0603` `chip-1210` `chip-2010` `tantalum-7343` `ihlp-4040` `ihlp-2525` `crystal-3225-4` `switch-5x5-4` `sot-23` `sot-23-5` `soic-8-ep` `powerpak-1212-8` `lqfp-100` `vqfn-24-ep` `sma`
 
 **验收**：
-- 每个封装的 body 尺寸、焊盘间距能在对应料号的 datasheet 上逐项对上（datasheet **不入库**，自行从厂商官网下载到 `examples/reference-project/docs/datasheets/`，该目录已 gitignore；文件名见 `docs/mcu-board-components.md` 的表）。
+- 每个封装的 body 尺寸、焊盘间距能在对应料号的 datasheet 上逐项对上（datasheet **不入库**，自行从厂商官网下载到 `examples/reference-project/docs/datasheets/`，该目录已 gitignore；文件名见 `examples/reference-project/docs/mcu-board-components.md` 的表）。
 - `bun run lib:verify` 仍全绿（合并板 DRC `violations=0`）。
 - `bun run fmt:teda --check examples/reference-project` 退出 0。
 
@@ -41,12 +41,12 @@
 
 ## F3. 原理图的 SVG 渲染（sch renderer）
 
-**现状**：参考渲染器只画符号与封装（ADR-0014）：`packages/renderer` 的 `renderSymbol` / `renderFootprint` 已落地，`bun run preview symbol|footprint|component` 能出图。**原理图（sch）还没有渲染器**——`AGENTS.md` §1「是」里第一条写的是"一个参考渲染器（先 sch 的 SVG）"，sch 是第一阶段的主对象（§1.1 P0/P1），所以这是渲染器剩下的那块。
+**现状**：参考渲染器只画符号与封装（[ADR-0014](adr/0014-reference-renderer.md)）：`packages/renderer` 的 `renderSymbol` / `renderFootprint` 已落地，`bun run preview symbol|footprint|component` 能出图。**原理图（sch）还没有渲染器**——`AGENTS.md` §1「是」里第一条写的是"一个参考渲染器（先 sch 的 SVG）"，sch 是第一阶段的主对象（§1.1 P0/P1），所以这是渲染器剩下的那块。
 
 **为什么现在做**：
 
 - **sch 的错误只有看图才发现**：ERC 能抓悬空引脚、短路、电源域冲突，抓不到"两个 net 的标签压在一起"、"引脚名糊成一片"、"连线穿过符号"、"页面元素越界"。这些在 P0 的 ERC 里全是绿的。
-- **符号与封装的经验可以直接复用**：中间表示（绘图指令列表）、坐标约定（整数纳米）、确定性（字节可复现）、round-trip 的"语义投影"两端对比，这四样已经定型了（ADR-0014），sch 只是多一种图元与一层布局。
+- **符号与封装的经验可以直接复用**：中间表示（绘图指令列表）、坐标约定（整数纳米）、确定性（字节可复现）、round-trip 的"语义投影"两端对比，这四样已经定型了（[ADR-0014](adr/0014-reference-renderer.md)），sch 只是多一种图元与一层布局。
 
 **要做的事**：
 
@@ -56,7 +56,7 @@
    - 走线画成"从引脚连接点出发的折线"，拐点用 IR 里的坐标，不做自动布线。
 2. 预览命令扩一档：`bun run preview schematic <board_id> [--page <page_id>]`。
 3. **可读性检查**（`AGENTS.md` §6："可读性检查自动化：文字重叠、线压引脚、标签碰撞、越界、连线穿过符号"）至少先做**越界**与**连线穿过符号**两项，在渲染时算出来报出来。
-4. round-trip：sch 的语义投影两端对比（跟符号/封装同一口径，见 ADR-0014 决策 5）。注意 sch 里有些字段图形上表达不出来（如 net 的电气属性），投影只留能反解的部分，并在代码注释里写清哪些不可反解。
+4. round-trip：sch 的语义投影两端对比（跟符号/封装同一口径，见 [ADR-0014](adr/0014-reference-renderer.md) decision 5）。注意 sch 里有些字段图形上表达不出来（如 net 的电气属性），投影只留能反解的部分，并在代码注释里写清哪些不可反解。
 5. 与 KiCad 的 `.kicad_sch` 渲染做**一次性人工比对**，结论记进 ADR（不进 CI）。
 
 **验收**：
@@ -76,7 +76,7 @@
 
 ## F4. 第三方可实现性交叉验证（标准提案的发布门槛）
 
-**现状**：仓库从私有转公开（ADR-0015），项目定位是**标准提案**：让别人照着 `spec/` 与 `schemas/` 实现自己的 parser / 校验器 / 渲染器。当前所有规范知识都沉淀在 `packages/**` 的源码里——读者容易把"实现里怎么做的"当成"规范要求什么"，这是标准失败最常见的方式。
+**现状**：仓库从私有转公开（[ADR-0015](adr/0015-licensing-and-open-standard.md)），项目定位是**标准提案**：让别人照着 `spec/` 与 `schemas/` 实现自己的 parser / 校验器 / 渲染器。当前所有规范知识都沉淀在 `packages/**` 的源码里——读者容易把"实现里怎么做的"当成"规范要求什么"，这是标准失败最常见的方式。
 
 **为什么现在不做**：板级描述（`sch` / `pcb`）还没实现（`AGENTS.md` §1.1 P0），现在做完整验证等于给一个还要改的规范写验收。**但 `sch` 落地前必须做**，否则规范定型后再改代价更大。
 
@@ -93,7 +93,7 @@
 
 - 第三方实现在**不参考 `packages/**` 源码**的前提下通过 conformance 核心用例。
 - 差异报告里的每条歧义要么在 spec 里被写成条款，要么被显式标注为实现自由度。
-- 结论回写 ADR-0015 决策 4.3。
+- 结论回写 [ADR-0015](adr/0015-licensing-and-open-standard.md) decision 4.3。
 
 **注意**：
 
@@ -105,15 +105,15 @@
 
 ## F5. 包发布形式与商标（延后，等生态信号）
 
-**现状**：五个包（根 + `packages/ir` / `parser` / `exporter` / `renderer`）都是 `"private": true`、版本 `0.0.0`，未发布到任何 registry。ADR-0015 决策 7 明确延后。
+**现状**：七个包（根 + `packages/ir` / `parser` / `exporter` / `renderer` / `core` / `cli`）都是 `"private": true`、版本 `0.0.0`，未发布到任何 registry。[ADR-0015](adr/0015-licensing-and-open-standard.md) decision 7 明确延后。
 
 **为什么现在不做**：还没有外部消费者；当前包是 TS 源码（走 git 依赖即可），发布到 npm 只会在没有真实需求时产生"看起来有生态"的假象。
 
 **要做的事（等有信号再做）**：
 
 1. **发布形式**：候选是 npm（`@texteda/*`）、纯 git 依赖、或者只发布 `schemas/ir/**` 与 conformance 语料。判断依据是"第三方实现者实际需要什么"——先看有没有人 clone 了仓库并自己写实现。
-2. **版本号**：发布前把 `0.0.0` 换成真实版本；`format` 与 `ir_version` 独立版本（ADR-0008）不变，发布时把 `ir_version` 打进包元数据。
-3. **商标**：等"符合 textEDA"开始被第三方自称时，再评估注册 `textEDA` 商标与写商标使用指引（Apache-2.0 §6 不授予商标许可，ADR-0015 决策 5）。
+2. **版本号**：发布前把 `0.0.0` 换成真实版本；`format` 与 `ir_version` 独立版本（[ADR-0008](adr/0008-ir-shard-identity-and-hash.md)）不变，发布时把 `ir_version` 打进包元数据。
+3. **商标**：等"符合 textEDA"开始被第三方自称时，再评估注册 `textEDA` 商标与写商标使用指引（Apache-2.0 §6 不授予商标许可，[ADR-0015](adr/0015-licensing-and-open-standard.md) decision 5）。
 
 **涉及**：`packages/*/package.json`、根 `package.json`、新增 `TRADEMARKS.md`（若注册）。
 
@@ -124,14 +124,14 @@
 
 **注意**：
 
-- 发布不等于放弃契约层开放：发布的是实现，契约层照样公开（ADR-0015 不变量 19）。
+- 发布不等于放弃契约层开放：发布的是实现，契约层照样公开（[ADR-0015](adr/0015-licensing-and-open-standard.md) 不变量 19）。
 - 别在还没有用户时先做品牌设计、文档站、CI 徽章那一套——那是"看起来在推进"的自我安慰。
 
 ---
 
 ## F6. 仓库可见性切 public（版权清理已完成，待切开关）
 
-**现状**：GitHub 仓库 `luffffyz/textEDA` **仍是私有**。许可与开放承诺已按 ADR-0015 落定（Apache-2.0 + 契约层永久开源）。**版权前置已清完**（2026-10-21）：
+**现状**：GitHub 仓库 `luffffyz/textEDA` **仍是私有**。许可与开放承诺已按 [ADR-0015](adr/0015-licensing-and-open-standard.md) 落定（Apache-2.0 + 契约层永久开源）。**版权前置已清完**（2026-10-21）：
 
 - 5 个厂商 datasheet PDF（约 15 MB：TI `bq24610` / `tps7a20`、WCH `CH32V307DS0`、四川索斯特 `SST-3225-8M-12PF-10PPM`、硕方精密 `TS-1187`）已从索引移除并加进 `.gitignore`；
 - 这些 PDF 曾在首个提交里进过历史，已用 `git filter-branch --index-filter` **重写历史清除**，并 gc 掉旧对象；
@@ -184,7 +184,7 @@
 **注意**：
 
 - **不要因此出现第二个真源**：net 成员表是唯一真相，pin 侧只用引用表达归属，不要把成员复制进 pin 记录。
-- dnp 与 no_connect 是不同的东西：no_connect 是"这个引脚不接"，dnp 是"这个器件不贴"（§4.2、ADR-0002 决策：变体不影响 ERC 结果）。**别合并。**
+- dnp 与 no_connect 是不同的东西：no_connect 是"这个引脚不接"，dnp 是"这个器件不贴"（§4.2、[ADR-0002](adr/0002-board-pages-and-bom.md) decision：变体不影响 ERC 结果）。**别合并。**
 
 ---
 
@@ -232,7 +232,7 @@
 
 ## F10. 库生态的入场券：库包规范与分发（registry 前置）
 
-**现状**：ADR-0015 承诺"让别人围绕它建工具"。但**语言的标准不产生生态**——cohdl 的生态靠 `registry.cohdl.org`（命名空间、包、精确版本钉死、`cohdl search`）加 LSP 加 VS Code 扩展加 Explorer 应用。textEDA 侧还没有任何"分发"概念：`components/` / `symbols/` / `footprints/` 只存在于本地工程，库引用靠 `project.toml` 的 `[libs.<name>]` 指向本地路径或 `project:` 库（ADR-0010 的内容哈希锚点），**没有跨工程、跨组织的库获取方式**。
+**现状**：[ADR-0015](adr/0015-licensing-and-open-standard.md) 承诺"让别人围绕它建工具"。但**语言的标准不产生生态**——cohdl 的生态靠 `registry.cohdl.org`（命名空间、包、精确版本钉死、`cohdl search`）加 LSP 加 VS Code 扩展加 Explorer 应用。textEDA 侧还没有任何"分发"概念：`components/` / `symbols/` / `footprints/` 只存在于本地工程，库引用靠 `project.toml` 的 `[libs.<name>]` 指向本地路径或 `project:` 库（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) 的内容哈希锚点），**没有跨工程、跨组织的库获取方式**。
 
 **为什么现在做**：这是"别人建工具"的真正入口——第三方要做 KiCad 侧 / PLM 侧 / CI 侧工具，第一件事是"我从哪拿封装库"。库规范定不下来，生态就是空谈。
 
@@ -241,10 +241,10 @@
 1. 定**库包格式与边界**：一个库包 = 若干 `.teda`（器件 / 符号 / 封装）+ `library.toml`（元数据、版本、内容哈希、依赖）。格式与契约层**同构**（同源语法、同一套诊断）。
 2. 定**版本与锚点**：库版本怎么标（内容哈希 vs 语义版本）、怎么钉死（`project.toml` 的 `[libs]` 里已有 `content_hash` 雏形）、怎么升级。
 3. 定**获取方式的抽象**：v0.1 只要求"本地路径 + 内容哈希"可解析，**不实现 registry 服务**；但要留出 `source` / `rev` 字段（§9 已列），让未来的 registry 只是这个字段的一个取值。
-4. 定**第三方库的要求**：库文件必须过 schema、必须能导出成 KiCad、必须能过 `lib:verify`（ADR-0013）；不合规不收。
+4. 定**第三方库的要求**：库文件必须过 schema、必须能导出成 KiCad、必须能过 `lib:verify`（[ADR-0013](adr/0013-reference-project-self-built-libraries.md)）；不合规不收。
 5. 复用 F7 的错误码与 F8 的 schema 义务——**库是契约层的延伸，不是另一个标准**。
 
-**涉及**：`spec/`（库包规范）、`schemas/ir/v0.1/**`（库 manifest）、`AGENTS.md` §9（`[libs]` 键的最终形态）、ADR（并入 ADR-0011 的补充或单开）、`examples/reference-project/project.toml`（样例）。
+**涉及**：`spec/`（库包规范）、`schemas/ir/v0.1/**`（库 manifest）、`AGENTS.md` §9（`[libs]` 键的最终形态）、ADR（并入 [ADR-0011](adr/0011-library-format-and-footprint-ir.md) 的补充或单开）、`examples/reference-project/project.toml`（样例）。
 
 **验收**：
 
@@ -254,14 +254,14 @@
 **注意**：
 
 - **先规范后服务**：不要一上来就写 registry（那是运维与法务问题，cohdl 走了很多年）。先把"库包长什么样、怎么钉版本、怎么验证"定死。
-- 库生态的成败取决于**库的覆盖率与质量**，不取决于注册表的 UI。优先把"自建库能自动生成"（ADR-0010 的 agent 生成路线）做扎实。
+- 库生态的成败取决于**库的覆盖率与质量**，不取决于注册表的 UI。优先把"自建库能自动生成"（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) 的 agent 生成路线）做扎实。
 - 与不变量 19 对齐：库规范属契约层，永久开放。
 
 ---
 
 ## F11. 源码位置（span）机制：诊断要能指到行列
 
-**现状**：`AGENTS.md` §10 要求"每条诊断含文件、行列、期望/实际、修复建议"。但 textEDA 是"源码 → IR"的单向投影（ADR-0004 / ADR-0008），**IR 只含语义、不含源位置**——span 在投影里丢了。两个后果：
+**现状**：`AGENTS.md` §10 要求"每条诊断含文件、行列、期望/实际、修复建议"。但 textEDA 是"源码 → IR"的单向投影（[ADR-0004](adr/0004-ir-representation.md) / [ADR-0008](adr/0008-ir-shard-identity-and-hash.md)），**IR 只含语义、不含源位置**——span 在投影里丢了。两个后果：
 
 1. 语义检查器与 schema 校验的诊断只能指到"哪个文件"，指不到"哪一行哪一列"；
 2. schema 校验（Ajv）报的是 **IR 上的 JSON Pointer**（`/pins/2`），评审者看不懂——他手里是 `.teda` 源文件，不是 IR。
@@ -270,7 +270,7 @@
 
 **为什么现在做**：F7 要求诊断带位置，F8 会把一部分检查前移进 schema 校验——**schema 错误的位置就是 IR 路径**，没有 span 就只能给路径。agent 要自动改文件，**没有行列就没法做定点修改**，repair loop 无从下手。
 
-**关键约束（这里有个真冲突）**：§10 明写"打乱行序、换单位写法、换键序的同一描述，编译出的 IR 必须与 canonical 源**字节相同**"。**span 一旦进 IR，这条验收就挂**（行序一变字节就变）。所以 **span 不能进 IR**——这是 ADR-0004「IR 不复制源文本」的延伸。
+**关键约束（这里有个真冲突）**：§10 明写"打乱行序、换单位写法、换键序的同一描述，编译出的 IR 必须与 canonical 源**字节相同**"。**span 一旦进 IR，这条验收就挂**（行序一变字节就变）。所以 **span 不能进 IR**——这是 [ADR-0004](adr/0004-ir-representation.md)「IR 不复制源文本」的延伸。
 
 **要做的事**：
 
@@ -286,7 +286,7 @@
 5. **canonical 与位置不要混用**：位置基于**原文件**；`fmt` 之后行号会变。
 6. 位置稳定性测试：同一份源两次解析位置一致；打乱行序后 IR 字节不变（§10 验收仍绿）而诊断位置指向新行号。
 
-**涉及**：`packages/parser/src/**`（内部结构与映射表）、`packages/ir/src/**`（诊断类型与位置类型）、`spec/**`（位置模型）、新增 `docs/adr/0018-source-spans.md`、`tests/**`。
+**涉及**：`packages/parser/src/**`（内部结构与映射表）、`packages/ir/src/**`（诊断类型与位置类型）、`spec/**`（位置模型）、新增 `docs/adr/0020-source-spans.md`（编号 0020 已预留，见 `docs/adr/README.md`）、`tests/**`。
 
 **验收**：
 
@@ -296,7 +296,7 @@
 
 **注意**：
 
-- **不要为了位置把源文本复制进 IR**（ADR-0004 明令：IR 不复制源文本与注释）。span 是位置元数据，且**不进 IR**。
+- **不要为了位置把源文本复制进 IR**（[ADR-0004](adr/0004-ir-representation.md) 明令：IR 不复制源文本与注释）。span 是位置元数据，且**不进 IR**。
 - 列号的字符语义（中文、`Ω`、`±` 怎么算列）必须写死并进 spec，否则第三方实现算出来的列号对不上。
 - 这条是 F7 的前置，但**不阻塞 F7 的码表与注册表**（先有码与文件级位置，span 到位后补行列）。
 
@@ -359,8 +359,8 @@
 
 **已定的约束（2026-10-21 讨论，先写死以免被随手设计掉）**：
 
-1. **层次只在源码层，IR 存展平结果**——与 page 的展平口径一致（ADR-0002 / ADR-0007）。IR 里不留 module 结构，否则第三方实现要额外实现 module 解析 / 展开 / 端口解析三套语义。
-2. **module 与 page 同构**：都有 ports，展平命名复用 `<instance_id>.<net>`（ADR-0007），未连接端口必须显式（与 F8 的 pin 归属三态同构）。实现上应当只有**一套展开器**。
+1. **层次只在源码层，IR 存展平结果**——与 page 的展平口径一致（[ADR-0002](adr/0002-board-pages-and-bom.md) / [ADR-0007](adr/0007-page-internal-net-naming.md)）。IR 里不留 module 结构，否则第三方实现要额外实现 module 解析 / 展开 / 端口解析三套语义。
+2. **module 与 page 同构**：都有 ports，展平命名复用 `<instance_id>.<net>`（[ADR-0007](adr/0007-page-internal-net-naming.md)），未连接端口必须显式（与 F8 的 pin 归属三态同构）。实现上应当只有**一套展开器**。
 3. **参数只做字面量替换，不参与运算**：参数值与实例覆盖值都必须是字面量（可带单位）；禁止 `VOUT = $vin * $ratio`、禁止参数引用参数、禁止函数调用。派生值由语言外的生成器算好后写成字面量（与 F9 同源）。
 4. **评审可见性**：module 体里的 `$rset` 意味着"值来自实例"，评审者看实例行即可（**一跳**，不是程序语义）；实例行里的值是字面量。参数化**结构**不藏事实，参数化**取值**才藏事实——后者不做。
 
@@ -376,7 +376,7 @@
 1. 写 `spec/hierarchy.md`：module 体语法、ports、参数、实例语法、展开规则、命名规则。
 2. 决定 module 定义的存放位置：先只支持**工程内**（`modules/` 目录，或直接放在 `sch/<board_id>/` 旁），跨工程复用等 F10 的库包规范（module 进库包）。
 3. 校验规则：端口必须全部连接或显式 `nc`；未定义/未使用参数报错；实例化深度上限（防展开爆炸，参考 cohdl 的展开预算）；循环检测；展开后与 sch 的 net/器件命名不冲突。
-4. 展平后的结果进板级 IR，器件身份沿用 `component_id`，BOM 计数按 ADR-0002 的展平口径。
+4. 展平后的结果进板级 IR，器件身份沿用 `component_id`，BOM 计数按 [ADR-0002](adr/0002-board-pages-and-bom.md) 的展平口径。
 
 **触发条件**：出现第一个真实的"同构重复 ≥ 15 行、实例 ≥ 3 次、且取值各不相同"的场景。**在此之前不实现。**
 
@@ -390,7 +390,7 @@
 
 ## F14. `fab` 的目标形态：制造中立数据是契约层，KiCad 只是兼容方案
 
-**现状**：`AGENTS.md` §1 的"不是"里写着"不自研 Gerber / Excellon 写出器"，ADR-0005 把制造出口定为"IR → KiCad → Gerber/Excellon"。同时 §1/§4/§9 又提到 `fab` 描述，但**它连形态都没有**（无 spec、无 schema、无类型、无例子）——§11 Q17 已记为待定。
+**现状**：`AGENTS.md` §1 的"不是"里写着"不自研 Gerber / Excellon 写出器"，[ADR-0005](adr/0005-manufacturing-output.md) 把制造出口定为"IR → KiCad → Gerber/Excellon"。同时 §1/§4/§9 又提到 `fab` 描述，但**它连形态都没有**（无 spec、无 schema、无类型、无例子）——§11 Q17 已记为待定。
 
 **已定的方向（2026-10-21 讨论）**：**KiCad 是兼容方案，不是目标形态**。目标形态要把两类产物分开，因为它们在项目分层里属于不同的层：
 
@@ -402,15 +402,15 @@
 **因此建议**：
 
 1. **`fab` 的默认产物 = 制造中立的数据**（自有 JSON 契约），而不是 Gerber 本身。内容：BOM（含变体状态）、贴片坐标与旋转、层叠与规则意图、装配/制造说明。
-2. **导出器再从这份数据派生多种下游**：Gerber（**自研**，P3）/ IPC-2581（可选）/ BOM+坐标（嘉立创路径，ADR-0006）/ KiCad 工程（**兼容方案**）。"KiCad 只是兼容方案"由此成为**结构性事实**而不是口号：Gerber 由我们的 IR 直接出，而制造中立数据是我们自己的。
+2. **导出器再从这份数据派生多种下游**：Gerber（**自研**，P3）/ IPC-2581（可选）/ BOM+坐标（嘉立创路径，[ADR-0006](adr/0006-jlc-prototype-delivery.md)）/ KiCad 工程（**兼容方案**）。"KiCad 只是兼容方案"由此成为**结构性事实**而不是口号：Gerber 由我们的 IR 直接出，而制造中立数据是我们自己的。
 3. **规范获取成本要单独核实**：ODB++ 的规范由 Valor/PTC 掌握、需会员资格；IPC-2581 由 IPC 发布、同样是会员可取（虽是行业事实标准）。**两者都不适合当"自研格式"**——所以契约层用自己的 JSON，导出到 IPC-2581 / Gerber 是导出器的事。
 4. **v0.1 不做 `fab` 描述**（P3），但**先把"制造中立数据"的形状想清楚**——它是 B0 板级描述 + BOM/坐标/装配意图的投影，形状定了，`fab` 描述与导出器就都定了。
-5. **补一条 ADR** 说明目标形态与 ADR-0005 的关系：ADR-0005 定的是**当前实现路径**（走 `kicad-cli`），不是终点；免得后人把 ADR-0005 读成"KiCad 是终点"。
+5. **补一条 ADR** 说明目标形态与 [ADR-0005](adr/0005-manufacturing-output.md) 的关系：[ADR-0005](adr/0005-manufacturing-output.md) 定的是**当前实现路径**（走 `kicad-cli`），不是终点；免得后人把 [ADR-0005](adr/0005-manufacturing-output.md) 读成"KiCad 是终点"。
 
 **要做的事**（触发后）：
 
 1. 写 ADR：制造出口的目标形态（自有制造中立数据 + 多种导出，KiCad 为其中一种）。
-2. 定数据形状：BOM 行（`component_id` + 参数字典 + 变体状态，ADR-0002 的口径）、坐标与朝向、层叠与规则引用、装配说明。
+2. 定数据形状：BOM 行（`component_id` + 参数字典 + 变体状态，[ADR-0002](adr/0002-board-pages-and-bom.md) 的口径）、坐标与朝向、层叠与规则引用、装配说明。
 3. 定与 B0 的边界：哪些字段来自 `pcb` 描述（层叠、规则意图）、哪些来自 `sch` 展平（BOM、变体）、哪些是纯制造附加（工艺说明、拼板）。
 4. `fab` 描述进语言与否，等这一步定完再决定（§11 Q17）。
 
@@ -418,27 +418,27 @@
 
 - 不要现在写 Gerber 写出器——它排在 P3（F15），先把制造中立数据的形状定下来。
 - **不要让"制造中立数据"变成 KiCad 工程文件的翻版**（§7 的"pcb 变成 KiCad 的翻版"同款坑）。
-- 制造中立数据一旦公开就是契约层（ADR-0015 不变量 19），别为了排他性把它关起来。
-- **零依赖是硬要求**（ADR-0018 / 不变量 20）：这条产线不得依赖 KiCad 才能跑通，KiCad 只是可选后端。
+- 制造中立数据一旦公开就是契约层（[ADR-0015](adr/0015-licensing-and-open-standard.md) 不变量 19），别为了排他性把它关起来。
+- **零依赖是硬要求**（[ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md) / 不变量 20）：这条产线不得依赖 KiCad 才能跑通，KiCad 只是可选后端。
 
 ---
 
 ## F15. 自研 Gerber / Excellon 写出器（零依赖制造出口）
 
-**现状**：制造出口的当前路径是 IR → KiCad → Gerber / Excellon（ADR-0005）。这要求用户安装 KiCad，与 ADR-0018 的零依赖原则（不变量 20）冲突：textEDA 的目标是"装 textEDA 就能走完描述 → 校验 → 渲染 → 制造包"。
+**现状**：制造出口的当前路径是 IR → KiCad → Gerber / Excellon（[ADR-0005](adr/0005-manufacturing-output.md)）。这要求用户安装 KiCad，与 [ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md) 的零依赖原则（不变量 20）冲突：textEDA 的目标是"装 textEDA 就能走完描述 → 校验 → 渲染 → 制造包"。
 
-**为什么工作量是已知的**：RS-274X 是行式文本格式（aperture 定义 + draw / flash + 坐标），**不需要几何内核**；本仓已有 pcb IR 的层、焊盘、走线、过孔、丝印事实，缺的是画布展开与坐标变换。对照自建符号库与封装库的实际经验（ADR-0011 ~ ADR-0013）——"自建比想象中容易"已经被验证过一次，别再靠猜。
+**为什么工作量是已知的**：RS-274X 是行式文本格式（aperture 定义 + draw / flash + 坐标），**不需要几何内核**；本仓已有 pcb IR 的层、焊盘、走线、过孔、丝印事实，缺的是画布展开与坐标变换。对照自建符号库与封装库的实际经验（[ADR-0011](adr/0011-library-format-and-footprint-ir.md) ~ [ADR-0013](adr/0013-reference-project-self-built-libraries.md)）——"自建比想象中容易"已经被验证过一次，别再靠猜。
 
 **要做的事**（P3，排在 F14 的数据形状之后）：
 
 1. **定写出范围**：RS-274X + Excellon 钻孔；坐标格式 4.6（与 IR 的整数纳米一致）；零填充（leading zero suppression）取哪一种要写进规范并冻结。
 2. **层映射表**：pcb IR 的层 → Gerber 文件名与层标识（`F.Cu` → `F_Cu.gbr` 等），板框、丝印、阻焊、锡膏开窗的对应关系写进 spec。
-3. **铜皮展开**：Gerber 需要实际填充区域。**优先在 IR 里存派生好的填充结果**（可丢弃、可重算，见 ADR-0003），**导出器不做几何运算**——否则就把几何内核引进来了。
+3. **铜皮展开**：Gerber 需要实际填充区域。**优先在 IR 里存派生好的填充结果**（可丢弃、可重算，见 [ADR-0003](adr/0003-agent-first-pcb-ir.md)），**导出器不做几何运算**——否则就把几何内核引进来了。
 4. **极性与 D-code 复用、镜像、旋转**：全部按坐标变换处理，不引入额外语义。
 5. **对照测试**（可选，不是门禁）：同一块板，自研写出器与 `kicad-cli pcb export gerbers` 的产物要比对——层集合、孔位、图形数量一致。
 6. **可复现**：同一 IR 两次导出**逐字节相同**（与不变量 18 的 canonical 要求一致）。
 
-**不做**：CAM 级 DFM 判定（阻焊开窗规则、锡膏膨胀、丝印避让、阻抗规则的可制造性判断）。Gerber 是格式，判定是规则工程，交给专业 CAM（ADR-0018 决策 2）。
+**不做**：CAM 级 DFM 判定（阻焊开窗规则、锡膏膨胀、丝印避让、阻抗规则的可制造性判断）。Gerber 是格式，判定是规则工程，交给专业 CAM（[ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md) decision 2）。
 
 **验收**：
 
@@ -475,7 +475,7 @@
 **注意**：
 
 - **网表/BOM 不是渲染**：不要在导出器里塞"排版好看"的目标；KiCad 原理图里的符号摆放与连线走向属于 S1，可以任意，只要连通性对。
-- BOM 的参数值要人读（`10k` 而不是 `10000000 µΩ`），所以需要"规范单位 → 显示值"的换算；**规范单位表只有一份**（ADR-0008 决策 4），不要在导出器里另抄一张。
+- BOM 的参数值要人读（`10k` 而不是 `10000000 µΩ`），所以需要"规范单位 → 显示值"的换算；**规范单位表只有一份**（[ADR-0008](adr/0008-ir-shard-identity-and-hash.md) decision 4），不要在导出器里另抄一张。
 - 变体（DNP / 不贴）还没进 IR，BOM 的"变体状态"这一列先留空，等 P3。
 
 ---
@@ -508,7 +508,7 @@
 
 ## F18. `textEDA check`：一条命令跑完解析、契约校验与 ERC
 
-**现状**：**sch 级已落地**（ADR-0019）。`bun run check <项目目录>` 遍历工程里的全部板（`sch/<board>.teda`），逐板解析 → 语义层 ERC → 契约层 schema 校验，诊断走 ADR-0016 的统一载荷（`code` / `severity` / `location` / `data` / `hint`），`--json` 打到 stdout、人读模式打到 stderr；有 error 退出码 1，只有 warning 退出码 0。器件文件解析失败（`syntax.component-invalid`）与器件文件头 id 与文件名不一致（`ref.component-id-mismatch`）也走同一条通道。
+**现状**：**sch 级已落地**（[ADR-0019](adr/0019-agent-contract-reference-and-check-entry.md)）。`bun run check <项目目录>` 遍历工程里的全部板（`sch/<board>.teda`），逐板解析 → 语义层 ERC → 契约层 schema 校验，诊断走 [ADR-0016](adr/0016-diagnostic-error-codes.md) 的统一载荷（`code` / `severity` / `location` / `data` / `hint`），`--json` 打到 stdout、人读模式打到 stderr；有 error 退出码 1，只有 warning 退出码 0。器件文件解析失败（`syntax.component-invalid`）与器件文件头 id 与文件名不一致（`ref.component-id-mismatch`）也走同一条通道。
 
 **还没做的**：
 
@@ -532,7 +532,7 @@
 
 **要做的事**：
 
-1. 建 `packages/core`（ADR-0009 已规划：纯函数，禁 `Bun.*` 与 `process.env`），把 ERC 规则作为独立阶段放进去：输入是解析结果，输出是 ERC 诊断。
+1. 建 `packages/core`（[ADR-0009](adr/0009-implementation-stack.md) 已规划：纯函数，禁 `Bun.*` 与 `process.env`），把 ERC 规则作为独立阶段放进去：输入是解析结果，输出是 ERC 诊断。
 2. `packages/parser` 只出语法与语义层面的"读不出来"（器件找不到、引脚不存在这类解析失败），不出规则违规。
 3. ~~`textEDA check` 的载荷里区分两类~~ **已落地（第一步）**：诊断按**域**归到三个阶段（`parse` / `contract` / `semantic`），载荷带 `countsByStage`，`check` 的人读输出也打印阶段分布。不需要调用点声明阶段——域是封闭词表，一个域只可能属于一个阶段。剩下的是真正的迁移：把 `net` / `drc` 域的规则从 parser 挪进 `packages/core`。
 
@@ -546,14 +546,14 @@
 
 ## F20. IR 契约参考的字段说明补齐 + `pcb` 分片
 
-**现状**：`docs/ir-reference.md`（ADR-0019）已生成，每个字段一行（类型 / 必填 / 单位 / 说明），联合类型按分支展开（`constraint（type=voltage）` …），文末有"缺说明"清单。**非 pcb 分片已 100% 覆盖**（common / component / schematic / manifest / system / project / symbol / footprint）；**`pcb` 分片还剩 81 个字段没说明**，而 `pcb` 描述本身还没实现。
+**现状**：`docs/ir-reference.md`（[ADR-0019](adr/0019-agent-contract-reference-and-check-entry.md)）已生成，每个字段一行（类型 / 必填 / 单位 / 说明），联合类型按分支展开（`constraint（type=voltage）` …），文末有"缺说明"清单。**非 pcb 分片已 100% 覆盖**（common / component / schematic / manifest / system / project / symbol / footprint）；**`pcb` 分片还剩 81 个字段没说明**，而 `pcb` 描述本身还没实现。
 
 **要做的事**：
 
 1. 给 `schemas/ir/v0.1/pcb.schema.json` 的字段补 `description`（`pcb` 描述落地时一并做，否则会返工）。
 2. 把"缺说明字段数"变成一个门槛（`gen:check` 或 CI 里卡覆盖率），防止新字段裸奔。
 
-**注意**：description 是**契约的一部分**（写的是这个字段装什么），不是文档润色；补它等于把 IR 语义写进唯一真源。补说明时若给 `$ref` 加兄弟 `description`，生成器必须开 `unreachableDefinitions`，否则命名类型会被内联掉（ADR-0019）。
+**注意**：description 是**契约的一部分**（写的是这个字段装什么），不是文档润色；补它等于把 IR 语义写进唯一真源。补说明时若给 `$ref` 加兄弟 `description`，生成器必须开 `unreachableDefinitions`，否则命名类型会被内联掉（[ADR-0019](adr/0019-agent-contract-reference-and-check-entry.md)）。
 
 ## F21. pcb 描述：绑定校验、`fmt`、参考工程的 pcb
 

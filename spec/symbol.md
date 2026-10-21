@@ -10,7 +10,7 @@
 
 `symbol` 描述表达**一个符号的视图**：引脚摆位、外形、单元分组、显示开关。
 
-一条底线（ADR-0012 决策 2）：
+一条底线（[ADR-0012](../docs/adr/0012-symbol-description.md) decision 2）：
 
 > **引脚的电学事实只有一个所有者：`component`。** `symbol` 不写引脚名、不写引脚号的含义、不写电气类型——它只写这些引脚**画在哪、怎么画**。
 
@@ -138,7 +138,7 @@ v0.1 不支持：文字标注（极性 `+`/`−`、功能名）、图片、贝�
 2. `body` 的 `geometry` 点数与 `kind` 匹配；`poly` 点数 ≥ 3；`fill` 只适用于 `rect` / `circle` / `poly`。
 3. `field` 的 `Name` 唯一；`field` 不接受 `layer`。
 4. 编译产物必须通过 `schemas/ir/v0.1/symbol.schema.json`（closed schema）。
-5. 库级检查（与 `component` 的引脚号集合比对、与 `footprint` 的引脚号比对、ERC）不属于本描述，属工具链（ADR-0010 决策 3）。
+5. 库级检查（与 `component` 的引脚号集合比对、与 `footprint` 的引脚号比对、ERC）不属于本描述，属工具链（[ADR-0010](../docs/adr/0010-footprint-and-3d-model-ownership.md) decision 3）。
 6. 编译产物的顺序只依赖语义：`pins` 按 (`unit`, `number` 自然序)、`body` 按 (`kind`, 坐标) 排；`fields` 按 `Name`、`tags` 按字节序。
 
 诊断格式：`file:line:col: <severity> <code>: <message>`。

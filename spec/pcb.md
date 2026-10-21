@@ -14,7 +14,7 @@
 
 1. **连通性只由逻辑模型决定**。pcb 不得隐式增删逻辑连接；偏差必须显式声明并进报告（§5.3）。
 2. **逻辑专属 / 物理专属必须显式标记**。物理实体进 `physical_only`，逻辑偏差进 `deviation`。
-3. **派生层的东西不进 IR**：绘图参数、丝印排版、铜皮填充结果、量测文本、UUID 与内部序号一律不存（`docs/adr/0003-agent-first-pcb-ir.md` 决策 3）。
+3. **派生层的东西不进 IR**：绘图参数、丝印排版、铜皮填充结果、量测文本、UUID 与内部序号一律不存（`docs/adr/0003-agent-first-pcb-ir.md` decision 3）。
 4. **不自研制造出口**：制造链走 KiCad（`kicad-cli pcb export gerbers` / `export drill` / `pcb drc`）；Gerber / Excellon 写出器借现成工具链，自研的只是 IR 侧的意图参数与到 KiCad 的映射。路径见 `docs/adr/0005-manufacturing-output.md`；打样文件（BOM / 坐标）规范见 `docs/adr/0006-jlc-prototype-delivery.md`。
 
 v0.4 **假定存在对应的 `sch`**。pcb-only 模式（逆向工程、外部网表导入）待 `AGENTS.md` §11 第 6 条决定后补充。
@@ -152,7 +152,7 @@ trace
 - 至少 2 个点；点之间是直线段（直线、45° 斜线都能表达）。
 - `net` 必须存在于 `sch`；`layer` 必须是 `stackup` 里的铜层。
 - **只支持折线**，不支持圆弧段（§7）。
-- 差分对不是几何对象：两条线各自一条 `trace` 行，差分/等长/阻抗约束在 `rules`（`docs/adr/0003-agent-first-pcb-ir.md` 决策 5）。
+- 差分对不是几何对象：两条线各自一条 `trace` 行，差分/等长/阻抗约束在 `rules`（`docs/adr/0003-agent-first-pcb-ir.md` decision 5）。
 
 ### 4.6 `via`
 
@@ -178,7 +178,7 @@ zone
 
 - 顶点构成闭合多边形；至少 3 个点。
 - 只存**意图**（轮廓 + 所属 net + 层）。填充参数（clearance、thermal、min_thickness）走 `rules` 与全局默认。
-- **填充结果不入 IR**：由轮廓 + 规则重算（`docs/adr/0003-agent-first-pcb-ir.md` 决策 3）。
+- **填充结果不入 IR**：由轮廓 + 规则重算（`docs/adr/0003-agent-first-pcb-ir.md` decision 3）。
 
 ### 4.8 `keepout`
 
@@ -223,12 +223,12 @@ rules
 | `thermal` | `<gap> <bridge>` | 铜皮与焊盘之间的热焊盘间距与桥宽 |
 | `min_width` | `<value>` | 铜皮填充与走线的最小线宽 |
 
-- 规则**必须进 IR**：KiCad 把 netclass 与自定义 DRC 规则放在工程文件里，只拿 `.kicad_pcb` 的 agent 无法自查（`docs/adr/0003-agent-first-pcb-ir.md` 决策 4）。
+- 规则**必须进 IR**：KiCad 把 netclass 与自定义 DRC 规则放在工程文件里，只拿 `.kicad_pcb` 的 agent 无法自查（`docs/adr/0003-agent-first-pcb-ir.md` decision 4）。
 - 导出到 KiCad 时映射为 netclass 与自定义规则（细则待定，见该 ADR 的"后续"）。
 
 ### 4.10 `silk`
 
-丝印是制造物（Gerber 的 `F.SilkS` / `B.SilkS`），所以"出不出、多大、哪层"必须声明；**排版位置不进 IR**（`docs/adr/0003-agent-first-pcb-ir.md` 决策 3），由确定性 policy 生成。
+丝印是制造物（Gerber 的 `F.SilkS` / `B.SilkS`），所以"出不出、多大、哪层"必须声明；**排版位置不进 IR**（`docs/adr/0003-agent-first-pcb-ir.md` decision 3），由确定性 policy 生成。
 
 ```
 silk
@@ -357,12 +357,12 @@ pcb 里写的 net 名是**展平后**的名字：板级 net 用板根的名字�
 | 圆弧走线 | 不支持；导入时按折线近似并报告偏差 | 待定 |
 | 圆弧板框 | 不支持 | 待定 |
 | 微孔（HDI） | 不支持 | 待定 |
-| 铣槽与异形孔 | `physical_only` 只表达圆孔与矩形开孔 | 待补（`docs/adr/0005-manufacturing-output.md` 决策 7） |
-| 阻焊/锡膏/热焊盘开窗 | 只声明参数（`rules`），实际开窗由 KiCad 计算 | `docs/adr/0005-manufacturing-output.md` 决策 5 |
+| 铣槽与异形孔 | `physical_only` 只表达圆孔与矩形开孔 | 待补（`docs/adr/0005-manufacturing-output.md` decision 7） |
+| 阻焊/锡膏/热焊盘开窗 | 只声明参数（`rules`），实际开窗由 KiCad 计算 | `docs/adr/0005-manufacturing-output.md` decision 5 |
 | 差分对的几何表达 | 不表达，靠 `rules` 约束 | 保持 |
 | 阻抗计算的工艺栈 | 只存 `er` 与介质厚度，不做计算 | 交给 KiCad/仿真工具 |
 | pcb-only 模式 | 不支持（v0.4 假定有 `sch`） | `AGENTS.md` §11 第 6 条 |
-| 封装 pad 几何来源 | 引用 `components/` 的 `footprint`；IR 内 pad 几何是引用还是内联待定 | 见 ADR-0003"后续" |
+| 封装 pad 几何来源 | 引用 `components/` 的 `footprint`；IR 内 pad 几何是引用还是内联待定 | 见 [ADR-0003](../docs/adr/0003-agent-first-pcb-ir.md)"后续" |
 | 布局约束（区域、邻接、禁布） | v0.4 不表达 | 待定 |
 | 3D 模型与装配图 | 不在 pcb 描述内（属封装库与 fab 层） | — |
 

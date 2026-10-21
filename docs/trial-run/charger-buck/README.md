@@ -1,6 +1,6 @@
 # 试跑记录：pcb 描述 → KiCad → DRC / Gerber
 
-日期：2026-10-20 · 门：`docs/adr/0005-manufacturing-output.md` 决策 8（试跑门）· KiCad 10.0.7
+日期：2026-10-20 · 门：`docs/adr/0005-manufacturing-output.md` decision 8（试跑门）· KiCad 10.0.7
 
 > **历史快照**：本目录记录的是**自建库落地之前**的一次试跑，板里的封装来自 KiCad 官方库（见本目录 `fp-lib-table` 里的 nix 路径）。参考工程自此全部自建（`docs/adr/0013-reference-project-self-built-libraries.md`），当前的库级闭环门槛是 `bun run lib:verify`；本目录的产物保留作为当时的证据，不代表现在的库。
 
@@ -58,7 +58,7 @@ kicad-cli pcb export drill  --output drill/  charger-buck.kicad_pcb
 
 - **叠层没落进去**：`stackup` 段（铜厚、介质厚度、材料）在本轮只落了 `board_thickness` → `(general (thickness 1.6))`；
   完整叠层应写进 `.kicad_pro` 的 `design_settings.stackup`，本轮没做。
-- **`mask` / `paste` / `thermal` / `min_width` 四个 rules 参数**没验：它们按 ADR 0005 决策 5 是**封装属性**与**zone 属性**，不是板级设置，落点要单独核。
+- **`mask` / `paste` / `thermal` / `min_width` 四个 rules 参数**没验：它们按 ADR 0005 decision 5 是**封装属性**与**zone 属性**，不是板级设置，落点要单独核。
 - **板框**：本轮用 4 条 `gr_line` 拼矩形；多边形板框、`gr_rect`、圆角都没试。
 - **槽孔、非镀通孔、双面器件、背面丝印**都没试（`physical_only` 段还没实现）。
 - **Gerber 只验了文件齐全与可导出**，没有做 CAM 级检查（阻焊扩张、锡膏比例、孔环）。

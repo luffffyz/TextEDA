@@ -1,6 +1,6 @@
 # KiCad 导出目标：`.kicad_pcb` / `.kicad_pro` 的字段级映射
 
-状态：试跑基线（2026-10-20，KiCad 10.0.7）· 对应 `docs/adr/0005-manufacturing-output.md` 决策 8、9
+状态：试跑基线（2026-10-20，KiCad 10.0.7）· 对应 `docs/adr/0005-manufacturing-output.md` decisions 8, 9
 
 本文件是**导出目标**的规格：IR 的每一段落到 KiCad 工程里的哪个位置、哪些落不下（要报告的损失）。
 它不描述 IR 语义（那在 `spec/pcb.md`），也不描述 KiCad 自己的格式细节（那是 KiCad 的文档与源码的事）。
@@ -42,7 +42,7 @@ DRC 报告就不干净。板文件里封装是内联的，但 `(footprint "LIB:N
 | `rules.min_width` | `.kicad_pro` → `rules.min_track_width` | 未验 |
 | `silk` | 封装的 `Reference` / `Value` 属性（是否隐藏、字高、层） | 未验（本轮沿用库默认） |
 | `physical_only` | `.kicad_pcb` → 孔/图形/测试点实体 | 未验（段还没实现） |
-| `deviation` | 不导出几何，只进报告 | 规则（ADR 0005 决策 9） |
+| `deviation` | 不导出几何，只进报告 | 规则（ADR 0005 decision 9） |
 
 ## 3. 实测确认的格式约定
 
@@ -77,4 +77,4 @@ DRC 报告就不干净。板文件里封装是内联的，但 `(footprint "LIB:N
 ## 5. 复现
 
 试跑基线与命令见 `docs/trial-run/charger-buck/README.md`（含 DRC 报告、Gerber 清单、`.kicad_pro`、库表）。
-`docs/adr/0005-manufacturing-output.md` 决策 8 的逐项核对表，就以本文件的"状态"列作为底账。
+`docs/adr/0005-manufacturing-output.md` decision 8 的逐项核对表，就以本文件的"状态"列作为底账。

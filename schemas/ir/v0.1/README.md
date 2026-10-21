@@ -18,11 +18,11 @@ Every schema is **closed** (`additionalProperties: false`) with exhaustive enums
 
 ## Serialization
 
-Canonical JSON, per ADR-0004 decision 3: UTF-8 without BOM, LF, exactly one trailing newline; keys sorted by code point; `snake_case`; **integers only**; no `null`, no empty collections, no timestamps or absolute paths; `source_hash = SHA-256(canonical bytes)`.
+Canonical JSON, per [ADR-0004](../../../docs/adr/0004-ir-representation.md) decision 3: UTF-8 without BOM, LF, exactly one trailing newline; keys sorted by code point; `snake_case`; **integers only**; no `null`, no empty collections, no timestamps or absolute paths; `source_hash = SHA-256(canonical bytes)`.
 
 ## Units
 
-The field-name suffix is the unit (`_nm`, `_mdeg`, `_mohm`, `_uv`, `_na`, `_uw`, `_mhz`, `_mdegc`, `_ppm`). For device parameter values (`params[].value`) the integer unit comes from the declared parameter type (`resistance`→µΩ, `capacitance`→fF, `inductance`→pH …). The full conversion table is ADR-0008 decision 4.
+The field-name suffix is the unit (`_nm`, `_mdeg`, `_mohm`, `_uv`, `_na`, `_uw`, `_mhz`, `_mdegc`, `_ppm`). For device parameter values (`params[].value`) the integer unit comes from the declared parameter type (`resistance`→µΩ, `capacitance`→fF, `inductance`→pH …). The full conversion table is [ADR-0008](../../../docs/adr/0008-ir-shard-identity-and-hash.md) decision 4.
 
 ## Testing
 

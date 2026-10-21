@@ -54,15 +54,22 @@ bun run textEDA init ./my-board        # 生成空工程骨架
 | `packages/renderer` | 参考渲染器：IR → 绘图指令 → SVG（[ADR-0014](docs/adr/0014-reference-renderer.md)） |
 | `packages/cli` | `textEDA init` / `compile` / `check` / `netlist`（[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)） |
 | `examples/reference-project/` | 自包含的参考工程：22 个器件 / 15 个符号 / 16 个封装，库全部自建 |
-| `docs/adr/` | 决策记录（ADR），0001–0019（0017 未使用） |
+| `docs/adr/` | 决策记录（ADR），0001–0019（[完整索引](docs/adr/README.md)；0017 与 0020 已预留） |
 | `docs/backlog.md` | 待办清单 |
 
 ## 决策记录
 
+- [ADR-0001](docs/adr/0001-board-linking.md) 板之间如何连接
+- [ADR-0002](docs/adr/0002-board-pages-and-bom.md) 板内分页、展平与 BOM 计数
 - [ADR-0003](docs/adr/0003-agent-first-pcb-ir.md) agent-first 的 PCB IR
 - [ADR-0004](docs/adr/0004-ir-representation.md) IR 形态与单位约定
 - [ADR-0005](docs/adr/0005-manufacturing-output.md) 制造出口归 KiCad
+- [ADR-0006](docs/adr/0006-jlc-prototype-delivery.md) 嘉立创打样交付：BOM、坐标、料号绑定
+- [ADR-0007](docs/adr/0007-page-internal-net-naming.md) 展平后的 net 集合与命名
+- [ADR-0008](docs/adr/0008-ir-shard-identity-and-hash.md) IR 分片、身份键、单位与哈希粒度
+- [ADR-0009](docs/adr/0009-implementation-stack.md) 实现栈：TypeScript、Bun、渲染分层、IDE 接入面
 - [ADR-0010](docs/adr/0010-footprint-and-3d-model-ownership.md) 自建封装与 3D 模型的所有权
+- [ADR-0011](docs/adr/0011-library-format-and-footprint-ir.md) 自建封装库用自己的格式
 - [ADR-0012](docs/adr/0012-symbol-description.md) 符号描述：引脚名与电气类型归器件
 - [ADR-0013](docs/adr/0013-reference-project-self-built-libraries.md) 参考工程全部自建
 - [ADR-0014](docs/adr/0014-reference-renderer.md) 自研参考渲染器，预览不依赖 KiCad
@@ -71,6 +78,8 @@ bun run textEDA init ./my-board        # 生成空工程骨架
 - [ADR-0018](docs/adr/0018-zero-dependency-and-manufacturing-target.md) 零依赖原则与制造出口目标形态：KiCad 是可选后端
 - [ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md) agent 契约参考与 `check` 入口
 
+完整索引（含标题、状态、日期）见 [docs/adr/README.md](docs/adr/README.md)。
+
 ## 造器件
 
 - [docs/symbol-authoring.md](docs/symbol-authoring.md) 造符号
@@ -78,4 +87,4 @@ bun run textEDA init ./my-board        # 生成空工程骨架
 
 ## 语言策略
 
-源码（`.ts`、schema、`.teda` 示例）只允许英文；`docs/` 与 `spec/` 下的设计文档用中文。`README.md` 是英文入口，`README_cn.md` 承载中文。
+源码（`.ts`、schema、`.teda` 示例）只允许英文；`docs/` 与 `spec/` 下的设计文档用中文，**唯一例外是 `docs/adr/` 用英文**——ADR 属于契约层，`spec/`、`schemas/`、`teda.md` 按编号引用它的决策，第三方实现者要读得懂。`README.md` 是英文入口，`README_cn.md` 承载中文。

@@ -124,7 +124,7 @@ footprints = "footprints/project"
 content_hash = "…"
 ```
 
-`content_hash` = SHA-256（两个库根下所有文件按**项目相对路径**排序后逐行 `"<path>:<file_sha256>\n"` 拼接）。自建库没有上游 rev，内容哈希就是它的版本锚点（ADR-0010 决策 2 与补充）。
+`content_hash` = SHA-256（两个库根下所有文件按**项目相对路径**排序后逐行 `"<path>:<file_sha256>\n"` 拼接）。自建库没有上游 rev，内容哈希就是它的版本锚点（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) decision 2 与补充）。
 
 ```bash
 bun run lib:hash footprints/project symbols/project
@@ -146,7 +146,7 @@ bun run preview component bq24610rger         # 器件的符号 + 封装两张�
 bun run preview footprint sot-23-5 --scale 20 # 放大看焊盘与丝印的细节
 ```
 
-**改完封装先跑这个**。参考渲染器（`packages/renderer`，ADR-0014）把 IR 画成 SVG：焊盘位置与尺寸、courtyard、F.Fab、丝印、属性文字都在图上，而且**渲染约定与 KiCad 一致**（逐项比对过，见 ADR-0014 决策 6）——所以这张图能当 KiCad 的预演看。
+**改完封装先跑这个**。参考渲染器（`packages/renderer`，[ADR-0014](adr/0014-reference-renderer.md)）把 IR 画成 SVG：焊盘位置与尺寸、courtyard、F.Fab、丝印、属性文字都在图上，而且**渲染约定与 KiCad 一致**（逐项比对过，见 [ADR-0014](adr/0014-reference-renderer.md) decision 6）——所以这张图能当 KiCad 的预演看。
 
 看图抓的是 DRC 抓不到的：丝印压焊盘（DRC 才报）、courtyard 圈小了没罩住焊盘、丝印线画到了板边外、1 脚标记没画。
 
@@ -164,7 +164,7 @@ bun run smoke:footprint            # 用 examples/reference-project/footprints/p
 
 > 预览（第 6 步）**不需要 KiCad**；冒烟（第 7 步）需要——它验的是"我们的导出 KiCad 能读"，这是下游契约，故意依赖 KiCad。
 
-## 工具必须替人查的（ADR-0010 决策 3）
+## 工具必须替人查的（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) decision 3）
 
 1. 封装存在、`lib:name` 能解析到具体封装；
 2. **pad 号集合 ⊇ sch 引脚编号集合**：少一个 → 错误；多一个 → 警告；
@@ -175,7 +175,7 @@ bun run smoke:footprint            # 用 examples/reference-project/footprints/p
 
 | 现象 | 原因 | 处理 |
 |---|---|---|
-| PCB 上焊盘没接上 | pad 编号与 symbol 引脚号错位（`1` vs `A1`） | 决策 3 第 2 条会报错；改到一致 |
+| PCB 上焊盘没接上 | pad 编号与 symbol 引脚号错位（`1` vs `A1`） | decision 3 第 2 条会报错；改到一致 |
 | 散热焊盘不出现 | 散热焊盘编号（如 `9` / `PAD`）在 symbol 里没有对应引脚 | 把它当机械焊盘，连接规则里明确不参与电气 |
 | 编译报"精度超过纳米" | 写了亚纳米尺寸（如 `0.0000001mm`） | 改成整数纳米；IR 不许浮点，也不许丢精度 |
 | DRC 报丝印压焊盘 | `Reference`/`Value` 文本位置压到焊盘阻焊开窗 | 文本往外挪（如 ±2.0 mm） |
