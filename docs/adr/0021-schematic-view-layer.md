@@ -37,7 +37,7 @@ The schematic view is a new description type, living next to `schematic` / `page
 
 - A separate file per page, next to the page it draws: `sch/<board_id>/<page_id>.view.teda`.
 - A separate IR shard: `dist/ir/boards/<board_id>/view/<page_id>.json`, keyed the same way the page shard is ([ADR-0008](0008-ir-shard-identity-and-hash.md)).
-- Its own schema kind in `schemas/ir/v0.1/` and its own spec file in `spec/`.
+- Its own schema kind in `schemas/ir/v0.2/` and its own spec file in `spec/`.
 
 The view description carries only what a drawing needs: where each symbol sits, how the wires run, where the labels and page ports are. It carries **no electrical facts**. Pin electrical type, net membership, and component identity stay in the logical IR and are read from there; the view references them by the same identity keys (`component_id`, `pin_number`, `net_id`) and never restates them. A view file that disagreed with the logic would be a defect, reported like any other, not a second source of truth.
 
@@ -89,7 +89,7 @@ The desktop shell is therefore **deferred, not decided**. When it is needed, the
 
 The review UI is a consumer of artifacts. It cannot show a schematic before decision 1 has a spec, a schema, and a parser; it cannot show anything for the schematic layer at all before decision 2. The implementation order is therefore:
 
-1. `spec/schematic-view.md` + `schemas/ir/v0.1/schematic-view.schema.json` (contract first, per AGENTS.md §12).
+1. `spec/schematic-view.md` + `schemas/ir/v0.2/schematic-view.schema.json` (contract first, per AGENTS.md §12).
 2. `packages/parser`: parse the view description into its shard.
 3. `packages/renderer`: `renderSchematic(logical, view)` + the round-trip of ADR-0014 decision 5, and the readability checks of AGENTS.md §6.
 4. `packages/viewer` (new): the browser app. It is the first consumer of the S1 contract and therefore the first honest test of whether that contract is usable.

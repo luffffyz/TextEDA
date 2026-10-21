@@ -2,7 +2,7 @@
 
 Status: Accepted
 Date: 2026-10-21
-Impact: `teda.md` §5, §13; `packages/parser` (a new `version` module, and every description parser now uses it); `schemas/ir/v0.1/common.schema.json` (`format_version`); `AGENTS.md` §2
+Impact: `teda.md` §5, §13; `packages/parser` (a new `version` module, and every description parser now uses it); `schemas/ir/v0.2/common.schema.json` (`format_version`); `AGENTS.md` §2
 
 ## Background
 
@@ -111,12 +111,13 @@ MAJOR remains the language version of the `1.0` freeze; after `1.0` only PATCH r
   IR — the "IR depends on semantics only" rule (AGENTS.md §2, invariant 18) keeps holding. The
   `symbol` and `footprint` shards carry no `format` field at all, so they are unaffected either way
   (see the backlog).
-- `schemas/ir/v0.1/common.schema.json`'s `format_version` accepts the three-part form and the `1.x`
+- `schemas/ir/v0.2/common.schema.json`'s `format_version` accepts the three-part form and the `1.x`
   line, so the IR contract does not have to change when the language freezes.
-- The IR contract version (`ir_version`, currently `0.1`) stays independent from the language
+- The IR contract version (`ir_version`, currently `0.2`) stays independent from the language
   version: the IR's own shape is versioned separately, and this record does not change that.
-- Existing files are unaffected: `0.1` … `0.5` keep their meaning, and no file in the repository
-  needs a version bump.
+- Existing files keep their meaning up to `0.6`. The first break is `0.7`, where the page mechanism
+  is removed ([ADR-0025](0025-flat-board-and-print-pages.md)); it comes with a migration note and a
+  migration script, as decision 6 requires.
 
 ## Alternatives Rejected
 

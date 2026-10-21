@@ -2,7 +2,7 @@
 
 Status: Accepted
 Date: 2026-10-21
-Impact: `teda.md` §7 (`pages` section) and §7.7 (flattening); `AGENTS.md` §4.2; `examples/reference-project/`; the descriptions in `schemas/ir/v0.1/common.schema.json` and `schemas/ir/v0.1/schematic.schema.json`; [ADR-0007](0007-page-internal-net-naming.md) (examples only)
+Impact: `teda.md` §7.7 (naming); `AGENTS.md` §4.2; `examples/reference-project/`; the descriptions in `schemas/ir/v0.2/common.schema.json` and `schemas/ir/v0.2/schematic.schema.json`; [ADR-0007](0007-page-internal-net-naming.md) (examples only)
 
 **Amendment (2026-10-21, [ADR-0025](0025-flat-board-and-print-pages.md))**: the page level is
 withdrawn, so the `P` tag goes with it. The remaining hierarchy is the **module**, and its tag is
@@ -17,6 +17,9 @@ decision 1 is therefore:
 `P` is free again (no page level exists to tag), and `MOD` is not used. The reference project's
 `M1` / `M2` page instances are gone with the pages; the module tag `M` is reserved for the hierarchy
 when it lands (`docs/backlog.md` F13).
+
+The decisions below are the record of the withdrawn `P` / `MOD` scheme; the table above is the rule
+in force.
 
 ## Background
 

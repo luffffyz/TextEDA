@@ -49,7 +49,7 @@ dist/ir/
 
 - A shard's `sha256` is taken over the canonical JSON bytes **that are written to disk** — the file's content is the hashed content, there is no second serialization step.
 - The project hash is `sha256` over the `<path>:<sha256>\n` lines of all shards, sorted by path; a board hash is the same aggregation over that board's shards. Both are recomputable from the manifest alone. The board hashes are printed but not stored, as [ADR-0008](0008-ir-shard-identity-and-hash.md) decision 5 requires.
-- The manifest is itself checked against `schemas/ir/v0.1/manifest.schema.json` before anything is written.
+- The manifest is itself checked against `schemas/ir/v0.2/manifest.schema.json` before anything is written.
 
 ### 5. Three version numbers stay separate
 
