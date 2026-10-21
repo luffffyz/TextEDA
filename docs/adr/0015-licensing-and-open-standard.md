@@ -1,6 +1,6 @@
 # ADR-0015: Licensing and Openness Policy — The Contract Layer Is Open Source Forever, the Project Is a Pure Open Technical Specification
 
-Status: Accepted
+Status: Accepted (revised 2026-10-21: the commercialization narrative was removed — the project is a pure open technical specification with no revenue model)
 Date: 2026-10-21
 Impact: repository root (new `LICENSE`, `NOTICE`), `package.json` × 7 (add `license` field; see the addendum in decision 1), `README.md` (public statement + license section), `AGENTS.md` §2 (new invariant 19), `docs/backlog.md` (deferred-item registry); the openness of `spec/**`, `schemas/ir/v0.1/**`, `examples/**`, `tests/**` is constrained by this ADR
 
@@ -12,7 +12,7 @@ This must be decided today, for three reasons:
 
 1. **The value of a contract exists only when others implement it.** `AGENTS.md` §2 invariant 1 says "the IR is the single source of truth; the syntax can change, the renderer can change, the exporter can change". If the IR and the spec are private, that sentence means in practice "only I can change them" — that is not replaceability, that is lock-in.
 2. **Agents are consumers, not authors.** This project targets agents: machine-parsable, checkable, locatable errors. For a machine to consume a format, that format must first have a stable public contract and a public license.
-3. **The commercialization path is the opposite of "close-source first, accumulate users, open-source later".** A closed-source product only receives bug reports; it never receives the feedback a standard needs — third-party implementations, third-party designs, third-party tools built around your format. "Close it now, open it once we have feedback" has the logic inverted: by the time you open it, the ecosystem has already been taken by another format.
+3. **Closed-source first, open-source later has the logic inverted.** A closed-source project only receives bug reports; it never receives the feedback a standard needs — third-party implementations, third-party designs, third-party tools built around the format. By the time you open it, the ecosystem may already have been taken by another format.
 
 ## Decision
 
@@ -35,19 +35,19 @@ The paths below belong to the **contract layer**: they are public forever, freel
 |`tests/**`|Unit, contract, round-trip and conformance corpora plus golden IR|
 
 - The **implementation layer** (`packages/**`) may change its license at any time, may be closed-sourced, may ship only binaries; none of that **affects the openness of the contract layer**. A closed-source implementation is still required to consume the public contracts listed above.
-- **No back-contamination**: private extensions that "only the official implementation can read" must not leak into the contract layer. Any extension that needs to be commercialized lives in the implementation layer or in a separate description.
+- **No back-contamination**: private extensions that "only the official implementation can read" must not leak into the contract layer. Such an extension lives in the implementation layer or in a separate description.
 - This rule goes into `AGENTS.md` §2 as invariant 19, because it is a clause that **constrains the behavior of future agents**: without it, a change that "casually folds the spec into a license restriction" looks harmless.
 
-### 3. Positioning: build a "standard proposal", not a SaaS
+### 3. Positioning: build a pure open technical specification
 
-This is the commercial part of the ADR. The target form of textEDA is **a specification that other people's tools are built around**, not a product with subscription revenue. The payoff path, in priority order:
+The target form of TextEDA is **a specification that other people's tools are built around**. The goal is adoption: the specification gets cited, implemented, and written into other people's toolchains, so that hardware description has a machine-checkable semantic layer that independent implementations agree on.
 
-1. **Reputation and influence** — the specification gets adopted, cited, and written into other people's toolchains.
-2. **Consulting and training** — turn "let an agent modify the board" into a deliverable service: enterprise library governance, footprint generation from datasheets, sch↔pcb consistency review.
-3. **Hiring premium** — expert standing in the intersection of hardware description and agent toolchains.
-4. **Ecosystem position** — others build tools on the KiCad side, the PLM side, the CI side; textEDA provides the semantic layer they all depend on.
+There is **no commercial plan and no revenue model**. The project is maintained as an open technical specification; there is no paid hosted service, no consulting or training offering, and no plan to add one. Everything needed to implement against the contract is free and unencumbered, and that will not change.
 
-We explicitly **do not pursue** making the implementation a subscription service as the main line. If a hosted service is offered later, it is positioned as "an optional implementation of the contract" and **must not conflict with decision 2** (a paid service must never be the only way to be "textEDA-conformant").
+Two things follow from this:
+
+- **Adoption is the only metric that matters.** If nobody implements the spec, nothing else counts. This is why decision 4 exists.
+- **The project must not depend on the author staying involved.** A specification that only its author can maintain is a private tool with a public README. Everything that third parties need — the normative text, the schema, the conformance corpus, the reference project — is in the repository and must stay implementable from the specification alone.
 
 ### 4. Acting Like a Standard Means Paying a Standard's Obligations
 
@@ -73,8 +73,7 @@ We explicitly **do not pursue** making the implementation a subscription service
 ### 7. Deferred (recorded in `docs/backlog.md`)
 
 - **npm publishing**: the seven packages keep `"private": true` and are not published to npm for now. Reasons: there are no external consumers yet, and the current packages are TS source at version `0.0.0`. The publishing form (npm / git dependency / IR schema only) is decided once a real third-party implementation has landed.
-- **Official paid hosted validator**: doable, but it must be an optional implementation, never the only way to be "textEDA-conformant" (decisions 3 and 4.2).
-- **Trademark registration**: deferred until the ecosystem has formed.
+- **A hosted validator**: not planned. Conformance is checked with the corpus in `tests/**`; a hosted service would only duplicate it and add an operational burden.
 
 ## Consequences
 

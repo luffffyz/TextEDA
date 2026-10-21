@@ -8,7 +8,7 @@
 
 > 本仓库按 **Apache-2.0** 授权（见 `LICENSE` / `NOTICE`），项目在建中。
 >
-> **契约层永久开源**：`teda.md` / `spec/` / `schemas/` / `examples/` / `tests/` 永远公开可实现，不因商业理由关闭；实现层（`packages/`）可另行许可。定位是**标准提案**——让别人围绕它建工具。
+> **契约层永久开源**：`teda.md` / `spec/` / `schemas/` / `examples/` / `tests/` 永远公开可实现，不改为闭源；实现层（`packages/`）可另行许可。定位是**纯开源技术规范**——没有商业计划、没有收入模型、没有付费服务。实现契约所需的一切都免费且不受限制，且不会变。目标只有一个：**被采用**（规范被引用、被实现、被别人的工具链依赖）。
 >
 > GitHub 上仓库**当前仍是私有**：许可与"将来一定公开"的承诺已经落定，公开前的内部信息清扫也已完成（`bun run check:public` 通过：历史里没有厂商 datasheet、没有凭据、没有维护者的机器路径）。剩下的是切开关这一步人工操作。详见 [ADR-0015](docs/adr/0015-licensing-and-open-standard.md) 与 `docs/backlog.md` F6。
 
@@ -75,7 +75,7 @@ bun run texteda init ./my-board        # 生成空工程骨架
 - [ADR-0012](docs/adr/0012-symbol-description.md) 符号描述：引脚名与电气类型归器件
 - [ADR-0013](docs/adr/0013-reference-project-self-built-libraries.md) 参考工程全部自建
 - [ADR-0014](docs/adr/0014-reference-renderer.md) 自研参考渲染器，预览不依赖 KiCad
-- [ADR-0015](docs/adr/0015-licensing-and-open-standard.md) 许可与开放策略：契约层永久开源，按标准提案定位
+- [ADR-0015](docs/adr/0015-licensing-and-open-standard.md) 许可与开放策略：契约层永久开源，项目是纯开源技术规范
 - [ADR-0016](docs/adr/0016-diagnostic-error-codes.md) 诊断错误码注册表：`域.slug`，发出即冻结
 - [ADR-0018](docs/adr/0018-zero-dependency-and-manufacturing-target.md) 零依赖原则与制造出口目标形态：KiCad 是可选后端
 - [ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md) agent 契约参考与 `check` 入口

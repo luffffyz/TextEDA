@@ -2,7 +2,7 @@
 
 Status: Accepted
 Date: 2026-10-21
-Related: F7 (backlog), [ADR-0015](0015-licensing-and-open-standard.md) (open source and standard proposal), [ADR-0009](0009-implementation-stack.md) (implementation stack), AGENTS.md §12 "error messages are the product"
+Related: F7 (backlog), [ADR-0015](0015-licensing-and-open-standard.md) (open source and openness policy), [ADR-0009](0009-implementation-stack.md) (implementation stack), AGENTS.md §12 "error messages are the product"
 Impact: `packages/ir/src/diagnostics/**`, `packages/parser/src/**`, `packages/cli/**`, `docs/error-codes.md`
 
 ## 1. Decision

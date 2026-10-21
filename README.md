@@ -8,7 +8,7 @@ Built for agents: machine-parsable, verifiable, locatable errors. Humans only re
 
 > Licensed under **Apache-2.0** (see `LICENSE` / `NOTICE`). The project is a work in progress.
 >
-> **The contract layer is open source forever**: `teda.md` / `spec/` / `schemas/` / `examples/` / `tests/` stay public and implementable, never closed for commercial reasons. The implementation layer (`packages/`) may be relicensed separately. The positioning is a **standard proposal** — let others build tools around it.
+> **The contract layer is open source forever**: `teda.md` / `spec/` / `schemas/` / `examples/` / `tests/` stay public and implementable, never closed. The implementation layer (`packages/`) may be relicensed separately. The positioning is a **pure open technical specification** — no commercial plan, no revenue model, no paid services. Everything needed to implement the contract is free and unencumbered, and that will not change. The goal is adoption: the spec gets cited, implemented, and built on.
 >
 > The GitHub repo is **currently private**. The license and the "will be public" commitment are settled, and the pre-publication sweep is done (`bun run check:public` passes: no vendor PDFs in the history, no credentials, no maintainer paths). Flipping the switch is a pending manual step. See [ADR-0015](docs/adr/0015-licensing-and-open-standard.md) and `docs/backlog.md` F6.
 
