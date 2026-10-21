@@ -1,22 +1,22 @@
-# ADR-0001：多板之间怎么关联
+# ADR-0001: How Boards Are Linked Together
 
-状态：已接受
-日期：2026-10-20
-影响范围：`teda.md` §7.5、§8；`AGENTS.md` §2、§4.1、§9、§11
+Status: Accepted
+Date: 2026-10-20
+Impact: `teda.md` §7.5, §8; `AGENTS.md` §2, §4.1, §9, §11
 
-## 背景
+## Background
 
-项目是多板系统（参考工程里是 `charger` + `buck-5v`）。v0.1 只有"一块板一个 `sch`"，板与板之间没有任何关联手段：
+The project is a multi-board system (in the reference project: `charger` + `buck-5v`). In v0.1 there is only "one `sch` per board", with no way of relating boards to each other:
 
-- 板内不能引用别的板，否则 A 板要跟着 B 板改动，破坏"sch 与 pcb 一样是独立描述"的不变量（`AGENTS.md` §2 第 12 条）。
-- `project.toml` 只承载元数据（板列表、变体、库锁定），不承载电路。
-- 板内层次（`module` + 端口映射）还没定义（`AGENTS.md` §5.3、`teda.md` §15），不能用它冒充板间连接。
+- A board cannot reference another board; otherwise board A has to follow every change made to board B, which breaks the invariant that "sch is an independent description, just like pcb" (`AGENTS.md` §2 item 12).
+- `project.toml` carries metadata only (board list, variants, library locks), not circuits.
+- Intra-board hierarchy (`module` + port mapping) is not defined yet (`AGENTS.md` §5.3, `teda.md` §15), so it cannot be passed off as inter-board connectivity.
 
-实际工程里板间连接是**接口问题**：哪块板的哪个节点出板、走哪根线/哪对连接器、到另一块板的哪个节点入板。这类信息既不属于任何一块板的内部电路，也不属于项目元数据，必须有独立的描述位置。
+In real projects, inter-board connection is an **interface problem**: which node of which board leaves the board, over which wire / which connector pair, and into which node of the other board. This kind of information belongs neither to the internal circuit of any single board nor to project metadata, so it needs a place of its own.
 
-## 决策
+## Decision
 
-1. **板侧**：`sch` 新增可选 `ports` 段，声明"这块板对外暴露哪些节点"。
+1. **Board side**: `sch` gains an optional `ports` segment that declares "which nodes does this board expose to the outside".
 
    ```
    ports
@@ -24,14 +24,14 @@
      SYS_OUT  SYS
    ```
 
-   列：`<port_id> <net>`。
+   Columns: `<port_id> <net>`.
 
-   - `port` 只能引用本 `sch` 中已存在的 `net`，不能凭空创建节点。
-   - 一个 `net` 最多被一个 `port` 引用（避免同一节点出现多个对外身份）。
-   - `port` 不新增任何连通性，它只是给已有节点起一个**板外名字**。
-   - 板内 `net` 名可以随便叫，跨板时靠 `port` 对齐，不靠 `net` 名对齐。
+   - A `port` may only reference a `net` that already exists in this `sch`; it cannot conjure a node into being.
+   - A `net` may be referenced by at most one `port` (so that the same node never ends up with two outward identities).
+   - A `port` adds no connectivity whatsoever; it only gives an existing node an **outside-the-board name**.
+   - `net` names inside a board may be anything; cross-board alignment goes through `port`, not through `net` names.
 
-2. **系统侧**：新增描述类型 `system`，文件放在 `system/<system_id>.teda`。
+2. **System side**: a new description type `system`, with files in `system/<system_id>.teda`.
 
    ```
    version 0.2
@@ -46,34 +46,34 @@
      SYS:  buck-5v.SYS_IN  charger.SYS_OUT
    ```
 
-   - `boards` 段：列出参与本系统的板 id；每个 id 必须在 `project.toml` 的 `[boards]` 中存在，且有 `sch/<board_id>.teda`。
-   - `nets` 段：`<system_net>: <board_id>.<port_id> ...`（canonical 形式：网名紧贴冒号，成员之间至少两个空格）；成员是 **port 引用**，一条系统 net 至少两个成员。
+   - `boards` segment: lists the board ids that take part in this system; every id must exist in `[boards]` of `project.toml` and have a `sch/<board_id>.teda`.
+   - `nets` segment: `<system_net>: <board_id>.<port_id> ...` (canonical form: the net name sits flush against the colon, with at least two spaces between members); members are **port references**, and a system net has at least two members.
 
-3. **语义**：一条 `system` net 把各成员 port 所指的板内 `net` 合成同一个系统级节点。板内两端的 `net` 名可以不同。
+3. **Semantics**: a `system` net merges the intra-board `net`s pointed at by its member ports into one system-level node. The `net` names on the two board sides may differ.
 
-4. **`project.toml` 不变**。板列表仍在 `[boards]`，`system` 文件只引用它，不重复声明 `revision`。
+4. **`project.toml` stays unchanged**. The board list remains in `[boards]`; the `system` file only references it and does not redeclare `revision`.
 
-5. **版本**：`ports` 段与 `system` 描述类型属 MINOR 变更 → 格式版本 `0.2`。用到新构造的文件写 `version 0.2`；没用到的一律保持 `version 0.1`（工具接受同 MAJOR 且 MINOR ≤ 自身版本）。
+5. **Version**: the `ports` segment and the `system` description type are a MINOR change → format version `0.2`. Files that use the new constructs write `version 0.2`; files that do not keep `version 0.1` (tools accept the same MAJOR with MINOR ≤ their own version).
 
-## 被否决的方案
+## Rejected Alternatives
 
-| 方案 | 否决理由 |
+| Option | Why it was rejected |
 |---|---|
-| 板里直接 `include charger` 之类的跨板引用 | 板之间互相耦合，改一块板要改另一块；违反"sch 是独立描述" |
-| 板间连接写进 `project.toml` | 元数据不放电路；否则 `project.toml` 会变成第二种电路语法 |
-| 用板内 `module` 层次代替 | 板内复用 ≠ 板间连接；前者是"同一块板里的模块"，后者是"另一个物理对象" |
-| `port` 直接绑定连接器引脚 | v0.2 耦合了机械接口。连接器是普通器件，其引脚本来就在 `net` 上；机械接口定下来后，在对应 `net` 上加连接器器件即可，端口与系统描述都不用改 |
+| Cross-board references inside a board, e.g. `include charger` | The boards become mutually coupled; changing one board forces changes in the other; violates "sch is an independent description" |
+| Writing inter-board connectivity into `project.toml` | Metadata does not hold circuits; otherwise `project.toml` becomes a second circuit syntax |
+| Using intra-board `module` hierarchy instead | Intra-board reuse ≠ inter-board connection; the former is "a module inside the same board", the latter is "another physical object" |
+| Binding `port` directly to connector pins | That couples v0.2 to the mechanical interface. A connector is an ordinary component whose pins are already on a `net`; once the mechanical interface is settled, add the connector component on the corresponding `net` — neither the ports nor the system description have to change |
 
-## 后果
+## Consequences
 
-- 板仍然是可独立评审、可独立导出的单元；系统描述是**额外的**一层，删掉它两块板照样成立。
-- 跨板连通性有了唯一真源（`system` 文件），不会再出现"A 板网表里 SYS 是 9V、B 板网表里 SYS 是 5V"这种各说各话。
-- 板对板接口（`port`）成为可被检查的对象：两侧电压区间不相交、同一节点被并进两个系统 net，都可以报成错误而不是评审时靠人眼。
-- 代价：多一个描述类型、一个新目录、一套新校验规则。
+- A board remains a unit that can be reviewed and exported on its own; the system description is an **extra** layer — delete it and both boards still stand.
+- Cross-board connectivity now has a single source of truth (the `system` file), so the "SYS is 9V in board A's netlist but 5V in board B's netlist" kind of situation — each side telling its own story — can no longer happen.
+- The board-to-board interface (`port`) becomes a checkable object: non-overlapping voltage ranges on the two sides, or one node merged into two system nets, can be reported as errors instead of being caught by the human eye during review.
+- Cost: one more description type, one more directory, one more set of check rules.
 
-## 后续（不在本 ADR 范围）
+## Follow-up (out of scope for this ADR)
 
-- 一个 `port` 暴露多个 `net`（把一个物理连接器的所有信号归成一个接口组）。
-- 板外端点（适配器、电池、负载）：`system` 需要第三类成员（`external`），v0.3 讨论。
-- 线束与连接器对（`AGENTS.md` §4.1 提到的"成对声明"）与本 ADR 的 net 合成的关系。
-- 板内 `module` 层次：与本 ADR 正交，仍按 `AGENTS.md` §5.3 的表格边界讨论。
+- One `port` exposing several `net`s (grouping all the signals of one physical connector into one interface group).
+- Endpoints outside the boards (adapter, battery, load): `system` will need a third member kind (`external`), to be discussed in v0.3.
+- How wire harnesses and connector pairs (the "declared in pairs" note in `AGENTS.md` §4.1) relate to the net merging of this ADR.
+- Intra-board `module` hierarchy: orthogonal to this ADR, still to be discussed along the table boundaries of `AGENTS.md` §5.3.

@@ -1,55 +1,55 @@
-# ADR-0014：自研参考渲染器——IR → 绘图指令 → SVG，预览不依赖 KiCad
+# ADR-0014: Our Own Reference Renderer — IR → Drawing Commands → SVG, with a Preview That Does Not Depend on KiCad
 
-状态：已接受
-日期：2026-10-20
-影响范围：`packages/renderer/`（新包 `@texteda/renderer`）；`scripts/preview.ts`（新命令 `bun run preview`）；`scripts/lib/project.ts`（预览与冒烟共用的"读库 + 编译"）；`scripts/smoke-symbol.ts`、`scripts/smoke-footprint.ts`（改用共用 helper）；`spec/symbol.md`（`pin_name_offset` 的语义写清）；`docs/symbol-authoring.md`、`docs/footprint-authoring.md`（加"看一眼"这一步）；`AGENTS.md` §1、§9、§10；`docs/backlog.md`（F2 关闭，sch 渲染另开）
+Status: Accepted
+Date: 2026-10-20
+Impact: `packages/renderer/` (new package `@texteda/renderer`); `scripts/preview.ts` (new command `bun run preview`); `scripts/lib/project.ts` ("read libraries + compile" shared by preview and smoke); `scripts/smoke-symbol.ts`, `scripts/smoke-footprint.ts` (switched to the shared helper); `spec/symbol.md` (semantics of `pin_name_offset` spelled out); `docs/symbol-authoring.md`, `docs/footprint-authoring.md` (add a "take a look" step); `AGENTS.md` §1, §9, §10; `docs/backlog.md` (F2 closed, sch rendering opened separately)
 
-## 背景
+## Background
 
-`AGENTS.md` §1「是」里第一条就写着项目要有一个**参考渲染器**（先 sch 的 SVG），但仓库里能"看见"库文件的地方只有两个一次性冒烟脚本：`scripts/smoke-symbol.ts` 与 `scripts/smoke-footprint.ts`。它们各自写死一个样例（`bq24610rger` / `sot-23-5`），产物丢在 `/tmp/texteda-sym-smoke/`、`/tmp/texteda-fp-smoke/`，不打印路径；agent 造完一个封装/符号**看不到自己的东西**。
+The first item under "is" in `AGENTS.md` §1 already says the project needs a **reference renderer** (SVG for sch first), but the only places in the repository where you can "see" library files are two one-off smoke scripts: `scripts/smoke-symbol.ts` and `scripts/smoke-footprint.ts`. Each of them hardcodes one sample (`bq24610rger` / `sot-23-5`), drops the output in `/tmp/texteda-sym-smoke/` and `/tmp/texteda-fp-smoke/`, and prints no path; an agent that has just built a footprint/symbol **cannot see its own work**.
 
-这件事的代价不只是"不方便看图"，而是**把 KiCad 装不装变成了能不能干活的前提**：
+The cost of this is not just "inconvenient to look at a picture", it is **turning whether KiCad is installed into a precondition for being able to work at all**:
 
-- 校验全绿 ≠ 看着对。引脚朝向反了、箭头没画出来、courtyard 圈小了、丝印压到焊盘——这些在 IR 与契约校验里都是绿的（校验只看自洽，不看像不像）。
-- 每看一次就拉起一次 `kicad-cli`，作者回路就挂在 KiCad 上。
-- 而 KiCad 在这个项目里的位置是**制造出口**（ADR-0005 决策 1、3：Gerber / Excellon / DRC 归它）。预览是**设计回路**的事，不该走那条路。
+- Checks all green ≠ looks right. A pin facing the wrong way, an arrow that was not drawn, a courtyard that is too small, silkscreen overlapping a pad — all of these are green under IR and contract checks (the checks only look at self-consistency, not at whether it looks right).
+- Every look pulls up a `kicad-cli`, so the authoring loop hangs off KiCad.
+- And KiCad's position in this project is the **manufacturing output** ([ADR-0005](0005-manufacturing-output.md) decisions 1 and 3: Gerber / Excellon / DRC belong to it). The preview is a matter of the **design loop** and must not go through that path.
 
-## 决策
+## Decision
 
-1. **新包 `packages/renderer`**（`@texteda/renderer`，与 `ir` / `parser` / `exporter` 同构）：
-   - `renderSymbol(ir, part): SvgDoc`、`renderFootprint(ir): SvgDoc`；P1 再加 `renderSchematic(ir): SvgDoc`。
-   - **中间表示是绘图指令列表**（`line` / `rect` / `circle` / `arc` / `poly` / `polyline` / `text` / `pin` / `pad`），不是字符串拼接：这样才能写断言、才能做 round-trip、以后也能接别的后端。
-   - 纯函数、无 I/O、无全局状态；**同一份 IR 渲染两次，输出字节相同**（没有时间戳、没有随机数）。
-2. **坐标系跟源走**：符号 +y 向上、封装 +y 向下（ADR-0012 决策 5）；长度一律**整数纳米**，输出时换算成 mm。转 SVG 时按 `orientation` 翻 y（SVG 的 y 向下）。
-3. **预览命令是薄壳**（`scripts/preview.ts`）：
+1. **New package `packages/renderer`** (`@texteda/renderer`, structured like `ir` / `parser` / `exporter`):
+   - `renderSymbol(ir, part): SvgDoc`, `renderFootprint(ir): SvgDoc`; P1 adds `renderSchematic(ir): SvgDoc`.
+   - **The intermediate representation is a list of drawing commands** (`line` / `rect` / `circle` / `arc` / `poly` / `polyline` / `text` / `pin` / `pad`), not string concatenation: only then can we write assertions, do round-trips, and later attach other backends.
+   - Pure functions, no I/O, no global state; **rendering the same IR twice yields byte-identical output** (no timestamps, no randomness).
+2. **The coordinate system follows the source**: symbol +y up, footprint +y down ([ADR-0012](0012-symbol-description.md) decision 5); lengths are always **integer nanometers**, converted to mm on output. When converting to SVG, y is flipped according to `orientation` (SVG's y points down).
+3. **The preview command is a thin shell** (`scripts/preview.ts`):
    ```bash
    bun run preview symbol|footprint|component <id> [--lib <name>] [--out <dir>] [--scale <n>] [--project <dir>]
    ```
-   - `component` 模式出**符号 + 封装两张图**，方便对"引脚号与位置是否对得上"。
-   - 打印产物绝对路径；`--out` 不给就落 `/tmp/texteda-preview/<id>/`。
-   - 失败要说清是哪一步、哪个文件（库里没这个 id / 编译不过 / 渲染不过），不是干巴巴 `exit 1`。
-   - `--scale` 只改 SVG 的 `width/height`（不动 `viewBox`），放大看细节用，几何比例不变。
-4. **引脚文字的位置对齐 KiCad**，免得"预览看着对、KiCad 画出来不一样"：
-   - 引脚名在**引脚内端**（贴符号体那一头）沿引脚方向再挪 `pin_name_offset`（缺省 0.508mm）——与 KiCad 的 `(pin_names (offset …))` 同义。`spec/symbol.md` 里"相对引脚端点的偏移"这句话据此写清。
-   - 引脚号在**连接点外侧 1.27mm**（KiCad 用 0.05 英寸），字心压在引脚轴上。
-   - 字高按 KiCad 的口径（cap height）；**基线自己算**（`anchor + 字高/2`），不依赖 `dominant-baseline`（部分光栅化器不认它）。
-   - **文字画成路径，不依赖系统字体**：SVG 的 `<text>` 要靠系统字体渲染，没装字体的机器（容器、CI、无字体服务器）打开就是"只有图没有文字"。改成用自带的 Hershey 单线笔画字体把字画成 `<path>`（`packages/renderer/src/font/`），任何渲染器出一样的图；字高仍是 cap height，锚点仍是字的视觉中心，旋转按"视觉逆时针"在模型坐标系里做。字形数据来自 npm `hersheytext`（MIT，© 2014 James T），Hershey 字体本身公有领域。
-   - 引脚风格（`inverted` 气泡、`clock` 楔形、`input_low` 低电平弧、`non_logic` 锯齿）要画出来：风格是符号语义，不画等于骗人。
-5. **round-trip 用"语义投影"落地**（`AGENTS.md` §10 的 `extract(render(ir)) == ir`）：
-   - 两端各算一次投影——一端从**绘图指令反解**（`extractSymbol` / `extractFootprint`），一端从 **IR 直接算**（`symbolProjection` / `footprintProjection`）——比的是投影。
-   - 覆盖**整个参考库**（15 个符号 + 16 个封装），不是几个手挑样例；外加"改一个焊盘，反解结果必须变"的敏感度断言，防止这条测试空转。
-   - 已知不可反解的两处，写在代码注释里：`symbol.units`（单元数）只能反解成"出现过的最大单元号"；`pin_names_hidden` 只能从"有没有名字文字"反解，所以 round-trip 用**带名字的器件**跑。
-6. **与 KiCad 渲染的一致性：一次性人工比对，结论记在本 ADR，不进 CI**。本次比对（`bq24610rger` 符号、`sot-23-5` 封装）：
-   - 符号：引脚位置、朝向、名字/编号的内外侧、属性字段位置**与 KiCad 逐项一致**；差别只在配色（我们走工程图风格：外形黑、引脚棕、文字灰；KiCad 走 PCB 配色）。
-   - 封装：焊盘位置与尺寸、courtyard、F.Fab、丝印、属性文字位置**与 KiCad 一致**。
-   - 结论：**几何与文字布局以 KiCad 为准**，我们的渲染器不另立一套约定。
-7. **KiCad 留在哪儿不变**（ADR-0005、ADR-0013 决策 4）：制造出口与 DRC 归它；`lib:verify` 里"我们的导出能被 KiCad 读入并渲染"这条**交叉检查**保留——它验的是"下游能消费我们的产物"，依赖 KiCad 是有意的。**预览与渲染器本身不依赖 KiCad**：作者回路纯 TS/Bun，装不装 KiCad 都能看图、能审库。
-8. **共用"读库 + 编译"这一半**（`scripts/lib/project.ts`）：预览命令与两个冒烟脚本都用它找文件、编译 `.teda`、读器件事实。冒烟脚本保留"KiCad 能读我们的导出"这条断言，预览命令只出图、不做断言。
+   - The `component` mode produces **two pictures, symbol + footprint**, which makes it easy to check "do the pin numbers and the positions match".
+   - It prints the absolute path of the artifact; without `--out` the output lands in `/tmp/texteda-preview/<id>/`.
+   - A failure has to say which step and which file failed (no such id in the library / does not compile / does not render), not a bare `exit 1`.
+   - `--scale` only changes the SVG's `width/height` (not the `viewBox`); it is for zooming in on details, the geometric proportions do not change.
+4. **Pin text is aligned with KiCad**, so that "the preview looks right but KiCad draws it differently" cannot happen:
+   - The pin name sits at the **inner end of the pin** (the end that touches the symbol body), moved a further `pin_name_offset` along the pin direction (default 0.508mm) — the same meaning as KiCad's `(pin_names (offset …))`. The sentence "offset relative to the pin endpoint" in `spec/symbol.md` is spelled out accordingly.
+   - The pin number sits **1.27mm outside the connection point** (KiCad uses 0.05 inch), with the glyph centre sitting on the pin axis.
+   - The glyph height follows KiCad's convention (cap height); the **baseline is computed by ourselves** (`anchor + cap height/2`), without relying on `dominant-baseline` (some rasterizers do not support it).
+   - **Text is drawn as paths, without depending on system fonts**: SVG's `<text>` relies on system fonts, and on a machine without fonts installed (container, CI, no font server) it opens as "pictures with no text". Instead we draw the glyphs as `<path>` with the bundled Hershey single-stroke font (`packages/renderer/src/font/`), so every renderer produces the same picture; the glyph height is still the cap height, the anchor is still the visual centre of the glyph, and rotation is done in the model coordinate system following the "visually counter-clockwise" convention. The glyph data comes from the npm package `hersheytext` (MIT, © 2014 James T); the Hershey fonts themselves are public domain.
+   - Pin styles (the `inverted` bubble, the `clock` wedge, the `input_low` low-level arc, the `non_logic` zigzag) have to be drawn: the style is part of the symbol's semantics, and not drawing it is lying.
+5. **The round-trip is landed through a "semantic projection"** (`extract(render(ir)) == ir` in `AGENTS.md` §10):
+   - Each end computes one projection — one end **reverse-extracts from the drawing commands** (`extractSymbol` / `extractFootprint`), the other **computes it directly from the IR** (`symbolProjection` / `footprintProjection`) — and it is the projections that are compared.
+   - It covers the **entire reference library** (15 symbols + 16 footprints), not a handful of hand-picked samples; plus a sensitivity assertion that "change one pad and the reverse-extracted result must change", so that this test cannot pass without doing anything.
+   - The two known non-reversible spots are written down in code comments: `symbol.units` (unit count) can only be reverse-extracted as "the largest unit number that appeared"; `pin_names_hidden` can only be reverse-extracted from "whether there is name text at all", so the round-trip runs with a **named component**.
+6. **Consistency with the KiCad rendering: a one-off manual comparison, the conclusion recorded in this ADR, not in CI**. This comparison (`bq24610rger` symbol, `sot-23-5` footprint):
+   - Symbol: pin positions, orientations, the inside/outside of names/numbers, property field positions are **item-for-item identical with KiCad**; the only difference is the colouring (we use the engineering-drawing style: black outline, brown pins, grey text; KiCad uses the PCB colouring).
+   - Footprint: pad positions and sizes, courtyard, F.Fab, silkscreen, property text positions are **identical with KiCad**.
+   - Conclusion: **the geometry and the text layout follow KiCad**; our renderer does not set up a competing set of conventions.
+7. **Where KiCad stays does not change** ([ADR-0005](0005-manufacturing-output.md), [ADR-0013](0013-reference-project-self-built-libraries.md) decision 4): the manufacturing output and DRC belong to it; the cross-check in `lib:verify` that "our exports can be read and rendered by KiCad" is **kept** — it verifies that "downstream can consume our artifacts", and depending on KiCad here is deliberate. **The preview and the renderer itself do not depend on KiCad**: the authoring loop is pure TS/Bun, so whether or not KiCad is installed you can look at the pictures and review the libraries.
+8. **Share the "read libraries + compile" half** (`scripts/lib/project.ts`): the preview command and the two smoke scripts both use it to find files, compile `.teda` and read component facts. The smoke scripts keep the assertion "KiCad can read our exports"; the preview command only produces pictures and makes no assertions.
 
-## 后果
+## Consequences
 
-- **好处**：agent 造完符号/封装能立刻自己看图——"看着对不对"不再需要 KiCad；渲染器是纯函数，同一份 IR 字节可复现，可以进回归；引脚文字与 KiCad 对齐，预览不会骗人。
-- **代价**：多一个包要维护；渲染约定（文字位置、图层配色）是新的东西，KiCad 不认，只能自己保一致；符号/封装之外（sch、PCB、3D、铜箔）还没画。
-- **没有代价的部分**：没碰导出器、没碰 IR 契约、没碰 `.teda` 语法。`pin_name_offset` 的语义只是**写清**（本来就是 KiCad 的语义），没有改行为。
-- **实测通过**：`bun test packages/renderer` 16 项全绿（含整库 round-trip、确定性与字体排版）；`bun run preview component bq24610rger` 出符号 + 封装两张图（25 个引脚、25 个焊盘）；`bun run preview footprint nonexistent` 报"库里没有封装 project:nonexistent"并退出非 0；`bun run smoke:symbol` / `smoke:footprint` 仍全绿（KiCad 能读我们的导出、DRC 0 违规）。
-- **补记（同日）**：文字原先用 SVG `<text>` + 系统字体，容器里打开就是"只有图没有字"。已改成自带 Hershey 笔画字体、文字画成路径（见决策 4），SVG 里不再有 `<text>`，也不再声明 `font-family`；代价是仓库里多一份 ~9 KB 的字形数据，且字形只有 ASCII（中文等非 ASCII 字符画不出来）。
+- **Benefit**: once an agent has built a symbol/footprint it can look at it right away — "does it look right" no longer needs KiCad; the renderer is a pure function, the same IR reproduces byte for byte and can go into the regression suite; pin text is aligned with KiCad, so the preview does not lie.
+- **Cost**: one more package to maintain; the rendering conventions (text position, layer colouring) are new things that KiCad does not know, so we have to keep them consistent ourselves; beyond symbols/footprints (sch, PCB, 3D, copper) nothing is drawn yet.
+- **The part that costs nothing**: the exporter, the IR contract and the `.teda` syntax are untouched. The semantics of `pin_name_offset` were only **spelled out** (they were KiCad's semantics all along), no behaviour changed.
+- **Verified in practice**: `bun test packages/renderer` is all green on 17 items (including the whole-library round-trip, determinism and font typesetting); `bun run preview component bq24610rger` produces the two pictures (25 pins, 25 pads); `bun run preview footprint nonexistent` reports "footprint not in library project:nonexistent" and exits non-zero; `bun run smoke:symbol` / `smoke:footprint` are still all green (KiCad can read our exports, DRC 0 violations).
+- **Addendum (same day)**: the text originally used SVG `<text>` with system fonts, so opening it in a container gave "pictures with no text". It has been changed to the bundled Hershey stroke font, with text drawn as paths (see decision 4); the SVG no longer contains `<text>` and no longer declares `font-family`; the price is about 10 KB of glyph data in the repository, and the glyphs only cover ASCII (Chinese and other non-ASCII characters cannot be drawn).

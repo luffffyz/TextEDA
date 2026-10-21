@@ -1,50 +1,50 @@
-# ADR-0011：自建封装库用我们自己的格式；KiCad 格式是导出产物
+# ADR-0011: Self-Built Footprint Libraries Use Our Own Format; the KiCad Format Is an Export Artifact
 
-状态：已接受
-日期：2026-10-20
-影响范围：ADR-0010 决策 2（格式部分由本 ADR 取代）；`schemas/ir/v0.1/footprint.schema.json`（新增 IR kind `footprint`）；新增 `packages/exporter`；`examples/reference-project/footprints/`；`docs/footprint-authoring.md`；`AGENTS.md` §4.5、§9、§11
+Status: Accepted
+Date: 2026-10-20
+Impact: [ADR-0010](0010-footprint-and-3d-model-ownership.md) decision 2 (the format part is superseded by this ADR); `schemas/ir/v0.1/footprint.schema.json` (new IR kind `footprint`); new `packages/exporter`; `examples/reference-project/footprints/`; `docs/footprint-authoring.md`; `AGENTS.md` §4.5, §9, §11
 
-## 背景
+## Background
 
-ADR-0010 定了"几何不进 `.teda`"，并把"自建库用什么格式"留作开放问题。这里回答它。
+[ADR-0010](0010-footprint-and-3d-model-ownership.md) settled that "geometry does not enter `.teda`" and left "what format should a self-built library use" as an open question. This ADR answers it.
 
-两个实测事实决定了答案：
+Two measured facts decide the answer:
 
-1. **KiCad 没有强加库格式**。KiCad 6+ 的板文件**内联**封装几何：`docs/trial-run/charger-buck/charger-buck.kicad_pcb` 里每个 `(footprint …)` 块都带着 `fp_line` / `pad` 全几何，`lib:name` 只是个标签。库只在导出时被读一次；之后 DRC、Gerber、贴片坐标都不再需要库。
-2. **库表缺失只影响"回查"**。`lib_footprint_issues` 出现在 KiCad 想按 `lib:name` 前缀回查库、而 `fp-lib-table` 找不到该库时（第一轮试跑踩过，`docs/kicad-pcb-format.md` 有记录）。几何本身在板文件里，DRC 照跑。
+1. **KiCad imposes no library format**. In KiCad 6+ board files the footprint geometry is **inlined**: in `docs/trial-run/charger-buck/charger-buck.kicad_pcb` every `(footprint …)` block carries the full geometry with `fp_line` / `pad`, and `lib:name` is just a label. The library is read exactly once at export time; afterwards DRC, Gerber, and the placement file no longer need the library.
+2. **A missing library table only affects "lookup"**. `lib_footprint_issues` appears when KiCad tries to look up the library by the `lib:name` prefix and `fp-lib-table` cannot find it (hit during the first trial run, recorded in `docs/kicad-pcb-format.md`). The geometry itself is in the board file and DRC still runs.
 
-所以库格式是**我们自己的选择**，不是被 KiCad 定的。既然要选，就按本项目一贯的纪律选：**schema 化的规范描述当真源，KiCad 的格式当导出产物**（与 ADR-0003「IR 唯一真源，渲染是派生物」同构）。
+So the library format is **our own choice**, not something KiCad dictates. Since we have to choose, we choose by this project's standing discipline: **the schema-ized canonical description is the source of truth, the KiCad format is an export artifact** (isomorphic to [ADR-0003](0003-agent-first-pcb-ir.md) "IR is the sole source of truth, rendering is a derivative").
 
-## 决策
+## Decision
 
-1. **自建库的真源是 `.teda` 源码**，语法见 `spec/footprint.md`（`footprint` 描述类型，v0.4）。一个封装一个文件：`footprints/<lib>/<footprint_id>.teda`；库名由目录决定，不进文件内容。
-   - **为什么不是直接写 JSON**：ADR-0004 决策 5 明说"agent 不直接读 IR，agent 的工作面是 `.teda` 源码 + 校验报告"。库是 agent 主要会造的东西（datasheet → 封装），它的工作面必须和板描述一样是 `.teda`；否则同一件事有两套作者体验、两套诊断（JSON 只能报路径，没有行列）。
-   - **编译产物是 IR 分片**：`packages/parser` 把 `.teda` 编成 `footprint` kind 的 IR（契约 `schemas/ir/v0.1/footprint.schema.json`），单位换算只在这一层发生：长度 → 整数纳米、角度 → 整数毫度、比例 → 整数百万分比（IR 不许浮点，ADR-0004 决策 3）。
-2. **KiCad 格式是导出产物**。导出器（`packages/exporter`）写两种产物：
-   - **独立 `.kicad_mod`**：放进 `<lib>.pretty/` 目录，KiCad 当普通库用（人可以在 KiCad 里浏览、编辑、放进全局库表）；
-   - **板文件内联块**：板里直接带几何（与 KiCad 自己的做法一致）。
-   两种产物共用同一份 body 生成逻辑，因此不会出现"库里的封装和板上的不一致"。
-3. **两种库提供方，引用同形**：
-   - 借来的：KiCad 官方库等 `.pretty` 目录，按上游 `rev`/`version` 锁；
-   - 自建的：我们的 JSON 目录，按**内容哈希**锁（ADR-0010 决策 2）。
-   `component.footprint` 的 `lib:name` 对两者一样，校验与哈希规则也一致；差别只在"怎么把 `lib:name` 解析成几何"。
-4. **`fp-lib-table` 仍然要写**，指向**生成的** `.pretty` 目录（项目内 `dist/footprints/<lib>.pretty`，用 `${KIPRJMOD}` 相对路径）。它是 KiCad 侧的回查入口，缺了就有 `lib_footprint_issues`。
-5. **v0.1 支持的几何范围**：焊盘（`smd`/`th`；`rect`/`roundrect`/`oval`/`circle`；位置、尺寸、钻孔、层集合、圆角比、阻焊/锡膏扩张、连接方式、热焊盘宽缝）、图形（`line`/`rect`/`circle`/`arc`/`poly`，带层与线宽）、文本与属性（`Reference`/`Value`/任意字段）、**单个** 3D 模型引用。
-   **暂不支持**：自定义焊盘形状（custom + primitives）、挖空/开槽、多层嵌套、多个 3D 模型、层叠封装。缺口不硬塞：自建库里可以放手写的 `.kicad_mod` 作为兜底（只是它不受 schema 管，工具会按"未托管文件"对待）。
-6. **不变的部分**：几何仍然**不进 `.teda` 描述**（ADR-0010 决策 1 不变）；3D 仍不参与连通性判定、不回写 IR（`AGENTS.md` §2 第 2、3 条）。
+1. **The source of truth of a self-built library is `.teda` source code**, with the syntax described in `spec/footprint.md` (the `footprint` description type, v0.4). One footprint per file: `footprints/<lib>/<footprint_id>.teda`; the library name is determined by the directory and is not part of the file content.
+   - **Why not writing JSON directly**: [ADR-0004](0004-ir-representation.md) decision 5 says outright that "agents do not read IR directly; the agent's working surface is the `.teda` source plus a validation report". Libraries are the thing agents will mostly author (datasheet → footprint), so their working surface must be `.teda` just like for board descriptions; otherwise the same job ends up with two authoring experiences and two diagnostic systems (JSON can only report a path, with no line/column).
+   - **The compiled artifact is an IR shard**: `packages/parser` compiles `.teda` into IR of the `footprint` kind (contract `schemas/ir/v0.1/footprint.schema.json`), and unit conversion happens only at this layer: length → integer nanometers, angle → integer millidegrees, ratio → integer ppm (the IR forbids floats, [ADR-0004](0004-ir-representation.md) decision 3).
+2. **The KiCad format is an export artifact**. The exporter (`packages/exporter`) writes two kinds of artifact:
+   - **A standalone `.kicad_mod`**: placed into a `<lib>.pretty/` directory, used by KiCad as an ordinary library (a human can browse it, edit it, and put it into the global library table in KiCad);
+   - **An inline block in the board file**: the board carries the geometry directly (consistent with KiCad's own practice).
+   Both artifacts share the same body generation logic, so "the footprint in the library and the footprint on the board disagree" cannot happen.
+3. **Two library providers, the same reference shape**:
+   - borrowed: the KiCad official libraries and other `.pretty` directories, locked by the upstream `rev`/`version`;
+   - self-built: our JSON directory, locked by **content hash** ([ADR-0010](0010-footprint-and-3d-model-ownership.md) decision 2).
+   The `lib:name` in `component.footprint` is the same for both, and so are the validation and hashing rules; the only difference is "how to resolve `lib:name` into geometry".
+4. **`fp-lib-table` still has to be written**, pointing at the **generated** `.pretty` directory (`dist/footprints/<lib>.pretty` inside the project, using the `${KIPRJMOD}` relative path). It is KiCad's lookup entry point; without it you get `lib_footprint_issues`.
+5. **The geometry range supported in v0.1**: pads (`smd`/`th`; `rect`/`roundrect`/`oval`/`circle`; position, size, drill, layer set, corner radius ratio, solder mask/solder paste expansion, connection type, thermal pad gap width), graphics (`line`/`rect`/`circle`/`arc`/`poly`, with layer and line width), text and attributes (`Reference`/`Value`/arbitrary fields), and a **single** 3D model reference.
+   **Not supported yet**: custom pad shapes (custom + primitives), cutouts/slots, multi-layer nesting, multiple 3D models, stacked footprints. The gaps are not force-fitted: in a self-built library you can hand-write a `.kicad_mod` as a fallback (it is simply not governed by the schema, and the tool treats it as an "unmanaged file").
+6. **What does not change**: geometry still **does not enter the `.teda` description** ([ADR-0010](0010-footprint-and-3d-model-ownership.md) decision 1 unchanged); 3D still does not participate in connectivity determination and does not write back to IR (`AGENTS.md` §2 rules 2, 3).
 
-## 后果
+## Consequences
 
-- **好处**：自建库有 schema、有 canonical 形式、有内容哈希、有可读的 diff；agent 写的是 JSON 而不是 S-expression，能被校验、能被定位到字段；KiCad 升版本不影响真源。
-- **代价**：多维护一个导出器，要跟 KiCad 的方言细节较劲。已踩的坑写进代码注释与测试：`(tags …)` 必须是**一个**引号字符串（写成多个字符串，KiCad 直接拒绝加载整个库）；`(zone_connect 2/1/0)` 对应 solid/thermal/none。
-- **两种库并存**：借来的库仍是 KiCad 格式。用"库提供方"抽象隔离——引用点、校验项、锁定方式对两者一致，只有解析器不同。
-- **已跑通**（`bun run smoke:footprint`，实测）：示例封装（`examples/reference-project/footprints/project/sot-23-5.teda`）→ 编译成 IR（契约通过）→ `.kicad_mod` → KiCad 10 能解析（`kicad-cli fp export svg` 出图）→ 内联进板 → `kicad-cli pcb drc` **0 违规** → `kicad-cli pcb export gerbers` 出齐 18 个文件。
-- **多一个解析器**：`packages/parser`（行级词法 + 单位换算 + `footprint` 表面解析 + canonical JSON 写出 + `fmt`）。行级词法与诊断格式按 `teda.md` §3–§4、§11 写，将来通用 `.teda` 解析器复用同一套。
-- **IR 顺序也只依赖语义**（实测）：`pads` 自然序、`graphics` 按 `(kind, layer, 坐标)`、`fields` 按名、`tags` 按字节序；乱序/换单位/换键序的同一封装编译出的 IR 与 canonical 源**字节相同**，导出产物也相同。性质验证脚本跑过：`fmt` 幂等、语义不变、`.kicad_mod` 不变。
-- **已跑通 `fmt`**（实测）：`bun run fmt:teda --check examples/reference-project/footprints/project/sot-23-5.teda` 退出 0；示例文件是 `fmt` 的固定点。`fmt` 只重排表面（行/键顺序、列对齐、单位归一），语义错误时拒绝格式化（与 gofmt 一致）。冒烟脚本第一步就检查这一点，防止源文件漂移。
+- **The benefit**: a self-built library has a schema, a canonical form, a content hash, and a readable diff; the agent writes JSON instead of S-expressions, which can be validated and can be traced down to the offending field; a KiCad version bump does not affect the source of truth.
+- **The cost**: one more exporter to maintain, and it has to wrestle with the dialect details of KiCad. The pitfalls already hit are written into code comments and tests: `(tags …)` must be **a single** quoted string (write it as several strings and KiCad refuses to load the whole library); `(zone_connect 2/1/0)` corresponds to solid/thermal/none.
+- **Two kinds of library coexist**: borrowed libraries are still in the KiCad format. Isolate them behind a "library provider" abstraction — the reference point, the checks, and the locking mechanism are the same for both, only the resolver differs.
+- **It works end to end** (`bun run smoke:footprint`, measured): the example footprint (`examples/reference-project/footprints/project/sot-23-5.teda`) → compiled to IR (the contract passes) → `.kicad_mod` → KiCad 10 can parse it (`kicad-cli fp export svg` produces an image) → inlined into the board → `kicad-cli pcb drc` **0 violations** → `kicad-cli pcb export gerbers` produces all 18 files.
+- **One more parser**: `packages/parser` (line-level lexing + unit conversion + `footprint` surface parsing + canonical JSON writing + `fmt`). The line-level lexer and the diagnostic format are written per `teda.md` §3–§4 and §11; the general `.teda` parser reuses the same set later.
+- **IR ordering depends only on semantics as well** (measured): `pads` in natural order, `graphics` by `(kind, layer, coordinates)`, `fields` by name, `tags` in byte order; the same footprint with reordered entries, changed units, or a changed key order compiles to IR **byte-identical** to the canonical source, and the exported artifacts are identical too. The property verification script has been run: `fmt` is idempotent, the semantics are unchanged, the `.kicad_mod` is unchanged.
+- **`fmt` works** (measured): `bun run fmt:teda --check examples/reference-project/footprints/project/sot-23-5.teda` exits 0; the example file is a fixed point of `fmt`. `fmt` only reorders the surface (line/key order, column alignment, unit normalization) and refuses to format when there are semantic errors (consistent with gofmt). The smoke script checks this in its first step, to keep the source file from drifting.
 
-## 后续
+## Follow-up
 
-- **符号**（symbol）要不要同样处理（自建符号库用 `.teda` 描述，导出 `.kicad_sym`）——未定，见 `AGENTS.md` §11 问题 3。
-- 焊盘 custom 形状、挖空、多个 3D 模型、层叠封装。
-- `packages/exporter` 目前只做封装；sch/pcb 的写手还没进仓库（第一轮试跑的导出器是一次性脚本）。
+- Whether **symbols** should be handled the same way (a self-built symbol library described in `.teda`, exporting `.kicad_sym`) — undecided, see `AGENTS.md` §11 question 3.
+- Custom pad shapes, cutouts, multiple 3D models, stacked footprints.
+- `packages/exporter` currently only handles footprints; the sch/pcb writers are not in the repository yet (the exporter of the first trial run was a one-off script).

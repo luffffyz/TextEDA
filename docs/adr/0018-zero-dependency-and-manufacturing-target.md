@@ -1,79 +1,79 @@
-# ADR-0018：零依赖原则与制造出口目标形态
+# ADR-0018: Zero-Dependency Principle and the Target Form of the Manufacturing Output
 
-状态：已接受
-日期：2026-10-21
-影响范围：`AGENTS.md` §1 / §2（新增不变量 20）/ §8 / §10 / §11、`scripts/verify-libs.ts`（拆成必过段与可选段）、`package.json`（新增 `lib:verify:kicad`）、`docs/adr/0005-manufacturing-output.md` 的定位、`docs/backlog.md` F14 / F15
+Status: Accepted
+Date: 2026-10-21
+Impact: `AGENTS.md` §1 / §2 (new invariant 20) / §8 / §10 / §11, `scripts/verify-libs.ts` (split into a mandatory tier and an optional tier), `package.json` (new `lib:verify:kicad`), the positioning of `docs/adr/0005-manufacturing-output.md`, `docs/backlog.md` F14 / F15
 
-## 背景
+## Background
 
-三件事实叠在一起，才有这条 ADR。
+Three facts stack up before this ADR can exist.
 
-**第一，ADR-0005 的制造出口决策建立在一个错误的估计上。** 当时写的是"不自研 Gerber / Excellon 写出器，借 `kicad-cli`"。真实的理由是**不知道工作量多大**，不是原理上不该自研。后来自建符号库与封装库落地（ADR-0011 ~ ADR-0013），事实修正了这个估计：自己写一个库并没有想象中难，"借"是信息不足的临时选择，不是结论。既然估计变了，决策就该重开。
+**First, [ADR-0005](0005-manufacturing-output.md)'s manufacturing-output decision was built on a wrong estimate.** What it said back then was "do not build our own Gerber / Excellon writer, borrow `kicad-cli`". The real reason was that **we did not know how much work it would be**, not that self-building was wrong in principle. Later, when the self-built symbol and footprint libraries landed ([ADR-0011](0011-library-format-and-footprint-ir.md) ~ [ADR-0013](0013-reference-project-self-built-libraries.md)), the facts corrected that estimate: writing a library yourself was not as hard as imagined, and "borrowing" was a temporary choice made out of missing information, not a conclusion. Since the estimate changed, the decision has to be reopened.
 
-**第二，真正的反对理由不是工作量，是依赖。** 一个文本硬件描述语言如果必须配一套 EDA 才能跑通，它就只是那个 EDA 的前置脚本，而不是独立的东西。textEDA 应当做到：**装 textEDA 就能走完"描述 → 校验 → 渲染 → 制造包"**，KiCad 是可选的接入方式，不是前提。
+**Second, the real objection was never workload — it is dependencies.** A textual hardware description language that requires a whole EDA suite to run is just a precondition script for that EDA, not an independent thing. textEDA should reach the point where: **install textEDA and you can walk the whole "describe → check → render → manufacturing package" path**; KiCad is an optional integration, not a premise.
 
-**第三，仓库里今天已经存在一个硬依赖，而且它藏在"门禁"里。** `bun run lib:verify` 直接调用 `kicad-cli` 做三件事：`sym upgrade`（验证 KiCad 能读我们的符号库）、`fp export svg`（验证能读封装）、`pcb drc`（验证合并板 DRC 0 违规）。这在本仓库被描述成"库闭环"的门槛，也就是**提交前必须过的检查**。结果是：本机没装 KiCad 就跑不过完整检查——**textEDA 今天确实已经依赖 KiCad**，而且依赖在最不容易被察觉的位置。
+**Third, the repository already contains a hard dependency today, and it is hidden inside the "gate".** `bun run lib:verify` calls `kicad-cli` directly for three things: `sym upgrade` (verify KiCad can read our symbol libraries), `fp export svg` (verify it can read footprints), and `pcb drc` (verify the merged board has 0 DRC violations). In this repository that is described as the threshold of a "library closed loop", that is, **a check that must pass before a commit**. The result: without KiCad installed locally you cannot pass the full check — **textEDA does already depend on KiCad today**, and the dependency sits in the least noticeable place.
 
-顺带确认两件已经做对的事：核心包（`ir` / `parser` / `exporter` / `renderer`）本身零运行时依赖（ADR-0009 决策 1）；参考渲染器是**我们自己的**实现，出图不借 KiCad、不依赖系统字体（ADR-0014，`scripts/preview.ts`）。也就是说，**能力上早就零依赖了，只是门禁口径把它漏掉了**。
+Two things that were already done right, confirmed along the way: the core packages (`ir` / `parser` / `exporter` / `renderer`) have no **external tool** dependency of their own — the only third-party runtime dependency in the whole tree is `ajv` in `packages/ir` (the schema validator, authorized by [ADR-0009](0009-implementation-stack.md) decision 2; everything else is a workspace-internal `@texteda/*` dependency) — and the reference renderer is **our own** implementation, producing images without borrowing KiCad and without depending on system fonts ([ADR-0014](0014-reference-renderer.md), `scripts/preview.ts`). In other words, **in terms of capability we have been zero-dependency all along; the gate definition simply missed it**.
 
-## 决策
+## Decision
 
-### 1. 核心链路零外部依赖，KiCad 降级为可选后端
+### 1. The Core Path Has Zero External Dependencies; KiCad Is Demoted to an Optional Backend
 
-- **必装链路** = 源码 → IR → 校验 → 渲染 / 自有导出，全部由本仓代码完成，零外部工具。延续 ADR-0009 决策 1：核心包不得引入第三方运行时依赖。
-- **KiCad 是可选后端**，承担三件事：互操作导出（`.kicad_sch` / `.kicad_pcb`）、第三方实现的对照验证（它的读入与 DRC）、以及制造出口的兜底路径。**用户不装 KiCad，textEDA 依然完整可用。**
-- **任何门禁都不得依赖 KiCad。** 门禁的正确性定义来自本仓的契约与规则；KiCad 的读入与 DRC 是**对照验证**（第三方实现接受我们），不是"我们成立的前提"。把后者当前者，等于把第三方工具的接受度写进我们的正确性定义。
+- The **mandatory path** = source → IR → check → render / own export, all done by code in this repository, with zero external tools. Extending [ADR-0009](0009-implementation-stack.md) decision 1: the core packages must not take on third-party runtime dependencies, **with one authorized exception** — `packages/ir` depends on `ajv` for schema validation ([ADR-0009](0009-implementation-stack.md) decision 2). Everything else in the tree depends only on workspace-internal `@texteda/*` packages.
+- **KiCad is an optional backend** with three jobs: interoperability export (`.kicad_sch` / `.kicad_pcb`), cross-validation of third-party implementations (its read-in and DRC), and a fallback path for the manufacturing output. **Without installing KiCad, textEDA remains fully usable.**
+- **No gate may depend on KiCad.** The correctness of a gate comes from this repository's contracts and rules; KiCad's read-in and DRC are **cross-validation** (a third-party implementation accepts us), not "the premise of our existence". Treating the latter as the former writes third-party tool acceptance into our definition of correctness.
 
-落地（本次提交已完成）：`scripts/verify-libs.ts` 拆成两段。
+Landing (done in this commit): `scripts/verify-libs.ts` is split into two tiers.
 
-|命令|内容|是否需要 KiCad|
+|Command|Content|Needs KiCad|
 |---|---|---|
-|`bun run lib:verify`|器件引用可解析、无外部库前缀、符号引脚号集合 == 器件引脚号集合、封装焊盘号集合 ⊇ 器件引脚号集合、canonical form、编译成 IR 且过契约、导出成功、**我们自己的渲染器**出图并自检（符号与封装同一套口径）|**否**|
-|`bun run lib:verify:kicad`|追加：KiCad 能读入 `.kicad_sym` / `.kicad_mod`、合并板 `pcb drc` 0 违规|**是**（可选）|
+|`bun run lib:verify`|Component references resolve, no external library prefixes, symbol pin-number set == component pin-number set, footprint pad-number set ⊇ component pin-number set, canonical form, compiles to IR and passes the contract, export succeeds, and **our own renderer** produces images and self-checks them (symbols and footprints use the same definition)|**No**|
+|`bun run lib:verify:kicad`|Additionally: KiCad can read `.kicad_sym` / `.kicad_mod`, and the merged board has 0 `pcb drc` violations|**Yes** (optional)|
 
-必过段还多做了一件事：把**封装**也纳入我们自己的渲染与自检（此前只有符号走自渲染，封装靠 KiCad 出图）。合并板 `.kicad_pcb` 仍然生成（它是互操作产物，不是门禁）。
+The mandatory tier also does one more thing: it pulls **footprints** into our own rendering and self-check as well (previously only symbols went through self-rendering, while footprints relied on KiCad for images). The merged-board `.kicad_pcb` is still generated (it is an interoperability artifact, not a gate).
 
-### 2. Gerber 写出器自研；CAM 判定不自研
+### 2. We Build the Gerber Writer Ourselves; CAM Judgement We Do Not
 
-分层不变：**Gerber 是物理图像，属派生层**。但"派生"不等于"必须由外部工具产出"。
+The layering does not change: **Gerber is a physical image and belongs to the derived layer**. But "derived" does not mean "must be produced by an external tool".
 
-- **自研 Gerber / Excellon 写出器**：**可行，成本中等**。RS-274X 是行式文本格式（aperture 定义 + draw/flash + 坐标），不需要几何内核；本仓已有 pcb IR 的层、焊盘、走线、过孔、丝印事实，缺的是画布展开与坐标变换。列入 P3（`docs/backlog.md` F15）。
-- **不自研的仍然是 CAM 级 DFM 判定**：阻焊开窗、锡膏膨胀、丝印避让、阻抗规则的可制造性判断——那是规则工程，不是格式工程。派生层 policy（"按什么规则开口"由我们定）可以自研，**"这批板能不能造"交给专业 CAM**。
+- **A self-built Gerber / Excellon writer**: **feasible, moderate cost**. RS-274X is a line-oriented text format (aperture definitions + draw/flash + coordinates) and needs no geometry kernel; this repository already has the facts of the PCB IR — layers, pads, traces, vias, silkscreen — and what is missing is canvas unfolding and coordinate transforms. Scheduled as P3 (`docs/backlog.md` F15).
+- **What we still do not build ourselves is CAM-grade DFM judgement**: manufacturability judgements such as solder-mask openings, paste expansion, silkscreen clearance and impedance rules — that is rule engineering, not format engineering. The derived-layer policy ("under which rules do we open things") can be self-built, but **"can this batch of boards actually be made" is left to a professional CAM tool**.
 
-### 3. 制造中立数据是 `fab` 的默认产物
+### 3. Manufacturing-Neutral Data Is the Default Output of `fab`
 
-- `fab` 的默认产物 = **制造中立的数据**：层叠与规则意图、BOM（含变体状态）、贴片坐标与朝向、装配与制造说明。这是**描述**，是本项目该做的那一层（§3 分层的 M0）。
-- 从这份数据派生：**Gerber（自研，P3）**、IPC-2581（可选导出）、BOM + 坐标（嘉立创路径，ADR-0006）、KiCad 工程（兼容路径）。
-- 制造中立数据属于**契约层**（不变量 19），公开可实现。
-- 规范获取成本需要单独核实：ODB++ 的规范由 Valor / PTC 掌握、需会员资格；IPC-2581 是 IPC 出版物、同样是会员可取（但已是行业事实标准）。**两者都不适合当"自研格式"**，所以契约层用自己的 JSON，导出到它们是导出器的事。
+- The default output of `fab` = **manufacturing-neutral data**: stackup and rule intent, BOM (with variant status), placement coordinates and orientation, assembly and manufacturing notes. This is **description**, and it is the layer this project is supposed to own (M0 of the layering in §3).
+- Derived from that data: **Gerber (self-built, P3)**, IPC-2581 (optional export), BOM + coordinates (the JLC path, [ADR-0006](0006-jlc-prototype-delivery.md)), KiCad project (compatibility path).
+- Manufacturing-neutral data belongs to the **contract layer** (invariant 19) and is publicly implementable.
+- The cost of obtaining the specs needs separate verification: ODB++'s specification is held by Valor / PTC and requires membership; IPC-2581 is an IPC publication, also available to members (though it is already an industry de facto standard). **Neither is suitable as a "self-built format"**, so the contract layer uses its own JSON, and exporting to them is the exporter's job.
 
-### 4. 与 ADR-0005 的关系
+### 4. Relationship to [ADR-0005](0005-manufacturing-output.md)
 
-**不废止 ADR-0005，而是限定它**：ADR-0005 记录的是**当前实现路径**（IR → KiCad → Gerber / Excellon），本 ADR 记录的是**目标形态与依赖边界**。两者不冲突，但引用 ADR-0005 时必须带上这个限定，否则会被读成"KiCad 是终点"。
+**[ADR-0005](0005-manufacturing-output.md) is not repealed, it is bounded**: [ADR-0005](0005-manufacturing-output.md) records the **current implementation path** (IR → KiCad → Gerber / Excellon), while this ADR records the **target form and the dependency boundary**. The two do not conflict, but any reference to [ADR-0005](0005-manufacturing-output.md) must carry that qualification, otherwise it will be read as "KiCad is the end state".
 
-## 后果
+## Consequences
 
-**好处**
+**Benefits**
 
-- 用户只装 textEDA 就能走完"描述 → 校验 → 渲染 → 制造包"；KiCad 用户仍可无缝接入（互操作导出保留）。
-- 第三方实现者验证自己时**不必安装 KiCad**——这是不变量 19（契约层永久开源、任何人可独立实现）的兑现条件之一。
-- 门禁口径变诚实：我们的正确性定义在自己的代码里，第三方接受度是**观测**，不是**前提**。
+- Installing only textEDA is enough to walk the whole "describe → check → render → manufacturing package" path; KiCad users can still join seamlessly (interoperability export is retained).
+- Third-party implementers verifying themselves **do not need to install KiCad** — this is one of the conditions for delivering on invariant 19 (the contract layer is open source forever, anyone can implement independently).
+- The gate definition becomes honest: our definition of correctness lives in our own code, and third-party acceptance is an **observation**, not a **premise**.
 
-**代价**
+**Costs**
 
-- Gerber 写出器要自己写（P3，数百行量级）；在它落地前，"零依赖制造包"还不完整——**这条要有心理准备**，不要在 ADR-0018 落地当天就宣称制造出口零依赖。
-- PCB 侧的 DRC 短期内只能借 KiCad 或不做。**我们自己的检查器**（ERC、绑定校验）本来就不需要 KiCad；PCB 的 DRC 属 P2 的范围问题，与本 ADR 无关。
+- The Gerber writer has to be written by us (P3, on the order of several hundred lines); until it lands, the "zero-dependency manufacturing package" is not complete — **be prepared for this, and do not claim a zero-dependency manufacturing output on the day ADR-0018 lands**.
+- On the PCB side, DRC can only borrow KiCad or be skipped for the foreseeable future. **Our own checker** (ERC, binding validation) never needed KiCad in the first place; PCB DRC is a scope question in P2 and is out of scope for this ADR.
 
-**风险**
+**Risks**
 
-- **"零依赖"容易滑向"什么都自己写"。** 边界是：**格式与描述自己写，判定与工艺规则借专业工具**。自研 Gerber 是格式层；CAM 判定不是。
-- **自研 ≠ 不对照。** 零依赖之后更要保留 `lib:verify:kicad` 这类互操作验证（可选 CI job），否则会失去"第三方接受我们"的信号——那正是自建库比借库更危险的地方。
+- **"Zero dependency" easily slides into "we write everything ourselves".** The boundary is: **we write formats and descriptions ourselves, and we borrow professional tools for judgement and process rules**. A self-built Gerber writer is format work; CAM judgement is not.
+- **Self-built ≠ no cross-validation.** After going zero-dependency, interoperability validation such as `lib:verify:kicad` must be retained (as an optional CI job), or we lose the signal of "third parties accept us" — which is exactly where a self-built library is more dangerous than a borrowed one.
 
-## 相关
+## Related
 
-- ADR-0005 制造出口（当前路径）
-- ADR-0009 实现栈（决策 1：核心包零运行时依赖）
-- ADR-0010 ~ ADR-0013 自建库（"自建比想象中容易"的实测依据）
-- ADR-0014 参考渲染器（自渲染、不借 KiCad 的既有实践）
-- ADR-0015 许可与开放策略（不变量 19）
-- `docs/backlog.md` F14（fab 目标形态）、F15（自研 Gerber 写出器）
+- [ADR-0005](0005-manufacturing-output.md) Manufacturing output (the current path)
+- [ADR-0009](0009-implementation-stack.md) Implementation stack (decision 1: core packages have no runtime dependencies)
+- [ADR-0010](0010-footprint-and-3d-model-ownership.md) ~ [ADR-0013](0013-reference-project-self-built-libraries.md) Self-built libraries (the empirical basis for "self-building is easier than imagined")
+- [ADR-0014](0014-reference-renderer.md) Reference renderer (the existing practice of self-rendering without borrowing KiCad)
+- [ADR-0015](0015-licensing-and-open-standard.md) Licensing and openness policy (invariant 19)
+- `docs/backlog.md` F14 (target form of `fab`), F15 (self-built Gerber writer)

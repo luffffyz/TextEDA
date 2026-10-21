@@ -1,103 +1,103 @@
-# ADR-0003：agent-first 的 PCB 描述（段集与取舍）
+# ADR-0003: Agent-First PCB Description (Segment Set and Trade-offs)
 
-状态：已接受
-日期：2026-10-20
-影响范围：`teda.md` §9、§11、§12、§13、§15、附录 A；`AGENTS.md` §2、§4.3、§4.4、§7、§11；新增 `spec/pcb.md`
+Status: Accepted
+Date: 2026-10-20
+Impact: `teda.md` §9, §11, §12, §13, §15, Appendix A; `AGENTS.md` §2, §4.3, §4.4, §7, §11; new `spec/pcb.md`
 
-## 背景
+## Background
 
-原理图侧已经完成"人工格式 → agent first"的转身：`.kicad_sch` 存的是成稿（实测 74.6% 的字节是空白、缩进、结构关键字、坐标与 UUID），所以它只能是导出目标，不能当 IR 的参照物（`AGENTS.md` §13）。PCB 侧要同样转身，但情况不同：
+The schematic side has already completed its "hand-written format → agent first" turn: `.kicad_sch` stores the finished artifact (measured: 74.6% of its bytes are whitespace, indentation, structural keywords, coordinates and UUIDs), so it can only be an export target, never the IR's reference (`AGENTS.md` §13). The PCB side has to make the same turn, but the situation differs:
 
-- `.kicad_pcb` 的人机痕迹比 `.kicad_sch` 更重：绘图参数、丝印排版、编辑器锁定、分组、UUID、内部序号。
-- `.kicad_pcb` 里带**派生缓存**：铜皮填充结果 `filled_polygon`、量测文本。搬进 IR 就是造出第二真源。
-- **规则不在 `.kicad_pcb` 里**。KiCad 板文件格式规范明写：net class 已从板文件移出，放进设计规则文件（工程文件）。也就是说 agent 拿到一个 `.kicad_pcb`，拿不到任何间距/线宽/差分规则，**无法自查**。
-- 反过来，`.kicad_pcb` 里**没有意图**：为什么这样布线、哪条是电源回路、哪里要分割地、哪对要等长，全在人脑里。
+- `.kicad_pcb` carries even heavier human/machine traces than `.kicad_sch`: drawing parameters, silkscreen typography, editor locks, groups, UUIDs, internal sequence numbers.
+- `.kicad_pcb` contains **derivative caches**: copper pour fill results (`filled_polygon`), measurement text. Moving these into the IR creates a second source of truth.
+- **The rules are not in `.kicad_pcb`**. The KiCad board file format spec states plainly that net classes have been moved out of the board file into the design rules file (project file). In other words, an agent given a `.kicad_pcb` gets no clearance/width/differential rules at all and **cannot check itself**.
+- Conversely, `.kicad_pcb` holds **no intent**: why the routing is done this way, which one is the power return path, where the ground must be split, which pair must be length-matched — all of that lives in human heads.
 
-现有 `teda.md` §9 的 pcb 草案（`stackup` 标量 + `place` + `route` + `physical_only`）两头不靠：照抄 KiCad 的结构会继承工效噪声与缓存；照现在这版又装不下一块真板（没有板框、没有过孔、没有铜皮、没有折点、没有规则），`route <net> <width> <layer>` 连"连到哪两个焊盘"都表达不了。
+The current `teda.md` §9 pcb draft (`stackup` scalars + `place` + `route` + `physical_only`) is unsupported on both ends: copying KiCad's structure inherits workflow noise and caches; the present version cannot hold a real board either (no board outline, no vias, no copper pours, no bend points, no rules) — `route <net> <width> <layer>` cannot even express "which two pads to connect".
 
-## 决策
+## Decision
 
-### 1. 分层判据
+### 1. Layering criterion
 
-沿用 `AGENTS.md` §3：S1（原理图视图）与 B1（PCB 预览）自由，**B0（物理事实）不自由**。所以 pcb 描述必须**完整承载物理事实**（叠层、坐标、层、过孔、走线），这部分不能省。
+Follow `AGENTS.md` §3: S1 (schematic view) and B1 (PCB preview) are free, **B0 (physical facts) is not free**. So the pcb description must **fully carry the physical facts** (stackup, coordinates, layers, vias, traces); this part cannot be omitted.
 
-**agent-first 化的对象不是信息量，而是信息的形态**：IR 变小的是策略与噪音，不是几何。
+**What agent-first-ization acts on is not the amount of information but the form of the information**: what shrinks in the IR is strategy and noise, not geometry.
 
-### 2. IR 存什么
+### 2. What the IR stores
 
-| 类别 | 内容 |
+| Category | Content |
 |---|---|
-| 叠层 | 层序、层类型、铜厚、介质厚度与材料、介电常数、总厚 |
-| 板形 | 板框折线、板内开孔与安装孔 |
-| 放置 | 实例坐标、旋转、面 |
-| 绑定 | 实例 → 器件 → 封装；pad 号 ↔ sch 引脚编号；net 只引用 `net_id`，成员由 sch 提供 |
-| 铜箔 | 走线折线（net/层/线宽）、过孔（位置/尺寸/钻孔/连通层）、铜皮（outline/net/层） |
-| 避让 | keepout 区域与类型 |
-| 规则 | 默认间距/线宽/过孔、按 net 的覆盖、差分对、等长 |
-| 显式连接 | 哪些 pad 之间有连续铜箔（`connect` 段） |
-| 物理专属 | 安装孔、基准点、板内开孔、屏蔽罩、测试点、缝合孔等不影响逻辑的实体 |
-| 受控偏差 | `net_tie` / `split_ground`（改变逻辑连通性）；`test_point` / `stitching` / `fiducial` 属物理实体，但同样进报告 |
+| Stackup | Layer order, layer type, copper thickness, dielectric thickness and material, dielectric constant, total thickness |
+| Board shape | Board outline polyline, cutouts and mounting holes inside the board |
+| Placement | Instance coordinates, rotation, side |
+| Binding | Instance → component → footprint; pad number ↔ sch pin number; nets reference only `net_id`, members come from sch |
+| Copper | Trace polylines (net/layer/width), vias (position/size/drill/connected layers), zones (outline/net/layer) |
+| Keepout | Keepout areas and their types |
+| Rules | Default clearance/width/via, per-net overrides, differential pairs, length matching |
+| Explicit connections | Which pads have continuous copper between them (`connect` segment) |
+| Physical-only | Mounting holes, fiducials, cutouts, shields, test points, stitching vias and other entities that do not affect logic |
+| Controlled deviations | `net_tie` / `split_ground` (change logical connectivity); `test_point` / `stitching` / `fiducial` are physical entities but likewise go into the report |
 
-### 3. IR 明确不存什么
+### 3. What the IR explicitly does not store
 
-| `.kicad_pcb` 成分 | 为什么不进 IR |
+| `.kicad_pcb` ingredient | Why it does not go into the IR |
 |---|---|
-| `(page A4)` 图框与 `pcbplotparams`（31 项绘图参数） | 打印与"上次怎么画的"的历史状态，与设计无关 |
-| 丝印/装配文本的字体效果、位置微调、`hide`/`unlock` | 排版美学，由确定性 policy 生成 + KiCad 侧人工处理，不回流 |
-| `autoplace_cost180`、`locked`、`group` | 编辑器交互状态 |
-| `uuid`/`tstamp`/`path`/`tedit`、net 序号、`general` 里的历史计数 | 身份与历史噪声；IR 用稳定语义 ID（`AGENTS.md` §2 第 5 条） |
-| 铜皮填充结果 `filled_polygon` | 派生缓存；由 outline + 规则重算 |
-| `dimension` 的量测文本 | 派生量 |
-| 库元数据（`descr`/`tags`/3D 模型路径） | 属封装库，板文件里只是引用 |
+| `(page A4)` frame and `pcbplotparams` (31 drawing parameters) | Printing and "how it was drawn last time" history state, unrelated to the design |
+| Font effects, position nudges, `hide`/`unlock` of silkscreen/assembly text | Typographic aesthetics, produced by a deterministic policy + manual handling on the KiCad side, not fed back |
+| `autoplace_cost180`, `locked`, `group` | Editor interaction state |
+| `uuid`/`tstamp`/`path`/`tedit`, net sequence numbers, historical counters in `general` | Identity and historical noise; the IR uses stable semantic IDs (`AGENTS.md` §2 item 5) |
+| Copper pour fill results `filled_polygon` | Derivative cache; recomputed from outline + rules |
+| Measurement text of `dimension` | Derivative quantity |
+| Library metadata (`descr`/`tags`/3D model paths) | Belongs to the footprint library; the board file only references it |
 
-### 4. 规则必须进 IR
+### 4. Rules must go into the IR
 
-因为 KiCad 把 netclass 与自定义 DRC 规则移到了工程文件，只拿 `.kicad_pcb` 的 agent 无法自查。**pcb 描述自带 `rules` 段**；导出到 KiCad 时再写回 netclass 与自定义规则。
+Because KiCad moved netclasses and custom DRC rules into the project file, an agent holding only a `.kicad_pcb` cannot check itself. **The pcb description carries its own `rules` segment**; netclasses and custom rules are written back on export to KiCad.
 
-### 5. 连通性由声明给出，不由几何反推
+### 5. Connectivity is declared, not reverse-extracted from geometry
 
-`AGENTS.md` §2 第 2 条禁止"从几何反推连通性作为权威结果"。因此 pcb 描述**显式声明**哪些 pad 之间有连续铜箔（`connect` 段），几何只负责"这两个 pad 之间确实有铜箔"这一条可验证的检查。
+`AGENTS.md` §2 item 2 forbids "treating connectivity reverse-extracted from geometry as the authoritative result". Therefore the pcb description **explicitly declares** which pads have continuous copper between them (`connect` segment), while geometry is responsible for exactly one verifiable check: "there really is copper between these two pads".
 
-- `connect` 里的每一对 pad 必须落在 sch 的同一个 net 内；否则必须由 `deviation` 段显式声明（白名单类型），否则报错。
-- sch 的每个 net 成员至少要出现在一个 `connect` 对里；否则报"该 net 未布线"。
-- 差分对**不是几何对象，是约束**：走线仍按单 net 折线描述，差分/等长/阻抗进 `rules`。
+- Every pad pair in `connect` must fall within the same net in sch; otherwise it must be explicitly declared in the `deviation` segment (whitelisted type), otherwise it is an error.
+- Every net member in sch must appear in at least one `connect` pair; otherwise "this net is not routed" is reported.
+- Differential pairs **are not geometric objects but constraints**: traces are still described as single-net polylines, and differential/length-matching/impedance go into `rules`.
 
-### 6. 段集
+### 6. Segment set
 
 `stackup` · `outline` · `place` · `connect` · `trace` · `via` · `zone` · `keepout` · `rules` · `silk` · `physical_only` · `deviation`
 
-具体语法见 `spec/pcb.md`。要点：
+See `spec/pcb.md` for the exact syntax. Key points:
 
-- 走线只支持折线（v0.4）；圆弧走线导入时按折线近似，并**报告偏差**。
-- 铜皮只存 outline + net + 层；填充参数（clearance、thermal）走 `rules`。
-- 丝印是制造物：`silk` 段声明出不出、字高、哪一层；**排版位置仍不进 IR**，由确定性 policy 生成（见 `docs/adr/0005-manufacturing-output.md` 决策 6）。
-- `physical_only` 放不影响逻辑的物理实体（`test_point` / `stitching` / `fiducial`）；`deviation` 放两类会改逻辑连通性的受控偏差（`net_tie` / `split_ground`）。两者都进报告。
-- pcb 用**稳定实例 ID**（`R1` / `M1.R1`）引用器件，不用 refdes：refdes 可改名，ID 不变（`AGENTS.md` §2 第 5 条、§4.4）。
+- Traces support polylines only (v0.4); arc traces are approximated as polylines on import, and the **deviation is reported**.
+- Copper pours store only outline + net + layer; fill parameters (clearance, thermal) go into `rules`.
+- Silkscreen is a manufacturing artifact: the `silk` segment declares whether to print it, the text height and the layer; **typographic placement still does not go into the IR** and is generated by a deterministic policy (see `docs/adr/0005-manufacturing-output.md` decision 6).
+- `physical_only` holds physical entities that do not affect logic (`test_point` / `stitching` / `fiducial`); `deviation` holds the two kinds of controlled deviations that change logical connectivity (`net_tie` / `split_ground`). Both go into the report.
+- pcb uses **stable instance IDs** (`R1` / `M1.R1`) to reference components, not refdes: refdes can be renamed, the ID does not change (`AGENTS.md` §2 item 5, §4.4).
 
-### 7. 单向不回流
+### 7. One-way, no write-back
 
-人在 KiCad 里的调整（丝印位置、图层显示、临时分组）**不回写 IR**。IR 是唯一真源，KiCad 是视图与 DRC/制造出口。改动要生效，必须改 IR 再重新导出。代价是 KiCad 侧改规则不再自动生效（换来"agent 能自查"）。
+Adjustments a human makes in KiCad (silkscreen positions, layer display, temporary grouping) are **not written back to the IR**. The IR is the single source of truth; KiCad is a view plus DRC / manufacturing output. For a change to take effect, the IR must be edited and re-exported. The cost is that rule changes on the KiCad side no longer take effect automatically (in exchange for "the agent can check itself").
 
-### 8. 导出目标
+### 8. Export target
 
-导出目标：**KiCad `.kicad_pcb`**（DRC 覆盖最好，兼作 3D 与人工继续编辑的入口）。制造与验证都在 KiCad 里闭环（`kicad-cli pcb export gerbers` / `export drill` / `pcb drc`），路径见 `docs/adr/0005-manufacturing-output.md`。Circuit JSON 作为制造链已撤回（绑定外来 schema、工具成熟度低、无 DRC）。
+Export target: **KiCad `.kicad_pcb`** (best DRC coverage, doubles as an entry point for 3D and continued manual editing). Manufacturing and verification close the loop inside KiCad (`kicad-cli pcb export gerbers` / `export drill` / `pcb drc`); the path is described in `docs/adr/0005-manufacturing-output.md`. Circuit JSON as a manufacturing chain has been withdrawn (binds to a foreign schema, low tool maturity, no DRC).
 
-导出是**有损投影**：目标格式装不下的语义必须报告（`file:line:col: warning …`），复用 `AGENTS.md` §4.4 的受控偏差机制，不静默丢。
+Export is a **lossy projection**: semantics the target format cannot hold must be reported (`file:line:col: warning …`), reusing the controlled-deviation mechanism from `AGENTS.md` §4.4, never dropped silently.
 
-> sch 侧的导出顺序不在本 ADR 范围，仍见 `AGENTS.md` §11 第 4 条。
+> The export order on the sch side is out of scope for this ADR; see `AGENTS.md` §11 item 4.
 
-## 后果
+## Consequences
 
-- **IR 变大**：几何全量入 IR，这是 B0 不自由的必然结果；变小的只有策略与噪音。
-- **多一份规则真源要维护**：规则进 IR 后，KiCad 侧改规则不再自动生效（见决策 7）。
-- **丝印排版交给 policy**：agent 生成的板子丝印不好看是已知代价，KiCad 里手工挪一下即可，但那是 KiCad 侧的事。
-- **不自己布局布线**：pcb 描述表达 B0，但生成仍借 KiCad / freerouting / tscircuit（`AGENTS.md` §3、§8）。
-- **v0.4 假定存在 sch**：pcb-only 模式（逆向工程、外部网表导入）的段集待 `AGENTS.md` §11 第 6 条决定后补充。
+- **The IR gets bigger**: geometry goes into the IR in full, an unavoidable consequence of B0 not being free; only strategy and noise shrink.
+- **One more rules source of truth to maintain**: once rules live in the IR, rule changes on the KiCad side no longer take effect automatically (see decision 7).
+- **Silkscreen typography is delegated to policy**: ugly silkscreen on agent-generated boards is a known cost; nudge it by hand in KiCad, but that is KiCad-side business.
+- **We do not do placement and routing ourselves**: the pcb description expresses B0, but generation still borrows KiCad / freerouting / tscircuit (`AGENTS.md` §3, §8).
+- **v0.4 assumes a sch exists**: the segment set for pcb-only mode (reverse engineering, external netlist import) will be added after `AGENTS.md` §11 item 6 is decided.
 
-## 后续
+## Follow-up
 
-- 封装几何从哪来：自有 footprint IR + `.kicad_mod` importer；IR 里 pad 几何是引用还是内联，待定。
-- 圆弧走线、微孔（HDI）是否放开。
-- 规则到 KiCad netclass / 自定义规则的映射细则。
-- pcb 的 `connect` 段与页面展平后的实例 ID 对应。
-- `examples/` 里的 pcb 困难用例（差分对、net tie、分地）与期望 IR。
+- Where footprint geometry comes from: own footprint IR + `.kicad_mod` importer; whether pad geometry in the IR is referenced or inlined is open.
+- Whether to open up arc traces and micro-vias (HDI).
+- The detailed mapping from rules to KiCad netclass / custom rules.
+- The correspondence between the pcb `connect` segment and instance IDs after page flattening.
+- Hard pcb cases in `examples/` (differential pairs, net ties, split ground) and the expected IR.

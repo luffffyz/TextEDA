@@ -1,25 +1,25 @@
-# ADR-0013：参考工程全部自建——符号与封装库都在项目内，库级校验闭环
+# ADR-0013: The Reference Project Is Entirely Self-Built — Symbol and Footprint Libraries Live in the Project, and Library-Level Checks Close the Loop
 
-状态：已接受
-日期：2026-10-20
-影响范围：ADR-0010（自建库）、ADR-0011（库格式）、ADR-0012（符号库）；`examples/reference-project/`（`project.toml`、`components/`、`symbols/project/`、`footprints/project/`）；`schemas/ir/v0.1/project.schema.json`（`lib.symbols` / `lib.footprints`）；`scripts/libhash.ts`；`scripts/verify-libs.ts`；`packages/exporter/src/symbol.ts`（stroke 修正）；`docs/footprint-authoring.md`；`docs/symbol-authoring.md`；`AGENTS.md` §4.5、§9、§10
+Status: Accepted
+Date: 2026-10-20
+Impact: [ADR-0010](0010-footprint-and-3d-model-ownership.md) (self-built libraries), [ADR-0011](0011-library-format-and-footprint-ir.md) (library format), [ADR-0012](0012-symbol-description.md) (symbol library); `examples/reference-project/` (`project.toml`, `components/`, `symbols/project/`, `footprints/project/`); `schemas/ir/v0.1/project.schema.json` (`lib.symbols` / `lib.footprints`); `scripts/libhash.ts`; `scripts/verify-libs.ts`; `packages/exporter/src/symbol.ts` (stroke fix); `docs/footprint-authoring.md`; `docs/symbol-authoring.md`; `AGENTS.md` §4.5, §9, §10
 
-## 背景
+## Background
 
-参考工程 `examples/reference-project/` 原本靠**借来的库**跑通全流程：22 个器件的 `symbol` / `footprint` 指向 KiCad 官方库与嘉立创的 `wch_kicad_library`，`project.toml` 用 `[libs.kicad]` + `[libs.wch_mcu]` 锁版本。
+The reference project `examples/reference-project/` originally got the whole pipeline running on **borrowed libraries**: the `symbol` / `footprint` of 22 components pointed at KiCad's official libraries and at JLC (嘉立创)'s `wch_kicad_library`, and `project.toml` pinned versions with `[libs.kicad]` + `[libs.wch_mcu]`.
 
-这在"人用 GUI 画板"的世界里没问题，但和这个项目的前提冲突：
+That is fine in the world of "a human draws boards in a GUI", but it conflicts with this project's premise:
 
-- **agent-first**（ADR-0003）：agent 要能从 datasheet 自己造符号与封装（ADR-0010 决策 2），如果参考工程自己都靠借库，就没有一个"库从零到板"的完整样本。
-- **可复现**：借来的库要联网取版本；仓库里没有它们的字节，内容哈希锁不住任何一个 `.teda`。
-- **"参考工程"的价值就是能被逐字节复现**：它同时是 conformance 输入、是 `bun run smoke:*` 的对象、是库级检查的靶子。
+- **agent-first** ([ADR-0003](0003-agent-first-pcb-ir.md)): an agent has to be able to build symbols and footprints by itself from a datasheet ([ADR-0010](0010-footprint-and-3d-model-ownership.md) decision 2). If the reference project itself relies on borrowed libraries, there is no complete "library from zero to board" sample.
+- **Reproducibility**: borrowed libraries have to be fetched over the network to get a version; their bytes are not in the repository, so the content hash cannot pin a single `.teda`.
+- **The value of a "reference project" is precisely that it can be reproduced byte for byte**: it is at once the conformance input, the subject of `bun run smoke:*`, and the target of library-level checks.
 
-自建库的前置条件这轮已经齐了：`.teda` 库格式（ADR-0011）、符号库格式（ADR-0012）、导出器、KiCad 冒烟。缺的是**把库搬进项目**，以及**一条能守住"引用都能解析"的门槛**——因为引脚号、焊盘号、符号视图三者跨文件对齐，天然会漂。
+The preconditions for self-built libraries are now in place: the `.teda` library format ([ADR-0011](0011-library-format-and-footprint-ir.md)), the symbol library format ([ADR-0012](0012-symbol-description.md)), the exporter, the KiCad smoke run. What is missing is **moving the libraries into the project**, and **a gate that keeps "every reference resolves"** — because pin numbers, pad numbers and symbol views are aligned across files and drift naturally.
 
-## 决策
+## Decision
 
-1. **参考工程不再引用任何外部库**。22 个器件的 `symbol` / `footprint` 全部写成 `project:<name>`；`project.toml` 只留一个自建库条目，不再有 `kicad` / `wch_mcu`。
-2. **一个自建库同时提供符号与封装**，两者共用同一个 `<lib>:` 命名空间。因此 `[libs.<name>]` 允许两个根键：
+1. **The reference project no longer references any external library**. The `symbol` / `footprint` of all 22 components are written as `project:<name>`; `project.toml` keeps only one self-built library entry, with no `kicad` / `wch_mcu` anymore.
+2. **One self-built library provides both symbols and footprints**, sharing a single `<lib>:` namespace. Therefore `[libs.<name>]` allows two root keys:
 
    ```toml
    [libs.project]
@@ -29,20 +29,33 @@
    content_hash = "…"
    ```
 
-   `path` 保留为"只有一个根"的旧写法。IR 契约（`schemas/ir/v0.1/project.schema.json`）同步加 `lib.symbols` / `lib.footprints`。
-3. **内容哈希覆盖所有根**：`SHA-256(全部文件的 "<项目相对路径>:<file_sha256>\n" 按字节序拼接)`。工具 `bun run lib:hash <dir>...`（`scripts/libhash.ts`），文档里给出等价的 shell 写法。
-4. **库级校验是闭环门槛**：`bun run lib:verify`（`scripts/verify-libs.ts`）必须全绿才算通过：
-   - 每个器件的 `symbol` / `footprint` 都指向项目内存在的文件（没有外部前缀、没有指向不存在文件）；
-   - 没有**孤儿库文件**（每个库文件至少被一个器件引用）；
-   - 符号引脚号集合与引用它的器件**完全一致**；封装焊盘号集合**覆盖**器件引脚号（多出的焊盘报警告）；
-   - 每个库文件是 canonical form、编译成 IR 并通过契约；
-   - 每个符号导出成 `.kicad_sym` 后 **KiCad 能解析**（`kicad-cli sym upgrade`），每个封装导出成 `.kicad_mod` 后 **KiCad 能渲染**（`kicad-cli fp export svg`）；
-   - 全部封装摆到一块合并板上，**DRC 0 违规**。
-5. **库的几何是"通用 land pattern"，不是逐颗料号的精确尺寸**。参考工程的目标是让流程与校验闭环成立，不是替代厂商库（`AGENTS.md` §1："不做通用库"）。每个封装的 `description` 里写明 `generic land pattern`，免得后来的人把它当精确尺寸用。**精确化是独立的后续工作项**，见 `docs/backlog.md` 的 F1。
+   `path` stays as the old spelling for "there is only one root". The IR contract (`schemas/ir/v0.1/project.schema.json`) gains `lib.symbols` / `lib.footprints` in step.
+3. **The content hash covers all roots**: `SHA-256(concatenation of "<project-relative path>:<file_sha256>\n" over all files, in byte order)`. The tool is `bun run lib:hash <dir>...` (`scripts/libhash.ts`); the docs give the equivalent shell form.
+4. **Library-level checking is a closed-loop gate**: `bun run lib:verify` (`scripts/verify-libs.ts`) has to be fully green to pass:
+   - the `symbol` / `footprint` of every component points at a file that exists inside the project (no external prefix, no pointing at a file that does not exist);
+   - there are **no orphan library files** (every library file is referenced by at least one component);
+   - the pin number set of a symbol is **exactly** the pin number set of the component referencing it; the pad number set of a footprint **covers** the component's pin numbers (extra pads raise a warning);
+   - every library file is in canonical form, compiles to IR and passes the contract;
+   - every symbol exported to `.kicad_sym` can be **parsed by KiCad** (`kicad-cli sym upgrade`), and every footprint exported to `.kicad_mod` can be **rendered by KiCad** (`kicad-cli fp export svg`);
+   - all footprints are placed on one merged board with **0 DRC violations**.
 
-## 后果
+   **The last two items were moved to a separate optional tier by [ADR-0018](0018-zero-dependency-and-manufacturing-target.md) decision 1** (see the addendum below): a gate may not depend on an external tool. The checks themselves are unchanged.
+5. **The library geometry is a "generic land pattern", not the exact dimensions of each part number**. The goal of the reference project is to make the pipeline and the check loop hold, not to replace vendor libraries (`AGENTS.md` §1: "no generic library"). Every footprint's `description` states `generic land pattern`, so that whoever comes later does not mistake it for exact dimensions. **Making the geometry exact is a separate follow-up item**, see F1 in `docs/backlog.md`.
 
-- **好处**：参考工程现在是一个**自包含、可复现、能被 agent 从零重建**的样本；库的每个字节都在仓库里，内容哈希真的锁住了版本；库级校验把"引脚号 / 焊盘号 / 视图"三处漂移从"靠人盯"变成"工具报错"。
-- **代价**：库文件从 2 个变成 31 个（15 个符号 + 16 个封装）；几何精度低于厂商库（见决策 5）；`lib:verify` 依赖 `kicad-cli`，是"有 KiCad 才能全绿"的门槛。
-- **顺带修掉的真 bug**：符号导出器在"线宽 0（不描边）"时写出 `(stroke (width 0) (type none))`，而 KiCad 的 stroke type 枚举里没有 `none`——**KiCad 会拒绝整个符号库**。已改为 `(type default)`，并加回归测试（`packages/exporter/test/symbol.test.ts`）。
-- **实测通过**（`bun run lib:verify`）：22 个器件 / 15 个符号 / 16 个封装全部解析、编译、导出、被 KiCad 读入并渲染；合并板 DRC `violations=0`。
+## Consequences
+
+- **Benefit**: the reference project is now a **self-contained, reproducible sample that an agent can rebuild from zero**; every byte of the library is in the repository, so the content hash really does pin the version; library-level checks turn the drift between "pin numbers / pad numbers / views" from "watched by a human" into "reported by a tool".
+- **Cost**: library files go from 2 to 31 (15 symbols + 16 footprints); the geometric accuracy is below vendor libraries (see decision 5); `lib:verify` depends on `kicad-cli`, so it is a gate that can only be all green when KiCad is installed.
+- **A real bug fixed along the way**: the symbol exporter wrote `(stroke (width 0) (type none))` for "line width 0 (no outline)", while KiCad's stroke type enumeration has no `none` — **KiCad rejects the entire symbol library**. It has been changed to `(type default)`, with a regression test added (`packages/exporter/test/symbol.test.ts`).
+- **Verified in practice** (`bun run lib:verify`): all 22 components / 15 symbols / 16 footprints parse, compile, export, and are read and rendered by KiCad; the merged board has `violations=0`.
+
+## Addendum (2026-10-21): the gate was split into two tiers
+
+Decision 4 was written when `bun run lib:verify` was one gate that required `kicad-cli`. **[ADR-0018](0018-zero-dependency-and-manufacturing-target.md) decision 1** then split it, and this ADR's decision 4 is superseded on that point:
+
+|Command|Content|Needs KiCad|
+|---|---|---|
+|`bun run lib:verify`|Everything in decision 4 **except** the two KiCad items: references resolve inside the project, no orphan library files, symbol pin set == component pin set, footprint pad set ⊇ component pin set, canonical form, compiles to IR and passes the contract, export succeeds, and **our own renderer** draws the symbols and footprints and self-checks them|**No**|
+|`bun run lib:verify:kicad`|Additionally: KiCad can read the exported `.kicad_sym` / `.kicad_mod`, and the merged board has 0 `pcb drc` violations|**Yes** (optional)|
+
+The rule behind the split is [ADR-0018](0018-zero-dependency-and-manufacturing-target.md)'s: **a gate may not depend on an external tool** — KiCad's read-in and DRC are cross-validation, not the definition of our correctness. The checks listed in decision 4 are unchanged; only their tier changed. The merged-board `.kicad_pcb` is still generated, as an interoperability artifact rather than a gate.

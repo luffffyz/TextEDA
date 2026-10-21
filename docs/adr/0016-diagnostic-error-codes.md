@@ -1,58 +1,59 @@
-# ADR-0016：诊断错误码注册表（`域.slug`）
+# ADR-0016: Diagnostic Error Code Registry (`domain.slug`)
 
-- 状态：**已定**（2026-10-21）
-- 相关：F7（backlog）、ADR-0015（开源与标准提案）、ADR-0009（实现栈）、AGENTS.md §12「错误信息是产品」
-- 影响面：`packages/ir/src/diagnostics/**`、`packages/parser/src/**`、`packages/cli/**`、`docs/error-codes.md`
+Status: Accepted
+Date: 2026-10-21
+Related: F7 (backlog), [ADR-0015](0015-licensing-and-open-standard.md) (open source and standard proposal), [ADR-0009](0009-implementation-stack.md) (implementation stack), AGENTS.md §12 "error messages are the product"
+Impact: `packages/ir/src/diagnostics/**`, `packages/parser/src/**`, `packages/cli/**`, `docs/error-codes.md`
 
-## 1. 决策
+## 1. Decision
 
-诊断错误码形如 `域.短 slug`（kebab-case），域取自**封闭词表**：
+Diagnostic error codes take the form `domain.short-slug` (kebab-case), where the domain comes from a **closed vocabulary**:
 
-| 域 | 覆盖 |
+| Domain | Covers |
 |---|---|
-| `syntax` | 词法 / 语法 / 解析 |
-| `value` | 值与量纲（AGENTS.md §2.8） |
-| `ref` | 引用与解析 |
-| `contract` | IR 契约 / schema（AGENTS.md §2.7 未知构造报错） |
-| `net` | net 完整性（§4.2 三态） |
-| `bind` | sch↔pcb 绑定（§4.4） |
-| `library` | 库级（ADR-0013） |
-| `format` | 版本 / canonical（ADR-0008） |
-| `drc` | 涌现检查（ERC / DRC） |
-| `cli` | 调用层 |
+| `syntax` | Lexical / syntax / parsing |
+| `value` | Values and dimensions (AGENTS.md §2.8) |
+| `ref` | References and resolution |
+| `contract` | IR contract / schema (AGENTS.md §2.7, unknown-construct error) |
+| `net` | Net integrity (§4.2 three-state) |
+| `bind` | sch↔pcb binding (§4.4) |
+| `library` | Library level ([ADR-0013](0013-reference-project-self-built-libraries.md)) |
+| `format` | Version / canonical ([ADR-0008](0008-ir-shard-identity-and-hash.md)) |
+| `drc` | Emergent checks (ERC / DRC) |
+| `cli` | Invocation layer |
 
-配套三条：
+Three supporting rules:
 
-1. **注册表是唯一真源**：`packages/ir/src/diagnostics/codes.ts`。`docs/error-codes.md` 由 `bun run gen` **生成**，不手写；CI 用 `bun run gen:check` 挡漂移。
-2. **双向完整性检查**（`packages/ir/test/codes.test.ts`）：码表里每条都要有真实 call site；代码里每个码字面量都要在码表里。口径抄 cohdl 的 `tests/error_registry.rs`。
-3. **诊断形状统一**：parser / 语义检查器 / schema 校验三个来源共用一个 `Diagnostic` 类型（`@texteda/ir/diagnostics`），`--json` 输出带 `code`。
+1. **The registry is the single source of truth**: `packages/ir/src/diagnostics/codes.ts`. `docs/error-codes.md` is **generated** by `bun run gen`, not hand-written; CI uses `bun run gen:check` to block drift.
+2. **Bidirectional completeness check** (`packages/ir/test/codes.test.ts`): every entry in the code table must have a real call site, and every code literal in the code must be in the table. The definition is copied from cohdl's `tests/error_registry.rs`.
+3. **Unified diagnostic shape**: the parser, the semantic checker and schema validation all share one `Diagnostic` type (`@texteda/ir/diagnostics`), and the `--json` output carries `code`.
 
-## 2. 为什么不用 `E+数字`
+## 2. Why not `E+number`
 
-数字无语义（`E1105` 是什么要查表），分类边界只能靠文档裁决，分配需要中央仲裁；插入新码要重排。slug 自解释、分配无冲突、与 JSON Pointer 同族。
+Numbers carry no semantics (you have to look up what `E1105` means), classification boundaries can only be arbitrated by documentation, and allocation requires a central arbiter; inserting a new code forces a renumbering. A slug is self-explanatory, allocation is conflict-free, and it is a cousin of JSON Pointer.
 
-紧凑数字码是历史产物：来自载荷带不动文本的环境（早期编译器、嵌入式控制台、8 位错误字节），以及"码本身就是 ABI 契约"的场合（系统调用返回值表、LSP 的整数 `code`）。textEDA 的诊断面向人和 agent，文本载荷不受带宽与存储约束，数字码在这里只剩坏处。
+Compact numeric codes are a historical artifact: they come from environments whose payload cannot carry text (early compilers, embedded consoles, 8-bit error bytes), and from cases where "the code itself is the ABI contract" (system call return-value tables, the integer `code` in LSP). textEDA's diagnostics are for humans and agents; the text payload is not bound by bandwidth or storage constraints, so numeric codes here do nothing but harm.
 
-**真正该从 C 那里学的不是"别用数字"，而是"码一旦发布就是 ABI"**——所以本项目的码冻结，但用 slug 冻结成本低得多：新增不重排，旧码语义不动。
+**What we should really learn from C is not "don't use numbers", but "once a code ships it is an ABI"** — which is why this project's codes are frozen, but freezing slugs costs far less: new codes do not renumber, and the semantics of old codes never move.
 
-若将来接入 LSP / JSON-RPC 这类要求整数 `code` 的传输，整数码在**边界上**由 slug 映射生成，且必须稳定；slug 始终是真源。那是传输层的要求，不是诊断层的设计。
+If we later plug into transports such as LSP / JSON-RPC that require an integer `code`, the numeric code is generated **at the boundary** from the slug and must be stable; the slug always remains the source of truth. That is a transport-layer requirement, not a diagnostic-layer design.
 
-## 3. 域按"错误的种类"划分，不按发现阶段
+## 3. Domains Are Split by the Kind of Error, Not by the Stage of Discovery
 
-单位不匹配不管在哪一层发现，都是 `value.*`；引用找不到不管是在实例行还是约束里，都是 `ref.*`。（这是 cohdl RFC-011 最聪明的一条组织原则。）
+A unit mismatch is `value.*` no matter which layer discovers it; a missing reference is `ref.*` whether it appears in an instance row or in a constraint. (This is the smartest organizing principle in cohdl RFC-011.)
 
-严重度与域**独立**（`error` / `warning` / `note`）：涌现检查天然有 warning，不能因为"它是 ERC"就全是 error。
+Severity is **independent** of domain (`error` / `warning` / `note`): emergent checks are naturally warnings, and they must not become all errors just because "it is an ERC".
 
-## 4. 载荷
+## 4. Payload
 
 ```json
 {
   "code": "net.pin-in-two-nets",
   "severity": "error",
-  "message": "U1.3 同时属于 net A 和 net B",
-  "expected": "一个引脚只能属于一个 net",
-  "actual": "U1.3 出现在 2 个 net 里",
-  "hint": "删掉 net B 里的 U1.3，或改用 net tie 显式声明",
+  "message": "U1.3 belongs to both net A and net B",
+  "expected": "A pin may belong to only one net",
+  "actual": "U1.3 appears in 2 nets",
+  "hint": "A pin may belong to only one net; remove the extra member",
   "location": { "file": "sch/charger-buck/charger-power.teda", "line": 42, "col": 12 },
   "related": [{ "file": "sch/charger-buck.teda", "line": 18 }],
   "data": { "component_id": "U1", "pin": "3" },
@@ -60,26 +61,26 @@
 }
 ```
 
-- `code` / `severity` / `location` / `data` = **机器契约**（agent 按 `code` 分支、按 `data` 自动修）。
-- `message` / `expected` / `actual` / `hint` = **人读**（评审者据此改文件）。
-- `hint` 的**兜底在注册表里**：注册表条目可带 `hint`（这个码通常怎么修），调用点可以给更具体的说法（带上下文）。载荷组装时取"调用点优先、注册表兜底"——这样 `docs/error-codes.md` 能列出每个码"怎么修"，agent 不必先撞一次错才知道怎么改（ADR-0019）。
-- `cause` 保底：textEDA 大量诊断来自 **schema 校验**（Ajv 报在 IR 上，给的是 `instancePath`）。保留原始 `cause`，第三方实现直接用 Ajv 也能映射到 `contract.*` 码，不必各自发明一套——这是 textEDA 相对 cohdl 的优势（它没有 schema 层，第三方必须逐条实现语义检查）。
-- `cli` 域的失败**不进 `--json` 诊断数组**，走 stderr + 退出码（抄 cohdl 的 E000 分类）。
-- **阶段由域决定**：`parse`（syntax / value / ref / format：描述读不出来或引用断了）· `contract`（contract：IR 不满足 schema）· `semantic`（net / drc / bind / library：读得懂但设计有问题）。载荷带 `countsByStage`，三个键恒在。agent 据此判断"该改文件还是改设计"，不用逐条看码（ADR-0019 / backlog F19）。
+- `code` / `severity` / `location` / `data` = **machine contract** (agents branch on `code` and auto-fix from `data`).
+- `message` / `expected` / `actual` / `hint` = **for humans** (reviewers fix files based on them).
+- The **fallback for `hint` lives in the registry**: a registry entry may carry a `hint` (how this code is usually fixed), while a call site may give a more specific wording (with context). When the payload is assembled, take "call site first, registry as fallback" — this way `docs/error-codes.md` can list "how to fix" for every code, and an agent does not have to hit the error once before it knows how to fix it ([ADR-0019](0019-agent-contract-reference-and-check-entry.md)).
+- `cause` as a backstop: a large share of textEDA's diagnostics come from **schema validation** (Ajv reports on the IR and gives an `instancePath`). Keeping the original `cause` lets third-party implementations, which also use Ajv, map directly onto `contract.*` codes instead of each inventing its own — this is an advantage of textEDA over cohdl (which has no schema layer, so third parties must implement the semantic checks one by one).
+- Failures in the `cli` domain **do not enter the `--json` diagnostics array**; they go to stderr plus an exit code (copied from cohdl's E000 classification).
+- **The stage is determined by the domain**: `parse` (syntax / value / ref / format: the description cannot be read or the references are broken) · `contract` (contract: the IR does not satisfy the schema) · `semantic` (net / drc / bind / library: readable, but the design has problems). The payload carries `countsByStage`, and all three keys are always present. Agents use this to decide "fix the file or fix the design" without reading every code ([ADR-0019](0019-agent-contract-reference-and-check-entry.md) / backlog F19).
 
-## 5. 生命周期规则
+## 5. Lifecycle Rules
 
-- **码发出即冻结**：不可改义、不可重命名、不可复用。
-- 语义变了 → 发新码，旧码标 `[DEPRECATED → new.code]` 并保留旧行。
-- 允许"重定位"（同一语义换位置），但新旧码必须指向同一语义。
-- **域词表封闭**：新增域要写 ADR（防域膨胀成"按文件分"）。
-- 码表属**契约层**（不变量 19）：不许随实现关起来。
+- **A code is frozen the moment it ships**: its meaning cannot change, it cannot be renamed, it cannot be reused.
+- If the semantics change → issue a new code; mark the old code `[DEPRECATED → new.code]` and keep the old row.
+- "Relocation" (same semantics, different location) is allowed, but the old and new codes must point at the same semantics.
+- **The domain vocabulary is closed**: adding a domain requires an ADR (to prevent the domains from bloating into "one per file").
+- The code table belongs to the **contract layer** (invariant 19): it must not be closed off along with the implementation.
 
-## 6. 旧码迁移表
+## 6. Legacy Code Migration Table
 
-旧的编号码（`F200` / `S113` / `C007` …）在本次决策后全部退役。它们从未对外发布（仓库未公开），因此不保留旧行，只在这里留映射，方便读过旧码的人对照。
+The old numeric codes (`F200` / `S113` / `C007` …) are all retired by this decision. They were never published externally (the repository is not public), so no legacy rows are kept; the mapping is left here for people who remember the old codes.
 
-| 旧码 | 新码 |
+| Old code | New code |
 |---|---|
 | `C001` | `syntax.header-invalid` |
 | `C002` | `syntax.row-too-short` |
@@ -88,14 +89,14 @@
 | `C005` | `library.duplicate-pin-number` |
 | `C006` | `library.pins-empty` |
 | `C007` | `value.pin-column-invalid` |
-| `F100` | `value.length-invalid`（角度处 `value.angle-invalid`） |
+| `F100` | `value.length-invalid` (at an angle: `value.angle-invalid`) |
 | `F101` | `value.ratio-invalid` |
 | `F110` | `syntax.unknown-section` |
 | `F111` | `syntax.unknown-field` |
 | `F112` | `syntax.row-too-short` |
 | `F113` | `syntax.header-invalid` / `format.invalid-version` / `format.unsupported-version` / `syntax.invalid-token` |
 | `F200` | `value.pad-number-invalid` / `value.pad-type-unknown` / `value.pad-shape-unknown` / `value.pad-size-invalid` |
-| `F201` | `value.pad-attribute-invalid`（其中"未知键"改判 `syntax.unknown-field`） |
+| `F201` | `value.pad-attribute-invalid` (where "unknown key" is now judged `syntax.unknown-field`) |
 | `F202` | `value.pad-ratio-invalid` |
 | `F203` | `value.pad-connection-unknown` |
 | `F204` | `value.layer-name-invalid` |
@@ -119,13 +120,13 @@
 | `S312` | `syntax.row-too-short` |
 | `S400` | `library.field-invalid` |
 
-拆分与改判的理由：
+Reasons for the splits and reclassifications:
 
-- 旧码把"结构问题"和"值问题"混在一个编号里（如 `F201` 同时报"通孔缺 drill"和"未知键 bogus"）。拆开后 `syntax.unknown-field` 与 `value.*` 各归各的域，agent 才能按域分支。
-- 旧码的编号与语义本来就对不齐（`C003` 报的是引脚号/名不合法，`C007` 报的是 unit/alt/未知列），这正是编号码不可维护的证据。
+- The old codes mixed "structural problems" and "value problems" under one number (e.g. `F201` reported both "through-hole missing drill" and "unknown key bogus"). After the split, `syntax.unknown-field` and `value.*` each belong to their own domain, and only then can agents branch by domain.
+- The old codes' numbers never lined up with their semantics anyway (`C003` reported an invalid pin number/name, `C007` reported an invalid unit/alt/unknown column) — which is exactly the evidence that numeric codes are unmaintainable.
 
-## 7. 后果
+## 7. Consequences
 
-- **代价**：注册表是又多一处要维护的东西；新增码要先改表。缓解：码表由类型强制（`Diagnostic["code"]` 是注册表的键，野生码编译不过），新增码没有"分配编号"的仪式成本。
-- **收益**：第三方实现者能按 `code` 对齐行为；`--json` 载荷稳定；错误文案可以随便改而不破坏契约。
-- **不做**：码的**严重度**不随实现自由裁量（注册表给出规范严重度，调用点可降级但不可升级）；暂不做 `fix` 字段（机械修复的抓手留给后续）。
+- **Cost**: the registry is one more thing to maintain; a new code means editing the table first. Mitigation: the code table is enforced by types (`Diagnostic["code"]` is a key of the registry, so wild codes do not compile), and a new code carries no ritual cost of "allocating a number".
+- **Benefit**: third-party implementers can align their behavior on `code`; the `--json` payload is stable; error wording can be changed freely without breaking the contract.
+- **Not doing**: a code's **severity** is not left to implementation discretion (the registry gives the normative severity; a call site may downgrade but never upgrade); no `fix` field for now (the hook for mechanical fixes is left for later).

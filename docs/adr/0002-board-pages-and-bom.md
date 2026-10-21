@@ -1,31 +1,31 @@
-# ADR-0002：板内页面（分页）、展平与 BOM 计数
+# ADR-0002: Intra-Board Pages (Sheet Partitioning), Flattening and BOM Counting
 
-状态：已接受
-日期：2026-10-20
-影响范围：`teda.md` §2、§7.6、§7.7、§11、§12、§13、§14；`AGENTS.md` §2、§4.1、§9、§11；`examples/reference-project/`
+Status: Accepted
+Date: 2026-10-20
+Impact: `teda.md` §2, §7.6, §7.7, §11, §12, §13, §14; `AGENTS.md` §2, §4.1, §9, §11; `examples/reference-project/`
 
-## 背景
+## Background
 
-真实项目是**一块板**，但原理图画不下一页：BQ24610 充电/电源路径加上 TPS5430 5V buck，一个页面放不下，评审时也看不全。自然的做法是把板拆成几个"页"（page / sheet）。
+A real project is **one board**, but the schematic does not fit on a single page: a BQ24610 charger / power path plus a TPS5430 5V buck will not fit on one page, and reviewers cannot take it all in either. The natural move is to split the board into several "pages" (page / sheet).
 
-ADR-0001 把 charger 与 buck 当成两块板，用 `system` 文件连起来——这把问题看错了：
+[ADR-0001](0001-board-linking.md) treats charger and buck as two boards wired together with a `system` file — that reads the problem wrong:
 
-- 板 = **物理板** = 1 块 PCB / 1 份 BOM / 1 套 Gerber。charger + buck 是同一块板。
-- 页面 = 板内的**划分单元**，动机是画布容量与评审粒度，**不是复用**。同一块板里的两个页面共享一份 BOM。
+- A board = **physical board** = 1 PCB / 1 BOM / 1 set of Gerbers. charger + buck are the same board.
+- A page = a **partitioning unit inside the board**, motivated by canvas capacity and review granularity, **not by reuse**. Two pages on the same board share one BOM.
 
-于是要定三件事：
+So three things have to be settled:
 
-1. 页面怎么表达（文件形态、端口、怎么接到板级 net 上）；
-2. 页内与板级的命名空间（refdes 必然重复）；
-3. BOM 怎么算（页面划分会不会让 BOM 算错）。
+1. how pages are expressed (file form, ports, how they attach to board-level nets);
+2. the naming scope inside a page versus at board level (refdes necessarily collides);
+3. how the BOM is counted (does page partitioning make the BOM wrong).
 
-## 决策
+## Decision
 
-1. **层级**：board = 物理板；page = 板内划分单元。页面不产生独立 PCB，也不产生独立 BOM。
+1. **Hierarchy**: board = physical board; page = partitioning unit inside the board. A page produces no standalone PCB and no standalone BOM.
 
-2. **页面是新描述类型** `page`：文件 `sch/<board_id>/<page_id>.teda`，头部 `page <page_id>`。板根 `sch/<board_id>.teda` 仍是 `schematic`。`sch/` 目录下因此有两种 kind，靠层级区分：`sch/<id>.teda` 是板根，`sch/<id>/<page>.teda` 是该板的页面。
+2. **A page is a new description type** `page`: file `sch/<board_id>/<page_id>.teda`, header `page <page_id>`. The board root `sch/<board_id>.teda` is still a `schematic`. The `sch/` directory therefore holds two kinds, told apart by hierarchy: `sch/<id>.teda` is a board root, `sch/<id>/<page>.teda` is a page of that board.
 
-3. **板根用 `pages` 段声明页面**：
+3. **The board root declares its pages with a `pages` segment**:
 
    ```
    pages
@@ -33,56 +33,56 @@ ADR-0001 把 charger 与 buck 当成两块板，用 `system` 文件连起来—�
      M2  buck-5v
    ```
 
-   列：`<page_instance_id> <page_id>`。`page_id` 按约定解析到 `sch/<board_id>/<page_id>.teda`——与 `component_id` → `components/**/<id>.teda`、`board_id` → `sch/<id>.teda` 是同一套解析约定，规范里不出现路径字面量。`page_instance_id` 是板内唯一的实例名（命名同 refdes），板级 net 用它引用页面端口。
+   Columns: `<page_instance_id> <page_id>`. By convention `page_id` resolves to `sch/<board_id>/<page_id>.teda` — the same resolution convention as `component_id` → `components/**/<id>.teda` and `board_id` → `sch/<id>.teda`; path literals never appear in the spec. `page_instance_id` is an instance name that is unique inside the board (named like a refdes); board-level nets use it to reference page ports.
 
-4. **端口绑定只有一套机制**，容器不同而已：
+4. **There is only one port-binding mechanism**, the container differs:
 
-   - 页面用 `ports` 段把页内 net 暴露成端口；板根 net 行用 `M1.SYS_OUT` 引用页面端口。
-   - 板根用 `ports` 段把板级 net 暴露成对外接口；`system` 文件 net 行用 `<board_id>.<port_id>` 引用板端口。
+   - A page uses a `ports` segment to expose its in-page nets as ports; a board-root net line references a page port with `M1.SYS_OUT`.
+   - The board root uses a `ports` segment to expose its board-level nets as an external interface; a `system` file net line references a board port with `<board_id>.<port_id>`.
 
-   即 **页 → 板 → 系统** 三层，每一层用同一个"端口 → 网"语法。端口是唯一的跨界机制，页内 net 名、板内 net 名都不跨界。
+   In other words: **page → board → system**, three levels, each using the same "port → net" syntax. The port is the only cross-boundary mechanism; in-page net names and intra-board net names never cross a boundary.
 
-5. **命名空间**：
+5. **Namespaces**:
 
-   - refdes 在**页面内唯一**即可；板根实例在板根内唯一。显示名允许跨页重复。
-   - 稳定 id：页内实例 = `<page_instance_id>.<refdes>`，板根实例 = `<refdes>`。PCB 放置、变体、BOM 溯源一律用稳定 id。
-   - `page_instance_id` 与板根 refdes 同处板级命名空间，不得同名。
-   - 展平导出（网表、贴片、BOM）时把 refdes 重编为板级唯一（KiCad 式自动注解），页面归属记在注释里。
+   - A refdes only has to be unique **within its page**; board-root instances are unique within the board root. Display names may repeat across pages.
+   - Stable id: in-page instance = `<page_instance_id>.<refdes>`, board-root instance = `<refdes>`. PCB placement, variants and BOM traceability all use the stable id.
+   - `page_instance_id` and board-root refdes share the board-level namespace and must not collide.
+   - On flattening export (netlist, pick-and-place, BOM) refdes are renumbered to be unique board-wide (KiCad-style automatic annotation); the page membership is recorded in a comment.
 
-6. **展平（flatten）**：板 = 板根实例 + 每个页面实例化一次后的实例。ERC 与 BOM 都在展平结果上跑。页面内的 net 必须经端口接到板级；板级 net 引用的页面端口必须解析得到。
+6. **Flattening**: board = board-root instances + each page instantiated once. ERC and BOM both run on the flattened result. In-page nets must reach the board level through ports; every page port referenced by a board-level net must resolve.
 
-7. **BOM 计数**：
+7. **BOM counting**:
 
-   - BOM 行 = (`component_id`, 参数字典, 变体状态)，**聚合键不含 refdes，也不含稳定 id**。
-   - 数量 = 展平后的实物数。同一页实例化一次，该页的件各计 1；不同页里同型号的同名 refdes 合并成一行、数量相加。
-   - 通用无源件（无 `mpn`）的行是参数行（如 `10k ±1% 0402`），不是料号行。
+   - A BOM row = (`component_id`, parameter dictionary, variant status); the **aggregation key contains neither refdes nor stable id**.
+   - Quantity = the physical count after flattening. A page instantiated once contributes 1 of each of its parts; identical refdes of the same part number in different pages merge into one row, with the quantities added.
+   - Rows for generic passives (no `mpn`) are parameter rows (e.g. `10k ±1% 0402`), not part-number rows.
 
-   结论：**重复使用同一 annotation 不会让 BOM 乱**；乱的是 refdes 撞名，由稳定 id 与展平重编解决。
+   Conclusion: **reusing the same annotation does not make the BOM a mess**; what makes the BOM a mess is refdes collisions, and that is solved by the stable id and by renumbering during flattening.
 
-8. **变体作用域**（结掉 `AGENTS.md` §11 Q8）：变体只覆盖"装不装 / 装什么"，**不改变连通性**（`AGENTS.md` §4.1 已有此定义）。因此：
+8. **Variant scope** (closing `AGENTS.md` §11 Q8): a variant only overrides "fitted or not fitted / fitted with what", and **does not change connectivity** (already defined in `AGENTS.md` §4.1). Therefore:
 
-   - DNP / 不贴的件仍出现在网表与展平结果里，只是不进 BOM 与贴片清单；
-   - 变体引用 `component_id` 时作用于该型号的**所有实例**；引用稳定 id 时只作用于该实例；
-   - 变体不影响 ERC 结果。
+   - DNP / not-fitted parts still appear in the netlist and in the flattened result; they simply do not enter the BOM or the pick-and-place list;
+   - when a variant references a `component_id` it applies to **all instances** of that part number; when it references a stable id it applies to that instance only;
+   - variants do not affect ERC results.
 
-## 被否决的方案
+## Rejected Alternatives
 
-| 方案 | 否决理由 |
+| Option | Why it was rejected |
 |---|---|
-| 继续把 charger / buck 当两块板 + `system` 连接 | 与实际硬件不符：会产生"两份 BOM、两套 Gerber"的假象，板间 net 与跨板电压相容检查也不该出现在这个项目里 |
-| 把 board 重新解释成"模块" | 板必须对应物理板（BOM、Gerber、装配），否则"一份 BOM"到底按板出还是按项目出说不清 |
-| 页面用隐式全局网名（KiCad global label 式） | 隐式耦合：页面改网名会静默影响别处，diff 不干净。显式端口能看出谁接了谁 |
-| BOM 按 refdes 聚合 | 跨页 refdes 允许重复后必然合并错；refdes 是显示名，不该承担身份 |
-| 用通用 `module` 复用机制表达页面 | 页面是划分不是复用；用"复用"的名字会诱导作者把板当模块。当前只支持每页实例化一次 |
+| Keeping charger / buck as two boards connected by `system` | It does not match the real hardware: it creates the illusion of "two BOMs, two sets of Gerbers", and inter-board net and cross-board voltage compatibility checks have no business in this project |
+| Reinterpreting board as "module" | A board must correspond to a physical board (BOM, Gerber, assembly), otherwise "one BOM" — per board or per project — has no clear answer |
+| Pages using implicit global net names (KiCad global label style) | Implicit coupling: renaming a net on a page silently affects other places, and the diff stays unclean. Explicit ports show who is connected to whom |
+| Aggregating the BOM by refdes | Once refdes may repeat across pages, aggregation by refdes necessarily merges wrongly; refdes is a display name and must not carry identity |
+| Expressing pages through the generic `module` reuse mechanism | A page is a partition, not a reuse; calling it "reuse" invites authors to treat the board as a module. For now only one instantiation per page is supported |
 
-## 后果
+## Consequences
 
-- 一块板 = 一份 BOM、一个 PCB；页面只是画布与评审单位，不再有"两个板拼装"的假象。
-- refdes 跨页重名合法，工具内部一律用稳定 id，导出时重编。
-- `system`（板间）机制保留给真正的多板产品（P4），本项目用不上。
-- 代价：多一个描述类型、一条 `pages` 段、一套展平规则。
+- One board = one BOM, one PCB; a page is only a canvas and review unit, and the "two boards put together" illusion is gone.
+- Duplicate refdes across pages is legal; tools use the stable id internally and renumber on export.
+- The `system` (inter-board) mechanism stays reserved for genuinely multi-board products (P4); this project does not need it.
+- Cost: one more description type, one more `pages` segment, one more set of flattening rules.
 
-## 后续（不在本 ADR 范围）
+## Follow-up (out of scope for this ADR)
 
-- 同一页面在一块板上实例化多次（多通道前端等）：需要页面参数与端口映射，即 `AGENTS.md` §5.3 的 module 机制，v0.4 讨论。
-- 页面级变体覆盖、跨板 BOM 汇总、子组件分层呈现。
+- Instantiating the same page several times on one board (multi-channel front ends, etc.): this needs page parameters and port mapping, i.e. the module mechanism of `AGENTS.md` §5.3, to be discussed in v0.4.
+- Page-level variant overrides, cross-board BOM rollup, hierarchical presentation of sub-components.

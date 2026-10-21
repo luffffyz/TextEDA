@@ -1,85 +1,85 @@
-# ADR-0015：许可与开放策略——契约层永久开源，项目按"标准提案"定位
+# ADR-0015: Licensing and Openness Policy — The Contract Layer Is Open Source Forever, the Project Is Positioned as a Standard Proposal
 
-状态：已接受
-日期：2026-10-21
-影响范围：仓库根（新增 `LICENSE`、`NOTICE`）、`package.json` × 5（加 `license` 字段）、`README.md`（公开声明 + 许可段）、`AGENTS.md` §2（新增不变量 19）、`docs/backlog.md`（延后项登记）；`spec/**`、`schemas/ir/v0.1/**`、`examples/**`、`tests/**` 的开放性由本 ADR 约束
+Status: Accepted
+Date: 2026-10-21
+Impact: repository root (new `LICENSE`, `NOTICE`), `package.json` × 7 (add `license` field; see the addendum in decision 1), `README.md` (public statement + license section), `AGENTS.md` §2 (new invariant 19), `docs/backlog.md` (deferred-item registry); the openness of `spec/**`, `schemas/ir/v0.1/**`, `examples/**`, `tests/**` is constrained by this ADR
 
-## 背景
+## Background
 
-本仓库此前**没有任何许可声明**：根目录没有 `LICENSE`，五个 `package.json` 都没有 `license` 字段，README 第一句写的是"这是**私有仓库**"。也就是说"这些东西归谁、别人能不能用、能不能照着实现"从来没有被决定过。
+This repository previously had **no license statement at all**: no `LICENSE` at the root, no `license` field in any of the five `package.json` files, and the first line of the README said "this is a **private repository**". In other words, "who owns these things, can others use them, can others implement them from the spec" had never been decided.
 
-这件事今天必须决定，理由有三条：
+This must be decided today, for three reasons:
 
-1. **契约的价值只在被别人实现时才存在**。`AGENTS.md` §2 不变量 1 说"IR 是唯一真源，语法可以换、渲染器可以换、导出器可以换"。如果 IR 与 spec 是私有的，这句话在实践上就是"只有我能换"——那不是可替换性，是锁定。
-2. **agent 是消费者，不是作者**。这个项目面向 agent：机器可解析、可校验、错误可定位。机器要能消费一个格式，前提是这个格式有稳定的公开契约与公开的许可。
-3. **商业化路径与"先闭源攒用户再开源"是反的**。闭源产品拿到的反馈只有工单，拿不到标准需要的反馈——第三方实现、第三方设计、第三方围绕你的格式建工具。"先闭源，等有反馈了再开源"逻辑倒置：等你开源时，生态已经被别的格式占住了。
+1. **The value of a contract exists only when others implement it.** `AGENTS.md` §2 invariant 1 says "the IR is the single source of truth; the syntax can change, the renderer can change, the exporter can change". If the IR and the spec are private, that sentence means in practice "only I can change them" — that is not replaceability, that is lock-in.
+2. **Agents are consumers, not authors.** This project targets agents: machine-parsable, checkable, locatable errors. For a machine to consume a format, that format must first have a stable public contract and a public license.
+3. **The commercialization path is the opposite of "close-source first, accumulate users, open-source later".** A closed-source product only receives bug reports; it never receives the feedback a standard needs — third-party implementations, third-party designs, third-party tools built around your format. "Close it now, open it once we have feedback" has the logic inverted: by the time you open it, the ecosystem has already been taken by another format.
 
-## 决策
+## Decision
 
-### 1. 全仓 Apache-2.0；仓库可见性暂留私有，公开是下一步
+### 1. Apache-2.0 across the whole repository; repository visibility stays private for now, public is the next step
 
-- 根目录新增 `LICENSE`（Apache-2.0 全文）与 `NOTICE`（归属声明 + 第三方组件说明：Hershey 字形数据公有领域 / 经 `hersheytext`（MIT）取得；KiCad 只是外部工具，不随仓库分发）。
-- 五个 `package.json`（根 + `ir` / `parser` / `exporter` / `renderer`）统一加 `"license": "Apache-2.0"`。
-- **GitHub 可见性本次不变，仍是私有。** 切换为 public 是待执行动作，不是本次提交的附带结果；前置条件是 `examples/reference-project/docs/datasheets/` 里约 15 MB 厂商 datasheet（TI、WCH 等第三方 PDF）清理干净——把厂商 PDF 随仓库公开是版权问题，不是格式问题。**补记（2026-10-21）**：该前置已清完——PDF 移出索引、`.gitignore` 排除、`NOTICE` 声明、**git 历史已重写**（`filter-branch` + gc），旧提交里的 PDF 对象已不可达。剩下的只是人工动作：扫一遍内部信息 → GitHub 可见性切 public → 同步 README 措辞（见 `docs/backlog.md` F6）。**许可与"将来一定公开"的承诺现在就落定，可见性开关等人工动作做完再按。**
-- 选 Apache-2.0 而不是 MIT 的理由：**标准类项目需要专利授权**（Apache-2.0 §3 授予贡献者对其贡献的专利许可，MIT 没有）。一个要被别人照着实现、并且可能进商业产品的格式，专利风险必须提前处理掉。MIT 留给纯工具代码，本仓库现阶段用统一许可更简单。
+- The root gains a `LICENSE` (the full Apache-2.0 text) and a `NOTICE` (attribution statement + third-party component notes: Hershey glyph data is public domain, obtained via `hersheytext` (MIT); KiCad is only an external tool and is not distributed with this repository).
+- The five `package.json` files that existed at the time (root + `ir` / `parser` / `exporter` / `renderer`) uniformly gain `"license": "Apache-2.0"`. **Addendum (2026-10-21)**: two packages were added later — `core` (pure connectivity rules) and `cli` (the `textEDA` command line). The rule is now **seven** `package.json` files (root + `ir` / `parser` / `exporter` / `renderer` / `core` / `cli`), and all seven carry `"license": "Apache-2.0"` and `"private": true`. The rule itself did not change: every `package.json` in the repository, present or future, follows it.
+- **GitHub visibility does not change in this round; it stays private.** Switching to public is a pending manual action, not a side effect of this commit; the precondition is that the roughly 15 MB of vendor datasheets (TI, WCH and other third-party PDFs) under `examples/reference-project/docs/datasheets/` are cleaned out — distributing vendor PDFs alongside the repository is a copyright problem, not a format problem. **Addendum (2026-10-21)**: that precondition has now been cleared — the PDFs were removed from the index, excluded via `.gitignore`, declared in `NOTICE`, and **the git history was rewritten** (`filter-branch` + gc), so the PDF objects in old commits are no longer reachable. All that remains is manual work: scan for internal information → switch the GitHub visibility to public → sync the README wording (see `docs/backlog.md` F6). **The license and the "we will definitely open-source later" commitment are settled now; the visibility switch waits until the manual work is done.**
+- Why Apache-2.0 rather than MIT: **standard-like projects need patent licensing** (Apache-2.0 §3 grants contributors a patent license over their contributions; MIT does not). A format that others are meant to implement and that may end up inside commercial products must have its patent risk handled up front. MIT is reserved for pure tooling code; a single uniform license for this repository is simpler at this stage.
 
-### 2. 契约层永久开放——这是本 ADR 最硬的一条
+### 2. The Contract Layer Is Open Forever — The Hardest Rule in This ADR
 
-下列路径属于**契约层**，永远是公开的、可自由实现、可自由再分发，**不因任何商业理由改为闭源或加附加限制**：
+The paths below belong to the **contract layer**: they are public forever, freely implementable, freely redistributable, and **must never be closed-sourced or given extra restrictions for any commercial reason**:
 
-|路径|是什么|
+|Path|What it is|
 |---|---|
-|`teda.md`、`spec/**`|语言与各描述类型的规范性文本|
-|`schemas/ir/v0.1/**`|IR 的 JSON Schema 契约（ADR-0004、ADR-0008）|
-|`examples/reference-project/**`|自包含参考工程：器件 / 符号 / 封装 / 库|
-|`tests/**`|单元、契约、round-trip、conformance 语料与黄金 IR|
+|`teda.md`, `spec/**`|Normative text for the language and each description kind|
+|`schemas/ir/v0.1/**`|The JSON Schema contract of the IR ([ADR-0004](0004-ir-representation.md), [ADR-0008](0008-ir-shard-identity-and-hash.md))|
+|`examples/reference-project/**`|A self-contained reference project: components / symbols / footprints / libraries|
+|`tests/**`|Unit, contract, round-trip and conformance corpora plus golden IR|
 
-- **实现层**（`packages/**`）可以随时改许可、可以闭源、可以只发二进制，**不影响契约层的开放性**；闭源实现仍然必须消费上述公开契约。
-- **禁止反向污染**：不允许出现"只有官方实现能读"的私有扩展混进契约层。需要商业化的扩展一律住在实现层或独立描述里。
-- 这一条写进 `AGENTS.md` §2 作为不变量 19，因为它是**约束未来 agent 行为**的条款：没有这条，一个"顺手把 spec 收进许可限制"的改动看起来无害。
+- The **implementation layer** (`packages/**`) may change its license at any time, may be closed-sourced, may ship only binaries; none of that **affects the openness of the contract layer**. A closed-source implementation is still required to consume the public contracts listed above.
+- **No back-contamination**: private extensions that "only the official implementation can read" must not leak into the contract layer. Any extension that needs to be commercialized lives in the implementation layer or in a separate description.
+- This rule goes into `AGENTS.md` §2 as invariant 19, because it is a clause that **constrains the behavior of future agents**: without it, a change that "casually folds the spec into a license restriction" looks harmless.
 
-### 3. 定位：按"标准提案"做，不是按 SaaS 做
+### 3. Positioning: build a "standard proposal", not a SaaS
 
-这是本 ADR 的商业部分。textEDA 的目标形态是**一个被别人的工具围绕着的规范**，而不是一个有订阅收入的产品。回报路径按优先级：
+This is the commercial part of the ADR. The target form of textEDA is **a specification that other people's tools are built around**, not a product with subscription revenue. The payoff path, in priority order:
 
-1. **声誉与影响力**——规范被采用、被引用、被写进别人的工具链。
-2. **咨询与培训**——把"让 agent 改板"变成可交付的服务：企业库治理、从 datasheet 生成封装、sch↔pcb 一致性审查。
-3. **招聘溢价**——硬件描述 + agent 工具链这个交叉领域的专家身份。
-4. **生态位**——别人做 KiCad 侧、PLM 侧、CI 侧的工具，textEDA 提供他们共同依赖的语义层。
+1. **Reputation and influence** — the specification gets adopted, cited, and written into other people's toolchains.
+2. **Consulting and training** — turn "let an agent modify the board" into a deliverable service: enterprise library governance, footprint generation from datasheets, sch↔pcb consistency review.
+3. **Hiring premium** — expert standing in the intersection of hardware description and agent toolchains.
+4. **Ecosystem position** — others build tools on the KiCad side, the PLM side, the CI side; textEDA provides the semantic layer they all depend on.
 
-明确**不追求**把实现做成订阅服务作为主线。若将来提供托管服务，定位是"契约的一个可选实现"，**不得与决策 2 冲突**（付费服务不得是"符合 textEDA"的唯一途径）。
+We explicitly **do not pursue** making the implementation a subscription service as the main line. If a hosted service is offered later, it is positioned as "an optional implementation of the contract" and **must not conflict with decision 2** (a paid service must never be the only way to be "textEDA-conformant").
 
-### 4. 当标准就要付标准的义务
+### 4. Acting Like a Standard Means Paying a Standard's Obligations
 
-"公开"不等于"标准"。作为规范提案，textEDA 承担这几项义务：
+"Public" does not mean "a standard". As a specification proposal, textEDA takes on these obligations:
 
-1. **规范性**：`spec/**` 必须写成别人能照着实现的规范——MUST / SHOULD 语义明确、错误行为有定义、不是只描述本仓库的实现。机器可读的那部分由 `schemas/ir/v0.1/**` 承担。
-2. **conformance 套件是标准的一部分**：`tests/**` 里的用例与黄金 IR 就是别人的验收套件。第三方实现跑通这套件，就可以声称"符合 textEDA v0.x"。
-3. **可实现性是发布门槛**：v0.1 发布前，要有一份**只依赖 `spec/**` 与 `schemas/**`、不读 `packages/**` 源码**的最小实现能跑通 conformance 的核心部分。这条是可测的：写完即知。它防的是"规范只有我的实现懂"这种最常见的标准失败模式。
-4. **版本与兼容**：`format`（语法）与 `ir_version`（IR 形状）独立版本（ADR-0008）；破坏性变更必须附迁移脚本与迁移说明（`AGENTS.md` §2 不变量 10）。不承诺 SLA，只承诺语义化版本 + 迁移路径。
-5. **不把参考实现当规范**：参考实现（`packages/**`）是"一种实现"，不是"唯一正确行为"。规范与实现冲突时，改规范——不是改实现去迁就实现。
+1. **Normative**: `spec/**` must be written so that others can implement against it — clear MUST / SHOULD semantics, defined error behavior, not a description of this repository's implementation alone. The machine-readable part is carried by `schemas/ir/v0.1/**`.
+2. **The conformance suite is part of the standard**: the cases and golden IR in `tests/**` are the acceptance suite for others. A third-party implementation that passes this suite may claim conformance with "textEDA v0.x".
+3. **Implementability is a release gate**: before v0.1 ships, there must be a minimal implementation that depends only on `spec/**` and `schemas/**` — and does not read `packages/**` source — that passes the core of the conformance suite. This rule is testable: you know the moment you write it. It prevents the most common way a standard fails: "only my implementation understands the spec".
+4. **Versioning and compatibility**: `format` (syntax) and `ir_version` (IR shape) are versioned independently ([ADR-0008](0008-ir-shard-identity-and-hash.md)); breaking changes must ship a migration script and migration notes (`AGENTS.md` §2 invariant 10). No SLA is promised — only semantic versioning plus a migration path.
+5. **Do not treat the reference implementation as the spec**: the reference implementation (`packages/**`) is "an implementation", not "the only correct behavior". When the spec and the implementation conflict, change the spec — do not bend the implementation to fit the implementation.
 
-### 5. 商标与命名
+### 5. Trademarks and Naming
 
-- Apache-2.0 §6 不授予商标使用许可。第三方实现应自称"符合 textEDA v0.x"或 "textEDA-compatible"，**不得**用 textEDA 作为其产品名（除非另有商标许可）。暂不注册商标，等生态真的起来了再评估。
-- 项目名 textEDA 本身不构成对 KiCad / Altium / EAGLE 等商标的暗示；本项目是这些工具的补充与上游，不是替代（`AGENTS.md` §1「不是」）。
+- Apache-2.0 §6 grants no trademark license. Third-party implementations should call themselves "textEDA v0.x-conformant" or "textEDA-compatible" and **must not** use textEDA as their product name (unless a separate trademark license is granted). No trademark is registered yet; it will be reconsidered once the ecosystem actually takes off.
+- The project name textEDA itself implies no endorsement of KiCad / Altium / EAGLE trademarks; this project is a complement and an upstream for those tools, not a replacement (`AGENTS.md` §1 "not").
 
-### 6. 治理与贡献
+### 6. Governance and Contribution
 
-- 现阶段是单维护者，这与多数开放标准的早期一致；不假装有社区治理流程。
-- 贡献入口沿用 `AGENTS.md` §12：**规范与 conformance 用例同一次提交**，只提实现不为例外、只提用例不提规范也不为例外。破坏性变更走 ADR。
-- 外部 PR 的合并门槛与内部一致：过 `bun test`、`bun run typecheck`、`bun run gen:check`、`bun run fmt:teda --check`，以及 §4.3 的可实现性检查。
+- At this stage there is a single maintainer, which matches the early stage of most open standards; we do not pretend to have a community governance process.
+- The contribution entry point follows `AGENTS.md` §12: **the spec and the conformance cases go in the same commit** — submitting only the implementation is not the rule, and neither is submitting only cases without the spec. Breaking changes go through an ADR.
+- The merge bar for external PRs is the same as internally: pass `bun test`, `bun run typecheck`, `bun run gen:check`, `bun run fmt:teda --check`, plus the implementability check from §4.3.
 
-### 7. 延后（记入 `docs/backlog.md`）
+### 7. Deferred (recorded in `docs/backlog.md`)
 
-- **npm 发布**：五个包保持 `"private": true`，暂不发布到 npm。理由：还没有外部消费者，且当前包是 TS 源码、版本 `0.0.0`。等真有第三方实现接进来了再定发布形式（npm / git 依赖 / 只发 IR schema）。
-- **官方付费托管校验器**：可做，但必须是可选实现，不是"符合 textEDA"的唯一途径（决策 3、4.2）。
-- **商标注册**：延后到生态形成之后。
+- **npm publishing**: the seven packages keep `"private": true` and are not published to npm for now. Reasons: there are no external consumers yet, and the current packages are TS source at version `0.0.0`. The publishing form (npm / git dependency / IR schema only) is decided once a real third-party implementation has landed.
+- **Official paid hosted validator**: doable, but it must be an optional implementation, never the only way to be "textEDA-conformant" (decisions 3 and 4.2).
+- **Trademark registration**: deferred until the ecosystem has formed.
 
-## 后果
+## Consequences
 
-- **好处**：契约可被第三方实现与消费；agent 有稳定公开的输入格式；"IR 可换实现"从口号变成可执行的前提；许可与开放承诺落定之后，将来切 public 只是一次设置操作，不需要再讨论条款；商业模式不再依赖"把格式锁起来收费"这条走不通的路。
-- **代价**：规范文本成为公共承诺，改起来比私有时期慢（每个破坏性变更都要迁移脚本与说明）；参考实现从"产品"降级为"示例 + 验收基准"，要接受别人写不同的实现；将来公开后没有回头路，仓库的粗糙处会长期可见。
-- **没有代价的部分**：没碰语言语法、没碰 IR 契约、没碰 `packages/**` 的实现代码；`package.json` 只加了一个 `license` 字段，`private: true` 与仓库可见性都保持不变。
-- **主要风险**：标准提案模式的最大风险是**采用率**——没人用的规范什么都不是，公开只让这件事更早暴露。缓解措施是决策 4 的三条：conformance 套件作为传播载体、参考工程作为可复制样本、"只读 spec 也能实现"这条可测门槛。风险不由闭源化解（闭源只会让采用率更低），只能靠规范质量与可用性化解。**代价是这条风险在仓库仍私有时不会暴露**——这是保留私有的一个已知代价，靠 F4 的可实现性检查与 F6 的清理来提前发现。
-- **一个诚实的补充**：本仓库当前是"工具链起步"状态（`AGENTS.md` §0），板级描述（`sch` / `pcb`）尚未实现。将来切 public 时，对外可展示的是语言、IR、库与导出闭环，还不是完整的板级能力。公开时机的取舍是：**先切公开以换取外部反馈**，还是**等 P0 完成再切**。本 ADR 的选择是**先落定许可与开放承诺，可见性等 datasheet 版权清理（F6）完再切**——版权问题比时机问题更硬，切早了要重写历史。
+- **Benefits**: the contract can be implemented and consumed by third parties; agents get a stable public input format; "the IR can be reimplemented" stops being a slogan and becomes an enforceable premise; with the license and the openness commitment settled, switching to public later is a single settings operation that needs no further negotiation; the business model no longer depends on "lock the format down and charge for it", which does not work.
+- **Costs**: normative text becomes a public commitment and is slower to change than in the private era (every breaking change needs a migration script and notes); the reference implementation is demoted from "product" to "example + acceptance baseline", and we have to accept others writing different implementations; once we go public there is no way back, and the repository's rough edges stay visible for good.
+- **The parts that cost nothing**: the language syntax, the IR contract and the `packages/**` implementation code are untouched; `package.json` only gained one `license` field, and both `private: true` and the repository visibility stay unchanged.
+- **The main risk**: the biggest risk of the standard-proposal model is **adoption rate** — a specification nobody uses is nothing, and going public only makes that visible earlier. The mitigations are the three items in decision 4: the conformance suite as a distribution vehicle, the reference project as a copyable sample, and the "implementable from the spec alone" gate, which is testable. This risk is not dissolved by staying closed (closing only lowers the adoption rate); it can only be addressed through spec quality and usability. **The cost of this is that the risk stays hidden while the repository is still private** — that is a known cost of keeping it private, and F4's implementability check plus F6's cleanup are meant to surface it early.
+- **An honest addition**: this repository is currently at the "toolchain start" stage (`AGENTS.md` §0), and board-level description (`sch` / `pcb`) is not implemented yet. When we switch to public, what can be shown externally is the language, the IR, the libraries and the export loop — not full board-level capability. The timing trade-off is: **switch to public first in exchange for external feedback**, or **wait until P0 is done**. This ADR's choice is to **settle the license and the openness commitment now, and switch visibility once the datasheet copyright cleanup (F6) is done** — the copyright problem is harder than the timing problem, and switching too early means rewriting history.
