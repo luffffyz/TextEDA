@@ -8,6 +8,7 @@
 // The output must be a deterministic function of the IR: the same IR yields a
 // byte-identical netlist, with no timestamps and no tool versions.
 import type { Schematic } from "@texteda/ir/schematic";
+import { byteCompare, pinRefCompare } from "@texteda/ir/order";
 
 export interface NetlistComponent {
   /** Flattened instance id (`<page_instance_id>.<refdes>`, or `<refdes>` at the board root). */
@@ -34,24 +35,19 @@ export interface Netlist {
   ports: NetlistPort[];
 }
 
-/** Comparison by code unit: locale-independent, byte-reproducible. */
-function byCodeUnit(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-
 /** Extract a netlist from the schematic IR. Nets and members are both sorted so the same set comes out regardless of source order. */
 export function toNetlist(ir: Schematic): Netlist {
   const components: NetlistComponent[] = ir.instances
     .map((instance) => ({ id: instance.id, component: instance.component }))
-    .sort((a, b) => byCodeUnit(a.id, b.id));
+    .sort((a, b) => byteCompare(a.id, b.id));
 
   const nets: NetlistNet[] = ir.nets
-    .map((net) => ({ id: net.id, members: [...net.members].sort(byCodeUnit) }))
-    .sort((a, b) => byCodeUnit(a.id, b.id));
+    .map((net) => ({ id: net.id, members: [...net.members].sort(pinRefCompare) }))
+    .sort((a, b) => byteCompare(a.id, b.id));
 
   const ports: NetlistPort[] = (ir.ports ?? [])
     .map((port) => ({ id: port.id, net: port.net }))
-    .sort((a, b) => byCodeUnit(a.id, b.id));
+    .sort((a, b) => byteCompare(a.id, b.id));
 
   return { ir_version: ir.ir_version, board: ir.board, components, nets, ports };
 }

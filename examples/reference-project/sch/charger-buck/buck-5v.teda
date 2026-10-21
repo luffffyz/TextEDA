@@ -18,12 +18,12 @@ instances
   U1  tps5430ddar
 
 nets
-  BOOT:  U1.BOOT  C2.1
-  GND:   U1.GND  U1.PAD  C1.2  C3.N  C4.2  D1.A  R2.2
-  PH:    U1.PH  C2.2  D1.K  L1.1
-  SYS:   U1.VIN  C1.1
-  VFB:   U1.VSENSE  R1.2  R2.1
-  VOUT:  L1.2  R1.1  C3.P  C4.1
+  BOOT:  C2.1  U1.BOOT
+  GND:   C1.2  C3.N  C4.2  D1.A  R2.2  U1.GND  U1.PAD
+  PH:    C2.2  D1.K  L1.1  U1.PH
+  SYS:   C1.1  U1.VIN
+  VFB:   R1.2  R2.1  U1.VSENSE
+  VOUT:  C3.P  C4.1  L1.2  R1.1
 
 ports
   GND     GND

@@ -38,7 +38,9 @@ describe("canonical form (schematic)", () => {
         instances: doc.instances
           .map((i) => `${i.refdes} ${i.componentId} ${i.paramCells.join(" ")}`)
           .sort(),
-        nets: doc.nets.map((n) => `${n.name}: ${n.memberRefs.join(" ")}`).sort(),
+        nets: doc.nets
+          .map((n) => `${n.name}: ${[...n.memberRefs].sort().join(" ")}`)
+          .sort(),
         ports: doc.ports.map((p) => `${p.id} ${p.net}`).sort(),
         pages: doc.pages.map((p) => `${p.id} ${p.pageId}`).sort(),
         constraints: doc.constraints.map((c) => `${c.type} ${c.args.join(" ")}`),
@@ -55,12 +57,12 @@ describe("canonical form (schematic)", () => {
   test("instances are ordered by refdes naturally", () => {
     const rows = canonical.split("\n").filter((l) => /^  [A-Z]+\d+\s/.test(l));
     const refs = rows.map((l) => l.trim().split(/\s+/)[0]!);
-    expect(refs.slice(0, 6)).toEqual(["C1", "C10", "C11", "C12", "C13", "C2"]);
+    expect(refs.slice(0, 6)).toEqual(["C1", "C2", "C3", "C4", "C5", "C6"]);
   });
 
   test("the colon in a net row hugs the net name, members start in the same column", () => {
     const lines = canonical.split("\n").filter((l) => /^  [A-Z0-9_]+:/.test(l));
-    expect(lines[0]).toMatch(/^  BOOT0: {4}U1\.BOOT0 {2}R2\.1$/);
+    expect(lines[0]).toMatch(/^  BOOT0: {4}R2\.1 {2}U1\.BOOT0$/);
     const columns = lines.map((l) => l.indexOf(l.trim().split(/\s+/)[1]!));
     expect(new Set(columns).size).toBe(1);
   });
@@ -115,5 +117,56 @@ describe("negative cases", () => {
     const result = formatSchematic("version 0.3\n", { file: "sch/b.teda" });
     expect(result.ok).toBe(false);
     expect(result.diagnostics[0]?.code).toBe("syntax.header-invalid");
+  });
+});
+
+describe("continuation rows and wide nets (teda.md §7.2, §12)", () => {
+  const header = ["version 0.3", "schematic b", "", "instances", "  R1  r-0402  10k", "  R2  r-0402  10k", "", "nets"].join("\n");
+
+  test("a net that fits on one line is written as one line", () => {
+    // The continuation row is merged back: the wrapping is a layout decision, not a fact about the net.
+    const canonical = fmt("sch/b.teda", `${header}\n  A:  R1.1\n  :  R2.1`);
+    expect(canonical).toContain("  A:  R1.1  R2.1");
+    expect(canonical).not.toContain("\n  :");
+  });
+
+  test("members of one net are merged, whatever rows they came from", () => {
+    const canonical = fmt("sch/b.teda", `${header}\n  A:  R1.1\n  A:  R2.1`);
+    expect(canonical).toContain("  A:  R1.1  R2.1");
+  });
+
+  test("a wide net is wrapped into continuation rows within 80 columns", () => {
+    const members = Array.from({ length: 40 }, (_, i) => `R${i}.1`);
+    const canonical = fmt("sch/b.teda", `${header}\n  A:  ${members.join("  ")}`);
+    const netLines = canonical.split("\n").filter((l) => /^  (A:|:)/.test(l));
+    expect(netLines.length).toBeGreaterThan(1);
+    for (const line of netLines) expect(line.length).toBeLessThanOrEqual(80);
+    // The first line carries the net name, the rest are continuation rows.
+    expect(netLines[0]).toMatch(/^ {2}A:/);
+    for (const line of netLines.slice(1)) expect(line).toMatch(/^ {2}:/);
+    // Every member survives the wrapping.
+    const written = netLines.flatMap((l) => l.trim().split(/\s+/).filter((c) => c.includes(".")));
+    expect(written.sort()).toEqual(members.sort());
+  });
+
+  test("continuation members are aligned with the first row's members", () => {
+    const members = Array.from({ length: 40 }, (_, i) => `R${i}.1`);
+    const canonical = fmt("sch/b.teda", `${header}\n  A:  ${members.join("  ")}`);
+    const netLines = canonical.split("\n").filter((l) => /^  (A:|:)/.test(l));
+    const columns = netLines.map((l) => l.indexOf(l.trim().split(/\s+/)[1]!));
+    expect(new Set(columns).size).toBe(1);
+  });
+
+  test("wrapping is idempotent", () => {
+    const members = Array.from({ length: 40 }, (_, i) => `R${i}.1`);
+    const canonical = fmt("sch/b.teda", `${header}\n  A:  ${members.join("  ")}`);
+    expect(fmt("sch/b.teda", canonical)).toBe(canonical);
+  });
+
+  test("a net written on one line and the same net written in pieces format identically", () => {
+    const members = ["R1.1", "R2.1"];
+    const oneLine = fmt("sch/b.teda", `${header}\n  A:  R1.1  R2.1`);
+    const twoLines = fmt("sch/b.teda", `${header}\n  A:  R1.1\n  :  R2.1`);
+    expect(twoLines).toBe(oneLine);
   });
 });

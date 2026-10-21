@@ -8,8 +8,8 @@
 //   --stdout   write to stdout, leaving files untouched.
 //   --library  library name; defaults to the containing directory name.
 //
-// Dispatch on the file's type line: currently `footprint`, `symbol`, and `schematic`/`page` are implemented; other description types are skipped for now
-// (their fmt is not implemented yet); naming one explicitly is an error, to avoid "thought it was formatted".
+// Dispatch on the file's type line: currently `footprint`, `symbol`, `schematic`/`page`, `pcb` and `view` are implemented; other description types are
+// skipped for now (their fmt is not implemented yet); naming one explicitly is an error, to avoid "thought it was formatted".
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { formatDiagnostic, type Diagnostic } from "@texteda/ir/diagnostics";
@@ -19,6 +19,7 @@ import {
   formatPcb,
   formatSchematic,
   formatSymbol,
+  formatView,
 } from "../src/index.ts";
 
 interface FormatterOutput {
@@ -91,6 +92,8 @@ for (const { file, fromDirectory } of files) {
     result = formatSchematic(text, { file });
   } else if (type === "pcb") {
     result = formatPcb(text, { file });
+  } else if (type === "view") {
+    result = formatView(text, { file });
   } else if (fromDirectory) {
     continue;
   } else {

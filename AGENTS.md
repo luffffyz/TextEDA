@@ -5,7 +5,7 @@
 > - **方向**（§1、§3、§4、§5）——设计意图，**可被 ADR 推翻**；推翻时改本文件，不算"违反规矩"。
 > - **实现现状**——**以代码、测试、ADR、backlog 为准**，本文件只标注"已落地 / 只有设计 / 未落地"，不复制细节。细节过期不算违规，但标注错了要改。
 >
-> 状态（2026-10-21）：**工具链起步**。已落地：`packages/ir`（IR 与契约，9 份 schema）、`packages/parser`（`footprint` / `symbol` 解析 + 对应 `fmt`；`pcb` 解析（12 段 → `pcb` IR，`texteda compile --pcb`）+ `pcb` canonical formatter（`fmt --check` 已覆盖）+ sch↔pcb 绑定校验（`packages/core`）；`schematic` / `page` 解析（实例、net、port、约束、bus、页面展平）+ 对应 `fmt`（连通性 ERC 已移出，见 `packages/core`）；`component` 只有只读事实读取 `readComponentFacts`）、`packages/core`（纯规则：连通性 ERC，不碰 fs，解析器与 LSP 共用）、`packages/exporter`（封装/符号 → KiCad `.kicad_mod` / `.kicad_sym`；网表 = IR 的连通性投影）、`packages/renderer`（符号/封装 → SVG，[ADR-0014](docs/adr/0014-reference-renderer.md)）、`packages/cli`（`texteda init` / `compile` / `check` / `netlist`，[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)）、**诊断错误码注册表**（`域.slug`，[ADR-0016](docs/adr/0016-diagnostic-error-codes.md)；真源 `packages/ir/src/diagnostics/codes.ts`，文档 `docs/error-codes.md` 由 `bun run gen` 生成，双向完整性检查见 `packages/ir/test/codes.test.ts`）。**未落地**：`pcb` / `system` 的解析器、`project.toml` 解析、CLI 的 `check`、BOM 与网表导出、KiCad 原理图导出、sch 渲染器（F3）、sch 规范文件（`spec/` 现只有 `symbol` / `footprint` / `pcb`）、层次（module/参数）、`fab` 描述、conformance / binding / 十用例语料。**仓库已公开**（`luffffyz/TextEDA`，2026-10-21），**CI 已落地**（`.github/workflows/ci.yml` 必过段零外部依赖；KiCad 互操作段是独立可选 workflow）。
+> 状态（2026-10-21）：**工具链起步**。已落地：`packages/ir`（IR 与契约，10 份 schema）、`packages/parser`（`footprint` / `symbol` 解析 + 对应 `fmt`；`pcb` 解析（12 段 → `pcb` IR，`texteda compile --pcb`）+ `pcb` canonical formatter（`fmt --check` 已覆盖）+ sch↔pcb 绑定校验（`packages/core`）；`schematic` / `page` 解析（实例、net、port、约束、bus、页面展平）+ 对应 `fmt`（连通性 ERC 已移出，见 `packages/core`）；`view` 解析（S1 视图层：摆位、走线、标签、端口、注释 → `schematic-view` IR）+ 对应 `fmt`（页面交叉校验与可读性检查未落地，见 `spec/schematic-view.md` §9）；`component` 只有只读事实读取 `readComponentFacts`）、`packages/core`（纯规则：连通性 ERC，不碰 fs，解析器与 LSP 共用）、`packages/exporter`（封装/符号 → KiCad `.kicad_mod` / `.kicad_sym`；网表 = IR 的连通性投影）、`packages/renderer`（符号/封装/原理图页面 → SVG，[ADR-0014](docs/adr/0014-reference-renderer.md)）、`packages/cli`（`texteda init` / `compile` / `check` / `netlist`，[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)）、**诊断错误码注册表**（`域.slug`，[ADR-0016](docs/adr/0016-diagnostic-error-codes.md)；真源 `packages/ir/src/diagnostics/codes.ts`，文档 `docs/error-codes.md` 由 `bun run gen` 生成，双向完整性检查见 `packages/ir/test/codes.test.ts`）。**未落地**：`system` 的解析器、`project.toml` 解析、BOM 导出、KiCad 原理图导出、sch 规范文件（`spec/` 现只有 `symbol` / `footprint` / `pcb` / `schematic-view`）、**原理图视图层 S1**（描述类型 `view` 的规范 + IR 契约 + 解析 + `fmt` 已落地；页面交叉校验、可读性检查、sch 的 round-trip 反解、评审 GUI 未落地，[ADR-0021](docs/adr/0021-schematic-view-layer.md)）、**评审 GUI**（浏览器优先的本地 web app，桌面壳延后，同上 ADR）、层次（module/参数）、`fab` 描述、conformance / binding / 十用例语料。**仓库已公开**（`luffffyz/TextEDA`，2026-10-21），**CI 已落地**（`.github/workflows/ci.yml` 必过段零外部依赖；KiCad 互操作段是独立可选 workflow）。
 > 标记约定：**已定** = 不再讨论；**提议** = 默认按此执行，可被 ADR 推翻；**待定** = 未决定，不要擅自选边。**未落地** = 只有设计，没有实现。
 
 ---
@@ -32,7 +32,7 @@
 - 一套面向硬件项目的领域语言：`project`、`board`、`schematic`、`pcb`、`fab`、`variant`；需求/分块/分析证据为可选的轻量实体。
 - 一个类型化中间表示（IR）及其 schema。
 - 一个检查器：单位/量纲、引脚存在性、电气类型、net 完整性、约束断言、**sch↔pcb 一致性**。**现状：只有契约层校验（Ajv + schema），还没有检查器**；单位/量纲与引脚存在性的检查在库级校验里各有一部分。
-- 一个参考渲染器和一个导出器（KiCad，见 `docs/adr/0005-manufacturing-output.md`）。**现状：渲染器只覆盖符号与封装（[ADR-0014](docs/adr/0014-reference-renderer.md)），sch 渲染未落地（F3）；导出器只出 `.kicad_mod` / `.kicad_sym`，网表与 BOM 未落地。**
+- 一个参考渲染器和一个导出器（KiCad，见 `docs/adr/0005-manufacturing-output.md`）。**现状：渲染器覆盖符号、封装与原理图页面（页面从 `view` 描述 + 符号事实画，[ADR-0014](docs/adr/0014-reference-renderer.md)、[ADR-0021](docs/adr/0021-schematic-view-layer.md)），页面交叉校验与可读性检查未落地（F3）；导出器只出 `.kicad_mod` / `.kicad_sym`，网表与 BOM 未落地。**
 - 一套一致性测试（conformance），让别人能独立实现渲染器。
 
 **不是**：
@@ -108,7 +108,7 @@ flowchart LR
 7. **未知构造默认报错**，不静默忽略。需要放宽时用显式开关（`--allow-unknown`）。
 8. **单位进字面量**（`3.3V`、`100nF`、`90Ω`）；语义位置上没有单位来源的数字必须报错。
 9. **默认值必须写进规范**，并且可以省略。不允许“必须显式写默认值”的设计。
-10. **版本化**：语言和 IR 都有版本号；破坏性变更必须附迁移脚本与迁移说明。
+10. **版本化**：语言和 IR 都有版本号；破坏性变更必须附迁移脚本与迁移说明。语言版本是 `MAJOR.MINOR[.PATCH]`：**MAJOR** = 老文件不再合法，**MINOR** = 加了描述类型/段/字段，**PATCH** = 不改变"哪些文件合法"的改动（加诊断码、改文案、澄清规则）——PATCH 永不破坏兼容性，判定时忽略；`1.0` 是**显式决策的里程碑**（语言表面冻结，之后只出 PATCH），不是用完的计数。决策见 [ADR-0022](docs/adr/0022-language-versioning.md)。
 11. **产物可追溯**：导出的 Gerber/图/网表携带 `source_hash + tool_version`（+ 渲染 seed，如适用）。
 12. **sch 与 pcb 是两个独立描述**，共享同一身份空间（`component_id`、`pin_number`、`net_id`）。
 13. **pcb 不得隐式增删逻辑连接**。任何偏差（net tie、测试点、缝合孔、分地）必须显式声明，并出现在校验报告里。
@@ -128,7 +128,7 @@ flowchart LR
 |---|---|---|---|
 | PRJ | 项目：系统、板、变体、元数据（原记号 P0，与 §1.1 的阶段 P0 冲突，改用 PRJ） | **不能** | 结构化程度低，但身份与版本必须精确 |
 | S0 | 原理图逻辑：器件、引脚、net、约束 | **不能** | 唯一逻辑真源，必须精确可校验 |
-| S1 | 原理图视图：符号位置、走线、标签 | **可以**，可丢弃 | 派生、给人评审用 |
+| S1 | 原理图视图：符号位置、走线、标签 | **可以**，可丢弃 | 派生、给人评审用。**独立描述类型** `view`（`sch/<board_id>/<page_id>.view.teda`）+ 独立 IR 分片，决策见 [ADR-0021](docs/adr/0021-schematic-view-layer.md) |
 | B0 | PCB 物理：叠层、坐标、层、过孔、走线 | **不能**自由 | 决定阻抗、串扰、回流、散热、爬电 |
 | B1 | PCB 预览/3D/走线检查视图 | **可以** | 派生 |
 | M0 | 制造：Gerber/钻孔/BOM/贴片 | **不能** | 校验后冻结，带版本与哈希 |
@@ -192,6 +192,13 @@ flowchart LR
 - **稳定 id**：页内实例 = `<page_instance_id>.<refdes>`，板根实例 = `<refdes>`。`refdes` 只是显示名，跨页可重复；导出时重编为板级唯一。
 - **BOM 计数**：BOM 行 = (`component_id`, 参数字典, 变体状态)，聚合键不含 `refdes`；数量 = 展平后的实物数。
 
+**View（板内页面视图，S1）**
+- 原理图的"画"（符号位置、走线、标签）**不在 S0 IR 里**——`schematic` IR 只有 `{id, component, params, line}` / `{id, members}` / `{id, net}`，没有任何坐标。因此**渲染器今天画不出原理图**。
+- S1 是**独立描述类型**：文件 `sch/<board_id>/<page_id>.view.teda`，独立 IR 分片，独立 schema 与 spec。决策与理由见 [ADR-0021](docs/adr/0021-schematic-view-layer.md)。
+- 视图只记"画"的事：符号摆在哪、走线怎么走、标签与页面端口在哪。**不重复电气事实**——引脚电气类型、net 成员、器件身份仍在 S0，视图按同样的身份键（`component_id` / `pin_number` / `net_id`）引用；视图与逻辑不一致是缺陷，要报出来，不是第二个真源。
+- **渲染器只画不摆**：没有视图文件就没有图，评审界面要如实报"此页无视图"，不能自己排一张。每次渲染的图不同 → 人无法把重叠的标签挪开 → §6 的可读性检查（文字重叠、线压引脚、标签碰撞、越界）就检查不出任何东西。
+- **有逻辑、无视图**是合法状态：逻辑仍然可校验、可导网表，只是不可画。
+
 ### 4.3 PCB（B0）
 
 - `Stackup`：层数、厚度、材料、阻抗目标。
@@ -247,7 +254,7 @@ flowchart LR
 
 1. 一行一个事实；禁止需要跨行阅读的结构。
 2. **表格优先，但不是纯表格**：事实（器件、net 成员、引脚绑定）用表；组合（module/实例）用带端口的块；规则归检查器。边界见 5.3。
-3. 只保留最少的符号：`:` 分隔名字与成员，`.` 访问引脚，`=` 绑定类型/值。其余靠空格与列。
+3. 只保留最少的符号：`:` 分隔名字与成员，`.` 访问引脚，`=` 绑定类型/值。其余靠空格与列。**冒号与续行同域**：只有“名字 + 不定长列表”的行（`nets`、`bus` 成员）才用冒号，也只有它们支持续行（首列是裸 `:`）；列固定的段（`instances`/`ports`/`pages`/`constraints`）与成对坐标的段（`trace`/`zone`/`keepout`/`outline`，拆行会断配对）都不用。
 4. 列的含义由器件类型定义，因此不用写 `value=`、`package=`。
 5. 必须有 canonical formatter。列对齐、排序、空行规则写进规范；没有规范格式就没有有意义的 diff。
 6. 运算符尽量 ASCII（`+-5%`），单位允许 Unicode（`Ω`、`±`）。
@@ -279,7 +286,7 @@ flowchart LR
 
 表格的两个已知风险：
 
-- **宽行**（例如 40 个 GND 引脚）。暂定：同名 net 行可重复出现并合并成员；同一行内重复引脚报错。是否改为“一行一引脚”的规范形式，由十用例验证。
+- **宽行**（例如 40 个 GND 引脚）。**已定**：net 行按 80 列折行，续行的首列是裸 `:`（延续上一行命名的 net）；同名 net 行仍可重复出现并合并成员。折行只影响排版——同一份描述无论写成几行，编译出的 IR 相同（成员按引脚引用自然序排序，见 `teda.md` §7.2 / §12）。标志是显式符号而不是缩进，因为缩进在本语言里不表达任何含义（§2 不变量 6）。
 - **稀疏元数据**。不要给主表加十几个空列；放旁表（`props`），主表只保留每个类型都有的列。
 
 ---
@@ -335,7 +342,7 @@ flowchart LR
 | 语法、parser、IR | ✅ | 这是产品本体 |
 | 类型/量纲/约束求解 | ✅ | 差异化在这里 |
 | ERC / 规则检查 / 绑定校验 | ✅ | 规则自己写；可用 `kicad-cli` 交叉验证 |
-| 参考渲染器 | ✅ | **符号 / 封装 SVG 已落地**（[ADR-0014](docs/adr/0014-reference-renderer.md)，自带 Hershey 笔画字体、不依赖 KiCad）；sch SVG 未落地（`docs/backlog.md` F3），pcb SVG 排在后面 |
+| 参考渲染器 | ✅ | **符号 / 封装 / 原理图页面 SVG 已落地**（[ADR-0014](docs/adr/0014-reference-renderer.md)、[ADR-0021](docs/adr/0021-schematic-view-layer.md)，自带 Hershey 笔画字体、不依赖 KiCad）；页面从 `view` 描述画，交叉校验与可读性检查未落地（`docs/backlog.md` F3），pcb SVG 排在后面 |
 | 3D 预览与几何导入 | ❌ | 运行时只留 three.js（MIT）：STEP 离线转 glTF、KiCad `.wrl` 直读；必须实时转 STEP 时才用 `occt-import-js`（LGPL-2.1，7.3 MB，动态加载）；快照用 `kicad-cli pcb render` |
 | IDE 集成 | ✅ 薄壳 | LSP over stdio；图与 3D 走 webview，不复制语义 |
 | 布局 / 布线 | ❌ | freerouting、KiCad、tscircuit 授权器 |
@@ -356,11 +363,12 @@ texteda/
 ├── LICENSE           # Apache-2.0（NOTICE 记归属）；契约层永久开源，见 ADR-0015
 ├── docs/            # 设计决策（ADR）、语言教程、评审流程
 │   ├── adr/
+│   ├── skills/      # **skill：给 agent 的操作手册**（每步 = 命令 + 预期输出 + 出错看哪个诊断码；**英文**）。现只有 `skills/new-project.md`（从零建工程到网表 / KiCad 库；可执行形态待做，见 `docs/backlog.md` F23）
 │   └── error-codes.md # 诊断错误码注册表（**生成的**，真源在 `packages/ir/src/diagnostics/codes.ts`，ADR-0016）
-├── spec/            # 分描述规范。**现只有 3 个文件**：`symbol` / `footprint` / `pcb`；`project` / `schematic` / `system` / `fab` 的规范尚未成文（`project` / `schematic` / `system` 目前只在 `teda.md` 里，`fab` 还没有任何形态）
-├── schemas/ir/v0.1/ # IR 的契约：JSON Schema 2020-12（唯一契约；TS 类型由 schema 生成，不引入 zod）。现 9 份：common / project / component / footprint / manifest / pcb / schematic / symbol / system
+├── spec/            # 分描述规范。**现只有 4 个文件**：`symbol` / `footprint` / `pcb` / `schematic-view`；`project` / `schematic` / `system` / `fab` 的规范尚未成文（`project` / `schematic` / `system` 目前只在 `teda.md` 里，`fab` 还没有任何形态）
+├── schemas/ir/v0.1/ # IR 的契约：JSON Schema 2020-12（唯一契约；TS 类型由 schema 生成，不引入 zod）。现 10 份：common / project / component / footprint / manifest / pcb / schematic / schematic-view / symbol / system
 ├── examples/        # 参考工程 reference-project/。**十个困难用例与期望 IR 尚未存在**（§10 / §5.2 的门槛因此不可评估）
-├── packages/        # **已落地 6 个**：`ir`（IR 与契约校验）/ `parser`（footprint / symbol / schematic / page 解析 + fmt；component 只读事实）/ `core`（纯规则：连通性 ERC，ADR-0019）/ `exporter`（封装与符号 → KiCad）/ `renderer`（符号与封装 → SVG）/ `cli`（`texteda init` / `compile` / `check` / `netlist`）。**计划未建**：`lsp` / `vscode`（见 docs/adr/0009-implementation-stack.md）
+├── packages/        # **已落地 6 个**：`ir`（IR 与契约校验）/ `parser`（footprint / symbol / schematic / page / view 解析 + fmt；component 只读事实）/ `core`（纯规则：连通性 ERC，ADR-0019）/ `exporter`（封装与符号 → KiCad）/ `renderer`（符号与封装 → SVG）/ `cli`（`texteda init` / `compile` / `check` / `netlist`）。**计划未建**：`lsp` / `vscode` / `viewer`（见 docs/adr/0009-implementation-stack.md、docs/adr/0021-schematic-view-layer.md）
 └── tests/           # 现只有 `tests/schemas/`（IR 契约正反例，由 `packages/ir/test/contract.test.ts` 驱动）。单元与 round-trip 测试在各包自己的 `test/` 目录；**conformance / binding / 十用例尚未存在**
 ```
 
@@ -373,6 +381,7 @@ examples/reference-project/
 ├── footprints/project/ # 自建封装库（.teda 源码，见 spec/footprint.md）
 ├── components/         # 器件描述，一块料一个文件
 ├── sch/                # 原理图描述：板根 sch/<board_id>.teda，板内页面 sch/<board_id>/<page_id>.teda
+│                      # 页面视图（S1）：sch/<board_id>/<page_id>.view.teda（独立描述类型，见 ADR-0021）
 ├── pcb/                # PCB 描述，可后置，可为空
 ├── system/             # 多板连接描述，一份系统一个文件
 ├── docs/               # 设计意图、评审记录、仿真证据
@@ -435,8 +444,8 @@ dist/ir/
 - **sch 编译**：`bun run compile:schematic <项目目录> <board_id>` 把板根与页面编译成板级 IR 分片（canonical JSON）；参考工程两块板（`mcu-board` 单文件板、`charger-buck` 板根 + 两页）都要编译通过且满足 `schematic` 契约。**现状：已落地并通过**。
 - **工程校验**：`bun run check <项目目录>` 校验工程里全部板（语义层 ERC + 契约层 schema 校验），`--json` 输出 [ADR-0016](docs/adr/0016-diagnostic-error-codes.md) 的诊断载荷，有 error 退出码非零。**现状：已落地**（[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)）。
 - **契约参考**：`docs/ir-reference.md`（IR 字段 → 类型/单位/说明）与 `docs/error-codes.md`（诊断码 → 含义）由 `bun run gen` 生成，不手改；schema 字段的 `description` 覆盖率清单在参考文档文末。**现状：已落地**（[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)）。
-- **round-trip**：每个渲染器都要过 `extract(render(ir)) == ir`。已落地：符号与封装渲染器按"语义投影"两端对比，覆盖**整个参考库**（[ADR-0014](docs/adr/0014-reference-renderer.md) decision 5）；sch 渲染器落地时照同样的口径补上。
-- **格式化幂等**：`fmt(fmt(x)) == fmt(x)`；`fmt --check` 是 CI 门槛（`bun run fmt:teda --check <dir>`）。**现状：覆盖 `footprint`、`symbol` 与 `schematic`/`page`**（`component` 与 `pcb` 的 fmt 未实现，脚本会跳过）。
+- **round-trip**：每个渲染器都要过 `extract(render(ir)) == ir`。已落地：符号与封装渲染器按"语义投影"两端对比，覆盖**整个参考库**（[ADR-0014](docs/adr/0014-reference-renderer.md) decision 5）；**sch 页面渲染器只落了绘制，反解（`extractSchematic`）尚未实现**（`docs/backlog.md` F3）。
+- **格式化幂等**：`fmt(fmt(x)) == fmt(x)`；`fmt --check` 是 CI 门槛（`bun run fmt:teda --check <dir>`）。**现状：覆盖 `footprint`、`symbol`、`schematic`/`page`、`pcb` 与 `view`**（`component` 的 fmt 未实现，脚本会跳过）。
 - **库闭环**：`bun run lib:verify` 要求每个 `component.symbol` / `footprint` 都解析到项目内文件（无外部前缀、无孤儿库文件）、符号引脚号集合与器件一致、封装焊盘号覆盖器件引脚、每个库文件可导出且 KiCad 能读入、全部封装合并板 DRC 0 违规。**现状：已落地并通过**。
 - **IR 只依赖语义**：打乱行序、换单位写法、换键序的同一描述，编译出的 IR 必须与 canonical 源**字节相同**。
 - **交叉引用可解析**：`bun run check:links` 校验全部 Markdown 链接目标存在、ADR 编号能解析到文件、链接文字与目标一致、`docs/adr/README.md` 索引与磁盘上的决策记录一一对应、ADR 头部格式统一。**现状：已落地并通过**。
@@ -491,7 +500,7 @@ dist/ir/
 - **sch 不内联器件**；新增料号先落 `components/**/<id>.teda`，再在 `instances` 引用。
 - **源码只允许英文**：`.ts` 的注释、文档字符串、字符串字面量（诊断文案、CLI 输出、错误消息）都是源码，一律英文；`schemas/ir/**` 的 `description` / `title` 同样英文（它会流进生成产物与 `docs/ir-reference.md`）；`examples/**` 的 `.teda` 注释与 `project.toml` 注释、`title`、`manufacturer` 等值也一律英文。检查口径：`git grep -lP '[\x{4e00}-\x{9fff}]' -- packages schemas examples` 应为空（用 `git grep` 而不是 `grep -r`，因为 `examples/reference-project/docs/datasheets/` 是 gitignore 的本地厂商 PDF，不属于仓库内容）。**根 README 双语**：`README.md` 英文（对外入口），`README_cn.md` 中文。
 - **项目名的写法分层**（2026-10-21 定）：品牌与散文一律写 `TextEDA`（大写 T）；命令行、包名、域名一律小写 `texteda`（`bun run texteda check`、`@texteda/ir`、`texteda.dev`）；**仓库名例外，用 `TextEDA`**（GitHub 上是 `luffffyz/TextEDA`——GitHub 仓库名大小写敏感且不重定向，改名即旧 URL 失效，所以按品牌写法走）；文件扩展名 `.teda` 不变。**不写 `textEDA`**。检查口径：`git grep -n 'textEDA' -- . ':!AGENTS.md'` 应无输出（`packages/ir/src/generated/` 里的 `TextEDAIRV01*` 类型名是代码标识符，不算品牌写法）。
-- **设计文档用中文**：`docs/`（`docs/adr/` 除外）、`spec/`、`teda.md`、`AGENTS.md` 保持中文。但**生成的文档**（`docs/error-codes.md`、`docs/ir-reference.md`）跟着生成源走——源已英文化，这两份就是英文，不要手工改回中文（改生成器模板才是正解）。
+- **文档默认英文**（2026-10-21 定）：`docs/`、`spec/`、`teda.md`、ADR、根 README 一律英文；`docs/skills/**` 同理（skill 是给 agent 读的操作手册：每步 = 命令 + 预期输出 + 出错看哪个诊断码）。**需要中文时先问**——若觉得某份文档用中文更合适，先提问再写，不要自行决定。本规则之前写下的中文文档保持原样，不做迁移。**生成的文档**（`docs/error-codes.md`、`docs/ir-reference.md`）跟着生成源走——源是英文，这两份就是英文，不要手工改回中文（改生成器模板才是正解）。检查口径：新建文档用 `git grep -lP '[\x{4e00}-\x{9fff}]' -- <新文件路径>` 自查应为空；`docs/adr/` 的口径见下一条。根 README 双语是文件定位不是语言选择：`README.md` 英文（对外入口），`README_cn.md` 中文镜像。
 - **`docs/adr/` 用英文**：ADR 是契约层的一部分——`spec/`、`schemas/` 与 `teda.md` 按编号引用它的决策（`ADR-00NN decision N`），第三方实现者要读得懂。ADR 编号与文件名永不改（外部靠文件名链接），标题与正文用英文，引用它的文档按编号引用，不按标题引用。检查口径：正文不得有中文，**唯一例外是外部专有名词与官方文档标题的括注**（`JLC (嘉立创)`、`official *JLC BOM and Coordinate Format Specification* (嘉立创BOM&坐标相关格式规范)`）——读者要靠原名去找原始资料。可执行检查（应无输出）：
   ```bash
   python3 - <<'PY'

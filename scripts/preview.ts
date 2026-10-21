@@ -4,14 +4,22 @@
 //   bun run preview symbol   <id> [--lib <name>] [--out <dir>] [--project <dir>] [--scale <n>]
 //   bun run preview footprint <id> [--lib <name>] [--out <dir>] [--project <dir>] [--scale <n>]
 //   bun run preview component <id> [--out <dir>] [--project <dir>] [--scale <n>]
+//   bun run preview view      <board>/<page> [--out <dir>] [--project <dir>] [--scale <n>]
 //
 // Purpose: after an agent builds a footprint/symbol it wants to take an immediate look (pin orientation, arrows, courtyard, silkscreen over pads);
 // these all pass green in the IR and contract validation — validation only checks self-consistency, not whether it looks right.
 // Output: the SVG path is printed to stdout; artifacts land in /tmp/texteda-preview/<id>/ (changeable with --out).
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import { formatDiagnostic } from "@texteda/parser";
-import { renderFootprint, renderSymbol, toSvgText, validateDoc } from "@texteda/renderer";
+import { formatDiagnostic, parseSchematicDocument, parseView } from "@texteda/parser";
+import {
+  renderFootprint,
+  renderSchematic,
+  renderSymbol,
+  toSvgText,
+  validateDoc,
+  type SchematicInstance,
+} from "@texteda/renderer";
 import { unsupportedChars } from "@texteda/renderer/font";
 import {
   componentUsingSymbol,
@@ -22,7 +30,7 @@ import {
 } from "./lib/project.ts";
 
 interface Options {
-  kind: "symbol" | "footprint" | "component";
+  kind: "symbol" | "footprint" | "component" | "view";
   id: string;
   lib: string;
   out: string | null;
@@ -52,10 +60,18 @@ function parseArgs(argv: string[]): Options {
   }
   const kind = positional[0];
   const id = positional[1];
-  if (kind !== "symbol" && kind !== "footprint" && kind !== "component") {
-    fail("usage: preview symbol|footprint|component <id>");
+  if (
+    kind !== "symbol" &&
+    kind !== "footprint" &&
+    kind !== "component" &&
+    kind !== "view"
+  ) {
+    fail("usage: preview symbol|footprint|component|view <id>");
   }
-  if (!id) fail("usage: preview symbol|footprint|component <id>");
+  if (!id) fail("usage: preview symbol|footprint|component|view <id>");
+  if (kind === "view" && !/^[^/]+\/[^/]+$/.test(id)) {
+    fail("usage: preview view <board>/<page>");
+  }
   if (!Number.isFinite(scale) || scale <= 0) fail("--scale must be a positive number");
   return { kind, id, lib, out, project, scale };
 }
@@ -86,6 +102,13 @@ function splitRef(ref: string, defaultLib: string): { lib: string; name: string 
   const i = ref.indexOf(":");
   if (i < 0) return { lib: defaultLib, name: ref };
   return { lib: ref.slice(0, i), name: ref.slice(i + 1) };
+}
+
+/** The component file with the given id (under components/, one directory per category). */
+function findComponentFile(projectRoot: string, id: string): string | null {
+  return (
+    tedaFiles(join(projectRoot, "components")).find((f) => basename(f, ".teda") === id) ?? null
+  );
 }
 
 const options = parseArgs(process.argv.slice(2));
@@ -200,6 +223,72 @@ if (options.kind === "footprint" || options.kind === "component") {
   }
   const doc = renderFootprint(parsed.value.footprint);
   written.push(writeSvg(`${footprintId}.footprint`, doc));
+}
+
+if (options.kind === "view") {
+  const [board, page] = options.id.split("/") as [string, string];
+  const pageFile = join(projectRoot, "sch", board, `${page}.teda`);
+  if (!existsFile(pageFile)) fail(`page not found: ${pageFile}`);
+  const pageText = readFileSync(pageFile, "utf8");
+  const parsedPage = parseSchematicDocument(pageText, {
+    file: `sch/${board}/${page}.teda`,
+    kind: "page",
+  });
+  if (!parsedPage.ok || !parsedPage.doc) {
+    console.error(parsedPage.diagnostics.map((d) => `  ${formatDiagnostic(d)}`).join("\n"));
+    fail(`page ${options.id} failed to parse`);
+  }
+
+  const viewFile = join(projectRoot, "sch", board, `${page}.view.teda`);
+  if (!existsFile(viewFile)) {
+    fail(`no view for page ${options.id} (looked for ${viewFile})`);
+  }
+  const parsedView = parseView(readFileSync(viewFile, "utf8"), {
+    file: `sch/${board}/${page}.view.teda`,
+    board,
+  });
+  if (!parsedView.ok || !parsedView.ir) {
+    console.error(parsedView.diagnostics.map((d) => `  ${formatDiagnostic(d)}`).join("\n"));
+    fail(`view ${options.id} failed to parse`);
+  }
+
+  // The view is page-local: its refdes resolve against the page's instances, not the flattened board.
+  const componentOf = new Map(parsedPage.doc.instances.map((i) => [i.refdes, i.componentId]));
+  const instances = new Map<string, SchematicInstance>();
+  for (const place of parsedView.ir.place) {
+    const componentId = componentOf.get(place.instance_id);
+    if (!componentId) {
+      fail(`view places ${place.instance_id}, which is not an instance of page ${options.id}`);
+    }
+    const componentFile = findComponentFile(projectRoot, componentId);
+    if (!componentFile) fail(`no component ${componentId} for instance ${place.instance_id}`);
+    const facts = loadComponent(componentFile);
+    if (!facts.ok) {
+      console.error(facts.diagnostics.map((d) => `  ${formatDiagnostic(d)}`).join("\n"));
+      fail(`component ${componentId} could not be read`);
+    }
+    const symbolRef = readRef(readFileSync(componentFile, "utf8"), "symbol");
+    if (!symbolRef) fail(`component ${componentId} has no symbol reference`);
+    const split = splitRef(symbolRef, options.lib);
+    const symbolFile = join(projectRoot, "symbols", split.lib, `${split.name}.teda`);
+    if (!existsFile(symbolFile)) {
+      fail(`symbol ${split.lib}:${split.name} not found (looked for ${symbolFile})`);
+    }
+    const symbol = loadSymbol(symbolFile, split.lib);
+    if (!symbol.ok) {
+      console.error(symbol.diagnostics.map((d) => `  ${formatDiagnostic(d)}`).join("\n"));
+      fail(`symbol ${split.lib}:${split.name} failed to compile`);
+    }
+    instances.set(place.instance_id, {
+      symbol: symbol.value.symbol,
+      part: {
+        pins: facts.value.pins.map((p) => ({ number: p.number, name: p.name, type: p.type })),
+      },
+    });
+  }
+
+  const doc = renderSchematic(parsedView.ir, instances);
+  written.push(writeSvg(`${board}-${page}.view`, doc));
 }
 
 for (const path of written) console.log(path);

@@ -193,7 +193,7 @@
 | `board_thickness_nm` | integer | yes | nm | Total board thickness; matches the sum of the stackup layer thicknesses (solder-mask and silkscreen layers excluded). |
 | `connect` | array<connect_edge> | yes | — | Explicitly declares which two pads have continuous copper between them — one of the sources of truth for connectivity. |
 | `deviation` | array<deviation> | no | — | **(missing description)** |
-| `format` | format_version | yes | — | Language version of the .teda file that produced this shard; see teda.md §13. |
+| `format` | format_version | yes | — | Language version of the .teda file that produced this shard, in canonical form (the patch component is left out when it is zero); see teda.md §13. |
 | `ir_version` | ir_version | yes | — | IR contract version, currently always 0.1. |
 | `keepout` | array<keepout> | no | — | **(missing description)** |
 | `note` | note | no | — | Free text; canonical JSON has no comments, this is the substitute (ADR-0004 rule 8). |
@@ -499,6 +499,84 @@
 | `id` | slug | yes | — | Variant id, unique within the project. |
 | `nofit` | array<slug> | no | — | component_id or instance id not to be assembled; affects only the BOM and manufacturing, never connectivity. |
 
+## `schematic-view`
+
+- schema: `urn:texteda:ir:0.1:schematic-view`
+- The view (S1) of one schematic page: where the symbols sit, how the wires run, where the labels and page ports are. This layer carries no electrical facts — it references the logical schematic by instance id, pin number and net id, and the two must agree. Lengths are integer nanometers, angles integer millidegrees (ADR-0008). The origin is the sheet's upper-left corner, +x right, +y down. See ADR-0021.
+
+### Top-level
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `board` | slug | yes | — | The board_id, resolved from the directory sch/<board_id>/. |
+| `format` | format_version | yes | — | Language version of the .teda file that produced this shard; see teda.md §13. |
+| `ir_version` | ir_version | yes | — | IR contract version, currently always 0.1. |
+| `label` | array<label> | no | — | Net name labels; the text shown is the net id itself, never an override. |
+| `note` | note | no | — | Free text; canonical JSON has no comments, this is the substitute (ADR-0004 rule 8). |
+| `page` | slug | yes | — | The page_id this view draws, resolved to sch/<board_id>/<page_id>.teda. |
+| `place` | array<place> | yes | — | Where each component instance sits on the page, sorted by instance id. |
+| `port` | array<port> | no | — | Page port symbols; a port names an existing net, it never creates one. |
+| `sheet` | object | yes | — | Sheet size. The source may omit it (default A4 landscape); the IR always carries the effective size. |
+| `source` | source_ref | no | — | Source-file location: path relative to the project root plus an optional line number. |
+| `text` | array<text> | no | — | Free-text annotations; no electrical meaning. |
+| `wire` | array<wire> | no | — | Wire polylines, one per drawn run; several wires may belong to the same net. |
+
+### label
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `line` | proxy_line | no | — | Starting line of this row in the source file, for diagnostic locations. |
+| `net` | net_id | yes | — | The net whose name is shown. The label text is this id; it cannot be overridden. |
+| `x_nm` | integer | yes | nm | Label position, x from the sheet's upper-left corner. |
+| `y_nm` | integer | yes | nm | Label position, y from the sheet's upper-left corner, increasing downward. |
+
+### place
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `instance_id` | refdes | yes | — | Page-local refdes of the instance, e.g. U1. Must exist in the page's instances. |
+| `line` | proxy_line | no | — | Starting line of this row in the source file, for diagnostic locations. |
+| `rot_mdeg` | integer | no | m° | Symbol rotation, clockwise positive, millidegrees; reduced modulo 360000. Omitted means 0. |
+| `unit` | integer | no | — | Which unit of a multi-unit symbol to draw. Omitted means unit 1. |
+| `x_nm` | integer | yes | nm | Symbol origin, x from the sheet's upper-left corner. |
+| `y_nm` | integer | yes | nm | Symbol origin, y from the sheet's upper-left corner, increasing downward. |
+
+### point
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `x_nm` | integer | yes | nm | x from the sheet's upper-left corner. |
+| `y_nm` | integer | yes | nm | y from the sheet's upper-left corner, increasing downward. |
+
+### port
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `id` | string | yes | — | Port name; must exist in the page's ports section. |
+| `line` | proxy_line | no | — | Starting line of this row in the source file, for diagnostic locations. |
+| `rot_mdeg` | integer | no | m° | Port rotation, clockwise positive, millidegrees; reduced modulo 360000. Omitted means 0. |
+| `x_nm` | integer | yes | nm | Port position, x from the sheet's upper-left corner. |
+| `y_nm` | integer | yes | nm | Port position, y from the sheet's upper-left corner, increasing downward. |
+
+### text
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `line` | proxy_line | no | — | Starting line of this row in the source file, for diagnostic locations. |
+| `text` | string | yes | — | The annotation text. |
+| `x_nm` | integer | yes | nm | Text position, x from the sheet's upper-left corner. |
+| `y_nm` | integer | yes | nm | Text position, y from the sheet's upper-left corner, increasing downward. |
+
+### wire
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `from_pin` | view_pin_ref | yes | — | Start pin; its connection point comes from the symbol, not from this file. |
+| `line` | proxy_line | no | — | Starting line of this row in the source file, for diagnostic locations. |
+| `net` | net_id | yes | — | The net this wire draws; both endpoints must be members of it in the page's nets. |
+| `points` | array<point> | no | — | Bend points in the order they are traversed. Omitted means a straight wire. |
+| `to_pin` | view_pin_ref | yes | — | End pin; its connection point comes from the symbol, not from this file. |
+
 ## `schematic`
 
 - schema: `urn:texteda:ir:0.1:schematic`
@@ -730,7 +808,7 @@
 
 ## Field-description coverage
 
-237/318 fields described (75%). Fields without a description have no citable semantics; agents can only guess when reading them.
+275/356 fields described (77%). Fields without a description have no citable semantics; agents can only guess when reading them.
 
 | Location | Field |
 |---|---|

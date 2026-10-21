@@ -5,7 +5,7 @@
 import { lex } from "./lexer.ts";
 import { parseAngleMdeg, parseLengthNm } from "./units.ts";
 import { parseQuantity } from "./quantities.ts";
-import { byteCompare } from "./order.ts";
+import { byteCompare } from "@texteda/ir/order";
 import { PCB_SECTIONS, RULE_ORDER, normalizeRing, parsePcb } from "./pcb.ts";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
 

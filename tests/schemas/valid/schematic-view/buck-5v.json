@@ -1,0 +1,29 @@
+{
+  "ir_version": "0.1",
+  "format": "0.1",
+  "source": { "file": "sch/charger-buck/buck-5v.view.teda", "line": 1 },
+  "board": "charger-buck",
+  "page": "buck-5v",
+  "sheet": { "width_nm": 297000000, "height_nm": 210000000 },
+  "place": [
+    { "instance_id": "U1", "x_nm": 40000000, "y_nm": 30000000, "rot_mdeg": 0, "line": 8 },
+    { "instance_id": "C1", "x_nm": 20000000, "y_nm": 30000000, "rot_mdeg": 90000, "line": 9 },
+    { "instance_id": "R1", "x_nm": 60000000, "y_nm": 30000000, "rot_mdeg": 0, "line": 10 },
+    { "instance_id": "U2", "x_nm": 80000000, "y_nm": 30000000, "rot_mdeg": 0, "unit": 2, "line": 11 }
+  ],
+  "wire": [
+    { "net": "VDD", "from_pin": "U1.5", "to_pin": "C1.1", "points": [{ "x_nm": 35000000, "y_nm": 25000000 }], "line": 14 },
+    { "net": "VDD", "from_pin": "C1.1", "to_pin": "R1.1", "points": [{ "x_nm": 25000000, "y_nm": 25000000 }, { "x_nm": 55000000, "y_nm": 25000000 }], "line": 15 },
+    { "net": "GND", "from_pin": "C1.2", "to_pin": "R1.2", "line": 16 }
+  ],
+  "label": [
+    { "net": "VDD", "x_nm": 35000000, "y_nm": 25000000, "line": 19 },
+    { "net": "GND", "x_nm": 25000000, "y_nm": 35000000, "line": 20 }
+  ],
+  "port": [
+    { "id": "SYS_OUT", "x_nm": 280000000, "y_nm": 105000000, "rot_mdeg": 180000, "line": 23 }
+  ],
+  "text": [
+    { "x_nm": 12000000, "y_nm": 8000000, "text": "Rev A — power section", "line": 26 }
+  ]
+}

@@ -41,7 +41,7 @@
 
 ## F3. 原理图的 SVG 渲染（sch renderer）
 
-**现状**：参考渲染器只画符号与封装（[ADR-0014](adr/0014-reference-renderer.md)）：`packages/renderer` 的 `renderSymbol` / `renderFootprint` 已落地，`bun run preview symbol|footprint|component` 能出图。**原理图（sch）还没有渲染器**——`AGENTS.md` §1「是」里第一条写的是"一个参考渲染器（先 sch 的 SVG）"，sch 是第一阶段的主对象（§1.1 P0/P1），所以这是渲染器剩下的那块。
+**现状**：sch 页面渲染**已落地**。`packages/renderer` 的 `renderSchematic(view: SchematicView, instances)` 把视图 IR 画成 `SvgDoc`（图幅框、摆位符号、走线折线、标签、端口、注释），调用方负责把每个 `place.instance_id` 解析成符号 IR 与器件引脚事实——渲染器仍然不碰文件系统、不排版。`bun run preview view <board>/<page>` 能出图；参考工程有两份视图文件：`sch/charger-buck/buck-5v.view.teda`（全部 net 走线，GND 走一条总线）与 `sch/charger-buck/charger-power.view.teda`（摆位研究，线在评审时逐网补）。**未落地**：`packages/core` 的页面交叉校验、可读性检查、sch 的 round-trip 反解、与 `.kicad_sch` 的人工比对。旧状态见 [ADR-0014](adr/0014-reference-renderer.md)（符号/封装先落地）。
 
 **为什么现在做**：
 
@@ -50,27 +50,30 @@
 
 **要做的事**：
 
-1. `packages/renderer` 加 `renderSchematic(ir: SchematicIr): SvgDoc`：
-   - 页内元素按 IR 的坐标画：器件（用它的符号视图摆位）、导线、net 标签、页面端口、页内电源符号、文本注释；
-   - 器件的引脚连接点要与符号渲染器的坐标**完全一致**（同一份 `renderSymbol` 的引脚几何，不能各画各的）；
-   - 走线画成"从引脚连接点出发的折线"，拐点用 IR 里的坐标，不做自动布线。
-2. 预览命令扩一档：`bun run preview schematic <board_id> [--page <page_id>]`。
-3. **可读性检查**（`AGENTS.md` §6："可读性检查自动化：文字重叠、线压引脚、标签碰撞、越界、连线穿过符号"）至少先做**越界**与**连线穿过符号**两项，在渲染时算出来报出来。
-4. round-trip：sch 的语义投影两端对比（跟符号/封装同一口径，见 [ADR-0014](adr/0014-reference-renderer.md) decision 5）。注意 sch 里有些字段图形上表达不出来（如 net 的电气属性），投影只留能反解的部分，并在代码注释里写清哪些不可反解。
-5. 与 KiCad 的 `.kicad_sch` 渲染做**一次性人工比对**，结论记进 ADR（不进 CI）。
+1. ~~`packages/renderer` 加 `renderSchematic(...)`~~ **已落地**（2026-10-21）：
+   - 页内元素按 IR 的坐标画：器件（用它的符号视图摆位）、导线、net 标签、页面端口、文本注释；**页内电源符号**未做——`view` 描述没有这个段，GND 目前靠 net 标签表达；
+   - 器件的引脚连接点与符号渲染器用同一份 `renderSymbol` 几何（走线端点直接取变换后的引脚连接点，不另算）；
+   - 走线是"引脚连接点 → IR 折点 → 引脚连接点"的折线，不做自动布线。
+2. ~~预览命令扩一档~~ **已落地**：`bun run preview view <board>/<page>`（旧的 `preview schematic <board_id> --page` 方案改成按页面取 `sch/<board>/<page>.view.teda`，与文件布局一致）。
+3. **可读性检查**（`AGENTS.md` §6："文字重叠、线压引脚、标签碰撞、越界、连线穿过符号"）——**未落地**。越界已由 `view` 解析器的 `view.out-of-sheet` 覆盖；其余仍是 `spec/schematic-view.md` §9.2 的待实现项。
+4. **round-trip**——**未落地**：sch 的语义投影两端对比（跟符号/封装同一口径，见 [ADR-0014](adr/0014-reference-renderer.md) decision 5）。绘制指令里的 `pin`（旋转后的编号与方向）、`text`（`role` 区分字段/引脚名/标签/端口/注释）已经能反解，但视图 IR 的"摆位 + 折点"需要从图元逆推，且 `unit` 的共享项与字段要按实例归并。
+5. 与 KiCad 的 `.kicad_sch` 渲染做**一次性人工比对**——**未落地**（不进 CI）。
+6. **页面交叉校验**（`packages/core`）——**未落地**：`spec/schematic-view.md` §9.1 标"待实现"的那几条（实例 / net / port 是否存在、端点引脚是否属于该 net、`net-not-drawn`）。渲染器对未知实例或未知符号引脚是**抛错**，不是发诊断——诊断归 core，渲染器不伪造几何。
 
 **验收**：
 
-- `bun run preview schematic <board_id>` 出整页 SVG：器件、导线、net 标签、页面端口都在图上。
-- 同一份 IR 渲染两次字节相同。
-- sch 的 round-trip 测试通过。
-- 越界与"连线穿符号"能被报出来。
+- ~~`bun run preview view <board>/<page>` 出整页 SVG~~ **已满足**：器件、导线、net 标签、页面端口都在图上（参考工程两页）。
+- ~~同一份 IR 渲染两次字节相同~~ **已满足**（`packages/renderer/test/schematic.test.ts`）。
+- sch 的 round-trip 测试通过——**未满足**（见第 4 条）。
+- 越界与"连线穿符号"能被报出来——**部分**：越界在解析器，穿符号未做。
 
 **注意**：
 
-- **sch 的 IR 还没实现**（`packages/parser` 目前只有 symbol / footprint / component）。本条的前置是 P0 的 sch 解析器落地；先做渲染器会把"IR 是什么样"这件事猜错两遍。
+- **sch 的逻辑 IR 仍然没有坐标**（`instances` / `nets` / `ports` 只有身份与成员），画在独立的 `view` IR 里；渲染器的输入因此是 `view` + 调用方解析好的符号事实（符号 IR、器件引脚事实），仍然不碰文件系统。
+- **S1 视图层已闭环到渲染**：`spec/schematic-view.md`、`schemas/ir/v0.1/schematic-view.schema.json`、`packages/parser` 的 `view` 解析与 canonical `fmt`（语言版本 0.6）、`packages/renderer` 的 `renderSchematic`、`preview view`、参考工程两页视图。**下一步**：`packages/core` 的页面交叉校验（视图引用的实例 / net / port 是否存在、端点引脚是否属于该 net），再把可读性检查与 round-trip 反解补上。
+- **已知口径冲突（`view.label-not-on-net` 落地前必须定）**：`view` 坐标限制在 0.1mm 栅格（`VIEW_GRID_NM`），而符号引脚偏移是 2.54 / 3.81mm 的倍数，**不在 0.1mm 栅格上**。所以"标签必须精确落在引脚连接点上"对标准符号不可满足。参考工程的标签全部落在走线的网格折点 / 直段上（buck-5v 的 GND 走一条位总线，引脚到总线用带折点的 wire 连），没有标签落在引脚端点上。
 - 布局不自动排版：sch 的坐标来自 IR，渲染器只画。多单元器件（双运放）要按 `unit` 选对符号视图。
-- 不要顺手做自动布线或自动排版——那是 `AGENTS.md` §1「不是」里明确不做的东西。
+- 不要顺手做自动布线或自动排版——那是 `AGENTS.md` §1「不是」里明确不做的东西。**自动排版尤其不可取**：如果渲染器自己排版，人就无法把重叠的标签挪开，"可读性检查"（文字重叠、线压引脚）也失去意义——每次渲染的图都不一样，评审无从进行。
 
 ---
 
@@ -147,7 +150,7 @@
 
 **切开关当天额外做的两件事**：
 
-- **仓库改名**：`textEDA` → `TextEDA`（GitHub 仓库名大小写敏感且不重定向，所以按品牌写法走；包名与命令行仍是小写 `texteda`）。
+- **仓库改名**：旧写法（首字母小写）→ `TextEDA`（GitHub 仓库名大小写敏感且不重定向，所以按品牌写法走；包名与命令行仍是小写 `texteda`）。
 - **清除错误署名的 trailer**：3 个提交带 `Co-Authored-By:` trailer，把模型署成了另一家的模型（实际 provider/model 是 `minimax-code-cn` / `MiniMax-M3.1-Flash`）——署名是错的。切开关前用 `git filter-branch --msg-filter` 重写移除并 force push（当时 0 fork / 0 PR / 0 star，无外部影响）；旧提交对象匿名访问已返回 404。**教训：commit trailer 是工具行为的一部分，写错了要立刻改，别等公开后。**
 
 **审计结论（2026-10-21，`bun run check:public`）**：
@@ -584,3 +587,43 @@
 3. ~~**参考工程的 pcb**~~ **已有**：`examples/reference-project/pcb/charger-buck.teda`（放置 M2 页 9 个器件 + `connect` + `trace`/`via`/`zone` + `rules`/`silk`），跑 `check` 零诊断。含两个真实约束，已补进实现与规范：**同一段可以重复出现**（该文件把 `trace` 分了两段，行按出现顺序拼接）、**段头独占一行**。
 
 **注意**：`via` 既是段名又是 `rules` 的行首列，语法上靠"段头独占一行"消歧（已写进 `spec/pcb.md` §1）。加新段名时要检查是否与规则类型/物理实体类型重名。
+
+## F22. `symbol` / `footprint` 的 IR 分片不记录语言版本
+
+**现状**：语言版本方案已定（`MAJOR.MINOR[.PATCH]`，`1.0` 是里程碑，决策见 [ADR-0022](adr/0022-language-versioning.md)），版本判定集中在 `packages/parser/src/version.ts`。但 IR 分片之间不一致：`schematic` / `pcb` / `schematic-view` / `project` / `component` / `system` 六个分片带 `format`（以及 `common` 定义的 `format_version`），**`symbol` 与 `footprint` 两个分片一个版本字段都没有**——它们只带 `ir_version`（IR 契约自己的版本，与语言版本无关）。
+
+**为什么要补**：分片自描述是第三方实现的入口条件（[ADR-0019](adr/0019-agent-contract-reference-and-check-entry.md)）。读到一个 `symbol` 分片的人无法知道它是用哪个语言版本产的，也就无法判断"这个分片里的东西在当前语言版本下是否还成立"。现在影响很小（`symbol` / `footprint` 自 `0.5` / `0.4` 起没有新构造），但分片之间不一致本身是个坑。
+
+**要做的事**：
+
+1. 给 `schemas/ir/v0.1/symbol.schema.json` 与 `footprint.schema.json` 加 `format`（或引用 `common` 的 `format_version`），与其它分片对齐——**先定用哪个名字**，别一个用 `format` 一个用 `format_version`。
+2. 解析器写入规范化的版本号（补丁位为 0 时省略，`0.6` 与 `0.6.0` 存成同一个字符串）。
+3. 这是 **IR 契约变更**：`ir_version` 要不要跟着动（当前 `0.1`）按 [ADR-0008](adr/0008-ir-shard-identity-and-hash.md) 的分片约定决定，别顺手改。
+4. 补 `tests/schemas/` 的正反例与 `bun run gen` 生成的类型。
+
+**注意**：不要在没有 ADR 的情况下把语言版本和 `ir_version` 绑在一起——两者回答的是不同问题（"这份描述能用什么构造" vs "这个分片的形状我还认不认"）。
+
+## F23. "从零到板"的 skill：一步一步建一个 TextEDA 工程
+
+**现状**：零件齐了，**路径没连起来**。仓库里有走完前半程要用的每一样东西，但没有一条被验证过的、从空目录走到成品的路径。
+
+- `texteda init <dir>` 只给骨架（`project.toml` + `components/` `sch/` `pcb/` `system/` `docs/`），**不含任何器件、符号、封装或原理图**。
+- 库的写法分散在三处：`docs/symbol-authoring.md`（符号）、`docs/footprint-authoring.md`（封装）、`teda.md` §6（器件）。**没有一份"一个工程该有哪些文件、它们怎么互相引用"的总账**。
+- 命令有四条（`init` / `compile` / `check` / `netlist`），但**没有一条把它们串起来的脚本**；用法只能从源码里读。CLI 也**没有 `export` 子命令**——KiCad 符号/封装导出只能走仓库脚本（`bun run export:symbol` / `export:footprint`），而且它们吃的是**IR JSON 不是 `.teda`**：`compile:symbol` / `compile:footprint` 先出 JSON，`export:symbol` 再拿 JSON **加 `--component <器件文件>`** 合并引脚事实（引脚的电学事实归 `component`，符号只写视图，[ADR-0012](adr/0012-symbol-description.md)）。这条两步链没人写在文档里，是最容易踩的地方。
+- **终点缺两块**：`.kicad_pcb` 板文件导出器**不在仓库里**（`docs/trial-run/charger-buck/` 那份是**一次性原型**生成的，README 明写"未进仓库"）；Gerber / Excellon 写出器也没有（F15）。
+- 所以今天能走通的最远终点是：`init → 库 → 器件 → sch → check → 网表 / .kicad_sym / .kicad_mod`。**skill 不能假装能走到 Gerber**。（这条链已手工试跑通过：`init` → 两个无源件 → 三实例的最小板根 → `check` 零 error 零 warning → `compile` 出 IR → `netlist` 出连通性投影 → `compile:symbol` + `export:symbol` 出 `.kicad_sym`。）
+
+**要做的事**：
+
+1. 写 `docs/skills/new-project.md`：**给 agent 的操作手册**（**英文**——skill 是 agent 读的操作手册，不是设计文档，见 AGENTS.md §12 的语言例外）。每一步 = 一条命令 + 预期输出 + **失败时怎么办**（指到诊断码与修复动作，不写"照着做"）。步骤：`init` → 建符号/封装/器件 → 写板根与页面 → `texteda check` → `texteda compile` → 导出网表与 KiCad 库。**每条命令都必须真的能跑**（由第 2 条逐条验证）。
+2. 写 `scripts/skill-new-project.ts`：把上面那串步骤做成**可执行、可断言**的脚本——在临时目录里从零建一个最小工程（一条电源轨 + 一路分压 + 一颗去耦），跑 `check`（必须**零 error**）、导出网表与符号/封装，并断言：产物存在、**同输入逐字节相同**（`init` 的确定性契约要一路守到终点）。这是 skill 的**可执行形态**：文档会烂，脚本不会。
+3. 给它 `bun run skill:new-project`，并**接进门禁**（`bun test` 的一个 case，或并进 `scripts/verify-libs.ts` 那一串）。**不接进门禁的 skill 等于没有**。
+4. 终点分两段接：**先到 `.kicad_pcb`**（依赖第 5 条的板文件导出器），**再到 Gerber / Excellon**（F15）。skill 每一步都要标出"这一步依赖什么"；依赖没到的步骤就写到"到此为止"，**不要写仓库里并不存在的命令**（"然后在 KiCad 里导出 Gerber"这种是给 KiCad 用户的，不是给本仓库的）。
+5. **板文件导出器单独立项**（`pcb` IR → `.kicad_pcb`）：把 `docs/trial-run/charger-buck/` 那个一次性原型收进 `packages/exporter`（确定性：uuid 由内容派生），一并生成 `.kicad_pro` 与 `fp-lib-table`（设计规则在工程文件里，不在板文件里——见 `docs/trial-run/charger-buck/README.md` 的实测结论）。**这一步不做，skill 的终点就只能停在网表**。
+
+**注意**：
+
+- skill **不定义语言、不改 schema**，只描述"按现有契约怎么把一个工程建起来"。所以它必须**跟着语言版本走**：语言加了新段、新描述类型，skill 的模板要跟着改（版本方案见 [ADR-0022](adr/0022-language-versioning.md)）。
+- skill 相对"教程"的唯一增量是**出错时怎么办**——教程给顺序，skill 给诊断码与修复动作（"错误信息是产品"，AGENTS.md §12）。每一步都要能回答"这一步失败了，看哪个码、改哪里"。
+- **别把 skill 写成"复制参考工程改改"**：那会让人绕过 `init` 契约与自建库的边界（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) 的 `project:` 库约定），也绕过了"每个文件最小化"的写作纪律。
+- 这条 skill 是 F12 十用例语料的**种子**：先把"最小可跑工程"这条路径钉死并做成脚本，再扩到 BGA、多电源域、差分对那些难例。

@@ -11,11 +11,13 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./order": "./src/order.ts",
     "./diagnostics": "./src/diagnostics/index.ts",
     "./units": "./src/units.ts",
     "./project": "./src/generated/types/project.ts",
     "./component": "./src/generated/types/component.ts",
     "./schematic": "./src/generated/types/schematic.ts",
+    "./schematic-view": "./src/generated/types/schematic-view.ts",
     "./pcb": "./src/generated/types/pcb.ts",
     "./system": "./src/generated/types/system.ts",
     "./manifest": "./src/generated/types/manifest.ts",

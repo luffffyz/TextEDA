@@ -5,8 +5,9 @@
 import type { Footprint } from "@texteda/ir/footprint";
 import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
 import { lex, type Cell, type Line } from "./lexer.ts";
-import { byteCompare, naturalCompare } from "./order.ts";
+import { byteCompare, naturalCompare } from "@texteda/ir/order";
 import { parseAngleMdeg, parseLengthNm, parsePpm } from "./units.ts";
+import { checkVersion, typeRange } from "./version.ts";
 
 // Section key sets are exported for fmt reuse: both places must agree on one lexicon, not each write its own.
 export const SECTIONS = new Set(["pads", "graphics"]);
@@ -33,8 +34,8 @@ const ATTRS = new Set(["smd", "through_hole", "virtual", "board_only"]);
 const FOOTPRINT_ID_RE = /^[A-Za-z0-9_.+-]+$/;
 const PIN_NUMBER_RE = /^[A-Za-z0-9_+-]+$/;
 const LAYER_RE = /^[A-Za-z0-9_.+-]+$/;
-const VERSION_RE = /^0\.([1-9][0-9]*)$/;
-const SUPPORTED_MINOR = 4;
+/** `footprint` was introduced in 0.4: files below 0.4 do not have this type. */
+const VERSION_RANGE = typeRange(4);
 
 export interface ParseOptions {
   /** File name (for diagnostics). */
@@ -423,17 +424,9 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
     return { ok: false, diagnostics: collector.diagnostics };
   }
   const version = versionLine.cells[1]!.text;
-  const versionMatch = VERSION_RE.exec(version);
-  if (!versionMatch) {
-    collector.error(file, versionLine.number, versionLine.cells[1]!.col, "format.invalid-version", `invalid version number: ${version}`);
-  } else if (Number(versionMatch[1]) > SUPPORTED_MINOR) {
-    collector.error(
-      file,
-      versionLine.number,
-      versionLine.cells[1]!.col,
-      "format.unsupported-version",
-      `version ${version} is higher than the supported 0.${SUPPORTED_MINOR}`,
-    );
+  const verdict = checkVersion(version, VERSION_RANGE, "footprint");
+  if (!verdict.ok) {
+    collector.error(file, versionLine.number, versionLine.cells[1]!.col, verdict.code, verdict.message);
   }
 
   const typeLine = nextMeaningful();

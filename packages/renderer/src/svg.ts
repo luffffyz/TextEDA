@@ -156,7 +156,7 @@ export type SvgPrimitive =
   | SvgPad;
 
 export interface SvgDoc {
-  kind: "symbol" | "footprint";
+  kind: "symbol" | "footprint" | "schematic";
   title: string;
   orientation: SvgOrientation;
   primitives: SvgPrimitive[];
@@ -198,6 +198,11 @@ const LAYER_STYLE: Record<string, { stroke: string; fill: string }> = {
   "B.Paste": { stroke: "#059669", fill: "none" },
   "F.Adhes": { stroke: "#0891b2", fill: "none" },
   "Edge.Cuts": { stroke: "#111827", fill: "none" },
+  sheet: { stroke: "#9ca3af", fill: "none" },
+  wire: { stroke: "#15803d", fill: "#15803d" },
+  label: { stroke: "#111827", fill: "#111827" },
+  port: { stroke: "#1d4ed8", fill: "#1d4ed8" },
+  text: { stroke: "#374151", fill: "#374151" },
 };
 
 const DEFAULT_STYLE = { stroke: "#374151", fill: "none" };
@@ -240,9 +245,14 @@ const LAYER_ORDER = [
   "F.CrtYd",
   "B.CrtYd",
   "Edge.Cuts",
+  "sheet",
+  "wire",
   "symbol",
   "power",
   "pin",
+  "label",
+  "port",
+  "text",
 ];
 
 export interface SvgBounds {

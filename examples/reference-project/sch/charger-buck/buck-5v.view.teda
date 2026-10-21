@@ -1,0 +1,52 @@
+version 0.6
+view buck-5v
+
+# TPS5430 5V/3A buck page. Every net is drawn as wires; GND runs as a bus below the parts
+# (the view layer has no ground-symbol primitive). Ports sit on the wires they name.
+place
+  C1  120.0  95.0  90
+  C2  170.0  88.0  0
+  C3  205.0  95.0  90
+  C4  225.0  95.0  90
+  D1  170.0  115.0  90
+  L1  185.0  100.0  0
+  R1  230.0  150.0  90
+  R2  230.0  170.0  90
+  U1  140.0  105.0  0
+
+wire
+  BOOT  U1.1  C2.1  157.0 108.8  157.0 88.0
+  GND   C1.2  U1.6  120.0 120.0  137.5 120.0
+  GND   C3.2  C4.2  205.0 120.0  225.0 120.0
+  GND   C4.2  R2.2  225.0 120.0  238.0 120.0  238.0 173.8
+  GND   D1.2  C3.2  170.0 120.0  205.0 120.0
+  GND   U1.9  U1.6  142.5 120.0  137.5 120.0  137.5 112.6
+  PH    C2.2  L1.1  173.8 100.0
+  PH    D1.1  L1.1  170.0 100.0
+  PH    U1.8  L1.1  165.0 101.2  165.0 100.0
+  SYS   C1.1  U1.7  120.0 90.0  140.0 90.0
+  VFB   R1.2  R2.1
+  VFB   U1.4  R1.2  110.0 111.3  110.0 153.8  230.0 153.8
+  VOUT  C3.1  C4.1
+  VOUT  C4.1  R1.1  240.0 91.2  240.0 146.2
+  VOUT  L1.2  C3.1  195.0 100.0  195.0 91.2
+
+label
+  BOOT  157.0  100.0
+  GND   120.0  110.0
+  GND   125.0  120.0
+  GND   190.0  120.0
+  GND   220.0  120.0
+  GND   238.0  160.0
+  PH    165.0  100.0
+  SYS   130.0  90.0
+  VFB   150.0  153.8
+  VOUT  195.0  95.0
+
+port
+  GND     137.5  117.6  180
+  SYS_IN  120.0  90.0  180
+  VOUT    240.0  146.2
+
+text
+  20.0  15.0  5V 3A buck from SYS (TPS5430)

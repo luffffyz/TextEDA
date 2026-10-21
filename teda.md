@@ -48,7 +48,7 @@ nets
 | 末尾 | 必须有换行 |
 | 大小写 | 敏感 |
 
-七种文件类型：
+八种文件类型：
 
 | 类型 | 位置 | 说明 |
 |---|---|---|
@@ -59,8 +59,9 @@ nets
 | `page` | `sch/<board_id>/<page_id>.teda` | 板内页面，板的一个划分单元（v0.3 新增） |
 | `footprint` | `footprints/<lib>/<footprint_id>.teda` | 库产物：一个封装的规范几何（v0.4 新增） |
 | `symbol` | `symbols/<lib>/<symbol_id>.teda` | 库产物：一个符号的视图（v0.5 新增） |
+| `view` | `sch/<board_id>/<page_id>.view.teda` | 某个页面的"画"：S1 视图层（v0.6 新增，语法见 `spec/schematic-view.md`） |
 
-文件名必须等于头部 id；不一致报错。`components/` 允许子目录，子目录只用于分类；`component_id` 取文件名（不含 `.teda`），不取相对路径，同一 id 在 `components/` 树内必须唯一。顶层目录与文件类型必须一致（`components/` 只放 `component`，以此类推）；`sch/` 下有两种：`sch/<board_id>.teda` 是板根（`schematic`），`sch/<board_id>/<page_id>.teda` 是该板的页面（`page`）。`footprints/` 与 `symbols/` 是**库目录**而不是描述目录：它们按库分子目录（`footprints/<lib>/`、`symbols/<lib>/`），库名由目录决定（IR 的 `footprint.library` / `symbol.library`），不进文件内容。
+文件名必须等于头部 id；不一致报错。`components/` 允许子目录，子目录只用于分类；`component_id` 取文件名（不含 `.teda`），不取相对路径，同一 id 在 `components/` 树内必须唯一。顶层目录与文件类型必须一致（`components/` 只放 `component`，以此类推）；`sch/` 下有两种：`sch/<board_id>.teda` 是板根（`schematic`），`sch/<board_id>/<page_id>.teda` 是该板的页面（`page`）。`view` 与 `page` 同目录，靠 `.view` 后缀区分（`sch/<board_id>/<page_id>.view.teda` ↔ `view <page_id>`），它是该页面的孪生文件。`footprints/` 与 `symbols/` 是**库目录**而不是描述目录：它们按库分子目录（`footprints/<lib>/`、`symbols/<lib>/`），库名由目录决定（IR 的 `footprint.library` / `symbol.library`），不进文件内容。
 
 ---
 
@@ -86,6 +87,7 @@ nets
 - **标量只在第一个段之前**。进入段之后，所有非段头、非空、非注释行都按行解析。
 - **注释只整行**。`#` 出现在值或单元格中间时是普通字符（避免截断 URL 片段）。
 - **`:` 只用于 net/bus 成员行**。`name: member...` 表示“名字 → 成员列表”；其余段是固定列元组，不加冒号。
+- **冒号与续行同域**。只有“名字 + 不定长列表”的行（`nets`、`bus` 成员）才既用冒号界定名字与列表的边界，又可能长到一行放不下，所以也只有它们支持续行：首列是裸 `:` 的行延续上一行命名的 net。其余段要么列数固定（`instances`、`ports`、`pages`、`constraints`），要么是成对坐标、拆行会断配对（`trace`、`zone`、`keepout`、`outline`），都不需要续行。
 
 ---
 
@@ -145,7 +147,7 @@ component tps7a02
 ```
 
 - 版本行必须是第一条有效行；类型行必须是第二条。
-- 工具接受同 MAJOR 且 MINOR ≤ 自身支持的版本（支持 0.2 的工具接受 `0.1` 与 `0.2`）。遇到更高版本默认报错；`--allow-unknown` 可放宽。
+- 版本号的形式与各位的含义见 §13；接受规则见 §13.3。PATCH 位不参与判定。遇到更高版本默认报错；`--allow-unknown` 可放宽。
 - 类型行与目录必须一致。
 - 头部 id 与文件名必须一致。
 
@@ -233,12 +235,15 @@ instances
 ```
 nets
   GND:   U1.GND  R1.2
+  :      U2.GND  C1.2
   VIN:   U1.IN  U1.EN
   VOUT:  U1.OUT  R1.1
 ```
 
 - 首个单元格是 net 名，可带尾随 `:`；`:` 单独成格也接受。canonical form 写成 `name:`，成员之间至少两个空格。
 - 其余单元格是引脚引用。
+- **续行**：首个单元格是**裸 `:`** 的行，是上一 net 行的延续——它给上一行命名的 net 增加成员。续行的标志是显式的符号，不是缩进（§3：缩进不表达任何含义）；续行成员与首行成员对齐到同一列。
+- 续行必须跟在某个 net 行之后，否则报错（`net.continuation-without-net`）。连续多行续行都归属同一个 net。
 - **同名 net 行可重复出现并合并成员**；同一引脚在同一 net 中重复出现报错。
 - 只有一个成员的 net 合法，但 ERC 给出警告。
 - 每个引脚最多属于一个 net；未连接且不是 `no_connect` 的引脚给出警告。
@@ -252,7 +257,7 @@ bus i2c0 = I2C
 ```
 
 - `bus <bus_id> = <type>` 开始一个 bus 块，直到下一个段头或指令。
-- 成员行格式同 `nets`。
+- 成员行格式同 `nets`，包括续行：裸 `:` 的行给上一个 bus 成员行增加引脚。
 - 成员 net 的全名是 `<bus_id>.<member>`，例如 `i2c0.scl`。
 - v0.1 的 bus 类型只有命名意义，不做协议校验。
 
@@ -493,9 +498,11 @@ nets
    - pcb：见 `spec/pcb.md` §6.1（`stackup`、`outline`、`place`、`connect`、`trace`、`via`、`zone`、`keepout`、`rules`、`silk`、`physical_only`、`deviation`）
    - footprint：`pads`、`graphics`；标量顺序与行的排序见 `spec/footprint.md` §8
    - symbol：`pins`、`body`；标量顺序与行的排序见 `spec/symbol.md` §8
+   - view：`place`、`wire`、`label`、`port`、`text`；标量顺序与行的排序见 `spec/schematic-view.md` §11
 2. 行排序（名称一律按 ASCII 字节序；`instances` 的 refdes 按自然序，数字按数值比较）：
    - `instances` 按 refdes 自然序
    - `nets` 按 net 名
+   - `nets` 的成员按引脚引用自然序：先比实例（自然序，数字按数值比较），再比引脚（编号按数值，名称按自然序）
    - `pages` 按 page_instance_id
    - `ports` 按 port_id
    - system 的 `boards` 按 board_id
@@ -509,17 +516,49 @@ nets
 5. 整行注释保留，并跟随其后的行移动。
 6. 单元格内容不变，只调整分隔空白：表段单元格之间至少两个空格并对齐；标量行（"键 + 值"）用单个空格分隔，多单元格的值（如 `description`）按单元格重排，连续空白归一。
 7. `net` 行的 canonical 形式：网名紧贴冒号（`SYS:`），冒号后至少两个空格，成员之间至少两个空格；同段内所有行的成员起始列相同。`ports` 与 `boards` 行同样按最宽单元格对齐。
+8. **宽行折行**：同一个 net 的所有成员（跨行、跨同名行、跨续行合并后）按规则 2 排序，然后折行使每行不超过 **80 列**。首行带网名，续行的首列是裸 `:`，续行成员与首行成员对齐到同一列。折行只影响排版，不影响语义：同一份描述无论写成几行，编译出的 IR 相同。
+9. **文本顺序与 IR 顺序可以不同**。canonical form 只看文本，因此成员按**源码写的形式**排序（写编号就按编号比，写名字就按名字比）；IR 里的成员一律是引脚**编号**，按编号排序。两者各自确定且幂等，同一份描述的 IR 与源文件的行序、行内成员序都无关。
 
 ---
 
 ## 13. 版本与兼容
 
-- `version` 为 `MAJOR.MINOR`。加字段/加段为 MINOR；改语义/删字段为 MAJOR。
+### 13.1 版本号的形式
+
+`version` 为 `MAJOR.MINOR[.PATCH]`，三位各自无前导零。**PATCH 位可省略，省略即 0**：`0.6` 与 `0.6.0` 是同一个版本，IR 里只存一种写法（`0.6`）。
+
+| 位 | 什么时候动 | 动它意味着 |
+|---|---|---|
+| MAJOR | 改语义、删字段、删段——老文件不再合法 | 破坏性变更，必须给迁移说明 |
+| MINOR | 加描述类型、加段、加字段——老文件继续合法 | 增量变更，老文件不用改 |
+| PATCH | **不改变"哪些文件合法"**的改动：加诊断码、改诊断文案、澄清规则、收紧本来就非法的检查 | 行为变更，兼容性不变 |
+
+一条硬规则：**PATCH 永远不破坏兼容性**。所以实现了 `MAJOR.MINOR` 的工具接受它的**任意** PATCH（判定时忽略 PATCH 位），`0.6.1` 的文件能被只懂 `0.6` 的工具正常读。
+
+### 13.2 1.0 是什么
+
+`1.0` 是**里程碑，不是用完的计数**：达到 1.0 需要一次显式决策（一份 ADR），表示"语言表面冻结"——之后只出 PATCH 版本（`1.0.1`、`1.0.2`…），不再加描述类型、段与字段。
+
+所以版本号涨得快不意味着快到 1.0：日常的澄清与诊断改进走 PATCH 位，只有真正的语言增量才动 MINOR。
+
+### 13.3 接受规则
+
+一个文件被接受，当且仅当：
+
+1. 版本号是合法的 `MAJOR.MINOR[.PATCH]`（否则 `format.invalid-version`）；
+2. MAJOR 与工具支持的 MAJOR 相同（否则 `format.unsupported-version`）；
+3. MINOR **不低于该描述类型诞生的版本**——`view` 文件不能写 `0.5`，`page` 文件不能写 `0.2`；
+4. MINOR **不高于工具支持的语言版本**——上界是语言版本，不是该类型最后一次改动的版本：今天写的 `symbol` 文件写 `0.6` 是对的（只要不高于工具支持的版本）。
+
+PATCH 位不参与判定（见 §13.1 的硬规则）。
+
+### 13.4 版本沿革
+
 - `0.2` 新增：`sch` 的 `ports` 段、`system` 描述类型（决策见 `docs/adr/0001-board-linking.md`）。未使用新构造的文件保持 `0.1`。
 - `0.3` 新增：`page` 描述类型、`sch` 的 `pages` 段、板内展平与 BOM 计数规则（决策见 `docs/adr/0002-board-pages-and-bom.md`）。用到页面或 `pages` 段的板根与页面文件写 `version 0.3`。
 - `0.4` 新增：`pcb` 描述的完整段集（决策见 `docs/adr/0003-agent-first-pcb-ir.md`，语法见 `spec/pcb.md`）；`component` 的 `lcsc` 标量（决策见 `docs/adr/0006-jlc-prototype-delivery.md`）；`footprint` 描述类型（决策见 `docs/adr/0011-library-format-and-footprint-ir.md`，语法见 `spec/footprint.md`）。用到 `pcb` 段、`lcsc` 或 `footprint` 的文件写 `version 0.4`。
 - `0.5` 新增：`symbol` 描述类型（决策见 `docs/adr/0012-symbol-description.md`，语法见 `spec/symbol.md`）。用到 `symbol` 的文件写 `version 0.5`。
-- 工具接受同 MAJOR 且 MINOR ≤ 自身支持的版本；更高 MINOR 默认报错。
+- `0.6` 新增：`view` 描述类型——原理图的 S1 视图层，页面文件的孪生文件（决策见 `docs/adr/0021-schematic-view-layer.md`，语法见 `spec/schematic-view.md`）。用到 `view` 的文件写 `version 0.6`。
 - 未知构造默认报错；`--allow-unknown` 仅用于前向兼容检查，不用于生产。
 - 所有破坏性变更必须提供迁移说明；`fmt` 不自动跨 MAJOR 迁移。
 

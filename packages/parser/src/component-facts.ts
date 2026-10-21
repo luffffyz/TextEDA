@@ -5,6 +5,7 @@
 // all other sections and scalars are passed through as-is, without pretending they were validated.
 import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
 import { lex } from "./lexer.ts";
+import { checkVersion, typeRange } from "./version.ts";
 
 /** Pin electrical types from `teda.md` §10.1. */
 export const PIN_TYPES = new Set([
@@ -42,6 +43,9 @@ export interface ComponentFactsResult {
   diagnostics: Diagnostic[];
 }
 
+/** The `component` type exists since 0.1 (teda.md §13). */
+const VERSION_RANGE = typeRange(1);
+
 const PIN_NUMBER_RE = /^[A-Za-z0-9_+-]+$/;
 const PIN_NAME_RE = /^[A-Za-z0-9_+-]+$/;
 
@@ -67,6 +71,12 @@ export function readComponentFacts(text: string, options: { file: string }): Com
   const versionLine = next();
   if (!versionLine || versionLine.cells[0]?.text !== "version") {
     error(versionLine?.number ?? 1, 1, "syntax.header-invalid", "the first line must be version <ver>");
+    return { ok: false, diagnostics };
+  }
+  const version = versionLine.cells[1]?.text ?? "";
+  const verdict = checkVersion(version, VERSION_RANGE, "component");
+  if (!verdict.ok) {
+    error(versionLine.number, versionLine.cells[1]?.col ?? 1, verdict.code, verdict.message);
     return { ok: false, diagnostics };
   }
   const typeLine = next();

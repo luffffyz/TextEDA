@@ -46,7 +46,7 @@ function fileToId(file: string): string {
 
 function pageSources(board: string): PageSource[] {
   const dir = join(projectDir, "sch", board);
-  const files = readdirSync(dir).filter((f) => f.endsWith(".teda"));
+  const files = readdirSync(dir).filter((f) => f.endsWith(".teda") && !f.endsWith(".view.teda"));
   return files.map((f) => ({
     pageId: f.slice(0, f.length - ".teda".length),
     file: `sch/${board}/${f}`,
@@ -453,5 +453,83 @@ describe("single-member net semantics (teda.md §11.4)", () => {
     });
     // That pin goes off-board; it is not an unconnected pin.
     expect(result.diagnostics.filter((d) => d.code === "drc.single-member-net").length).toBe(0);
+  });
+});
+
+describe("continuation rows (teda.md §7.2)", () => {
+  // A row whose first column is a bare `:` continues the net named by the row above it.
+  const header = ["version 0.3", "schematic b", "", "instances", "  R1  r-0402  10k", "  R2  r-0402  10k", "", "nets"].join("\n");
+
+  function parse(text: string) {
+    return parseSchematic(text, { file: "sch/b.teda", board: "b", components: resolver });
+  }
+
+  test("a continuation row adds members to the net above it", () => {
+    const result = parse(`${header}\n  A:  R1.1\n  :  R2.1`);
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    const net = result.ir!.nets.find((n) => n.id === "A")!;
+    expect(net.members).toEqual(["R1.1", "R2.1"]);
+  });
+
+  test("several continuation rows all belong to the same net", () => {
+    const result = parse(`${header}\n  A:  R1.1\n  :  R2.1\n  :  R1.2`);
+    const net = result.ir!.nets.find((n) => n.id === "A")!;
+    // The IR orders members by pin reference: R1.1, R1.2, R2.1.
+    expect(net.members).toEqual(["R1.1", "R1.2", "R2.1"]);
+  });
+
+  test("a continuation row does not create a net of its own", () => {
+    const result = parse(`${header}\n  A:  R1.1\n  :  R2.1`);
+    expect(result.ir!.nets.map((n) => n.id)).toEqual(["A"]);
+  });
+
+  test("a continuation row without a net above is an error", () => {
+    const result = parse(`${header}\n  :  R1.1`);
+    expect(result.diagnostics.map((d) => d.code)).toContain("net.continuation-without-net");
+  });
+
+  test("a continuation row merges with a repeated net name", () => {
+    const result = parse(`${header}\n  A:  R1.1\n  A:  R1.2\n  :  R2.1`);
+    const net = result.ir!.nets.find((n) => n.id === "A")!;
+    expect(net.members).toEqual(["R1.1", "R1.2", "R2.1"]);
+  });
+
+  test("the row order of the source does not change the IR", () => {
+    const forward = parse(`${header}\n  A:  R1.1  R2.1\n  B:  R1.2`);
+    const reversed = parse(`${header}\n  B:  R1.2\n  A:  R1.1  R2.1`);
+    expect(reversed.ir!.nets).toEqual(forward.ir!.nets);
+  });
+
+  test("members are ordered by pin reference, not by source order", () => {
+    const result = parse(`${header}\n  A:  R2.1  R1.1`);
+    const net = result.ir!.nets.find((n) => n.id === "A")!;
+    expect(net.members).toEqual(["R1.1", "R2.1"]);
+  });
+});
+
+describe("bus continuation rows (teda.md §7.3)", () => {
+  const header = ["version 0.3", "schematic b", "", "instances", "  R1  r-0402  10k", "  R2  r-0402  10k", "", "bus i2c0 = I2C"].join("\n");
+
+  test("a continuation row adds pins to the bus member above it", () => {
+    const result = parseSchematic(`${header}\n  scl:  R1.1\n  :  R2.1\n  sda:  R2.2`, {
+      file: "sch/b.teda",
+      board: "b",
+      components: resolver,
+    });
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    const net = result.ir!.nets.find((n) => n.id === "i2c0.scl")!;
+    expect(net.members).toEqual(["R1.1", "R2.1"]);
+    // The continuation belongs to the member above it, not to the member below it.
+    const other = result.ir!.nets.find((n) => n.id === "i2c0.sda")!;
+    expect(other.members).toEqual(["R2.2"]);
+  });
+
+  test("a continuation row without a bus member above is an error", () => {
+    const result = parseSchematic(`${header}\n  :  R1.1`, {
+      file: "sch/b.teda",
+      board: "b",
+      components: resolver,
+    });
+    expect(result.diagnostics.map((d) => d.code)).toContain("net.continuation-without-net");
   });
 });

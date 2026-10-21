@@ -10,8 +10,8 @@
     },
     "format_version": {
       "type": "string",
-      "pattern": "^0\\.[1-9][0-9]*$",
-      "description": "Language version of the .teda file that produced this shard; see teda.md §13."
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))?$",
+      "description": "Language version of the .teda file that produced this shard, in canonical form (the patch component is left out when it is zero); see teda.md §13."
     },
     "slug": {
       "type": "string",

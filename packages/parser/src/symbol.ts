@@ -5,8 +5,9 @@
 import type { Symbol } from "@texteda/ir/symbol";
 import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
 import { lex, type Cell, type Line } from "./lexer.ts";
-import { byteCompare, naturalCompare } from "./order.ts";
+import { byteCompare, naturalCompare } from "@texteda/ir/order";
 import { parseAngleMdeg, parseLengthNm } from "./units.ts";
+import { checkVersion, typeRange } from "./version.ts";
 
 export const SYMBOL_SECTIONS = new Set(["pins", "body"]);
 export const SYMBOL_PIN_KEYS = new Set(["length", "unit", "style"]);
@@ -29,10 +30,8 @@ const FILLS = new Set(["none", "outline", "background"]);
 const SHOW_HIDE = new Set(["show", "hide"]);
 const SYMBOL_ID_RE = /^[A-Za-z0-9_.+-]+$/;
 const PIN_NUMBER_RE = /^[A-Za-z0-9_+-]+$/;
-const VERSION_RE = /^0\.([1-9][0-9]*)$/;
 /** `symbol` was introduced in 0.5: files below 0.5 do not have this type. */
-const REQUIRED_MINOR = 5;
-const SUPPORTED_MINOR = 5;
+const VERSION_RANGE = typeRange(5);
 
 export interface SymbolParseOptions {
   /** File name (used for diagnostics). */
@@ -353,25 +352,9 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
     return { ok: false, diagnostics: collector.diagnostics };
   }
   const version = versionLine.cells[1]!.text;
-  const versionMatch = VERSION_RE.exec(version);
-  if (!versionMatch) {
-    collector.error(file, versionLine.number, versionLine.cells[1]!.col, "format.invalid-version", `not a valid version number: ${version}`);
-  } else if (Number(versionMatch[1]) < REQUIRED_MINOR) {
-    collector.error(
-      file,
-      versionLine.number,
-      versionLine.cells[1]!.col,
-      "format.unsupported-version",
-      `the symbol type requires version ${(REQUIRED_MINOR / 10).toFixed(1)} (current: ${version})`,
-    );
-  } else if (Number(versionMatch[1]) > SUPPORTED_MINOR) {
-    collector.error(
-      file,
-      versionLine.number,
-      versionLine.cells[1]!.col,
-      "format.unsupported-version",
-      `version ${version} is newer than the 0.${SUPPORTED_MINOR} supported by this tool`,
-    );
+  const verdict = checkVersion(version, VERSION_RANGE, "symbol");
+  if (!verdict.ok) {
+    collector.error(file, versionLine.number, versionLine.cells[1]!.col, verdict.code, verdict.message);
   }
 
   const typeLine = nextMeaningful();

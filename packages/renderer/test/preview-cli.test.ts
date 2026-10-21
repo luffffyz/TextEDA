@@ -51,6 +51,27 @@ describe("preview command", () => {
     expect(run.stderr).toContain("not in library");
   });
 
+  test("view: draws a page from its view file", () => {
+    const out = mkdtempSync(join(tmpdir(), "texteda-preview-test-"));
+    const run = runPreview(["view", "charger-buck/buck-5v", "--out", out]);
+    expect(run.stderr).toBe("");
+    expect(run.code).toBe(0);
+    const files = run.stdout.trim().split("\n").filter((l) => l.length > 0);
+    expect(files).toHaveLength(1);
+    const svg = readFileSync(files[0]!, "utf8");
+    expect(svg).toContain("<title>charger-buck/buck-5v</title>");
+    // The placed instances name themselves; the library placeholder (`U`) must not survive.
+    expect(svg).toContain("<title>C1</title>");
+    expect(svg).toContain("<title>U1</title>");
+    expect(svg).toContain("<title>GND</title>");
+  });
+
+  test("view without a view file: report it clearly and exit non-zero", () => {
+    const run = runPreview(["view", "charger-buck/nonexistent"]);
+    expect(run.code).not.toBe(0);
+    expect(run.stderr).toContain("page not found");
+  });
+
   test("unknown argument: report it clearly and exit non-zero", () => {
     const run = runPreview(["footprint", "sot-23", "--nope"]);
     expect(run.code).not.toBe(0);

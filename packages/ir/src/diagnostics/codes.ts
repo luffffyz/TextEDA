@@ -19,6 +19,7 @@ export const DIAGNOSTIC_DOMAINS = [
   "format",
   "drc",
   "cli",
+  "view",
 ] as const;
 
 export type DiagnosticDomain = (typeof DIAGNOSTIC_DOMAINS)[number];
@@ -352,6 +353,13 @@ export const DIAGNOSTIC_CODES = {
     hint: "Remove the duplicate pin from the row",
     spec: ["teda.md §11"],
   },
+  "net.continuation-without-net": {
+    domain: "net",
+    severity: "error",
+    summary: "A continuation row does not follow a net row",
+    hint: "A row whose first column is a bare `:` continues the net named by the row above it",
+    spec: ["teda.md §7.2"],
+  },
   "net.member-unknown": {
     domain: "net",
     severity: "error",
@@ -554,6 +562,25 @@ export const DIAGNOSTIC_CODES = {
     summary: "Wrong command or argument count",
     spec: [],
   },
+
+  // ---- view: the schematic view layer (S1) ----
+  // Only the codes the view parser emits are registered here; the page cross-check and the
+  // readability checks register theirs when they land (the registry is the source of truth for
+  // what is actually emitted, ADR-0016).
+  "view.out-of-sheet": {
+    domain: "view",
+    severity: "error",
+    summary: "A coordinate lies outside the sheet",
+    hint: "Move the item inside the sheet, or declare a larger sheet size",
+    spec: ["spec/schematic-view.md §9.1"],
+  },
+  "view.pin-not-placed": {
+    domain: "view",
+    severity: "error",
+    summary: "A wire endpoint refers to an instance that the view does not place",
+    hint: "Add the instance to the place section, or remove the wire",
+    spec: ["spec/schematic-view.md §4"],
+  },
 } as const satisfies Record<string, DiagnosticCodeEntry>;
 
 /** Union type of the codes (a compile-time guarantee that a diagnostic's code is always in the registry). */
@@ -603,6 +630,7 @@ export const STAGE_BY_DOMAIN: Record<DiagnosticDomain, DiagnosticStage> = {
   bind: "semantic",
   library: "semantic",
   cli: "parse",
+  view: "semantic",
 };
 
 /** The stage a code belongs to. */

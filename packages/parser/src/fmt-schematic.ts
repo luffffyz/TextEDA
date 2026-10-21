@@ -4,10 +4,16 @@
 // followed by member rows), which is not a single-line section header, so the generic table walker cannot express it; this file brings its own line scan.
 //
 // Invariant (teda.md §12): `parse(fmt(x))` is semantically the same as `parse(x)`; `fmt(fmt(x)) == fmt(x)`.
-import { byteCompare, naturalCompare } from "./order.ts";
+import { byteCompare, naturalCompare, pinRefCompare } from "@texteda/ir/order";
 import { lex } from "./lexer.ts";
 import { parseSchematicDocument } from "./schematic.ts";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
+
+/** The first-column marker of a continuation row: a bare `:` continues the net named by the row above. */
+const CONTINUATION = ":";
+
+/** Maximum width of a formatted net row, in columns. Longer member lists are wrapped into continuation rows. */
+const MAX_LINE_WIDTH = 80;
 
 export interface SchematicFormatOptions {
   file: string;
@@ -91,7 +97,8 @@ function walkSchematic(text: string): Walk | null {
       const name = row.cells[0]!;
       current = {
         comments: row.comments,
-        header: isBusHeader(row) ? row.cells : [name],
+        // A bus header is one line (`bus <id> = <type>`); other sections use the section name.
+        header: isBusHeader(row) ? [row.cells.join(" ")] : [name],
         rows: [],
       };
       if (!walk.sections.has(name)) walk.order.push(name);
@@ -108,6 +115,10 @@ function walkSchematic(text: string): Walk | null {
 /** Section name plus colon (canonical form of a net row: `SYS:`). */
 function netName(cells: string[]): { name: string; members: string[] } {
   const first = cells[0] ?? "";
+  if (first === CONTINUATION) {
+    // A bare `:` in the first column marks a continuation row.
+    return { name: CONTINUATION, members: cells.slice(1) };
+  }
   if (first.endsWith(":")) {
     return { name: first.slice(0, -1), members: cells.slice(1) };
   }
@@ -118,18 +129,82 @@ function netName(cells: string[]): { name: string; members: string[] } {
 }
 
 /**
+ * A net-style group: all rows that belong to one net, with their members merged.
+ */
+interface NetGroup {
+  name: string;
+  members: string[];
+  comments: string[];
+}
+
+/**
+ * Group net-style rows by net name.
+ *
+ * A repeated net name continues the same net, and a continuation row (a bare `:` in the first column) adds to the net
+ * named by the row above it. Both are merged into one group, because the parser merges them into one net too.
+ */
+function groupNetRows(rows: Row[]): NetGroup[] {
+  const groups: NetGroup[] = [];
+  const byName = new Map<string, NetGroup>();
+  for (const row of rows) {
+    const { name, members } = netName(row.cells);
+    const last = groups[groups.length - 1];
+    if (name === CONTINUATION) {
+      if (last === undefined) continue; // a continuation without a net above: the parser reports this
+      last.members.push(...members);
+      last.comments.push(...row.comments);
+      continue;
+    }
+    const existing = byName.get(name);
+    if (existing !== undefined) {
+      existing.members.push(...members);
+      existing.comments.push(...row.comments);
+      continue;
+    }
+    const group: NetGroup = { name, members: [...members], comments: [...row.comments] };
+    groups.push(group);
+    byName.set(name, group);
+  }
+  return groups;
+}
+
+/**
  * Alignment of net-style rows: the net name (including the colon) is one column; members are separated by two spaces and start at the same column.
  * Members are not columns — within one row the members have different widths, so column alignment would leave large gaps.
+ *
+ * The members of one net are merged, sorted, and then wrapped so that no line exceeds `MAX_LINE_WIDTH`. The first line of a
+ * net carries its name; the following lines are continuation rows whose first column is a bare `:`.
  */
-function alignNetRows(rows: Row[], indent: string): string[] {
-  const parsed = rows.map((row) => ({ row, ...netName(row.cells) }));
-  const width = parsed.reduce((max, item) => Math.max(max, item.name.length + 1), 0);
+function alignNetRows(rows: Row[], indent: string, sortGroups: boolean): string[] {
+  const groups = groupNetRows(rows);
+  if (sortGroups) groups.sort((a, b) => byteCompare(a.name, b.name));
+  const width = groups.reduce((max, group) => Math.max(max, group.name.length + 1), 0);
   const lines: string[] = [];
-  for (const item of parsed) {
-    lines.push(...item.row.comments);
-    const head = `${item.name}:`.padEnd(width);
-    const members = item.members.join("  ");
-    lines.push(members.length > 0 ? `${indent}${head}  ${members}` : `${indent}${head}`);
+  for (const group of groups) {
+    lines.push(...group.comments);
+    const members = [...group.members].sort(pinRefCompare);
+    if (members.length === 0) {
+      lines.push(`${indent}${`${group.name}:`.padEnd(width)}`);
+      continue;
+    }
+    // The first line carries the net name; continuation lines start with a bare `:` in the name column.
+    const head = `${group.name}:`.padEnd(width);
+    const cont = ":".padEnd(width);
+    let current = `${indent}${head}`;
+    let column = indent.length + width + 2;
+    let first = true;
+    for (const member of members) {
+      if (!first && column + member.length + 2 > MAX_LINE_WIDTH) {
+        lines.push(current);
+        current = `${indent}${cont}`;
+        column = indent.length + width + 2;
+        first = true;
+      }
+      current += `  ${member}`;
+      column += member.length + 2;
+      first = false;
+    }
+    lines.push(current);
   }
   return lines;
 }
@@ -177,10 +252,9 @@ export function formatSchematic(text: string, options: SchematicFormatOptions): 
     if (!section) continue;
     const block: string[] = [...section.comments, ...section.header];
     if (name === "nets") {
-      const rows = [...section.rows].sort((a, b) => byteCompare(netName(a.cells).name, netName(b.cells).name));
-      block.push(...alignNetRows(rows, "  "));
+      block.push(...alignNetRows(section.rows, "  ", true));
     } else if (name === "bus") {
-      block.push(...alignNetRows(section.rows, "  "));
+      block.push(...alignNetRows(section.rows, "  ", false));
     } else if (name === "instances") {
       const rows = [...section.rows].sort((a, b) => naturalCompare(a.cells[0]!, b.cells[0]!));
       block.push(...alignTableRows(rows, "  "));

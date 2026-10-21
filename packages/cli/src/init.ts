@@ -10,8 +10,10 @@
 // This module only computes "which files to write and what their contents are" and never touches the file system — disk writes live in `scripts/texteda.ts`.
 // That way the contract itself can be unit-tested without spinning up temp directories.
 
+import { formatVersion, SUPPORTED_LANGUAGE } from "@texteda/parser";
+
 /** The tool's current language version; `project.toml`'s `format` takes it. */
-export const CURRENT_FORMAT = "0.5";
+export const CURRENT_FORMAT = formatVersion(SUPPORTED_LANGUAGE);
 
 /** Default version for a new project. */
 export const DEFAULT_VERSION = "0.1.0";
@@ -21,7 +23,7 @@ export interface InitOptions {
   name?: string;
   /** Project version; defaults to `0.1.0`. */
   version?: string;
-  /** Language format version; defaults to `0.5`, what the tool currently supports. */
+  /** Language format version; defaults to the language version the tool currently supports. */
   format?: string;
 }
 

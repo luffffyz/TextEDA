@@ -22,6 +22,8 @@ Every architecture decision record in this repository, in numeric order.
 | [ADR-0016](0016-diagnostic-error-codes.md) | Diagnostic Error Code Registry (`domain.slug`) | Accepted | 2026-10-21 |
 | [ADR-0018](0018-zero-dependency-and-manufacturing-target.md) | Zero-Dependency Principle and the Target Form of the Manufacturing Output | Accepted | 2026-10-21 |
 | [ADR-0019](0019-agent-contract-reference-and-check-entry.md) | Contract Reference and Check Entry Point for Agents | Accepted | 2026-10-21 |
+| [ADR-0021](0021-schematic-view-layer.md) | The Schematic View Layer (S1) Is an Independent Description; the Review UI Is Browser-First | Accepted | 2026-10-21 |
+| [ADR-0022](0022-language-versioning.md) | Language Versioning — MAJOR.MINOR.PATCH, and 1.0 as a Milestone | Accepted | 2026-10-21 |
 
 ## Reserved Numbers
 

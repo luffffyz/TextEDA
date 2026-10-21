@@ -14,6 +14,7 @@ import { initTree, projectNameFromDir } from "../src/init.ts";
 import { runCompile } from "../src/compile.ts";
 import { analyzeProject, checkProject } from "../src/check.ts";
 import { formatNetlist, toNetlist } from "@texteda/exporter/netlist";
+import { writeOut } from "../src/output.ts";
 import { countByStage, diagnosticsToPayload, hintFor } from "@texteda/ir/diagnostics";
 
 /** Known flags. Failures in the cli domain do not go into the --json diagnostics array; they go to stderr plus an exit code (ADR-0016). */
@@ -176,7 +177,7 @@ function runNetlist(args: ParsedArgs): void {
   }
   const path = resolve(out);
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, text);
+  writeOut(path, text);
   console.error(`Wrote ${out}`);
 }
 

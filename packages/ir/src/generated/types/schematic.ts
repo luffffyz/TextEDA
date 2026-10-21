@@ -173,7 +173,7 @@ export type Constraint =
  */
 export type IrVersion = "0.1";
 /**
- * Language version of the .teda file that produced this shard; see teda.md §13.
+ * Language version of the .teda file that produced this shard, in canonical form (the patch component is left out when it is zero); see teda.md §13.
  *
  * This interface was referenced by `Schematic`'s JSON-Schema
  * via the `definition` "format_version".

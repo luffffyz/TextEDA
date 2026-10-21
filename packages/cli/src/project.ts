@@ -112,7 +112,8 @@ export function loadBoard(root: string, board: string): LoadedBoard | null {
   const pages: PageSource[] = [];
   if (existsSync(pageDir)) {
     for (const name of readdirSync(pageDir).sort()) {
-      if (!name.endsWith(".teda")) continue;
+      // `<page>.view.teda` is the page's drawing (ADR-0021), not a page description.
+      if (!name.endsWith(".teda") || name.endsWith(".view.teda")) continue;
       pages.push({
         pageId: name.slice(0, name.length - ".teda".length),
         file: relative(root, join(pageDir, name)),

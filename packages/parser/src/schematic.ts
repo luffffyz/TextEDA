@@ -25,17 +25,27 @@ import type {
 import { checkConnectivity, type ConnectivityPin } from "@texteda/core";
 import type { Diagnostic, DiagnosticCodeId } from "@texteda/ir/diagnostics";
 import { lex, type Cell, type Line } from "./lexer.ts";
-import { byteCompare, naturalCompare } from "./order.ts";
+import { checkVersion, typeRange, type VersionRange } from "./version.ts";
+import { byteCompare, naturalCompare, pinRefCompare } from "@texteda/ir/order";
 import { parseQuantity, parseQuantityRange, type QuantityKind } from "./quantities.ts";
 import { parseLengthNm } from "./units.ts";
 
-/** Highest MINOR version supported by this implementation (teda.md §13). */
-const SUPPORTED_MINOR = 3;
+/** `page` was introduced in 0.3; the `schematic` type exists since 0.1 (teda.md §13). */
+const VERSION_RANGE: Record<DocumentKind, VersionRange> = {
+  schematic: typeRange(1),
+  page: typeRange(3),
+};
 
 const REFDES_RE = /^[A-Z]+[0-9]+$/;
 const SLUG_RE = /^[a-z][a-z0-9-]*$/;
 const NET_ID_RE = /^[A-Za-z0-9_+-]+$/;
 const PORT_ID_RE = /^[A-Za-z0-9_+-]+$/;
+
+/**
+ * The first-column marker of a continuation row: a bare `:` adds members to the net named by the row above.
+ * The marker is explicit rather than inferred from indentation, because indentation carries no meaning in `.teda` (teda.md §3).
+ */
+const CONTINUATION = ":";
 
 /** Component parameter declaration (from a `component`'s `params` section). */
 export interface ComponentParamDecl {
@@ -138,8 +148,11 @@ interface RawBus {
   line: number;
 }
 
+/** The two schematic document types: a board root and a board-internal page. */
+export type DocumentKind = "schematic" | "page";
+
 export interface Document {
-  kind: "schematic" | "page";
+  kind: DocumentKind;
   id: string;
   version: string;
   file: string;
@@ -153,7 +166,7 @@ export interface Document {
 
 export interface DocumentParseOptions {
   file: string;
-  kind: "schematic" | "page";
+  kind: DocumentKind;
 }
 
 export interface DocumentParseResult {
@@ -221,24 +234,21 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
     return { ok: false, diagnostics: diagnostics.items };
   }
   const version = versionLine.cells[1]?.text ?? "";
-  const versionMatch = /^(\d+)\.(\d+)$/.exec(version);
-  if (!versionMatch) {
-    diagnostics.add("error", "format.unsupported-version", `invalid version number: ${version}`, file, versionLine.number, versionLine.cells[1]?.col ?? 1);
-    return { ok: false, diagnostics: diagnostics.items };
-  }
-  const minor = Number(versionMatch[2]);
-  if (minor > SUPPORTED_MINOR) {
+  const verdict = checkVersion(version, VERSION_RANGE[options.kind], options.kind);
+  if (!verdict.ok) {
     diagnostics.add(
       "error",
-      "format.unsupported-version",
-      `this file is ${version}, this tool supports up to 0.${SUPPORTED_MINOR}`,
+      verdict.code,
+      verdict.message,
       file,
       versionLine.number,
       versionLine.cells[1]?.col ?? 1,
-      { hint: "lower the file version, or upgrade the tool" },
+      verdict.hint ? { hint: verdict.hint } : undefined,
     );
     return { ok: false, diagnostics: diagnostics.items };
   }
+  // The canonical spelling of the version: `0.3` and `0.3.0` are the same version, so the IR stores one of them.
+  const versionText = verdict.text;
 
   const typeLine = lines[1];
   const expectedType = options.kind;
@@ -254,7 +264,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
   const doc: Document = {
     kind: expectedType,
     id,
-    version,
+    version: versionText,
     file,
     instances: [],
     nets: [],
@@ -267,6 +277,8 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
   const netIndex = new Map<string, RawNet>();
   let section: string | null = null;
   let bus: RawBus | null = null;
+  /** The net named by the most recent net row; a continuation row adds to this net. */
+  let lastNetName: string | null = null;
 
   for (const line of lines.slice(2)) {
     const cells = line.cells;
@@ -295,6 +307,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
       }
       section = head;
       bus = null;
+      lastNetName = null;
       continue;
     }
 
@@ -332,6 +345,29 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
           diagnostics.add("error", "syntax.row-too-short", "a nets row needs at least a net name", file, line.number, cells[0]!.col);
           continue;
         }
+        // A continuation row starts with a bare colon: it adds members to the net named by the row above.
+        if (name === CONTINUATION) {
+          const target = lastNetName === null ? undefined : netIndex.get(lastNetName);
+          if (target === undefined) {
+            diagnostics.add(
+              "error",
+              "net.continuation-without-net",
+              "a continuation row (a bare `:` in the first column) must follow a net row",
+              file,
+              line.number,
+              cells[0]!.col,
+            );
+            continue;
+          }
+          for (const ref of members) {
+            if (target.memberRefs.includes(ref)) {
+              diagnostics.add("error", "net.duplicate-member", `pin ${ref} appears more than once in net ${target.name}`, file, line.number, cells[0]!.col);
+              continue;
+            }
+            target.memberRefs.push(ref);
+          }
+          continue;
+        }
         if (!NET_ID_RE.test(name)) {
           // net names must not contain a dot: board-level net names must not contain `.`, and in-page nets carry the `<page_instance_id>.` prefix (teda.md §7.7).
           diagnostics.add(
@@ -353,11 +389,13 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
             }
             existing.memberRefs.push(ref);
           }
+          lastNetName = name;
           continue;
         }
         const net: RawNet = { name, memberRefs: members, line: line.number };
         netIndex.set(name, net);
         doc.nets.push(net);
+        lastNetName = name;
         continue;
       }
       case "ports": {
@@ -400,6 +438,22 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
           diagnostics.add("error", "syntax.row-too-short", "a bus member row needs at least a member name", file, line.number, cells[0]!.col);
           continue;
         }
+        if (name === CONTINUATION) {
+          const target = bus.members[bus.members.length - 1];
+          if (target === undefined) {
+            diagnostics.add(
+              "error",
+              "net.continuation-without-net",
+              "a continuation row (a bare `:` in the first column) must follow a bus member row",
+              file,
+              line.number,
+              cells[0]!.col,
+            );
+            continue;
+          }
+          target.refs.push(...members);
+          continue;
+        }
         bus.members.push({ member: name, refs: members, line: line.number });
         continue;
       }
@@ -426,10 +480,18 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
   return { ok: !diagnostics.hasError, doc, diagnostics: diagnostics.items };
 }
 
-/** A `nets` row: the first cell is the net name (may carry a trailing `:`); a standalone `:` cell is also accepted. */
+/**
+ * A `nets` row: the first cell is the net name (may carry a trailing `:`); a standalone `:` cell is also accepted.
+ *
+ * A row whose first cell is a bare `:` is a continuation row: it adds members to the net named by the row above.
+ * The marker is explicit, so indentation never carries meaning (teda.md §7.2).
+ */
 function splitNetRow(cells: Cell[]): { name: string; members: string[] } {
   if (cells.length === 0) return { name: "", members: [] };
   const first = cells[0]!.text;
+  if (first === CONTINUATION) {
+    return { name: CONTINUATION, members: cells.slice(1).map((c) => c.text) };
+  }
   if (first.endsWith(":")) {
     return { name: first.slice(0, -1), members: cells.slice(1).map((c) => c.text) };
   }
@@ -686,6 +748,13 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
     }
     buses.push({ id: bus.id, type: bus.type, nets: busNets });
   }
+
+  /* -------- canonical order -------- */
+
+  // The IR depends on the semantics only: the order of rows and of members in the source must not leak into it.
+  // Nets are ordered by id, and the members of a net by their resolved pin reference.
+  for (const net of nets) net.members.sort(pinRefCompare);
+  nets.sort((a, b) => byteCompare(a.id, b.id));
 
   // Connectivity rules live in `@texteda/core` (ADR-0019 / backlog F19): this file only lays out the facts—
   // the flattened nets, each instance's pins, which nets carry board-level ports, and the locations.

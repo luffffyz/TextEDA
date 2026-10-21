@@ -22,8 +22,9 @@ import type {
 import type { Diagnostic, DiagnosticCodeId } from "@texteda/ir/diagnostics";
 import { lex, type Cell, type Line } from "./lexer.ts";
 import { parseAngleMdeg, parseLengthNm } from "./units.ts";
+import { checkVersion, typeRange } from "./version.ts";
 import { parseQuantity } from "./quantities.ts";
-import { byteCompare } from "./order.ts";
+import { byteCompare } from "@texteda/ir/order";
 
 export interface PcbParseOptions {
   file: string;
@@ -54,6 +55,8 @@ export const PCB_SECTIONS = [
 type Section = (typeof PCB_SECTIONS)[number];
 
 const SECTION_SET: ReadonlySet<string> = new Set(PCB_SECTIONS);
+/** `pcb` was introduced in 0.4: files below 0.4 do not have this type. */
+const VERSION_RANGE = typeRange(4);
 
 const SCALARS = new Set(["board_thickness"]);
 
@@ -453,11 +456,12 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
     return { ok: false, diagnostics: diagnostics.items };
   }
   const format = versionLine.cells[1]?.text ?? "";
-  if (!/^\d+\.\d+$/.test(format)) {
+  const verdict = checkVersion(format, VERSION_RANGE, "pcb");
+  if (!verdict.ok) {
     diagnostics.add(
       "error",
-      "format.unsupported-version",
-      `invalid version number: ${format}`,
+      verdict.code,
+      verdict.message,
       file,
       versionLine.number,
       versionLine.cells[1]?.col ?? 1,
@@ -933,7 +937,8 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
 
   const ir: Pcb = {
     ir_version: "0.1",
-    format,
+    // The canonical spelling of the version: `0.6` and `0.6.0` are the same version, so the IR stores one of them.
+    format: verdict.ok ? verdict.text : format,
     source: { file, line: 1 },
     board: options.board,
     board_thickness_nm: boardThicknessNm ?? 0,

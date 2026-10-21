@@ -1,0 +1,9 @@
+{
+  "ir_version": "0.1",
+  "format": "0.1",
+  "board": "charger-buck",
+  "page": "buck-5v",
+  "place": [
+    { "instance_id": "U1", "x_nm": 40000000, "y_nm": 30000000 }
+  ]
+}

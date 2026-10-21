@@ -17,7 +17,7 @@ The cost of this is not just "inconvenient to look at a picture", it is **turnin
 ## Decision
 
 1. **New package `packages/renderer`** (`@texteda/renderer`, structured like `ir` / `parser` / `exporter`):
-   - `renderSymbol(ir, part): SvgDoc`, `renderFootprint(ir): SvgDoc`; P1 adds `renderSchematic(ir): SvgDoc`.
+   - `renderSymbol(ir, part): SvgDoc`, `renderFootprint(ir): SvgDoc`; P1 adds `renderSchematic(view, instances): SvgDoc` (landed 2026-10-21) — the page's view IR plus the caller-resolved symbol and pin facts, because the renderer reads no files ([ADR-0019](0019-agent-contract-reference-and-check-entry.md) decision 1).
    - **The intermediate representation is a list of drawing commands** (`line` / `rect` / `circle` / `arc` / `poly` / `polyline` / `text` / `pin` / `pad`), not string concatenation: only then can we write assertions, do round-trips, and later attach other backends.
    - Pure functions, no I/O, no global state; **rendering the same IR twice yields byte-identical output** (no timestamps, no randomness).
 2. **The coordinate system follows the source**: symbol +y up, footprint +y down ([ADR-0012](0012-symbol-description.md) decision 5); lengths are always **integer nanometers**, converted to mm on output. When converting to SVG, y is flipped according to `orientation` (SVG's y points down).

@@ -3,3 +3,4 @@
 export * from "./svg.ts";
 export * from "./symbol.ts";
 export * from "./footprint.ts";
+export * from "./schematic.ts";

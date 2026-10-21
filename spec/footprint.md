@@ -27,7 +27,7 @@ version 0.4
 footprint sot-23-5
 ```
 
-- 版本行、类型行规则同 `teda.md` §5。
+- 版本行、类型行规则同 `teda.md` §5。`footprint` 类型要求 `version 0.4` 或更高（该类型由 0.4 引入；接受规则见 `teda.md` §13.3）。
 - 文件名必须等于类型行里的 id：`footprints/<lib>/<footprint_id>.teda` ↔ `footprint sot-23-5`。
 - `footprint_id` 允许 `[A-Za-z0-9_.+-]+`（比 `component_id` 宽：库里的封装名常带大写与下划线，如 `R_0402_1005Metric`）。
 

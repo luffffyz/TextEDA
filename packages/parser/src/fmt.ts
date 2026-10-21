@@ -6,7 +6,7 @@
 // Invariant (teda.md §12): parse(fmt(x)) is semantically the same as parse(x); fmt(fmt(x)) === fmt(x).
 import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
 import { lex, type Cell } from "./lexer.ts";
-import { byteCompare, naturalCompare } from "./order.ts";
+import { byteCompare, naturalCompare } from "@texteda/ir/order";
 import {
   FIELD_KEYS,
   MODEL_KEYS,

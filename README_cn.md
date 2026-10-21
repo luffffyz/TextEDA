@@ -24,6 +24,7 @@ bun run check:links      # 全部 Markdown 链接与 ADR 交叉引用可解析
 bun run check:public     # 公开清扫：查全历史——没有厂商 PDF、没有凭据、没有维护者路径
 bun run preview symbol bq24610rger     # 画符号（不依赖 KiCad）
 bun run preview component bq24610rger  # 画器件的符号 + 封装
+bun run preview view charger-buck/buck-5v  # 画原理图页面（从视图文件，不依赖 KiCad）
 bun run fmt:teda --check examples/reference-project   # canonical form 检查
 bun run compile:schematic examples/reference-project mcu-board   # 板级 IR（诊断带错误码）
 bun run check examples/reference-project          # 校验工程里全部板（ERC + IR 契约）
@@ -31,7 +32,7 @@ bun run texteda netlist examples/reference-project --board mcu-board  # 网表 =
 bun run texteda init ./my-board        # 生成空工程骨架
 ```
 
-当前状态：工具链前半段已落地（语言 → IR → KiCad 导出 → 预览渲染）。`schematic` / `page` 解析（实例、net、port、约束、bus、页面展平）、`pcb` 解析（12 段 → `pcb` IR）、四种描述的 canonical formatter、连通性 ERC 与 sch↔pcb 绑定校验（`packages/core`）都能用。板级设计（布局、布线、制造出口）未实现；KiCad 仍是制造出口（[ADR-0005](docs/adr/0005-manufacturing-output.md)）。
+当前状态：工具链前半段已落地（语言 → IR → KiCad 导出 → 预览渲染）。`schematic` / `page` 解析（实例、net、port、约束、bus、页面展平）、`view` 解析（S1 摆位与走线）、`pcb` 解析（12 段 → `pcb` IR）、footprint / symbol / schematic-page / pcb / view 的 canonical formatter、连通性 ERC 与 sch↔pcb 绑定校验（`packages/core`）都能用，原理图页面可从视图文件出图（`bun run preview view <board>/<page>`）。板级设计（布局、布线、制造出口）未实现；KiCad 仍是制造出口（[ADR-0005](docs/adr/0005-manufacturing-output.md)）。
 
 给 agent 用的两份派生物（都由 `bun run gen` 生成，不手改）：
 
@@ -39,6 +40,24 @@ bun run texteda init ./my-board        # 生成空工程骨架
 |---|---|
 | `docs/error-codes.md` | 诊断码 → 含义、严重度、对应规范 |
 | `docs/ir-reference.md` | IR 字段 → 类型、必填、**单位**、说明（覆盖率清单在文末） |
+
+手写的一份，给要从零建工程的 agent：[docs/skills/new-project.md](docs/skills/new-project.md)——每一步都是一条命令、预期输出，以及失败时该看哪个诊断码。
+
+## 对比
+
+TextEDA 不是 GUI EDA 工具，也不打算变成一个。它站在编辑器上面一层：文本描述语言 + 类型化 IR 作为唯一真源，再加校验器、参考渲染器与导出器。
+
+| | TextEDA | KiCad | EasyEDA | tscircuit |
+|---|---|---|---|---|
+| **你编辑的东西** | `.teda` 文本——`sch` 与 `pcb` 是互不依赖的兄弟 | `.kicad_sch` / `.kicad_pcb` s-表达式 | JSON 工程源文件 | TypeScript / TSX 代码 |
+| **类型化 IR** | JSON Schema 2020-12、canonical JSON、只用整数单位 | 没有独立层，文件本身就是模型 | JSON 工程格式 | `circuit-json`（zod） |
+| **校验** | 连通性 ERC + sch↔pcb 绑定 + IR 契约 | 内置 ERC 与 DRC | DRC | zod + 写在 IR 里的告警 |
+| **布局 / 布线** | 借用（KiCad、freerouting） | 内置 | 内置 | 代码里算 |
+| **制造出口** | 尚未实现（F15）；目标形态是制造中立数据 | 内置 | 内置，可一键下单 | Gerber / BOM / 坐标转换器 |
+| **Agent 接入方式** | 文本 + 类型化 IR + 冻结的诊断码 | Python 与 `kicad-cli` | API SDK + WebSocket 桥接的 AI skill | agent 直接写程序 |
+| **许可** | Apache-2.0，契约层永久开源 | GPL-3.0+，库为 CC-BY-SA 4.0 | 编辑器闭源，SDK 为 Apache-2.0 | MIT |
+
+带出处与日期的完整对比——**包括 TextEDA 还没做到的部分**——见 [docs/comparison.md](docs/comparison.md)。
 
 ## CI
 
@@ -66,6 +85,7 @@ KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.
 | `examples/reference-project/` | 自包含的参考工程：22 个器件 / 15 个符号 / 16 个封装，库全部自建 |
 | `docs/adr/` | 决策记录（ADR），0001–0019（[完整索引](docs/adr/README.md)；0017 与 0020 已预留） |
 | `docs/backlog.md` | 待办清单 |
+| `docs/comparison.md` | 与 KiCad、EasyEDA、tscircuit 的对比（带出处） |
 
 ## 决策记录
 
@@ -97,4 +117,4 @@ KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.
 
 ## 语言策略
 
-源码（`.ts`、schema、`.teda` 示例）只允许英文；`docs/` 与 `spec/` 下的设计文档用中文，**唯一例外是 `docs/adr/` 用英文**——ADR 属于契约层，`spec/`、`schemas/`、`teda.md` 按编号引用它的决策，第三方实现者要读得懂。`README.md` 是英文入口，`README_cn.md` 承载中文。
+源码（`.ts`、schema、`.teda` 示例）只允许英文。**文档默认英文**——`docs/`、`spec/`、`teda.md`、ADR 与 `README.md` 都是英文；只有被明确要求时才写中文，若觉得某份文档用中文更合适，先问。本规则之前写下的文档保持原语言。`README_cn.md` 是本文件的中文镜像，按定义保持中文。

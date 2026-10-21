@@ -31,7 +31,7 @@ version 0.5
 symbol bq24610rger
 ```
 
-- 版本行、类型行规则同 `teda.md` §5。`symbol` 类型要求 `version 0.5` 或更高（该类型由 0.5 引入）。
+- 版本行、类型行规则同 `teda.md` §5。`symbol` 类型要求 `version 0.5` 或更高（该类型由 0.5 引入；接受规则见 `teda.md` §13.3）。
 - 文件名必须等于类型行里的 id：`symbols/<lib>/<symbol_id>.teda` ↔ `symbol bq24610rger`。
 - `symbol_id` 允许 `[A-Za-z0-9_.+-]+`。一个符号是**可复用的视图**：`r` / `c` / `nmos-5` 这类通用画法供多个器件共享，所以名字不必等于 `component_id`。绑定只发生在 `component.symbol`。
 

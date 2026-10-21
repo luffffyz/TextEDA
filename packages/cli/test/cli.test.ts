@@ -3,7 +3,7 @@
 // The focus is errors like "a flag's value being treated as a positional argument": they don't crash, but they steer the command off course.
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 
 const script = join(import.meta.dir, "../scripts/texteda.ts");
@@ -57,6 +57,34 @@ describe("argument parsing", () => {
     const result = run([]);
     expect(result.code).toBe(2);
     expect(result.stderr).toContain("cli.bad-usage");
+  });
+});
+
+describe("--out writes into a directory that does not exist yet", () => {
+  test("compile creates the parent directory", () => {
+    // `init` does not create `dist/` (the export commands are supposed to), so `--out dist/x.json`
+    // must work on a fresh project instead of dying with a raw ENOENT.
+    const root = mkdtempSync(join(tmpdir(), "texteda-cli-out-"));
+    try {
+      const out = join(root, "dist", "schematic.json");
+      const result = run(["compile", "examples/reference-project", "mcu-board", "--out", out]);
+      expect(result.code).toBe(0);
+      expect(existsSync(out)).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("netlist creates the parent directory", () => {
+    const root = mkdtempSync(join(tmpdir(), "texteda-cli-out-"));
+    try {
+      const out = join(root, "dist", "netlist.txt");
+      const result = run(["netlist", "examples/reference-project", "--out", out]);
+      expect(result.code).toBe(0);
+      expect(existsSync(out)).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 

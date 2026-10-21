@@ -4,12 +4,13 @@
 //   texteda compile <project dir> <board_id>              print canonical JSON
 //   texteda compile <project dir> <board_id> --json       print only the diagnostic payload (ADR-0016)
 //   texteda compile <project dir> <board_id> --out <file>  write the IR to a file
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
 import { diagnosticsToPayload } from "@texteda/ir/diagnostics";
 import { canonicalJson, parsePcb, parseSchematic } from "@texteda/parser";
 import { join } from "node:path";
 import { loadBoard, loadComponents } from "./project.ts";
+import { writeOut } from "./output.ts";
 
 export interface CompileOptions {
   /** Project root directory. */
@@ -71,7 +72,7 @@ export function runCompile(options: CompileOptions): number {
 
   const jsonText = canonicalJson(result.ir);
   if (outFile) {
-    writeFileSync(outFile, `${jsonText}\n`);
+    writeOut(outFile, `${jsonText}\n`);
     console.error(`Wrote ${outFile}`);
   } else if (!json) {
     // --json means "diagnostics as JSON output"; stdout is already taken by diagnostics, so the IR only lands on disk via --out or in default mode.
@@ -116,7 +117,7 @@ function runCompilePcb(options: {
   if (outFile === undefined) {
     if (!json) process.stdout.write(text);
   } else {
-    writeFileSync(outFile, text);
+    writeOut(outFile, text);
     console.error(`Wrote ${outFile}`);
   }
   return result.diagnostics.some((d) => d.severity === "error") ? 1 : 0;

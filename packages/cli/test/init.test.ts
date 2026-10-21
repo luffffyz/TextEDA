@@ -6,6 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSy
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CURRENT_FORMAT, initTree, projectNameFromDir, renderProjectToml } from "../src/init.ts";
+import { checkVersion, typeRange } from "@texteda/parser";
 
 /** Run the CLI once in a temp directory. */
 function runInit(args: string[]): { code: number; stdout: string; stderr: string } {
@@ -60,6 +61,13 @@ describe("init file set", () => {
   test("output determinism: the same name yields byte-identical files", () => {
     expect(renderProjectToml({ name: "demo" })).toBe(renderProjectToml({ name: "demo" }));
     expect(initTree({ name: "demo" }).files).toEqual(initTree({ name: "demo" }).files);
+  });
+
+  test("the stamped format version is one this tool accepts", () => {
+    // `init` must not stamp a version the tool cannot read back: the stamp comes from the parser's
+    // supported language version, so a language bump cannot leave the scaffold behind.
+    const verdict = checkVersion(CURRENT_FORMAT, typeRange(1), "component");
+    expect(verdict.ok).toBe(true);
   });
 
   test("the project name defaults to the directory name", () => {
