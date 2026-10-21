@@ -129,24 +129,31 @@
 
 ---
 
-## F6. 仓库可见性切 public（版权清理已完成，待切开关）
+## F6. 仓库可见性切 public（**已完成** 2026-10-21）
 
-**现状**：GitHub 仓库 `luffffyz/texteda` **仍是私有**。许可与开放承诺已按 [ADR-0015](adr/0015-licensing-and-open-standard.md) 落定（Apache-2.0 + 契约层永久开源）。**版权前置已清完**（2026-10-21）：
+**现状**：GitHub 仓库 [`luffffyz/TextEDA`](https://github.com/luffffyz/TextEDA) **已公开**。许可与开放承诺已按 [ADR-0015](adr/0015-licensing-and-open-standard.md) 落定（Apache-2.0 + 契约层永久开源）。
+
+**已完成（2026-10-21）**：
+
+1. ~~扫一遍 `docs/trial-run/`、README、示例工程里的内部链接、主机名、密钥、真实项目代号~~ **已完成**（审计结论见下）。
+2. ~~把 GitHub 可见性切 public~~ **已完成**（切开关后匿名 clone 与匿名 API 均返回 200）。
+3. ~~同步 README 顶部的措辞~~ **已完成**（`README.md` 与 `README_cn.md` 都改为"已公开"）。
+
+**版权前置**（切开关前已清完）：
 
 - 5 个厂商 datasheet PDF（约 15 MB：TI `bq24610` / `tps7a20`、WCH `CH32V307DS0`、四川索斯特 `SST-3225-8M-12PF-10PPM`、硕方精密 `TS-1187`）已从索引移除并加进 `.gitignore`；
 - 这些 PDF 曾在首个提交里进过历史，已用 `git filter-branch --index-filter` **重写历史清除**，并 gc 掉旧对象；
 - `NOTICE` 补了"厂商文档不随仓库分发"声明；`examples/reference-project/docs/` 下的说明与 `mcu-board-components.md` 的表已改成"自行下载到本地"。
 
-**还剩下的（都是人工操作）**：
+**切开关当天额外做的两件事**：
 
-1. ~~扫一遍 `docs/trial-run/`、README、示例工程里的内部链接、主机名、密钥、真实项目代号~~ **已完成**（2026-10-21，审计结论见下）。
-2. 把 GitHub 可见性切 public。
-3. 同步 README 顶部的措辞（当前写的是"仍为私有"）。
+- **仓库改名**：`textEDA` → `TextEDA`（GitHub 仓库名大小写敏感且不重定向，所以按品牌写法走；包名与命令行仍是小写 `texteda`）。
+- **清除错误署名的 trailer**：3 个提交带 `Co-Authored-By:` trailer，把模型署成了另一家的模型（实际 provider/model 是 `minimax-code-cn` / `MiniMax-M3.1-Flash`）——署名是错的。切开关前用 `git filter-branch --msg-filter` 重写移除并 force push（当时 0 fork / 0 PR / 0 star，无外部影响）；旧提交对象匿名访问已返回 404。**教训：commit trailer 是工具行为的一部分，写错了要立刻改，别等公开后。**
 
 **审计结论（2026-10-21，`bun run check:public`）**：
 
-- **历史干净**：13 个可达提交、325 个曾被跟踪的路径，**零个 PDF**；`git fsck --unreachable` 无残留；远端 `main` 与本地逐 commit 一致，GitHub 上没有旧 ref、tag 或 PR 引用指向重写前的历史（`git rev-list --objects origin/main | grep -i pdf` 为空）。
-- **无凭据、无维护者痕迹**：私钥 / GitHub / AWS / Slack token / API key 赋值均无命中；无邮箱；无 `/home/<user>`、`/Users/<user>`、`C:\Users` 绝对路径（`/tmp/texteda-*` 是通用临时目录，不泄露身份）。
+- **历史干净**：17 个可达提交、331 个曾被跟踪的路径，**零个 PDF**；`git fsck --unreachable` 无残留；远端 `main` 与本地逐 commit 一致，GitHub 上没有旧 ref、tag 或 PR 引用指向重写前的历史（`git rev-list --objects origin/main | grep -i pdf` 为空）。
+- **无凭据、无维护者痕迹**：私钥 / GitHub / AWS / Slack token / API key 赋值均无命中；无邮箱（提交者标识用的 GitHub noreply 形式属有意公开，但门禁仍按"零邮箱"判定）；无 `/home/<user>`、`/Users/<user>`、`C:\Users` 绝对路径（`/tmp/texteda-*` 是通用临时目录，不泄露身份）。
 - **无未公开产品**：参考工程的 22 个料号全是公开在售芯片（TI `BQ24610`、WCH `CH32V307`、Vishay `IHLP4040` 等），不含真实客户项目、代号或厂牌。
 - **许可齐备**：7 个 `package.json` 都有 `license: Apache-2.0` 与 `private: true`；`NOTICE` 覆盖内置的 Hershey 字形数据（MIT 正文已附）、KiCad（外部工具，未随仓库分发）、厂商 datasheet（不入库）。
 - **补了一处合规缺口**：`NOTICE` 原先只提了一句 "MIT, (c) 2014 James T"，**没有 MIT 许可正文**——MIT 要求随分发附上正文。已补全。
@@ -161,7 +168,7 @@
 - 仓库里不存在第三方受版权保护的文档。
 
 **注意**：
-
+…
 - **顺序不能反**：先清历史再切 public。反过来就要二次重写，且届时可能已有 fork。
 - 以后再往 `docs/` 里放厂商文档，先想一次"这是不是受版权保护的材料"——默认不入库。
 - F1（校准封装几何）依赖 datasheet 原文，按"自行下载到本地"继续，**不要因此把原文塞回仓库**。
