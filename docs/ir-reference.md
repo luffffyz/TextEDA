@@ -534,7 +534,7 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `instance_id` | refdes | yes | — | Board-level refdes of the instance, e.g. U1. Must exist in the board's instances. |
+| `instance_id` | instance_id | yes | — | Board-level instance id of the instance, e.g. U1. Must exist in the board's instances. The module-qualified form M1.U1 is reserved for the module hierarchy; the view names ids, it does not define them. |
 | `line` | proxy_line | no | — | Starting line of this row in the source file, for diagnostic locations. |
 | `rot_mdeg` | integer | no | m° | Symbol rotation, clockwise positive, millidegrees; reduced modulo 360000. Omitted means 0. |
 | `unit` | integer | no | — | Which unit of a multi-unit symbol to draw. Omitted means unit 1. |

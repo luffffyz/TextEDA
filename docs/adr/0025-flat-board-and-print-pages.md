@@ -66,6 +66,11 @@ once, in one place.
 nothing but the renderer reads. It references **board-level** instance ids and net ids, so the
 drawing and the logic are compared by string equality, with no name resolution in between.
 
+The view's id **vocabulary** is the board's, not a subset of it: a board-level `instance_id` may be
+module-qualified (`M1.U1`), and the view names it as it is — `M1.U1.5` for a pin, `M1.VCC` for a
+module-internal net. The view names ids, it never defines them, so it has no reason to know less
+than the board does.
+
 The view layer's *shape* does not change ([ADR-0021](0021-schematic-view-layer.md)): the same
 `place` / `wire` / `label` / `port` / `text` sections, the same file layout, the same shard path.
 What changes is the meaning of the ids it names: they were page-local, they are now board-level.

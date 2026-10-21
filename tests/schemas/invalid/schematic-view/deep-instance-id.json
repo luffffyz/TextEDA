@@ -1,0 +1,10 @@
+{
+  "ir_version": "0.2",
+  "format": "0.1",
+  "board": "charger-buck",
+  "page": "buck-5v",
+  "sheet": { "width_nm": 297000000, "height_nm": 210000000 },
+  "place": [
+    { "instance_id": "M1.M2.U1", "x_nm": 40000000, "y_nm": 30000000 }
+  ]
+}

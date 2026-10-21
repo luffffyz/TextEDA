@@ -39,7 +39,7 @@ The schematic view is a new description type, living next to `schematic` / `page
 - A separate IR shard: `dist/ir/boards/<board_id>/view/<page_id>.json`, keyed the same way the page shard is ([ADR-0008](0008-ir-shard-identity-and-hash.md)).
 - Its own schema kind in `schemas/ir/v0.2/` and its own spec file in `spec/`.
 
-The view description carries only what a drawing needs: where each symbol sits, how the wires run, where the labels and page ports are. It carries **no electrical facts**. Pin electrical type, net membership, and component identity stay in the logical IR and are read from there; the view references them by the same identity keys (`component_id`, `pin_number`, `net_id`) and never restates them. A view file that disagreed with the logic would be a defect, reported like any other, not a second source of truth.
+The view description carries only what a drawing needs: where each symbol sits, how the wires run, where the labels and page ports are. It carries **no electrical facts**. Pin electrical type, net membership, and component identity stay in the logical IR and are read from there; the view references them by the same identity keys (`instance_id`, `pin_number`, `net_id`) and never restates them. A view file that disagreed with the logic would be a defect, reported like any other, not a second source of truth.
 
 The minimal shape, as a fragment (this is the "which concrete hardware problem does this solve" evidence that AGENTS.md §5.2 requires in place of the not-yet-existing ten cases):
 

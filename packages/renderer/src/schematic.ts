@@ -159,7 +159,8 @@ function placePrimitive(primitive: SvgPrimitive, place: Place): SvgPrimitive {
 }
 
 function splitPinRef(ref: string): { instance: string; pin: string } {
-  const dot = ref.indexOf(".");
+  // The instance id may be module-qualified (`M1.U1`), so the split is at the last dot.
+  const dot = ref.lastIndexOf(".");
   if (dot <= 0 || dot === ref.length - 1) {
     throw new Error(`schematic view: not a pin reference: ${ref}`);
   }

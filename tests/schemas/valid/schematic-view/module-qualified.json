@@ -1,0 +1,18 @@
+{
+  "ir_version": "0.2",
+  "format": "0.1",
+  "source": { "file": "sch/charger-buck/buck-5v.view.teda", "line": 1 },
+  "board": "charger-buck",
+  "page": "buck-5v",
+  "sheet": { "width_nm": 297000000, "height_nm": 210000000 },
+  "place": [
+    { "instance_id": "M1.U1", "x_nm": 40000000, "y_nm": 30000000, "rot_mdeg": 0, "line": 8 },
+    { "instance_id": "M1.C1", "x_nm": 20000000, "y_nm": 30000000, "rot_mdeg": 90000, "line": 9 }
+  ],
+  "wire": [
+    { "net": "M1.VCC", "from_pin": "M1.U1.5", "to_pin": "M1.C1.1", "line": 12 }
+  ],
+  "label": [
+    { "net": "M1.VCC", "x_nm": 35000000, "y_nm": 25000000, "line": 15 }
+  ]
+}

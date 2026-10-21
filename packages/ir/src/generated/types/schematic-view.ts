@@ -105,7 +105,7 @@ export type Note = string;
  */
 export type ProxyLine = number;
 /**
- * Board-level pin reference in numbered form: <refdes>.<pin_number>. The view speaks the IR's normalized pin language (no pin names, no multi-unit shorthand), so the cross-check against the board is a direct comparison of the same strings.
+ * Board-level pin reference in numbered form: <instance_id>.<pin_number>, e.g. U1.5 or M1.U1.5. The view speaks the IR's normalized pin language (no pin names, no multi-unit shorthand), so the cross-check against the board is a direct comparison of the same strings.
  *
  * This interface was referenced by `SchematicView`'s JSON-Schema
  * via the `definition` "view_pin_ref".
@@ -192,7 +192,7 @@ export interface SourceRef {
  */
 export interface Place {
   /**
-   * Board-level refdes of the instance, e.g. U1. Must exist in the board's instances.
+   * Board-level instance id of the instance, e.g. U1. Must exist in the board's instances. The module-qualified form M1.U1 is reserved for the module hierarchy; the view names ids, it does not define them.
    */
   instance_id: string;
   /**

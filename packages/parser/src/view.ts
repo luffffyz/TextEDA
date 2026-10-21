@@ -20,10 +20,15 @@ const SECTION_SET = new Set<string>(VIEW_SECTIONS);
 /** The `place` tail keys (the section is a table with an optional key=value tail). */
 const PLACE_KEYS = new Set(["unit"]);
 const VIEW_ID_RE = /^[A-Za-z0-9_+-]+$/;
-const REFDES_RE = /^[A-Z]+[0-9]+$/;
-const NET_ID_RE = /^[A-Za-z0-9_+-]+$/;
-/** Board-level pin reference in numbered form: `<refdes>.<pin_number>`. */
-const PIN_REF_RE = /^[A-Z]+[0-9]+\.[A-Za-z0-9_+-]+$/;
+/**
+ * Board-level instance id: a plain refdes (`U1`) or the module-qualified form (`M1.U1`), which the
+ * module hierarchy reserves. The view names ids; it never defines them.
+ */
+const INSTANCE_ID_RE = /^([A-Z]+[0-9]+\.)?[A-Z]+[0-9]+$/;
+/** Board-level net id; the module-qualified form (`M1.VCC`) is reserved for the module hierarchy. */
+const NET_ID_RE = /^[A-Za-z0-9_+-]+(\.[A-Za-z0-9_+-]+)*$/;
+/** Board-level pin reference in numbered form: `<instance_id>.<pin_number>`, e.g. `U1.5`, `M1.U1.5`. */
+const PIN_REF_RE = /^([A-Z]+[0-9]+\.)?[A-Z]+[0-9]+\.[A-Za-z0-9_+-]+$/;
 /**
  * `view` was introduced in language version 0.6 (teda.md §13); since 0.7 it names board-level ids
  * (ADR-0025), so a 0.6 view file is no longer accepted.
@@ -204,8 +209,8 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
           continue;
         }
         const instanceId = cells[0]!.text;
-        if (!REFDES_RE.test(instanceId)) {
-          collector.error(file, line.number, cells[0]!.col, "syntax.invalid-token", `not a valid refdes: ${instanceId}`);
+        if (!INSTANCE_ID_RE.test(instanceId)) {
+          collector.error(file, line.number, cells[0]!.col, "syntax.invalid-token", `not a valid instance id: ${instanceId}`);
           continue;
         }
         const x = parseGridNm(cells[1]!, file, line.number, collector);
@@ -346,7 +351,8 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
   const placed = new Set(place.map((p) => p.instance_id));
   for (const item of wire) {
     for (const ref of [item.from_pin, item.to_pin]) {
-      const instanceId = ref.slice(0, ref.indexOf("."));
+      // The instance id may be module-qualified (`M1.U1`), so the split is at the last dot.
+      const instanceId = ref.slice(0, ref.lastIndexOf("."));
       if (!placed.has(instanceId)) {
         collector.error(
           file,

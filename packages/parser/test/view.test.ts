@@ -73,6 +73,33 @@ describe("view parsing", () => {
     const ir = parseView(source, { file, board: "b" }).ir!;
     expect(ir.sheet).toEqual({ width_nm: 297_000_000, height_nm: 210_000_000 });
   });
+
+  test("the module-qualified names of the module hierarchy are board-level names", () => {
+    // The view names ids, it does not define them: a module instance is `M1.U1`, its pin
+    // reference is `M1.U1.5`, and a module-internal net is `M1.VCC`.
+    const source = [
+      "version 0.7",
+      "view main",
+      "",
+      "place",
+      "  M1.U1  10.0  10.0",
+      "  M1.C1  20.0  10.0",
+      "",
+      "wire",
+      "  M1.VCC  M1.U1.5  M1.C1.1",
+      "",
+      "label",
+      "  M1.VCC  15.0  10.0",
+    ].join("\n");
+    const result = parseView(source, { file, board: "b" });
+    expect(result.diagnostics).toEqual([]);
+    const ir = result.ir!;
+    expect(ir.place.map((p) => p.instance_id)).toEqual(["M1.U1", "M1.C1"]);
+    expect(ir.wire![0]).toMatchObject({ net: "M1.VCC", from_pin: "M1.U1.5", to_pin: "M1.C1.1" });
+    expect(ir.label![0]).toMatchObject({ net: "M1.VCC" });
+    // The qualified names satisfy the contract, not just the parser.
+    expect(validate("schematic-view", ir)).toMatchObject({ ok: true, errors: [] });
+  });
 });
 
 describe("view diagnostics", () => {
@@ -93,8 +120,8 @@ describe("view diagnostics", () => {
       code: "value.angle-invalid",
     },
     {
-      name: "a pin reference that is not a board-level instance",
-      source: "version 0.7\nview main\n\nplace\n  U1  10.0  10.0\n\nwire\n  VDD  M2.U1.5  U1.6\n",
+      name: "a pin reference with more than one instance level",
+      source: "version 0.7\nview main\n\nplace\n  U1  10.0  10.0\n\nwire\n  VDD  U1.5.6  U1.6\n",
       code: "syntax.invalid-ref",
     },
     {

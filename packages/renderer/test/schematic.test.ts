@@ -136,4 +136,24 @@ describe("renderSchematic", () => {
   test("refuses to draw an instance without symbol facts", () => {
     expect(() => renderSchematic(view(), new Map())).toThrow(/no symbol facts/);
   });
+
+  test("draws a module-qualified instance and resolves its pins", () => {
+    // The module hierarchy is not implemented yet, but the view speaks the board's identity
+    // language: a module instance is `M1.U1` and its pin reference is `M1.U1.1`.
+    const v = view({
+      place: [{ instance_id: "M1.U1", x_nm: 100_000_000, y_nm: 100_000_000, rot_mdeg: 90_000 }],
+      wire: [{ net: "M1.VCC", from_pin: "M1.U1.1", to_pin: "M1.U1.2" }],
+    });
+    const doc = renderSchematic(v, new Map([["M1.U1", part()]]));
+    const pins = doc.primitives.filter((p) => p.kind === "pin");
+    const wires = doc.primitives.filter((p) => p.kind === "polyline" && p.layer === "wire");
+    expect(pins).toHaveLength(2);
+    expect(wires).toHaveLength(1);
+    const wire = wires[0]!;
+    if (wire.kind !== "polyline") throw new Error("expected a polyline");
+    const pin1 = pins.find((p) => p.kind === "pin" && p.number === "1");
+    const pin2 = pins.find((p) => p.kind === "pin" && p.number === "2");
+    expect(wire.points[0]).toEqual({ x: pin1!.x, y: pin1!.y });
+    expect(wire.points[wire.points.length - 1]).toEqual({ x: pin2!.x, y: pin2!.y });
+  });
 });
