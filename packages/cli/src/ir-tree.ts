@@ -29,7 +29,7 @@ import {
   parseSymbol,
   parseView,
 } from "@texteda/parser";
-import { listBoards, loadBoard, loadComponents, loadPcb } from "./project.ts";
+import { listBoards, loadBoard, loadComponents, loadModules, loadPcb } from "./project.ts";
 
 /** One compiled shard: canonical bytes plus the hash of those bytes. */
 export interface IrShard {
@@ -110,6 +110,7 @@ export function buildIrTree(root: string): IrTree {
   const drafts: Draft[] = [];
   const diagnostics: Diagnostic[] = [];
   const { resolver } = loadComponents(root);
+  const modules = loadModules(root);
 
   for (const board of listBoards(root)) {
     const loaded = loadBoard(root, board);
@@ -118,6 +119,7 @@ export function buildIrTree(root: string): IrTree {
       file: loaded.file,
       board,
       components: resolver,
+      modules,
     });
     diagnostics.push(...schematic.diagnostics);
     if (schematic.ir) {

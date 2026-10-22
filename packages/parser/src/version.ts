@@ -65,7 +65,7 @@ export interface VersionRange {
  * the version a type was introduced in is only its lower bound. When the language reaches `1.0`
  * (a milestone, not a counter — see ADR-0022) this constant moves to the `1.x` line.
  */
-export const SUPPORTED_LANGUAGE: LanguageVersion = { major: 0, minor: 7, patch: 0 };
+export const SUPPORTED_LANGUAGE: LanguageVersion = { major: 0, minor: 8, patch: 0 };
 
 /**
  * The versions a description type accepts: from the version that introduced the type up to the

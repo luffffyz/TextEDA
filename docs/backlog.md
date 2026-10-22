@@ -301,7 +301,7 @@
    - `span` 粒度：token 级还是记录级？一条 IR 记录（如 net 的成员列表）对应源里多行 → 建议**记录级**（指向该记录首 token），必要时给 `end`。
 2. **span 不进 IR**，两种落地方式选一（建议 A）：
    - **A（推荐）**：parse 阶段产出 IR 的同时记录 **IR 路径 → 源 span** 映射（随诊断使用，解析结束即丢，不落盘）；
-   - **B**：落盘一张 span 表（`dist/ir/<shard>.spans.json`），事后可重算定位（支持"IR 已有、源已改"，但多一份产物要管一致性）。
+   - **B**：落盘一张 span 表（`dist/ir/<shard>.spans.json`），事后可重算定位（支持"IR 已有、源已改"，但多一份产物要管一致性）。**评审 GUI 依赖 B**（[ADR-0021](adr/0021-schematic-view-layer.md) 的 2026-10-22 附录）：画布点击要跳进源码，靠的就是这张表；且它要给出的不是只有"IR 路径 -> 位置"，还有**身份索引**（`identity -> 位置列表`），供 GUI 列出"这个身份定义在哪里"。
 3. **IR 路径 → 源 span 的反向索引**（给 Ajv 用）：Ajv 的 `instancePath` 是 IR 数组下标，要经索引查到 span。这要求解析器的内部结构在编译成 IR 之前保留来源路径，**编译时剥掉**。
 4. **跨文件引用**的诊断要同时给**引用点**（`location`）与**定义点**（`related`）——sch 引用 `components/xxx.teda` 时两处都要能指。
 5. **canonical 与位置不要混用**：位置基于**原文件**；`fmt` 之后行号会变。
@@ -374,16 +374,25 @@
 
 ---
 
-## F13. 层次（`module` / 参数）：先立约束，延后实现
+## F13. 层次（`module` / 参数）：模块层已落地，参数与嵌套仍延后
 
-**现状**：层次是设计里**唯一自指闭环**的部分——`AGENTS.md` §4.2 说有 module/实例化/参数/import，`teda.md` 说"草案见 `AGENTS.md` §5.3"，§5.3 又指回 `teda.md`。没有规范、没有语法、没有解析器、没有用例。§11 Q16 已把它记为待定问题。
+**现状（2026-10-22 更新）**：**模块层已落地**（语言 0.8）——规范 `spec/module.md`、决策 [ADR-0026](adr/0026-modules-compose-boards.md)、解析器（`packages/parser`：`modules/` 段 + `module` 文件 + 端口绑定 + 展平进板级 IR）、canonical formatter、CLI（`loadBoard` 读 `modules/`，`check` / `compile` / `ir` 走同一路径）。参考工程里 `charger-buck` 板已改写为"两个模块 + 板级器件"。
 
-**已定的约束（2026-10-21 讨论，先写死以免被随手设计掉）**：
+这一条原来是"层次是设计里唯一自指闭环的部分"（`AGENTS.md` §4.2 说有 module/参数/import，`teda.md` 说"草案见 `AGENTS.md` §5.3"，§5.3 又指回 `teda.md`）。那个闭环已经拆掉：模块有规范、有语法、有解析器、有用例。
 
-1. **层次只在源码层，IR 存展平结果**——展平口径由 module 自己定义（旧的页面展平机制已随语言 0.7 撤销，见 [ADR-0025](adr/0025-flat-board-and-print-pages.md)）。IR 里不留 module 结构，否则第三方实现要额外实现 module 解析 / 展开 / 端口解析三套语义。
-2. **module 是唯一的层次**：有 ports，展平命名用 `<instance_id>.<net>`（[ADR-0024](adr/0024-level-tags-in-flattened-names.md)），未连接端口必须显式（与 F8 的 pin 归属三态同构）。**外层 id 的层级标记**：module 实例用 `M` 开头（`M1.R1`）；`P`（页面）已随页面机制撤销，`MOD` 不用（[ADR-0025](adr/0025-flat-board-and-print-pages.md) decision 5）。
-3. **参数只做字面量替换，不参与运算**：参数值与实例覆盖值都必须是字面量（可带单位）；禁止 `VOUT = $vin * $ratio`、禁止参数引用参数、禁止函数调用。派生值由语言外的生成器算好后写成字面量（与 F9 同源）。
+**已定并已实现的约束（2026-10-21 讨论定，2026-10-22 落地）**：
+
+1. **层次只在源码层，IR 存展平结果**——展平口径由 module 自己定义（旧的页面展平机制已随语言 0.7 撤销，见 [ADR-0025](adr/0025-flat-board-and-print-pages.md)）。IR 里不留 module 结构，否则第三方实现要额外实现 module 解析 / 展开 / 端口解析三套语义。**已落地**：IR 契约不变（仍是 0.2 的平表），模块只存在于源码层。
+2. **module 是唯一的层次**：有 ports，展平命名用 `<instance_id>.<net>`（[ADR-0024](adr/0024-level-tags-in-flattened-names.md)），未连接端口必须显式（与 F8 的 pin 归属三态同构）。**外层 id 的层级标记**：module 实例用 `M` 开头（`M1.R1`）；`P`（页面）已随页面机制撤销，`MOD` 不用（[ADR-0025](adr/0025-flat-board-and-print-pages.md) decision 5）。**已落地**：模块实例 id `M1`、展平实例 `M1.R1`、展平 net `M1.VFB`；端口用 `no_connect` 显式悬空。
+3. **参数只做字面量替换，不参与运算**：参数值与实例覆盖值都必须是字面量（可带单位）；禁止 `VOUT = $vin * $ratio`、禁止参数引用参数、禁止函数调用。派生值由语言外的生成器算好后写成字面量（与 F9 同源）。**未落地**（见下）。
 4. **评审可见性**：module 体里的 `$rset` 意味着"值来自实例"，评审者看实例行即可（**一跳**，不是程序语义）；实例行里的值是字面量。参数化**结构**不藏事实，参数化**取值**才藏事实——后者不做。
+
+**还没落地的部分**（触发后做）：
+
+1. **模块参数**（约束 3）：`$name` 形参、实例行覆盖字面量值。判据不变——出现真实的"同构重复 ≥ 15 行、实例 ≥ 3 次、**且取值各不相同**"才做。参数化结构不藏事实、参数化取值藏事实（所以不做），见约束 4。
+2. **模块嵌套**：模块引用模块。层次只有一层是当前决定；嵌套要额外定"展开预算"（防展开爆炸，参考 cohdl 的展开预算）与循环检测。
+3. **跨工程模块库**：`use` / `import` + 库包规范（module 进库包），等 F10 的库包规范先定。
+4. **版本锁定与循环检测**（`module` 文件的版本锚定）。
 
 **什么时候层次真的值得（判据）**：
 
@@ -392,18 +401,9 @@
 - 层次**不解决**：BGA 200 脚引脚表太长、电源域公共点太多——那些是 pin 表与 net 表问题。
 - §7 的"规模 >100 器件上下文爆炸"由展平后的净表 + 打印页分块缓解，层次只是其中一种手段。
 
-**要做的事**（触发后）：
-
-1. 写 `spec/hierarchy.md`：module 体语法、ports、参数、实例语法、展开规则、命名规则。
-2. 决定 module 定义的存放位置：先只支持**工程内**（`modules/` 目录，或直接放在 `sch/<board_id>/` 旁），跨工程复用等 F10 的库包规范（module 进库包）。
-3. 校验规则：端口必须全部连接或显式 `nc`；未定义/未使用参数报错；实例化深度上限（防展开爆炸，参考 cohdl 的展开预算）；循环检测；展开后与 sch 的 net/器件命名不冲突。
-4. 展平后的结果进板级 IR，器件身份沿用 `component_id`，BOM 计数按 [ADR-0002](adr/0002-board-pages-and-bom.md) decision 7 的口径（聚合键不含 refdes）。
-
-**触发条件**：出现第一个真实的"同构重复 ≥ 15 行、实例 ≥ 3 次、且取值各不相同"的场景。**在此之前不实现。**
-
 **注意**：
 
-- 层次是源码层机制，越晚定越便宜——sch 解析器与展平口径没定之前定层次，等于在没学会走路前学跑步。
+- 层次是源码层机制，越晚定越便宜——sch 解析器与展平口径没定之前定层次，等于在没学会走路前学跑步。（模块层是在展平口径定版之后才落的。）
 - 不要用层次去解决"文件太长"：表长不是问题，**一行一个事实**才是问题；层次会把"可见的事实"变成"要展开才可见的事实"。
 - 引入层次时，F9 的"事实层无表达式"仍然成立：层次是替换机制，不是表达式机制。
 
@@ -649,3 +649,323 @@
 - **不要为了"树看起来完整"而写空分片**：没有生产者的类型不能出现空目录或空分片（[ADR-0023](adr/0023-ir-layer-on-disk.md) decision 2）。
 - 分片路径与源码目录一一对应（`components/<component_id>.json` ↔ `components/**/<component_id>.teda`，`systems/<system_id>.json` ↔ `system/<system_id>.teda`），不要另发明映射表。
 - 这条不是"补三个文件"，是"补三种描述的解析器"——工作量在解析器，不在写 JSON。
+
+---
+
+## F25. 器件拆成 part / family，器件资产归到 `assets/`（ADR-0027 的落地）
+
+**现状**：`component` 一种类型同时表示"具体料"（`ch32v307vct6`，`mpn` 齐全）与"通用模板"（`c-0402`，取值落在实例行），两者的区别只靠 `category` + `params` 含 `value` 的约定；目录上 `symbols/project/`、`footprints/project/` 带库名层，`components/` 把族与料混在一起。决策见 [ADR-0027](adr/0027-device-parts-families-and-library-dependencies.md)，**未落地**。
+
+**要做的事**：
+
+1. **语言层**：`component` 增加必填 `kind`（`part` / `family`）；`part` 要求 `mpn`、`family` 禁止 `mpn` 且 `params` 至少有一列参与身份（`value`）；新增 `construction`（开放词表）与 `polarized`（`yes`/`no`）两个标量字段；语言版本到 **0.9**，`teda.md` §6 改写。
+   - **引脚表是身份分界**（[ADR-0027](adr/0027-device-parts-families-and-library-dependencies.md) decision 3）：引脚表变了就是另一个器件；只有不改引脚表、不改引脚行为的属性才允许进 `params`（value / tolerance / 耐压 / ESR / 温度档）。`package` 与 `footprint` 是 part / family 的固定属性，**不是** `params`。
+   - **一封装一 part**（decision 4）：同一 die 的多个封装 = 多个 part 文件，各自写**完整**引脚表；不做引脚表合成、不做多封装 part。
+2. **目录迁移**（机械部分）：`symbols/project/*` → `assets/symbols/*`，`footprints/project/*` → `assets/footprints/*`；`components/passives/c-0402.teda` → `assets/families/cap-0402.teda`（族 id 不带值、带构造）；`components/passives/xtal-8mhz-3225.teda` 等有真 MPN 的 → `assets/components/*` 并标 `kind: part`；`project.toml` 的 `[libs.project]`（自建库的 `symbols`/`footprints` 键）删除，自建资产变成项目自有目录。**目录按归属分组的完整迁移见 F29**（本条只管器件这一半）。
+3. **迁移脚本**：`bun run migrate:0.9 <项目目录>`，仿 `scripts/migrate-0.7.ts`；**族 id 的改名由作者决定，脚本不替人命名**（`c-220u` → `cap-tantalum-7343` 这类要在报告里列出来等人确认）。
+4. **命名空间**：`instances` 行支持 `lib:id` 限定名（库内件必须限定，项目件可裸写）；解析顺序：项目 `components/` → 项目 `families/` → 库。
+5. **variant 作用域**：`packages/core` 的 ERC 里，变体按 `component_id` 生效只对 `kind: part` 成立；族只能按实例作用域（DNP/替代料指到具体实例）。
+6. **`params` 语义校验**：编译期检查 `params` 列不承载"改引脚表/改引脚行为"的属性（人工判定不了的部分靠约定 + 库级检查）；`part` 的 `package` / `footprint` 与 `family` 的固定封装不得出现在 `params` 里。
+7. **`procurement/` 描述类型**：新描述类型（族+规格 → 料），带 parser 与 fmt；BOM 行键统一为 `(component_id, 参数字典)`（part 的参数为空）。**格式已定**（[ADR-0030](adr/0030-procurement-layer.md) 已 Accepted，语法见 `spec/procurement.md`），**实现见 F35**。
+   - **主料 / 备选分离**：主料在 `assets/procurement/primary/<board_id>.teda`（**规范分片**，进工程哈希与板哈希，决定 BOM 与制造包）；第二货源在 `assets/procurement/alternatives/<board_id>.teda`（**附注分片**，进 IR 但**不进工程哈希**，另聚合成 `advisory_hash`）——换备选不触发重建、不作废已评审的制造包。备选违反硬约束（封装不等、不是 part、无 `mpn`）报 **warning**，不阻断构建；主料违反则是 error；备选文件的**语法错**仍是 error（文件坏了）。
+8. **IR 契约**：`schemas/ir/v0.2/component.schema.json` 加 `kind` / `construction` / `polarized`，契约版本到 **v0.3**（纯增量），跑 `bun run gen` 重生成类型，`tests/schemas/` 补正反例。
+
+**验收**：
+
+- `bun run migrate:0.9` 后参考工程仍 `bun run check` 通过、`bun run lib:verify` 全绿、`bun run fmt:teda --check .` 退出 0。
+- 变体对族的作用域有专门用例：族级 DNP 报错，实例级 DNP 通过。
+- 库件限定名与裸名解析各有用例；库内件不限定时报"必须限定"而不是"找不到"。
+
+**注意**：
+
+- **`component_id` 语义变了**（族 id 不再带值），哈希与 BOM 口径都变 → 属于 [ADR-0022](adr/0022-language-versioning.md) 里的 MINOR 变更，要写迁移说明。
+- `packages/ir` 的诊断码表要新增码（`域.slug` 形式），登记进 `packages/ir/src/diagnostics/codes.ts`，跑 `bun run gen` 更新 `docs/error-codes.md`。
+- 别顺手把"库"塞进项目树：**外部库是依赖，但依赖要 vendored 进树**（`external/libs/<name>/` + `libref` 钉版本），并且它的资产**进 `dist/ir/`**（规范分片）——IR 必须自足，见 [ADR-0031](adr/0031-project-tree-ownership-model.md) decision 6。`[libs]` 表项本身已从 `project.toml` 移走。
+
+---
+
+## F26. 库的信任模型：provenance、免责条款、派生覆盖（ADR-0028 的落地）
+
+**现状**：`bun run lib:verify` 只校验项目自建库（引用可解析、引脚号与焊盘号对齐、KiCad 可读、DRC 0 违规）；库没有版本、没有来源标注、没有免责、没有"项目纠正库" 的机制。决策见 [ADR-0028](adr/0028-library-trust-and-derived-overrides.md)，**未落地**。
+
+**要做的事**：
+
+1. **`provenance` 字段**：`component` 增加 `provenance`（`generated` / `reviewed`），未声明按 `generated` 处理；`reviewed` 必须带 `verified_by` / `verified_on`；`kind: part` 且 `provenance: generated` 时 `datasheet` 必填。
+2. **库清单 `lib.toml`**：`name` / `version` / `generated` / `reviewed` / `disclaimer`；库发布时清单必填。
+3. **派生覆盖**：`component` 增加 `overrides`（指向被覆盖的 `lib:id`）；派生的 `component` / `family` 必须是**完整**的一份（不是 patch），且要声明自己的 `provenance`。
+4. **严格模式**：`texteda check --strict-provenance`（或 `project.toml` 开关）下，引用 `generated` 的库件报错，诊断里给库名、件号与 datasheet 指针。
+5. **`lib:verify` 能跑外部库**：对库目录跑同一套三方对齐（symbol 引脚号 == footprint 焊盘号 == component 引脚号）与 canonical 检查。
+6. **库 vendoring 与哈希校验**：`external/libs/<name>.toml`（`libref`：`name`/`source`/`rev`/`content_hash`/`channel`）要能被 CLI 消费——`texteda lib add <name>@<rev>` 拉取并落进 `external/libs/<name>/`，校验 `content_hash`，不匹配即报错；**编译期不联网**。库资产进 `dist/ir/`（规范分片），见 [ADR-0031](adr/0031-project-tree-ownership-model.md) decision 6。
+
+**验收**：
+
+- 一个引用 `generated` 库件的项目在严格模式下报错、在普通模式下通过，诊断文案含库名与 datasheet 链接。
+- 派生覆盖后：库内容哈希不变；项目内该件的事实等于派生文件；`lib:verify` 仍全绿。
+- `content_hash` 被改动时 CLI 明确报错而不是静默继续。
+
+**注意**：
+
+- 免责条款是**库自己发布的**内容（`lib.toml`），不要让 CLI 替库作者生成法律文本；CLI 只校验字段在位。
+- 派生覆盖是"复制 + 声明关系"，不要做成字段级 patch（合并结果不是任何文件写下的内容，读者要自己算合并才知道真相）。
+- 库的注册表与分发格式仍未定（见 F10），本条只做"引用一个已在本地的库"这一段。
+
+---
+
+## F27. `package` 字段删除、3D 模型改挂 part（ADR-0029 的落地）
+
+**现状**：`component` 同时写 `package LQFP-100` 与 `footprint project:lqfp-100`（同一事实写两遍，无校验）；3D 模型按 `model` 行挂在 **footprint** 文件上（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md)）。决策见 [ADR-0029](adr/0029-package-code-footprint-and-3d-model-ownership.md)，**未落地**。
+
+**要做的事**：
+
+1. **`component` 去掉 `package` 字段**：`teda.md` §6 改写；`packages/parser` 的 `component` 解析器读到该字段即报错（字段已不存在，不要静默忽略）；`schemas/ir/v0.2/component.schema.json` 去掉 `package`（契约 v0.2 → v0.3）。
+2. **`footprint` 增加 `package_code`**：`spec/footprint.md` 与 `packages/parser` 的 footprint 解析器；`schemas/ir/v0.2/footprint.schema.json` 加字段。封装代号（`0402` / `SOT-23-5` / `LQFP-100`）落在 land pattern 文件里，footprint id 通常已经带它。
+3. **3D 模型改挂 part**：`component` 增加可选 `model <相对路径>`；`footprint` 解析器**拒绝** `model` 行（迁移脚本负责搬）；**footprint 的 IR 分片与 schema 去掉 `model3d`**（`schemas/ir/v0.2/footprint.schema.json` 现在还有它），`packages/exporter` 也不再往 `.kicad_mod` 写 `(model ...)`。`spec/footprint.md` §6.1 的 `model` 行要删。
+4. **3D 模型文件的存放位置**：放在提供该 part 的树里（项目或库），例如 `3dmodels/<id>.step`，被 `content_hash` 覆盖（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) decision 5）。库哈希的计算范围要相应调整（`scripts/libhash.ts` 现在只算 `symbols/` + `footprints/`）。
+5. **导出的 footprint 是纯 2D，没有变体**（ADR-0029 的 2026-10-22 附录已定）：KiCad 输出是给**板厂**的派生产物，最多给人 review，不当工作环境——KiCad 自己的 footprint 也不绑 part。所以导出的 `.kicad_mod` **不带 3D 模型**，一个 land pattern 一个文件，**没有封装变体**，导出器重新变成 footprint IR 的**纯函数**（`export footprint --part` 不做）。3D 身体留在 part / family 文件里，用在有 part 上下文的地方：我们自己的 3D 预览与装配层、板级导出（每个实例可带自己的模型路径）。可选：land pattern 可附一个**封装外形**（包络，按 land pattern 唯一，也不产生变体）。
+6. **KiCad 输出里不再有 3D 身体**：今天 `.kicad_mod` 带 `(model ...)`（来自 footprint 的 `model3d`），去掉后 KiCad 里只看得到 2D。
+   补法有两条：**封装外形**（land pattern 可选地附一个封装标准外形——IPC/JEDEC 的通用件——按 land pattern 唯一、**不产生变体**，但那是外形不是厂商件，要标出来），或**板级导出时按实例写模型**（`packages/exporter` 目前只出 `.kicad_mod` / `.kicad_sym`，**没有板导出**，所以这条要等 F16 / F21）。**已定：做封装外形**（[ADR-0029](adr/0029-package-code-footprint-and-3d-model-ownership.md) 的 2026-10-22b 附录）——见下面第 8 条。
+7. **封装外形（envelope）**：`footprint` 增加可选 `envelope <path>`（封装标准外形，IPC/JEDEC 通用件，不是厂商件）；导出时写进 `.kicad_mod`（`packages/exporter` 的 `modelSexp` 那条路改成写 envelope）。**一个 land pattern 一个 envelope → 不产生变体**，导出器仍是纯函数。允许的条件：身体由封装决定（MLCC、贴片无源、标准封装的集成电路）；钽电解薄膜电容、模压屏蔽电感、连接器、带引线框架的分立件**不允许**（身体随额定值变）。检查在 `lib:verify`：用了带 envelope 的 land pattern 的 part，其 `construction` 属于身体随额定值变的那一组 → 报错。
+8. **不做装配约束**：语言里不加 `body_height` / `body_size` 等机械尺寸，也不做限高检查（限高要配合外壳，外壳不在项目里）。这条要写进 `docs/footprint-authoring.md`，避免以后有人"顺手加个高度字段"。
+
+**验收**：
+
+- 迁移后参考工程 `bun run check` / `bun run lib:verify` / `bun run fmt:teda --check .` 全绿。
+- 同一 land pattern 上的两个不同厂商器件（可用钽电容 / 电解电容构造）各自持有自己的 `model`，互不覆盖。
+- 给 `footprint` 文件加 `model` 行 → 解析器报错并指向 ADR-0029。
+- 给 `component` 留 `package` 行 → 解析器报错。
+
+**注意**：
+
+- **这是 ADR-0010 的修订**（3D 归属），但 ADR-0010 decision 1（语言里没有尺寸字段）**不变**——本次不引入任何尺寸字段。
+- 契约从 v0.2 升到 v0.3 是同一批（`kind` / `construction` / `polarized` / 去 `package` / 加 `package_code`），别分两次升。
+- **别把 model 挂回 footprint**：导出器保持 footprint IR 的**纯函数**（2026-10-22 附录改了 decision 3 的方向——原来"导出器需要 part 上下文"这条已被推翻，因为 KiCad 输出只给板厂与评审，`.kicad_mod` 是纯 2D land pattern）。
+- 身体信息仍然是 part / family 的事实，只是**不写进 KiCad 库文件**；写它进 KiCad 的动机只能是"想给 KiCad 用户看形体"，那用**封装外形**，不用厂商件。
+
+---
+
+## F28. 分片的规范 / 附注之分与双哈希（ADR-0023 修订 + ADR-0030 的落地）
+
+**现状**：`dist/ir/` 的 manifest 逐片记 `sha256`，工程哈希 = **全部**分片按路径排序后 `<path>:<sha256>\n` 拼接的 `sha256`；没有"规范 / 附注"的概念，也没有第二个哈希。决策见 [ADR-0023](adr/0023-ir-layer-on-disk.md)（2026-10-22 修订）、[ADR-0008](adr/0008-ir-shard-identity-and-hash.md) decision 5 与 [ADR-0030](adr/0030-procurement-layer.md) decision 12，**未落地**。
+
+**要做的事**：
+
+1. **分片分类**：manifest 的 `shards` 每项加 `normative: true | false`。分类是**文件级**属性（一个源文件 → 一个分片 → 一个分类，[ADR-0008](adr/0008-ir-shard-identity-and-hash.md) decision 1），所以采购层拆成两个目录：`assets/procurement/primary/<board_id>.teda`（规范）与 `assets/procurement/alternatives/<board_id>.teda`（附注）。
+2. **双哈希**：工程哈希 = 规范分片聚合；新增 `advisory_hash` = 附注分片聚合（同算法、同形状）。板哈希不变（板分片恒为规范）。
+3. **manifest schema**：`schemas/ir/v0.2/manifest.schema.json` 加 `normative` 与 `advisory_hash`（契约 v0.2 → v0.3，与 F25 / F27 同批升）。
+4. **`texteda ir --json` 载荷**加 `advisory_hash`；人读摘要要能一眼看出"构建身份"与"采购状态"两个不同的数。
+5. **盖章规则**：Gerber / 网表 / BOM 主料行盖 `project_hash`；采购附注盖 `advisory_hash`（`AGENTS.md` §2 不变量 11 的追溯口径要按产物类型分）。
+6. **陈旧检查**：`texteda check` 比对当前 `advisory_hash` 与采购附注里盖的那个 → 不一致报 warning（"采购附注已过期"）。
+7. **文档**：把"哈希标识构建、不标识工程文件集合"写进 `AGENTS.md` §2 不变量 18 与 §9、§10 的哈希口径；`docs/skills/new-project.md` 若提到哈希，同步。
+
+**验收**：
+
+- 只改 `assets/procurement/alternatives/*.teda` → `advisory_hash` 变、`project_hash` **不变**，Gerber / 网表字节不变。
+- 改 `assets/procurement/primary/*.teda` → `project_hash` 变。
+- manifest 里每片都有 `normative`，且两类分片的聚合互不串。
+- 同一工程两次编译仍逐字节相同（含附注分片）。
+
+**注意**：
+
+- **哈希口径变了**：旧工程哈希与新工程哈希不可比（集合不同了），这是 [ADR-0022](adr/0022-language-versioning.md) 意义上的口径变更，要写迁移说明。
+- 别把"附注"当成垃圾桶：凡是**构建产物依赖**的内容必须是规范分片。判据：改它会不会让已签发的制造包作废？会 → 规范；不会 → 附注。
+- 附注分片仍然要写盘、仍然要校验（备选里的 part 停产、封装漂移会被发现），只是不进工程哈希。
+
+---
+
+## F29. 目录按归属分组：`assets/` `external/` `design/`（ADR-0031 的落地）
+
+**现状**：目录按资产种类平铺（`symbols/` `footprints/` `components/` `procurement/` `sch/` `pcb/` `modules/` `system/` 顶层并列），外部库只有 `project.toml` 的 `[libs]` 一条引用、既不进树也不进 IR。决策见 [ADR-0031](adr/0031-project-tree-ownership-model.md)，**未落地**。
+
+**要做的事**：
+
+1. **树的重排**（机械部分）：`symbols/` `footprints/` `families/` `components/` → `assets/**`；`procurement/` → `assets/procurement/`；`sch/` `pcb/` `modules/` `system/` → `design/**`；`sch/<board_id>/<page>.view.teda` → `views/<board_id>/<page>.view.teda`（见 F30）；新增 `external/{libs,simulation}/`（`cache/` 不建，由使用者自建且 gitignore）。参考工程与 CLI 里的路径同步改。
+2. **`libref` 描述类型**：`external/libs/<name>.toml`（`name` / `source` / `rev` / `content_hash` / `channel`）；新 spec `spec/libref.md`、新 schema `schemas/ir/v0.3/libref.schema.json`、parser 与 fmt；`project.toml` 的 `[libs]` 表项删除（[ADR-0008](adr/0008-ir-shard-identity-and-hash.md) decision 6）。
+3. **库 vendoring**：`texteda lib add <name>@<rev>` 拉取、落进 `external/libs/<name>/`、算 `content_hash`、写 `libref`；编译期不联网；库资产进 `dist/ir/`（规范分片）。
+4. **分片布局与源码树解耦**：分片按种类固定（`boards/` `symbols/` `footprints/` `families/` `components/` `procurement/` `librefs/`），映射由每片的 `source.file` 承担（[ADR-0023](adr/0023-ir-layer-on-disk.md) decision 2 修订）；挪源码目录不改分片路径、不改工程哈希。
+5. **`texteda init`** 建新骨架：`assets/{symbols,footprints,families,components}`、`assets/procurement/{primary,alternatives}`、`external/{libs,simulation}`、`design/{sch,pcb,modules,system}`、`docs/`。
+6. **迁移脚本**：与 F25 的 `bun run migrate:0.9 <项目目录>` **合并成一次迁移**（同一批路径变更、同一次跑），脚本负责挪目录与改 `project.toml`，不替人命名、不替人决定库版本。
+7. **`external/cache/` 纪律**：厂商数据手册 PDF 放这里，gitignore；`check:public` 要能发现误提交的 PDF（今天查的是历史与工作区，新增这条要确认覆盖到新路径）。
+
+**验收**：
+
+- 迁移后参考工程 `bun run check` / `bun run lib:verify` / `bun run fmt:teda --check .` 全绿，且 `texteda ir` 的工程哈希与迁移前**按分片口径**一致（分片路径变了但内容没变——这正是解耦的验收点）。
+- 一个引用了 vendored 库的项目：库件能解析（`<lib>:<id>`）、库资产的 `content_hash` 对不上时报错、`dist/ir/` 里含库的符号与封装分片。
+- 只把某个源文件在树里挪个目录 → 分片路径与工程哈希**不变**。
+
+**注意**：
+
+- **树冻结**：这次改完目录形状就不再动；要改形状得再开 ADR + 再写迁移脚本（[ADR-0031](adr/0031-project-tree-ownership-model.md) decision 11）。
+- **外部材料分三类，机制不同**：库 vendored + 进 IR；数据手册只留引用（`datasheet` 字段）+ 本体在 cache，不进 IR；仿真模型 vendored 但机制未定（ADR-0031 开放点）——别给它们发明同一套声明格式。
+- 别把 `external/` 当成"第二个 assets/"：它按**归属**分，不按**种类**分。
+
+---
+
+## F30. 打印页移到 `views/`，分片改为附注类（ADR-0032 的落地）
+
+**现状**：打印页文件在 `sch/<board_id>/<page_id>.view.teda`（与板文件同目录、且目录名与板文件同名），分片 `boards/<board_id>/view/<page_id>.json` 随板哈希走——挪一个标签就改板哈希与工程哈希。决策见 [ADR-0032](adr/0032-view-is-a-drawing-not-a-build-input.md)，**未落地**。
+
+**要做的事**：
+
+1. **搬家**：`sch/<board_id>/<page_id>.view.teda` → `views/<board_id>/<page_id>.view.teda`（**独立根目录**，不进 `design/`）；参考工程与 CLI 的扫描路径同步改。分片路径 `dist/ir/boards/<board_id>/view/<page_id>.json` **不变**（分片布局与源码树解耦）。
+2. **分类**：打印页分片改为 **advisory**（不进工程哈希、不进板哈希）；`advisory_hash` 同时聚合采购备选与打印页。判据不变：改了会不会让已签发的制造包作废。
+3. **盖章**：渲染出的页面盖**该页分片自己的 `sha256`** 作为 `source_hash`（不盖板哈希）；制造类产物仍盖板哈希 / 工程哈希。评审 UI 按板 id 把 `views/<board_id>/` 的原理图页与 `design/pcb/<board_id>.teda` 渲染出的 PCB 图对上，跳转在 UI 层解决，不靠目录。
+4. **交叉校验**：页面引用的实例 / 引脚 / net 必须存在于板级，否则报错（归 `packages/core`）——与 F3 同批做。
+5. **文档**：`spec/schematic-view.md` §9 与 `AGENTS.md` §3 的 S1 行改成"手写源文件 + 附注类分片"；`docs/skills/new-project.md` 若提到打印页路径，同步。
+
+**验收**：
+
+- 只挪动一个标签 → `project_hash` 与板哈希**不变**，`advisory_hash` 变。
+- 挪动源码文件目录（`sch/<board>/` → `view/<board>/`）→ 分片路径与工程哈希**不变**。
+- 页面引用一个板级不存在的实例 → 报错（不是静默通过）。
+
+**注意**：
+
+- **"可丢弃"的含义要改口径**：S1 可丢弃指的是**不参与构建身份**，不是"可重新生成"——渲染器只画不摆，页面文件生成不出来，所以它放在 `views/`（手写源、进仓库），不放 `dist/`（派生产物），也不放 `design/`（电路真源）。
+- 打印页仍是**手写源**：它进仓库、进评审、可被人工挪动；只是不进构建身份。删掉整个 `views/` 不会让板子失效、不会改哈希、不会作废制造包。
+- 别顺手把 view 目录塞回 `design/` 或 `design/sch/`：`design/` 只装电路描述，扫电路的工具不必学会跳过例外。
+
+---
+
+## F31. 每种描述类型一条版本线，`0.x` 阶段只走 PATCH（ADR-0022 附录的落地）
+
+**现状**：`version` 是全语言共享的一个号，文件的 `version` 表示"读我至少要语言 0.几"；接受规则的上界是语言版本（[ADR-0022](adr/0022-language-versioning.md) decision 3）。今天在飞四个号：`schematic 0.8`、`view 0.7`、`symbol 0.5`、`component 0.1`（另有 `pcb 0.4`、`footprint 0.4`、`system 0.2`、`module 0.8`、`procurement 0.9`）。**规则已定，实现未落地**（[ADR-0022](adr/0022-language-versioning.md) 的 2026-10-22 附录与 2026-10-22b 附录）：0.x 阶段每条类型版本线只走 PATCH、全局号停在 `0.9`（新类型也诞生在 `0.9`）、`1.0` 是保留号、`1.0` 之后改表面是新的 MAJOR（`2.0`）、`0.x` 期间号码可以重新给。
+
+**要做的事**：
+
+1. **接受规则按类型**：上界改成**该描述类型当前支持的版本**（不再是全语言版本）；MAJOR 的比较也按类型；下界（类型诞生版本）不变；PATCH 仍不参与判定。`packages/parser/src/version.ts` 改成带"类型 → 当前版本"表的接受函数，各描述解析器传自己的类型。**表里的号是冻结的**（`schematic 0.8`、`view 0.7`、`symbol 0.5`、`component 0.1`、`pcb 0.4`、`footprint 0.4`、`system 0.2`、`module 0.8`、`procurement 0.9`），新类型加一行 `0.9`。
+2. **`0.x` 阶段只走 PATCH 位**：加段、加字段不再抬 MINOR；`teda.md` §13.1 / §13.3 / §13.4 已改（见 ADR-0022 的 2026-10-22 附录）。
+3. **收敛计划**：项目接近完成时，所有类型一次性合并为 `1.0`（一份 ADR 记录），之后全语言一个号、表面冻结、只出 PATCH。触发条件：所有类型无待做的表面变更 + 十个困难用例语料存在（F12）。
+4. **文档**：`AGENTS.md` §2 不变量 10、`teda.md` §13 同步（已改）；`docs/skills/new-project.md` 若提到版本号，同步。
+
+**验收**：
+
+- `view` 文件写 `version 0.8`（高于 view 自己的当前号 0.7）→ 报 `format.unsupported-version`，而不是接受。
+- `symbol` 文件写 `version 0.5`（等于自己当前号）→ 接受。
+- 同一工程里四种类型各写各的当前号 → `texteda check` 全绿。
+
+**注意**：
+
+- **安全依据是"未知构造默认报错"**（`AGENTS.md` §2 不变量 7）：`0.x` 阶段版本号不再精确标注"这个文件可能用了哪些新构造"，工具遇到不认识的构造会报错停下，不会误读。别因为"版本号不再细"就去实现"忽略不认识的段"——那是把兼容性的担子从诊断挪到了静默里。
+- IR 的 `format_version` 仍存文件声明的版本（canonical 写法）；IR 契约版本 `ir_version` 依旧独立（[ADR-0008](adr/0008-ir-shard-identity-and-hash.md) decision 1）。
+
+---
+
+## F32. 派生覆盖改为"遮蔽"，族可挂通用 3D 身体（ADR-0028 / ADR-0029 附录的落地）
+
+**现状**：`component` 允许 `overrides` 指向库件；库与派生件同时存在于工程 IR 里（两个 id、两个来源）；族不允许挂 3D 模型。决策见 [ADR-0028](adr/0028-library-trust-and-derived-overrides.md) 与 [ADR-0029](adr/0029-package-code-footprint-and-3d-model-ownership.md) 的 2026-10-22 附录，**未落地**。
+
+**要做的事**：
+
+1. **遮蔽语义**：派生件在**本工程内**替换被覆盖的库件；被遮蔽的库件不得再被任何 `instances` / `ports` / `constraint` 引用，引用即报错（"这个件已被工程的派生件遮蔽"）。库里的原件保持不变，供别的工程使用。
+2. **派生件是 advisory**：校验报告里显式列出"工程与所依赖的库不一致之处"，不阻断构建，但必须看得见。
+3. **几何不覆盖**：`component` 的 `overrides` 只能指向库里的 `component` / `family`；指向 `symbol` / `footprint` 报错（共享几何的爆炸半径太大，改法是上游修 + 抬 pin）。
+4. **通用身体 = land pattern 的 `envelope`**（[ADR-0029](adr/0029-package-code-footprint-and-3d-model-ownership.md) 的 2026-10-22b 附录，取代本条原先的"族挂通用身体"）：`family` **不**带 `model`；通用身体写在 land pattern 上（一个 land pattern 一个 → 无变体）。允许条件：身体由封装决定（`mlcc`、贴片无源、标准封装的集成电路）；`tantalum` / `electrolytic` / `film` / `molded` / `shielded` 那组不允许（身体随额定值变）——检查在 `lib:verify`（part 的 `construction` × land pattern 的 envelope）。`part` 自己的 `model`（厂商件）在有 part 上下文的地方（3D 预览、装配、板级导出）压过 envelope。
+5. **通用身体要标明是通用身体**：3D 预览与装配输出标出"这是该族的通用身体（附构造）"，不是厂商模型（ADR-0028 的诚实口径用在几何上）。
+
+**验收**：
+
+- 工程派生覆盖库里的 `tps5430ddar`，BOM 里只有一行；再有一处 `instances` 引用 `lib:tps5430ddar` → 报错（被遮蔽）。
+- 派生覆盖出现在校验报告的 advisory 段里。
+- `family`（`construction = mlcc`）带 `model` → 接受；`family`（`construction = tantalum`）带 `model` → 报错并指向 ADR-0029 的附录。
+
+**另外两条已定的边界（实现时别顺手加）**：
+
+- **`die` 不进语言**（ADR-0027 的 2026-10-22 附录）：part 文件里**不要**加 `die` 字段。die 是硅的事实，ERC / BOM / 布局 / 网表都不读它；它的用处只在生成器与库自身的封装一致性检查里，都在语言之外。工程级的"U1 与 U2 同一 die"写进 `docs/` 的装配说明，不进 IR。
+- **view 要留**（ADR-0032 的 2026-10-22 附录）：`view` 文件是人写的内容，**不得**被"按需生成"或重绘覆盖；板 ↔ 打印页不一致由交叉校验（F3）报出来，人来改。
+
+**注意**：
+
+- 遮蔽是**工程内**的语义，不改库：库里的那份对别的工程仍然有效，库的 `content_hash` 不变。
+- 别把遮蔽做成"合并两个文件"——合并的结果不是任何文件写下的内容（ADR-0028 已否过 patch 式合并）。
+- 通用身体的判定靠 `construction`，而 `construction` 是**开放词表**：工具只查它认识的几个，其余信任作者（未知词表给 warning，不阻断）。
+
+---
+
+## F33. 评审记录：Markdown 意见 + TOML 处置（ADR-0033 的落地）
+
+**现状**：评审记录没有地方放——工程树里没有评审目录，`check` 也不知道一块板有没有被人提过意见、有人认领。库件的复核有 `provenance` / `verified_by` / `verified_on`（[ADR-0028](adr/0028-library-trust-and-derived-overrides.md)），但**设计评审**完全没有记录。决策见 [ADR-0033](adr/0033-review-records-and-attribution.md)，**未落地**。
+
+**要做的事**：
+
+1. **约定文档** `docs/review-records.md`：目录 `docs/reviews/`（评审记录归 `docs/`，与设计意图、分析证据同处，[ADR-0031](adr/0031-project-tree-ownership-model.md) decision 1）、一轮一个 `<round_id>.md`（意见）+ 一个 `<round_id>.decision.toml`（处置）、note 行的写法、两条检查的语义。**不进语言**：没有描述类型、没有 schema、没有 IR 分片、不影响任何哈希。
+2. **处置文件**：TOML，字段 `target`（`board:<id>` / `page:<board>/<page>` / `component:<id>`）、`owner`、`date`、`verdict`（`accepted` / `declined` / `deferred`）。缺字段或取值非法 → 报错。
+3. **责任人**：`project.toml` 的 `[project] owner`（创建者或接手人）。有评审记录但没写 owner → 报错。换人 = 改这个字段（不改任何哈希）。
+4. **`check` 的两条诊断**：
+   - **未闭环**：`docs/reviews/*.md` 没有对应的 `*.decision.toml` → warning，载荷带 target、作者、日期、意见原文。
+   - **处置人不是责任人**：`decision.owner` ≠ `project.toml` 的 `owner` → warning（要么越权处置，要么换人没更新 `project.toml`）。
+   两条都**不让 `check` 失败**、不改任何哈希（是否挡住制造出口是 ADR-0033 的开放点，归 F14）。
+5. **意见是散文，工具不解析**：note 行只被人读；机器只读处置文件里的那几个事实。
+
+**验收**：
+
+- 放一个只有意见、没有处置的评审 → `texteda check` 报一条 warning（未闭环），含 target、作者、日期、意见；工程哈希不变。
+- 补上处置文件（owner 与 `project.toml` 一致）→ warning 消失。
+- `decision.owner` 写成别人 → 多一条"处置人不是责任人"warning。
+- 有评审但 `project.toml` 没有 `owner` → 报错。
+- 处置文件缺 `verdict` 或 verdict 取值非法 → 报错并指向 ADR-0033。
+
+**注意**：
+
+- **不签名**：评审记录的归属由版本控制给出，作者与责任人字段是给读者看的。签名只在**库分发**里可能有意义，最多库级、覆盖 `content_hash`，现在不做（ADR-0028 / ADR-0033 的附录）。
+- 意见（notes）是散文，**不解析**每条意见挂在哪个实例 / net 上，也不做逐条处置——处置是**按轮次**给的（ADR-0033 的开放点）。
+- `owner` 是人名，不要写团队名；"谁的意见、谁的决定"要能追到人。
+- `project.toml` 的解析本身还没落地（**F17**），本项与 F17 一起做。
+- **评审不进 IR**：因此 F28 的附注类分片只有采购备选一种，别把评审塞进 `advisory_hash`。
+
+---
+
+## F34. 评审 GUI（`packages/viewer`）：高亮指针、跳转源码、三种模式
+
+**现状**：评审 GUI 未建（[ADR-0021](adr/0021-schematic-view-layer.md) decision 3 / 4）；`packages/renderer` 能出打印页 SVG，`bun run preview view <board>/<page>` 能看图，但**没有交互**，也没有 `packages/viewer`。决策见 [ADR-0021](adr/0021-schematic-view-layer.md) 的 2026-10-22 附录，**未落地**。
+
+**要做的事**：
+
+1. **`packages/viewer`**：浏览器应用，`texteda review <工程目录>` 起本地服务（`node:http`，ADR-0021 decision 3；文件读写留在 CLI 侧，浏览器只收 JSON + SVG）。
+2. **元素 id**：渲染器给每个绘制对象发稳定 id（`instance:U1` / `net:VCC` / `label:...`），SVG 里落成 `data-ref`。这是 renderer 侧的小改动，**渲染器仍然纯**（不知道 hover 与点击）。
+3. **hover 高亮**：纯 CSS/SVG 层（描边 / 透明度 / 小浮层），**不重绘、不重排**——性能不构成压力；不做命中测试几何、不做空间索引。
+4. **点击跳转**：需要**身份索引**（`identity -> [(file, line, col), ...]`），来自 **span 侧车表**（`dist/ir/<shard>.spans.json`）——**依赖 F11 / ADR-0020**。点击后给出「这个身份定义在哪里」的短菜单（sch 的实例行 / view 的摆位 / 器件文件 / 封装文件 / net 行 / pin 行），选中即打开该文件到该行。
+5. **三种模式**：`review`（读图 + 高亮 + 跳转 + 写意见）、`placement`（PCB 画布：摆位、板框、courtyard、net 高亮）、`edit`（分栏：源码文本 + 画布；点画布移动文本光标，改文本刷新画布，**编辑发生在文本里**）。切模式换 SVG 与覆盖层，不重新实现交互。
+6. **意见锚点（可选）**：note 行允许 `[instance:U3]` 这样的可选前缀，只有 viewer 解析——与 ADR-0033「工具不解析散文」的张力是 ADR-0033 的开放点。
+
+**验收**：
+
+- hover 一个符号 → 该符号高亮并显示身份（实例 id、器件、封装），**SVG 不重新生成**（渲染一次后只看 DOM 变化）。
+- 点击一个符号 → 出现「定义位置」菜单，至少含 sch 实例行与 view 摆位两项；选中后打开对应文件并定位到行。
+- `review` / `placement` / `edit` 三个模式都能用，且共用同一套高亮与跳转代码。
+- `edit` 模式改文本 → 画布更新；画布上不做任何直接编辑（没有拖动、没有吸附）。
+
+**注意**：
+
+- **GUI 不写设计**：改东西一律改文本。画布能改就意味着同一件事有两个写入口，而没有 diff 的那个会赢。
+- **F11 是前置**：没有 span 侧车表就没有"跳到源码"。F11 的交付物要包含 **身份索引**（不只诊断用的 IR 路径索引）。
+- 别在 viewer 里做布局求解或走线——那是渲染器与布线器的事（AGENTS §1）。
+- `placement` 模式依赖 PCB 画布（`packages/renderer` 的 PCB SVG，F21），**在那之前这个模式可以先空着**（如实报"还没有 PCB 画布"，别用 sch 画布顶替）。
+
+---
+
+## F35. 采购层的实现（ADR-0030 的落地）
+
+**现状**：**格式已定并落档，实现为零**。规范见 `spec/procurement.md`（新），决策见 [ADR-0030](adr/0030-procurement-layer.md)（Accepted，2026-10-22；开放点已全部关闭），语言 0.9 新增 `procurement` 描述类型。**没有**解析器、**没有** `fmt`、**没有** IR 契约条目（`schemas/ir/v0.3/procurement.schema.json` 待写）、**没有** BOM 输出、**没有**选料检查。
+
+**要做的事**：
+
+1. **解析器 + `fmt`**（`packages/parser`）：`procurement` 类型；头部三行（`version` / `procurement <board_id>` / `role`），`role` 必须与所在目录一致；唯一段 `selections`；行文法 `<family> <params…> -> <part>`；canonical form 按左键文本排序、**不对齐**（`teda.md` §12 规则 3 的例外）。
+2. **IR 契约**：`schemas/ir/v0.3/procurement.schema.json`（新）+ 重生成类型；分片路径 `boards/<board_id>/procurement.json`（规范）与 `boards/<board_id>/procurement-alternatives.json`（附注）；**契约 v0.2 → v0.3 与 F25 / F27 / F28 同批升**（别分两次升）。
+3. **选料检查**（`packages/core`）：`spec/procurement.md` §3.2 的六条（族是族、件是件、件有 `mpn`、件的 `params` 覆盖族的、件的 `footprint` 等于族的、件不是被遮蔽的库件）；**主料违反 = error，备料违反 = warning**（严格模式 error）；族行没选料 → warning（unsourced）；选中的件板上没用到 → warning。
+4. **BOM 输出**（`packages/cli`）：三种行（件行、有选料的族行、无选料的族行）；行键统一为 `(component_id, 参数字典)`，件行的参数集为空；**无来源行：MPN 单元格留空，comment 列写 `unsourced`**（MPN 里塞标记会被下单系统当真去订）；JLC 形状的导出跟 F16 一起做。
+5. **`texteda check --json`**：采购诊断进机器载荷（unsourced / 未使用的选料 / 备料违反 / 遮蔽件）。
+6. **文档**：`docs/skills/new-project.md` 加一步"选料"；`AGENTS.md` §4.1 的状态行改成"已落地"；`docs/ir-reference.md` 由 `bun run gen` 重生成。
+
+**验收**：
+
+- 一块板有族行但没选料 → BOM 那行 MPN 为空、comment 是 `unsourced`；`check` 报 warning，**不**阻断。
+- 选一个 `footprint` 不同的件 → 主料里是 error、备料里是 warning。
+- `fmt` 幂等，且**不**把选料行按列对齐。
+- 只改备料 → `advisory_hash` 变、`project_hash` 不变（依赖 F28）；改主料 → `project_hash` 变。
+- 选一个被工程派生件遮蔽的库件 → 报错。
+
+**注意**：
+
+- **前置依赖**：检查要用到 ADR-0027 的 `kind`（族/件）与 ADR-0028 的遮蔽语义（F25 / F32），先落它们。
+- **类型版本是 0.9，工具当前支持到 0.8**（`packages/parser/src/version.ts` 的 `SUPPORTED_LANGUAGE`）：解析器落地前，`procurement` 文件会被判为"比工具支持的版本新"——这是对的，工具确实还不认识这个类型。
+- 采购层是**决定**不是事实：别把价格、货期、供应商塞进描述里（ADR-0030 decision 9）。

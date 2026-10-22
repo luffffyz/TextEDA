@@ -4,6 +4,12 @@ Status: Accepted
 Date: 2026-10-20
 Impact: `AGENTS.md` §4.5, §8, §9; `schemas/ir/v0.1/project.schema.json`; new `docs/footprint-authoring.md`
 
+**Later decision**: [ADR-0029](0029-package-code-footprint-and-3d-model-ownership.md) amends the
+placement of 3D models — a model belongs to a `part`, not to a footprint, because a land pattern
+is vendor-independent while a body is not. Decision 1 of this record (no dimension fields in
+`.teda`) stands unamended, and decision 5 below still holds: a model is a reference to a CAD
+file, and the file lives in the library tree under the library's `content_hash`.
+
 ## Background
 
 Two facts sit side by side:
@@ -21,7 +27,10 @@ So the question becomes: now that footprints and 3D models can be produced on a 
 - The reasons:
   1. **Wrong ownership layer**: footprint geometry is a property of the *component type* (the same 0402 is the same geometry on ten boards), not a property of *this board*. Writing it into the board description = copying the library into every board, which is exactly an amplified version of the "duplicate description" pitfall in `AGENTS.md` §7 ("the same connection written twice, change one place and miss another").
   2. **The reference point already exists**: `component.footprint` (`lib:name`) is the single reference point to the geometry (§4.5). The geometry should land in the library, not in the description.
-  3. **3D even less so**: STEP/WRL is CAD data, not diffable text; in a KiCad footprint it is referenced by a `model` statement, and describing it again in the language would create a second source of truth.
+  3. **3D even less so**: STEP/WRL is CAD data, not diffable text; it is referenced by a pointer in the
+     `part` or `family` file ([ADR-0029](0029-package-code-footprint-and-3d-model-ownership.md)
+     decision 2), and describing the model itself in the language would create a second source of
+     truth. The exported KiCad footprint carries no model at all — the land pattern is 2D.
   4. **Layering**: `AGENTS.md` §3 classifies the 3D assembly view as B1 (derived, free to change), while board-level physical facts are B0 (not free to change). The dimensions of the component body belong to the component library, not to board-level facts.
 - **The dimensions that belong at board level are already in the language**: `board_thickness`, `stackup`, `rules` (clearance/trace width/solder mask/solder paste/thermal pad), the coordinates and rotation of `place`, and the mounting holes and cutouts of `physical_only`. The only thing missing is "which footprint does this board use", and that is given by `component.footprint`.
 
@@ -74,3 +83,39 @@ content_hash = "…"
 ```
 
 A library with only one root may still write `path` (the old form). `content_hash` covers all roots: SHA-256(concatenation of `<project-relative path>:<file_sha256>\n` for all files, in byte order), computed by the tool `bun run lib:hash <dir>...`.
+
+## Addendum (2026-10-22): the project's own assets are not a library
+
+Amended by [ADR-0031](0031-project-tree-ownership-model.md) decisions 1, 2 and 6.
+
+The "self-built library" of decision 2 is no longer a library. A library is a separate
+repository that other projects depend on; a project does not publish its assets to anybody. The
+project's own symbols and footprints are simply its assets, under `assets/symbols/` and
+`assets/footprints/`, referenced by bare id.
+
+Two consequences:
+
+- **The content hash has one job left.** It pins a *vendored* library, whose bytes come from
+  elsewhere and must be verified. The project's own assets need no hash of their own: their
+  content is covered by the project hash, and a second number over the same bytes would be a
+  second thing to keep in step.
+- **The `project:` prefix becomes a legacy spelling.** `project:sot-23-5` still resolves and
+  still means "this project's own asset", but a bare `sot-23-5` says the same thing, and the
+  `project:` level inside `symbols/project/` and `footprints/project/` disappears.
+
+The decision itself stands: footprint geometry and 3D models do not enter the language, and a
+footprint library written in `.teda` is a first-class artifact.
+
+## Addendum (2026-10-22): the exported footprint is 2D, and the model lives with the device
+
+Follows [ADR-0029](0029-package-code-footprint-and-3d-model-ownership.md) decision 2 and its
+2026-10-22 addendum, and amends decision 1.3 and the follow-up note about model hashing.
+
+- **The model pointer lives in the `part` or `family` file**, not in the footprint file. A land
+  pattern describes what the copper sees; a body describes what the solder sees.
+- **The exported `.kicad_mod` carries no 3D model.** The KiCad output goes to a fabricator and at
+  most to a reviewer, so it is a pure 2D land pattern — one land pattern, one file, no variants.
+- **Where the models are hashed**: with the part or family that owns them, inside the tree that
+  provides that part (the project, or the library that provides it), covered by that tree's
+  `content_hash` — the same rule as the footprint sources themselves. A change to a model
+  changes the hash and invalidates the artifacts, which is the intent.

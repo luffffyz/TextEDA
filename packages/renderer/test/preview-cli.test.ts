@@ -61,8 +61,9 @@ describe("preview command", () => {
     const svg = readFileSync(files[0]!, "utf8");
     expect(svg).toContain("<title>charger-buck/buck-5v</title>");
     // The placed instances name themselves; the library placeholder (`U`) must not survive.
-    expect(svg).toContain("<title>C19</title>");
-    expect(svg).toContain("<title>U2</title>");
+    // The buck is module M2 of the board, so the drawing carries the flat ids.
+    expect(svg).toContain("<title>M2.C1</title>");
+    expect(svg).toContain("<title>M2.U1</title>");
     expect(svg).toContain("<title>GND</title>");
   });
 

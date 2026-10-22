@@ -11,6 +11,7 @@ import {
   readComponentIndex,
   type ComponentFactsLite,
   type ComponentResolver,
+  type ModuleSource,
 } from "@texteda/parser";
 import type { DiagnosticCodeId } from "@texteda/ir/diagnostics";
 
@@ -110,6 +111,23 @@ export function listBoards(root: string): string[] {
     .filter((entry) => entry.isFile() && entry.name.endsWith(".teda"))
     .map((entry) => entry.name.slice(0, entry.name.length - ".teda".length))
     .sort();
+}
+
+/**
+ * Read the project's modules (`modules/<module_id>.teda`). The module id is the file name, like the
+ * component id (spec/module.md §1). Returns an empty array when the directory does not exist.
+ */
+export function loadModules(root: string): ModuleSource[] {
+  const dir = join(root, "modules");
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".teda"))
+    .map((entry) => ({
+      moduleId: entry.name.slice(0, entry.name.length - ".teda".length),
+      file: relative(root, join(dir, entry.name)),
+      text: readFileSync(join(dir, entry.name), "utf8"),
+    }))
+    .sort((a, b) => (a.moduleId < b.moduleId ? -1 : a.moduleId > b.moduleId ? 1 : 0));
 }
 
 /** Read the board's schematic file and its print pages. Returns `null` when the schematic file does not exist. */

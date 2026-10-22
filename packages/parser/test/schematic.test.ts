@@ -3,45 +3,16 @@
 // Positive cases use real descriptions from the reference project (mcu-board, charger-buck);
 // negative cases use minimal inline sources -- each negative case breaks exactly one thing, and the diagnostic code must line up.
 import { describe, expect, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { validate } from "@texteda/ir";
-import { readComponentIndex } from "../src/component-index.ts";
 import {
   parseSchematic,
-  type ComponentFactsLite,
-  type ComponentResolver,
+  type ModuleSource,
 } from "../src/schematic.ts";
+import { loadResolver } from "./project.ts";
 
 const projectDir = "examples/reference-project";
-
-/** Load components from the reference project into a resolver. */
-function loadResolver(): ComponentResolver {
-  const dir = join(projectDir, "components");
-  const files: string[] = [];
-  const walk = (path: string): void => {
-    for (const entry of readdirSync(path, { withFileTypes: true })) {
-      const full = join(path, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.name.endsWith(".teda")) files.push(full);
-    }
-  };
-  walk(dir);
-  const table = new Map<string, ComponentFactsLite>();
-  for (const file of files) {
-    const result = readComponentIndex(readFileSync(file, "utf8"));
-    if (!result.ok || !result.facts) continue;
-    table.set(result.facts === undefined ? "" : fileToId(file), result.facts);
-  }
-  return {
-    resolve: (id) => table.get(id),
-  };
-}
-
-function fileToId(file: string): string {
-  const base = file.slice(file.lastIndexOf("/") + 1);
-  return base.slice(0, base.length - ".teda".length);
-}
 
 const resolver = loadResolver();
 
@@ -127,12 +98,18 @@ describe("single-file board (mcu-board)", () => {
   });
 });
 
-describe("flat board (charger-buck)", () => {
+describe("composed board (charger-buck)", () => {
   const text = readFileSync(join(projectDir, "sch", "charger-buck.teda"), "utf8");
+  const modules: ModuleSource[] = ["charger-power", "buck-5v"].map((id) => ({
+    moduleId: id,
+    file: `modules/${id}.teda`,
+    text: readFileSync(join(projectDir, "modules", `${id}.teda`), "utf8"),
+  }));
   const result = parseSchematic(text, {
     file: "sch/charger-buck.teda",
     board: "charger-buck",
     components: resolver,
+    modules,
   });
 
   test("parses successfully and the IR satisfies the contract", () => {
@@ -141,35 +118,42 @@ describe("flat board (charger-buck)", () => {
     expect(check.errors).toEqual([]);
   });
 
-  test("the whole board is one file, with board-level instance ids", () => {
+  test("the board's instances carry their module's prefix", () => {
     const ids = result.ir!.instances.map((i) => i.id);
-    // The power path and the buck share the board's namespace: no page prefix anywhere.
-    expect(ids.every((id) => !id.includes("."))).toBe(true);
     expect(ids.length).toBe(61);
-    expect(ids).toContain("U1");
-    expect(ids).toContain("U2");
-    expect(ids).toContain("C19");
+    expect(ids).toContain("M1.U1");
+    expect(ids).toContain("M2.U1");
+    expect(ids).toContain("M1.C1");
+    expect(ids).toContain("M2.C1");
   });
 
-  test("the two circuits are told apart by numbering and by net prefix", () => {
+  test("a module's internal nets keep the qualified name", () => {
     const ids = result.ir!.nets.map((n) => n.id);
-    expect(ids).toContain("BOOT");
-    expect(ids).toContain("BUCK_PH");
-    expect(ids).toContain("BUCK_VFB");
-    expect(ids).toContain("PH");
-    expect(ids).toContain("VFB");
-    // No qualified names are left.
-    expect(ids.every((id) => !id.includes("."))).toBe(true);
+    expect(ids).toContain("M1.VFB");
+    expect(ids).toContain("M2.VFB");
+    expect(ids).toContain("M2.BOOT");
+    expect(ids).toContain("M1.PH");
+    expect(ids).toContain("M2.PH");
   });
 
-  test("the nets both circuits share are one net", () => {
+  test("a port merges the module's net into the board's net", () => {
+    const ids = result.ir!.nets.map((n) => n.id);
+    // The merged nets keep the board's name; the module's own name is gone.
+    expect(ids).toContain("GND");
+    expect(ids).toContain("SYS");
+    expect(ids).toContain("VOUT");
+    expect(ids).not.toContain("M2.SYS");
+    expect(ids).not.toContain("M2.GND");
+  });
+
+  test("the nets both modules share are one net", () => {
     const sys = result.ir!.nets.find((n) => n.id === "SYS")!;
     // The power path's SYS and the buck's SYS are one board net. The IR names pins by number.
-    expect(sys.members).toContain("U1.1");
-    expect(sys.members).toContain("U2.7");
+    expect(sys.members).toContain("M1.U1.1");
+    expect(sys.members).toContain("M2.U1.7");
     const gnd = result.ir!.nets.find((n) => n.id === "GND")!;
-    expect(gnd.members).toContain("U1.17");
-    expect(gnd.members).toContain("U2.6");
+    expect(gnd.members).toContain("M1.U1.17");
+    expect(gnd.members).toContain("M2.U1.6");
   });
 
   test("the board's ports name board nets", () => {
@@ -179,17 +163,17 @@ describe("flat board (charger-buck)", () => {
     expect(ports.find((p) => p.id === "GND")!.net).toBe("GND");
   });
 
-  test("the constraints name the board's nets", () => {
+  test("the constraints name the board's nets and the modules' qualified nets", () => {
     const constraints = result.ir!.constraints!;
-    const buckVfb = constraints.find((c) => c.type === "voltage" && c.subject === "BUCK_VFB");
-    expect(buckVfb).toEqual({ type: "voltage", subject: "BUCK_VFB", min_uv: 1_203_000, max_uv: 1_239_000 });
-    const chargerVfb = constraints.find((c) => c.type === "voltage" && c.subject === "VFB");
-    expect(chargerVfb).toEqual({ type: "voltage", subject: "VFB", min_uv: 2_079_000, max_uv: 2_121_000 });
+    const buckVfb = constraints.find((c) => c.type === "voltage" && c.subject === "M2.VFB");
+    expect(buckVfb).toEqual({ type: "voltage", subject: "M2.VFB", min_uv: 1_203_000, max_uv: 1_239_000 });
+    const chargerVfb = constraints.find((c) => c.type === "voltage" && c.subject === "M1.VFB");
+    expect(chargerVfb).toEqual({ type: "voltage", subject: "M1.VFB", min_uv: 2_079_000, max_uv: 2_121_000 });
   });
 
   test("ERC warning: ENA intentionally left open (internal pull-up)", () => {
     const warnings = result.diagnostics.filter((d) => d.severity === "warning");
-    expect(warnings.map((w) => w.message)).toEqual(["pin U2.5 (ENA) is not connected"]);
+    expect(warnings.map((w) => w.message)).toEqual(["pin M2.U1.5 (ENA) is not connected"]);
   });
 });
 

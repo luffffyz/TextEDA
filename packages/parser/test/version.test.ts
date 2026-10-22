@@ -52,7 +52,7 @@ describe("version acceptance", () => {
   });
 
   test("rejects a version the tool does not implement", () => {
-    const verdict = checkVersion("0.8", range, "view");
+    const verdict = checkVersion("0.9", range, "view");
     expect(verdict.ok).toBe(false);
     expect(verdict.ok === false && verdict.code).toBe("format.unsupported-version");
   });

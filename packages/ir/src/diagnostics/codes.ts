@@ -323,7 +323,49 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     summary: "The same net is referenced by two ports",
     hint: "A net may have at most one port; use a different net if you need multiple breakouts",
-    spec: ["teda.md §7.5"],
+    spec: ["spec/module.md §3"],
+  },
+  "ref.unknown-module": {
+    domain: "ref",
+    severity: "error",
+    summary: "Reference to a module id that has no module file",
+    hint: "Add the module file under modules/, or change the referenced module id",
+    spec: ["spec/module.md §4"],
+  },
+  "ref.module-id-mismatch": {
+    domain: "ref",
+    severity: "error",
+    summary: "The id declared in the module file header does not match the file name",
+    hint: "Make the id declared in the file header match the file name",
+    spec: ["spec/module.md §1"],
+  },
+  "ref.unknown-port": {
+    domain: "ref",
+    severity: "error",
+    summary: "Reference to a port the module does not declare",
+    hint: "Declare the port in the module's ports section",
+    spec: ["spec/module.md §4"],
+  },
+  "ref.unbound-port": {
+    domain: "ref",
+    severity: "error",
+    summary: "A module port is not connected to any board-level net",
+    hint: "Reference the port in a board-level net row, or declare it as no_connect",
+    spec: ["spec/module.md §5"],
+  },
+  "ref.module-internal-ref": {
+    domain: "ref",
+    severity: "error",
+    summary: "A board-level reference reaches into a module's internals",
+    hint: "Reference the module's port instead; a module's internals are reached through its ports",
+    spec: ["spec/module.md §4"],
+  },
+  "ref.no-connect-port": {
+    domain: "ref",
+    severity: "error",
+    summary: "A board-level net binds a port the module declared no_connect",
+    hint: "A no_connect port is not connected to anything; remove the reference",
+    spec: ["spec/module.md §3"],
   },
 
   // ---- net: net integrity ----
@@ -367,6 +409,13 @@ export const DIAGNOSTIC_CODES = {
     summary: "A pin does not belong to any net",
     hint: "Connect it to a net, or mark the pin as no_connect in the component file",
     spec: ["teda.md §11"],
+  },
+  "net.port-in-two-nets": {
+    domain: "net",
+    severity: "error",
+    summary: "A module port is referenced by two board-level nets",
+    hint: "A module port connects to exactly one board-level net",
+    spec: ["spec/module.md §4"],
   },
 
   // ---- drc: emergent checks ----

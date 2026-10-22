@@ -15,6 +15,13 @@ function fmt(file: string, text: string) {
   return result.text!;
 }
 
+/** The canonical form of a `module` file (the module has no `modules` section). */
+function fmtModule(file: string, text: string) {
+  const result = formatSchematic(text, { file, kind: "module" });
+  if (!result.ok) throw new Error(`${file}: ${result.diagnostics.map((d) => d.code).join(", ")}`);
+  return result.text!;
+}
+
 describe("canonical form (schematic)", () => {
   const file = `${projectDir}/sch/mcu-board.teda`;
   const text = readFileSync(file, "utf8");
@@ -76,7 +83,7 @@ describe("canonical form (schematic)", () => {
   });
 });
 
-describe("canonical form (a board with many instances)", () => {
+describe("canonical form (a board that composes modules)", () => {
   const boardFile = `${projectDir}/sch/charger-buck.teda`;
   const boardText = readFileSync(boardFile, "utf8");
   const boardCanonical = fmt(boardFile, boardText);
@@ -85,20 +92,39 @@ describe("canonical form (a board with many instances)", () => {
     expect(fmt(boardFile, boardCanonical)).toBe(boardCanonical);
   });
 
-  test("board section order: nets before ports", () => {
-    const netsAt = boardCanonical.indexOf("\nnets\n");
-    const portsAt = boardCanonical.indexOf("\nports\n");
-    expect(netsAt).toBeGreaterThan(0);
-    expect(portsAt).toBeGreaterThan(netsAt);
+  test("board section order: modules, nets, ports, constraints", () => {
+    const order = [...boardCanonical.matchAll(/^(\w+)$/gm)].map((m) => m[1]!);
+    expect(order).toEqual(["modules", "nets", "ports", "constraints"]);
   });
 
-  test("the instances of both circuits are in one list, in natural order", () => {
-    const rows = boardCanonical.split("\n").filter((l) => /^  [A-Z]+\d+\s/.test(l));
+  test("the module instances are ordered by their id", () => {
+    const rows = boardCanonical.split("\n").filter((l) => /^  M\d+\s/.test(l));
+    expect(rows.map((l) => l.trim().split(/\s+/)[0])).toEqual(["M1", "M2"]);
+  });
+});
+
+describe("canonical form (a module file)", () => {
+  const moduleFile = `${projectDir}/modules/buck-5v.teda`;
+  const moduleText = readFileSync(moduleFile, "utf8");
+  const moduleCanonical = fmtModule(moduleFile, moduleText);
+
+  test("module file idempotent", () => {
+    expect(fmtModule(moduleFile, moduleCanonical)).toBe(moduleCanonical);
+  });
+
+  test("the section order is instances, nets, ports, constraints", () => {
+    const order = [...moduleCanonical.matchAll(/^(\w+)$/gm)].map((m) => m[1]!);
+    expect(order).toEqual(["instances", "nets", "ports", "constraints"]);
+  });
+
+  test("the instances are ordered by refdes naturally", () => {
+    const rows = moduleCanonical.split("\n").filter((l) => /^  [A-Z]+\d+\s/.test(l));
     const refs = rows.map((l) => l.trim().split(/\s+/)[0]!);
-    expect(refs).toContain("U1");
-    expect(refs).toContain("U2");
-    expect(refs).toContain("C19");
-    expect(refs).toContain("R24");
+    expect(refs).toEqual(["C1", "C2", "C3", "C4", "D1", "L1", "R1", "R2", "U1"]);
+  });
+
+  test("a module file has no modules section", () => {
+    expect(moduleCanonical).not.toContain("\nmodules\n");
   });
 });
 

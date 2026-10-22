@@ -219,15 +219,15 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `net_a` | net_id | yes | — | The net name is the identity key: GND, BUCK_VFB. The qualified form is reserved for the module hierarchy. |
-| `net_b` | net_id | yes | — | The net name is the identity key: GND, BUCK_VFB. The qualified form is reserved for the module hierarchy. |
+| `net_a` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
+| `net_b` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
 | `type` | `net_tie` | yes | — | **(missing description)** |
 
 ### deviation (type=split_ground)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `net` | net_id | yes | — | The net name is the identity key: GND, BUCK_VFB. The qualified form is reserved for the module hierarchy. |
+| `net` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
 | `type` | `split_ground` | yes | — | **(missing description)** |
 
 ### keepout
@@ -261,7 +261,7 @@
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `id` | string | yes | — | **(missing description)** |
-| `net` | net_id | yes | — | The net name is the identity key: GND, BUCK_VFB. The qualified form is reserved for the module hierarchy. |
+| `net` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
 | `size_nm` | integer | yes | nm | **(missing description)** |
 | `type` | `test_point` | yes | — | **(missing description)** |
 
@@ -271,7 +271,7 @@
 |---|---|---|---|---|
 | `drill_nm` | integer | yes | nm | **(missing description)** |
 | `id` | string | yes | — | **(missing description)** |
-| `net` | net_id | yes | — | The net name is the identity key: GND, BUCK_VFB. The qualified form is reserved for the module hierarchy. |
+| `net` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
 | `size_nm` | integer | yes | nm | **(missing description)** |
 | `type` | `stitching` | yes | — | **(missing description)** |
 
@@ -290,7 +290,7 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `instance_id` | instance_id | yes | — | Instance id of the board's flat list: U1. The qualified form <module_instance_id>.<refdes> (M1.U1) is reserved for the module hierarchy, which is not implemented yet. This is the identity key; see ADR-0008 decision 3. |
+| `instance_id` | instance_id | yes | — | Instance id of the board's flat list: U1. An instance of a module carries the module's prefix: <module_instance_id>.<refdes> (M1.U1). This is the identity key; see ADR-0008 decision 3 and ADR-0026 decision 2. |
 | `rot_mdeg` | integer | yes | m° | Clockwise positive, millidegrees; reduced modulo 360000. |
 | `side` | `top` \| `bottom` | yes | — | **(missing description)** |
 | `x_nm` | integer | yes | nm | **(missing description)** |
@@ -330,7 +330,7 @@
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `clearance_nm` | integer | yes | nm | **(missing description)** |
-| `net` | net_id | yes | — | The net name is the identity key: GND, BUCK_VFB. The qualified form is reserved for the module hierarchy. |
+| `net` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
 | `type` | `net` | yes | — | **(missing description)** |
 | `via_drill_nm` | integer | yes | nm | **(missing description)** |
 | `via_size_nm` | integer | yes | nm | **(missing description)** |
@@ -342,8 +342,8 @@
 |---|---|---|---|---|
 | `gap_nm` | integer | yes | nm | **(missing description)** |
 | `impedance_mohm` | integer | yes | mΩ | **(missing description)** |
-| `net_a` | net_id | yes | — | The net name is the identity key: GND, BUCK_VFB. The qualified form is reserved for the module hierarchy. |
-| `net_b` | net_id | yes | — | The net name is the identity key: GND, BUCK_VFB. The qualified form is reserved for the module hierarchy. |
+| `net_a` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
+| `net_b` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
 | `type` | `diff` | yes | — | **(missing description)** |
 
 ### rule (type=match)
@@ -351,8 +351,8 @@
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `max_delta_nm` | integer | yes | nm | **(missing description)** |
-| `net_a` | net_id | yes | — | The net name is the identity key: GND, BUCK_VFB. The qualified form is reserved for the module hierarchy. |
-| `net_b` | net_id | yes | — | The net name is the identity key: GND, BUCK_VFB. The qualified form is reserved for the module hierarchy. |
+| `net_a` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
+| `net_b` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
 | `type` | `match` | yes | — | **(missing description)** |
 
 ### rule (type=mask)
@@ -418,7 +418,7 @@
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. |
-| `net` | net_id | yes | — | The net name is the identity key: GND, BUCK_VFB. The qualified form is reserved for the module hierarchy. |
+| `net` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
 | `points` | array<point> | yes | — | **(missing description)** |
 | `width_nm` | integer | yes | nm | **(missing description)** |
 
@@ -428,7 +428,7 @@
 |---|---|---|---|---|
 | `drill_nm` | integer | yes | nm | **(missing description)** |
 | `from_layer` | layer_name | no | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. |
-| `net` | net_id | yes | — | The net name is the identity key: GND, BUCK_VFB. The qualified form is reserved for the module hierarchy. |
+| `net` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
 | `size_nm` | integer | yes | nm | **(missing description)** |
 | `to_layer` | layer_name | no | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. |
 | `x_nm` | integer | yes | nm | **(missing description)** |
@@ -439,7 +439,7 @@
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. |
-| `net` | net_id | yes | — | The net name is the identity key: GND, BUCK_VFB. The qualified form is reserved for the module hierarchy. |
+| `net` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
 | `points` | array<point> | yes | — | **(missing description)** |
 
 ## `project`
@@ -534,7 +534,7 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `instance_id` | instance_id | yes | — | Board-level instance id of the instance, e.g. U1. Must exist in the board's instances. The module-qualified form M1.U1 is reserved for the module hierarchy; the view names ids, it does not define them. |
+| `instance_id` | instance_id | yes | — | Board-level instance id of the instance, e.g. U1. Must exist in the board's instances. An instance of a module carries the module's prefix (M1.U1); the view names ids, it does not define them. |
 | `line` | proxy_line | no | — | Starting line of this row in the source file, for diagnostic locations. |
 | `rot_mdeg` | integer | no | m° | Symbol rotation, clockwise positive, millidegrees; reduced modulo 360000. Omitted means 0. |
 | `unit` | integer | no | — | Which unit of a multi-unit symbol to draw. Omitted means unit 1. |

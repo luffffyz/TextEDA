@@ -1,8 +1,8 @@
 // `texteda init`: scaffold an empty project.
 //
 // Contract per AGENTS.md "init contract (settled)":
-//   - create only `project.toml`, `components/`, `sch/`, `pcb/`, `system/`, `docs/`, `docs/README.md`;
-//   - put `.gitkeep` in `components/`, `sch/`, `pcb/`, `system/` to keep empty directories;
+//   - create only `project.toml`, `components/`, `sch/`, `pcb/`, `system/`, `modules/`, `docs/`, `docs/README.md`;
+//   - put `.gitkeep` in `components/`, `sch/`, `pcb/`, `system/`, `modules/` to keep empty directories;
 //   - `project.toml` has only three required entries: `name` / `version` / `format`;
 //   - no network access, no template fetching, no `dist/`;
 //   - deterministic output: the same name yields byte-identical files.
@@ -72,7 +72,8 @@ export function renderDocsReadme(name: string): string {
     `${name}/`,
     "├── project.toml        # Project metadata (name, version, format version)",
     "├── components/         # Component descriptions: one component per .teda (component_id taken from the file name)",
-    "├── sch/                # Schematic descriptions: board root sch/<board_id>.teda, in-board pages sch/<board_id>/<page_id>.teda",
+    "├── sch/                # Schematic descriptions: one board per .teda, sch/<board_id>.teda",
+    "├── modules/            # Module descriptions: one module per .teda, modules/<module_id>.teda",
     "├── pcb/                # PCB descriptions; can be added later",
     "├── system/             # Multi-board connection descriptions: one system per .teda",
     "└── docs/               # Design documents, review records, simulation conclusions",
@@ -81,7 +82,7 @@ export function renderDocsReadme(name: string): string {
     "Next steps:",
     "",
     "1. Write component descriptions in `components/` (symbols and footprints first, then components).",
-    "2. Write the board root `sch/<board_id>.teda` in `sch/`, referencing ids from `components/` via `instances`.",
+    "2. Write the board `sch/<board_id>.teda` in `sch/`, referencing ids from `components/` via `instances`.",
     "3. When a physical implementation is needed, create a file with the same name under `pcb/`.",
     "",
     "See the repository's `teda.md` for the syntax and `docs/adr/` for decision records.",
@@ -92,13 +93,14 @@ export function renderDocsReadme(name: string): string {
 /** Compute the directories and files that init will create. */
 export function initTree(options: InitOptions & { name: string }): InitTree {
   return {
-    directories: ["components", "sch", "pcb", "system", "docs"],
+    directories: ["components", "sch", "pcb", "system", "modules", "docs"],
     files: [
       { path: "project.toml", content: renderProjectToml(options) },
       { path: "components/.gitkeep", content: "" },
       { path: "sch/.gitkeep", content: "" },
       { path: "pcb/.gitkeep", content: "" },
       { path: "system/.gitkeep", content: "" },
+      { path: "modules/.gitkeep", content: "" },
       { path: "docs/README.md", content: renderDocsReadme(options.name) },
     ],
   };

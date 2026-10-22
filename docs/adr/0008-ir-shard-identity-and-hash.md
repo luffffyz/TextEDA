@@ -84,12 +84,14 @@ Parameter type → IR unit (this covers the "impedance Ω" from [ADR-0004](0004-
 
 - For each shard: `sha256` is computed over **the canonical JSON bytes of that shard**, and is recorded in the `shards` array of `manifest.json`.
 - Board hash = `sha256` (of the board's shards' `<path>:<sha256>\n` sorted by path and concatenated); the project hash is computed the same way over all shards. Board/project hashes are **not written to disk**; they can be recomputed by this rule — which avoids two sources of truth where "the hash is stored but the content does not match".
+- **Amended (2026-10-22)**: the project hash aggregates the **normative** shards only, and a second hash, `advisory_hash`, aggregates the advisory shards with the same algorithm. The manifest records the classification per shard. See [ADR-0023](0023-ir-layer-on-disk.md) decision 4 and [ADR-0030](0030-procurement-layer.md) decision 12 for why the distinction exists.
 - Derivative artifacts (Gerber, images, netlists) write `source_hash` (the project hash) + the board hash they belong to + `tool_version` (`AGENTS.md` §2 rule 11).
 - Incremental: change one source file and only that shard is recomputed; unchanged shards keep the same bytes and the same hash — this is the reason shards exist.
 
 ### 6. The boundary between IR and `project.toml`
 
-- `project.toml` is the **human-written** entry point for project metadata; `project.json` is its IR projection, field for field (`name`/`version`/`format`/`description`/`license`/`status`/`default_variant`/`authors`/`links`/`boards`/`variants`/`libs`/`compliance`/`ext`).
+- `project.toml` is the **human-written** entry point for project metadata; `project.json` is its IR projection, field for field (`name`/`version`/`format`/`description`/`license`/`status`/`default_variant`/`authors`/`links`/`boards`/`variants`/`compliance`/`ext`).
+- **`libs` is no longer among them.** A library reference is a dependency, and a dependency is a description in its own right: it is written as a `libref` file under `external/libs/` and compiles to its own shard ([ADR-0031](0031-project-tree-ownership-model.md) decision 5). `project.toml` describes the project; the libraries it borrows live beside it.
 - IR does not copy source text, does not copy comments, does not copy canonical layout; IR stores semantics, and `source.file` exists only for traceability.
 - `ir_version` and the language `format` are versioned independently: `ir_version` only rises when the IR shape changes, `format` only rises when the `.teda` syntax changes. The two are not one-to-one (a `0.4` language can produce `0.1` IR).
 
@@ -102,7 +104,7 @@ The implementation language is undecided (`AGENTS.md` §11 rule 13). Until it is
 - **Only one flattening**: the schema never carries two datasets, "in-page netlist + board-level netlist", and consumers cannot read two contradicting accounts; the cost is that the IR cannot show "which net name this page originally used" (only `source.file` can take you back there).
 - **Identity is bound to the name**: renaming is expensive (all hashes change), but the IR stays simple, with no mapping layer. Wanting "rename without changing identity" means changing the language to add an explicit id column.
 - **Field names get longer** (`x_nm`, `rot_mdeg`): in exchange, reading the IR it is impossible to mistake mm for nm; it also avoids writing a "the unit is nm" comment for every numeric field in the JSON Schema.
-- **Hashes come in three layers**: shards can be cached, a board can be traced individually, the project can be traced as a whole; the cost is that every consumer has to implement the three-line aggregation rule.
+- **Hashes come in three layers**: shards can be cached, a board can be traced individually, the project can be traced as a whole; the cost is that every consumer has to implement the three-line aggregation rule. Since 2026-10-22 the project hash covers the normative shards and an `advisory_hash` covers the advisory ones, so a consumer that must distinguish "the build changed" from "the purchasing state changed" has two hashes to read.
 - **Constraint subjects get renamed during flattening**: the person writing `.teda` will not notice, but a reader of the IR has to know that `M2.VFB` originates from the page net `VFB` being flattened.
 
 ## Follow-up

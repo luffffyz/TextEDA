@@ -59,3 +59,26 @@ Decision 4 was written when `bun run lib:verify` was one gate that required `kic
 |`bun run lib:verify:kicad`|Additionally: KiCad can read the exported `.kicad_sym` / `.kicad_mod`, and the merged board has 0 `pcb drc` violations|**Yes** (optional)|
 
 The rule behind the split is [ADR-0018](0018-zero-dependency-and-manufacturing-target.md)'s: **a gate may not depend on an external tool** — KiCad's read-in and DRC are cross-validation, not the definition of our correctness. The checks listed in decision 4 are unchanged; only their tier changed. The merged-board `.kicad_pcb` is still generated, as an interoperability artifact rather than a gate.
+
+## Addendum (2026-10-22): the reference project has no external library, and its own assets are assets
+
+Amended by [ADR-0031](0031-project-tree-ownership-model.md) decisions 1, 2 and 6.
+
+The wording of the title and of decision 1 changes with the tree. The reference project still
+references no external library — that is unchanged and still the point — but the reason is now
+sharper: a library is a separate repository, and the reference project borrows nothing because
+it builds everything itself.
+
+- The project's symbols and footprints are **assets**, under `assets/symbols/` and
+  `assets/footprints/`, not a library called `project`. The `project:` prefix survives as a
+  legacy spelling of the bare form.
+- The `project.toml` `[libs.project]` entry disappears with the other `[libs]` entries
+  ([ADR-0008](0008-ir-shard-identity-and-hash.md) decision 6): the project has no dependency to
+  declare.
+- The reference project has **no `external/` directory at all**, which makes it the worked
+  example of the case ADR-0031 leaves open: a project that borrows nothing.
+- **The library-level checks still apply, to a wider scope.** The three-way alignment of symbol
+  pin numbers, footprint pad numbers and component pin numbers must hold for every asset the
+  project owns *and* for every asset of a vendored library, and `lib:verify` checks both. A
+  vendored library is verified against the `content_hash` its `libref` declares, so "the library
+  was edited without moving the anchor" is an error, not a silent drift.

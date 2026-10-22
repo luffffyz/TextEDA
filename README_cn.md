@@ -33,7 +33,7 @@ bun run texteda ir examples/reference-project      # 写出 IR 分片树（canon
 bun run texteda init ./my-board        # 生成空工程骨架
 ```
 
-当前状态：工具链前半段已落地（语言 → IR → KiCad 导出 → 预览渲染）。`schematic` 解析（实例、net、port、约束、bus——一块板一份扁平文件，[ADR-0025](docs/adr/0025-flat-board-and-print-pages.md)）、`view` 解析（S1 打印页）、`pcb` 解析（12 段 → `pcb` IR）、footprint / symbol / schematic / pcb / view 的 canonical formatter、连通性 ERC 与 sch↔pcb 绑定校验（`packages/core`）都能用，原理图打印页可从视图文件出图（`bun run preview view <board>/<page>`），整个工程可编译成带 manifest 与哈希的 IR 分片树（`bun run texteda ir <工程目录>`，[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)）。板级设计（布局、布线、制造出口）未实现；KiCad 仍是制造出口（[ADR-0005](docs/adr/0005-manufacturing-output.md)）。
+当前状态：工具链前半段已落地（语言 → IR → KiCad 导出 → 预览渲染）。`schematic` 解析（实例、net、port、约束、bus——一块板一份扁平文件，[ADR-0025](docs/adr/0025-flat-board-and-print-pages.md)）、`module` 解析（板由带端口的模块组成，IR 仍是平表，[ADR-0026](docs/adr/0026-modules-compose-boards.md)）、`view` 解析（S1 打印页）、`pcb` 解析（12 段 → `pcb` IR）、footprint / symbol / schematic / module / pcb / view 的 canonical formatter、连通性 ERC 与 sch↔pcb 绑定校验（`packages/core`）都能用，原理图打印页可从视图文件出图（`bun run preview view <board>/<page>`），整个工程可编译成带 manifest 与哈希的 IR 分片树（`bun run texteda ir <工程目录>`，[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)）。板级设计（布局、布线、制造出口）未实现；KiCad 仍是制造出口（[ADR-0005](docs/adr/0005-manufacturing-output.md)）。
 
 给 agent 用的两份派生物（都由 `bun run gen` 生成，不手改）：
 
@@ -75,16 +75,16 @@ KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.
 | `AGENTS.md` | **主文档**：项目是什么、不可协商的不变量、验证与验收口径 |
 | `LICENSE` / `NOTICE` | Apache-2.0 与归属声明 |
 | `teda.md` | `.teda` 语法总览 |
-| `spec/` | 分描述规范：`project` / `schematic` / `pcb` / `symbol` / `footprint` / `system` |
+| `spec/` | 分描述规范：`symbol` / `footprint` / `pcb` / `schematic-view` / `module` |
 | `schemas/ir/v0.2/` | IR 契约（JSON Schema 2020-12，唯一契约） |
 | `packages/ir` | IR 类型与契约校验 |
-| `packages/parser` | `.teda` → IR，含 `fmt`（canonical form） |
+| `packages/parser` | `.teda` → IR，含 `fmt`（canonical form）；`module` 文件展平进板级 IR |
 | `packages/core` | 纯规则：连通性 ERC 与 sch↔pcb 绑定，不碰 fs |
 | `packages/exporter` | 封装 / 符号 → KiCad（`.kicad_mod` / `.kicad_sym`）；网表 |
 | `packages/renderer` | 参考渲染器：IR → 绘图指令 → SVG（[ADR-0014](docs/adr/0014-reference-renderer.md)） |
 | `packages/cli` | `texteda init` / `compile` / `check` / `netlist` / `ir`（[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)、[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)） |
 | `examples/reference-project/` | 自包含的参考工程：22 个器件 / 15 个符号 / 16 个封装，库全部自建 |
-| `docs/adr/` | 决策记录（ADR），0001–0025（[完整索引](docs/adr/README.md)；0017 与 0020 已预留） |
+| `docs/adr/` | 决策记录（ADR），0001–0026（[完整索引](docs/adr/README.md)；0017 与 0020 已预留） |
 | `docs/backlog.md` | 待办清单 |
 | `docs/comparison.md` | 与 KiCad、EasyEDA、tscircuit 的对比（带出处） |
 
@@ -113,6 +113,7 @@ KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.
 - [ADR-0023](docs/adr/0023-ir-layer-on-disk.md) 落盘的 IR 层：分片树、manifest、哈希
 - [ADR-0024](docs/adr/0024-level-tags-in-flattened-names.md) 展平名字里的层级标记（`M1.R1`）
 - [ADR-0025](docs/adr/0025-flat-board-and-print-pages.md) 一板一份扁平原理图；页面变成视图层的打印页
+- [ADR-0026](docs/adr/0026-modules-compose-boards.md) 板由模块组成；IR 仍是平表
 
 完整索引（含标题、状态、日期）见 [docs/adr/README.md](docs/adr/README.md)。
 

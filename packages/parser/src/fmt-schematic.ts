@@ -6,7 +6,7 @@
 // Invariant (teda.md §12): `parse(fmt(x))` is semantically the same as `parse(x)`; `fmt(fmt(x)) == fmt(x)`.
 import { byteCompare, naturalCompare, pinRefCompare } from "@texteda/ir/order";
 import { lex } from "./lexer.ts";
-import { parseSchematicDocument } from "./schematic.ts";
+import { parseSchematicDocument, type DocumentKind } from "./schematic.ts";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
 
 /** The first-column marker of a continuation row: a bare `:` continues the net named by the row above. */
@@ -17,6 +17,8 @@ const MAX_LINE_WIDTH = 80;
 
 export interface SchematicFormatOptions {
   file: string;
+  /** Which description type the file holds. Defaults to `schematic`. */
+  kind?: DocumentKind;
 }
 
 export interface SchematicFormatResult {
@@ -26,9 +28,10 @@ export interface SchematicFormatResult {
   diagnostics: Diagnostic[];
 }
 
-const SCHEMATIC_SECTIONS = ["instances", "nets", "ports", "bus", "constraints"] as const;
-
-const SECTION_NAMES = new Set<string>(SCHEMATIC_SECTIONS);
+/** The sections of a board file, in canonical order. */
+const BOARD_SECTIONS = ["modules", "instances", "nets", "ports", "bus", "constraints"] as const;
+/** The sections of a module file, in canonical order (no `modules`: the hierarchy is one level deep). */
+const MODULE_SECTIONS = ["instances", "nets", "ports", "constraints"] as const;
 
 /** One row (comments attach to the row that follows). */
 interface Row {
@@ -59,7 +62,7 @@ interface Walk {
  * Line scan: structural recognition only; cell meanings are not interpreted.
  * A section header is a single-cell row; a `bus` instruction line is `bus <id> = <type>` (multiple cells) and also counts as a header.
  */
-function walkSchematic(text: string): Walk | null {
+function walkSchematic(text: string, sectionNames: ReadonlySet<string>): Walk | null {
   const lines = lex(text);
   let cursor = 0;
   let pending: string[] = [];
@@ -87,7 +90,7 @@ function walkSchematic(text: string): Walk | null {
   const walk: Walk = { header: [version, type], sections: new Map(), order: [], trailing: [] };
 
   const isSectionHeader = (row: Row): boolean =>
-    row.cells.length === 1 && SECTION_NAMES.has(row.cells[0]!);
+    row.cells.length === 1 && sectionNames.has(row.cells[0]!);
   const isBusHeader = (row: Row): boolean => row.cells[0] === "bus" && row.cells.length >= 4;
 
   let current: Section | null = null;
@@ -231,8 +234,10 @@ function alignTableRows(rows: Row[], indent: string): string[] {
  * Format a `schematic` file. No text is produced when there are semantic errors.
  */
 export function formatSchematic(text: string, options: SchematicFormatOptions): SchematicFormatResult {
-  const walk = walkSchematic(text);
-  const parsed = parseSchematicDocument(text, { file: options.file });
+  const kind: DocumentKind = options.kind ?? "schematic";
+  const sections = kind === "module" ? MODULE_SECTIONS : BOARD_SECTIONS;
+  const walk = walkSchematic(text, new Set<string>(sections));
+  const parsed = parseSchematicDocument(text, { file: options.file, kind });
   if (!parsed.ok) return { ok: false, diagnostics: parsed.diagnostics };
   if (!walk) return { ok: false, diagnostics: parsed.diagnostics };
 
@@ -244,7 +249,7 @@ export function formatSchematic(text: string, options: SchematicFormatOptions): 
     walk.header[1]!.cells.join(" "),
   ]);
 
-  for (const name of SCHEMATIC_SECTIONS) {
+  for (const name of sections) {
     const section = walk.sections.get(name);
     if (!section) continue;
     const block: string[] = [...section.comments, ...section.header];
@@ -253,6 +258,10 @@ export function formatSchematic(text: string, options: SchematicFormatOptions): 
     } else if (name === "bus") {
       block.push(...alignNetRows(section.rows, "  ", false));
     } else if (name === "instances") {
+      const rows = [...section.rows].sort((a, b) => naturalCompare(a.cells[0]!, b.cells[0]!));
+      block.push(...alignTableRows(rows, "  "));
+    } else if (name === "modules") {
+      // The module instances are ordered by their id: `M1`, `M2`, ... (natural order, not byte order).
       const rows = [...section.rows].sort((a, b) => naturalCompare(a.cells[0]!, b.cells[0]!));
       block.push(...alignTableRows(rows, "  "));
     } else if (name === "ports") {

@@ -1,4 +1,4 @@
-# `.teda` 格式规范（v0.7，草案）
+# `.teda` 格式规范（v0.9，草案）
 
 状态：草案。`AGENTS.md` 记录设计决策与边界，本文件定义具体格式。两者冲突时，以 `AGENTS.md` 的不变量为准，并修本文件。
 
@@ -48,7 +48,7 @@ nets
 | 末尾 | 必须有换行 |
 | 大小写 | 敏感 |
 
-七种文件类型：
+九种文件类型：
 
 | 类型 | 位置 | 说明 |
 |---|---|---|
@@ -59,8 +59,10 @@ nets
 | `footprint` | `footprints/<lib>/<footprint_id>.teda` | 库产物：一个封装的规范几何（v0.4 新增） |
 | `symbol` | `symbols/<lib>/<symbol_id>.teda` | 库产物：一个符号的视图（v0.5 新增） |
 | `view` | `sch/<board_id>/<page_id>.view.teda` | 一块板的一个"打印页"：S1 视图层（v0.6 新增，v0.7 起引用板级 id，语法见 `spec/schematic-view.md`） |
+| `module` | `modules/<module_id>.teda` | 板内的一个模块：带端口、持有电气事实（v0.8 新增，语法见 `spec/module.md`） |
+| `procurement` | `assets/procurement/{primary,alternatives}/<board_id>.teda` | 一块板的采购选料：族 → 买哪颗（v0.9 新增，语法见 `spec/procurement.md`） |
 
-文件名必须等于头部 id；不一致报错。`components/` 允许子目录，子目录只用于分类；`component_id` 取文件名（不含 `.teda`），不取相对路径，同一 id 在 `components/` 树内必须唯一。顶层目录与文件类型必须一致（`components/` 只放 `component`，以此类推）；`sch/<board_id>.teda` 是板的文件（`schematic`），`sch/<board_id>/` 目录里只放该板的视图文件（`view`），靠 `.view` 后缀区分（`sch/<board_id>/<page_id>.view.teda` ↔ `view <page_id>`）。`footprints/` 与 `symbols/` 是**库目录**而不是描述目录：它们按库分子目录（`footprints/<lib>/`、`symbols/<lib>/`），库名由目录决定（IR 的 `footprint.library` / `symbol.library`），不进文件内容。
+文件名必须等于头部 id；不一致报错。`components/` 允许子目录，子目录只用于分类；`component_id` 取文件名（不含 `.teda`），不取相对路径，同一 id 在 `components/` 树内必须唯一。顶层目录与文件类型必须一致（`components/` 只放 `component`，`modules/` 只放 `module`，以此类推）；`sch/<board_id>.teda` 是板的文件（`schematic`），`sch/<board_id>/` 目录里只放该板的视图文件（`view`），靠 `.view` 后缀区分（`sch/<board_id>/<page_id>.view.teda` ↔ `view <page_id>`）。`footprints/` 与 `symbols/` 是**库目录**而不是描述目录：它们按库分子目录（`footprints/<lib>/`、`symbols/<lib>/`），库名由目录决定（IR 的 `footprint.library` / `symbol.library`），不进文件内容。`assets/procurement/primary/` 与 `assets/procurement/alternatives/` 只放 `procurement` 文件，文件名是板 id，两者的区别是**哈希级别**（主料规范、备料附注），不是语法（v0.9）。工程树整体按 `docs/adr/0031-project-tree-ownership-model.md`（本表其余行的路径待同步）。
 
 ---
 
@@ -304,15 +306,19 @@ ports
 
 ---
 
-### 7.6 板只有一份原理图文件（v0.7）
+### 7.6 一块板 = 一份原理图文件 + 若干模块（v0.8）
 
-一块板 = 一份 `sch/<board_id>.teda`。板内**没有**第二层划分：没有 `pages` 段，没有 `page` 描述类型，没有页内 `net` 的局部命名空间，也没有展平。决策与理由见 `docs/adr/0025-flat-board-and-print-pages.md`。
+一块板 = 一份 `sch/<board_id>.teda` + 若干个模块文件。板内**没有**第二套绘制划分：没有 `pages` 段，没有 `page` 描述类型。板内**有**一层逻辑层次：**模块**——带端口、持有电气事实，语法见 `spec/module.md`，决策见 `docs/adr/0026-modules-compose-boards.md`。
 
-- `refdes` 与 `net` 名在板内唯一。撞名由作者改名解决（工具不限定名、不重编号）。
+- 板文件里有一个 `modules` 段，列出模块实例（`M1  charger-power`）；模块体在 `modules/<module_id>.teda`。
+- 板级 `instances` 与模块并存：不属于任何模块的器件直接写在板文件里，用普通 `refdes`。
+- `refdes` 与 `net` 名在**板级**唯一；模块内部有**自己的一套** `refdes` 与 `net` 名，展平后带 `M` 限定名（`M1.R1`、`M1.VCC`）。撞名由作者改名解决（工具不限定名、不重编号）。
+- 模块端口与板级 net 的绑定写在板级 `nets` 段（成员可以是 `M2.VOUT` 这样的模块端口引用）。
+- 展平后的板级 IR 是**扁平的**：一张实例表、一张 net 表，不含模块结构（IR 契约仍是 0.2）。
 - 板的 `ports` 段是它对外的唯一接口（§7.5）。
-- 板内的**绘制划分**（"这块图画不下"、评审想分块看）属于**视图层**：`sch/<board_id>/<page_id>.view.teda` 是一个**打印页**，它引用板级的 `instance_id` 与 `net_id`，语法见 `spec/schematic-view.md`。打印页可以随时丢弃、随时重画；删掉全部打印页，板的逻辑依然完整、可校验、可导网表。
-- **BOM**：行 = (`component_id`, 参数字典, 变体状态)，聚合键**不含** `refdes`；数量 = 板上的实物数。详见 §11。
-- **未来的层次**：模块（backlog F13）是板内唯一的层次，模块实例 id 带层级标记 `M`（`M1.R1`）。模块是**带端口的层次**，不是可丢弃的绘制划分，两者不混用。
+- 板内的**绘制划分**（"这块图画不下"、评审想分块看）属于**视图层**：`sch/<board_id>/<page_id>.view.teda` 是一个**打印页**，它引用板级的 `instance_id` 与 `net_id`（模块实例化之后是 `M1.U1`），语法见 `spec/schematic-view.md`。打印页可以随时丢弃、随时重画；删掉全部打印页，板的逻辑依然完整、可校验、可导网表。
+- **BOM**：行 = (`component_id`, 参数字典, 变体状态)，聚合键**不含** `refdes`；数量 = 板上的实物数（模块实例化几次就算几份）。详见 §11。
+- **层次只有一层**：模块不能再嵌套模块（backlog F13）。模块实例 id 带层级标记 `M`（`M1.R1`）。模块是**带端口的层次**，不是可丢弃的绘制划分，两者不混用。
 
 ---
 
@@ -426,12 +432,13 @@ nets
 8. 端口（`ports` 段）：引用的 `net` 存在；`port_id` 不重复；同一个 `net` 最多被一个 `port` 引用。
 9. 系统（`system` 文件）：`boards` 的 `board_id` 在 `project.toml` 的 `[boards]` 中存在且有 `sch` 文件；`nets` 成员是已声明的 `port`；每条系统 `net` 至少两个成员；同一块板的同一个 `net` 不被并进两条系统 `net`；两侧电压约束区间不相交时报错。
 10. canonical form（§12）：不满足的文件在 `fmt --check` 下报错；`fmt` 修复后语义不变。
-11. 板（v0.7）：一块板一份 `schematic` 文件；`refdes` 与 `net` 名在板内唯一；没有 `pages` 段、没有 `page` 文件（见到即报错，见迁移说明）。
+11. 板（v0.8）：一块板一份 `schematic` 文件 + 若干 `module` 文件；`refdes` 与 `net` 名在**板级**唯一（模块内部另有自己的一套）；没有 `pages` 段、没有 `page` 文件（见到即报错，见迁移说明）；模块实例 id 是 `M` + 数字，板级 `refdes` 不得占用这个形式。
 12. BOM：行 = (`component_id`, 参数字典, 变体状态)；聚合键不含 `refdes`；数量 = 板上的实物数。
 13. 变体：只影响 BOM 与制造，不改变连通性；引用 `component_id` 作用于该型号的所有实例，引用稳定 id 只作用于该实例；不影响 ERC 结果。
 14. pcb（`pcb` 文件存在时）：按 `spec/pcb.md` §5.2 执行；sch↔pcb 绑定与偏差白名单见 `AGENTS.md` §4.4。
 15. footprint（库文件存在时）：按 `spec/footprint.md` §7 执行；库级检查（引脚号比对、DRC）不在这层。
 16. symbol（库文件存在时）：按 `spec/symbol.md` §7 执行；库级检查（与 `component` 的引脚号集合比对）不在这层。
+17. procurement（`procurement` 文件存在时，v0.9）：按 `spec/procurement.md` §3.2 与 §7 执行。族能解析且是族、件能解析且是件、件有 `mpn`、件的 `params` 覆盖族的、件的 `footprint` 等于族的 `footprint`、件不是被工程派生件遮蔽的库件。**主料违反是 error，备料违反是 warning**（严格模式下 error）；源文件本身解析失败一律是 error。族行没有选料 → warning（unsourced）；选中的件板上没用到 → warning。
 
 诊断格式：`file:line:col: <severity> <code>: <message>`；`--json` 输出同字段。严重级别：`error` / `warning`。
 
@@ -451,6 +458,7 @@ nets
    - footprint：`pads`、`graphics`；标量顺序与行的排序见 `spec/footprint.md` §8
    - symbol：`pins`、`body`；标量顺序与行的排序见 `spec/symbol.md` §8
    - view：`place`、`wire`、`label`、`port`、`text`；标量顺序与行的排序见 `spec/schematic-view.md` §11
+   - procurement：`selections`（唯一段）；标量只有 `role`
 2. 行排序（名称一律按 ASCII 字节序；`instances` 的 refdes 按自然序，数字按数值比较）：
    - `instances` 按 refdes 自然序
    - `nets` 按 net 名
@@ -461,8 +469,9 @@ nets
    - `pins` 按编号数值
    - `params` 保持源文件顺序（声明顺序即实例行的列序）；`required` 列必须排在 `optional` 列之前，否则报错
    - pcb 各段的排序与归一见 `spec/pcb.md` §6.2
+   - procurement 的 `selections` 按左键文本排序：族 id 按 ASCII，参数按声明顺序逐个按 ASCII（IR 里按解析后的值排序，见 §12 规则 9）
    - `constraints` 保持源文件顺序
-3. 列对齐：同段内按最宽单元格对齐，列间至少两个空格。
+3. 列对齐：同段内按最宽单元格对齐，列间至少两个空格。**procurement 行不对齐**：两行的列含义不同（某族的第一个参数不是另一族的第一个参数），对齐会暗示不存在的对应关系；procurement 行的单元格之间用**一个**空格，`->` 前后各一个空格。
 4. 段之间一个空行；无行尾空白；文件末尾一个换行。
 5. 整行注释保留，并跟随其后的行移动。
 6. 单元格内容不变，只调整分隔空白：表段单元格之间至少两个空格并对齐；标量行（"键 + 值"）用单个空格分隔，多单元格的值（如 `description`）按单元格重排，连续空白归一。
@@ -478,11 +487,15 @@ nets
 
 `version` 为 `MAJOR.MINOR[.PATCH]`，三位各自无前导零。**PATCH 位可省略，省略即 0**：`0.6` 与 `0.6.0` 是同一个版本，IR 里只存一种写法（`0.6`）。
 
+`version` 是**该描述类型自己的**版本线，不是全语言共享的一个版本号：今天在飞的是四个号——`schematic 0.8`、`view 0.7`、`symbol 0.5`、`component 0.1`（另有 `pcb 0.4`、`footprint 0.4`、`system 0.2`、`module 0.8`、`procurement 0.9`）。在 `0.x` 阶段**每种描述类型只走 PATCH 位**（`0.8` → `0.8.1`）：加段、加字段也不抬 MINOR。抬 MINOR 的时机留给最后的合并（见 §13.2）。决策见 `docs/adr/0022-language-versioning.md` 的 2026-10-22 附录。
+
 | 位 | 什么时候动 | 动它意味着 |
 |---|---|---|
 | MAJOR | 改语义、删字段、删段——老文件不再合法 | 破坏性变更，必须给迁移说明 |
 | MINOR | 加描述类型、加段、加字段——老文件继续合法 | 增量变更，老文件不用改 |
 | PATCH | **不改变"哪些文件合法"**的改动：加诊断码、改诊断文案、澄清规则、收紧本来就非法的检查 | 行为变更，兼容性不变 |
+
+**0.x 阶段的号码是固定的**：全局号停在 `0.9`（`procurement` 诞生的那一代），**新描述类型也诞生在 `0.9`**，计数器不再往上走；每种类型自己的版本线只走 PATCH。**`1.0` 是保留号**，只能由收敛决策（所有类型没有待做的表面变更 + 十用例语料存在）产生，不会被“计数”走到。号码**按类型独立、彼此不可比**（`symbol 0.5` 与 `procurement 0.9` 不表示谁更老）。决策见 `docs/adr/0022-language-versioning.md` 的 2026-10-22b 附录。
 
 一条硬规则：**PATCH 永远不破坏兼容性**。所以实现了 `MAJOR.MINOR` 的工具接受它的**任意** PATCH（判定时忽略 PATCH 位），`0.6.1` 的文件能被只懂 `0.6` 的工具正常读。
 
@@ -490,7 +503,11 @@ nets
 
 `1.0` 是**里程碑，不是用完的计数**：达到 1.0 需要一次显式决策（一份 ADR），表示"语言表面冻结"——之后只出 PATCH 版本（`1.0.1`、`1.0.2`…），不再加描述类型、段与字段。
 
+**在 `0.x` 阶段结束时，各描述类型的版本号会一次性合并成一个 `1.0`**，之后全语言只维护这一个号。合并的触发条件建议是：所有描述类型都没有待做的破坏性或增量表面变更，且十个困难用例语料已经存在（`docs/backlog.md` F12）——用例还在动，就说明表面还没定。
+
 所以版本号涨得快不意味着快到 1.0：日常的澄清与诊断改进走 PATCH 位，只有真正的语言增量才动 MINOR。
+
+**`1.0` 之后如果确实要改表面，那是新的 MAJOR（`2.0`）**，带迁移说明与迁移脚本——`1.x` 线因此只有 `1.0`、`1.0.1`、`1.0.2`……，不会有 `1.1`–`1.9`（`docs/adr/0022-language-versioning.md` 的 2026-10-22b 附录 A5）。
 
 ### 13.3 接受规则
 
@@ -499,7 +516,7 @@ nets
 1. 版本号是合法的 `MAJOR.MINOR[.PATCH]`（否则 `format.invalid-version`）；
 2. MAJOR 与工具支持的 MAJOR 相同（否则 `format.unsupported-version`）；
 3. MINOR **不低于该描述类型诞生的版本**——`view` 文件不能写 `0.5`；
-4. MINOR **不高于工具支持的语言版本**——上界是语言版本，不是该类型最后一次改动的版本：今天写的 `symbol` 文件写 `0.6` 是对的（只要不高于工具支持的版本）。
+4. MINOR **不高于该描述类型当前支持的版本**——上界是**这一种描述类型**的当前版本，不是全语言的一个版本：`view` 文件今天写 `0.7`，`symbol` 文件写 `0.5`，各写各的当前号。
 
 PATCH 位不参与判定（见 §13.1 的硬规则）。
 
@@ -517,7 +534,10 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
     3. `view` 文件里的页内 id 改成板级 id，页端口改成板端口；文件名保持 `<page_id>.view.teda`。
     4. `pcb` 文件里的实例 id 与 net 名去掉页面前缀。
     5. 仍带 `page` 头或 `pages` 段的文件，诊断指向本条迁移说明。
-- 未知构造默认报错；`--allow-unknown` 仅用于前向兼容检查，不用于生产。
+- `0.8` 新增：`module` 描述类型、`sch` 的 `modules` 段、模块端口与板级 net 的绑定、板内展平（决策见 `docs/adr/0026-modules-compose-boards.md`，语法见 `spec/module.md`）。板内重新有了**一层逻辑层次**：模块持有电气事实，带端口；绘制划分仍在视图层的打印页里。**IR 契约不变**（仍是 0.2）：板级 IR 是展平结果，不含模块结构。用到 `module` 或 `modules` 段的文件写 `version 0.8`；只含板级内容的文件仍可写 `0.7`。
+- `0.9` 新增（**`0.x` 的最后一个全局号**）：`procurement` 描述类型——一块板的采购选料（决策见 `docs/adr/0030-procurement-layer.md`，语法见 `spec/procurement.md`）。选料是**决定**不是事实：主料进工程哈希与板哈希，备料只进 advisory 哈希。`procurement` 文件写 `version 0.9`。**实现未落地**（解析器、IR 契约 v0.3 的 `procurement` 分片、BOM 输出见 `docs/backlog.md` F34）。
+- `0.x` 阶段各描述类型的版本线各自维护、只走 PATCH 位；项目接近完成时一次性合并为 `1.0`，之后全语言一个号（见 §13.1 / §13.2）。
+- 未知构造默认报错；`--allow-unknown` 仅用于前向兼容检查，不用于生产。**这是 `0.x` 阶段版本号只走 PATCH 位的安全依据**：不懂新构造的工具会报错停下，不会误读文件。
 - 所有破坏性变更必须提供迁移说明；`fmt` 不自动跨 MAJOR 迁移。
 
 ---
@@ -648,8 +668,8 @@ nets
 以下未定或明确不支持：
 
 - 行尾注释、引号单元格、转义、跨行值。
-- `module` / `blocks` 板内层次与端口映射（backlog F13；与板间连接正交）。
-- 板内**源码**的划分：一块板只有一份 `schematic` 文件，没有"把板拆成几份源码"的机制（`docs/adr/0025-flat-board-and-print-pages.md`；绘制划分在视图层的打印页里）。
+- `blocks` 板内层次（`module` 已落地，见 `spec/module.md`；backlog F13 的其余部分：参数、嵌套、跨工程库包）。
+- 板内**绘制**划分：一块板可以有多个打印页，但那是视图层的事（`docs/adr/0025-flat-board-and-print-pages.md`）；逻辑的划分只有模块这一层。
 - 一个 `port` 暴露多个 `net`；板外端点（适配器、电池、负载）；跨板线束与连接器对（见 `docs/adr/0001-board-linking.md`）。
 - 生成器 / 循环 / 条件。
 - 表达式语言；v0.2 只允许约束里的比较与区间。
@@ -702,7 +722,8 @@ WS1        = ( " " | "\t" ), { " " | "\t" } ;
 3. `row` 只能出现在 `section` 或 `bus` 块内。
 4. `section_name` 必须属于当前文件类型：
    - `component`：`params`、`pins`
-   - `schematic`：`instances`、`nets`、`ports`、`constraints`
+   - `schematic`：`instances`、`nets`、`ports`、`constraints`（板级另有 `modules` 段）
+   - `module`：`instances`、`nets`、`ports`、`constraints`
    - `system`：`boards`、`nets`
    - `pcb`：`stackup`、`outline`、`place`、`connect`、`trace`、`via`、`zone`、`keepout`、`rules`、`silk`、`physical_only`、`deviation`
    - `footprint`：`pads`、`graphics`

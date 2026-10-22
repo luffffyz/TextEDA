@@ -10,7 +10,7 @@ import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
 import type { Schematic } from "@texteda/ir/schematic";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
 import { parsePcb, parseSchematic } from "@texteda/parser";
-import { listBoards, loadBoard, loadComponents, loadPcb } from "./project.ts";
+import { listBoards, loadBoard, loadComponents, loadModules, loadPcb } from "./project.ts";
 import { checkBinding } from "@texteda/core";
 
 export interface BoardAnalysis {
@@ -64,6 +64,7 @@ export function analyzeProject(root: string): AnalyzeResult {
   }
 
   const analyses: BoardAnalysis[] = [];
+  const modules = loadModules(root);
   for (const board of boards) {
     const loaded = loadBoard(root, board);
     if (!loaded) continue;
@@ -71,6 +72,7 @@ export function analyzeProject(root: string): AnalyzeResult {
       file: loaded.file,
       board,
       components: resolver,
+      modules,
     });
     const boardDiagnostics = [...result.diagnostics];
     if (result.ir) {

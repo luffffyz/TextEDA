@@ -49,7 +49,7 @@ export type StackupLayer =
  */
 export type LayerName = string;
 /**
- * Instance id of the board's flat list: U1. The qualified form <module_instance_id>.<refdes> (M1.U1) is reserved for the module hierarchy, which is not implemented yet. This is the identity key; see ADR-0008 decision 3.
+ * Instance id of the board's flat list: U1. An instance of a module carries the module's prefix: <module_instance_id>.<refdes> (M1.U1). This is the identity key; see ADR-0008 decision 3 and ADR-0026 decision 2.
  *
  * This interface was referenced by `Pcb`'s JSON-Schema
  * via the `definition` "instance_id".
@@ -63,7 +63,7 @@ export type InstanceId = string;
  */
 export type PadRef = string;
 /**
- * The net name is the identity key: GND, BUCK_VFB. The qualified form is reserved for the module hierarchy.
+ * The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB).
  *
  * This interface was referenced by `Pcb`'s JSON-Schema
  * via the `definition` "net_id".

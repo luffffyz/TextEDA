@@ -102,6 +102,8 @@ for (const { file, fromDirectory } of files) {
     result = formatSymbol(text, { file, library });
   } else if (type === "schematic") {
     result = formatSchematic(text, { file });
+  } else if (type === "module") {
+    result = formatSchematic(text, { file, kind: "module" });
   } else if (type === "page") {
     // The `page` description type was removed in language 0.7 (ADR-0025): say so instead of
     // silently skipping a leftover file.

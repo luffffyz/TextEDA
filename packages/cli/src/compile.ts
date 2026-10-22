@@ -9,7 +9,7 @@ import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
 import { diagnosticsToPayload } from "@texteda/ir/diagnostics";
 import { canonicalJson, parsePcb, parseSchematic } from "@texteda/parser";
 import { join } from "node:path";
-import { loadBoard, loadComponents } from "./project.ts";
+import { loadBoard, loadComponents, loadModules } from "./project.ts";
 import { writeOut } from "./output.ts";
 
 export interface CompileOptions {
@@ -41,6 +41,7 @@ export function runCompile(options: CompileOptions): number {
     file: loaded.file,
     board,
     components: resolver,
+    modules: loadModules(root),
   });
 
   for (const problem of problems) {

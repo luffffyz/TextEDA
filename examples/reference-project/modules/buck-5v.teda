@@ -1,0 +1,35 @@
+version 0.8
+module buck-5v
+
+# The TPS5430 5V/3A buck (datasheet SLVS632 Figure 7-1): 12V in, 5V out, 3A.
+#
+# The module owns its refdes and net names; the board reaches it through its ports
+# (spec/module.md §3). Its nets are flattened to M2.<net> unless a port merges them into a
+# board-level net.
+instances
+  C1  c-1210       10u    10%  35V
+  C2  c-0402       10n    10%  25V
+  C3  c-220u       220u   20%  10V  40mΩ
+  C4  c-0402       100n   10%  16V
+  D1  d-b340a
+  L1  l-15u
+  R1  r-0402       10k    ±1%
+  R2  r-0402       3.24k  ±1%
+  U1  tps5430ddar
+
+nets
+  BOOT:  C2.1  U1.BOOT
+  GND:   C1.2  C3.N  C4.2  D1.A  R2.2  U1.GND  U1.PAD
+  PH:    C2.2  D1.K  L1.1  U1.PH
+  SYS:   C1.1  U1.VIN
+  VFB:   R1.2  R2.1  U1.VSENSE
+  VOUT:  C3.P  C4.1  L1.2  R1.1
+
+# The module's interface: the board merges these nets into its own.
+ports
+  GND     GND
+  SYS_IN  SYS
+  VOUT    VOUT
+
+constraints
+  voltage  VFB  1.203V..1.239V

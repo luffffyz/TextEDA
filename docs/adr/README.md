@@ -27,6 +27,14 @@ Every architecture decision record in this repository, in numeric order.
 | [ADR-0023](0023-ir-layer-on-disk.md) | The IR Layer on Disk (Shard Tree, Manifest, Hashes) | Accepted | 2026-10-21 |
 | [ADR-0024](0024-level-tags-in-flattened-names.md) | Level Tags in Flattened Names — `P` for Pages, `MOD` for Modules | Accepted | 2026-10-21 |
 | [ADR-0025](0025-flat-board-and-print-pages.md) | One Flat Schematic per Board, Pages Become Print Pages in the View Layer | Accepted | 2026-10-21 |
+| [ADR-0026](0026-modules-compose-boards.md) | A Board Is Composed of Modules; the IR Stays Flat | Accepted | 2026-10-22 |
+| [ADR-0027](0027-device-parts-families-and-library-dependencies.md) | Device Semantics Split into Parts and Families; Project Layout by Asset Kind; Libraries Are Dependencies | Accepted | 2026-10-22 |
+| [ADR-0028](0028-library-trust-and-derived-overrides.md) | Libraries Are Unverified Facts; Provenance, Disclaimers, and Derived Overrides | Accepted | 2026-10-22 |
+| [ADR-0029](0029-package-code-footprint-and-3d-model-ownership.md) | The Package Code Lives in the Footprint; 3D Models Belong to Parts; Assembly Constraints Are Out of Scope | Accepted | 2026-10-22 |
+| [ADR-0030](0030-procurement-layer.md) | The Procurement Layer — Which Part to Buy Is a Project-Local Decision | Accepted | 2026-10-22 |
+| [ADR-0031](0031-project-tree-ownership-model.md) | The Project Tree Has Owners — Own Assets, Referenced Material, and Derivations | Accepted | 2026-10-22 |
+| [ADR-0032](0032-view-is-a-drawing-not-a-build-input.md) | The View Is a Drawing, Not a Build Input | Accepted | 2026-10-22 |
+| [ADR-0033](0033-review-records-and-attribution.md) | Review Is Not a Description Type — Notes, Decisions, and the One Accountable Person | Accepted | 2026-10-22 |
 
 ## Reserved Numbers
 

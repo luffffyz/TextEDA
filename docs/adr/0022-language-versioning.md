@@ -54,6 +54,8 @@ only knows `0.6` — that tool simply does not produce the diagnostics that `0.6
 
 ### 3. The Acceptance Rule
 
+Amended by the 2026-10-22 addendum below: the upper bound is **per description type**, not one language version.
+
 A file is accepted when its version is a valid `MAJOR.MINOR[.PATCH]`, its MAJOR is the MAJOR the
 tool supports, its MINOR is **not below the version that introduced the description type**, and its
 MINOR is **not above the language version the tool supports**. The patch is ignored.
@@ -65,6 +67,8 @@ was rejected. The lower bound is the version that introduced the type: a `view` 
 `0.5`, and a `page` file cannot declare `0.2`.
 
 ### 4. `1.0` Is a Milestone, Not a Counter
+
+Extended by the 2026-10-22 addendum below: the types converge to `1.0` in one step, and there is one version number from then on.
 
 Reaching `1.0` requires an explicit decision, recorded as an ADR, meaning: the language surface is
 frozen. After that only PATCH releases follow (`1.0.1`, `1.0.2`, …): no new description types, no
@@ -137,3 +141,122 @@ most — third-party implementations that lag behind by a few patches.
 
 **Make the patch component mandatory (`0.6.0`).** It would make the grammar uniform but would force
 every existing file to change, for no gain: the patch number is only meaningful when it is not zero.
+
+## Addendum (2026-10-22): one version line per description type, converging to a single number at 1.0
+
+Amends decision 3 and decision 4.
+
+### A1. Each description type carries its own version line
+
+The `version` a file declares is the version of **its own description type**, not the minimum
+version of one shared language. The numbers in flight today are four:
+
+| Type | Version | Type | Version |
+|---|---|---|---|
+| `schematic` | 0.8 | `pcb` | 0.4 |
+| `view` | 0.7 | `footprint` | 0.4 |
+| `symbol` | 0.5 | `system` | 0.2 |
+| `component` | 0.1 | `module` | 0.8 |
+
+The acceptance rule becomes per type. A file is accepted when its version is well formed, its
+MAJOR equals the MAJOR the tool supports **for that type**, its MINOR is not below the version
+that introduced the type, and its MINOR is not above **that type's current version**. The patch
+is ignored, as before.
+
+The reason is the drawing surface. A drawing grows on its own schedule — arcs, text boxes,
+dimensions, bus rendering — and under one shared number every one of those bumps the circuit's
+language number, so the story of "what changed in 0.9" starts carrying drawing churn, and a
+circuit file's version moves for a reason that has nothing to do with the circuit.
+
+### A2. During the `0.x` phase, a type's version moves in PATCH steps only
+
+`schematic 0.8` becomes `schematic 0.8.1`. Adding a section or a field does **not** bump MINOR
+during this phase; the four numbers are maintained as they are.
+
+This is safe because the number was never the compatibility mechanism. The mechanism is the rule
+that an **unknown construct is an error** (`AGENTS.md` §2 invariant 7): a tool that does not know
+a construct says so and stops, rather than misreading the file. The version is a marker for
+readers and for the convergence, not the thing that keeps files interpretable.
+
+The cost, stated plainly: while the line is `0.x`, a reader cannot tell from the version alone
+whether a file uses a construct introduced later — they find out from the diagnostic. That is
+acceptable on a line that is unstable by definition (decision 6), and it is exactly what the
+convergence in A3 repairs.
+
+### A3. The convergence: one number, once, at `1.0`
+
+When the project is close to done, every description type moves to a single version `1.0` in one
+step, recorded by an ADR. From that moment there is **one version number for the whole
+language**, the surface is frozen (decision 4), and only PATCH releases follow.
+
+The proposed trigger for the convergence: no pending breaking or additive surface change for any
+description type, and the conformance corpus exists (`docs/backlog.md` F12). The ten hard cases
+are the evidence that the surface has stopped moving — a language whose cases still move is not
+ready to be frozen.
+
+Before the convergence, the four numbers are maintained as they are, and each moves only in
+PATCH steps.
+
+## Addendum (2026-10-22b): `1.0` is reserved, and the `0.x` numbers may be renumbered
+
+Amends decisions 1 and 4, and addendum A2. The question this answers is: *the counter is at 0.9
+and every new description type used to push it up — what stops the language from reaching 1.0 by
+counting, and what happens to the numbers if they get ugly?*
+
+### A4. The `0.x` counter stops at `0.9`, and `1.0` is reserved
+
+The counter is frozen at the value it has when this addendum is adopted (`0.9`, the generation in
+which the `procurement` type was added). From then on:
+
+- a **new description type is born at the current generation**, i.e. `0.9` — the counter does not
+  move for it;
+- each description type's own version line moves in **PATCH steps only** (addendum A2), so the
+  lines in flight (`schematic 0.8`, `view 0.7`, `symbol 0.5`, `component 0.1`, `pcb 0.4`,
+  `footprint 0.4`, `system 0.2`, `module 0.8`, `procurement 0.9`) are frozen at those values;
+- **`1.0` is never produced by counting.** It is reserved for the convergence of A3, which needs
+  an explicit ADR and its trigger: no pending surface change for any type, and the conformance
+  corpus exists (`docs/backlog.md` F12).
+
+The numbers therefore stop being a countdown. `0.9` is not "almost 1.0"; it is the last
+pre-freeze generation, and the language is as far from `1.0` as the corpus is.
+
+The numbers are **per type and are not comparable across types**: `symbol 0.5` and
+`procurement 0.9` do not say that one type is older than the other, and `view 0.7` does not mean
+"three features behind `symbol 0.5`". What a number says is *which generation this type's surface
+belongs to*, and the acceptance rule uses it as the type's lower and upper bound.
+
+### A5. After `1.0`, a surface change is a new MAJOR, so `1.1`–`1.9` never appear
+
+Decision 4 says that after `1.0` only PATCH releases follow. It did not say what happens if the
+surface really has to change then, and the version grammar has no room for it: a MINOR would
+contradict the freeze, and a PATCH cannot change the accepted file set.
+
+So the path is stated here: **a change to the surface after `1.0` is a new MAJOR (`2.0`)**, with
+the migration note and the migration script that decision 6 requires. The `1.x` line is therefore
+`1.0`, `1.0.1`, `1.0.2`, … and nothing else. `1.4` is not a version this language will have.
+
+### A6. During `0.x`, the version numbers may be renumbered
+
+The `0.x` line promises nothing: decision 6 says a MINOR may even remove a construct, with a
+migration note and a script. A **renumbering** is the same kind of change — the numbers are
+markers, and the mechanism that keeps files interpretable is the rule that an unknown construct is
+an error (`AGENTS.md` §2 invariant 7), not the number (addendum A2).
+
+So a renumbering is allowed before `1.0`, and its blast radius is bounded and mechanical:
+
+| Where the number appears | What a renumbering touches |
+|---|---|
+| The `version` line of every `.teda` file | the source files, and a migration script for the mechanical part (like `bun run migrate:0.7`) |
+| The `format` field of a shard | the IR bytes, and therefore every hash and artifact derived from them |
+| The type → version table in `packages/parser/src/version.ts` | the acceptance function's bounds |
+| The documentation | `teda.md` §13, the spec files, the decision records |
+
+After `1.0` there is no renumbering: the whole meaning of `1.0` is the freeze, and renumbering
+would withdraw the promise that the version makes. Only PATCH follows.
+
+### Consequence for the language today
+
+Nothing has to be renumbered: the `0.9` generation is the current one, and `procurement` was born
+in it. What changes is the rule that would have carried the counter past `0.9`, and the two holes
+this addendum closes — how the language is supposed to change its surface after `1.0`, and what
+happens to the numbers before `1.0` if they stop being convenient.

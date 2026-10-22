@@ -36,13 +36,14 @@ describe("init file set", () => {
   const tree = initTree({ name: "demo" });
 
   test("creates only the directories and files listed in the contract", () => {
-    expect(tree.directories).toEqual(["components", "sch", "pcb", "system", "docs"]);
+    expect(tree.directories).toEqual(["components", "sch", "pcb", "system", "modules", "docs"]);
     expect(tree.files.map((f) => f.path)).toEqual([
       "project.toml",
       "components/.gitkeep",
       "sch/.gitkeep",
       "pcb/.gitkeep",
       "system/.gitkeep",
+      "modules/.gitkeep",
       "docs/README.md",
     ]);
   });
@@ -87,6 +88,7 @@ describe("init disk-write behavior", () => {
       expect(existsSync(join(dir, "sch", ".gitkeep"))).toBe(true);
       expect(existsSync(join(dir, "pcb", ".gitkeep"))).toBe(true);
       expect(existsSync(join(dir, "system", ".gitkeep"))).toBe(true);
+      expect(existsSync(join(dir, "modules", ".gitkeep"))).toBe(true);
       expect(existsSync(join(dir, "docs", "README.md"))).toBe(true);
       // Does not create dist/.
       expect(existsSync(join(dir, "dist"))).toBe(false);

@@ -11,7 +11,7 @@
 // Output: the SVG path is printed to stdout; artifacts land in /tmp/texteda-preview/<id>/ (changeable with --out).
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import { formatDiagnostic, parseSchematicDocument, parseView } from "@texteda/parser";
+import { formatDiagnostic, parseSchematic, parseView } from "@texteda/parser";
 import {
   renderFootprint,
   renderSchematic,
@@ -24,7 +24,9 @@ import { unsupportedChars } from "@texteda/renderer/font";
 import {
   componentUsingSymbol,
   loadComponent,
+  loadComponentResolver,
   loadFootprint,
+  loadModuleSources,
   loadSymbol,
   tedaFiles,
 } from "./lib/project.ts";
@@ -229,10 +231,15 @@ if (options.kind === "view") {
   const [board, page] = options.id.split("/") as [string, string];
   const boardFile = join(projectRoot, "sch", `${board}.teda`);
   if (!existsFile(boardFile)) fail(`board not found: ${boardFile}`);
-  const parsedBoard = parseSchematicDocument(readFileSync(boardFile, "utf8"), {
+  // The board is flattened first: a board composes modules, and the view names the flat ids
+  // (M1.U1 for a module instance, ADR-0026 decision 2).
+  const parsedBoard = parseSchematic(readFileSync(boardFile, "utf8"), {
     file: `sch/${board}.teda`,
+    board,
+    components: loadComponentResolver(projectRoot),
+    modules: loadModuleSources(projectRoot),
   });
-  if (!parsedBoard.ok || !parsedBoard.doc) {
+  if (!parsedBoard.ok || !parsedBoard.ir) {
     console.error(parsedBoard.diagnostics.map((d) => `  ${formatDiagnostic(d)}`).join("\n"));
     fail(`board ${board} failed to parse`);
   }
@@ -250,8 +257,8 @@ if (options.kind === "view") {
     fail(`view ${options.id} failed to parse`);
   }
 
-  // The view names the board's instances by their board-level refdes (ADR-0025).
-  const componentOf = new Map(parsedBoard.doc.instances.map((i) => [i.refdes, i.componentId]));
+  // The view names the board's instances by their board-level id (ADR-0025, ADR-0026).
+  const componentOf = new Map(parsedBoard.ir.instances.map((i) => [i.id, i.component]));
   const instances = new Map<string, SchematicInstance>();
   for (const place of parsedView.ir.place) {
     const componentId = componentOf.get(place.instance_id);

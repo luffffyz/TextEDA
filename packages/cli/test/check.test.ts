@@ -5,7 +5,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkProject } from "../src/check.ts";
+import { analyzeProject, checkProject } from "../src/check.ts";
 
 const COMPONENT = `version 0.1
 component r-0402
@@ -41,6 +41,39 @@ function makeProject(board: string): string {
   mkdirSync(join(root, "sch"), { recursive: true });
   writeFileSync(join(root, "components", "r-0402.teda"), COMPONENT);
   writeFileSync(join(root, "sch", "b.teda"), board);
+  return root;
+}
+
+const MODULE = `version 0.8
+module m
+
+instances
+  R1  r-0402  10k
+
+nets
+  VCC:  R1.1
+
+ports
+  VCC_OUT  VCC
+`;
+
+const COMPOSED_BOARD = `version 0.8
+schematic b
+
+modules
+  M1  m
+
+nets
+  VCC:  M1.VCC_OUT
+`;
+
+/** Build a project whose board composes a module. */
+function makeComposedProject(board: string, module: string | null = MODULE): string {
+  const root = makeProject(board);
+  if (module !== null) {
+    mkdirSync(join(root, "modules"), { recursive: true });
+    writeFileSync(join(root, "modules", "m.teda"), module);
+  }
   return root;
 }
 
@@ -102,6 +135,34 @@ describe("check", () => {
       const diagnostic = result.diagnostics.find((d) => d.code === "ref.component-id-mismatch");
       expect(diagnostic?.severity).toBe("error");
       expect(diagnostic?.data).toEqual({ declared_id: "other", file_id: "broken" });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("check (a board that composes modules)", () => {
+  test("the module's instances are flattened with the module's prefix", () => {
+    const root = makeComposedProject(COMPOSED_BOARD);
+    try {
+      const result = analyzeProject(root);
+      expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+      const ir = result.analyses[0]!.ir!;
+      expect(ir.instances.map((i) => i.id)).toEqual(["M1.R1"]);
+      // The port merged the module's net into the board's net.
+      expect(ir.nets.map((n) => n.id)).toEqual(["VCC"]);
+      expect(ir.nets[0]!.members).toEqual(["M1.R1.1"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a board referencing a module without a file is an error", () => {
+    const root = makeComposedProject(COMPOSED_BOARD, null);
+    try {
+      const result = checkProject(root);
+      const diagnostic = result.diagnostics.find((d) => d.code === "ref.unknown-module");
+      expect(diagnostic?.severity).toBe("error");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

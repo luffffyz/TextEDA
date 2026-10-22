@@ -61,14 +61,14 @@ What you get (**and nothing else**):
 
 ```
 project.toml
-components/  sch/  pcb/  system/  docs/README.md
+components/  sch/  pcb/  system/  modules/  docs/README.md
 ```
 
 Two traps:
 
 1. **`init` does not create `symbols/` or `footprints/`** — create the library directories yourself
    (§3). The project layout has them, but the init contract (AGENTS.md §9) deliberately creates only
-   the five items above.
+   the items above.
 2. **`init` does not reach the network, does not fetch templates and does not create `dist/`**. The
    output is deterministic: the same project name yields byte-identical files.
 
@@ -215,6 +215,8 @@ nets
 - A `nets` row is `net_name  <pin>…`, where a pin is written `refdes.pin_number` — the **number**,
   not the name (names are ambiguous on alternate functions).
 - A pin belongs to exactly one net (`net.pin-in-two-nets`).
+- **A board may be composed of modules** (`modules/<module_id>.teda` + a `modules` section in the
+  board file, `spec/module.md`). A board that fits in one file needs none — modules are optional.
 
 ## 7. Step 5: check → compile → netlist
 

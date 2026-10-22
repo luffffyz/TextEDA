@@ -123,3 +123,136 @@ The registry only holds the codes that are actually emitted ([ADR-0016](0016-dia
 - **The review UI is disposable.** Being a web bundle means it can be rewritten without touching the contract, which is the same property AGENTS.md §3 gives the view layer itself.
 - **The desktop shell question stays open on purpose.** Deferring it keeps the only irreversible choice (a build toolchain) out of the critical path.
 - **Implementation status (2026-10-21).** Decisions 1, 2 and 5 are landed: the `view` spec, schema, parser and canonical formatter, plus `renderSchematic(view, instances)` in `packages/renderer` and `bun run preview view <board>/<page>`. The reference project draws `charger-buck/buck-5v` fully wired and `charger-buck/charger-power` as a placement study. Decision 4's step 3 is partial: the page cross-check, readability checks, sch round-trip extraction and the one-off KiCad `.kicad_sch` comparison are open (`docs/backlog.md` F3).
+
+## Addendum (2026-10-22): the review UI writes canonical view files
+
+Decision 3 gains one requirement.
+
+**A view file written by the review UI must be in canonical form.** The UI edits views — that
+is the whole point of the layer ([ADR-0021](0021-schematic-view-layer.md) decision 1: the view
+file is the adjustment surface). A UI that writes a file whose formatting differs from the
+canonical form produces a diff on every save, and the review record fills with formatting noise
+instead of design changes.
+
+So:
+
+- The file the UI writes must be byte-identical to what `fmt` produces for that content — the
+  canonical form is a property of the file, not of whoever wrote it.
+- The UI must round-trip through the canonical form without loss: reading a canonical file,
+  editing it, and writing it back must not reorder, re-space or re-canonicalize anything else.
+- The check is the same one the CLI has: `fmt --check` on the written file must pass, and
+  `fmt(fmt(x)) == fmt(x)` must hold for the file the UI produces.
+
+The requirement is on the writer, not on the user. A human editing a view file by hand runs
+`fmt` as part of their edit; the UI has no such step available, so it must produce canonical
+bytes itself.
+
+## Addendum (2026-10-22): the view is a drawing, not a build input
+
+Amended by [ADR-0032](0032-view-is-a-drawing-not-a-build-input.md).
+
+- **Placement.** The page file moves from `sch/<board_id>/<page_id>.view.teda` to
+  `views/<board_id>/<page_id>.view.teda`: the print pages get a root of their own, beside the
+  circuit and not inside it, and no directory name is both a file and a directory. The board
+  grouping is unchanged — one directory per board, one file per page. Decision 1's shard path
+  `dist/ir/boards/<board_id>/view/<page_id>.json` does not change, so no hash moves.
+- **Status.** The view is **hand-written, tracked, and outside the build**: it lives in the
+  repository under `views/`, not as a derived artifact under `dist/`, because the renderer draws
+  and never places (decision 2) — nothing regenerates a view. What `AGENTS.md` §3 calls
+  discardable means *discardable as truth*, not *regenerable*: deleting `views/` does not
+  invalidate the board, its hashes, or its manufacturing package.
+- **Hash class.** A view shard is **advisory** — it is not part of the project hash or the
+  board hash. Moving a label changes neither, so a reviewer's adjustment does not invalidate a
+  signed manufacturing package. A rendered page carries the page shard's own `sha256` as its
+  `source_hash`.
+- **Still an error to disagree.** A page that references an instance, pin or net the board does
+  not have is a defect, not a difference in content. The cross-check of this record is
+  unchanged and still unimplemented (`docs/backlog.md` F3).
+
+## Addendum (2026-10-22): the canvas navigates, it does not edit
+
+Extends decision 3 with the interaction model of the review UI.
+
+### 1. The canvas is a navigator and an annotator
+
+The GUI never changes geometry. Everything a person changes is changed in the **source text**;
+the canvas shows where things are and gets the person to the text.
+
+- The **renderer stays pure** ([ADR-0021](0021-schematic-view-layer.md) decision 2,
+  AGENTS.md §2 invariant 3): the viewer adds behaviour to the SVG it is given; the renderer does
+  not know that hover or clicks exist.
+- There is no layout engine, no dragging and no snapping in the viewer. The view file is the
+  adjustment surface; a canvas that could move a symbol would be a second way to write the same
+  fact, and the second one would be the one with no diff.
+- This is what AGENTS.md §1 already says: not an EDA GUI, no canvas, no drag, no interactive
+  routing. The GUI here is a **navigator** (find the thing, go to its source) and an
+  **annotator** (write down what you saw).
+
+### 2. Hover is a highlight pointer, and nothing more
+
+Every drawn object carries a **stable element id** in the SVG, derived from the identity key it
+references: `instance:U1`, `net:VCC`, `label:...`.
+
+Hovering highlights that object and shows a short readout - the identity, and for a symbol the
+part and the footprint. The effect is applied at the CSS/SVG level to the element that is
+already there (outline, opacity, a tooltip), so **nothing is re-rendered and no layout is
+computed**. Rendering performance therefore carries no cost, and the interaction does not
+depend on how large the page is.
+
+The highlight follows the mouse because the element ids are already in the document; there is no
+hit-testing geometry and no spatial index.
+
+### 3. Clicking jumps into the source
+
+A click identifies the object. The viewer then offers **the places where that object is
+defined**:
+
+| Identity | Places |
+|---|---|
+| An instance | Its row in the board's `sch` file; its placement in the `view` file; the part or family file in `assets/components/`; the footprint file |
+| A net | Its row in the `nets` section; the ports that name it; the view's labels and wires |
+| A pin | The instance's row; the pin's row in the part file; the view's wire endpoint |
+
+Choosing one opens that file at that line - in the viewer's own text pane, or in an external
+editor. The list is short and stable, so it reads as a small menu; when only one place is
+obvious, the click goes straight there.
+
+### 4. That needs a source index, and spans are the missing piece
+
+To jump, the toolchain must know, for every identity, the file and line of every place that
+mentions it. That is the **span** mechanism (`docs/backlog.md` F11, reserved ADR-0020), and the
+GUI needs the identity-shaped form of it: `identity -> locations`, not only
+`IR path -> location`.
+
+**Spans cannot live in the IR.** AGENTS.md §10 requires that reordering the lines of a
+description leaves the compiled IR byte-identical; a span inside the IR would change the hash
+with every edit. They are therefore **sidecar tables** (`dist/ir/<shard>.spans.json`, F11 option
+B), and the viewer merges the sidecars of the shards it shows by identity.
+
+Consequence: **F11 is on the critical path of the review UI**, and its deliverable must include
+the identity index the viewer consumes, not only the diagnostic positions.
+
+### 5. Three modes, one renderer
+
+| Mode | What it is |
+|---|---|
+| `review` | Read the drawing. Hover to identify, click to jump, write notes. The canvas changes nothing. |
+| `placement` | The PCB canvas: placement, board outline, courtyards, net highlighting. The same interaction model. |
+| `edit` | Split view: source text on one side, canvas on the other. Clicking in the canvas moves the cursor in the text; editing the text updates the canvas. **The edit happens in the text.** |
+
+Switching modes swaps the SVG and the overlay. The modes differ in *what is drawn* and *what is
+reachable*, not in how the canvas behaves - the highlight pointer and the jump are the same code
+in all three.
+
+### 6. Anchoring a note to what was looked at
+
+A reviewer pointing at a symbol and writing "this part is wrong" wants the note attached to
+that symbol. The canvas knows which object the pointer is over, so the note could carry that
+identity.
+
+This is not free: an anchor is a machine-readable prefix in the note line, which sits in
+tension with the rule that the tools do not parse the notes
+([ADR-0033](0033-review-records-and-attribution.md) decision 3). The cheapest resolution is an
+optional bracket in the note line - `- alice (2026-10-22) [instance:U3]: ...` - that only the
+viewer reads, leaving the notes prose in every other respect. This is an open point of
+ADR-0033, not a decision here.

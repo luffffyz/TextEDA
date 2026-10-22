@@ -31,12 +31,12 @@
     "instance_id": {
       "type": "string",
       "pattern": "^([A-Z]+[0-9]+\\.)?[A-Z]+[0-9]+$",
-      "description": "Instance id of the board's flat list: U1. The qualified form <module_instance_id>.<refdes> (M1.U1) is reserved for the module hierarchy, which is not implemented yet. This is the identity key; see ADR-0008 decision 3."
+      "description": "Instance id of the board's flat list: U1. An instance of a module carries the module's prefix: <module_instance_id>.<refdes> (M1.U1). This is the identity key; see ADR-0008 decision 3 and ADR-0026 decision 2."
     },
     "net_id": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_+-]+(\\.[A-Za-z0-9_+-]+)*$",
-      "description": "The net name is the identity key: GND, BUCK_VFB. The qualified form is reserved for the module hierarchy."
+      "description": "The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB)."
     },
     "pin_number": {
       "type": "string",

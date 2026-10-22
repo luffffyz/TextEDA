@@ -89,7 +89,7 @@
       "properties": {
         "instance_id": {
           "$ref": "urn:texteda:ir:0.2:common#/$defs/instance_id",
-          "description": "Board-level instance id of the instance, e.g. U1. Must exist in the board's instances. The module-qualified form M1.U1 is reserved for the module hierarchy; the view names ids, it does not define them."
+          "description": "Board-level instance id of the instance, e.g. U1. Must exist in the board's instances. An instance of a module carries the module's prefix (M1.U1); the view names ids, it does not define them."
         },
         "x_nm": {
           "type": "integer",

@@ -1,6 +1,8 @@
 version 0.7
 pcb charger-buck
 
+# The buck module's parts on the board. The instance ids are the board's flat ids: the buck is
+# module M2, so its parts are M2.C1 ... M2.U1 (spec/module.md §5).
 board_thickness  1.6
 
 stackup
@@ -15,41 +17,35 @@ outline
   0  36
 
 place
-  C19  23  18  270  top
-  C20  16  11  90  top
-  C21  36  20  0  top
-  C22  43  14  0  top
-  D5  22  13  0  top
-  L2  33  10  0  top
-  R23  14  25  180  top
-  R24  14  28  180  top
-  U2  16  18  0  top
+  M2.C1  23  18  270  top
+  M2.C2  16  11  90  top
+  M2.C3  36  20  0  top
+  M2.C4  43  14  0  top
+  M2.D1  22  13  0  top
+  M2.L1  33  10  0  top
+  M2.R1  14  25  180  top
+  M2.R2  14  28  180  top
+  M2.U1  16  18  0  top
 
 connect
-  C19.1  U2.7
-  C19.2  U2.6
-  C20.1  U2.1
-  C20.2  U2.8
-  C21.1  C22.1
-  C21.1  R23.1
-  C21.2  U2.6
-  C22.1  L2.2
-  C22.2  U2.6
-  D5.1  L2.1
-  D5.2  U2.6
-  L2.1  U2.8
-  R23.2  R24.1
-  R23.2  U2.4
-  R24.2  U2.6
-  U2.6  U2.9
+  M2.C1.1  M2.U1.7
+  M2.C1.2  M2.U1.6
+  M2.C2.1  M2.U1.1
+  M2.C2.2  M2.U1.8
+  M2.C3.1  M2.C4.1
+  M2.C3.1  M2.R1.1
+  M2.C3.2  M2.U1.6
+  M2.C4.1  M2.L1.2
+  M2.C4.2  M2.U1.6
+  M2.D1.1  M2.L1.1
+  M2.D1.2  M2.U1.6
+  M2.L1.1  M2.U1.8
+  M2.R1.2  M2.R2.1
+  M2.R1.2  M2.U1.4
+  M2.R2.2  M2.U1.6
+  M2.U1.6  M2.U1.9
 
 trace
-  BOOT  F.Cu  0.3  13.4  16.1  13.4  11.5  16  11.5
-  BUCK_PH  F.Cu  0.3  16  10.5  16.8  10.5  16.8  13  20  13
-  BUCK_PH  F.Cu  0.3  16.8  10.5  16.8  10  28.5  10
-  BUCK_PH  F.Cu  0.3  18.6  13  18.6  16.1
-  BUCK_VFB  F.Cu  0.3  13.4  19.9  13.4  25  13.5  25
-  BUCK_VFB  F.Cu  0.3  13.5  25  13.5  25.8  14.5  25.8  14.5  28
   GND  F.Cu  0.3  13.49  28  13.8  29.16
   GND  F.Cu  0.3  16  18  17.16  18.31
   GND  F.Cu  0.3  18.56  18.64  19.76  18.64
@@ -57,6 +53,12 @@ trace
   GND  F.Cu  0.3  24  13  25.2  13
   GND  F.Cu  0.3  39.12  20  40.32  20
   GND  F.Cu  0.3  43.48  14  44.68  14
+  M2.BOOT  F.Cu  0.3  13.4  16.1  13.4  11.5  16  11.5
+  M2.PH  F.Cu  0.3  16  10.5  16.8  10.5  16.8  13  20  13
+  M2.PH  F.Cu  0.3  16.8  10.5  16.8  10  28.5  10
+  M2.PH  F.Cu  0.3  18.6  13  18.6  16.1
+  M2.VFB  F.Cu  0.3  13.4  19.9  13.4  25  13.5  25
+  M2.VFB  F.Cu  0.3  13.5  25  13.5  25.8  14.5  25.8  14.5  28
   SYS  F.Cu  0.3  18.6  17.4  18.6  16.9  23  16.9  23  16.5
   VOUT  F.Cu  0.3  14.5  25  14.5  20.9  32.9  20.9  32.9  20
   VOUT  F.Cu  0.3  32.9  20  32.9  14  42.5  14

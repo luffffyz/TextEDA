@@ -141,3 +141,14 @@ choosing a name is an authoring decision, not a mechanical one.
   (`docs/backlog.md` F3).
 - The `M` level tag is documented in `teda.md` §7 and in `AGENTS.md` §4.2, and is used by the
   hierarchy when it lands.
+
+## Addendum (2026-10-22): the print page moved to its own description-type directory
+
+Amended by [ADR-0032](0032-view-is-a-drawing-not-a-build-input.md) decision 1.
+
+Decision 4 placed the print page file at `sch/<board_id>/<page_id>.view.teda`. It is now
+`views/<board_id>/<page_id>.view.teda`: the print pages have a root of their own, beside the
+circuit and not inside it, so `design/` holds the circuit and nothing else, and the collision
+between `sch/<board_id>.teda` and `sch/<board_id>/` is gone. What decision 4 established is
+unchanged — a print page is a drawing unit of one flat board, it creates no connectivity, it
+draws board nets and board ports that already exist, and the board has exactly one namespace.
