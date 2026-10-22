@@ -1,6 +1,7 @@
-version 0.1
+version 0.1.1
 component tps7a02
 
+kind         part
 mpn          TPS7A02DBVR
 manufacturer Texas Instruments
 package      SOT-23-5

@@ -14,7 +14,7 @@ const base: ConnectivityFacts = {
 
 const pin = (key: string, type?: string) => ({
   key,
-  component: "r-0402",
+  component: "res-thick-0402",
   name: key.split(".")[1]!,
   ...(type === undefined ? {} : { type }),
 });
@@ -63,7 +63,7 @@ describe("pin ownership", () => {
       pins: [pin("R1.1"), pin("R1.2"), pin("R1.3"), pin("R1.4", "no_connect")],
     });
     expect(diagnostics.map((d) => d.code)).toEqual(["net.pin-unassigned"]);
-    expect(diagnostics[0]!.data).toEqual({ pin: "R1.3", component_id: "r-0402" });
+    expect(diagnostics[0]!.data).toEqual({ pin: "R1.3", component_id: "res-thick-0402" });
   });
 
   test("a no_connect pin connected to a net → error", () => {

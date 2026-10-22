@@ -92,9 +92,9 @@ export const DIAGNOSTIC_CODES = {
   "syntax.component-invalid": {
     domain: "syntax",
     severity: "error",
-    summary: "Failed to parse the component file",
-    hint: "Fix the sections and columns of the component file per teda.md §6.2 / §6.3",
-    spec: ["teda.md §6.2"],
+    summary: "[DEPRECATED → value.component-*, ref.component-*] Failed to parse the component file: the component parser now reports the specific code",
+    hint: "Fix the sections and columns of the component file per teda.md §6",
+    spec: ["teda.md §6"],
   },
   "syntax.invalid-token": {
     domain: "syntax",
@@ -258,6 +258,46 @@ export const DIAGNOSTIC_CODES = {
     summary: "Parameter name not declared by the component",
     spec: ["teda.md §7.1"],
   },
+  "value.component-kind-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "A component file does not declare a valid kind (part or family)",
+    hint: "Declare `kind part` for a specific device, `kind family` for a device family",
+    spec: ["teda.md §6.1", "docs/adr/0027-device-parts-families-and-library-dependencies.md"],
+  },
+  "value.component-mpn-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "A part must declare a manufacturer part number, a family must not",
+    hint: "Which part to buy is a procurement decision, not a fact of the family",
+    spec: ["teda.md §6.1", "docs/adr/0027-device-parts-families-and-library-dependencies.md"],
+  },
+  "value.component-family-fact-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "A family must declare its construction and whether it is polarised; a part must declare neither",
+    spec: ["teda.md §6.1", "docs/adr/0027-device-parts-families-and-library-dependencies.md"],
+  },
+  "value.component-identity-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "A family must declare a required value parameter, a part must declare no parameters",
+    hint: "The pin table is the identity boundary: a value that varies belongs to a family",
+    spec: ["teda.md §6.2", "docs/adr/0027-device-parts-families-and-library-dependencies.md"],
+  },
+  "value.component-param-reserved": {
+    domain: "value",
+    severity: "error",
+    summary: "A parameter column may not be named package or footprint",
+    hint: "The package and the footprint are fixed attributes of the device",
+    spec: ["teda.md §6.2"],
+  },
+  "value.component-param-order": {
+    domain: "value",
+    severity: "error",
+    summary: "Required parameters must come before optional ones",
+    spec: ["teda.md §6.2"],
+  },
   "value.invalid-value": {
     domain: "value",
     severity: "error",
@@ -291,6 +331,13 @@ export const DIAGNOSTIC_CODES = {
     summary: "The id declared in the component file header does not match the file name",
     hint: "Make the id declared in the file header match the file name",
     spec: ["AGENTS.md §4.5"],
+  },
+  "ref.component-kind-mismatch": {
+    domain: "ref",
+    severity: "error",
+    summary: "The kind of a device file does not match the directory it lives in",
+    hint: "Parts live in assets/components/, families in assets/families/",
+    spec: ["teda.md §6.1.1", "docs/adr/0027-device-parts-families-and-library-dependencies.md"],
   },
   "ref.unknown-instance": {
     domain: "ref",

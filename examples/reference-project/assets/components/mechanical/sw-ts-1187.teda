@@ -1,9 +1,10 @@
-version 0.1
+version 0.1.1
 component sw-ts-1187
 
 # 5.2×5.2mm SMD tactile switch, SPST normally open, four pins in two pairs: 1-2 and 3-4 (datasheet schematic).
 # Pads per datasheet "P.C.B LAYOUT": outline 8.0×4.8mm, inner gap 4.4×2.6mm, i.e. pads 1.8×1.1mm.
 # KiCad official library has no 5.2×5.2 four-pin tactile footprint; build one from this diagram when exporting the PCB.
+kind         part
 mpn          TS-1187
 manufacturer Shuofang Precision
 category     switch

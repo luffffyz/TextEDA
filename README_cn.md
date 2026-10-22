@@ -89,7 +89,7 @@ KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.
 | `packages/exporter` | 封装 / 符号 → KiCad（`.kicad_mod` / `.kicad_sym`）；网表 |
 | `packages/renderer` | 参考渲染器：IR → 绘图指令 → SVG（[ADR-0014](docs/adr/0014-reference-renderer.md)） |
 | `packages/cli` | `texteda init` / `compile` / `check` / `netlist` / `ir`（[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)、[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)） |
-| `examples/reference-project/` | 自包含的参考工程：22 个器件 / 15 个符号 / 16 个封装，库全部自建 |
+| `examples/reference-project/` | 自包含的参考工程：22 个器件（16 个件 + 6 个族）/ 15 个符号 / 16 个封装，库全部自建 |
 | `docs/adr/` | 决策记录（ADR）（[完整索引](docs/adr/README.md)） |
 | `docs/guides/` | 上手指南：造符号、造封装、记评审记录、读 KiCad 板文件 |
 | `docs/skills/` | 给 agent 的操作手册：每步 = 命令 + 预期输出 + 出错看哪个诊断码 |

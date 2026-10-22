@@ -40,6 +40,7 @@ describe("init file set", () => {
       "assets/symbols",
       "assets/footprints",
       "assets/components",
+      "assets/families",
       "assets/procurement/primary",
       "assets/procurement/alternatives",
       "external/libs",
@@ -56,6 +57,7 @@ describe("init file set", () => {
       "assets/symbols/.gitkeep",
       "assets/footprints/.gitkeep",
       "assets/components/.gitkeep",
+      "assets/families/.gitkeep",
       "assets/procurement/primary/.gitkeep",
       "assets/procurement/alternatives/.gitkeep",
       "external/libs/.gitkeep",
@@ -106,6 +108,7 @@ describe("init disk-write behavior", () => {
       expect(result.code).toBe(0);
       expect(existsSync(join(dir, "project.toml"))).toBe(true);
       expect(existsSync(join(dir, "assets", "components", ".gitkeep"))).toBe(true);
+      expect(existsSync(join(dir, "assets", "families", ".gitkeep"))).toBe(true);
       expect(existsSync(join(dir, "assets", "symbols", ".gitkeep"))).toBe(true);
       expect(existsSync(join(dir, "assets", "footprints", ".gitkeep"))).toBe(true);
       expect(existsSync(join(dir, "design", "sch", ".gitkeep"))).toBe(true);

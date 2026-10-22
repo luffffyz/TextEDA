@@ -63,13 +63,18 @@ whose `params` contain `value` may omit `mpn`" — is replaced by the explicit f
 
 A `family` adds two scalar facts that today exist only implicitly in file names and symbol choices:
 
-- `construction` — the technology of the device (`tantalum`, `electrolytic`, `mlcc`, `film`,
+- `construction` — the technology of the device (`tantalum`, `electrolytic`, `mlcc`, `thick`,
   `shielded`, …). It is an open vocabulary, like `category`.
 - `polarized` — `yes` / `no`. A polarised family must declare it, and its pins may carry a
   polarised electrical type so that ERC can detect a reversed part.
 
-A family's id names the family, not a value: `cap-tantalum-7343`, `res-th-0402`,
-`ind-shielded-6045`. A family id never carries a value, a tolerance or a rating.
+A family's id names the family, not a value: `cap-tantalum-7343`, `res-thick-0402`,
+`ind-shielded-6045`. A family id never carries a value, a tolerance or a rating. The id's middle
+token is the construction, so the id and the field never disagree.
+
+*Amended 2026-10-22*: the example ids read `res-th-0402` and the construction list read `film`;
+the reference project settled on `thick` (thick-film chip resistors are what the reference boards
+actually use), so the id reads `res-thick-0402` and the construction is `thick`.
 
 ### 3. The pin table is the identity boundary
 
@@ -253,6 +258,12 @@ The `kind`, `construction` and `polarized` fields and the new top-level director
 the language moves to `0.9` ([ADR-0022](0022-language-versioning.md)). The `component` IR shard
 gains the same fields; the change is additive and moves the IR contract to `v0.3`.
 
+*Amended 2026-10-22*: the original text said "the language moves to `0.9`". Every description
+type keeps its own version line and the `0.x` stage only walks the PATCH digit
+([ADR-0022](0022-language-versioning.md), 2026-10-22 appendix), so this change rides on the
+`component` line: `0.1` → `0.1.1`. `kind` is required, so old component files are no longer legal
+and the migration note belongs in `teda.md` §13.4. The global language number stays `0.9`.
+
 Decision 3 adds no field: it constrains what a `params` column may mean. A parameter that would
 change the pin table is rejected by the compiler, not by a convention.
 
@@ -262,9 +273,9 @@ change the pin table is rejected by the compiler, not by a convention.
 |---|---|
 | `assets/symbols/project/*.teda` | `assets/symbols/*.teda` |
 | `assets/footprints/project/*.teda` | `assets/footprints/*.teda` |
-| `assets/components/passives/c-0402.teda` | `assets/families/cap-0402.teda`, with `kind: family` |
+| `assets/components/passives/c-0402.teda` | `assets/families/cap-mlcc-0402.teda`, with `kind: family` |
 | `assets/components/passives/c-220u.teda` | `assets/families/cap-tantalum-7343.teda`, with `construction` and `polarized` |
-| `assets/components/passives/r-0402.teda` | `assets/families/res-th-0402.teda` |
+| `assets/components/passives/r-0402.teda` | `assets/families/res-thick-0402.teda` |
 | `assets/components/passives/xtal-8mhz-3225.teda` | `assets/components/xtal-8mhz-3225.teda`, with `kind: part` |
 | `assets/components/mcu/**`, `assets/components/regulators/**`, `assets/components/power/**`, `assets/components/sensors/**`, `assets/components/indicators/**`, `assets/components/mechanical/**` | `assets/components/**`, with `kind: part` |
 | `project.toml` `[libs.project]` with `symbols` / `footprints` | removed; the project's own assets are its own directories |

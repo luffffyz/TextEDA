@@ -5,10 +5,10 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import {
+  parseComponent,
   parseFootprint,
   parseSymbol,
   readComponentFacts,
-  readComponentIndex,
   type ComponentFacts,
   type ComponentFactsLite,
   type ComponentResolver,
@@ -33,6 +33,14 @@ export function tedaFiles(dir: string): string[] {
     else if (entry.endsWith(".teda")) out.push(full);
   }
   return out;
+}
+
+/** The project's device files: parts in `assets/components/`, families in `assets/families/` (ADR-0027). */
+export function deviceFiles(projectRoot: string): string[] {
+  return [
+    ...tedaFiles(join(projectRoot, "assets/components")),
+    ...tedaFiles(join(projectRoot, "assets/families")),
+  ];
 }
 
 export type Loaded<T> =
@@ -66,10 +74,13 @@ export function loadComponent(file: string): Loaded<ComponentFacts> {
  */
 export function loadComponentResolver(projectRoot: string): ComponentResolver {
   const table = new Map<string, ComponentFactsLite>();
-  for (const file of tedaFiles(join(projectRoot, "assets/components"))) {
-    const result = readComponentIndex(readFileSync(file, "utf8"));
-    if (!result.ok || !result.facts) continue;
-    table.set(basename(file, ".teda"), result.facts);
+  for (const file of deviceFiles(projectRoot)) {
+    const result = parseComponent(readFileSync(file, "utf8"), { file });
+    if (!result.ok || !result.component) continue;
+    table.set(basename(file, ".teda"), {
+      params: result.component.params,
+      pins: result.component.pins,
+    });
   }
   return { resolve: (id) => table.get(id) };
 }
@@ -91,7 +102,7 @@ export function componentUsingSymbol(
   projectRoot: string,
   ref: string,
 ): { file: string; facts: ComponentFacts } | null {
-  for (const file of tedaFiles(join(projectRoot, "assets/components"))) {
+  for (const file of deviceFiles(projectRoot)) {
     const text = readFileSync(file, "utf8");
     const m = /^symbol\s+(\S+)$/m.exec(text);
     if (!m || m[1] !== ref) continue;

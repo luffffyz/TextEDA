@@ -145,7 +145,7 @@ describe("negative cases", () => {
 });
 
 describe("continuation rows and wide nets (teda.md §7.2, §12)", () => {
-  const header = ["version 0.3", "schematic b", "", "instances", "  R1  r-0402  10k", "  R2  r-0402  10k", "", "nets"].join("\n");
+  const header = ["version 0.3", "schematic b", "", "instances", "  R1  res-thick-0402  10k", "  R2  res-thick-0402  10k", "", "nets"].join("\n");
 
   test("a net that fits on one line is written as one line", () => {
     // The continuation row is merged back: the wrapping is a layout decision, not a fact about the net.

@@ -5,6 +5,7 @@
 //
 // The parser never touches the filesystem: component contents are supplied by the caller (`ComponentResolver`),
 // so the `parser` package still runs in the browser (ADR-0009 decision 1).
+import type { ComponentParamDecl } from "./component.ts";
 import type {
   Bus,
   Constraint,
@@ -43,14 +44,6 @@ const NO_CONNECT = "no_connect";
  * The marker is explicit rather than inferred from indentation, because indentation carries no meaning in `.teda` (teda.md §3).
  */
 const CONTINUATION = ":";
-
-/** Component parameter declaration (from a `component`'s `params` section). */
-export interface ComponentParamDecl {
-  name: string;
-  /** `resistance` / `capacitance` / `voltage` / `percent` / `power` / `string` … */
-  type: string;
-  required: boolean;
-}
 
 /** Component pin facts (from a `component`'s `pins` section). */
 export interface ComponentPinFactLite {

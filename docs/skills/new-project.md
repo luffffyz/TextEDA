@@ -29,7 +29,7 @@ read". A step that does not say "on failure, look at code X" is not finished.
   | Kind | Run from | Example |
   |---|---|---|
   | CLI commands (`init` / `check` / `compile` / `netlist`) | the repository root, or anywhere (the project is a positional argument) | `bun run texteda check /tmp/demo` |
-  | Repository scripts that touch the library (`libhash` / `compile:symbol` / `export:symbol` / `compile:footprint` / `export:footprint`) | **inside the project directory** (the script path points back at `$REPO`, the data paths are project-relative) | `cd /tmp/demo && bun run $REPO/scripts/export-symbol.ts dist/c.json --component assets/components/c-0402.teda --out dist/c.kicad_sym` |
+  | Repository scripts that touch the library (`libhash` / `compile:symbol` / `export:symbol` / `compile:footprint` / `export:footprint`) | **inside the project directory** (the script path points back at `$REPO`, the data paths are project-relative) | `cd /tmp/demo && bun run $REPO/scripts/export-symbol.ts dist/c.json --component assets/families/cap-mlcc-0402.teda --out dist/c.kicad_sym` |
 
   Why the library scripts run inside the project: the `source.file` they write into the IR must be
   a path **relative to the current directory** (an IR contract requirement), and the data files
@@ -61,7 +61,7 @@ What you get (**and nothing else**):
 
 ```
 project.toml
-assets/symbols/  assets/footprints/  assets/components/
+assets/symbols/  assets/footprints/  assets/components/  assets/families/
 assets/procurement/{primary,alternatives}/
 external/{libs,simulation}/
 design/{sch,pcb,modules,system}/  views/  docs/README.md
@@ -129,18 +129,29 @@ graphics
 The full rules for writing library files are in `docs/symbol-authoring.md` and
 `docs/footprint-authoring.md`; **the symbol's pin number set must match the component's** (§4).
 
-## 4. Step 2: the component
+## 4. Step 2: the devices
 
-A component is a **part number plus the pin facts** (number, name, electrical type) plus references
-to the library views.
+A device is **the pin facts** (number, name, electrical type) plus references to the library views,
+and it says what kind of device it is. `kind` is never inferred (`value.component-kind-invalid`):
 
-`assets/components/c-0402.teda`:
+| `kind` | what it is | where it lives | `mpn` | `params` |
+|---|---|---|---|---|
+| `part` | one specific device, bought by part number | `assets/components/` | required | none |
+| `family` | one device family; the value lives in the instance row | `assets/families/` | forbidden | at least one required `value` |
+
+A family also declares its construction and whether it is polarised
+(`value.component-family-fact-invalid`).
+
+`assets/families/cap-mlcc-0402.teda`:
 
 ```
-version 0.1
-component c-0402
+version 0.1.1
+component cap-mlcc-0402
 
+kind         family
 category     capacitor
+construction mlcc
+polarized    no
 package      0402
 symbol project:c
 footprint project:chip-0402
@@ -159,13 +170,18 @@ pins
 What matters:
 
 - **The `component_id` is the file name** (without `.teda`, **without the relative path**):
-  `assets/components/passives/c-0402.teda` has the id `c-0402`. The `component <id>` header must match the
+  `assets/families/cap-mlcc-0402.teda` has the id `cap-mlcc-0402`. The `component <id>` header must match the
   file name, otherwise `ref.component-id-mismatch`.
+- **The directory must match the kind**: parts in `assets/components/`, families in
+  `assets/families/`, otherwise `ref.component-kind-mismatch`.
 - The `params` section declares **the extra columns an instance row may carry** (name, type,
   required/optional). Their order is the order the instance row supplies them in.
-- A schematic **must not define a component inline**; it references an id under `assets/components/`. A
-  missing id is an error (`ref.unknown-component`) — no network lookup, no silent downgrade.
-- Generic passives are component files too (`r-0402`, `c-0402`); `params.value` tells them apart.
+- A schematic **must not define a device inline**; it references an id under `assets/components/` or
+  `assets/families/`. A missing id is an error (`ref.unknown-component`) — no network lookup, no
+  silent downgrade.
+- **The pin table is the identity boundary**: only attributes that do not change a pin's electrical
+  behaviour may be `params` (value, tolerance, voltage rating, ESR). The package and the footprint
+  are fixed attributes, never parameters.
 
 ## 5. Step 3: lock the library in `project.toml`
 
@@ -204,9 +220,9 @@ version 0.2
 schematic demo
 
 instances
-  R1  r-0402  10k
-  R2  r-0402  10k
-  C1  c-0402  100nF
+  R1  res-thick-0402  10k
+  R2  res-thick-0402  10k
+  C1  cap-mlcc-0402  100nF
 
 nets
   VCC  R1.1 C1.1
@@ -247,9 +263,9 @@ MID: R1.2 R2.1
 VCC: C1.1 R1.1
 
 # components 3
-C1 c-0402
-R1 r-0402
-R2 r-0402
+C1 cap-mlcc-0402
+R1 res-thick-0402
+R2 res-thick-0402
 ```
 
 A missing parent directory of `--out` is **created for you** (`dist/` is created by the export
@@ -268,7 +284,7 @@ cd /tmp/demo
 
 # symbol: IR JSON + the component file (the pin facts come from the component)
 bun run $REPO/packages/parser/scripts/compile-symbol.ts symbols/project/c.teda --out dist/c.json
-bun run $REPO/scripts/export-symbol.ts dist/c.json --component assets/components/c-0402.teda --out dist/c.kicad_sym
+bun run $REPO/scripts/export-symbol.ts dist/c.json --component assets/families/cap-mlcc-0402.teda --out dist/c.kicad_sym
 
 # footprint: IR JSON only
 bun run $REPO/packages/parser/scripts/compile-footprint.ts footprints/project/chip-0402.teda --out dist/fp.json
@@ -302,9 +318,12 @@ ones you actually hit:
 
 | Symptom | Code | Fix |
 |---|---|---|
-| `component r-0403 not found` | `ref.unknown-component` | Put the part under `assets/components/`, or fix the reference name (**no subdirectory**) |
-| `The id declared in the file header is c-0402x, the file name is c-0402` | `ref.component-id-mismatch` | Make the header id and the file name agree |
-| `component r-0402 has 1 required parameters, but the row gives only 0` | `value.param-count-mismatch` | Supply as many values as the `params` section declares, in its order |
+| `component res-thick-0403 not found` | `ref.unknown-component` | Put the device under `assets/components/` (part) or `assets/families/` (family), or fix the reference name (**no subdirectory**) |
+| `The id declared in the file header is cap-mlcc-0402x, the file name is cap-mlcc-0402` | `ref.component-id-mismatch` | Make the header id and the file name agree |
+| `a component file must declare its kind` | `value.component-kind-invalid` | Add `kind part` or `kind family` |
+| `a family must declare its construction` | `value.component-family-fact-invalid` | Add `construction` and `polarized` to the family |
+| `the file declares kind part, but assets/families holds familys` | `ref.component-kind-mismatch` | Move the file to the directory its kind belongs to |
+| `component res-thick-0402 has 1 required parameters, but the row gives only 0` | `value.param-count-mismatch` | Supply as many values as the `params` section declares, in its order |
 | `pin R1.2 belongs to both net MID and VCC2` | `net.pin-in-two-nets` | A pin belongs to one net; drop the extra member |
 | `version 0.9 is newer than the 0.7 supported by this tool` | `format.unsupported-version` | Lower the file version, or upgrade the tool. **The version rules are in `teda.md` §13** |
 | `not a valid version number: 0.06` | `format.invalid-version` | A version is `MAJOR.MINOR[.PATCH]`, no leading zeros |

@@ -1,6 +1,7 @@
-version 0.1
+version 0.1.1
 component d-b340a
 
+kind         part
 mpn          B340A
 manufacturer Diodes Incorporated
 category     diode

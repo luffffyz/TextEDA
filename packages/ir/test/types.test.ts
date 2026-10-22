@@ -20,7 +20,7 @@ const wrongVersion: Schematic = { ...minimalSchematic, ir_version: "0.3" };
 const minimalComponent: Component = {
   ir_version: "0.2",
   component: {
-    id: "r-0402",
+    id: "res-thick-0402",
     package: "0402",
     symbol: "kicad:Device:R",
     footprint: "kicad:Resistor_SMD:R_0402_1005Metric",

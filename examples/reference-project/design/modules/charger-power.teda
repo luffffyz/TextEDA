@@ -8,57 +8,57 @@ module charger-power
 # (spec/module.md §3). Its nets are flattened to M1.<net> unless a port merges them into a
 # board-level net.
 instances
-  C1    c-0402       100n    10%  25V
-  C2    c-0402       100n    10%  50V
-  C3    c-0402       100n    10%  50V
-  C4    c-0603       1u      10%  10V
-  C5    c-0603       1u      10%  10V
-  C6    c-0402       100n    10%  25V
-  C7    c-0603       1u      10%  35V
-  C8    c-1210       10u     10%  35V
-  C9    c-1210       10u     10%  35V
-  C10   c-0402       100n    10%  25V
-  C11   c-0402       100n    10%  25V
-  C12   c-1210       10u     10%  25V
-  C13   c-1210       10u     10%  35V
-  C14   c-0402       100n    10%  50V
-  C15   c-0402       100n    10%  50V
-  C16   c-1210       2u2     10%  35V
-  C17   c-0402       56n     10%  16V
-  C18   c-0402       22p     5%   50V
+  C1    cap-mlcc-0402       100n    10%  25V
+  C2    cap-mlcc-0402       100n    10%  50V
+  C3    cap-mlcc-0402       100n    10%  50V
+  C4    cap-mlcc-0603       1u      10%  10V
+  C5    cap-mlcc-0603       1u      10%  10V
+  C6    cap-mlcc-0402       100n    10%  25V
+  C7    cap-mlcc-0603       1u      10%  35V
+  C8    cap-mlcc-1210       10u     10%  35V
+  C9    cap-mlcc-1210       10u     10%  35V
+  C10   cap-mlcc-0402       100n    10%  25V
+  C11   cap-mlcc-0402       100n    10%  25V
+  C12   cap-mlcc-1210       10u     10%  25V
+  C13   cap-mlcc-1210       10u     10%  35V
+  C14   cap-mlcc-0402       100n    10%  50V
+  C15   cap-mlcc-0402       100n    10%  50V
+  C16   cap-mlcc-1210       2u2     10%  35V
+  C17   cap-mlcc-0402       56n     10%  16V
+  C18   cap-mlcc-0402       22p     5%   50V
   D1    d-bat54c
   D2    led-green
   D3    led-green
   D4    led-green
-  L1    l-6r8
+  L1    ihlp2525czer6r8m01
   NTC1  ntc-103at
   Q1    q-si7617dn
   Q2    q-si7616dn
   Q3    q-si7617dn
   Q4    q-sis412dn
   Q5    q-sis412dn
-  R1    r-0402       100k    ±1%
-  R2    r-0402       500k    ±1%
-  R3    r-0402       100k    ±1%
-  R4    r-0402       32.4k   ±1%
-  R5    r-0402       100k    ±1%
-  R6    r-0402       10k     ±1%
-  R7    r-0402       100k    ±1%
-  R8    r-0402       22.1k   ±1%
-  R9    r-0402       9.31k   ±1%
-  R10   r-0402       430k    ±1%
-  R11   r-0402       10k     ±5%
-  R12   r-0402       10k     ±5%
-  R13   r-0402       10k     ±5%
-  R14   r-0402       100k    ±5%
-  R15   r-0402       100k    ±5%
-  R16   r-0402       100Ω    ±1%
-  R17   r-0402       10Ω     ±5%
-  R18   r-0402       1k      ±5%
-  R19   r-0402       1k      ±5%
-  R20   r-0402       2Ω      ±5%
-  R21   r-2010       0.010Ω  ±1%  1W
-  R22   r-2010       0.010Ω  ±1%  1W
+  R1    res-thick-0402      100k    ±1%
+  R2    res-thick-0402      500k    ±1%
+  R3    res-thick-0402      100k    ±1%
+  R4    res-thick-0402      32.4k   ±1%
+  R5    res-thick-0402      100k    ±1%
+  R6    res-thick-0402      10k     ±1%
+  R7    res-thick-0402      100k    ±1%
+  R8    res-thick-0402      22.1k   ±1%
+  R9    res-thick-0402      9.31k   ±1%
+  R10   res-thick-0402      430k    ±1%
+  R11   res-thick-0402      10k     ±5%
+  R12   res-thick-0402      10k     ±5%
+  R13   res-thick-0402      10k     ±5%
+  R14   res-thick-0402      100k    ±5%
+  R15   res-thick-0402      100k    ±5%
+  R16   res-thick-0402      100Ω    ±1%
+  R17   res-thick-0402      10Ω     ±5%
+  R18   res-thick-0402      1k      ±5%
+  R19   res-thick-0402      1k      ±5%
+  R20   res-thick-0402      2Ω      ±5%
+  R21   res-thick-2010      0.010Ω  ±1%  1W
+  R22   res-thick-2010      0.010Ω  ±1%  1W
   U1    bq24610rger
 
 nets

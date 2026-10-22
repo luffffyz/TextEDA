@@ -1,6 +1,7 @@
-version 0.1
+version 0.1.1
 component bq24610rger
 
+kind         part
 mpn          BQ24610RGER
 manufacturer Texas Instruments
 category     battery_charger

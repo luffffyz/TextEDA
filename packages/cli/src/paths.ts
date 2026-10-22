@@ -10,8 +10,10 @@
 // The shard tree is independent of this one: shards are laid out by kind
 // (`boards/`, `symbols/`, `footprints/`, ...), so moving a source file does not move its shard.
 export const LAYOUT = {
-  /** Component descriptions: one per file, the id taken from the file name. */
+  /** Part descriptions: one per file, the id taken from the file name (ADR-0027). */
   components: "assets/components",
+  /** Family descriptions: one per file, the id taken from the file name (ADR-0027). */
+  families: "assets/families",
   /** Symbol libraries, one directory per library. */
   symbols: "assets/symbols",
   /** Footprint libraries, one directory per library. */

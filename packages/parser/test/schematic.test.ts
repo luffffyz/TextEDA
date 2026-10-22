@@ -49,7 +49,7 @@ describe("single-file board (mcu-board)", () => {
 
   test("params land in the IR in component declaration order, units converted to integers", () => {
     const c1 = result.ir!.instances.find((i) => i.id === "C1")!;
-    expect(c1.component).toBe("c-0402");
+    expect(c1.component).toBe("cap-mlcc-0402");
     expect(c1.params).toEqual([
       { name: "value", value: 100_000_000 }, // 100nF → fF
       { name: "tolerance", value: 100_000 }, // 10% → ppm
@@ -183,7 +183,7 @@ describe("constraint types", () => {
     "schematic b",
     "",
     "instances",
-    "  R1  r-0402  10k",
+    "  R1  res-thick-0402  10k",
     "",
     "nets",
     "  A:  R1.1",
@@ -225,7 +225,7 @@ describe("constraint types", () => {
 });
 
 describe("negative cases", () => {
-  const board = ["version 0.3", "schematic b", "", "instances", "  R1  r-0402  10k", "", "nets", "  A:  R1.1"].join("\n");
+  const board = ["version 0.3", "schematic b", "", "instances", "  R1  res-thick-0402  10k", "", "nets", "  A:  R1.1"].join("\n");
 
   function codes(text: string, options: Partial<Parameters<typeof parseSchematic>[1]> = {}): string[] {
     const result = parseSchematic(text, {
@@ -238,12 +238,12 @@ describe("negative cases", () => {
   }
 
   test("component not found", () => {
-    const text = board.replace("r-0402", "no-such-part");
+    const text = board.replace("res-thick-0402", "no-such-part");
     expect(codes(text)).toContain("ref.unknown-component");
   });
 
   test("diagnostics carry machine-usable data (ADR-0016)", () => {
-    const result = parseSchematic(board.replace("r-0402", "no-such-part"), {
+    const result = parseSchematic(board.replace("res-thick-0402", "no-such-part"), {
       file: "sch/b.teda",
       board: "b",
       components: resolver,
@@ -253,7 +253,7 @@ describe("negative cases", () => {
   });
 
   test("duplicate refdes", () => {
-    const text = board.replace("nets", "  R1  r-0402  10k\n\nnets");
+    const text = board.replace("nets", "  R1  res-thick-0402  10k\n\nnets");
     expect(codes(text)).toContain("ref.duplicate-refdes");
   });
 
@@ -294,7 +294,7 @@ describe("negative cases", () => {
       "schematic b",
       "",
       "instances",
-      "  R1  r-0402  10k",
+      "  R1  res-thick-0402  10k",
       "",
       "nets",
       "  A:  R1.1",
@@ -330,7 +330,7 @@ describe("negative cases", () => {
   });
 
   test("the `page` description type is gone: it says so instead of 'unknown type'", () => {
-    const text = "version 0.3\npage p1\n\ninstances\n  R2  r-0402  10k";
+    const text = "version 0.3\npage p1\n\ninstances\n  R2  res-thick-0402  10k";
     const result = parseSchematic(text, { file: "sch/b/p1.teda", board: "b", components: resolver });
     const diagnostic = result.diagnostics.find((d) => d.code === "syntax.removed-construct")!;
     expect(diagnostic.message).toContain("page");
@@ -365,7 +365,7 @@ describe("single-member net semantics (teda.md §11.4)", () => {
       "schematic b",
       "",
       "instances",
-      "  R1  r-0402  10k",
+      "  R1  res-thick-0402  10k",
       "",
       "nets",
       "  A:  R1.1",
@@ -387,7 +387,7 @@ describe("single-member net semantics (teda.md §11.4)", () => {
       "schematic b",
       "",
       "instances",
-      "  R1  r-0402  10k",
+      "  R1  res-thick-0402  10k",
       "",
       "nets",
       "  SWD:  R1.1",
@@ -407,7 +407,7 @@ describe("single-member net semantics (teda.md §11.4)", () => {
 
 describe("continuation rows (teda.md §7.2)", () => {
   // A row whose first column is a bare `:` continues the net named by the row above it.
-  const header = ["version 0.3", "schematic b", "", "instances", "  R1  r-0402  10k", "  R2  r-0402  10k", "", "nets"].join("\n");
+  const header = ["version 0.3", "schematic b", "", "instances", "  R1  res-thick-0402  10k", "  R2  res-thick-0402  10k", "", "nets"].join("\n");
 
   function parse(text: string) {
     return parseSchematic(text, { file: "sch/b.teda", board: "b", components: resolver });
@@ -457,7 +457,7 @@ describe("continuation rows (teda.md §7.2)", () => {
 });
 
 describe("bus continuation rows (teda.md §7.3)", () => {
-  const header = ["version 0.3", "schematic b", "", "instances", "  R1  r-0402  10k", "  R2  r-0402  10k", "", "bus i2c0 = I2C"].join("\n");
+  const header = ["version 0.3", "schematic b", "", "instances", "  R1  res-thick-0402  10k", "  R2  res-thick-0402  10k", "", "bus i2c0 = I2C"].join("\n");
 
   test("a continuation row adds pins to the bus member above it", () => {
     const result = parseSchematic(`${header}\n  scl:  R1.1\n  :  R2.1\n  sda:  R2.2`, {

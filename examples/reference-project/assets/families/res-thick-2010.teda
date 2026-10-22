@@ -1,8 +1,12 @@
-version 0.1
-component r-2010
+version 0.1.1
+component res-thick-2010
 
+kind         family
 category     resistor
+construction thick
+polarized    no
 package      2010
+
 symbol project:r
 footprint project:chip-2010
 

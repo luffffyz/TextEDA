@@ -10,9 +10,9 @@ const schematic: Schematic = {
   format: "0.7",
   board: "b",
   instances: [
-    { id: "R1", component: "r-0402" },
-    { id: "R2", component: "r-0402" },
-    { id: "C1", component: "c-0402" },
+    { id: "R1", component: "res-thick-0402" },
+    { id: "R2", component: "res-thick-0402" },
+    { id: "C1", component: "cap-mlcc-0402" },
   ],
   nets: [
     { id: "A", members: ["R1.1", "R2.1"] },

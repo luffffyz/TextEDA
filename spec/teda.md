@@ -15,7 +15,7 @@ version 0.1
 schematic main
 
 instances
-  R1  r-0402  10k  ±1%
+  R1  res-th-0402  10k  ±1%
   U1  tps7a02
 
 nets
@@ -102,7 +102,7 @@ nets
 
 | 名称 | 规则 | 示例 |
 |---|---|---|
-| `component_id` / `board_id` / `page_id` | `[a-z][a-z0-9-]*` | `tps7a02`, `r-0402`, `ch32v307vct6` |
+| `component_id` / `board_id` / `page_id` | `[a-z][a-z0-9-]*` | `tps7a02`, `res-thick-0402`, `ch32v307vct6` |
 | `refdes` | `[A-Z]+[0-9]+` | `U1`, `R10`, `LED1` |
 | `net_id` | `[A-Za-z0-9_+-]+(\.[A-Za-z0-9_+-]+)*` | `VBUS`, `USB_DP`, `i2c0.scl` |
 | 引脚名 | `[A-Za-z0-9_+-]+` | `PA0`, `VREF+`, `OSC_IN` |
@@ -143,7 +143,7 @@ description USB hub with 2 downstream ports
 ## 5. 文件头与版本
 
 ```
-version 0.1
+version 0.1.1
 component tps7a02
 ```
 
@@ -160,7 +160,10 @@ component tps7a02
 
 | 键 | 必填 | 说明 |
 |---|---|---|
-| `mpn` | 是* | 制造商料号；通用无源件可省，见下 |
+| `kind` | 是 | `part`（具体器件）或 `family`（器件族）；见 §6.1.1 |
+| `mpn` | 条件 | 制造商料号：`kind: part` 必填，`kind: family` **必须不写** |
+| `construction` | 条件 | 构造工艺：`kind: family` 必填，`kind: part` **必须不写** |
+| `polarized` | 条件 | 是否有极性：`kind: family` 必填（`yes` / `no`），`kind: part` **必须不写** |
 | `package` | 是 | 封装名，如 `SOT-23-5`、`LQFP-100` |
 | `manufacturer` | 否 | 厂商 |
 | `category` | 否 | 器件类别，开放取值集：`mcu` / `resistor` / `capacitor` / `inductor` / `led` / `diode` / `mosfet_p` / `regulator` / `battery_charger` / … |
@@ -169,11 +172,25 @@ component tps7a02
 | `symbol` | 是 | `lib:name` |
 | `footprint` | 是 | `lib:name` |
 
-`*` 通用无源件（`category` 为 `resistor` / `capacitor` / `inductor`，且 `params` 含 `value`）可省略 `mpn`，由 `value` 区分具体规格；具体料号必须写 `mpn`。
+`category` 是**器件类别**，取值是**开放集合**：不设封闭目录，库里没有的类别直接用，小写加下划线。它只做分类，不参与校验逻辑分支；与文件头的类型（`component` / `schematic` / `pcb` / `system`）无关。
 
-`category` 是**器件类别**，取值是**开放集合**：不设封闭目录，库里没有的类别直接用，小写加下划线。它只做分类与免 `mpn` 判定，不参与校验逻辑分支；与文件头的类型（`component` / `schematic` / `pcb` / `system`）无关。
+### 6.1.1 两种器件：`part` 与 `family`
 
-### 6.2 `params` 段（可选）
+`component` 描述类型同时描述两种不同的东西，用 `kind` 显式区分，**从不推断**（决策见 [ADR-0027](../docs/adr/0027-device-parts-families-and-library-dependencies.md)）：
+
+| `kind` | 身份 | `mpn` | `params` | 典型 `instances` 行 |
+|---|---|---|---|---|
+| `part` | 一个制造商料号 | **必填** | 不写（身份封闭） | `U1 tps5430ddar` |
+| `family` | 一个器件族（类别 + 构造 + 封装） | **禁止** | 至少一列必填的 `value` | `C1 cap-tantalum-7343 220uF 10V` |
+
+- `part` 是**买得到的那一颗**：料号固定了它的一切，所以它没有参数列，也不写构造与极性（那是从它所属的族继承的）。
+- `family` 是**设计要求的规格**：文件里没有料号，值、耐压、容差都在 `instances` 行里；`construction`（`mlcc` / `tantalum` / `film` / `shielded` / …，开放取值）与 `polarized`（`yes` / `no`）是族自己的事实，不再靠文件名或符号选择暗示。
+- 目录与 `kind` 必须一致：`assets/components/` 放 `part`，`assets/families/` 放 `family`。两者共用一个 id 命名空间，id 取文件名。
+- 族 id 不带值、不带耐压、不带容差（`cap-mlcc-0402`、`res-th-0402`、`cap-tantalum-7343`）。
+
+**引脚表是身份边界**：改了引脚表就是另一个器件。只有不改变引脚电气行为的属性才可以成为 `params`（值、耐压、容差、ESR、温度等级）。因此 `package` 与 `footprint` 是器件的固定属性，永远不是参数列。
+
+### 6.2 `params` 段
 
 声明该器件在 `instances` 行里允许的额外列：
 
@@ -190,6 +207,11 @@ params
 
 类型：`resistance`、`capacitance`、`inductance`、`voltage`、`current`、`power`、`frequency`、`length`、`temperature`、`percent`、`integer`、`string`。
 
+- `kind: part` **不写** `params` 段：料号已经定死身份，再有参数列就是两处身份。
+- `kind: family` **必须**写 `params` 段，且至少有一列必填的 `value`（族之间的区别就是值）。
+- 参数列不得叫 `package` 或 `footprint`：它们是固定属性（§6.1.1）。
+- 参数不得改变引脚表（§6.1.1）。
+
 ### 6.3 `pins` 段
 
 ```
@@ -204,7 +226,7 @@ pins
 列：`number name type [unit=<n>] [alt=<name>]`。
 
 - 编号全局唯一。
-- 名称在 `(unit, name)` 内唯一；默认 `unit=1`。
+- 名称可以重复（两个地脚都叫 `GND` 没问题），但同一 `unit` 内的 `alt` 名称不得与别的引脚名撞车；默认 `unit=1`。
 - 引脚类型见 §10.1。
 - `pins` 对指向**自建符号**的器件是**必填**：自建 `symbol` 只描述视图，不带引脚名与电气类型（[ADR-0012](../docs/adr/0012-symbol-description.md)），事实只能内联。
 - 可以省略的唯一情形：`symbol` 指向**自带引脚事实**的第三方库（如 KiCad `.kicad_sym`），此时引脚由库解析、`pins_source = symbol`。自建符号不能成为这个来源。
@@ -216,18 +238,20 @@ pins
 
 ### 7.1 `instances` 段
 
-`assets/components/` 存器件定义；本段存放置实例，同一 `component_id` 可被多行引用。
+`assets/components/`（`part`）与 `assets/families/`（`family`）存器件定义；本段存放置实例，同一 `component_id` 可被多行引用。
 
 ```
 instances
-  R1  r-0402  10k  ±1%
+  R1  res-th-0402  10k  ±1%
+  C1  cap-tantalum-7343  220uF  10V
   U1  tps7a02
 ```
 
 列：`refdes component_id [param...]`。
 
-- `component_id` 必须在 `assets/components/` 树中按文件名找到；同一 id 只允许一个文件；否则报错。
+- `component_id` 必须在 `assets/components/` 或 `assets/families/` 树中按文件名找到；同一 id 只允许一个文件；否则报错。
 - 额外列与该器件 `params` 段**声明的顺序**一一对应（不按名字或类型猜）；`optional` 列只能从右往左省略，`required` 列不能省略。
+- `kind: part` 的实例行只有 `refdes` 与 `component_id`；`kind: family` 的实例行带上它的参数（值的列必填）。
 - `refdes` 在本文件内唯一。板只有一份原理图文件，板内没有第二套命名空间（v0.7 起，§7.6）。
 - 封装不在 `instances` 行写，由器件文件决定。
 
@@ -388,9 +412,9 @@ nets
 
 ### 10.1 引脚电气类型
 
-`input`、`output`、`bidirectional`、`tri_state`、`passive`、`power_in`、`power_out`、`power`、`open_collector`、`open_emitter`、`no_connect`、`unspecified`。
+`input`、`output`、`bidirectional`、`tri_state`、`passive`、`power_in`、`power_out`、`power`、`open_collector`、`open_emitter`、`polarized`、`no_connect`、`unspecified`。
 
-其中 `power` 表示地/参考节点；`power_in` 表示供电输入。
+其中 `power` 表示地/参考节点；`power_in` 表示供电输入；`polarized` 表示**有极性**的引脚（正负不可互换，族本身声明 `polarized yes`）。
 
 ### 10.2 单位与前缀
 
@@ -487,7 +511,7 @@ nets
 
 `version` 为 `MAJOR.MINOR[.PATCH]`，三位各自无前导零。**PATCH 位可省略，省略即 0**：`0.6` 与 `0.6.0` 是同一个版本，IR 里只存一种写法（`0.6`）。
 
-`version` 是**该描述类型自己的**版本线，不是全语言共享的一个版本号：今天在飞的是四个号——`schematic 0.8`、`view 0.7`、`symbol 0.5`、`component 0.1`（另有 `pcb 0.4`、`footprint 0.4`、`system 0.2`、`module 0.8`、`procurement 0.9`）。在 `0.x` 阶段**每种描述类型只走 PATCH 位**（`0.8` → `0.8.1`）：加段、加字段也不抬 MINOR。抬 MINOR 的时机留给最后的合并（见 §13.2）。决策见 `docs/adr/0022-language-versioning.md` 的 2026-10-22 附录。
+`version` 是**该描述类型自己的**版本线，不是全语言共享的一个版本号：今天在飞的是四个号——`schematic 0.8`、`view 0.7`、`symbol 0.5`、`component 0.1.1`（另有 `pcb 0.4`、`footprint 0.4`、`system 0.2`、`module 0.8`、`procurement 0.9`）。在 `0.x` 阶段**每种描述类型只走 PATCH 位**（`0.8` → `0.8.1`）：加段、加字段也不抬 MINOR。抬 MINOR 的时机留给最后的合并（见 §13.2）。决策见 `docs/adr/0022-language-versioning.md` 的 2026-10-22 附录。
 
 | 位 | 什么时候动 | 动它意味着 |
 |---|---|---|
@@ -536,6 +560,12 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
     5. 仍带 `page` 头或 `pages` 段的文件，诊断指向本条迁移说明。
 - `0.8` 新增：`module` 描述类型、`sch` 的 `modules` 段、模块端口与板级 net 的绑定、板内展平（决策见 `docs/adr/0026-modules-compose-boards.md`，语法见 `spec/module.md`）。板内重新有了**一层逻辑层次**：模块持有电气事实，带端口；绘制划分仍在视图层的打印页里。**IR 契约不变**（仍是 0.2）：板级 IR 是展平结果，不含模块结构。用到 `module` 或 `modules` 段的文件写 `version 0.8`；只含板级内容的文件仍可写 `0.7`。
 - `0.9` 新增（**`0.x` 的最后一个全局号**）：`procurement` 描述类型——一块板的采购选料（决策见 `docs/adr/0030-procurement-layer.md`，语法见 `spec/procurement.md`）。选料是**决定**不是事实：主料进工程哈希与板哈希，备料只进 advisory 哈希。`procurement` 文件写 `version 0.9`。**实现未落地**（解析器、IR 契约 v0.3 的 `procurement` 分片、BOM 输出见 `docs/backlog.md` F34）。
+- `component` 描述类型：`0.1` → `0.1.1`（PATCH）。新增 `kind` / `construction` / `polarized` 三个标量，并把 `kind` 变成必填、`kind: family` 的 `params` 变成必填（决策见 [ADR-0027](../docs/adr/0027-device-parts-families-and-library-dependencies.md)）。**这是破坏性变更**（老文件不再合法），按 §13.1 的 `0.x` 规则走 PATCH 位，迁移说明见下：
+  - **迁移 0.1 → 0.1.1**（`bun run migrate:0.9 <project dir>` 做机械部分）：
+    1. 有 `mpn` 的文件加 `kind part`，没有 `mpn` 的文件加 `kind family`；两者都不写 `construction` / `polarized`。
+    2. `kind: family` 的文件补 `construction` 与 `polarized`（脚本按文件名与符号猜，猜不出来的由作者填）。
+    3. 族文件移到 `assets/families/`；件的 id 不带值的改名由作者决定（脚本不替人命名）。
+    4. `instances` 行里的器件 id 跟着改名（脚本改机械可判的部分，冲突报错）。
 - `0.x` 阶段各描述类型的版本线各自维护、只走 PATCH 位；项目接近完成时一次性合并为 `1.0`，之后全语言一个号（见 §13.1 / §13.2）。
 - 未知构造默认报错；`--allow-unknown` 仅用于前向兼容检查，不用于生产。**这是 `0.x` 阶段版本号只走 PATCH 位的安全依据**：不懂新构造的工具会报错停下，不会误读文件。
 - 所有破坏性变更必须提供迁移说明；`fmt` 不自动跨 MAJOR 迁移。
@@ -544,12 +574,13 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
 
 ## 14. 完整示例
 
-`assets/components/regulators/tps7a02.teda`：
+`assets/components/regulators/tps7a02.teda`（一个 `part`）：
 
 ```
-version 0.1
+version 0.1.1
 component tps7a02
 
+kind         part
 mpn          TPS7A02DBVR
 manufacturer Texas Instruments
 package      SOT-23-5
@@ -566,6 +597,32 @@ pins
   5  OUT  power_out
 ```
 
+`assets/families/cap-tantalum-7343.teda`（一个 `family`）：
+
+```
+version 0.1.1
+component cap-tantalum-7343
+
+kind         family
+category     capacitor
+construction  tantalum
+polarized    yes
+package      7343
+
+symbol       project:c-pol
+footprint    project:tantalum-7343
+
+params
+  value      capacitance  required
+  tolerance  percent      optional
+  voltage    voltage      optional
+  esr        resistance   optional
+
+pins
+  1  P  polarized
+  2  N  polarized
+```
+
 `design/sch/main.teda`：
 
 ```
@@ -573,7 +630,7 @@ version 0.2
 schematic main
 
 instances
-  R1  r-0402  10k  ±1%
+  R1  res-th-0402  10k  ±1%
   U1  tps7a02
 
 nets
@@ -593,7 +650,7 @@ version 0.2
 schematic aux
 
 instances
-  R1  r-0402  10k  ±1%
+  R1  res-th-0402  10k  ±1%
   U1  tps7a02
 
 nets
@@ -612,8 +669,8 @@ version 0.7
 schematic power
 
 instances
-  R1   r-0402       100k   ±1%
-  R2   r-0402       10k    ±1%
+  R1   res-th-0402       100k   ±1%
+  R2   res-th-0402       10k    ±1%
   U1   bq24610rger
   U2   tps7a02
 

@@ -39,14 +39,14 @@ version 0.8
 module buck-5v
 
 instances
-  C1    c-1210    10u    10%  35V
-  C2    c-0402    10n    10%  25V
-  C3    c-220u    220u   20%  10V  40mΩ
-  C4    c-0402    100n   10%  16V
+  C1    cap-mlcc-1210    10u    10%  35V
+  C2    cap-mlcc-0402    10n    10%  25V
+  C3    cap-tantalum-7343    220u   20%  10V  40mΩ
+  C4    cap-mlcc-0402    100n   10%  16V
   D1    d-b340a
-  L1    l-15u
-  R1    r-0402    10k    ±1%
-  R2    r-0402    3.24k  ±1%
+  L1    ihlp4040dzer150m11
+  R1    res-thick-0402    10k    ±1%
+  R2    res-thick-0402    3.24k  ±1%
   U1    tps5430ddar
 
 nets

@@ -609,21 +609,23 @@
 
 ## F25. 器件拆成 part / family，器件资产归到 `assets/`（ADR-0027 的落地）
 
-**现状**：`component` 一种类型同时表示"具体料"（`ch32v307vct6`，`mpn` 齐全）与"通用模板"（`c-0402`，取值落在实例行），两者的区别只靠 `category` + `params` 含 `value` 的约定；目录上 `assets/symbols/project/`、`assets/footprints/project/` 带库名层，`assets/components/` 把族与料混在一起。决策见 [ADR-0027](adr/0027-device-parts-families-and-library-dependencies.md)，**未落地**。
+**现状**：**语言与实现已落地**（2026-10-22）——`component` 有必填 `kind`（`part` / `family`）、族专有的 `construction` / `polarized`，`part` 禁 `params`、族必带必填 `value`；`packages/parser` 有真正的 `component` 解析器（`packages/parser/src/component.ts`），族与件分目录（`assets/families/` / `assets/components/`），目录与 `kind` 不一致报错；参考工程已拆成 16 个件与 6 个族；迁移脚本 `bun run migrate:0.9 <项目目录>` 已写。决策见 [ADR-0027](adr/0027-device-parts-families-and-library-dependencies.md)。
+
+**未落地**：IR 契约的 `kind` / `construction` / `polarized` 字段（随 F25 / F27 / F28 同批升到 v0.3）、`lib:id` 限定名与库解析顺序、变体对族的作用域、采购描述类型（F35）、库的信任模型（F26）。
 
 **要做的事**：
 
-1. **语言层**：`component` 增加必填 `kind`（`part` / `family`）；`part` 要求 `mpn`、`family` 禁止 `mpn` 且 `params` 至少有一列参与身份（`value`）；新增 `construction`（开放词表）与 `polarized`（`yes`/`no`）两个标量字段；语言版本到 **0.9**，`teda.md` §6 改写。
+1. **语言层（已落地）**：`component` 增加必填 `kind`（`part` / `family`）；`part` 要求 `mpn`、`family` 禁止 `mpn` 且 `params` 至少有一列参与身份（`value`）；新增 `construction`（开放词表）与 `polarized`（`yes`/`no`）两个标量字段；`teda.md` §6 改写（§6.1.1 两种器件、§6.2 `params`、§10.1 新增 `polarized` 电气类型）。**版本走的是 `component` 自己的版本线 `0.1` → `0.1.1`**（每种描述类型一条线，0.x 阶段只走 PATCH 位，见 [ADR-0022](adr/0022-language-versioning.md) 附录），不是全局 0.9。
    - **引脚表是身份分界**（[ADR-0027](adr/0027-device-parts-families-and-library-dependencies.md) decision 3）：引脚表变了就是另一个器件；只有不改引脚表、不改引脚行为的属性才允许进 `params`（value / tolerance / 耐压 / ESR / 温度档）。`package` 与 `footprint` 是 part / family 的固定属性，**不是** `params`。
    - **一封装一 part**（decision 4）：同一 die 的多个封装 = 多个 part 文件，各自写**完整**引脚表；不做引脚表合成、不做多封装 part。
-2. **目录迁移**（机械部分）：`assets/symbols/project/*` → `assets/symbols/*`，`assets/footprints/project/*` → `assets/footprints/*`；`assets/components/passives/c-0402.teda` → `assets/families/cap-0402.teda`（族 id 不带值、带构造）；`assets/components/passives/xtal-8mhz-3225.teda` 等有真 MPN 的 → `assets/components/*` 并标 `kind: part`；`project.toml` 的 `[libs.project]`（自建库的 `symbols`/`footprints` 键）删除，自建资产变成项目自有目录。**目录按归属分组的完整迁移见 F29**（本条只管器件这一半）。
-3. **迁移脚本**：`bun run migrate:0.9 <项目目录>`，仿 `scripts/migrate-0.7.ts`；**族 id 的改名由作者决定，脚本不替人命名**（`c-220u` → `cap-tantalum-7343` 这类要在报告里列出来等人确认）。
+2. **目录迁移（器件这一半已落地）**：`assets/components/passives/c-0402.teda` → `assets/families/cap-mlcc-0402.teda`（族 id 不带值、带构造）、`c-220u.teda` → `assets/families/cap-tantalum-7343.teda`（`construction tantalum` + `polarized yes`）、`r-0402.teda` → `assets/families/res-thick-0402.teda`；有真 MPN 的（`xtal-8mhz-3225`、`l-6r8` → `ihlp2525czer6r8m01` 等）留在 `assets/components/*` 并标 `kind: part`；`assets/symbols/project/*` → `assets/symbols/*`、`assets/footprints/project/*` → `assets/footprints/*` 与 `project.toml` 的 `[libs.project]` 删除**已随 F29 落地**。
+3. **迁移脚本（已落地）**：`bun run migrate:0.9 <项目目录>`（`scripts/migrate-0.9.ts`）：加 `kind`、把族挪进 `assets/families/`、版本提到 `0.1.1`；**族 id 的改名与 `construction` / `polarized` 的取值由作者决定，脚本只报告不替人填**。
 4. **命名空间**：`instances` 行支持 `lib:id` 限定名（库内件必须限定，项目件可裸写）；解析顺序：项目 `assets/components/` → 项目 `families/` → 库。
 5. **variant 作用域**：`packages/core` 的 ERC 里，变体按 `component_id` 生效只对 `kind: part` 成立；族只能按实例作用域（DNP/替代料指到具体实例）。
-6. **`params` 语义校验**：编译期检查 `params` 列不承载"改引脚表/改引脚行为"的属性（人工判定不了的部分靠约定 + 库级检查）；`part` 的 `package` / `footprint` 与 `family` 的固定封装不得出现在 `params` 里。
+6. **`params` 语义校验（部分落地）**：`part` 禁 `params`、族必带必填 `value`、`package` / `footprint` 不得作参数列、必填列在前——都已在解析器里查（诊断码 `value.component-identity-invalid` / `value.component-param-reserved` / `value.component-param-order`）。**未落地**："改引脚表/改引脚行为"这层语义靠人工判定（编译器查不了），仍靠约定 + 库级检查。
 7. **`procurement/` 描述类型**：新描述类型（族+规格 → 料），带 parser 与 fmt；BOM 行键统一为 `(component_id, 参数字典)`（part 的参数为空）。**格式已定**（[ADR-0030](adr/0030-procurement-layer.md) 已 Accepted，语法见 `spec/procurement.md`），**实现见 F35**。
    - **主料 / 备选分离**：主料在 `assets/procurement/primary/<board_id>.teda`（**规范分片**，进工程哈希与板哈希，决定 BOM 与制造包）；第二货源在 `assets/procurement/alternatives/<board_id>.teda`（**附注分片**，进 IR 但**不进工程哈希**，另聚合成 `advisory_hash`）——换备选不触发重建、不作废已评审的制造包。备选违反硬约束（封装不等、不是 part、无 `mpn`）报 **warning**，不阻断构建；主料违反则是 error；备选文件的**语法错**仍是 error（文件坏了）。
-8. **IR 契约**：`schemas/ir/v0.2/component.schema.json` 加 `kind` / `construction` / `polarized`，契约版本到 **v0.3**（纯增量），跑 `bun run gen` 重生成类型，`tests/schemas/` 补正反例。
+8. **IR 契约（未落地）**：`schemas/ir/v0.2/component.schema.json` 加 `kind` / `construction` / `polarized`，契约版本到 **v0.3**（纯增量），跑 `bun run gen` 重生成类型，`tests/schemas/` 补正反例。**与 F27 / F28 同批升**（契约一次升到 v0.3，别分两次）。
 
 **验收**：
 

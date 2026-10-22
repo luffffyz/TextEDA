@@ -23,6 +23,7 @@ import {
 import { unsupportedChars } from "@texteda/renderer/font";
 import {
   componentUsingSymbol,
+  deviceFiles,
   loadComponent,
   loadComponentResolver,
   loadFootprint,
@@ -106,11 +107,9 @@ function splitRef(ref: string, defaultLib: string): { lib: string; name: string 
   return { lib: ref.slice(0, i), name: ref.slice(i + 1) };
 }
 
-/** The component file with the given id (under assets/components/, one directory per category). */
+/** The device file with the given id (a part in assets/components/, a family in assets/families/). */
 function findComponentFile(projectRoot: string, id: string): string | null {
-  return (
-    tedaFiles(join(projectRoot, "assets/components")).find((f) => basename(f, ".teda") === id) ?? null
-  );
+  return deviceFiles(projectRoot).find((f) => basename(f, ".teda") === id) ?? null;
 }
 
 const options = parseArgs(process.argv.slice(2));
@@ -155,9 +154,7 @@ if (options.kind === "symbol" || options.kind === "component") {
   let symbolLib = options.lib;
   let part: { pins: { number: string; name: string; type: string }[] } | null = null;
   if (options.kind === "component") {
-    const file = tedaFiles(join(projectRoot, "assets/components")).find(
-      (f) => basename(f, ".teda") === options.id,
-    );
+    const file = findComponentFile(projectRoot, options.id);
     if (!file) fail(`no component ${options.id} in the project`);
     const text = readFileSync(file, "utf8");
     const ref = readRef(text, "symbol");
@@ -204,9 +201,7 @@ if (options.kind === "footprint" || options.kind === "component") {
   let footprintId = options.id;
   let footprintLib = options.lib;
   if (options.kind === "component") {
-    const file = tedaFiles(join(projectRoot, "assets/components")).find(
-      (f) => basename(f, ".teda") === options.id,
-    );
+    const file = findComponentFile(projectRoot, options.id);
     if (!file) fail(`no component ${options.id} in the project`);
     const ref = readRef(readFileSync(file, "utf8"), "footprint");
     if (!ref) fail(`component ${options.id} has no footprint reference`);

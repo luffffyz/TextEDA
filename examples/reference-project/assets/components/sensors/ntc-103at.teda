@@ -1,6 +1,7 @@
-version 0.1
+version 0.1.1
 component ntc-103at
 
+kind         part
 mpn          103AT
 manufacturer Semitec
 category     thermistor

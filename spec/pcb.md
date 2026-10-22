@@ -386,8 +386,8 @@ pcb 里写的 net 名就是**板级** net 名，与 sch 同一命名空间（模
 ```
 instances
   U1  tps7a02
-  C1  c-0603
-  R1  r-0402
+  C1  cap-mlcc-0603
+  R1  res-thick-0402
 
 nets
   VIN:  U1.1

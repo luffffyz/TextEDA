@@ -1,8 +1,12 @@
-version 0.1
-component r-0402
+version 0.1.1
+component res-thick-0402
 
+kind         family
 category     resistor
+construction thick
+polarized    no
 package      0402
+
 symbol project:r
 footprint project:chip-0402
 

@@ -9,23 +9,23 @@ schematic mcu-board
 # With no external battery, VBAT ties to 3V3: the datasheet lists VBAT 1.8~3.6V as an optional backup supply,
 # and the backup domain runs from VBAT after VDD disappears; tying to 3V3 is equivalent to "no battery".
 instances
-  C1   c-0402          100n  10%  16V  X7R
-  C2   c-0402          100n  10%  16V  X7R
-  C3   c-0402          100n  10%  16V  X7R
-  C4   c-0402          100n  10%  16V  X7R
-  C5   c-0402          100n  10%  16V  X7R
-  C6   c-0402          100n  10%  16V  X7R
-  C7   c-0402          100n  10%  16V  X7R
-  C8   c-0402          1u    10%  10V  X7R
-  C9   c-0402          1u    10%  10V  X7R
-  C10  c-0402          1u    10%  10V  X7R
-  C11  c-0402          10p   5%   50V  C0G
-  C12  c-0402          10p   5%   50V  C0G
-  C13  c-0402          100n  10%  16V  X7R
+  C1   cap-mlcc-0402   100n  10%  16V  X7R
+  C2   cap-mlcc-0402   100n  10%  16V  X7R
+  C3   cap-mlcc-0402   100n  10%  16V  X7R
+  C4   cap-mlcc-0402   100n  10%  16V  X7R
+  C5   cap-mlcc-0402   100n  10%  16V  X7R
+  C6   cap-mlcc-0402   100n  10%  16V  X7R
+  C7   cap-mlcc-0402   100n  10%  16V  X7R
+  C8   cap-mlcc-0402   1u    10%  10V  X7R
+  C9   cap-mlcc-0402   1u    10%  10V  X7R
+  C10  cap-mlcc-0402   1u    10%  10V  X7R
+  C11  cap-mlcc-0402   10p   5%   50V  C0G
+  C12  cap-mlcc-0402   10p   5%   50V  C0G
+  C13  cap-mlcc-0402   100n  10%  16V  X7R
   D1   led-green
-  R1   r-0402          10k   ±1%
-  R2   r-0402          10k   ±1%
-  R3   r-0402          1k    ±5%
+  R1   res-thick-0402  10k   ±1%
+  R2   res-thick-0402  10k   ±1%
+  R3   res-thick-0402  1k    ±5%
   SW1  sw-ts-1187
   U1   ch32v307vct6
   U2   tps7a2033pdbvr

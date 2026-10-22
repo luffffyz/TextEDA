@@ -8,8 +8,8 @@ const base: Schematic = {
   format: "0.3",
   board: "b",
   instances: [
-    { id: "R2", component: "r-0402" },
-    { id: "R1", component: "r-0402" },
+    { id: "R2", component: "res-thick-0402" },
+    { id: "R1", component: "res-thick-0402" },
   ],
   nets: [
     { id: "N2", members: ["R2.2", "R1.2"] },
@@ -41,6 +41,6 @@ describe("toNetlist", () => {
     expect(text).not.toContain("100nF");
     expect(text.startsWith("# netlist b (ir 0.2)")).toBe(true);
     expect(text).toContain("N2: R1.2 R2.2");
-    expect(text).toContain("R1 r-0402");
+    expect(text).toContain("R1 res-thick-0402");
   });
 });

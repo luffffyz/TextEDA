@@ -1,16 +1,19 @@
-version 0.1
-component c-0402
+version 0.1.1
+component cap-mlcc-0603
 
+kind         family
 category     capacitor
-package      0402
+construction mlcc
+polarized    no
+package      0603
+
 symbol project:c
-footprint project:chip-0402
+footprint project:chip-0603
 
 params
   value      capacitance required
   tolerance  percent     optional
   voltage    voltage     optional
-  dielectric string      optional
 
 pins
   1  A  passive

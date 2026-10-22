@@ -7,10 +7,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { analyzeProject, checkProject } from "../src/check.ts";
 
-const COMPONENT = `version 0.1
-component r-0402
+const COMPONENT = `version 0.1.1
+component res-thick-0402
 
+kind         family
 category     resistor
+construction thick
+polarized    no
 package      0402
 symbol project:r
 footprint project:chip-0402
@@ -27,7 +30,7 @@ const BOARD = `version 0.3
 schematic b
 
 instances
-  R1  r-0402  10k
+  R1  res-thick-0402  10k
 
 nets
   GND:  R1.1
@@ -37,9 +40,9 @@ nets
 /** Build a project in a temp directory. */
 function makeProject(board: string): string {
   const root = mkdtempSync(join(tmpdir(), "texteda-check-"));
-  mkdirSync(join(root, "assets/components"), { recursive: true });
+  mkdirSync(join(root, "assets/families"), { recursive: true });
   mkdirSync(join(root, "design/sch"), { recursive: true });
-  writeFileSync(join(root, "assets/components", "r-0402.teda"), COMPONENT);
+  writeFileSync(join(root, "assets/families", "res-thick-0402.teda"), COMPONENT);
   writeFileSync(join(root, "design/sch", "b.teda"), board);
   return root;
 }
@@ -48,7 +51,7 @@ const MODULE = `version 0.8
 module m
 
 instances
-  R1  r-0402  10k
+  R1  res-thick-0402  10k
 
 nets
   VCC:  R1.1
@@ -90,7 +93,7 @@ describe("check", () => {
   });
 
   test("reports ref.unknown-component when the component is not found", () => {
-    const root = makeProject(BOARD.replace("r-0402", "no-such-part"));
+    const root = makeProject(BOARD.replace("res-thick-0402", "no-such-part"));
     try {
       const result = checkProject(root);
       const diagnostic = result.diagnostics.find((d) => d.code === "ref.unknown-component");
@@ -117,9 +120,9 @@ describe("check", () => {
   test("an unreadable component file counts as an error", () => {
     const root = makeProject(BOARD);
     try {
-      writeFileSync(join(root, "assets/components", "broken.teda"), "nonsense\n");
+      writeFileSync(join(root, "assets/families", "broken.teda"), "nonsense\n");
       const result = checkProject(root);
-      const diagnostic = result.diagnostics.find((d) => d.code === "syntax.component-invalid");
+      const diagnostic = result.diagnostics.find((d) => d.code === "syntax.header-invalid");
       expect(diagnostic).toBeDefined();
       expect(diagnostic?.severity).toBe("error");
     } finally {
@@ -130,7 +133,10 @@ describe("check", () => {
   test("reports an error when the file-header id does not match the file name", () => {
     const root = makeProject(BOARD);
     try {
-      writeFileSync(join(root, "assets/components", "broken.teda"), "version 0.1\ncomponent other\n");
+      writeFileSync(
+        join(root, "assets/families", "broken.teda"),
+        COMPONENT.replace("component res-thick-0402", "component other"),
+      );
       const result = checkProject(root);
       const diagnostic = result.diagnostics.find((d) => d.code === "ref.component-id-mismatch");
       expect(diagnostic?.severity).toBe("error");

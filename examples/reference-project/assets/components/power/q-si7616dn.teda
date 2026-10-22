@@ -1,6 +1,7 @@
-version 0.1
+version 0.1.1
 component q-si7616dn
 
+kind         part
 mpn          Si7616DN
 manufacturer Vishay Siliconix
 category     mosfet_p

@@ -8,6 +8,21 @@ const example = readFileSync(
   "utf8",
 );
 
+/** A minimal valid part file, with the given extra lines. */
+function part(...extra: string[]): string {
+  return [
+    "version 0.1.1",
+    "component c",
+    "",
+    "kind part",
+    "mpn C-PART",
+    "symbol project:s",
+    "footprint project:f",
+    ...extra,
+    "",
+  ].join("\n");
+}
+
 describe("component facts projection", () => {
   test("reads pin table, footprint, datasheet and description", () => {
     const result = readComponentFacts(example, { file: "x.teda" });
@@ -22,45 +37,48 @@ describe("component facts projection", () => {
   });
 
   test("optional trailing columns unit / alt are accepted", () => {
-    const text = [
-      "version 0.1",
-      "component opamp",
-      "",
+    const text = part(
       "pins",
       "  1  OUT  output  unit=2",
       "  2  IN   input   alt=AUX",
-      "",
-    ].join("\n");
+    );
     const result = readComponentFacts(text, { file: "x.teda" });
     expect(result.diagnostics).toEqual([]);
     expect(result.facts!.pins.length).toBe(2);
   });
 
   test("unknown trailing column reports an error", () => {
-    const text = ["version 0.1", "component c", "", "pins", "  1  IN  input  colour=red"].join("\n");
+    const text = part("pins", "  1  IN  input  colour=red");
     const result = readComponentFacts(text, { file: "x.teda" });
     expect(result.ok).toBe(false);
     expect(result.diagnostics[0]!.code).toBe("value.pin-column-invalid");
   });
 
   test("duplicate pin number reports an error", () => {
-    const text = ["version 0.1", "component c", "", "pins", "  1  IN  input", "  1  OUT output"].join(
-      "\n",
-    );
+    const text = part("pins", "  1  IN  input", "  1  OUT output");
     const result = readComponentFacts(text, { file: "x.teda" });
     expect(result.ok).toBe(false);
     expect(result.diagnostics.some((d) => d.code === "library.duplicate-pin-number")).toBe(true);
   });
 
   test("unknown electrical type reports an error", () => {
-    const text = ["version 0.1", "component c", "", "pins", "  1  IN  weird"].join("\n");
+    const text = part("pins", "  1  IN  weird");
     const result = readComponentFacts(text, { file: "x.teda" });
     expect(result.ok).toBe(false);
     expect(result.diagnostics[0]!.code).toBe("value.electrical-type-unknown");
   });
 
   test("omitting pins (delegating to a third-party library) is rejected on the symbol export path", () => {
-    const text = ["version 0.1", "component r-0402", "", "symbol kicad:Device:R", ""].join("\n");
+    const text = [
+      "version 0.1.1",
+      "component res-thick-0402",
+      "",
+      "kind part",
+      "mpn C-PART",
+      "symbol kicad:Device:R",
+      "footprint project:f",
+      "",
+    ].join("\n");
     const result = readComponentFacts(text, { file: "x.teda" });
     expect(result.ok).toBe(false);
     expect(result.diagnostics.some((d) => d.code === "library.pins-empty")).toBe(true);

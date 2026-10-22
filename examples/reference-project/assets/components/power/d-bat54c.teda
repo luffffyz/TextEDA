@@ -1,6 +1,7 @@
-version 0.1
+version 0.1.1
 component d-bat54c
 
+kind         part
 mpn          BAT54C
 manufacturer onsemi
 category     diode

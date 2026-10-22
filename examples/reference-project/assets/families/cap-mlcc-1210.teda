@@ -1,8 +1,12 @@
-version 0.1
-component c-1210
+version 0.1.1
+component cap-mlcc-1210
 
+kind         family
 category     capacitor
+construction mlcc
+polarized    no
 package      1210
+
 symbol project:c
 footprint project:chip-1210
 

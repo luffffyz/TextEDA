@@ -1,0 +1,24 @@
+version 0.1.1
+component cap-tantalum-7343
+
+# A polarised tantalum capacitor. The polarity is a fact of the family, not a hint in the file
+# name: the pins are typed `polarized`, so a reversed part is visible.
+
+kind         family
+category     capacitor
+construction tantalum
+polarized    yes
+package      7343
+
+symbol project:c-pol
+footprint project:tantalum-7343
+
+params
+  value      capacitance required
+  tolerance  percent     optional
+  voltage    voltage     optional
+  esr        resistance  optional
+
+pins
+  1  P  polarized
+  2  N  polarized

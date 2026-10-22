@@ -10,7 +10,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import {
-  readComponentIndex,
+  parseComponent,
   type ComponentFactsLite,
   type ComponentResolver,
   type ModuleSource,
@@ -39,9 +39,14 @@ export interface LoadedComponents {
   problems: ComponentProblem[];
 }
 
-/** Read the project's components into a table the resolver can use. The component id is the file name (directory and `.teda` stripped). */
+/**
+ * Read the project's devices into a table the resolver can use.
+ *
+ * Two directories hold device files (ADR-0027): `assets/components/` holds parts (specific
+ * devices), `assets/families/` holds families (device families). They share one id namespace:
+ * the id is the file name, so a board writes `res-th-0402` without saying where it lives.
+ */
 export function loadComponents(root: string): LoadedComponents {
-  const dir = join(root, LAYOUT.components);
   const files: string[] = [];
   const walk = (path: string): void => {
     if (!existsSync(path)) return;
@@ -51,37 +56,50 @@ export function loadComponents(root: string): LoadedComponents {
       else if (entry.name.endsWith(".teda")) files.push(full);
     }
   };
-  walk(dir);
+  walk(join(root, LAYOUT.components));
+  walk(join(root, LAYOUT.families));
 
   const table = new Map<string, ComponentFactsLite>();
   const problems: ComponentProblem[] = [];
   for (const file of files.sort()) {
-    const result = readComponentIndex(readFileSync(file, "utf8"));
+    const result = parseComponent(readFileSync(file, "utf8"), { file: relative(root, file) });
     const id = file.slice(file.lastIndexOf("/") + 1, file.length - ".teda".length);
     const relativeFile = relative(root, file);
-    if (!result.ok || !result.facts) {
-      for (const problem of result.problems) {
+    // The directory says what the file is: parts live in assets/components/, families in assets/families/ (ADR-0027).
+    const expected = relativeFile.startsWith(`${LAYOUT.families}/`) ? "family" : "part";
+    if (!result.ok || !result.component) {
+      for (const diagnostic of result.diagnostics) {
         problems.push({
-          code: "syntax.component-invalid",
+          code: diagnostic.code,
           file: relativeFile,
-          line: problem.line,
-          message: problem.message,
+          line: diagnostic.location?.line ?? 1,
+          message: diagnostic.message,
         });
       }
       continue;
     }
     // The component id is the file name (AGENTS.md §4.5): the id declared in the file header must match the file name, otherwise report an error.
-    if (result.id !== undefined && result.id !== id) {
+    if (result.component.id !== id) {
       problems.push({
         code: "ref.component-id-mismatch",
         file: relativeFile,
         line: 2,
-        message: `The id declared in the file header is ${result.id}, the file name is ${id}`,
-        data: { declared_id: result.id, file_id: id },
+        message: `The id declared in the file header is ${result.component.id}, the file name is ${id}`,
+        data: { declared_id: result.component.id, file_id: id },
       });
       continue;
     }
-    table.set(id, result.facts);
+    if (result.component.kind !== expected) {
+      problems.push({
+        code: "ref.component-kind-mismatch",
+        file: relativeFile,
+        line: 2,
+        message: `The file declares kind ${result.component.kind}, but ${expected === "family" ? LAYOUT.families : LAYOUT.components} holds ${expected === "family" ? "families" : "parts"}`,
+        data: { declared_kind: result.component.kind, expected_kind: expected },
+      });
+      continue;
+    }
+    table.set(id, { params: result.component.params, pins: result.component.pins });
   }
   return { resolver: { resolve: (id) => table.get(id) }, problems };
 }

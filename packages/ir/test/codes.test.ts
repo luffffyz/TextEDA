@@ -60,6 +60,8 @@ describe("diagnostic error code registry", () => {
   test("every code has a real call site", () => {
     const missing: string[] = [];
     for (const code of DIAGNOSTIC_CODE_IDS) {
+      // A deprecated code keeps its row but is no longer emitted (ADR-0016).
+      if (DIAGNOSTIC_CODES[code].summary.startsWith("[DEPRECATED")) continue;
       const literal = `"${code}"`;
       const hit = sources.some((s) => s.text.includes(literal));
       if (!hit) missing.push(code);
