@@ -204,9 +204,12 @@ This closes the open question of [ADR-0028](0028-library-trust-and-derived-overr
 - Whether a note may be bound to a specific instance, net or footprint, and whether the
   accountable person may dispose of notes one by one rather than per round. Version 1 keeps the
   decision at the level of the round.
-- Whether an unclosed round blocks the manufacturing output. The default is that it does not;
-  the gate's shape belongs with the fab target form
-  ([ADR-0018](0018-zero-dependency-and-manufacturing-target.md), `docs/backlog.md` F14).
+- ~~Whether an unclosed round blocks the manufacturing output~~ — decided in
+  [ADR-0034](0034-manufacturing-output-target-form.md) decision 6: it does not. A trial build is
+  never blocked — the sample is what the review is waiting for. A production release needs each
+  round to be closed or its risk explicitly accepted and recorded by the accountable person. The
+  gate is a process; the tooling reports the review state and does not block on it, and the state
+  is never embedded in the manufacturing data (it moves while the design does not).
 - Whether signing off a board and accepting a round of notes are one fact or two. Version 1
   folds them into `accepted`.
 - Whether many people appending to one round's Markdown file is acceptable, or whether a round

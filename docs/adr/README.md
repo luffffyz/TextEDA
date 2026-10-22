@@ -37,6 +37,7 @@ Every architecture decision record in this repository, in numeric order.
 | [ADR-0031](0031-project-tree-ownership-model.md) | The Project Tree Has Owners — Own Assets, Referenced Material, and Derivations | Accepted | 2026-10-22 |
 | [ADR-0032](0032-view-is-a-drawing-not-a-build-input.md) | The View Is a Drawing, Not a Build Input | Accepted | 2026-10-22 |
 | [ADR-0033](0033-review-records-and-attribution.md) | Review Is Not a Description Type — Notes, Decisions, and the One Accountable Person | Accepted | 2026-10-22 |
+| [ADR-0034](0034-manufacturing-output-target-form.md) | The Target Form of the Manufacturing Output — Derived Manufacturing Data, a Self-Describing Package, and a Gate That Is a Process | Accepted | 2026-10-22 |
 
 ## Reserved Numbers
 

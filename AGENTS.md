@@ -131,7 +131,7 @@ flowchart LR
 | S1 | 原理图视图：符号位置、走线、标签 | **可以**，不进构建身份（但文件必须留） | 给人评审用。**独立描述类型** `view`（`views/<board_id>/<page_id>.view.teda`，打印页，**独立根目录**，不进 `design/`）+ 独立 IR 分片；它是**手写的源文件、进仓库**（渲染器只画不摆，生成不出来），但**不参与构建身份**（分片是附注类，移动标签不改工程哈希与板哈希），决策见 [ADR-0021](docs/adr/0021-schematic-view-layer.md) 与 [ADR-0032](docs/adr/0032-view-is-a-drawing-not-a-build-input.md) |
 | B0 | PCB 物理：叠层、坐标、层、过孔、走线 | **不能**自由 | 决定阻抗、串扰、回流、散热、爬电 |
 | B1 | PCB 预览/3D/走线检查视图 | **可以** | 派生 |
-| M0 | 制造：Gerber/钻孔/BOM/贴片 | **不能** | 校验后冻结，带版本与哈希 |
+| M0 | 制造：Gerber/钻孔/BOM/贴片 | **不能** | 校验后冻结，带版本与哈希（**冻结的是发布，不是每一次构建**：每个制造包带 `source_hash`，构建是设计某一状态的快照；见 [ADR-0034](docs/adr/0034-manufacturing-output-target-form.md) D6） |
 
 推论：讨论“渲染自由”时先问是哪一层。S1 随便画，B0 不行；S0 与 B0 之间的一致性由校验器保证，不由渲染器保证。
 
@@ -146,7 +146,7 @@ flowchart LR
 - `Variant`：DNP / 不贴 / 替代料的具名集合；只覆盖“装不装/装什么”，不改变连通性。作用域：引用 `component_id` 作用于该型号的所有实例，引用稳定 id 只作用于该实例；不影响 ERC 结果（§11 Q8 已定，决策见 `docs/adr/0002-board-pages-and-bom.md`）。
 - `System`（P4）：板在 `sch` 的 `ports` 段声明对外暴露的节点；独立的 `system` 描述把两块板以上的 `port` 对成系统级 net。板内 `net` 名不参与跨板对齐，跨板只靠 `port`。决策见 `docs/adr/0001-board-linking.md`，语法见 `teda.md` §7.5、§8。**现状：无规范文件、无解析器、无实现**（只有 schema 与 `teda.md` 的一段）。
 - `Procurement`（P3）：采购层——**一块板的「族 → 买哪颗」**。每块板两个文件（`assets/procurement/primary/<board_id>.teda` 规范、`alternatives/<board_id>.teda` 附注），行是 `<族> <参数…> -> <件>`；主料进工程哈希与板哈希，备料只进 `advisory_hash`（换第二货源不作废制造包）。决策见 `docs/adr/0030-procurement-layer.md`，语法见 `spec/procurement.md`（语言 0.9 新增）。**现状：格式已定并落档，无解析器、无 IR 分片、无 BOM 输出**（backlog F35）。
-- `fab`（P3）：制造出口描述。**现状：连形态都没有**——无 spec、无 schema、无类型、无例子，只在 §1 / §4 / §9 与 ADR 里被提到。是否进语言见 §11。
+- `fab`（P3）：制造出口描述。**现状：形态已定，实现为零**——[ADR-0034](docs/adr/0034-manufacturing-output-target-form.md) 定了数据形状（派生为主、按板×变体、规范分片、自描述的制造包）、边界（不含铜箔图形、不含订单、不含评审状态）与门（试产不阻断，量产要评审有交代）；**没有** spec、schema、类型、例子。制造附加的来源位置随实现定（同上 D8）。
 
 **流程相关实体（提议，是否一等公民见 §11）**：
 
@@ -514,7 +514,7 @@ dist/ir/
 14. ~~`components/` 是否需要家族/继承（同封装不同阻值共用一个文件），还是严格一料一号一文件？~~ **已定**：两者都要，但用显式种类区分而不是继承——`kind: part`（具体料，一料一文件，`mpn` 必填）与 `kind: family`（器件族，同封装不同取值共用一个文件，`mpn` 必省，取值落在实例行）；族另加 `construction` / `polarized` 事实字段，族 id 不带值。器件资产在本工程自有的 `assets/` 下按种类分（`families/` 与 `components/` 同级），见 [ADR-0031](docs/adr/0031-project-tree-ownership-model.md)。决策见 [ADR-0027](docs/adr/0027-device-parts-families-and-library-dependencies.md)。**未落地**（迁移待做，见 `docs/backlog.md` F25）。
 15. ~~实例与 net 是否在源码里加显式 `id` 列（改名不换身份）？~~ **已定**：IR 的身份键就是展平后的名字——改名即换身份，等于"旧件消失、新件出现"，所有哈希随之改变；"改名不换身份"要落地就得在语言层加显式 `id` 列（v0.5 候选），而不是在 IR 里加映射层。决策见 `docs/adr/0008-ir-shard-identity-and-hash.md` decision 3 与 [ADR-0023](docs/adr/0023-ir-layer-on-disk.md) decision 6。
 16. **层次（`module` 定义 / 实例化 / 参数）要不要进语言？** **已定并已落地模块层**（语言 0.8，`spec/module.md`、[ADR-0026](docs/adr/0026-modules-compose-boards.md)）：层次只在源码层、IR 存展平结果（IR 契约不变，仍是平表）；参数只做字面量替换、不参与运算；参数化结构不藏事实、参数化取值藏事实（所以不做）。触发条件是出现真实的"同构重复 ≥ 15 行、实例 ≥ 3 次、取值各不相同"。**没落地的**：模块参数、模块嵌套、跨工程模块库（`use` / `import`）——见 `docs/backlog.md` F13。
-17. **`fab` 描述要不要进语言？** **方向已定，实现延后**（`docs/backlog.md` F14 / F15、[ADR-0018](docs/adr/0018-zero-dependency-and-manufacturing-target.md)）：**KiCad 是兼容方案，不是目标形态**。`fab` 的默认产物应是**制造中立的数据**（BOM、贴片坐标与朝向、层叠与规则意图、装配说明）；Gerber/Excellon 的**写出器自研**（P3），但**CAM 级 DFM 判定不自研**。先把制造中立数据的形状想清楚，再决定 `fab` 描述进不进步语言。
+17. **`fab` 描述要不要进语言？** **形态已定，实现延后**（[ADR-0034](docs/adr/0034-manufacturing-output-target-form.md)、`docs/backlog.md` F14 / F15、[ADR-0018](docs/adr/0018-zero-dependency-and-manufacturing-target.md)）：**KiCad 是兼容方案，不是目标形态**；`fab` 的默认产物是**制造中立的数据**（派生为主：位号/坐标/层叠/规则/BOM 全部从 `pcb`+`sch`+采购主料投影，只有拼板与工艺/装配说明是人写的），**规范分片、进工程哈希**，Gerber/Excellon 的**写出器自研**（P3），但**CAM 级 DFM 判定不自研**；制造包**自描述**（文件名带板/变体/哈希前缀，载荷带 `source_hash` + `tool_version`）。**评审不是制造的闸门**：试产永远放行，量产要求每轮评审"有交代"（关闭或明确接受并记录），门在流程不在数据。**剩下的**：制造附加（拼板/装配说明）的**来源位置**（`fab` 描述类型是否存在）随实现定——ADR-0034 D8。
 18. **十用例语料谁来写、什么时候写？** **已决定延后**（`docs/backlog.md` F12）：sch 的 IR 与展平口径定版之后再写。**延后期间用 ADR 代替用例证据**（§5.2 第 1 条暂不可评估）。
 
 **近期已定（不再讨论，细节见对应 backlog / ADR）**：

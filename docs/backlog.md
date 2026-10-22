@@ -366,44 +366,42 @@
 
 ---
 
-## F14. `fab` 的目标形态：制造中立数据是契约层，KiCad 只是兼容方案
+## F14. `fab` 的目标形态：制造中立数据是契约层，KiCad 只是兼容方案（**已定**）
 
-**现状**：`AGENTS.md` §1 的"不是"里写着"不自研 Gerber / Excellon 写出器"，[ADR-0005](adr/0005-manufacturing-output.md) 把制造出口定为"IR → KiCad → Gerber/Excellon"。同时 §1/§4/§9 又提到 `fab` 描述，但**它连形态都没有**（无 spec、无 schema、无类型、无例子）——§11 Q17 已记为待定。
+**现状**：**决策已写成 [ADR-0034](adr/0034-manufacturing-output-target-form.md)**（Accepted，2026-10-22）。它把 [ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md) decision 3 的一行展开成可实现的形状：
 
-**已定的方向（2026-10-21 讨论）**：**KiCad 是兼容方案，不是目标形态**。目标形态要把两类产物分开，因为它们在项目分层里属于不同的层：
+| 决策 | 内容 |
+|---|---|
+| D1 | **派生为主**：能从 `pcb` + `sch` + 采购主料算出来的，一律算，不重写（§7 的"重复描述"坑） |
+| D2 | 数据内容：身份（板/变体/`source_hash`/`tool_version`）、BOM 行（`component_id` + 参数字典 + 变体状态 + 选中料）、位号+坐标+朝向+面、层叠与规则意图、制造附加 |
+| D3 | **不含**：铜箔图形（在 `pcb` IR 里）、订单事实（试产/量产/数量/订单号）、**评审状态**（会随时间变，进了包就破坏"两次编译逐字节相同"） |
+| D4 | 按 **板 × 变体**，**规范分片**（进工程哈希）；备选料仍是附注（[ADR-0030](adr/0030-procurement-layer.md) D5b） |
+| D5 | 制造包**自描述**：文件名带板/变体/哈希前缀，载荷带完整 `source_hash` + `tool_version`（不变量 11）；IR 树仍是稳定名 + manifest 记哈希 |
+| D6 | **门是流程不是格式**：试产永不阻断；量产要求每轮评审"有交代"（关闭或明确接受并记录），工具只报告不阻断 |
+| D7 | **拼板不做**，但槽位存在（空则省略，不变量 18），以后加是加法 |
+| D8 | 制造附加的**来源位置**（`fab` 描述类型是否存在）随实现定——§11 Q17 收窄后的形态 |
+| D9 | 写出器读 `pcb` IR，不读制造中立数据；不自研 CAM 判定 |
+| D10 | 制造产线**零依赖**：不装 KiCad 也能走完 |
 
-| 产物 | 性质 | 谁做 |
-|---|---|---|
-| Gerber / Excellon | **物理图像**（渲染层） | **写出器自研**（P3，F15）——RS-274X 是行式文本格式，工作量已知；但 **CAM 级 DFM 判定不自研** |
-| 制造与装配意图：层叠与规则、BOM、位号 + 坐标 + 朝向、装配说明 | **描述**（M0 层） | **这才是 fab 契约层该做的**——它是描述，不是画图 |
+**顺带关掉** [ADR-0033](adr/0033-review-records-and-attribution.md) 的一个开放点（"未关闭的评审轮次是否阻断制造出口" → 不阻断；量产的门是"有交代"）。
 
-**因此建议**：
+**剩下的**（P3 实现时）：
 
-1. **`fab` 的默认产物 = 制造中立的数据**（自有 JSON 契约），而不是 Gerber 本身。内容：BOM（含变体状态）、贴片坐标与旋转、层叠与规则意图、装配/制造说明。
-2. **导出器再从这份数据派生多种下游**：Gerber（**自研**，P3）/ IPC-2581（可选）/ BOM+坐标（嘉立创路径，[ADR-0006](adr/0006-jlc-prototype-delivery.md)）/ KiCad 工程（**兼容方案**）。"KiCad 只是兼容方案"由此成为**结构性事实**而不是口号：Gerber 由我们的 IR 直接出，而制造中立数据是我们自己的。
-3. **规范获取成本要单独核实**：ODB++ 的规范由 Valor/PTC 掌握、需会员资格；IPC-2581 由 IPC 发布、同样是会员可取（虽是行业事实标准）。**两者都不适合当"自研格式"**——所以契约层用自己的 JSON，导出到 IPC-2581 / Gerber 是导出器的事。
-4. **v0.1 不做 `fab` 描述**（P3），但**先把"制造中立数据"的形状想清楚**——它是 B0 板级描述 + BOM/坐标/装配意图的投影，形状定了，`fab` 描述与导出器就都定了。
-5. **补一条 ADR** 说明目标形态与 [ADR-0005](adr/0005-manufacturing-output.md) 的关系：[ADR-0005](adr/0005-manufacturing-output.md) 定的是**当前实现路径**（走 `kicad-cli`），不是终点；免得后人把 [ADR-0005](adr/0005-manufacturing-output.md) 读成"KiCad 是终点"。
-
-**要做的事**（触发后）：
-
-1. 写 ADR：制造出口的目标形态（自有制造中立数据 + 多种导出，KiCad 为其中一种）。
-2. 定数据形状：BOM 行（`component_id` + 参数字典 + 变体状态，[ADR-0002](adr/0002-board-pages-and-bom.md) 的口径）、坐标与朝向、层叠与规则引用、装配说明。
-3. 定与 B0 的边界：哪些字段来自 `pcb` 描述（层叠、规则意图）、哪些来自 `sch` 展平（BOM、变体）、哪些是纯制造附加（工艺说明、拼板）。
-4. `fab` 描述进语言与否，等这一步定完再决定（§11 Q17）。
+1. `spec/fab.md` + 分片 schema：字段名、单位、省略规则、变体语义（ADR-0034 的开放点）。
+2. 编译器产出该分片（`boards/<board_id>/fab.json` 或等价路径），并纳入工程哈希。
+3. 制造附加的来源（若 P3 阶段要写拼板或装配说明，§11 Q17 就要给最终答案）。
+4. 打包格式（目录 / 归档 / 文件集）是导出器的事，ADR-0034 只定命名与身份。
 
 **注意**：
 
-- 不要现在写 Gerber 写出器——它排在 P3（F15），先把制造中立数据的形状定下来。
-- **不要让"制造中立数据"变成 KiCad 工程文件的翻版**（§7 的"pcb 变成 KiCad 的翻版"同款坑）。
+- **不要让"制造中立数据"变成 KiCad 工程文件的翻版**（§7 的"pcb 变成 KiCad 的翻版"同款坑）——ADR-0034 D3 就是这条的守门。
 - 制造中立数据一旦公开就是契约层（[ADR-0015](adr/0015-licensing-and-open-standard.md) 不变量 19），别为了排他性把它关起来。
 - **零依赖是硬要求**（[ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md) / 不变量 20）：这条产线不得依赖 KiCad 才能跑通，KiCad 只是可选后端。
-
----
+- **评审不是闸门**——不要在工具里加"评审未关闭就拒绝出包"的检查（ADR-0034 D6）。
 
 ## F15. 自研 Gerber / Excellon 写出器（零依赖制造出口）
 
-**现状**：制造出口的当前路径是 IR → KiCad → Gerber / Excellon（[ADR-0005](adr/0005-manufacturing-output.md)）。这要求用户安装 KiCad，与 [ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md) 的零依赖原则（不变量 20）冲突：TextEDA 的目标是"装 TextEDA 就能走完描述 → 校验 → 渲染 → 制造包"。
+**现状**：制造出口的当前路径是 IR → KiCad → Gerber / Excellon（[ADR-0005](adr/0005-manufacturing-output.md)）。**目标形态已定**（[ADR-0034](adr/0034-manufacturing-output-target-form.md)）：制造中立数据**不含铜箔图形**，所以写出器的输入只有 `pcb` IR 与层映射表，制造数据里的层叠/规则意图只是随包走的意图，不是几何来源。这要求用户安装 KiCad，与 [ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md) 的零依赖原则（不变量 20）冲突：TextEDA 的目标是"装 TextEDA 就能走完描述 → 校验 → 渲染 → 制造包"。
 
 **为什么工作量是已知的**：RS-274X 是行式文本格式（aperture 定义 + draw / flash + 坐标），**不需要几何内核**；本仓已有 pcb IR 的层、焊盘、走线、过孔、丝印事实，缺的是画布展开与坐标变换。对照自建符号库与封装库的实际经验（[ADR-0011](adr/0011-library-format-and-footprint-ir.md) ~ [ADR-0013](adr/0013-reference-project-self-built-libraries.md)）——"自建比想象中容易"已经被验证过一次，别再靠猜。
 
