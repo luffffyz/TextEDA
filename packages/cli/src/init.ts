@@ -92,7 +92,7 @@ export function renderDocsReadme(name: string): string {
     "2. Write the board `design/sch/<board_id>.teda`, referencing ids from `assets/components/` via `instances`.",
     "3. When a physical implementation is needed, create a file with the same name under `design/pcb/`.",
     "",
-    "See the repository's `teda.md` for the syntax and `docs/adr/` for decision records.",
+    "See the repository's `spec/teda.md` for the syntax and `docs/adr/` for decision records.",
     "",
   ].join("\n");
 }

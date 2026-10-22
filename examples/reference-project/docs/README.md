@@ -65,7 +65,7 @@ The board's drawing does not fit on one sheet, so it is partitioned in the **vie
 - `views/charger-buck/charger-power.view.teda`: placement study of the power path; the wire runs are laid out during review.
 - `views/charger-buck/buck-5v.view.teda`: the buck, every net drawn as wires.
 
-Decision records are in the repository's `docs/adr/0025-flat-board-and-print-pages.md`; syntax is in `teda.md` §7 and `spec/schematic-view.md`.
+Decision records are in the repository's `docs/adr/0025-flat-board-and-print-pages.md`; syntax is in `spec/teda.md` §7 and `spec/schematic-view.md`.
 
 ## pcb/
 

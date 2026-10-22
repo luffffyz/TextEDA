@@ -15,7 +15,7 @@
 
 > 本仓库按 **Apache-2.0** 授权（见 `LICENSE` / `NOTICE`），项目在建中。
 >
-> **契约层永久开源**：`teda.md` / `spec/` / `schemas/` / `examples/` / `tests/` 永远公开可实现，不改为闭源；实现层（`packages/`）可另行许可。定位是**纯开源技术规范**——没有商业计划、没有收入模型、没有付费服务。实现契约所需的一切都免费且不受限制，且不会变。目标只有一个：**被采用**（规范被引用、被实现、被别人的工具链依赖）。
+> **契约层永久开源**：`spec/`（含 `spec/teda.md`）/ `schemas/` / `examples/` / `tests/` 永远公开可实现，不改为闭源；实现层（`packages/`）可另行许可。定位是**纯开源技术规范**——没有商业计划、没有收入模型、没有付费服务。实现契约所需的一切都免费且不受限制，且不会变。目标只有一个：**被采用**（规范被引用、被实现、被别人的工具链依赖）。
 >
 > GitHub 上仓库**已公开**（[luffffyz/TextEDA](https://github.com/luffffyz/TextEDA)）。公开前的内部信息清扫已通过（`bun run check:public`：历史里没有厂商 datasheet、没有凭据、没有维护者的机器路径），并已固化为每次 push 的门禁。详见 [ADR-0015](docs/adr/0015-licensing-and-open-standard.md) 与 `docs/backlog.md` F6。
 
@@ -81,7 +81,7 @@ KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.
 |---|---|
 | `AGENTS.md` | **主文档**：项目是什么、不可协商的不变量、验证与验收口径 |
 | `LICENSE` / `NOTICE` | Apache-2.0 与归属声明 |
-| `spec/` | 分描述规范：`symbol` / `footprint` / `pcb` / `schematic-view` / `module` |
+| `spec/` | 规范：`teda.md`（语言总规范）+ 分描述规范 `symbol` / `footprint` / `pcb` / `schematic-view` / `module` / `procurement` |
 | `schemas/ir/v0.2/` | IR 契约（JSON Schema 2020-12，唯一契约） |
 | `packages/ir` | IR 类型与契约校验 |
 | `packages/parser` | `.teda` → IR，含 `fmt`（canonical form）；`module` 文件展平进板级 IR |
@@ -137,4 +137,4 @@ KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.
 
 ## 语言策略
 
-源码（`.ts`、schema、`.teda` 示例）只允许英文。**文档默认英文**——`docs/`、`spec/`、`teda.md`、ADR 与 `README.md` 都是英文；只有被明确要求时才写中文，若觉得某份文档用中文更合适，先问。本规则之前写下的文档保持原语言。`README_cn.md` 是本文件的中文镜像，按定义保持中文。
+源码（`.ts`、schema、`.teda` 示例）只允许英文。**文档默认英文**——`docs/`、`spec/`（含 `spec/teda.md`）、ADR 与 `README.md` 都是英文；只有被明确要求时才写中文，若觉得某份文档用中文更合适，先问。本规则之前写下的文档保持原语言。`README_cn.md` 是本文件的中文镜像，按定义保持中文。

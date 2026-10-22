@@ -117,7 +117,7 @@ flowchart LR
 16. **一块板 = 一份原理图描述、一个 BOM、一个 PCB**。板内不再有 `page` 描述类型与 `pages` 段（语言 0.7 撤销）；评审时的分块由 S1 视图层的**打印页**承担——它只画板级 net，不产生独立 BOM，也不改写连通性。决策见 `docs/adr/0025-flat-board-and-print-pages.md`。
 17. **pcb 描述只存物理事实与规则意图**。不存绘图参数、丝印排版、编辑器状态与派生缓存（铜皮填充、量测文本、UUID、net 序号）；连通性由 `connect` 段与 sch 决定，不由几何反推。人在 KiCad 里的改动**不回写** IR。决策见 `docs/adr/0003-agent-first-pcb-ir.md`。
 18. **IR 的对外表示是 canonical JSON，契约是 JSON Schema**。数值只用整数（长度 nm、角度毫度、比例 ppm…完整换算表见 [ADR-0008](docs/adr/0008-ir-shard-identity-and-hash.md)），不写浮点；缺省字段省略而不是写 `null`；落盘必须字节可复现，`source_hash` = SHA-256(canonical 字节)。决策见 `docs/adr/0004-ir-representation.md`；分片、身份键与哈希粒度见 `docs/adr/0008-ir-shard-identity-and-hash.md`（**已接受**）；分片树落在 `dist/ir/`、谁写、怎么哈希见 [ADR-0023](docs/adr/0023-ir-layer-on-disk.md)；契约在 `schemas/ir/v0.2/`。
-19. **契约层永久开源**。`teda.md`、`spec/**`、`schemas/ir/**`、`examples/**`、`tests/**` 永远公开、可实现、可再分发，**不得改为闭源或加附加限制**；实现层（`packages/**`）可另行许可，但不得把"只有官方实现能读"的私有扩展混进契约层。项目按**纯开源技术规范**定位：**没有商业计划与收入模型**，没有付费服务、没有咨询或培训，也没有要加的打算——一切实现契约所需的东西都免费且不受限制，且不会变。回报方式只有一种：**被采用**（规范被引用、被实现、被别人的工具链依赖）。决策见 `docs/adr/0015-licensing-and-open-standard.md`。
+19. **契约层永久开源**。`spec/**`（含 `spec/teda.md`）、`schemas/ir/**`、`examples/**`、`tests/**` 永远公开、可实现、可再分发，**不得改为闭源或加附加限制**；实现层（`packages/**`）可另行许可，但不得把"只有官方实现能读"的私有扩展混进契约层。项目按**纯开源技术规范**定位：**没有商业计划与收入模型**，没有付费服务、没有咨询或培训，也没有要加的打算——一切实现契约所需的东西都免费且不受限制，且不会变。回报方式只有一种：**被采用**（规范被引用、被实现、被别人的工具链依赖）。决策见 `docs/adr/0015-licensing-and-open-standard.md`。
 20. **核心链路零外部依赖**。装 TextEDA 就能走完"描述 → 校验 → 渲染 → 制造包"，**不得要求用户安装 KiCad 或任何其他外部工具**。KiCad 降级为**可选后端**：互操作导出、对照验证、制造出口兜底。**任何门禁都不得依赖外部工具**——KiCad 的读入与 DRC 是"第三方接受我们"的**观测**，不是我们的正确性定义。边界：**格式与描述自己写，判定与工艺规则借专业工具**。决策见 `docs/adr/0018-zero-dependency-and-manufacturing-target.md`。
 
 ---
@@ -379,21 +379,27 @@ flowchart LR
 ```
 texteda/
 ├── AGENTS.md
-├── teda.md           # `.teda` 格式规范
-├── README.md
 ├── LICENSE           # Apache-2.0（NOTICE 记归属）；契约层永久开源，见 ADR-0015
+├── NOTICE           # 第三方归属（字体、笔画字体数据）
+├── README.md / README_cn.md  # 双语入口（英文对外、中文镜像）
 ├── docs/            # 设计决策（ADR）、语言教程、评审流程
-│   ├── adr/
+│   ├── adr/         # 决策记录 + 索引（`README.md`）
 │   ├── skills/      # **skill：给 agent 的操作手册**（每步 = 命令 + 预期输出 + 出错看哪个诊断码；**英文**）。现只有 `skills/new-project.md`（从零建工程到网表 / KiCad 库；可执行形态待做，见 `docs/backlog.md` F23）
-│   └── error-codes.md # 诊断错误码注册表（**生成的**，真源在 `packages/ir/src/diagnostics/codes.ts`，ADR-0016）
-├── spec/            # 分描述规范。**现只有 6 个文件**：`symbol` / `footprint` / `pcb` / `schematic-view` / `module` / `procurement`；`project` / `schematic` / `system` / `fab` 的规范尚未成文（`project` / `schematic` / `system` 目前只在 `teda.md` 里，`fab` 还没有任何形态）
+│   ├── guides/      # **上手指南**（怎么写库、怎么记评审、KiCad 板文件格式）：`footprint-authoring.md` / `symbol-authoring.md` / `review-records.md` / `kicad-pcb-format.md`
+│   ├── assets/      # **品牌资产**（标志、图标、生成脚本）；字体二进制不入库，见 `docs/assets/README.md`
+│   ├── trial-run/   # 试跑记录（打样前的实物验证）
+│   ├── backlog.md   # 工作登记册（未落地的都在这里）
+│   ├── comparison.md # 生态对比
+│   ├── error-codes.md # 诊断错误码注册表（**生成的**，真源在 `packages/ir/src/diagnostics/codes.ts`，ADR-0016）
+│   └── ir-reference.md # IR 字段参考（**生成的**）
+├── spec/            # **规范**：语言级 + 分描述。`teda.md` 是**语言总规范**（`.teda` 格式总纲：文件头与版本、词法、行类型、单位、规范形式；§6–§9 顺带定义了 `component` / `schematic` / `system` / `pcb`）；分描述规范另有 `symbol` / `footprint` / `pcb` / `schematic-view` / `module` / `procurement`。`project` / `system` / `fab` 的独立规范尚未成文（`project.toml` 与 `system` 目前只在 `teda.md` 里，`fab` 还没有任何形态）
 ├── schemas/ir/v0.2/ # IR 的契约：JSON Schema 2020-12（唯一契约；TS 类型由 schema 生成，不引入 zod）。现 10 份：common / project / component / footprint / manifest / pcb / schematic / schematic-view / symbol / system
 ├── examples/        # 参考工程 reference-project/。**十个困难用例与期望 IR 尚未存在**（§10 / §5.2 的门槛因此不可评估）
 ├── packages/        # **已落地 6 个**：`ir`（IR 与契约校验）/ `parser`（footprint / symbol / schematic / module / pcb / view 解析 + fmt；component 只读事实）/ `core`（纯规则：连通性 ERC，ADR-0019）/ `exporter`（封装与符号 → KiCad）/ `renderer`（符号与封装 → SVG）/ `cli`（`texteda init` / `compile` / `check` / `netlist` / `ir`）。**计划未建**：`lsp` / `vscode` / `viewer`（见 docs/adr/0009-implementation-stack.md、docs/adr/0021-schematic-view-layer.md）
 └── tests/           # 现只有 `tests/schemas/`（IR 契约正反例，由 `packages/ir/test/contract.test.ts` 驱动）。单元与 round-trip 测试在各包自己的 `test/` 目录；**conformance / binding / 十用例尚未存在
 ```
 
-仓库根目录只留**入口**（`AGENTS.md` / `README` / `LICENSE` / `NOTICE`）、**构建配置**（`package.json` / `bun.lock` / `tsconfig.base.json`）与目录。**语言总规范在 `spec/teda.md`**（与分描述规范同住一屋）。**语言总规范在 `spec/teda.md`**（与分描述规范同住一屋）。工具脚本在 `scripts/`（`check-links.ts` / `check-public.ts` / `verify-libs.ts` / `libhash.ts` / `preview.ts` / `migrate-0.7.ts` / `export-symbol.ts` / `smoke-*.ts`；`scripts/lib/` 是共用工具，生成器在 `packages/ir/scripts/`）。**不进根目录的东西**：产物、素材、临时脚本。
+仓库根目录只留**入口**（`AGENTS.md` / `README` / `LICENSE` / `NOTICE`）、**构建配置**（`package.json` / `bun.lock` / `tsconfig.base.json`）与目录。**语言总规范在 `spec/teda.md`**（与分描述规范同住一屋）。工具脚本在 `scripts/`（`check-links.ts` / `check-public.ts` / `verify-libs.ts` / `libhash.ts` / `preview.ts` / `migrate-0.7.ts` / `export-symbol.ts` / `smoke-*.ts`；`scripts/lib/` 是共用工具，生成器在 `packages/ir/scripts/`）。**不进根目录的东西**：产物、素材、临时脚本。
 
 一个**使用**本语言的工程由 `texteda init <dir>` 生成，结构**按归属分组**（决策见 [ADR-0031](docs/adr/0031-project-tree-ownership-model.md)；**机械部分已落地**——目录形状、参考工程与 CLI 路径已改；`families/` 与 `assets/procurement/` 的内容、`libref` 与 vendoring 仍待 F25 / F29 / F35）：
 
@@ -543,7 +549,7 @@ dist/ir/
 - **sch 不内联器件**；新增料号先落 `assets/components/**/<id>.teda`，再在 `instances` 引用。
 - **源码只允许英文**：`.ts` 的注释、文档字符串、字符串字面量（诊断文案、CLI 输出、错误消息）都是源码，一律英文；`schemas/ir/**` 的 `description` / `title` 同样英文（它会流进生成产物与 `docs/ir-reference.md`）；`examples/**` 的 `.teda` 注释与 `project.toml` 注释、`title`、`manufacturer` 等值也一律英文。检查口径：`git grep -lP '[\x{4e00}-\x{9fff}]' -- packages schemas examples` 应为空（用 `git grep` 而不是 `grep -r`，因为 `examples/reference-project/docs/datasheets/` 是 gitignore 的本地厂商 PDF，不属于仓库内容）。**根 README 双语**：`README.md` 英文（对外入口），`README_cn.md` 中文。
 - **项目名的写法分层**（2026-10-21 定）：品牌与散文一律写 `TextEDA`（大写 T）；命令行、包名、域名一律小写 `texteda`（`bun run texteda check`、`@texteda/ir`、`texteda.dev`）；**仓库名例外，用 `TextEDA`**（GitHub 上是 `luffffyz/TextEDA`——GitHub 仓库名大小写敏感且不重定向，改名即旧 URL 失效，所以按品牌写法走）；文件扩展名 `.teda` 不变。**不写 `textEDA`**。检查口径：`git grep -n 'textEDA' -- . ':!AGENTS.md'` 应无输出（`packages/ir/src/generated/` 里的 `TextEDAIRV01*` 类型名是代码标识符，不算品牌写法）。
-- **文档默认英文**（2026-10-21 定）：`docs/`、`spec/`、`teda.md`、ADR、根 README 一律英文；`docs/skills/**` 同理（skill 是给 agent 读的操作手册：每步 = 命令 + 预期输出 + 出错看哪个诊断码）。**需要中文时先问**——若觉得某份文档用中文更合适，先提问再写，不要自行决定。本规则之前写下的中文文档保持原样，不做迁移。**已登记的例外**：`docs/assets/DESIGN.md`（品牌设计说明，作者原稿，中文；同目录 `docs/assets/README.md` 是英文索引）。**生成的文档**（`docs/error-codes.md`、`docs/ir-reference.md`）跟着生成源走——源是英文，这两份就是英文，不要手工改回中文（改生成器模板才是正解）。检查口径：新建文档用 `git grep -lP '[\x{4e00}-\x{9fff}]' -- <新文件路径>` 自查应为空；`docs/adr/` 的口径见下一条。根 README 双语是文件定位不是语言选择：`README.md` 英文（对外入口），`README_cn.md` 中文镜像。
+- **文档默认英文**（2026-10-21 定）：`docs/`、`spec/`（含 `spec/teda.md`）、ADR、根 README 一律英文；`docs/skills/**` 同理（skill 是给 agent 读的操作手册：每步 = 命令 + 预期输出 + 出错看哪个诊断码）。**需要中文时先问**——若觉得某份文档用中文更合适，先提问再写，不要自行决定。本规则之前写下的中文文档保持原样，不做迁移。**已登记的例外**：`docs/assets/DESIGN.md`（品牌设计说明，作者原稿，中文；同目录 `docs/assets/README.md` 是英文索引）。**生成的文档**（`docs/error-codes.md`、`docs/ir-reference.md`）跟着生成源走——源是英文，这两份就是英文，不要手工改回中文（改生成器模板才是正解）。检查口径：新建文档用 `git grep -lP '[\x{4e00}-\x{9fff}]' -- <新文件路径>` 自查应为空；`docs/adr/` 的口径见下一条。根 README 双语是文件定位不是语言选择：`README.md` 英文（对外入口），`README_cn.md` 中文镜像。
 - **`docs/adr/` 用英文**：ADR 是契约层的一部分——`spec/`、`schemas/` 与 `spec/teda.md` 按编号引用它的决策（`ADR-00NN decision N`），第三方实现者要读得懂。ADR 编号与文件名永不改（外部靠文件名链接），标题与正文用英文，引用它的文档按编号引用，不按标题引用。检查口径：正文不得有中文，**唯一例外是外部专有名词与官方文档标题的括注**（`JLC (嘉立创)`、`official *JLC BOM and Coordinate Format Specification* (嘉立创BOM&坐标相关格式规范)`）——读者要靠原名去找原始资料。可执行检查（应无输出）：
   ```bash
   python3 - <<'PY'

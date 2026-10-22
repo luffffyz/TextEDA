@@ -85,7 +85,7 @@
 
 **要做的事**：
 
-1. 写一份**最小第三方实现**：只允许读 `teda.md` / `spec/**` / `schemas/ir/**` / `tests/**`，**不许读 `packages/**` 的源码**。目标是 `component` + `symbol` + `footprint` 三种描述的解析与 IR 产出。
+1. 写一份**最小第三方实现**：只允许读 `spec/**`（含 `spec/teda.md`）/ `schemas/ir/**` / `tests/**`，**不许读 `packages/**` 的源码**。目标是 `component` + `symbol` + `footprint` 三种描述的解析与 IR 产出。
 2. 用 `tests/` 里的 conformance 语料与黄金 IR 跑它，比对输出 IR 是否逐字段一致（字节级或语义级，口径写清）。
 3. **规范补漏**：凡是实现时必须回头看 `packages/**` 才能确定的地方，在 `spec/` 里补成规范条款。补不了的（例如刻意留给实现的自由度），在 spec 里显式写"本条不约束实现"。
 4. 产出一份差异报告（`docs/third-party-implementability.md`），列出规范歧义点与已修条款。
@@ -985,3 +985,29 @@
 - 位置是**坐标**，不是几何：形状仍然归封装库（`AGENTS.md` §4.4 第 7 条）——`physical_only` 的实体只有简单图元（圆孔、圆点、矩形开槽），要自定义形状就写成器件。
 - 退役是**清切**：不留兼容形态，不做"新旧都接受"；旧写法改成 `sch` 里的单引脚器件即可。
 - 采购侧的尾巴（不在本项内）：不采购的单引脚 family 会产生一条"无来源"的 BOM 行（[ADR-0030](adr/0030-procurement-layer.md) D9、F35），板上测试点一多就是噪音——制造数据要不要收"非采购"行、family 能不能声明"这是板上特征不是器件"，还没定。
+
+## F39. 拆 `spec/teda.md`：语言级规范与分描述规范分家
+
+**现状**：**未落地**（2026-10-22 决策：先只把文件移进 `spec/`，内容不动）。`spec/teda.md`（原仓库根目录的 `teda.md`）现在是**两层的混合体**：
+
+- **语言级**：文件头与版本（§5）、行类型（§3）、词法（§4）、类型与单位（§10）、校验规则（§11）、规范形式（§12）、版本与兼容（§13）、附录 A EBNF；
+- **分描述级**：`component`（§6）、`schematic`（§7）、`system`（§8）、`pcb`（§9）。
+
+而 `spec/` 里另有一半分描述规范（`symbol` / `footprint` / `pcb` / `schematic-view` / `module` / `procurement`）——`pcb` 两边都有（`teda.md` §9 只是一段指针，实体在 `spec/pcb.md`），`component` / `schematic` / `system` 只在 `teda.md` 里。**同一个目录里两种东西混着放**，读者要自己判断哪段是跨类型的、哪段是某个描述类型的。
+
+**为什么不一次拆完**：`§N` 是**引用面**，不是排版：
+
+- 全仓 145 处写 `teda.md §7.2` 这样的节号引用（`packages/` 注释、`docs/`、ADR 的 Impact 行、skill 手册）；
+- 诊断注册表 `packages/ir/src/diagnostics/codes.ts` 里 39 条 `spec: ["teda.md §N"]` 是**冻结**的（[ADR-0016](adr/0016-diagnostic-error-codes.md)：码冻结、只增不改），它们直接流进 `docs/error-codes.md` 与诊断载荷的 `spec` 字段——那是给 agent 用的机器可读指针；
+- 拆分会重编号 → 145 处引用与 39 条冻结指针一起失效。
+
+所以第一步只做**路径搬家**（`teda.md` → `spec/teda.md`，文件名不变，节号不变，引用面全活），内容拆分另立本项。
+
+**要做的事**（要 ADR 定，不能顺手做）：
+
+1. **编号策略**（ADR 的核心问题）：要么新文件保留原编号（`spec/schematic.md` 里出现 "§7"，怪但引用面不动）；要么重编号并把引用面整体迁到"文件 + 锚点"（`spec/schematic.md#实例段`），那 39 条冻结指针怎么办要先说清楚——"码冻结"冻结的是码本身还是连指针一起冻结。
+2. **落点**：语言级那部分叫 `spec/language.md` 还是继续叫 `spec/teda.md`？叫 `teda.md` 的好处是名字被外部引用习惯（"见 teda.md §7.2"）已经形成；改名要一次性改完 145 处 + 冻结指针。
+3. **内容落点**：`component` → `spec/component.md`、`schematic` → `spec/schematic.md`、`system` → `spec/system.md`；`pcb` 段合并进已有的 `spec/pcb.md`；`project.toml` 的语法（现在只在 `teda.md` §2 与 `AGENTS.md` §9 的表里）要不要单独成 `spec/project.md`。
+4. **同一次提交**改 `spec/`、`packages/ir/src/diagnostics/codes.ts`（若动指针）、生成的 `docs/error-codes.md` / `docs/ir-reference.md`（`bun run gen`），并跑 `bun run check:links`（ADR 链接文字与目标必须仍一致）。
+
+**为什么现在不做**：这一项的收益是"目录语义干净"，成本是动引用面与冻结契约。在十用例语料（F12）与 conformance 还没落地、引用面还没有统一锚点机制之前，**一份 `spec/teda.md` 更省事**。等 §N 引用面有了迁移机制再做不迟。

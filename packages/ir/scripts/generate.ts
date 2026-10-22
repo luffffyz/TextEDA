@@ -157,7 +157,7 @@ outputs.push({
 // source of truth, the doc is derived.
 //
 // It answers only two questions: what type a field is and what its unit is. Behavioral semantics
-// live in spec/ and teda.md; the doc only gives pointers and never restates the spec — avoiding a
+// live in spec/ (the language-wide spec is spec/teda.md); the doc only gives pointers and never restates the spec — avoiding a
 // second spec that could drift.
 type SchemaNode = Record<string, unknown>;
 
@@ -287,7 +287,7 @@ function renderIrReferenceDoc(): string {
   );
   lines.push(">");
   lines.push(
-    "> This table answers only two questions: **what type a field is** and **what its unit is**. Behavioral semantics are defined by `teda.md` and `spec/`.",
+    "> This table answers only two questions: **what type a field is** and **what its unit is**. Behavioral semantics are defined by `spec/` (the language-wide spec is `spec/teda.md`).",
   );
   lines.push(">");
   lines.push(

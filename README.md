@@ -15,7 +15,7 @@ Describe a piece of hardware as **human-written text**: the schematic (`sch`) an
 
 > Licensed under **Apache-2.0** (see `LICENSE` / `NOTICE`). The project is a work in progress.
 >
-> **The contract layer is open source forever**: `teda.md` / `spec/` / `schemas/` / `examples/` / `tests/` stay public and implementable, never closed. The implementation layer (`packages/`) may be relicensed separately. The positioning is a **pure open technical specification** — no commercial plan, no revenue model, no paid services. Everything needed to implement the contract is free and unencumbered, and that will not change. The goal is adoption: the spec gets cited, implemented, and built on.
+> **The contract layer is open source forever**: `spec/` (including `spec/teda.md`) / `schemas/` / `examples/` / `tests/` stay public and implementable, never closed. The implementation layer (`packages/`) may be relicensed separately. The positioning is a **pure open technical specification** — no commercial plan, no revenue model, no paid services. Everything needed to implement the contract is free and unencumbered, and that will not change. The goal is adoption: the spec gets cited, implemented, and built on.
 >
 > The GitHub repo is **public** ([luffffyz/TextEDA](https://github.com/luffffyz/TextEDA)). The pre-publication sweep passed (`bun run check:public`: no vendor PDFs in the history, no credentials, no maintainer paths) and is now a machine gate on every push. See [ADR-0015](docs/adr/0015-licensing-and-open-standard.md) and `docs/backlog.md` F6.
 
@@ -81,7 +81,7 @@ The KiCad interoperability section is a **separate, optional workflow** (`.githu
 |---|---|
 | `AGENTS.md` | **Primary doc**: what the project is, the non-negotiable invariants, acceptance criteria |
 | `LICENSE` / `NOTICE` | Apache-2.0 and attribution |
-| `spec/` | Per-description specs: `symbol` / `footprint` / `pcb` / `schematic-view` / `module` |
+| `spec/` | The specs: `teda.md` (the language-wide spec) plus per-description ones — `symbol` / `footprint` / `pcb` / `schematic-view` / `module` / `procurement` |
 | `schemas/ir/v0.2/` | IR contract (JSON Schema 2020-12, the only contract) |
 | `packages/ir` | IR types and contract validation |
 | `packages/parser` | `.teda` → IR, including `fmt` (canonical form); `module` files flatten into the board IR |
@@ -137,4 +137,4 @@ The complete index, with titles, status and dates, is [docs/adr/README.md](docs/
 
 ## Language policy
 
-Source code (`.ts`, schemas, and `.teda` examples) is English-only. **Documentation is English by default** — `docs/`, `spec/`, `teda.md`, the ADRs and this file. Write a document in Chinese only when it is asked for; if Chinese seems like the better choice for a particular document, ask first. Documents written before this policy keep the language they were written in. `README_cn.md` is the Chinese mirror of this file and stays Chinese by definition.
+Source code (`.ts`, schemas, and `.teda` examples) is English-only. **Documentation is English by default** — `docs/`, `spec/` (including `spec/teda.md`), the ADRs and this file. Write a document in Chinese only when it is asked for; if Chinese seems like the better choice for a particular document, ask first. Documents written before this policy keep the language they were written in. `README_cn.md` is the Chinese mirror of this file and stays Chinese by definition.

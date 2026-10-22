@@ -52,17 +52,17 @@ nets
 
 | 类型 | 位置 | 说明 |
 |---|---|---|
-| `component` | `components/**/<component_id>.teda` | 一块料一个文件，可放子目录 |
-| `schematic` | `sch/<board_id>.teda` | 一块板一个文件（v0.7 起：板内不再有页面文件） |
-| `pcb` | `pcb/<board_id>.teda` | 可后置，可为空 |
-| `system` | `system/<system_id>.teda` | 多板连接描述，一份系统一个文件（v0.2 新增） |
-| `footprint` | `footprints/<lib>/<footprint_id>.teda` | 库产物：一个封装的规范几何（v0.4 新增） |
-| `symbol` | `symbols/<lib>/<symbol_id>.teda` | 库产物：一个符号的视图（v0.5 新增） |
-| `view` | `sch/<board_id>/<page_id>.view.teda` | 一块板的一个"打印页"：S1 视图层（v0.6 新增，v0.7 起引用板级 id，语法见 `spec/schematic-view.md`） |
-| `module` | `modules/<module_id>.teda` | 板内的一个模块：带端口、持有电气事实（v0.8 新增，语法见 `spec/module.md`） |
+| `component` | `assets/components/**/<component_id>.teda` | 一块料一个文件，可放子目录 |
+| `schematic` | `design/sch/<board_id>.teda` | 一块板一个文件（v0.7 起：板内不再有页面文件） |
+| `pcb` | `design/pcb/<board_id>.teda` | 可后置，可为空 |
+| `system` | `design/system/<system_id>.teda` | 多板连接描述，一份系统一个文件（v0.2 新增） |
+| `footprint` | `assets/footprints/<lib>/<footprint_id>.teda` | 库产物：一个封装的规范几何（v0.4 新增） |
+| `symbol` | `assets/symbols/<lib>/<symbol_id>.teda` | 库产物：一个符号的视图（v0.5 新增） |
+| `view` | `views/<board_id>/<page_id>.view.teda` | 一块板的一个"打印页"：S1 视图层（v0.6 新增，v0.7 起引用板级 id，语法见 `spec/schematic-view.md`） |
+| `module` | `design/modules/<module_id>.teda` | 板内的一个模块：带端口、持有电气事实（v0.8 新增，语法见 `spec/module.md`） |
 | `procurement` | `assets/procurement/{primary,alternatives}/<board_id>.teda` | 一块板的采购选料：族 → 买哪颗（v0.9 新增，语法见 `spec/procurement.md`） |
 
-文件名必须等于头部 id；不一致报错。`components/` 允许子目录，子目录只用于分类；`component_id` 取文件名（不含 `.teda`），不取相对路径，同一 id 在 `components/` 树内必须唯一。顶层目录与文件类型必须一致（`components/` 只放 `component`，`modules/` 只放 `module`，以此类推）；`sch/<board_id>.teda` 是板的文件（`schematic`），`sch/<board_id>/` 目录里只放该板的视图文件（`view`），靠 `.view` 后缀区分（`sch/<board_id>/<page_id>.view.teda` ↔ `view <page_id>`）。`footprints/` 与 `symbols/` 是**库目录**而不是描述目录：它们按库分子目录（`footprints/<lib>/`、`symbols/<lib>/`），库名由目录决定（IR 的 `footprint.library` / `symbol.library`），不进文件内容。`assets/procurement/primary/` 与 `assets/procurement/alternatives/` 只放 `procurement` 文件，文件名是板 id，两者的区别是**哈希级别**（主料规范、备料附注），不是语法（v0.9）。工程树整体按 `docs/adr/0031-project-tree-ownership-model.md`（本表其余行的路径待同步）。
+文件名必须等于头部 id；不一致报错。`assets/components/` 允许子目录，子目录只用于分类；`component_id` 取文件名（不含 `.teda`），不取相对路径，同一 id 在 `assets/components/` 树内必须唯一。顶层目录与文件类型必须一致（`assets/components/` 只放 `component`，`design/modules/` 只放 `module`，以此类推）；`design/sch/<board_id>.teda` 是板的文件（`schematic`）；打印页（`view`）是独立描述类型，放在独立根目录 `views/<board_id>/<page_id>.view.teda`，靠 `.view` 后缀与目录区分（`view <page_id>`，见 [ADR-0032](../docs/adr/0032-view-is-a-drawing-not-a-build-input.md)）。`assets/footprints/` 与 `assets/symbols/` 是**库目录**而不是描述目录：它们按库分子目录（`assets/footprints/<lib>/`、`assets/symbols/<lib>/`），库名由目录决定（IR 的 `footprint.library` / `symbol.library`），不进文件内容。`assets/procurement/primary/` 与 `assets/procurement/alternatives/` 只放 `procurement` 文件，文件名是板 id，两者的区别是**哈希级别**（主料规范、备料附注），不是语法（v0.9）。工程树整体按 `docs/adr/0031-project-tree-ownership-model.md`（本表其余行的路径待同步）。
 
 ---
 
@@ -206,7 +206,7 @@ pins
 - 编号全局唯一。
 - 名称在 `(unit, name)` 内唯一；默认 `unit=1`。
 - 引脚类型见 §10.1。
-- `pins` 对指向**自建符号**的器件是**必填**：自建 `symbol` 只描述视图，不带引脚名与电气类型（[ADR-0012](docs/adr/0012-symbol-description.md)），事实只能内联。
+- `pins` 对指向**自建符号**的器件是**必填**：自建 `symbol` 只描述视图，不带引脚名与电气类型（[ADR-0012](../docs/adr/0012-symbol-description.md)），事实只能内联。
 - 可以省略的唯一情形：`symbol` 指向**自带引脚事实**的第三方库（如 KiCad `.kicad_sym`），此时引脚由库解析、`pins_source = symbol`。自建符号不能成为这个来源。
 - 两种来源同时存在时**内联优先**（用于修正库里的错误）；差异由校验报告输出，不静默采用。
 
@@ -216,7 +216,7 @@ pins
 
 ### 7.1 `instances` 段
 
-`components/` 存器件定义；本段存放置实例，同一 `component_id` 可被多行引用。
+`assets/components/` 存器件定义；本段存放置实例，同一 `component_id` 可被多行引用。
 
 ```
 instances
@@ -226,7 +226,7 @@ instances
 
 列：`refdes component_id [param...]`。
 
-- `component_id` 必须在 `components/` 树中按文件名找到；同一 id 只允许一个文件；否则报错。
+- `component_id` 必须在 `assets/components/` 树中按文件名找到；同一 id 只允许一个文件；否则报错。
 - 额外列与该器件 `params` 段**声明的顺序**一一对应（不按名字或类型猜）；`optional` 列只能从右往左省略，`required` 列不能省略。
 - `refdes` 在本文件内唯一。板只有一份原理图文件，板内没有第二套命名空间（v0.7 起，§7.6）。
 - 封装不在 `instances` 行写，由器件文件决定。
@@ -308,15 +308,15 @@ ports
 
 ### 7.6 一块板 = 一份原理图文件 + 若干模块（v0.8）
 
-一块板 = 一份 `sch/<board_id>.teda` + 若干个模块文件。板内**没有**第二套绘制划分：没有 `pages` 段，没有 `page` 描述类型。板内**有**一层逻辑层次：**模块**——带端口、持有电气事实，语法见 `spec/module.md`，决策见 `docs/adr/0026-modules-compose-boards.md`。
+一块板 = 一份 `design/sch/<board_id>.teda` + 若干个模块文件。板内**没有**第二套绘制划分：没有 `pages` 段，没有 `page` 描述类型。板内**有**一层逻辑层次：**模块**——带端口、持有电气事实，语法见 `spec/module.md`，决策见 `docs/adr/0026-modules-compose-boards.md`。
 
-- 板文件里有一个 `modules` 段，列出模块实例（`M1  charger-power`）；模块体在 `modules/<module_id>.teda`。
+- 板文件里有一个 `modules` 段，列出模块实例（`M1  charger-power`）；模块体在 `design/modules/<module_id>.teda`。
 - 板级 `instances` 与模块并存：不属于任何模块的器件直接写在板文件里，用普通 `refdes`。
 - `refdes` 与 `net` 名在**板级**唯一；模块内部有**自己的一套** `refdes` 与 `net` 名，展平后带 `M` 限定名（`M1.R1`、`M1.VCC`）。撞名由作者改名解决（工具不限定名、不重编号）。
 - 模块端口与板级 net 的绑定写在板级 `nets` 段（成员可以是 `M2.VOUT` 这样的模块端口引用）。
 - 展平后的板级 IR 是**扁平的**：一张实例表、一张 net 表，不含模块结构（IR 契约仍是 0.2）。
 - 板的 `ports` 段是它对外的唯一接口（§7.5）。
-- 板内的**绘制划分**（"这块图画不下"、评审想分块看）属于**视图层**：`sch/<board_id>/<page_id>.view.teda` 是一个**打印页**，它引用板级的 `instance_id` 与 `net_id`（模块实例化之后是 `M1.U1`），语法见 `spec/schematic-view.md`。打印页可以随时丢弃、随时重画；删掉全部打印页，板的逻辑依然完整、可校验、可导网表。
+- 板内的**绘制划分**（"这块图画不下"、评审想分块看）属于**视图层**：`views/<board_id>/<page_id>.view.teda` 是一个**打印页**，它引用板级的 `instance_id` 与 `net_id`（模块实例化之后是 `M1.U1`），语法见 `spec/schematic-view.md`。打印页可以随时丢弃、随时重画；删掉全部打印页，板的逻辑依然完整、可校验、可导网表。
 - **BOM**：行 = (`component_id`, 参数字典, 变体状态)，聚合键**不含** `refdes`；数量 = 板上的实物数（模块实例化几次就算几份）。详见 §11。
 - **层次只有一层**：模块不能再嵌套模块（backlog F13）。模块实例 id 带层级标记 `M`（`M1.R1`）。模块是**带端口的层次**，不是可丢弃的绘制划分，两者不混用。
 
@@ -344,7 +344,7 @@ nets
 列：`board_id`。
 
 - `board_id` 必须在 `project.toml` 的 `[boards]` 中存在。
-- 该板必须有 `sch/<board_id>.teda`；`pcb` 可缺省。
+- 该板必须有 `design/sch/<board_id>.teda`；`pcb` 可缺省。
 - 同一块板可以出现在多个 `system` 文件里。
 
 ### 8.2 `nets` 段
@@ -422,7 +422,7 @@ nets
 
 按顺序执行；任一错误阻止导出。
 
-1. 文件头：版本、文件类型、id/文件名、顶层目录/类型一致；`components/` 的子目录只做分类，不参与 `component_id`。
+1. 文件头：版本、文件类型、id/文件名、顶层目录/类型一致；`assets/components/` 的子目录只做分类，不参与 `component_id`。
 2. 词法：未知段、未知键、单元格数量、非法标识符。
 3. 器件：`instances` 引用的 id 存在；`params` 数量/类型匹配；引脚编号唯一，引脚名在 `unit` 内唯一；`symbol` 指向自建库时必须有 `pins` 段（自建符号不带引脚事实）；`category` 为通用无源件且 `params` 含 `value` 时 `mpn` 可省，否则必须有 `mpn`；`lcsc` 若出现必须匹配 `C[0-9]+`。
 4. 连接：引脚引用可解析；每个引脚最多一个 net；`no_connect` 不得连接；单成员 net 警告（**按板级 net 判**：带板级端口的 net 不算单成员，那个引脚是往板外走的）。
@@ -544,7 +544,7 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
 
 ## 14. 完整示例
 
-`components/regulators/tps7a02.teda`：
+`assets/components/regulators/tps7a02.teda`：
 
 ```
 version 0.1
@@ -566,7 +566,7 @@ pins
   5  OUT  power_out
 ```
 
-`sch/main.teda`：
+`design/sch/main.teda`：
 
 ```
 version 0.2
@@ -586,7 +586,7 @@ ports
   VIN_IN  VIN
 ```
 
-`sch/aux.teda`：
+`design/sch/aux.teda`：
 
 ```
 version 0.2
@@ -605,7 +605,7 @@ ports
   VIN_IN  VIN
 ```
 
-`sch/power.teda`（一块板 = 一份文件，两个电路写在同一份里）：
+`design/sch/power.teda`（一块板 = 一份文件，两个电路写在同一份里）：
 
 ```
 version 0.7
@@ -630,7 +630,7 @@ constraints
 
 板内的 `refdes` 与 `net` 名唯一；两个电路的撞名由作者改名（上面两块电路的 `R1` 分别写成 `R1` 与 `R2`）。BOM 按 (`component_id`, 参数字典) 聚合：两块电路里的同型号同参数件合并成一行、数量相加。
 
-`sch/power/charger.view.teda`（同一个板的第一个打印页，画给评审看）：
+`design/sch/power/charger.view.teda`（同一个板的第一个打印页，画给评审看）：
 
 ```
 version 0.7
@@ -646,7 +646,7 @@ wire
 
 打印页引用**板级**的 `refdes` 与 `net` 名；它不创建任何连接，删掉它，板照样成立（语法见 `spec/schematic-view.md`）。
 
-`system/main-stack.teda`：
+`design/system/main-stack.teda`：
 
 ```
 version 0.2
