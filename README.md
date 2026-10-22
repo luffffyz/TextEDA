@@ -90,7 +90,9 @@ The KiCad interoperability section is a **separate, optional workflow** (`.githu
 | `packages/renderer` | Reference renderer: IR → drawing commands → SVG ([ADR-0014](docs/adr/0014-reference-renderer.md)) |
 | `packages/cli` | `texteda init` / `compile` / `check` / `netlist` / `ir` ([ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md), [ADR-0023](docs/adr/0023-ir-layer-on-disk.md)) |
 | `examples/reference-project/` | Self-contained reference project: 22 components / 15 symbols / 16 footprints, all libraries self-built |
-| `docs/adr/` | Architecture decision records, 0001–0026 ([full index](docs/adr/README.md); 0017 and 0020 reserved) |
+| `docs/adr/` | Architecture decision records ([full index](docs/adr/README.md)) |
+| `docs/guides/` | How-to guides: build a symbol, build a footprint, keep review records, read a KiCad board file |
+| `docs/skills/` | Agent manuals: every step is a command, an expected output, and the diagnostic code to read when it fails |
 | `docs/assets/` | Brand assets (logos, icons, generator script); font binaries are not vendored |
 | `docs/backlog.md` | Open work items |
 | `docs/comparison.md` | Sourced comparison against KiCad, EasyEDA and tscircuit |
@@ -128,8 +130,10 @@ The complete index, with titles, status and dates, is [docs/adr/README.md](docs/
 
 ## Authoring
 
-- [docs/symbol-authoring.md](docs/symbol-authoring.md) build a symbol
-- [docs/footprint-authoring.md](docs/footprint-authoring.md) build a footprint
+- [docs/guides/symbol-authoring.md](docs/guides/symbol-authoring.md) build a symbol
+- [docs/guides/footprint-authoring.md](docs/guides/footprint-authoring.md) build a footprint
+- [docs/guides/review-records.md](docs/guides/review-records.md) keep review records
+- [docs/guides/kicad-pcb-format.md](docs/guides/kicad-pcb-format.md) read a KiCad board file
 
 ## Language policy
 

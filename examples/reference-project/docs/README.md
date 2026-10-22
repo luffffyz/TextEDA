@@ -74,7 +74,7 @@ Decision records are in the repository's `docs/adr/0025-flat-board-and-print-pag
 - Only the 9 components of the buck are placed; the components of the power path are not placed and are treated as variant status (not populated) per `spec/pcb.md` §5.2 rule 1. A production PCB must place all instances.
 - Instance ids and net names are the board's own: `U2`, `C19`, … and `GND` / `SYS` / `VOUT` / `BOOT` / `BUCK_PH` / `BUCK_VFB`.
 - The coordinates of `place` / `connect` / `trace` / `via` were computed once by a prototype and then frozen; the IR stores only explicit geometry, with connectivity determined by the `connect` section and the sch.
-- Trial-run baselines (DRC report, Gerber list, KiCad project files) are in the repository's `docs/trial-run/charger-buck/`; the field-level IR → KiCad mapping is in `docs/kicad-pcb-format.md`.
+- Trial-run baselines (DRC report, Gerber list, KiCad project files) are in the repository's `docs/trial-run/charger-buck/`; the field-level IR → KiCad mapping is in `docs/guides/kicad-pcb-format.md`.
 
 ## Conventions
 

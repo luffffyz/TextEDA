@@ -1,6 +1,6 @@
 # 自建封装库：怎么让 agent（或人）造封装
 
-> 依据：[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md)（几何不进语言）、[ADR-0011](adr/0011-library-format-and-footprint-ir.md)（**源是 `.teda`**，IR 是编译产物，KiCad 格式是导出产物）、[spec/footprint.md](../spec/footprint.md)（语法）。
+> 依据：[ADR-0010](../adr/0010-footprint-and-3d-model-ownership.md)（几何不进语言）、[ADR-0011](../adr/0011-library-format-and-footprint-ir.md)（**源是 `.teda`**，IR 是编译产物，KiCad 格式是导出产物）、[spec/footprint.md](../../spec/footprint.md)（语法）。
 > 一句话：**几何与 3D 不进 `.teda` 板描述；它们落在项目自建的封装库里，库用 `.teda` 写，编译成 IR，再导出成 KiCad。**
 
 ## 为什么不是"把 3D 尺寸写进 teda"
@@ -30,7 +30,7 @@
 )
 ```
 
-参考工程**全部自建**：`examples/reference-project/` 下不出现任何外部前缀，22 个器件的 `symbol` / `footprint` 都指向 `project:`，源文件在 `symbols/project/` 与 `footprints/project/`。
+参考工程**全部自建**：`examples/reference-project/` 下不出现任何外部前缀，22 个器件的 `symbol` / `footprint` 都指向 `project:`，源文件在 `assets/symbols/project/` 与 `assets/footprints/project/`。
 
 要借 KiCad 官方库也可以：把它的 `.pretty` 目录照上式登记，前缀仍写 `<lib>:`，`component.footprint = "kicad:Capacitor_SMD:C_0603_1608Metric"`。两种库的引用形式一致，只有前缀不同。
 
@@ -50,7 +50,7 @@
 
 ### 2. 写 `.teda`（真源）
 
-语法见 `spec/footprint.md`。完整示例：`examples/reference-project/footprints/project/sot-23-5.teda`。
+语法见 `spec/footprint.md`。完整示例：`examples/reference-project/assets/footprints/project/sot-23-5.teda`。
 
 ```
 version 0.4
@@ -124,7 +124,7 @@ footprints = "footprints/project"
 content_hash = "…"
 ```
 
-`content_hash` = SHA-256（两个库根下所有文件按**项目相对路径**排序后逐行 `"<path>:<file_sha256>\n"` 拼接）。自建库没有上游 rev，内容哈希就是它的版本锚点（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) decision 2 与补充）。
+`content_hash` = SHA-256（两个库根下所有文件按**项目相对路径**排序后逐行 `"<path>:<file_sha256>\n"` 拼接）。自建库没有上游 rev，内容哈希就是它的版本锚点（[ADR-0010](../adr/0010-footprint-and-3d-model-ownership.md) decision 2 与补充）。
 
 ```bash
 bun run lib:hash footprints/project symbols/project
@@ -146,7 +146,7 @@ bun run preview component bq24610rger         # 器件的符号 + 封装两张�
 bun run preview footprint sot-23-5 --scale 20 # 放大看焊盘与丝印的细节
 ```
 
-**改完封装先跑这个**。参考渲染器（`packages/renderer`，[ADR-0014](adr/0014-reference-renderer.md)）把 IR 画成 SVG：焊盘位置与尺寸、courtyard、F.Fab、丝印、属性文字都在图上，而且**渲染约定与 KiCad 一致**（逐项比对过，见 [ADR-0014](adr/0014-reference-renderer.md) decision 6）——所以这张图能当 KiCad 的预演看。
+**改完封装先跑这个**。参考渲染器（`packages/renderer`，[ADR-0014](../adr/0014-reference-renderer.md)）把 IR 画成 SVG：焊盘位置与尺寸、courtyard、F.Fab、丝印、属性文字都在图上，而且**渲染约定与 KiCad 一致**（逐项比对过，见 [ADR-0014](../adr/0014-reference-renderer.md) decision 6）——所以这张图能当 KiCad 的预演看。
 
 看图抓的是 DRC 抓不到的：丝印压焊盘（DRC 才报）、courtyard 圈小了没罩住焊盘、丝印线画到了板边外、1 脚标记没画。
 
@@ -157,14 +157,14 @@ bun run preview footprint sot-23-5 --scale 20 # 放大看焊盘与丝印的细�
 ### 7. 冒烟验证
 
 ```bash
-bun run smoke:footprint            # 用 examples/reference-project/footprints/project/sot-23-5.teda
+bun run smoke:footprint            # 用 examples/reference-project/assets/footprints/project/sot-23-5.teda
 ```
 
 跑通：canonical form 检查（`fmt` 固定点）→ 编译成 IR（契约通过）→ 写 `.kicad_mod` → KiCad 能解析（`kicad-cli fp export svg`）→ 内联进板 → `kicad-cli pcb drc` 0 违规 → Gerber 出齐。改完封装跑一次，DRC 会替你抓丝印压焊盘、courtyard 越界这类问题。
 
 > 预览（第 6 步）**不需要 KiCad**；冒烟（第 7 步）需要——它验的是"我们的导出 KiCad 能读"，这是下游契约，故意依赖 KiCad。
 
-## 工具必须替人查的（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) decision 3）
+## 工具必须替人查的（[ADR-0010](../adr/0010-footprint-and-3d-model-ownership.md) decision 3）
 
 1. 封装存在、`lib:name` 能解析到具体封装；
 2. **pad 号集合 ⊇ sch 引脚编号集合**：少一个 → 错误；多一个 → 警告；

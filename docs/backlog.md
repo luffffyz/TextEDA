@@ -563,7 +563,7 @@
 **现状**：零件齐了，**路径没连起来**。仓库里有走完前半程要用的每一样东西，但没有一条被验证过的、从空目录走到成品的路径。
 
 - `texteda init <dir>` 只给骨架（`project.toml` + `assets/components/` `design/sch/` `design/pcb/` `design/system/` `docs/`），**不含任何器件、符号、封装或原理图**。
-- 库的写法分散在三处：`docs/symbol-authoring.md`（符号）、`docs/footprint-authoring.md`（封装）、`teda.md` §6（器件）。**没有一份"一个工程该有哪些文件、它们怎么互相引用"的总账**。
+- 库的写法分散在三处：`docs/guides/symbol-authoring.md`（符号）、`docs/guides/footprint-authoring.md`（封装）、`teda.md` §6（器件）。**没有一份"一个工程该有哪些文件、它们怎么互相引用"的总账**。
 - 命令有四条（`init` / `compile` / `check` / `netlist`），但**没有一条把它们串起来的脚本**；用法只能从源码里读。CLI 也**没有 `export` 子命令**——KiCad 符号/封装导出只能走仓库脚本（`bun run export:symbol` / `export:footprint`），而且它们吃的是**IR JSON 不是 `.teda`**：`compile:symbol` / `compile:footprint` 先出 JSON，`export:symbol` 再拿 JSON **加 `--component <器件文件>`** 合并引脚事实（引脚的电学事实归 `component`，符号只写视图，[ADR-0012](adr/0012-symbol-description.md)）。这条两步链没人写在文档里，是最容易踩的地方。
 - **终点缺两块**：`.kicad_pcb` 板文件导出器**不在仓库里**（`docs/trial-run/charger-buck/` 那份是**一次性原型**生成的，README 明写"未进仓库"）；Gerber / Excellon 写出器也没有（F15）。
 - 所以今天能走通的最远终点是：`init → 库 → 器件 → sch → check → 网表 / .kicad_sym / .kicad_mod`。**skill 不能假装能走到 Gerber**。（这条链已手工试跑通过：`init` → 两个无源件 → 三实例的最小板根 → `check` 零 error 零 warning → `compile` 出 IR → `netlist` 出连通性投影 → `compile:symbol` + `export:symbol` 出 `.kicad_sym`。）
@@ -680,7 +680,7 @@
 6. **KiCad 输出里不再有 3D 身体**：今天 `.kicad_mod` 带 `(model ...)`（来自 footprint 的 `model3d`），去掉后 KiCad 里只看得到 2D。
    补法有两条：**封装外形**（land pattern 可选地附一个封装标准外形——IPC/JEDEC 的通用件——按 land pattern 唯一、**不产生变体**，但那是外形不是厂商件，要标出来），或**板级导出时按实例写模型**（`packages/exporter` 目前只出 `.kicad_mod` / `.kicad_sym`，**没有板导出**，所以这条要等 F16 / F21）。**已定：做封装外形**（[ADR-0029](adr/0029-package-code-footprint-and-3d-model-ownership.md) 的 2026-10-22b 附录）——见下面第 8 条。
 7. **封装外形（envelope）**：`footprint` 增加可选 `envelope <path>`（封装标准外形，IPC/JEDEC 通用件，不是厂商件）；导出时写进 `.kicad_mod`（`packages/exporter` 的 `modelSexp` 那条路改成写 envelope）。**一个 land pattern 一个 envelope → 不产生变体**，导出器仍是纯函数。允许的条件：身体由封装决定（MLCC、贴片无源、标准封装的集成电路）；钽电解薄膜电容、模压屏蔽电感、连接器、带引线框架的分立件**不允许**（身体随额定值变）。检查在 `lib:verify`：用了带 envelope 的 land pattern 的 part，其 `construction` 属于身体随额定值变的那一组 → 报错。
-8. **不做装配约束**：语言里不加 `body_height` / `body_size` 等机械尺寸，也不做限高检查（限高要配合外壳，外壳不在项目里）。这条要写进 `docs/footprint-authoring.md`，避免以后有人"顺手加个高度字段"。
+8. **不做装配约束**：语言里不加 `body_height` / `body_size` 等机械尺寸，也不做限高检查（限高要配合外壳，外壳不在项目里）。这条要写进 `docs/guides/footprint-authoring.md`，避免以后有人"顺手加个高度字段"。
 
 **验收**：
 
@@ -842,7 +842,7 @@
 
 **要做的事**：
 
-1. **约定文档** `docs/review-records.md`：目录 `docs/reviews/`（评审记录归 `docs/`，与设计意图、分析证据同处，[ADR-0031](adr/0031-project-tree-ownership-model.md) decision 1）、一轮一个 `<round_id>.md`（意见）+ 一个 `<round_id>.decision.toml`（处置）、note 行的写法、两条检查的语义。**不进语言**：没有描述类型、没有 schema、没有 IR 分片、不影响任何哈希。
+1. **约定文档** `docs/guides/review-records.md`：目录 `docs/reviews/`（评审记录归 `docs/`，与设计意图、分析证据同处，[ADR-0031](adr/0031-project-tree-ownership-model.md) decision 1）、一轮一个 `<round_id>.md`（意见）+ 一个 `<round_id>.decision.toml`（处置）、note 行的写法、两条检查的语义。**不进语言**：没有描述类型、没有 schema、没有 IR 分片、不影响任何哈希。
 2. **处置文件**：TOML，字段 `target`（`board:<id>` / `page:<board>/<page>` / `component:<id>`）、`owner`、`date`、`verdict`（`accepted` / `declined` / `deferred`）。缺字段或取值非法 → 报错。
 3. **责任人**：`project.toml` 的 `[project] owner`（创建者或接手人）。有评审记录但没写 owner → 报错。换人 = 改这个字段（不改任何哈希）。
 4. **`check` 的两条诊断**：

@@ -1,6 +1,6 @@
 # 自建符号库：怎么让 agent（或人）造符号
 
-> 依据：[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md)（几何不进语言）、[ADR-0011](adr/0011-library-format-and-footprint-ir.md)（库格式的原则：源是 `.teda`，IR 是编译产物，KiCad 格式是导出产物）、[ADR-0012](adr/0012-symbol-description.md)（**引脚的电学事实归 `component`**）、[spec/symbol.md](../spec/symbol.md)（语法）。
+> 依据：[ADR-0010](../adr/0010-footprint-and-3d-model-ownership.md)（几何不进语言）、[ADR-0011](../adr/0011-library-format-and-footprint-ir.md)（库格式的原则：源是 `.teda`，IR 是编译产物，KiCad 格式是导出产物）、[ADR-0012](../adr/0012-symbol-description.md)（**引脚的电学事实归 `component`**）、[spec/symbol.md](../../spec/symbol.md)（语法）。
 > 一句话：**符号画在库里、库用 `.teda` 写；但引脚叫什么、是什么电气类型、编号多少，只写在 `component` 里。**
 
 ## 先分清两件事
@@ -19,11 +19,11 @@
   project.toml            # [libs.project] source="project" symbols/footprints + content_hash
   symbols/project/        # 库目录（真源）：一个符号一个 .teda
     bq24610rger.teda
-  components/power/bq24610rger.teda   # 引脚名与电气类型在这里
+  assets/components/power/bq24610rger.teda   # 引脚名与电气类型在这里
   dist/symbols/project.kicad_sym      # 导出产物（KiCad 可见）
 ```
 
-符号可以借（KiCad 官方库，`kicad:Regulator_Linear:TPS7A02`），也可以自建；引用形式一样，只有 `lib:` 前缀不同。**参考工程 `examples/reference-project/` 全部自建**：`symbols/project/` 下的符号覆盖 22 个器件，`r` / `c` / `l` / `nmos-5` / `ldo-sot23-5` 都是多个器件共享同一视图。
+符号可以借（KiCad 官方库，`kicad:Regulator_Linear:TPS7A02`），也可以自建；引用形式一样，只有 `lib:` 前缀不同。**参考工程 `examples/reference-project/` 全部自建**：`assets/symbols/project/` 下的符号覆盖 22 个器件，`r` / `c` / `l` / `nmos-5` / `ldo-sot23-5` 都是多个器件共享同一视图。
 
 ## 造符号的流程
 
@@ -42,7 +42,7 @@
 
 ### 2. 写 `.teda`（真源）
 
-语法见 `spec/symbol.md`。完整示例：`examples/reference-project/symbols/project/bq24610rger.teda`。
+语法见 `spec/symbol.md`。完整示例：`examples/reference-project/assets/symbols/project/bq24610rger.teda`。
 
 ```
 version 0.5
@@ -84,7 +84,7 @@ bun run fmt:teda --check symbols                    # CI：不是 canonical 就�
 
 ### 3. 写 `component`（引脚事实）
 
-`components/power/bq24610rger.teda`：
+`assets/components/power/bq24610rger.teda`：
 
 ```
 pins
@@ -108,7 +108,7 @@ IR 是 `symbol` kind（契约 `schemas/ir/v0.2/symbol.schema.json`），单位�
 ### 5. 导出成 KiCad 产物
 
 ```bash
-bun run export:symbol dist/ir/symbols/bq24610rger.json --component components/power/bq24610rger.teda --out dist/symbols
+bun run export:symbol dist/ir/symbols/bq24610rger.json --component assets/components/power/bq24610rger.teda --out dist/symbols
 ```
 
 导出器按**引脚号**把两边合起来：号与位置来自符号，名字与电气类型来自器件；属性（`Reference` / `Value` / `Footprint` / `Datasheet`）也一并写齐。`--out` 给目录时写 `<library>.kicad_sym`。
@@ -121,7 +121,7 @@ bun run preview component bq24610rger         # 符号 + 封装两张图，路�
 bun run preview symbol bq24610rger --scale 8  # 放大看细节
 ```
 
-**改完符号先跑这个**。参考渲染器（`packages/renderer`，[ADR-0014](adr/0014-reference-renderer.md)）把 IR 画成 SVG：引脚位置与朝向、引脚名/编号的内外侧、属性字段位置、引脚风格（反相气泡、时钟楔形）都在图上。校验全绿不等于看着对——引脚朝向反了、名字压到别的引脚上，这些只有看图才发现。
+**改完符号先跑这个**。参考渲染器（`packages/renderer`，[ADR-0014](../adr/0014-reference-renderer.md)）把 IR 画成 SVG：引脚位置与朝向、引脚名/编号的内外侧、属性字段位置、引脚风格（反相气泡、时钟楔形）都在图上。校验全绿不等于看着对——引脚朝向反了、名字压到别的引脚上，这些只有看图才发现。
 
 图里的字是**单线笔画字体**画成的路径（Hershey Sans，自带字形数据，不依赖系统字体——没装字体的机器打开也有字）。字高是 KiCad 的 cap height 口径，锚点是字的视觉中心；自带字体只有 ASCII，中文之类的字符画不出来，命令会在 stderr 上点名。
 
@@ -130,7 +130,7 @@ bun run preview symbol bq24610rger --scale 8  # 放大看细节
 ### 7. 冒烟验证
 
 ```bash
-bun run smoke:symbol            # 用 examples/reference-project/symbols/project/bq24610rger.teda
+bun run smoke:symbol            # 用 examples/reference-project/assets/symbols/project/bq24610rger.teda
 ```
 
 跑通：canonical form 检查（`fmt` 固定点）→ 编译成 IR（契约通过）→ 与 `component` 对齐引脚号 → 写 `.kicad_sym` → **KiCad 10 能解析**（`kicad-cli sym upgrade`）→ **能渲染**（`kicad-cli sym export svg` 出图）。改完符号跑一次，出图看一眼比读十遍规范快。
@@ -141,7 +141,7 @@ bun run smoke:symbol            # 用 examples/reference-project/symbols/project
 
 1. 符号存在、`lib:name` 能解析到具体符号；
 2. **符号引脚号集合 == 器件引脚号集合**：少一个 → 错误；多一个 → 警告；
-3. 器件引脚号 ⊆ 封装 pad 号（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) decision 3 的库级检查，在工具链里做）；
+3. 器件引脚号 ⊆ 封装 pad 号（[ADR-0010](../adr/0010-footprint-and-3d-model-ownership.md) decision 3 的库级检查，在工具链里做）；
 4. 引脚名重复、引脚号重复、`unit` 越界 → 编译期报错（带行列）。
 
 ## 常见坑

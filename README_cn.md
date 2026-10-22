@@ -90,7 +90,9 @@ KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.
 | `packages/renderer` | 参考渲染器：IR → 绘图指令 → SVG（[ADR-0014](docs/adr/0014-reference-renderer.md)） |
 | `packages/cli` | `texteda init` / `compile` / `check` / `netlist` / `ir`（[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)、[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)） |
 | `examples/reference-project/` | 自包含的参考工程：22 个器件 / 15 个符号 / 16 个封装，库全部自建 |
-| `docs/adr/` | 决策记录（ADR），0001–0026（[完整索引](docs/adr/README.md)；0017 与 0020 已预留） |
+| `docs/adr/` | 决策记录（ADR）（[完整索引](docs/adr/README.md)） |
+| `docs/guides/` | 上手指南：造符号、造封装、记评审记录、读 KiCad 板文件 |
+| `docs/skills/` | 给 agent 的操作手册：每步 = 命令 + 预期输出 + 出错看哪个诊断码 |
 | `docs/assets/` | 品牌资产（标志、图标、生成脚本）；字体二进制不入库 |
 | `docs/backlog.md` | 待办清单 |
 | `docs/comparison.md` | 与 KiCad、EasyEDA、tscircuit 的对比（带出处） |
@@ -128,8 +130,10 @@ KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.
 
 ## 造器件
 
-- [docs/symbol-authoring.md](docs/symbol-authoring.md) 造符号
-- [docs/footprint-authoring.md](docs/footprint-authoring.md) 造封装
+- [docs/guides/symbol-authoring.md](docs/guides/symbol-authoring.md) 造符号
+- [docs/guides/footprint-authoring.md](docs/guides/footprint-authoring.md) 造封装
+- [docs/guides/review-records.md](docs/guides/review-records.md) 记评审记录
+- [docs/guides/kicad-pcb-format.md](docs/guides/kicad-pcb-format.md) 读 KiCad 板文件
 
 ## 语言策略
 
