@@ -1,11 +1,10 @@
-version 0.1.1
+version 0.1.2
 component d-bat54c
 
 kind         part
 mpn          BAT54C
 manufacturer onsemi
 category     diode
-package      SOT-23
 
 symbol project:dual-diode
 footprint project:sot-23

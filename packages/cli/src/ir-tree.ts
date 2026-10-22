@@ -19,7 +19,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
-import { schemaDiagnosticsToDiagnostics, validate, type SchemaKind } from "@texteda/ir";
+import { irVersion, schemaDiagnosticsToDiagnostics, validate, type SchemaKind } from "@texteda/ir";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
 import {
   canonicalJson,
@@ -96,8 +96,8 @@ export function toolVersion(): string {
   }
 }
 
-/** The IR contract version of the schemas in this repository. */
-const IR_VERSION = "0.2";
+/** The IR contract version of the schemas in this repository (one source: the generated schemas). */
+const IR_VERSION = irVersion;
 
 interface Draft {
   path: string;

@@ -143,7 +143,7 @@ description USB hub with 2 downstream ports
 ## 5. 文件头与版本
 
 ```
-version 0.1.1
+version 0.1.2
 component tps7a02
 ```
 
@@ -164,7 +164,6 @@ component tps7a02
 | `mpn` | 条件 | 制造商料号：`kind: part` 必填，`kind: family` **必须不写** |
 | `construction` | 条件 | 构造工艺：`kind: family` 必填，`kind: part` **必须不写** |
 | `polarized` | 条件 | 是否有极性：`kind: family` 必填（`yes` / `no`），`kind: part` **必须不写** |
-| `package` | 是 | 封装名，如 `SOT-23-5`、`LQFP-100` |
 | `manufacturer` | 否 | 厂商 |
 | `category` | 否 | 器件类别，开放取值集：`mcu` / `resistor` / `capacitor` / `inductor` / `led` / `diode` / `mosfet_p` / `regulator` / `battery_charger` / … |
 | `datasheet` | 否 | URL |
@@ -173,6 +172,8 @@ component tps7a02
 | `footprint` | 是 | `lib:name` |
 
 `category` 是**器件类别**，取值是**开放集合**：不设封闭目录，库里没有的类别直接用，小写加下划线。它只做分类，不参与校验逻辑分支；与文件头的类型（`component` / `schematic` / `pcb` / `system`）无关。
+
+**封装名不在器件文件里**。器件只引用一个 `footprint`（`lib:name`），封装代号由封装文件自己写（`package_code`，见 `spec/footprint.md` §2）：封装代号是**焊盘图案**的名字（`0402`、`SOT-23-5`、`LQFP-100`），两个字段说同一件事、且没人校验它们一致，所以删掉一个（决策见 [ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) decision 1）。
 
 ### 6.1.1 两种器件：`part` 与 `family`
 
@@ -188,7 +189,7 @@ component tps7a02
 - 目录与 `kind` 必须一致：`assets/components/` 放 `part`，`assets/families/` 放 `family`。两者共用一个 id 命名空间，id 取文件名。
 - 族 id 不带值、不带耐压、不带容差（`cap-mlcc-0402`、`res-th-0402`、`cap-tantalum-7343`）。
 
-**引脚表是身份边界**：改了引脚表就是另一个器件。只有不改变引脚电气行为的属性才可以成为 `params`（值、耐压、容差、ESR、温度等级）。因此 `package` 与 `footprint` 是器件的固定属性，永远不是参数列。
+**引脚表是身份边界**：改了引脚表就是另一个器件。只有不改变引脚电气行为的属性才可以成为 `params`（值、耐压、容差、ESR、温度等级）。因此 `footprint` 是器件的固定属性，永远不是参数列；封装代号同理（它由封装文件写，不由器件写）。
 
 ### 6.2 `params` 段
 
@@ -209,7 +210,7 @@ params
 
 - `kind: part` **不写** `params` 段：料号已经定死身份，再有参数列就是两处身份。
 - `kind: family` **必须**写 `params` 段，且至少有一列必填的 `value`（族之间的区别就是值）。
-- 参数列不得叫 `package` 或 `footprint`：它们是固定属性（§6.1.1）。
+- 参数列不得叫 `package` 或 `footprint`：封装与焊盘图案是固定属性（§6.1.1、§6.1），不随取值变化。
 - 参数不得改变引脚表（§6.1.1）。
 
 ### 6.3 `pins` 段
@@ -511,7 +512,7 @@ nets
 
 `version` 为 `MAJOR.MINOR[.PATCH]`，三位各自无前导零。**PATCH 位可省略，省略即 0**：`0.6` 与 `0.6.0` 是同一个版本，IR 里只存一种写法（`0.6`）。
 
-`version` 是**该描述类型自己的**版本线，不是全语言共享的一个版本号：今天在飞的是四个号——`schematic 0.8`、`view 0.7`、`symbol 0.5`、`component 0.1.1`（另有 `pcb 0.4`、`footprint 0.4`、`system 0.2`、`module 0.8`、`procurement 0.9`）。在 `0.x` 阶段**每种描述类型只走 PATCH 位**（`0.8` → `0.8.1`）：加段、加字段也不抬 MINOR。抬 MINOR 的时机留给最后的合并（见 §13.2）。决策见 `docs/adr/0022-language-versioning.md` 的 2026-10-22 附录。
+`version` 是**该描述类型自己的**版本线，不是全语言共享的一个版本号：今天在飞的是四个号——`schematic 0.8`、`view 0.7`、`symbol 0.5`、`component 0.1.2`（另有 `pcb 0.4`、`footprint 0.4.1`、`system 0.2`、`module 0.8`、`procurement 0.9`）。在 `0.x` 阶段**每种描述类型只走 PATCH 位**（`0.8` → `0.8.1`）：加段、加字段也不抬 MINOR。抬 MINOR 的时机留给最后的合并（见 §13.2）。决策见 `docs/adr/0022-language-versioning.md` 的 2026-10-22 附录。
 
 | 位 | 什么时候动 | 动它意味着 |
 |---|---|---|
@@ -560,15 +561,20 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
     5. 仍带 `page` 头或 `pages` 段的文件，诊断指向本条迁移说明。
 - `0.8` 新增：`module` 描述类型、`sch` 的 `modules` 段、模块端口与板级 net 的绑定、板内展平（决策见 `docs/adr/0026-modules-compose-boards.md`，语法见 `spec/module.md`）。板内重新有了**一层逻辑层次**：模块持有电气事实，带端口；绘制划分仍在视图层的打印页里。**IR 契约不变**（仍是 0.2）：板级 IR 是展平结果，不含模块结构。用到 `module` 或 `modules` 段的文件写 `version 0.8`；只含板级内容的文件仍可写 `0.7`。
 - `0.9` 新增（**`0.x` 的最后一个全局号**）：`procurement` 描述类型——一块板的采购选料（决策见 `docs/adr/0030-procurement-layer.md`，语法见 `spec/procurement.md`）。选料是**决定**不是事实：主料进工程哈希与板哈希，备料只进 advisory 哈希。`procurement` 文件写 `version 0.9`。**实现未落地**（解析器、IR 契约 v0.3 的 `procurement` 分片、BOM 输出见 `docs/backlog.md` F34）。
-- `component` 描述类型：`0.1` → `0.1.1`（PATCH）。新增 `kind` / `construction` / `polarized` 三个标量，并把 `kind` 变成必填、`kind: family` 的 `params` 变成必填（决策见 [ADR-0027](../docs/adr/0027-device-parts-families-and-library-dependencies.md)）。**这是破坏性变更**（老文件不再合法），按 §13.1 的 `0.x` 规则走 PATCH 位，迁移说明见下：
-  - **迁移 0.1 → 0.1.1**（`bun run migrate:0.9 <project dir>` 做机械部分）：
+- `component` 描述类型：`0.1` → `0.1.1`（PATCH）。新增 `kind` / `construction` / `polarized` 三个标量，并把 `kind` 变成必填、`kind: family` 的 `params` 变成必填（决策见 [ADR-0027](../docs/adr/0027-device-parts-families-and-library-dependencies.md)）。**这是破坏性变更**（老文件不再合法），按 §13.1 的 `0.x` 规则走 PATCH 位，改法见下：
+  - **改法**（本项目尚无外部使用者，没有需要迁移的旧文件；下面是改动的机械部分）：
     1. 有 `mpn` 的文件加 `kind part`，没有 `mpn` 的文件加 `kind family`；两者都不写 `construction` / `polarized`。
-    2. `kind: family` 的文件补 `construction` 与 `polarized`（脚本按文件名与符号猜，猜不出来的由作者填）。
-    3. 族文件移到 `assets/families/`；件的 id 不带值的改名由作者决定（脚本不替人命名）。
-    4. `instances` 行里的器件 id 跟着改名（脚本改机械可判的部分，冲突报错）。
+    2. `kind: family` 的文件补 `construction` 与 `polarized`（按文件名与符号能推出来的就推，推不出来的由作者填）。
+    3. 族文件移到 `assets/families/`；件的 id 不带值的改名由作者决定（工具不替人命名）。
+    4. `instances` 行里的器件 id 跟着改名。
+- `component` 描述类型：`0.1.1` → `0.1.2`（PATCH）。**删除** `package` 标量：封装代号改由封装文件自己写（`package_code`），器件只保留 `footprint` 引用（决策见 [ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) decision 1）。**这是破坏性变更**（老文件不再合法），按 §13.1 的 `0.x` 规则走 PATCH 位，改法见下：
+  - **改法**（同上没有需要迁移的旧文件）：
+    1. 删掉器件文件里的 `package` 行。
+    2. 把封装代号搬到对应的封装文件：写 `package_code <代号>`，封装文件的版本行改成 `0.4.1`。同一焊盘图案上出现两个不同代号时由作者决定留哪个。
+- `footprint` 描述类型：`0.4` → `0.4.1`（PATCH）。新增 `package_code` 标量：这块焊盘图案的封装代号（`0402`、`SOT-23-5`、`LQFP-100`），供厂商与评审读（决策见 [ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) decision 1）。加字段在 `0.x` 阶段也走 PATCH 位；没写 `package_code` 的文件仍然合法（代号通常已经在封装 id 里），但库级检查（`bun run lib:verify`）要求每个封装都写明自己的代号。
 - `0.x` 阶段各描述类型的版本线各自维护、只走 PATCH 位；项目接近完成时一次性合并为 `1.0`，之后全语言一个号（见 §13.1 / §13.2）。
 - 未知构造默认报错；`--allow-unknown` 仅用于前向兼容检查，不用于生产。**这是 `0.x` 阶段版本号只走 PATCH 位的安全依据**：不懂新构造的工具会报错停下，不会误读文件。
-- 所有破坏性变更必须提供迁移说明；`fmt` 不自动跨 MAJOR 迁移。
+- 所有破坏性变更必须写明改了什么、怎么改（见本节）；`fmt` 不自动跨 MAJOR 迁移。本项目尚无外部使用者，所以**没有迁移脚本**：破坏性变更直接改文件，工具不替人改名、不替人决定事实。
 
 ---
 
@@ -577,13 +583,12 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
 `assets/components/regulators/tps7a02.teda`（一个 `part`）：
 
 ```
-version 0.1.1
+version 0.1.2
 component tps7a02
 
 kind         part
 mpn          TPS7A02DBVR
 manufacturer Texas Instruments
-package      SOT-23-5
 datasheet    https://www.ti.com/lit/ds/symlink/tps7a02.pdf
 
 symbol       kicad:Regulator_Linear:TPS7A02
@@ -600,14 +605,13 @@ pins
 `assets/families/cap-tantalum-7343.teda`（一个 `family`）：
 
 ```
-version 0.1.1
+version 0.1.2
 component cap-tantalum-7343
 
 kind         family
 category     capacitor
 construction  tantalum
 polarized    yes
-package      7343
 
 symbol       project:c-pol
 footprint    project:tantalum-7343

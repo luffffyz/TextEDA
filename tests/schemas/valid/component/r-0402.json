@@ -1,11 +1,13 @@
 {
-  "ir_version": "0.2",
-  "format": "0.1",
-  "source": { "file": "components/passives/r-0402.teda" },
+  "ir_version": "0.3",
+  "format": "0.1.2",
+  "source": { "file": "assets/families/res-thick-0402.teda" },
   "component": {
-    "id": "r-0402",
+    "id": "res-thick-0402",
+    "kind": "family",
     "category": "resistor",
-    "package": "0402",
+    "construction": "thick_film",
+    "polarized": false,
     "symbol": "kicad:Device:R",
     "footprint": "kicad:Resistor_SMD:R_0402_1005Metric",
     "params": [

@@ -1,11 +1,10 @@
-version 0.1.1
+version 0.1.2
 component tps5430ddar
 
 kind         part
 mpn          TPS5430DDAR
 manufacturer Texas Instruments
 category     regulator
-package      HSOIC-8
 datasheet    https://www.ti.com/lit/ds/symlink/tps5430.pdf
 
 symbol project:dc-dc-soic8

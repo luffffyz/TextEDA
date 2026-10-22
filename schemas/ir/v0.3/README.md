@@ -1,4 +1,4 @@
-# IR v0.2 — contract notes
+# IR v0.3 — contract notes
 
 This is the **only** contract for the TextEDA IR: JSON Schema 2020-12. The semantic model and on-disk layout are in `docs/adr/0004-ir-representation.md`; sharding, identity keys, units and hash granularity are in `docs/adr/0008-ir-shard-identity-and-hash.md`; TS types are generated from this directory with no zod, see `docs/adr/0009-implementation-stack.md`.
 
@@ -6,13 +6,13 @@ This is the **only** contract for the TextEDA IR: JSON Schema 2020-12. The seman
 
 | File | `$id` | Corresponding source |
 |---|---|---|
-| `common.schema.json` | `urn:texteda:ir:0.2:common` | none (shared `$defs`) |
-| `project.schema.json` | `urn:texteda:ir:0.2:project` | `project.toml` |
-| `component.schema.json` | `urn:texteda:ir:0.2:component` | `assets/components/**/<id>.teda` |
-| `schematic.schema.json` | `urn:texteda:ir:0.2:schematic` | `design/sch/<board_id>.teda` |
-| `pcb.schema.json` | `urn:texteda:ir:0.2:pcb` | `design/pcb/<board_id>.teda` |
-| `system.schema.json` | `urn:texteda:ir:0.2:system` | `system/<system_id>.teda` |
-| `manifest.schema.json` | `urn:texteda:ir:0.2:manifest` | none (`dist/ir/manifest.json`) |
+| `common.schema.json` | `urn:texteda:ir:0.3:common` | none (shared `$defs`) |
+| `project.schema.json` | `urn:texteda:ir:0.3:project` | `project.toml` |
+| `component.schema.json` | `urn:texteda:ir:0.3:component` | `assets/components/**/<id>.teda` |
+| `schematic.schema.json` | `urn:texteda:ir:0.3:schematic` | `design/sch/<board_id>.teda` |
+| `pcb.schema.json` | `urn:texteda:ir:0.3:pcb` | `design/pcb/<board_id>.teda` |
+| `system.schema.json` | `urn:texteda:ir:0.3:system` | `system/<system_id>.teda` |
+| `manifest.schema.json` | `urn:texteda:ir:0.3:manifest` | none (`dist/ir/manifest.json`) |
 
 Every schema is **closed** (`additionalProperties: false`) with exhaustive enums. Unknown fields are rejected outright, never downgraded to warnings.
 

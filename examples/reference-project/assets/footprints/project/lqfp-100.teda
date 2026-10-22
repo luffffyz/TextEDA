@@ -1,9 +1,10 @@
-version 0.4
+version 0.4.1
 footprint lqfp-100
 
 description LQFP-100 14x14mm pitch 0.5mm (generic land pattern)
 tags LQFP-100 smd
 attr smd
+package_code LQFP-100
 field Reference at=0,-8.9 layer=F.SilkS size=1,1 thickness=0.15 REF**
 field Value at=0,8.9 layer=F.Fab size=1,1 thickness=0.15 LQFP-100
 

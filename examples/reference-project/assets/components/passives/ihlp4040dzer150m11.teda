@@ -1,11 +1,10 @@
-version 0.1.1
+version 0.1.2
 component ihlp4040dzer150m11
 
 kind         part
 mpn          IHLP4040DZER150M11
 manufacturer Vishay Dale
 category     inductor
-package      IHLP-4040
 
 symbol project:l
 footprint project:ihlp-4040

@@ -1,4 +1,4 @@
-version 0.1.1
+version 0.1.2
 component ch32v307vct6
 
 # Pins use their primary function names; alternate functions go in the alt= column (the symbol only draws placement, without names).
@@ -6,7 +6,6 @@ kind         part
 mpn          CH32V307VCT6
 manufacturer WCH
 category     mcu
-package      LQFP-100
 datasheet    https://www.wch-ic.com/downloads/CH32V307DS0_PDF.html
 
 symbol project:ch32v307vct6

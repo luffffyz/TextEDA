@@ -53,12 +53,13 @@
 语法见 `spec/footprint.md`。完整示例：`examples/reference-project/assets/footprints/project/sot-23-5.teda`。
 
 ```
-version 0.4
+version 0.4.1
 footprint sot-23-5
 
 description SOT-23-5 body 2.9x1.6mm pitch 0.95mm
 tags SOT-23 SOT-23-5
 attr smd
+package_code SOT-23-5
 model 3dmodels/sot-23-5.stp
 field Reference at=0,-2 layer=F.SilkS size=1,1 thickness=0.15 REF**
 field Value at=0,2 layer=F.Fab size=1,1 thickness=0.15 SOT-23-5
@@ -100,7 +101,7 @@ bun run fmt:teda --check footprints/project             # CI：不是 canonical 
 bun run compile:footprint footprints/project/sot-23-5.teda --library project --out dist/ir/footprints/sot-23-5.json
 ```
 
-IR 是 `footprint` kind（契约 `schemas/ir/v0.2/footprint.schema.json`），单位全是整数纳米/毫度/百万分比。
+IR 是 `footprint` kind（契约 `schemas/ir/v0.3/footprint.schema.json`），单位全是整数纳米/毫度/百万分比。
 
 ### 4. 导出成 KiCad 产物
 

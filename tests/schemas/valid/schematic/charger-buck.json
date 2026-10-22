@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.2",
+  "ir_version": "0.3",
   "format": "0.7",
   "source": { "file": "sch/charger-buck.teda" },
   "board": "charger-buck",

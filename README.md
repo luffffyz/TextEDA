@@ -82,7 +82,7 @@ The KiCad interoperability section is a **separate, optional workflow** (`.githu
 | `AGENTS.md` | **Primary doc**: what the project is, the non-negotiable invariants, acceptance criteria |
 | `LICENSE` / `NOTICE` | Apache-2.0 and attribution |
 | `spec/` | The specs: `teda.md` (the language-wide spec) plus per-description ones — `symbol` / `footprint` / `pcb` / `schematic-view` / `module` / `procurement` |
-| `schemas/ir/v0.2/` | IR contract (JSON Schema 2020-12, the only contract) |
+| `schemas/ir/v0.3/` | IR contract (JSON Schema 2020-12, the only contract) |
 | `packages/ir` | IR types and contract validation |
 | `packages/parser` | `.teda` → IR, including `fmt` (canonical form); `module` files flatten into the board IR |
 | `packages/core` | Pure rules: connectivity ERC and sch↔pcb binding, no fs access |

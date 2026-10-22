@@ -1,4 +1,4 @@
-version 0.1.1
+version 0.1.2
 component tps7a2033pdbvr
 
 # 3.3V/300mA LDO, SOT-23-5 (DBV). Per TI SBVS348H (TPS7A20) section 4 Pin Functions:
@@ -8,7 +8,6 @@ kind         part
 mpn          TPS7A2033PDBVR
 manufacturer Texas Instruments
 category     regulator
-package      SOT-23-5
 datasheet    https://www.ti.com/lit/ds/symlink/tps7a20.pdf
 
 symbol project:ldo-sot23-5

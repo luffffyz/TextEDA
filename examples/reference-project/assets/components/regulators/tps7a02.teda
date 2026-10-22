@@ -1,10 +1,9 @@
-version 0.1.1
+version 0.1.2
 component tps7a02
 
 kind         part
 mpn          TPS7A02DBVR
 manufacturer Texas Instruments
-package      SOT-23-5
 datasheet    https://www.ti.com/lit/ds/symlink/tps7a02.pdf
 
 symbol project:ldo-sot23-5

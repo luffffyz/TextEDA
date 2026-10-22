@@ -2,6 +2,7 @@
 //
 // Surface parsing and unit conversion only; contract validation is delegated to @texteda/ir schema validation (closed-set schema);
 // library-level checks (pin number comparison, DRC) do not live at this layer (ADR-0010 decision 3).
+import { irVersion } from "@texteda/ir";
 import type { Footprint } from "@texteda/ir/footprint";
 import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
 import { lex, type Cell, type Line } from "./lexer.ts";
@@ -11,7 +12,7 @@ import { checkVersion, typeRange } from "./version.ts";
 
 // Section key sets are exported for fmt reuse: both places must agree on one lexicon, not each write its own.
 export const SECTIONS = new Set(["pads", "graphics"]);
-export const SCALAR_KEYS = new Set(["description", "tags", "attr", "model", "field"]);
+export const SCALAR_KEYS = new Set(["description", "tags", "attr", "package_code", "model", "field"]);
 export const PAD_KEYS = new Set([
   "rot",
   "drill",
@@ -490,6 +491,15 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
           if (tags.length > 0) body.tags = [...tags].sort(byteCompare);
           break;
         }
+        case "package_code": {
+          const code = trailing(0);
+          if (code.length === 0) {
+            collector.error(file, line.number, line.cells[0]!.col, "syntax.unknown-field", "package_code requires a value");
+          } else {
+            body.package_code = code;
+          }
+          break;
+        }
         case "attr": {
           const attr = trailing(0);
           if (!ATTRS.has(attr)) {
@@ -649,7 +659,7 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
   const finalBody: Footprint["footprint"] = { ...body, pads: [firstPad, ...restPads] };
 
   const ir: Footprint = {
-    ir_version: "0.2",
+    ir_version: irVersion,
     source: { file, line: 1 },
     footprint: finalBody,
   };

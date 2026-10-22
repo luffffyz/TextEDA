@@ -82,7 +82,7 @@ KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.
 | `AGENTS.md` | **主文档**：项目是什么、不可协商的不变量、验证与验收口径 |
 | `LICENSE` / `NOTICE` | Apache-2.0 与归属声明 |
 | `spec/` | 规范：`teda.md`（语言总规范）+ 分描述规范 `symbol` / `footprint` / `pcb` / `schematic-view` / `module` / `procurement` |
-| `schemas/ir/v0.2/` | IR 契约（JSON Schema 2020-12，唯一契约） |
+| `schemas/ir/v0.3/` | IR 契约（JSON Schema 2020-12，唯一契约） |
 | `packages/ir` | IR 类型与契约校验 |
 | `packages/parser` | `.teda` → IR，含 `fmt`（canonical form）；`module` 文件展平进板级 IR |
 | `packages/core` | 纯规则：连通性 ERC 与 sch↔pcb 绑定，不碰 fs |

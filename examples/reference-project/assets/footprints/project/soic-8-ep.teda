@@ -1,9 +1,10 @@
-version 0.4
+version 0.4.1
 footprint soic-8-ep
 
 description SOIC-8 3.9x4.9mm pitch 1.27mm with exposed pad (generic land pattern)
 tags SOIC-8 exposed-pad smd
 attr smd
+package_code HSOIC-8
 field Reference at=0,-3.4 layer=F.SilkS size=1,1 thickness=0.15 REF**
 field Value at=0,3.4 layer=F.Fab size=1,1 thickness=0.15 SOIC-8-EP
 

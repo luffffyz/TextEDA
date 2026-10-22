@@ -1,0 +1,13 @@
+{
+  "ir_version": "0.3",
+  "format": "0.1.2",
+  "component": {
+    "id": "r-0402",
+    "kind": "part",
+    "package": "0402",
+    "symbol": "kicad:Device:R",
+    "footprint": "kicad:Resistor_SMD:R_0402_1005Metric",
+    "pins": [{ "number": "1", "name": "A", "electrical_type": "passive" }],
+    "pins_source": "inline"
+  }
+}

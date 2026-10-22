@@ -27,6 +27,10 @@ describe("example footprint", () => {
     expect(pad1.layers).toEqual(["F.Cu", "F.Mask", "F.Paste"]);
   });
 
+  test("the land pattern states its package code (ADR-0029 decision 1)", () => {
+    expect(result.ir!.footprint.package_code).toBe("SOT-23-5");
+  });
+
   test("pads preserved in appearance order, graphics and fields all present", () => {
     const fp = result.ir!.footprint;
     expect(fp.pads.map((p) => p.number)).toEqual(["1", "2", "3", "4", "5"]);

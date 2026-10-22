@@ -1,9 +1,10 @@
-version 0.4
+version 0.4.1
 footprint ihlp-4040
 
 description Shielded power inductor IHLP 4.0x4.0mm, generic land pattern
 tags inductor shielded smd
 attr smd
+package_code IHLP-4040
 field Reference at=0,-3.3 layer=F.SilkS size=1,1 thickness=0.15 REF**
 field Value at=0,3.3 layer=F.Fab size=1,1 thickness=0.15 ihlp-4040
 

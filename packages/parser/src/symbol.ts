@@ -2,6 +2,7 @@
 //
 // Surface parsing and unit conversion only; pin names/electrical types do not live here — they belong to `component`,
 // merged by pin number when exporting `.kicad_sym`. Contract validation is delegated to the closed schema in @texteda/ir.
+import { irVersion } from "@texteda/ir";
 import type { Symbol } from "@texteda/ir/symbol";
 import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
 import { lex, type Cell, type Line } from "./lexer.ts";
@@ -553,7 +554,7 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
   if (fields.length > 0) body.fields = fields;
 
   const ir: Symbol = {
-    ir_version: "0.2",
+    ir_version: irVersion,
     source: { file, line: 1 },
     symbol: body,
   };

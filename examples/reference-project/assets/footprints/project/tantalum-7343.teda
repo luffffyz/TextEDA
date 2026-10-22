@@ -1,9 +1,10 @@
-version 0.4
+version 0.4.1
 footprint tantalum-7343
 
 description Tantalum capacitor 7343 case, generic land pattern
 tags capacitor smd tantalum
 attr smd
+package_code 7343
 field Reference at=0,-3.3 layer=F.SilkS size=1,1 thickness=0.15 REF**
 field Value at=0,3.3 layer=F.Fab size=1,1 thickness=0.15 tantalum-7343
 

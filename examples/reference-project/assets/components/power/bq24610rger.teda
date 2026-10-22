@@ -1,11 +1,10 @@
-version 0.1.1
+version 0.1.2
 component bq24610rger
 
 kind         part
 mpn          BQ24610RGER
 manufacturer Texas Instruments
 category     battery_charger
-package      VQFN-24
 datasheet    https://www.ti.com/lit/ds/symlink/bq24610.pdf
 
 # KiCad official Battery_Management library does not include BQ24610; add the symbol to the local library before the first export.

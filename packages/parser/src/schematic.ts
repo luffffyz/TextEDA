@@ -5,6 +5,7 @@
 //
 // The parser never touches the filesystem: component contents are supplied by the caller (`ComponentResolver`),
 // so the `parser` package still runs in the browser (ADR-0009 decision 1).
+import { irVersion } from "@texteda/ir";
 import type { ComponentParamDecl } from "./component.ts";
 import type {
   Bus,
@@ -1048,7 +1049,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
   ports.sort((a, b) => byteCompare(a.id, b.id));
 
   const ir: Schematic = {
-    ir_version: "0.2",
+    ir_version: irVersion,
     format: boardDoc.version,
     source: { file: boardDoc.file, line: 1 },
     board: options.board,

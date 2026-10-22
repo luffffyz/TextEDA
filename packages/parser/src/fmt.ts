@@ -267,6 +267,11 @@ function canonicalFootprintScalars(walk: SurfaceWalk, file: string): Row[] {
   const attr = walk.scalars.get("attr");
   if (attr) rows.push({ comments: attr.comments, cells: ["attr", trailingText(attr.cells, 1)] });
 
+  const packageCode = walk.scalars.get("package_code");
+  if (packageCode) {
+    rows.push({ comments: packageCode.comments, cells: ["package_code", trailingText(packageCode.cells, 1)] });
+  }
+
   const model = walk.scalars.get("model");
   if (model) {
     const path = model.cells[1]!.text;

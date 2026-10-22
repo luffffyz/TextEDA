@@ -1,9 +1,10 @@
-version 0.4
+version 0.4.1
 footprint sma
 
 description SMA diode DO-214AC, body 5.3x3.6mm (generic land pattern)
 tags DO-214AC SMA diode smd
 attr smd
+package_code SMA
 field Reference at=0,-2.9 layer=F.SilkS size=1,1 thickness=0.15 REF**
 field Value at=0,2.9 layer=F.Fab size=1,1 thickness=0.15 SMA
 

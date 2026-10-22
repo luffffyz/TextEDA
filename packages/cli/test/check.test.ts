@@ -7,14 +7,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { analyzeProject, checkProject } from "../src/check.ts";
 
-const COMPONENT = `version 0.1.1
+const COMPONENT = `version 0.1.2
 component res-thick-0402
 
 kind         family
 category     resistor
 construction thick
 polarized    no
-package      0402
 symbol project:r
 footprint project:chip-0402
 

@@ -1,4 +1,4 @@
-version 0.1.1
+version 0.1.2
 component cap-tantalum-7343
 
 # A polarised tantalum capacitor. The polarity is a fact of the family, not a hint in the file
@@ -8,7 +8,6 @@ kind         family
 category     capacitor
 construction tantalum
 polarized    yes
-package      7343
 
 symbol project:c-pol
 footprint project:tantalum-7343

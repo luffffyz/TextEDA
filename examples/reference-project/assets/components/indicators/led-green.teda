@@ -1,11 +1,10 @@
-version 0.1.1
+version 0.1.2
 component led-green
 
 kind         part
 mpn          LTST-C190GKT
 manufacturer Lite-On
 category     led
-package      0603
 
 symbol project:led
 footprint project:chip-0603

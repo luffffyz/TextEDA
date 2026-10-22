@@ -103,7 +103,7 @@ pins
 bun run compile:symbol symbols/project/bq24610rger.teda --library project --out dist/ir/symbols/bq24610rger.json
 ```
 
-IR 是 `symbol` kind（契约 `schemas/ir/v0.2/symbol.schema.json`），单位全是整数纳米/毫度。
+IR 是 `symbol` kind（契约 `schemas/ir/v0.3/symbol.schema.json`），单位全是整数纳米/毫度。
 
 ### 5. 导出成 KiCad 产物
 

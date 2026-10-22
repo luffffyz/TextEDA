@@ -7,7 +7,7 @@ import { parseComponent } from "../src/component.ts";
 /** A device file with the given scalars and sections (each section is a list of lines). */
 function device(scalars: string[], ...sections: string[][]): string {
   return [
-    "version 0.1.1",
+    "version 0.1.2",
     "component dev",
     "",
     ...scalars,
@@ -27,6 +27,29 @@ const FAMILY_SCALARS = [
 ];
 const PINS = ["pins", "  1  A  passive", "  2  B  passive"];
 const VALUE_PARAM = ["params", "  value  capacitance  required"];
+
+describe("the removed package field", () => {
+  test("a `package` line is an error that points at the migration, not an unknown key", () => {
+    const result = parseComponent(
+      device([...PART_SCALARS, "package 0402"], PINS),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "syntax.removed-construct");
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.message).toContain("package");
+    expect(diagnostic!.hint).toContain("package_code");
+  });
+
+  test("the package code is not a parameter column either", () => {
+    const result = parseComponent(
+      device([...FAMILY_SCALARS], ["params", "  value  capacitance  required", "  package  string  optional"], PINS),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.some((d) => d.code === "value.component-param-reserved")).toBe(true);
+  });
+});
 
 describe("component kind", () => {
   test("a part needs a manufacturer part number", () => {

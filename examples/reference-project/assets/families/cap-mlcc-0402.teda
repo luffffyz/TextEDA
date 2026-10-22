@@ -1,4 +1,4 @@
-version 0.1.1
+version 0.1.2
 component cap-mlcc-0402
 
 # A generic 0402 MLCC capacitor: the design says what it needs (value, tolerance, voltage), the
@@ -8,7 +8,6 @@ kind         family
 category     capacitor
 construction mlcc
 polarized    no
-package      0402
 
 symbol project:c
 footprint project:chip-0402

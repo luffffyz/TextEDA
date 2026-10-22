@@ -1,9 +1,10 @@
-version 0.4
+version 0.4.1
 footprint sot-23
 
 description SOT-23 3-pin, body 2.9x1.3mm pitch 0.95mm (generic land pattern)
 tags SOT-23 smd
 attr smd
+package_code SOT-23
 field Reference at=0,-2 layer=F.SilkS size=1,1 thickness=0.15 REF**
 field Value at=0,2 layer=F.Fab size=1,1 thickness=0.15 SOT-23
 

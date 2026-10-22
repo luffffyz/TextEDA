@@ -10,11 +10,12 @@
 //   1. every component's symbol / footprint points to a project self-built library (no external prefixes like kicad:);
 //   2. referenced library files exist; symbol pin number set == component pin number set; footprint pad number set ⊇ component pin number set;
 //   3. every library file is canonical form, compiles to IR, and passes the contract;
-//   4. exporting .kicad_sym / .kicad_mod succeeds; render with **our own** renderer and self-check.
+//   4. every footprint states its package code (ADR-0029 decision 1);
+//   5. exporting .kicad_sym / .kicad_mod succeeds; render with **our own** renderer and self-check.
 //
 // Optional section (--kicad, KiCad on PATH):
-//   5. KiCad can parse .kicad_sym / .kicad_mod (sym upgrade / fp export svg);
-//   6. all footprints placed on one board, `kicad-cli pcb drc` 0 violations.
+//   6. KiCad can parse .kicad_sym / .kicad_mod (sym upgrade / fp export svg);
+//   7. all footprints placed on one board, `kicad-cli pcb drc` 0 violations.
 //
 // Why split them: KiCad's parsing and DRC are **cross-validation** (a third-party implementation accepts us),
 // not our definition of correctness. Making it a required item turns "a third party accepts us" into
@@ -239,6 +240,11 @@ for (const file of footprintFiles) {
     continue;
   }
   const body = parsed.ir.footprint;
+  // The land pattern states its package code (ADR-0029 decision 1): the devices on it do not restate it.
+  if (!body.package_code) {
+    fail(`${name}: no package_code — the land pattern must state its package code`);
+    continue;
+  }
   writeFileSync(join(work, `${name}.json`), canonicalJson(parsed.ir));
   writeFileSync(join(work, "project.pretty", `${name}.kicad_mod`), footprintModule(body));
 

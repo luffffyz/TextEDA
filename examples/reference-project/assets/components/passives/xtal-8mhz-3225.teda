@@ -1,4 +1,4 @@
-version 0.1.1
+version 0.1.2
 component xtal-8mhz-3225
 
 # 8.000MHz fundamental crystal, 3225 four-pin (3.2×2.5×0.7mm), load capacitance CL=12pF, ±10ppm at 25±3℃.
@@ -7,7 +7,6 @@ kind         part
 mpn          SST-3225/8.000M-12PF
 manufacturer Sichuan Sorst
 category     crystal
-package      SMD-3225-4P
 datasheet    https://www.lcsc.com/datasheet/C5181478.pdf
 
 symbol project:crystal-4

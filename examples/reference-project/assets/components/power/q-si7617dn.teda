@@ -1,11 +1,10 @@
-version 0.1.1
+version 0.1.2
 component q-si7617dn
 
 kind         part
 mpn          Si7617DN
 manufacturer Vishay Siliconix
 category     mosfet_p
-package      PowerPAK-1212-8
 
 # KiCad official library has no Si7617DN; it borrows the SiS443DN symbol with the same package, pins are governed by the inline table.
 symbol project:nmos-5

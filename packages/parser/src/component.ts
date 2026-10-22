@@ -10,7 +10,10 @@
 //
 // The pin table is the identity boundary (ADR-0027 decision 3): if the pin table changes, it is a
 // different device, so only attributes that do not change a pin's electrical behaviour may become
-// `params`. `package` and `footprint` are fixed attributes of the device, never parameters.
+// `params`. The `footprint` is a fixed attribute of the device, never a parameter.
+//
+// The `package` field is gone (ADR-0029 decision 1): the package code names the land pattern, so
+// the footprint file states it (`package_code`) and the device does not repeat it.
 //
 // The parser is filesystem-free (ADR-0009 decision 1): the caller supplies the text.
 
@@ -84,7 +87,6 @@ export interface ComponentFile {
   construction?: string;
   /** Whether the device is polarised (family only). */
   polarized?: boolean;
-  package?: string;
   symbol: string;
   footprint: string;
   datasheet?: string;
@@ -115,7 +117,6 @@ const SCALAR_KEYS: Record<string, true> = {
   category: true,
   construction: true,
   polarized: true,
-  package: true,
   symbol: true,
   footprint: true,
   datasheet: true,
@@ -125,6 +126,14 @@ const SCALAR_KEYS: Record<string, true> = {
 
 /** Parameter names that may never become a `params` column (they are fixed attributes). */
 const RESERVED_PARAM_NAMES: Record<string, true> = { package: true, footprint: true };
+
+/**
+ * Scalars that used to exist, with the language version that removed them.
+ *
+ * A file that still writes one is an error, not an unknown key: the message must point at the
+ * migration note instead of at the spelling (ADR-0029 decision 1).
+ */
+const REMOVED_SCALARS: Record<string, string> = { package: "0.1.2" };
 
 /**
  * Parse a component file.
@@ -212,6 +221,15 @@ export function parseComponent(text: string, options: { file: string }): Compone
     if (section === null) {
       const key = line.cells[0]!.text;
       const value = line.cells.slice(1).map((c) => c.text).join(" ");
+      if (REMOVED_SCALARS[key]) {
+        const since = REMOVED_SCALARS[key]!;
+        error(line.number, line.cells[0]!.col, "syntax.removed-construct", `the \`${key}\` field was removed in ${since}`, {
+          expected: "no `package` line",
+          actual: key,
+          hint: "the package code names the land pattern: the footprint file states it (`package_code`), the device does not (teda.md §13.4)",
+        });
+        continue;
+      }
       if (!SCALAR_KEYS[key]) {
         error(line.number, line.cells[0]!.col, "syntax.unknown-field", `unknown scalar: ${key}`);
         continue;
@@ -254,9 +272,6 @@ export function parseComponent(text: string, options: { file: string }): Compone
         case "construction":
           component.construction = value;
           break;
-        case "package":
-          component.package = value;
-          break;
         case "symbol":
           component.symbol = value;
           break;
@@ -290,7 +305,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
         continue;
       }
       if (RESERVED_PARAM_NAMES[name.text]) {
-        error(line.number, name.col, "value.component-param-reserved", `${name.text} is a fixed attribute, not a parameter`, {
+        error(line.number, name.col, "value.component-param-reserved", `${name.text} is fixed, not a parameter`, {
           expected: "a parameter that is not part of the pin table's electrical behaviour",
           actual: name.text,
         });

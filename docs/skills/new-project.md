@@ -108,12 +108,13 @@ body
 `assets/footprints/project/chip-0402.teda`:
 
 ```
-version 0.4
+version 0.4.1
 footprint chip-0402
 
 description 0402 (1005 metric) chip, generic land pattern
 tags chip smd
 attr smd
+package_code 0402
 field Reference at=0,-1.5 layer=F.SilkS size=1,1 thickness=0.15 REF**
 field Value at=0,1.5 layer=F.Fab size=1,1 thickness=0.15 chip-0402
 
@@ -145,14 +146,13 @@ A family also declares its construction and whether it is polarised
 `assets/families/cap-mlcc-0402.teda`:
 
 ```
-version 0.1.1
+version 0.1.2
 component cap-mlcc-0402
 
 kind         family
 category     capacitor
 construction mlcc
 polarized    no
-package      0402
 symbol project:c
 footprint project:chip-0402
 
@@ -180,8 +180,9 @@ What matters:
   `assets/families/`. A missing id is an error (`ref.unknown-component`) — no network lookup, no
   silent downgrade.
 - **The pin table is the identity boundary**: only attributes that do not change a pin's electrical
-  behaviour may be `params` (value, tolerance, voltage rating, ESR). The package and the footprint
-  are fixed attributes, never parameters.
+  behaviour may be `params` (value, tolerance, voltage rating, ESR). The footprint is a fixed
+  attribute, never a parameter; the package code is **not** in the device file at all — the
+  footprint file states it (`package_code`, ADR-0029 decision 1).
 
 ## 5. Step 3: lock the library in `project.toml`
 

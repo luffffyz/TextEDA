@@ -1,11 +1,10 @@
-version 0.1.1
+version 0.1.2
 component cap-mlcc-0603
 
 kind         family
 category     capacitor
 construction mlcc
 polarized    no
-package      0603
 
 symbol project:c
 footprint project:chip-0603

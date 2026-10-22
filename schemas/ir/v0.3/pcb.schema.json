@@ -1,16 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:texteda:ir:0.2:pcb",
-  "title": "TextEDA IR v0.2 — pcb shard",
+  "$id": "urn:texteda:ir:0.3:pcb",
+  "title": "TextEDA IR v0.3 — pcb shard",
   "description": "Physical facts and rule intent of one board (layer B0). No drawing parameters, silkscreen layout, fill caches or UUIDs; connectivity is decided by connect and the schematic and is never back-derived from geometry. See ADR-0003, spec/pcb.md.",
   "type": "object",
   "additionalProperties": false,
   "required": ["ir_version", "format", "board", "board_thickness_nm", "stackup", "outline", "place", "connect", "rules"],
   "properties": {
-    "ir_version": { "$ref": "urn:texteda:ir:0.2:common#/$defs/ir_version" },
-    "format": { "$ref": "urn:texteda:ir:0.2:common#/$defs/format_version" },
-    "source": { "$ref": "urn:texteda:ir:0.2:common#/$defs/source_ref" },
-    "board": { "$ref": "urn:texteda:ir:0.2:common#/$defs/slug" },
+    "ir_version": { "$ref": "urn:texteda:ir:0.3:common#/$defs/ir_version" },
+    "format": { "$ref": "urn:texteda:ir:0.3:common#/$defs/format_version" },
+    "source": { "$ref": "urn:texteda:ir:0.3:common#/$defs/source_ref" },
+    "board": { "$ref": "urn:texteda:ir:0.3:common#/$defs/slug" },
     "board_thickness_nm": {
       "type": "integer",
       "minimum": 1,
@@ -70,7 +70,7 @@
       "type": "array",
       "items": { "$ref": "#/$defs/deviation" }
     },
-    "note": { "$ref": "urn:texteda:ir:0.2:common#/$defs/note" }
+    "note": { "$ref": "urn:texteda:ir:0.3:common#/$defs/note" }
   },
   "$defs": {
     "point": {
@@ -89,7 +89,7 @@
           "additionalProperties": false,
           "required": ["layer", "type", "thickness_nm", "kind"],
           "properties": {
-            "layer": { "$ref": "urn:texteda:ir:0.2:common#/$defs/layer_name" },
+            "layer": { "$ref": "urn:texteda:ir:0.3:common#/$defs/layer_name" },
             "type": { "const": "copper" },
             "thickness_nm": { "type": "integer", "minimum": 1 },
             "kind": { "enum": ["signal", "power", "plane"] }
@@ -100,7 +100,7 @@
           "additionalProperties": false,
           "required": ["layer", "type", "thickness_nm", "material"],
           "properties": {
-            "layer": { "$ref": "urn:texteda:ir:0.2:common#/$defs/layer_name" },
+            "layer": { "$ref": "urn:texteda:ir:0.3:common#/$defs/layer_name" },
             "type": { "const": "dielectric" },
             "thickness_nm": { "type": "integer", "minimum": 1 },
             "material": { "type": "string", "minLength": 1 },
@@ -118,7 +118,7 @@
       "additionalProperties": false,
       "required": ["instance_id", "x_nm", "y_nm", "rot_mdeg", "side"],
       "properties": {
-        "instance_id": { "$ref": "urn:texteda:ir:0.2:common#/$defs/instance_id" },
+        "instance_id": { "$ref": "urn:texteda:ir:0.3:common#/$defs/instance_id" },
         "x_nm": { "type": "integer" },
         "y_nm": { "type": "integer" },
         "rot_mdeg": {
@@ -133,8 +133,8 @@
       "additionalProperties": false,
       "required": ["a", "b"],
       "properties": {
-        "a": { "$ref": "urn:texteda:ir:0.2:common#/$defs/pad_ref" },
-        "b": { "$ref": "urn:texteda:ir:0.2:common#/$defs/pad_ref" }
+        "a": { "$ref": "urn:texteda:ir:0.3:common#/$defs/pad_ref" },
+        "b": { "$ref": "urn:texteda:ir:0.3:common#/$defs/pad_ref" }
       },
       "description": "A pad pair forms an edge \"connected by copper\"; within each pair, byte order a ≤ b."
     },
@@ -143,8 +143,8 @@
       "additionalProperties": false,
       "required": ["net", "layer", "width_nm", "points"],
       "properties": {
-        "net": { "$ref": "urn:texteda:ir:0.2:common#/$defs/net_id" },
-        "layer": { "$ref": "urn:texteda:ir:0.2:common#/$defs/layer_name" },
+        "net": { "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id" },
+        "layer": { "$ref": "urn:texteda:ir:0.3:common#/$defs/layer_name" },
         "width_nm": { "type": "integer", "minimum": 1 },
         "points": {
           "type": "array",
@@ -158,13 +158,13 @@
       "additionalProperties": false,
       "required": ["net", "x_nm", "y_nm", "size_nm", "drill_nm"],
       "properties": {
-        "net": { "$ref": "urn:texteda:ir:0.2:common#/$defs/net_id" },
+        "net": { "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id" },
         "x_nm": { "type": "integer" },
         "y_nm": { "type": "integer" },
         "size_nm": { "type": "integer", "minimum": 1 },
         "drill_nm": { "type": "integer", "minimum": 1 },
-        "from_layer": { "$ref": "urn:texteda:ir:0.2:common#/$defs/layer_name" },
-        "to_layer": { "$ref": "urn:texteda:ir:0.2:common#/$defs/layer_name" }
+        "from_layer": { "$ref": "urn:texteda:ir:0.3:common#/$defs/layer_name" },
+        "to_layer": { "$ref": "urn:texteda:ir:0.3:common#/$defs/layer_name" }
       },
       "dependentRequired": {
         "from_layer": ["to_layer"],
@@ -177,8 +177,8 @@
       "additionalProperties": false,
       "required": ["net", "layer", "points"],
       "properties": {
-        "net": { "$ref": "urn:texteda:ir:0.2:common#/$defs/net_id" },
-        "layer": { "$ref": "urn:texteda:ir:0.2:common#/$defs/layer_name" },
+        "net": { "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id" },
+        "layer": { "$ref": "urn:texteda:ir:0.3:common#/$defs/layer_name" },
         "points": {
           "type": "array",
           "minItems": 3,
@@ -193,7 +193,7 @@
       "required": ["type", "layer", "points"],
       "properties": {
         "type": { "enum": ["no_track", "no_pour", "no_place", "no_via"] },
-        "layer": { "$ref": "urn:texteda:ir:0.2:common#/$defs/layer_name" },
+        "layer": { "$ref": "urn:texteda:ir:0.3:common#/$defs/layer_name" },
         "points": {
           "type": "array",
           "minItems": 3,
@@ -237,7 +237,7 @@
           "required": ["type", "net", "clearance_nm", "width_nm", "via_size_nm", "via_drill_nm"],
           "properties": {
             "type": { "const": "net" },
-            "net": { "$ref": "urn:texteda:ir:0.2:common#/$defs/net_id" },
+            "net": { "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id" },
             "clearance_nm": { "type": "integer", "minimum": 1 },
             "width_nm": { "type": "integer", "minimum": 1 },
             "via_size_nm": { "type": "integer", "minimum": 1 },
@@ -251,8 +251,8 @@
           "required": ["type", "net_a", "net_b", "impedance_mohm", "gap_nm"],
           "properties": {
             "type": { "const": "diff" },
-            "net_a": { "$ref": "urn:texteda:ir:0.2:common#/$defs/net_id" },
-            "net_b": { "$ref": "urn:texteda:ir:0.2:common#/$defs/net_id" },
+            "net_a": { "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id" },
+            "net_b": { "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id" },
             "impedance_mohm": { "type": "integer", "minimum": 1 },
             "gap_nm": { "type": "integer", "minimum": 1 }
           }
@@ -263,8 +263,8 @@
           "required": ["type", "net_a", "net_b", "max_delta_nm"],
           "properties": {
             "type": { "const": "match" },
-            "net_a": { "$ref": "urn:texteda:ir:0.2:common#/$defs/net_id" },
-            "net_b": { "$ref": "urn:texteda:ir:0.2:common#/$defs/net_id" },
+            "net_a": { "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id" },
+            "net_b": { "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id" },
             "max_delta_nm": { "type": "integer", "minimum": 0 }
           }
         },
@@ -345,7 +345,7 @@
             "id": { "type": "string", "pattern": "^[A-Z]+[0-9]+$" },
             "type": { "const": "fiducial" },
             "size_nm": { "type": "integer", "minimum": 1 },
-            "layer": { "$ref": "urn:texteda:ir:0.2:common#/$defs/layer_name" }
+            "layer": { "$ref": "urn:texteda:ir:0.3:common#/$defs/layer_name" }
           }
         },
         {
@@ -355,7 +355,7 @@
           "properties": {
             "id": { "type": "string", "pattern": "^[A-Z]+[0-9]+$" },
             "type": { "const": "test_point" },
-            "net": { "$ref": "urn:texteda:ir:0.2:common#/$defs/net_id" },
+            "net": { "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id" },
             "size_nm": { "type": "integer", "minimum": 1 }
           }
         },
@@ -366,7 +366,7 @@
           "properties": {
             "id": { "type": "string", "pattern": "^[A-Z]+[0-9]+$" },
             "type": { "const": "stitching" },
-            "net": { "$ref": "urn:texteda:ir:0.2:common#/$defs/net_id" },
+            "net": { "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id" },
             "size_nm": { "type": "integer", "minimum": 1 },
             "drill_nm": { "type": "integer", "minimum": 1 }
           }
@@ -394,8 +394,8 @@
           "required": ["type", "net_a", "net_b"],
           "properties": {
             "type": { "const": "net_tie" },
-            "net_a": { "$ref": "urn:texteda:ir:0.2:common#/$defs/net_id" },
-            "net_b": { "$ref": "urn:texteda:ir:0.2:common#/$defs/net_id" }
+            "net_a": { "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id" },
+            "net_b": { "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id" }
           },
           "description": "Two sch nets are physically shorted together."
         },
@@ -405,7 +405,7 @@
           "required": ["type", "net"],
           "properties": {
             "type": { "const": "split_ground" },
-            "net": { "$ref": "urn:texteda:ir:0.2:common#/$defs/net_id" }
+            "net": { "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id" }
           },
           "description": "One sch net is physically split into mutually disconnected regions."
         }

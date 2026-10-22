@@ -55,7 +55,7 @@ describe("IR shard tree hashes", () => {
   test("the manifest lists every shard with its hash", () => {
     expect(tree.manifest.shards.length).toBe(tree.shards.length);
     expect(tree.manifest.shards.map((s) => s.path)).toEqual(tree.shards.map((s) => s.path));
-    expect(tree.manifest.ir_version).toBe("0.2");
+    expect(tree.manifest.ir_version).toBe("0.3");
     expect(tree.manifest.tool_version).toMatch(/^\d+\.\d+\.\d+$/);
   });
 

@@ -272,6 +272,19 @@ decision. A change needs its own record, and a migration script, like
   that means "the circuit" should hold nothing else. Decided in
   [ADR-0032](0032-view-is-a-drawing-not-a-build-input.md).
 
+## Addendum (2026-10-23): no migration scripts while the project has no users
+
+Amends decision 11.
+
+The tree shape is still frozen, and a change still needs its own record. The **migration script**
+is not part of that: the project has no external users yet, so no file exists that would need
+migrating. A tree or language change therefore changes the files directly, and the record says what
+changed and how (in `spec/teda.md` §13.4). The scripts written before this point (`bun run
+migrate:0.7`) stay as they are; no new ones are written.
+
+The rule about not renaming on the author's behalf still stands — and it is now the whole rule: a
+tool never invents a name, an id or a fact.
+
 ## Open Points
 
 - **The print pages.** Where the `view` files live in the new tree, and whether the view stays a

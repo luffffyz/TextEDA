@@ -70,7 +70,7 @@
 **注意**：
 
 - **sch 的逻辑 IR 仍然没有坐标**（`instances` / `nets` / `ports` 只有身份与成员），画在独立的 `view` IR 里；渲染器的输入因此是 `view` + 调用方解析好的符号事实（符号 IR、器件引脚事实），仍然不碰文件系统。
-- **S1 视图层已闭环到渲染**：`spec/schematic-view.md`、`schemas/ir/v0.2/schematic-view.schema.json`、`packages/parser` 的 `view` 解析与 canonical `fmt`（语言版本 0.7）、`packages/renderer` 的 `renderSchematic`、`preview view`、参考工程两份打印页。**下一步**：`packages/core` 的板 ↔ 打印页交叉校验（视图引用的实例 / net / port 是否存在、端点引脚是否属于该 net），再把可读性检查与 round-trip 反解补上。
+- **S1 视图层已闭环到渲染**：`spec/schematic-view.md`、`schemas/ir/v0.3/schematic-view.schema.json`、`packages/parser` 的 `view` 解析与 canonical `fmt`（语言版本 0.7）、`packages/renderer` 的 `renderSchematic`、`preview view`、参考工程两份打印页。**下一步**：`packages/core` 的板 ↔ 打印页交叉校验（视图引用的实例 / net / port 是否存在、端点引脚是否属于该 net），再把可读性检查与 round-trip 反解补上。
 - **已知口径冲突（`view.label-not-on-net` 落地前必须定）**：`view` 坐标限制在 0.1mm 栅格（`VIEW_GRID_NM`），而符号引脚偏移是 2.54 / 3.81mm 的倍数，**不在 0.1mm 栅格上**。所以"标签必须精确落在引脚连接点上"对标准符号不可满足。参考工程的标签全部落在走线的网格折点 / 直段上（buck-5v 的 GND 走一条位总线，引脚到总线用带折点的 wire 连），没有标签落在引脚端点上。
 - 布局不自动排版：sch 的坐标来自 IR，渲染器只画。多单元器件（双运放）要按 `unit` 选对符号视图。
 - 不要顺手做自动布线或自动排版——那是 `AGENTS.md` §1「不是」里明确不做的东西。**自动排版尤其不可取**：如果渲染器自己排版，人就无法把重叠的标签挪开，"可读性检查"（文字重叠、线压引脚）也失去意义——每次渲染的图都不一样，评审无从进行。
@@ -90,7 +90,7 @@
 3. **规范补漏**：凡是实现时必须回头看 `packages/**` 才能确定的地方，在 `spec/` 里补成规范条款。补不了的（例如刻意留给实现的自由度），在 spec 里显式写"本条不约束实现"。
 4. 产出一份差异报告（`docs/third-party-implementability.md`），列出规范歧义点与已修条款。
 
-**涉及**：`spec/**`、`schemas/ir/v0.2/**`、`tests/**`、新增 `docs/third-party-implementability.md`。
+**涉及**：`spec/**`、`schemas/ir/v0.3/**`、`tests/**`、新增 `docs/third-party-implementability.md`。
 
 **验收**：
 
@@ -194,7 +194,7 @@
 4. 封装侧：pin 号集合与 pad 号集合的一致性（`lib:verify` 已有）下沉到 schema 能表达的部分。
 5. 补 conformance 正反例（`tests/schemas/`）。
 
-**涉及**：`schemas/ir/v0.2/**`、`packages/ir/src/**`、`packages/parser/src/**`（sch 解析器）、`tests/schemas/**`、ADR（并入 P0 的 sch ADR 或单开一条）。
+**涉及**：`schemas/ir/v0.3/**`、`packages/ir/src/**`、`packages/parser/src/**`（sch 解析器）、`tests/schemas/**`、ADR（并入 P0 的 sch ADR 或单开一条）。
 
 **验收**：
 
@@ -235,7 +235,7 @@
 4. 定**第三方库的要求**：库文件必须过 schema、必须能导出成 KiCad、必须能过 `lib:verify`（[ADR-0013](adr/0013-reference-project-self-built-libraries.md)）；不合规不收。
 5. 复用 F7 的错误码与 F8 的 schema 义务——**库是契约层的延伸，不是另一个标准**。
 
-**涉及**：`spec/`（库包规范）、`schemas/ir/v0.2/**`（库 manifest）、`AGENTS.md` §9（`[libs]` 键的最终形态）、ADR（并入 [ADR-0011](adr/0011-library-format-and-footprint-ir.md) 的补充或单开）、`examples/reference-project/project.toml`（样例）。
+**涉及**：`spec/`（库包规范）、`schemas/ir/v0.3/**`（库 manifest）、`AGENTS.md` §9（`[libs]` 键的最终形态）、ADR（并入 [ADR-0011](adr/0011-library-format-and-footprint-ir.md) 的补充或单开）、`examples/reference-project/project.toml`（样例）。
 
 **验收**：
 
@@ -268,7 +268,7 @@
 **实现要做的事**（ADR 已定，这里是工程）：
 
 1. `packages/parser` 的内部结构在编译成 IR 之前保留来源路径，编译时剥掉；同时产出 D2 的映射表。
-2. `packages/ir` 的 `DiagnosticLocation` 加可选 `byte` 与 `end`（**IR 契约 `schemas/ir/v0.2/**` 不动**——位置不是语义契约的一部分）。
+2. `packages/ir` 的 `DiagnosticLocation` 加可选 `byte` 与 `end`（**IR 契约 `schemas/ir/v0.3/**` 不动**——位置不是语义契约的一部分）。
 3. 语义检查器与 schema 校验器的诊断接上 D8：源位置 + IR 路径两条都给。
 4. 位置稳定性测试：同一份源两次解析位置一致；打乱行序后 IR 字节不变而诊断位置指向新行号。
 5. 跨文件引用的 `related` 落点（引用点 + 定义点）。
@@ -526,14 +526,14 @@
 
 **要做的事**：
 
-1. 给 `schemas/ir/v0.2/pcb.schema.json` 的字段补 `description`（`pcb` 描述落地时一并做，否则会返工）。
+1. 给 `schemas/ir/v0.3/pcb.schema.json` 的字段补 `description`（`pcb` 描述落地时一并做，否则会返工）。
 2. 把"缺说明字段数"变成一个门槛（`gen:check` 或 CI 里卡覆盖率），防止新字段裸奔。
 
 **注意**：description 是**契约的一部分**（写的是这个字段装什么），不是文档润色；补它等于把 IR 语义写进唯一真源。补说明时若给 `$ref` 加兄弟 `description`，生成器必须开 `unreachableDefinitions`，否则命名类型会被内联掉（[ADR-0019](adr/0019-agent-contract-reference-and-check-entry.md)）。
 
 ## F21. pcb 描述：绑定校验、`fmt`、参考工程的 pcb
 
-**现状**：`pcb` 12 段的解析已落地（`packages/parser/src/pcb.ts` → `schemas/ir/v0.2/pcb.schema.json`，`texteda compile <dir> <id> --pcb`）。覆盖面是规范 §1–§6 的全部段与 10 种规则；`stackup` 顺序/编号、板厚与叠层之和、板框闭合与自交、重复放置、重复 pad 对都在解析期报。
+**现状**：`pcb` 12 段的解析已落地（`packages/parser/src/pcb.ts` → `schemas/ir/v0.3/pcb.schema.json`，`texteda compile <dir> <id> --pcb`）。覆盖面是规范 §1–§6 的全部段与 10 种规则；`stackup` 顺序/编号、板厚与叠层之和、板框闭合与自交、重复放置、重复 pad 对都在解析期报。
 
 **没做的三件**：
 
@@ -551,7 +551,7 @@
 
 **要做的事**：
 
-1. 给 `schemas/ir/v0.2/symbol.schema.json` 与 `footprint.schema.json` 加 `format`（或引用 `common` 的 `format_version`），与其它分片对齐——**先定用哪个名字**，别一个用 `format` 一个用 `format_version`。
+1. 给 `schemas/ir/v0.3/symbol.schema.json` 与 `footprint.schema.json` 加 `format`（或引用 `common` 的 `format_version`），与其它分片对齐——**先定用哪个名字**，别一个用 `format` 一个用 `format_version`。
 2. 解析器写入规范化的版本号（补丁位为 0 时省略，`0.6` 与 `0.6.0` 存成同一个字符串）。
 3. 这是 **IR 契约变更**：`ir_version` 要不要跟着动（当前 `0.1`）按 [ADR-0008](adr/0008-ir-shard-identity-and-hash.md) 的分片约定决定，别顺手改。
 4. 补 `tests/schemas/` 的正反例与 `bun run gen` 生成的类型。
@@ -588,7 +588,7 @@
 **现状**：`bun run texteda ir <工程目录>` 已经写出整棵分片树——`boards/<board_id>/{schematic,pcb}.json`、`boards/<board_id>/view/<page_id>.json`、`assets/symbols/<lib>/<id>.json`、`assets/footprints/<lib>/<id>.json`，外加 `manifest.json`（每片 sha256 + 工程哈希），布局与哈希规则见 [ADR-0023](adr/0023-ir-layer-on-disk.md)。但 [ADR-0008](adr/0008-ir-shard-identity-and-hash.md) decision 1 里定的另外三种分片**一片都没有**：
 
 - `project.json`——`project.toml` 的 IR 投影（字段对字段：`name`/`version`/`format`/`description`/`license`/`status`/`default_variant`/`authors`/`links`/`boards`/`variants`/`libs`/`compliance`/`ext`）。**`project.toml` 至今没有解析器**（F17）。
-- `assets/components/<component_id>.json`——器件描述的 IR 分片。`assets/components/**` 今天只有只读事实读取 `readComponentFacts`（给符号/封装导出合并引脚用），**没有 IR schema 的生产者**；`schemas/ir/v0.2/component.schema.json` 在，但没人往里填语义。
+- `assets/components/<component_id>.json`——器件描述的 IR 分片。`assets/components/**` 今天只有只读事实读取 `readComponentFacts`（给符号/封装导出合并引脚用），**没有 IR schema 的生产者**；`schemas/ir/v0.3/component.schema.json` 在，但没人往里填语义。
 - `systems/<system_id>.json`——多板连接描述的 IR 分片。`system` 描述**连语法都没有**（只有 `teda.md` 的一段与 schema）。
 
 **要做的事**：
@@ -609,7 +609,7 @@
 
 ## F25. 器件拆成 part / family，器件资产归到 `assets/`（ADR-0027 的落地）
 
-**现状**：**语言与实现已落地**（2026-10-22）——`component` 有必填 `kind`（`part` / `family`）、族专有的 `construction` / `polarized`，`part` 禁 `params`、族必带必填 `value`；`packages/parser` 有真正的 `component` 解析器（`packages/parser/src/component.ts`），族与件分目录（`assets/families/` / `assets/components/`），目录与 `kind` 不一致报错；参考工程已拆成 16 个件与 6 个族；迁移脚本 `bun run migrate:0.9 <项目目录>` 已写。决策见 [ADR-0027](adr/0027-device-parts-families-and-library-dependencies.md)。
+**现状**：**语言与实现已落地**（2026-10-22）——`component` 有必填 `kind`（`part` / `family`）、族专有的 `construction` / `polarized`，`part` 禁 `params`、族必带必填 `value`；`packages/parser` 有真正的 `component` 解析器（`packages/parser/src/component.ts`），族与件分目录（`assets/families/` / `assets/components/`），目录与 `kind` 不一致报错；参考工程已拆成 16 个件与 6 个族。**本项目尚无外部使用者，没有需要迁移的旧文件，所以不写迁移脚本**——改法写在 `spec/teda.md` §13.4。决策见 [ADR-0027](adr/0027-device-parts-families-and-library-dependencies.md)。
 
 **未落地**：IR 契约的 `kind` / `construction` / `polarized` 字段（随 F25 / F27 / F28 同批升到 v0.3）、`lib:id` 限定名与库解析顺序、变体对族的作用域、采购描述类型（F35）、库的信任模型（F26）。
 
@@ -619,17 +619,17 @@
    - **引脚表是身份分界**（[ADR-0027](adr/0027-device-parts-families-and-library-dependencies.md) decision 3）：引脚表变了就是另一个器件；只有不改引脚表、不改引脚行为的属性才允许进 `params`（value / tolerance / 耐压 / ESR / 温度档）。`package` 与 `footprint` 是 part / family 的固定属性，**不是** `params`。
    - **一封装一 part**（decision 4）：同一 die 的多个封装 = 多个 part 文件，各自写**完整**引脚表；不做引脚表合成、不做多封装 part。
 2. **目录迁移（器件这一半已落地）**：`assets/components/passives/c-0402.teda` → `assets/families/cap-mlcc-0402.teda`（族 id 不带值、带构造）、`c-220u.teda` → `assets/families/cap-tantalum-7343.teda`（`construction tantalum` + `polarized yes`）、`r-0402.teda` → `assets/families/res-thick-0402.teda`；有真 MPN 的（`xtal-8mhz-3225`、`l-6r8` → `ihlp2525czer6r8m01` 等）留在 `assets/components/*` 并标 `kind: part`；`assets/symbols/project/*` → `assets/symbols/*`、`assets/footprints/project/*` → `assets/footprints/*` 与 `project.toml` 的 `[libs.project]` 删除**已随 F29 落地**。
-3. **迁移脚本（已落地）**：`bun run migrate:0.9 <项目目录>`（`scripts/migrate-0.9.ts`）：加 `kind`、把族挪进 `assets/families/`、版本提到 `0.1.1`；**族 id 的改名与 `construction` / `polarized` 的取值由作者决定，脚本只报告不替人填**。
+3. **迁移脚本：不做**（2026-10-23 定）——本项目尚无外部使用者，没有需要迁移的旧文件；改法写在 `spec/teda.md` §13.4（加 `kind`、把族挪进 `assets/families/`、版本提到 `0.1.2`）。**族 id 的改名与 `construction` / `polarized` 的取值由作者决定**，工具不替人填。
 4. **命名空间**：`instances` 行支持 `lib:id` 限定名（库内件必须限定，项目件可裸写）；解析顺序：项目 `assets/components/` → 项目 `families/` → 库。
 5. **variant 作用域**：`packages/core` 的 ERC 里，变体按 `component_id` 生效只对 `kind: part` 成立；族只能按实例作用域（DNP/替代料指到具体实例）。
 6. **`params` 语义校验（部分落地）**：`part` 禁 `params`、族必带必填 `value`、`package` / `footprint` 不得作参数列、必填列在前——都已在解析器里查（诊断码 `value.component-identity-invalid` / `value.component-param-reserved` / `value.component-param-order`）。**未落地**："改引脚表/改引脚行为"这层语义靠人工判定（编译器查不了），仍靠约定 + 库级检查。
 7. **`procurement/` 描述类型**：新描述类型（族+规格 → 料），带 parser 与 fmt；BOM 行键统一为 `(component_id, 参数字典)`（part 的参数为空）。**格式已定**（[ADR-0030](adr/0030-procurement-layer.md) 已 Accepted，语法见 `spec/procurement.md`），**实现见 F35**。
    - **主料 / 备选分离**：主料在 `assets/procurement/primary/<board_id>.teda`（**规范分片**，进工程哈希与板哈希，决定 BOM 与制造包）；第二货源在 `assets/procurement/alternatives/<board_id>.teda`（**附注分片**，进 IR 但**不进工程哈希**，另聚合成 `advisory_hash`）——换备选不触发重建、不作废已评审的制造包。备选违反硬约束（封装不等、不是 part、无 `mpn`）报 **warning**，不阻断构建；主料违反则是 error；备选文件的**语法错**仍是 error（文件坏了）。
-8. **IR 契约（未落地）**：`schemas/ir/v0.2/component.schema.json` 加 `kind` / `construction` / `polarized`，契约版本到 **v0.3**（纯增量），跑 `bun run gen` 重生成类型，`tests/schemas/` 补正反例。**与 F27 / F28 同批升**（契约一次升到 v0.3，别分两次）。
+8. ~~**IR 契约（未落地）**~~ **已落地**（2026-10-23）：`schemas/ir/v0.3/component.schema.json` 加 `kind` / `construction` / `polarized`，契约版本到 **v0.3**（纯增量），`bun run gen` 重生成类型，`tests/schemas/` 补正反例。**与 F27 同批升**（契约一次升到 v0.3，别分两次）；F28 的双哈希还没做，它不再需要抬版本。
 
 **验收**：
 
-- `bun run migrate:0.9` 后参考工程仍 `bun run check` 通过、`bun run lib:verify` 全绿、`bun run fmt:teda --check .` 退出 0。
+- 参考工程 `bun run check` 通过、`bun run lib:verify` 全绿、`bun run fmt:teda --check .` 退出 0。
 - 变体对族的作用域有专门用例：族级 DNP 报错，实例级 DNP 通过。
 - 库件限定名与裸名解析各有用例；库内件不限定时报"必须限定"而不是"找不到"。
 
@@ -670,13 +670,13 @@
 
 ## F27. `package` 字段删除、3D 模型改挂 part（ADR-0029 的落地）
 
-**现状**：`component` 同时写 `package LQFP-100` 与 `footprint project:lqfp-100`（同一事实写两遍，无校验）；3D 模型按 `model` 行挂在 **footprint** 文件上（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md)）。决策见 [ADR-0029](adr/0029-package-code-footprint-and-3d-model-ownership.md)，**未落地**。
+**现状**：**第 1、2 条已落地**（2026-10-23）：`component` 不再写 `package`（读到即报错 `syntax.removed-construct`），封装代号由 land pattern 自己写（`package_code`，`lib:verify` 要求每个封装都写）；契约随这批从 v0.2 升到 **v0.3**（`schemas/ir/v0.3/`），语言的 `component` 线 `0.1.1` → `0.1.2`、`footprint` 线 `0.4` → `0.4.1`，改法写在 `spec/teda.md` §13.4（本项目没有需要迁移的旧文件，不写迁移脚本）。**第 3-8 条未落地**：3D 模型仍按 `model` 行挂在 **footprint** 文件上（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md)）。决策见 [ADR-0029](adr/0029-package-code-footprint-and-3d-model-ownership.md)。
 
 **要做的事**：
 
-1. **`component` 去掉 `package` 字段**：`teda.md` §6 改写；`packages/parser` 的 `component` 解析器读到该字段即报错（字段已不存在，不要静默忽略）；`schemas/ir/v0.2/component.schema.json` 去掉 `package`（契约 v0.2 → v0.3）。
-2. **`footprint` 增加 `package_code`**：`spec/footprint.md` 与 `packages/parser` 的 footprint 解析器；`schemas/ir/v0.2/footprint.schema.json` 加字段。封装代号（`0402` / `SOT-23-5` / `LQFP-100`）落在 land pattern 文件里，footprint id 通常已经带它。
-3. **3D 模型改挂 part**：`component` 增加可选 `model <相对路径>`；`footprint` 解析器**拒绝** `model` 行（迁移脚本负责搬）；**footprint 的 IR 分片与 schema 去掉 `model3d`**（`schemas/ir/v0.2/footprint.schema.json` 现在还有它），`packages/exporter` 也不再往 `.kicad_mod` 写 `(model ...)`。`spec/footprint.md` §6.1 的 `model` 行要删。
+1. ~~**`component` 去掉 `package` 字段**~~ **已落地**：`spec/teda.md` §6.1 改写；`packages/parser/src/component.ts` 读到该字段即报错（`syntax.removed-construct`，字段已不存在，不要静默忽略）；`schemas/ir/v0.3/component.schema.json` 去掉 `package`、加上 `kind` / `construction` / `polarized`（契约 v0.2 → v0.3）。
+2. ~~**`footprint` 增加 `package_code`**~~ **已落地**：`spec/footprint.md` §2 与 `packages/parser/src/footprint.ts`；`schemas/ir/v0.3/footprint.schema.json` 加字段。封装代号（`0402` / `SOT-23-5` / `LQFP-100`）落在 land pattern 文件里，footprint id 通常已经带它；`lib:verify` 要求每个封装都写明自己的代号。
+3. **3D 模型改挂 part**：`component` 增加可选 `model <相对路径>`；`footprint` 解析器**拒绝** `model` 行（迁移脚本负责搬）；**footprint 的 IR 分片与 schema 去掉 `model3d`**（`schemas/ir/v0.3/footprint.schema.json` 现在还有它），`packages/exporter` 也不再往 `.kicad_mod` 写 `(model ...)`。`spec/footprint.md` §6.1 的 `model` 行要删。
 4. **3D 模型文件的存放位置**：放在提供该 part 的树里（项目或库），例如 `3dmodels/<id>.step`，被 `content_hash` 覆盖（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) decision 5）。库哈希的计算范围要相应调整（`scripts/libhash.ts` 现在只算 `assets/symbols/` + `assets/footprints/`）。
 5. **导出的 footprint 是纯 2D，没有变体**（ADR-0029 的 2026-10-22 附录已定）：KiCad 输出是给**板厂**的派生产物，最多给人 review，不当工作环境——KiCad 自己的 footprint 也不绑 part。所以导出的 `.kicad_mod` **不带 3D 模型**，一个 land pattern 一个文件，**没有封装变体**，导出器重新变成 footprint IR 的**纯函数**（`export footprint --part` 不做）。3D 身体留在 part / family 文件里，用在有 part 上下文的地方：我们自己的 3D 预览与装配层、板级导出（每个实例可带自己的模型路径）。可选：land pattern 可附一个**封装外形**（包络，按 land pattern 唯一，也不产生变体）。
 6. **KiCad 输出里不再有 3D 身体**：今天 `.kicad_mod` 带 `(model ...)`（来自 footprint 的 `model3d`），去掉后 KiCad 里只看得到 2D。
@@ -694,7 +694,7 @@
 **注意**：
 
 - **这是 ADR-0010 的修订**（3D 归属），但 ADR-0010 decision 1（语言里没有尺寸字段）**不变**——本次不引入任何尺寸字段。
-- 契约从 v0.2 升到 v0.3 是同一批（`kind` / `construction` / `polarized` / 去 `package` / 加 `package_code`），别分两次升。
+- ~~契约从 v0.2 升到 v0.3 是同一批（`kind` / `construction` / `polarized` / 去 `package` / 加 `package_code`），别分两次升。~~ **已按这一批升完**（2026-10-23，`schemas/ir/v0.3/`）。
 - **别把 model 挂回 footprint**：导出器保持 footprint IR 的**纯函数**（2026-10-22 附录改了 decision 3 的方向——原来"导出器需要 part 上下文"这条已被推翻，因为 KiCad 输出只给板厂与评审，`.kicad_mod` 是纯 2D land pattern）。
 - 身体信息仍然是 part / family 的事实，只是**不写进 KiCad 库文件**；写它进 KiCad 的动机只能是"想给 KiCad 用户看形体"，那用**封装外形**，不用厂商件。
 
@@ -708,7 +708,7 @@
 
 1. **分片分类**：manifest 的 `shards` 每项加 `normative: true | false`。分类是**文件级**属性（一个源文件 → 一个分片 → 一个分类，[ADR-0008](adr/0008-ir-shard-identity-and-hash.md) decision 1），所以采购层拆成两个目录：`assets/procurement/primary/<board_id>.teda`（规范）与 `assets/procurement/alternatives/<board_id>.teda`（附注）。
 2. **双哈希**：工程哈希 = 规范分片聚合；新增 `advisory_hash` = 附注分片聚合（同算法、同形状）。板哈希不变（板分片恒为规范）。
-3. **manifest schema**：`schemas/ir/v0.2/manifest.schema.json` 加 `normative` 与 `advisory_hash`（契约 v0.2 → v0.3，与 F25 / F27 同批升）。
+3. **manifest schema**：`schemas/ir/v0.3/manifest.schema.json` 加 `normative` 与 `advisory_hash`（契约 v0.2 → v0.3，与 F25 / F27 同批升）。
 4. **`texteda ir --json` 载荷**加 `advisory_hash`；人读摘要要能一眼看出"构建身份"与"采购状态"两个不同的数。
 5. **盖章规则**：Gerber / 网表 / BOM 主料行盖 `project_hash`；采购附注盖 `advisory_hash`（`AGENTS.md` §2 不变量 11 的追溯口径要按产物类型分）。
 6. **陈旧检查**：`texteda check` 比对当前 `advisory_hash` 与采购附注里盖的那个 → 不一致报 warning（"采购附注已过期"）。
@@ -740,7 +740,7 @@
 3. **库 vendoring**：`texteda lib add <name>@<rev>` 拉取、落进 `external/libs/<name>/`、算 `content_hash`、写 `libref`；编译期不联网；库资产进 `dist/ir/`（规范分片）。
 4. **分片布局与源码树解耦**：分片按种类固定（`boards/` `assets/symbols/` `assets/footprints/` `families/` `assets/components/` `procurement/` `librefs/`），映射由每片的 `source.file` 承担（[ADR-0023](adr/0023-ir-layer-on-disk.md) decision 2 修订）；挪源码目录不改分片路径、不改工程哈希。
 5. **`texteda init`** 建新骨架：`assets/{symbols,footprints,families,components}`、`assets/procurement/{primary,alternatives}`、`external/{libs,simulation}`、`design/{sch,pcb,modules,system}`、`docs/`。
-6. **迁移脚本**：与 F25 的 `bun run migrate:0.9 <项目目录>` **合并成一次迁移**（同一批路径变更、同一次跑），脚本负责挪目录与改 `project.toml`，不替人命名、不替人决定库版本。
+6. **迁移脚本**：不做——本项目尚无外部使用者，没有需要迁移的旧文件；F28 的目录变更直接改文件，改法写进 `spec/teda.md` §13.4，不替人命名、不替人决定库版本。
 7. **`external/cache/` 纪律**：厂商数据手册 PDF 放这里，gitignore；`check:public` 要能发现误提交的 PDF（今天查的是历史与工作区，新增这条要确认覆盖到新路径）。
 
 **验收**：
@@ -958,7 +958,7 @@
 **要做的事**：
 
 1. `spec/footprint.md` §4：`pads` 段加非电气标记（尾列 `key=value` 形式，与现有 `zone` / `thermal_w` 等一致），语义写死：非电气焊盘不参与 `lib:verify` 的"焊盘号覆盖器件引脚"检查。
-2. `packages/parser/src/footprint.ts` + `schemas/ir/v0.2/footprint.schema.json` 同步（**规范与实现同一次提交**）；封装类型版本线走 PATCH（[ADR-0022](adr/0022-language-versioning.md) 附录 A2）。
+2. `packages/parser/src/footprint.ts` + `schemas/ir/v0.3/footprint.schema.json` 同步（**规范与实现同一次提交**）；封装类型版本线走 PATCH（[ADR-0022](adr/0022-language-versioning.md) 附录 A2）。
 3. 绑定校验（`packages/core`）按新口径：非电气焊盘挂 net → error。
 4. `lib:verify` 相应放宽。
 
@@ -977,8 +977,8 @@
 **要做的事**：
 
 1. `spec/pcb.md` §4.11：`physical_only` 行加位置（`<x> <y>`），删 `test_point` 那一行与表里那一行，§5.2 规则 8 里 `test_point` 的半句删掉（白名单句已是四类 ✓）。
-2. `packages/parser/src/pcb.ts` + `schemas/ir/v0.2/pcb.schema.json` 同步（**规范与实现同一次提交**）：`physical_only` 的 IR 加 `x_nm` / `y_nm`，删 `test_point` 变体。
-3. **版本记账**：删 IR 变体是破坏性改动 → 随 `ir_version` 从 `0.2` 到 `0.3` 一起走（`schemas/ir/v0.2/` → `v0.3/`，重新生成 `packages/ir/src/generated/`），与 F25 / F28 的 v0.3 增量**合并成一次移动**，不要分两次。语言侧按 ADR-0022 A2 的口径：删除形态是"老文件不再合法"的改动 → 需要 pcb 描述类型的版本线前移一位（0.8 → 0.9），而**每种类型一条版本线**本身还没做（F31）→ 依赖 F31；迁移说明写进 `teda.md` §13（照 0.7 撤销 `page` 的写法）。
+2. `packages/parser/src/pcb.ts` + `schemas/ir/v0.3/pcb.schema.json` 同步（**规范与实现同一次提交**）：`physical_only` 的 IR 加 `x_nm` / `y_nm`，删 `test_point` 变体。
+3. **版本记账**：删 IR 变体是破坏性改动 → 随 `ir_version` 从 `0.2` 到 `0.3` 一起走（`schemas/ir/v0.3/` → `v0.3/`，重新生成 `packages/ir/src/generated/`），与 F25 / F28 的 v0.3 增量**合并成一次移动**，不要分两次。语言侧按 ADR-0022 A2 的口径：删除形态是"老文件不再合法"的改动 → 需要 pcb 描述类型的版本线前移一位（0.8 → 0.9），而**每种类型一条版本线**本身还没做（F31）→ 依赖 F31；迁移说明写进 `teda.md` §13（照 0.7 撤销 `page` 的写法）。
 4. 绑定校验（`packages/core`）：`physical_only` 的 net 引用规则只剩 `stitching`；白名单完整性检查按四类。
 5. 渲染器与制造数据：`physical_only` 实体要能画、能带坐标——**在 PCB SVG 落地之前**这条只能做一半（能编译、不能画），要在 backlog 里写清楚，不要假装已可画。
 
@@ -1013,3 +1013,17 @@
 4. **同一次提交**改 `spec/`、`packages/ir/src/diagnostics/codes.ts`（若动指针）、生成的 `docs/error-codes.md` / `docs/ir-reference.md`（`bun run gen`），并跑 `bun run check:links`（ADR 链接文字与目标必须仍一致）。
 
 **为什么现在不做**：这一项的收益是"目录语义干净"，成本是动引用面与冻结契约。在十用例语料（F12）与 conformance 还没落地、引用面还没有统一锚点机制之前，**一份 `spec/teda.md` 更省事**。等 §N 引用面有了迁移机制再做不迟。
+
+## F40. IR 契约参考文档漏掉分片内的嵌套对象
+
+**现状**：**未落地**（2026-10-23 发现）。`docs/ir-reference.md`（由 `packages/ir/scripts/generate.ts` 生成）只画两块：分片的**顶层字段**与 `$defs` 里的**具名类型**。分片里**内联的对象**（`component` / `footprint` / `schematic` / `pcb` … 本身）**没有字段表**——例如 `component` 的 `id` / `kind` / `mpn` / `symbol` / `footprint` / `params` / `pins` / `pins_source` 与 `footprint` 的 `name` / `tags` / `attr` / `package_code` 都不在文档里，agent 只能去读 schema。
+
+**为什么重要**：这份文档是给 agent 的**字段查询表**（类型、单位、必填性）。字段没列出来 = agent 猜。
+
+**要做的事**：
+
+1. 生成器在画完顶层与 `$defs` 后，再遍历顶层各字段里**内联**的 object 属性（`properties` + `additionalProperties: false`），按 `kind.字段名` 出一张表（`### component` / `### footprint` …）。
+2. 顺带修覆盖率统计：现在只统计已画出的块，覆盖率分母偏小（"269/350"没有覆盖嵌套字段）。
+3. 生成产物改动会很大（文档会显著变长），同一次提交跑 `bun run gen` 与 `bun run gen:check`。
+
+**为什么现在不做**：与"删掉器件文件里的 `package` 字段"（ADR-0029 decision 1）无关，是生成器的既有缺口；补它会让本次改动的 diff 从"一件事"变成"两件事"。

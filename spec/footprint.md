@@ -23,11 +23,11 @@
 ## 1. 文件头
 
 ```
-version 0.4
+version 0.4.1
 footprint sot-23-5
 ```
 
-- 版本行、类型行规则同 `teda.md` §5。`footprint` 类型要求 `version 0.4` 或更高（该类型由 0.4 引入；接受规则见 `teda.md` §13.3）。
+- 版本行、类型行规则同 `teda.md` §5。`footprint` 类型要求 `version 0.4` 或更高（该类型由 0.4 引入；`package_code` 标量由 0.4.1 引入；接受规则见 `teda.md` §13.3）。
 - 文件名必须等于类型行里的 id：`assets/footprints/<lib>/<footprint_id>.teda` ↔ `footprint sot-23-5`。
 - `footprint_id` 允许 `[A-Za-z0-9_.+-]+`（比 `component_id` 宽：库里的封装名常带大写与下划线，如 `R_0402_1005Metric`）。
 
@@ -42,10 +42,11 @@ footprint sot-23-5
 | `description` | 否 | 自由文本。进 IR 的 `description`。 |
 | `tags` | 否 | 空格分隔的标签列表（KiCad 的 `tags` 是一个空格分隔的字符串）。 |
 | `attr` | 否 | `smd` / `through_hole` / `virtual` / `board_only`；缺省按焊盘推断（全 `smd` → `smd`）。 |
+| `package_code` | 否 | 这块焊盘图案的封装代号，如 `0402`、`SOT-23-5`、`LQFP-100`。器件文件不再写封装名，封装代号由这里说（决策见 [ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) decision 1）。库级检查要求每个封装都写明自己的代号。 |
 | `model` | 否 | 3D 模型：`model <path> [offset=x,y,z] [scale=x,y,z] [rot=x,y,z]`。`path` 是项目相对路径。 |
 | `field` | 否 | 属性，可重复：`field <Name> [key=value …] <text…>`。可选键：`at`（`x,y`）、`layer`、`hide`（`yes`）、`size`（`w,h`）、`thickness`。`text` 是**行尾剩余文本**（可为空），所以 `key=value` 必须写在值之前。常见 `Reference` / `Value` / `Datasheet`。 |
 
-顺序无关，canonical form 固定为 `description` → `tags` → `attr` → `model` → `field`（按 `Name` 排序）。
+顺序无关，canonical form 固定为 `description` → `tags` → `attr` → `package_code` → `model` → `field`（按 `Name` 排序）。
 
 ---
 
@@ -134,7 +135,7 @@ graphics
 1. `pads` 的 `number` 唯一；`type=th` 必须有 `drill`；`shape=roundrect` 才允许 `rratio`。
 2. `graphics` 的 `geometry` 单元格点数与 `kind` 匹配；`poly` 点数 ≥ 3。
 3. `field` 的 `Name` 唯一。
-4. 编译产物必须通过 `schemas/ir/v0.2/footprint.schema.json`（closed schema）。
+4. 编译产物必须通过 `schemas/ir/v0.3/footprint.schema.json`（closed schema）。
 5. 库级检查（与符号引脚号比对、DRC）不属于本描述，属工具链（[ADR-0010](../docs/adr/0010-footprint-and-3d-model-ownership.md) decision 3）。
 6. 编译产物的顺序只依赖语义，不依赖源文件书写顺序：`pads` 按号自然序、`graphics` 按 `(kind, layer, 坐标)`、`fields` 按 `Name`、`tags` 按字节序。同一封装换个写法编译出的 IR 必须字节相同（这是 `content_hash` 与产物可复现的前提）。
 
@@ -146,7 +147,7 @@ graphics
 
 `teda.md` §12 的通用规则之外：
 
-1. 标量顺序：`description` → `tags` → `attr` → `model` → `field`（按 `Name` 排序）。
+1. 标量顺序：`description` → `tags` → `attr` → `package_code` → `model` → `field`（按 `Name` 排序）。
 2. 段顺序：`pads` → `graphics`；段之间一个空行。
 3. `pads` 行按 `number` **自然序**（`2` 在 `10` 前）；`graphics` 行按 `(kind, layer, geometry)` 字典序。
 4. 布局：
@@ -168,12 +169,13 @@ graphics
 `examples/reference-project/footprints/project/sot-23-5.teda`（即 canonical form；`bun run fmt:teda --check examples/reference-project/footprints` 退出 0）：
 
 ```
-version 0.4
+version 0.4.1
 footprint sot-23-5
 
 description SOT-23-5 body 2.9x1.6mm pitch 0.95mm (generic land pattern)
 tags SOT-23 SOT-23-5
 attr smd
+package_code SOT-23-5
 field Reference at=0,-2 layer=F.SilkS size=1,1 thickness=0.15 REF**
 field Value at=0,2 layer=F.Fab size=1,1 thickness=0.15 SOT-23-5
 

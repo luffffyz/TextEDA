@@ -7,6 +7,7 @@
 // What is checked here is what the file can know by itself: the syntax, the right-angle rule, the
 // sheet bounds, and "the endpoint's instance is placed". Everything that needs the board (does this net
 // exist? is this pin one of its members?) is the board cross-check's job, not the parser's.
+import { irVersion } from "@texteda/ir";
 import type { SchematicView } from "@texteda/ir/schematic-view";
 import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
 import { lex, type Cell, type Line } from "./lexer.ts";
@@ -385,7 +386,7 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
   if (collector.hasError) return { ok: false, diagnostics: collector.diagnostics };
 
   const ir: SchematicView = {
-    ir_version: "0.2",
+    ir_version: irVersion,
     // The canonical spelling of the version: `0.7` and `0.7.0` are the same version, so the IR stores one of them.
     format: verdict.ok ? verdict.text : version,
     source: { file: options.file, line: 1 },

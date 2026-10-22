@@ -1,11 +1,10 @@
-version 0.1.1
+version 0.1.2
 component ihlp2525czer6r8m01
 
 kind         part
 mpn          IHLP2525CZER6R8M01
 manufacturer Vishay Dale
 category     inductor
-package      IHLP-2525CZ
 
 symbol project:l
 footprint project:ihlp-2525

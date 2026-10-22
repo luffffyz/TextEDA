@@ -4,6 +4,7 @@
 // and replace unit-bearing literals with integers.
 // Cross-description consistency (whether a pad belongs to the same sch net, whether a net exists)
 // is binding validation (spec §5.2); it needs the flattened sch result and is not done in this file.
+import { irVersion } from "@texteda/ir";
 import type {
   ConnectEdge,
   Deviation,
@@ -939,7 +940,7 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
   }
 
   const ir: Pcb = {
-    ir_version: "0.2",
+    ir_version: irVersion,
     // The canonical spelling of the version: `0.6` and `0.6.0` are the same version, so the IR stores one of them.
     format: verdict.ok ? verdict.text : format,
     source: { file, line: 1 },
