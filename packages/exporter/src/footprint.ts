@@ -1,6 +1,6 @@
 // Footprint → KiCad artifacts.
 //
-// The source of truth is the footprint shard in the IR (schemas/ir/v0.2/footprint.schema.json);
+// The source of truth is the footprint shard in the IR (schemas/ir/v0.3/footprint.schema.json);
 // this file writes it out as two KiCad artifacts (ADR-0011):
 //   1. footprintModule — a standalone .kicad_mod (drop it into a .pretty library directory; KiCad uses it as a normal library)
 //   2. footprintInline — an inline footprint block in the board file (KiCad 6+ board files carry their own geometry and need no library)

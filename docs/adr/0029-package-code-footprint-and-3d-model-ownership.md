@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-22
 Related: [ADR-0010](0010-footprint-and-3d-model-ownership.md), [ADR-0011](0011-library-format-and-footprint-ir.md), [ADR-0027](0027-device-parts-families-and-library-dependencies.md), [ADR-0004](0004-ir-representation.md)
-Impact: `teda.md` §6 (the `component` description type); `spec/footprint.md` (a `package_code` field); `schemas/ir/v0.2/component.schema.json`, `schemas/ir/v0.2/footprint.schema.json`; `packages/parser` (the `component` and `footprint` parsers); `packages/exporter` (the footprint export needs a part context); `AGENTS.md` §4.5, §9; `examples/reference-project/`
+Impact: `teda.md` §6 (the `component` description type); `spec/footprint.md` (a `package_code` field); `schemas/ir/v0.3/component.schema.json`, `schemas/ir/v0.3/footprint.schema.json`; `packages/parser` (the `component` and `footprint` parsers); `packages/exporter` (the footprint export needs a part context); `AGENTS.md` §4.5, §9; `examples/reference-project/`
 
 ## Background
 
@@ -263,3 +263,24 @@ the board export).
 The envelope is not a vendor model, and nothing may present it as one. The 3D preview and any
 assembly output label it as the package envelope of that land pattern. The honesty rule of
 [ADR-0028](0028-library-trust-and-derived-overrides.md) applied to geometry.
+
+## Addendum (2026-10-23): decision 1 landed; the contract moved to v0.3
+
+Decision 1 is implemented.
+
+- The `component` description type drops the `package` scalar (its line moves `0.1` -> `0.1.2`).
+  A file that still writes one is an error, not an unknown key: the parser reports
+  `syntax.removed-construct` and points at the note in `spec/teda.md` §13.4. The `package` and
+  `footprint` names stay reserved as `params` columns.
+- The `footprint` description type gains the `package_code` scalar (its line moves `0.4` ->
+  `0.4.1`); the canonical order places it after `attr`. `bun run lib:verify` requires every
+  land pattern to state its own code.
+- The IR contract moves to `v0.3`: the component shard gains `kind`, `construction` and
+  `polarized` ([ADR-0027](0027-device-parts-families-and-library-dependencies.md) decision 11)
+  and loses `package`; the footprint shard gains `package_code`. One bump, not two.
+- No migration script is written: the project has no external users yet
+  ([ADR-0031](0031-project-tree-ownership-model.md), 2026-10-23 addendum), so the note in
+  `spec/teda.md` §13.4 lists the manual steps instead.
+
+Decisions 2 and 3 are not implemented yet: the 3D `model` pointer still hangs on the footprint
+file, and the `envelope` field does not exist.

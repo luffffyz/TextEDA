@@ -12,6 +12,9 @@ This is the **only** contract for the TextEDA IR: JSON Schema 2020-12. The seman
 | `schematic.schema.json` | `urn:texteda:ir:0.3:schematic` | `design/sch/<board_id>.teda` |
 | `pcb.schema.json` | `urn:texteda:ir:0.3:pcb` | `design/pcb/<board_id>.teda` |
 | `system.schema.json` | `urn:texteda:ir:0.3:system` | `system/<system_id>.teda` |
+| `symbol.schema.json` | `urn:texteda:ir:0.3:symbol` | `assets/symbols/<lib>/<id>.teda` |
+| `footprint.schema.json` | `urn:texteda:ir:0.3:footprint` | `assets/footprints/<lib>/<id>.teda` |
+| `schematic-view.schema.json` | `urn:texteda:ir:0.3:schematic-view` | `views/<board_id>/<page_id>.view.teda` |
 | `manifest.schema.json` | `urn:texteda:ir:0.3:manifest` | none (`dist/ir/manifest.json`) |
 
 Every schema is **closed** (`additionalProperties: false`) with exhaustive enums. Unknown fields are rejected outright, never downgraded to warnings.
