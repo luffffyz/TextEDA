@@ -20,8 +20,10 @@ Every architecture decision record in this repository, in numeric order.
 | [ADR-0014](0014-reference-renderer.md) | Our Own Reference Renderer — IR → Drawing Commands → SVG, with a Preview That Does Not Depend on KiCad | Accepted | 2026-10-20 |
 | [ADR-0015](0015-licensing-and-open-standard.md) | Licensing and Openness Policy — The Contract Layer Is Open Source Forever, the Project Is a Pure Open Technical Specification | Accepted | 2026-10-21 |
 | [ADR-0016](0016-diagnostic-error-codes.md) | Diagnostic Error Code Registry (`domain.slug`) | Accepted | 2026-10-21 |
+| [ADR-0017](0017-fact-layer-no-expressions.md) | The Fact Layer Has No Expressions; Generators Live Outside the Language | Accepted | 2026-10-22 |
 | [ADR-0018](0018-zero-dependency-and-manufacturing-target.md) | Zero-Dependency Principle and the Target Form of the Manufacturing Output | Accepted | 2026-10-21 |
 | [ADR-0019](0019-agent-contract-reference-and-check-entry.md) | Contract Reference and Check Entry Point for Agents | Accepted | 2026-10-21 |
+| [ADR-0020](0020-source-spans.md) | Source Spans — Diagnostics Point at the File, the IR Stays Clean | Accepted | 2026-10-22 |
 | [ADR-0021](0021-schematic-view-layer.md) | The Schematic View Layer (S1) Is an Independent Description; the Review UI Is Browser-First | Accepted | 2026-10-21 |
 | [ADR-0022](0022-language-versioning.md) | Language Versioning — MAJOR.MINOR.PATCH, and 1.0 as a Milestone | Accepted | 2026-10-21 |
 | [ADR-0023](0023-ir-layer-on-disk.md) | The IR Layer on Disk (Shard Tree, Manifest, Hashes) | Accepted | 2026-10-21 |
@@ -41,10 +43,7 @@ Every architecture decision record in this repository, in numeric order.
 A number is reserved when the decision is agreed but the record is not written yet. A document may cite a reserved
 number; the number itself is never reused, and the file name is fixed when the record is written.
 
-| ADR | Planned file | Backlog item |
-|---|---|---|
-| ADR-0017 | `0017-fact-layer-no-expressions.md` | F9 |
-| ADR-0020 | `0020-source-spans.md` | F11 |
+No number is reserved at the moment.
 
 ## Rules
 
