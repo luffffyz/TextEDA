@@ -537,7 +537,7 @@
 
 **没做的三件**：
 
-1. ~~**绑定校验**~~ **已落地（规则 1–5）**：`packages/core/src/binding/checks.ts` 的 `checkBinding()`，接在 `texteda check` 里（有 `pcb/<board>.teda` 就跑）。覆盖：未知实例、未放置 pad、跨 net 短接（`net_tie` 可豁免）、未布线（warning）、未知 net。**还差**规则 6–8（`rules`/`trace` 的层名与 net 存在性已做，`physical_only` 的 `fiducial` 不得挂 net、`deviation` 白名单类型完整性）与规则 10–11（多边形自交已在解析期做，丝印层枚举已做）。
+1. ~~**绑定校验**~~ **已落地（规则 1–5）**：`packages/core/src/binding/checks.ts` 的 `checkBinding()`，接在 `texteda check` 里（有 `pcb/<board>.teda` 就跑）。覆盖：未知实例、未放置 pad、跨 net 短接（`net_tie` 可豁免）、未布线（warning）、未知 net。**还差**规则 6–8（`rules`/`trace` 的层名与 net 存在性已做，`physical_only` 的 `fiducial` 不得挂 net、`deviation` 白名单类型完整性）与规则 10–11（多边形自交已在解析期做，丝印层枚举已做）。另按 [ADR-0035](adr/0035-connectivity-authority-and-reverse-engineering.md) D2 的口径补三条：**白名单封闭**（五类之外的差异一律 error，不是 warning）、`test_point`（单层）与 `stitching`（跨层）的分界、连接两个不同 net 的过孔按 `net_tie` 处理。
 2. ~~**`pcb` 的 canonical formatter**~~ **已落地**：`packages/parser/src/fmt-pcb.ts`，`fmt --check` 已覆盖 pcb（参考工程的 `pcb/charger-buck.teda` 已重排成 canonical）。三条不变量都有测试：`parse(fmt(x))` 与 `parse(x)` 产出**逐字节相同**的 IR、`fmt(fmt(x)) == fmt(x)`、注释原地保留。**canonical 归一口径在解析器里**（`connect` 对内排序、`trace` 折线方向、`rules` 类型序），formatter 复用同一口径——否则 IR 与源文件会各排各的。
 3. ~~**参考工程的 pcb**~~ **已有**：`examples/reference-project/pcb/charger-buck.teda`（放置 M2 页 9 个器件 + `connect` + `trace`/`via`/`zone` + `rules`/`silk`），跑 `check` 零诊断。含两个真实约束，已补进实现与规范：**同一段可以重复出现**（该文件把 `trace` 分了两段，行按出现顺序拼接）、**段头独占一行**。
 
@@ -924,3 +924,40 @@
 - **前置依赖**：检查要用到 ADR-0027 的 `kind`（族/件）与 ADR-0028 的遮蔽语义（F25 / F32），先落它们。
 - **类型版本是 0.9，工具当前支持到 0.8**（`packages/parser/src/version.ts` 的 `SUPPORTED_LANGUAGE`）：解析器落地前，`procurement` 文件会被判为"比工具支持的版本新"——这是对的，工具确实还不认识这个类型。
 - 采购层是**决定**不是事实：别把价格、货期、供应商塞进描述里（ADR-0030 decision 9）。
+
+---
+
+## F36. 导入器：逆向工程 / 外部网表 → 本项目的源文件（**延后**）
+
+**现状**：**方向已定，实现为零**（[ADR-0035](adr/0035-connectivity-authority-and-reverse-engineering.md) D5/D6）。没有 pcb-only 模式：板必须有 sch；两个原本属于"pcb only"的场景由**导入器**承担——导入器是**语言之外的生成器**（[ADR-0017](adr/0017-fact-layer-no-expressions.md) D3），产物是表，评审对象是生成的 `sch`（对照原件检查），不是黑盒。
+
+**要做的事**（触发后）：
+
+1. 定范围：读什么（KiCad 工程？外部网表？纯几何？），写什么（`sch/` + `pcb/` + `components/`）。
+2. 从几何**推断**连通性：算法与置信度怎么表达；推断出的 net 名怎么起（用什么规则保证可读与唯一）。
+3. 推断结果怎么呈现给人看：哪些是确定的、哪些是猜的（`docs/` 里的报告 + 生成文件里的注释）。
+4. `components/` 怎么来：外部网表只有 pin 名与网络，器件型号常常缺失 → 生成的器件是"通用占位"（`kind: family`？）还是标 `unsourced`（F35 的口径）？
+5. 幂等与可复现：同一份输入两次导入的产物逐字节相同（不变量 18 的精神）。
+
+**注意**：
+
+- 导入器**不是** pcb-only 的后门：它必须产出 `sch`，之后的板和其他板一样 sch 优先。
+- 不要把导入器做成"网表黑盒"：它写出的表必须可读、可评审、可手改（[ADR-0017](adr/0017-fact-layer-no-expressions.md) D3 的反面就是它）。
+
+---
+
+## F37. 封装的非电气焊盘（ADR-0035 D3 的落地）
+
+**现状**：**未落地**。ADR-0035 D3 定了"器件有焊盘、器件没有引脚"的解法：电气焊盘 = 器件的一个引脚（器件与符号都要有）；非电气焊盘（散热片、屏蔽片、机械焊盘）= **封装声明**，且在 pcb 里不得挂 net（挂了是错误）。
+
+**要做的事**：
+
+1. `spec/footprint.md` §4：`pads` 段加非电气标记（尾列 `key=value` 形式，与现有 `zone` / `thermal_w` 等一致），语义写死：非电气焊盘不参与 `lib:verify` 的"焊盘号覆盖器件引脚"检查。
+2. `packages/parser/src/footprint.ts` + `schemas/ir/v0.2/footprint.schema.json` 同步（**规范与实现同一次提交**）；封装类型版本线走 PATCH（[ADR-0022](adr/0022-language-versioning.md) 附录 A2）。
+3. 绑定校验（`packages/core`）按新口径：非电气焊盘挂 net → error。
+4. `lib:verify` 相应放宽。
+
+**注意**：
+
+- **不要把源文本复制进 IR**；非电气标记是语义（[ADR-0004](adr/0004-ir-representation.md)）。
+- 器件侧的"电气焊盘 = 一个引脚"是 [ADR-0027](adr/0027-device-parts-families-and-library-dependencies.md) 的直接后果：引脚表变了就是另一个器件。

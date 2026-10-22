@@ -159,7 +159,7 @@ flowchart LR
 | 组合 | 场景 |
 |---|---|
 | sch only | 逻辑设计阶段、评审、出网表给别人布线 |
-| pcb only | 逆向工程、射频/结构驱动布局、从外部网表导入 |
+| pcb only | **不存在**——板必须有原理图；逆向工程/外部网表走导入器（[ADR-0035](docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D5/D6） |
 | sch + pcb | 常规；校验器检查一致性 |
 
 ### 4.2 原理图（S0）
@@ -216,7 +216,7 @@ flowchart LR
 
 段与语法见 `spec/pcb.md`；取舍与决策见 `docs/adr/0003-agent-first-pcb-ir.md`。
 
-**pcb 可以声明 net，但只能引用已有的 `net_id`**；不能创建新的逻辑连接。pcb-only 模式下，则必须先由 pcb 显式声明完整 net 集合，等价于承担 S0 的职责。
+**pcb 可以声明 net，但只能引用已有的 `net_id`**；不能创建新的逻辑连接。**没有 pcb-only 模式**：板必须有 sch，逆向工程与外部网表走导入器（[ADR-0035](docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D5/D6）。
 
 ### 4.4 绑定与一致性（核心）
 
@@ -232,8 +232,8 @@ flowchart LR
 2. 每个 sch 器件的 pin 必须能映射到封装 pad，或显式 `no_connect` / `dnp`。
 3. pcb 中每个 net 的成员集合，必须等于 sch net 成员集合在“已放置器件”上的投影，**除非**声明了受控偏差。
 4. pcb 的 `connect` 段显式声明哪两个 pad 之间有连续铜箔：每一对必须落在 sch 的同一 net 内（除非声明了受控偏差）；sch 每个 net 的每个成员 pad 至少出现在一个 `connect` 对里，否则报“该 net 未布线”。
-5. 受控偏差只有白名单类型：`net_tie`、`test_point`、`stitching`、`split_ground`、`fiducial`。偏差进入报告，不隐藏。
-6. 缺 sch 或 pcb 时跳过对应检查，并在报告里说明“未校验”。
+5. 受控偏差只有白名单类型：`net_tie`、`test_point`、`stitching`、`split_ground`、`fiducial`，**封闭**（加类要另起 ADR）。偏差进入报告，不隐藏；白名单是给物理特性与拆分/短接机制用的，**不是给“sch 没写”兜底的**（同上 D2）。
+6. 缺 `pcb` 时跳过 pcb 相关检查，并在报告里说明“未校验”；**缺 `sch` 是错误**——板必须有原理图（[ADR-0035](docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D5）。
 
 ### 4.5 器件描述（`components/`）
 
@@ -502,8 +502,8 @@ dist/ir/
 2. 表达式/参数化到什么程度（是否需要一门小表达式语言来算阻值）？**已定原则 + 保留修订条件**（[ADR-0017](docs/adr/0017-fact-layer-no-expressions.md)）：事实层的值是终值字面量、没有控制流，生成器在语言之外、产物是表；**受限表达式的引入条件已写死**——十用例的“20 路电源域”证明表宽到不可用（且只能在字面量上做常量算术），并需另起 ADR + 迁移脚本。**本条在十用例跑完前仍保留待定**（记录不关它）。
 3. ~~器件库来源：解析 KiCad `.kicad_sym`，还是自带紧凑格式？~~ **已定**：自建库（封装与符号）都用 `.teda` 描述，KiCad 格式是导出产物；借来的库照旧消费，引用形式一致。封装见 [ADR-0011](docs/adr/0011-library-format-and-footprint-ir.md)、`spec/footprint.md`；符号见 [ADR-0012](docs/adr/0012-symbol-description.md)、`spec/symbol.md`（引脚的电学事实归 `component`，符号只写视图）。
 4. ~~导出优先：KiCad `.kicad_sch/.kicad_pcb` 还是 Circuit JSON？~~ **已定**：KiCad；制造链走 `kicad-cli`，Circuit JSON 撤回，见 `docs/adr/0005-manufacturing-output.md`。
-5. sch/pcb 的权威边界：pcb 能否声明“sch 里没有但物理上必须存在”的连接？白名单够不够？
-6. pcb-only 模式是否正式支持（逆向工程、外部网表导入）？（v0.4 的 pcb 描述假定存在 sch，见 `docs/adr/0003-agent-first-pcb-ir.md`）
+5. ~~sch/pcb 的权威边界？白名单够不够？~~ **已定**（[ADR-0035](docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D1–D3）：**sch 决定连通性，pcb 只实现**；偏差白名单**封闭**（五类：形状与分界见 `spec/pcb.md` §4.11/§4.12），白名单之外的差异一律是 error，不是 warning；**器件有焊盘、器件没有引脚**（散热焊盘等）在器件/封装侧解决（电气焊盘 = 器件的一个引脚；非电气焊盘 = 封装声明），**pcb 的权限不扩大**。
+6. ~~pcb-only 模式是否正式支持？~~ **已定：没有 pcb-only 模式**——一块板**总有**一份原理图描述（[ADR-0035](docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D5）。两个来源的连通性会让检查器/渲染/BOM/导出全部分叉。逆向工程与外部网表导入走**导入器**（语言之外的生成器，产出 `sch`/`pcb` 源文件），**实现延后**（`docs/backlog.md` F36）。
 7. ~~多板系统的连接器建模放在 project 层还是 board 层？~~ **已定**：板在 `sch` 的 `ports` 段暴露节点，跨板连接放在独立的 `system` 描述；见 `docs/adr/0001-board-linking.md`。
 8. ~~变体（DNP/替代料）只作用于 BOM，还是也影响 sch/pcb 的校验？~~ **已定**：变体只影响 BOM 与制造，**不改变连通性**，不影响 ERC 结果。引用 `component_id` 作用于该型号的所有实例，引用稳定 id 只作用于该实例。见 `docs/adr/0002-board-pages-and-bom.md`。
 9. 是否需要从现有 KiCad 工程反向导入（增量迁移路径）。

@@ -258,10 +258,12 @@ physical_only
 | 类型 | 参数 | 说明 |
 |---|---|---|
 | `mounting` | `<size> <drill>` | 安装孔 |
-| `fiducial` | `<size> <layer>` | 基准点 |
-| `test_point` | `<net> <size>` | 测试点（sch 中无对应器件 → 进偏差报告） |
-| `stitching` | `<net> <size> <drill>` | 缝合孔（跨层接地） |
+| `fiducial` | `<size> <layer>` | 基准点；**不得挂 net**（挂了是错误） |
+| `test_point` | `<net> <size>` | 测试点：单层焊盘，供探针测量；sch 中无对应器件 → 进偏差报告 |
+| `stitching` | `<net> <size> <drill>` | 缝合孔：跨层连接**同一个 net 的多个层**；过孔不是焊盘，不算 net 的新成员 |
 | `cutout` | `<x> <y> <w> <h>` | 板内矩形开孔/槽 |
+
+`test_point` 与 `stitching` 的分界是**单层 vs 跨层**；连接两个不同 net 的过孔是 `deviation` 的 `net_tie`，不是 `stitching`。`test_point` / `stitching` 的 net 必须在 `sch` 里存在，否则报错。
 
 ### 4.12 `deviation`
 
@@ -275,8 +277,12 @@ deviation
 
 | 类型 | 列 | 说明 |
 |---|---|---|
-| `net_tie` | `<netA> <netB>` | 两个 sch net 在物理上短接 |
-| `split_ground` | `<net>` | 一个 sch net 在物理上分成互不连通的区域 |
+| `net_tie` | `<netA> <netB>` | 两个 sch net 在物理上短接（合并两个 net） |
+| `split_ground` | `<net>` | 一个 sch net 在物理上分成互不连通的区域（拆分一个 net） |
+
+`net_tie` 与 `split_ground` 的分界是**合并 vs 拆分**。两者都是逻辑偏差：短接若没有声明就是错误；声明了也不等于"对"——检查器只负责报出来，对不对由人判（[ADR-0035](../docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D2）。
+
+**偏差白名单是封闭的**：只有 `net_tie` / `split_ground` / `test_point` / `stitching` / `fiducial` 五类，加新类要另起 ADR。白名单是给**物理特性**与**拆分/短接机制**用的，不是给"sch 没写"兜底的。
 
 ---
 
@@ -302,7 +308,8 @@ pcb 里写的 net 名就是**板级** net 名，与 sch 同一命名空间（模
 5. `connect` 引用的 net 不得超出 `sch` 的 net 集合（pcb 不得创建新逻辑连接）。
 6. `trace` / `via` / `zone` 的 `net` 必须存在于 `sch`；`layer` 必须在 `stackup` 里。
 7. `rules` 里的 net 必须存在于 `sch`。
-8. `physical_only` 的 `test_point` / `stitching` 必须引用 `sch` 里存在的 net；`fiducial` 不得挂 net。
+8. `physical_only` 的 `test_point` / `stitching` 必须引用 `sch` 里存在的 net；`fiducial` 不得挂 net。`test_point` 是单层焊盘，`stitching` 是跨层过孔；连接两个不同 net 的过孔按 `deviation` 的 `net_tie` 处理。
+8a. **pcb 不得新增逻辑连接**：任何两 pad 之间的短接若不在同一个 sch net 内，必须由 `deviation` 的 `net_tie` / `split_ground` 显式覆盖，否则报 error。白名单之外的任何差异都是 error，不是 warning。
 9. `board_thickness` 与 `stackup` 厚度之和一致（容差 0.05mm，规则本身不精确）。
 10. `outline` 顶点不重复、不自交；`zone` / `keepout` 多边形同样不自交。
 11. `silk` 段的 `layer` 必须是 `F.SilkS` / `B.SilkS`；字高小于 0.5mm 给出警告（多数板厂难以辨识）。

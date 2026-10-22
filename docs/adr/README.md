@@ -38,6 +38,7 @@ Every architecture decision record in this repository, in numeric order.
 | [ADR-0032](0032-view-is-a-drawing-not-a-build-input.md) | The View Is a Drawing, Not a Build Input | Accepted | 2026-10-22 |
 | [ADR-0033](0033-review-records-and-attribution.md) | Review Is Not a Description Type — Notes, Decisions, and the One Accountable Person | Accepted | 2026-10-22 |
 | [ADR-0034](0034-manufacturing-output-target-form.md) | The Target Form of the Manufacturing Output — Derived Manufacturing Data, a Self-Describing Package, and a Gate That Is a Process | Accepted | 2026-10-22 |
+| [ADR-0035](0035-connectivity-authority-and-reverse-engineering.md) | Connectivity Has One Authority; Reverse Engineering Is an Import, Not a Mode | Accepted | 2026-10-22 |
 
 ## Reserved Numbers
 
