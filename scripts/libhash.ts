@@ -7,7 +7,7 @@
  * `path` is the root path given on the command line + the file's relative path, separated by "/", without a "./" prefix
  * and without a trailing slash; sorting is by byte order (LC_ALL=C).
  *
- * Usage: bun run lib:hash <library dir>...      # e.g. symbols/project footprints/project
+ * Usage: bun run lib:hash <library dir>...      # e.g. assets/symbols/project assets/footprints/project
  */
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";

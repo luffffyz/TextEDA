@@ -7,7 +7,7 @@
  */
 export type Slug = string;
 /**
- * Library lock: must have one of rev, version or content_hash to guarantee reproducibility. A self-built library uses symbols/footprints (or the legacy path) + content_hash.
+ * Library lock: must have one of rev, version or content_hash to guarantee reproducibility. A self-built library uses assets/symbols + assets/footprints (or the legacy path) + content_hash.
  *
  * This interface was referenced by `Project`'s JSON-Schema
  * via the `definition` "lib".
@@ -30,15 +30,15 @@ export type Lib = Lib1 & {
    */
   version?: string;
   /**
-   * Project-relative directory of a self-built library with a single root (legacy form), e.g. footprints/project. With two roots, use symbols + footprints.
+   * Project-relative directory of a self-built library with a single root (legacy form), e.g. assets/footprints/project. With two roots, use symbols + footprints.
    */
   path?: string;
   /**
-   * Symbol directory of the project-built library (project-relative path), e.g. symbols/project. Shares the same <lib>: namespace with footprints; see ADR-0010 addendum and ADR-0012.
+   * Symbol directory of the project-built library (project-relative path), e.g. assets/symbols/project. Shares the same <lib>: namespace with footprints; see ADR-0010 addendum and ADR-0012.
    */
   symbols?: string;
   /**
-   * Footprint directory of the project-built library (project-relative path), e.g. footprints/project.
+   * Footprint directory of the project-built library (project-relative path), e.g. assets/footprints/project.
    */
   footprints?: string;
   /**
@@ -261,7 +261,7 @@ export interface Project {
  */
 export interface SourceRef {
   /**
-   * Source-file path relative to the project root, e.g. sch/charger-buck/buck-5v.teda. Never an absolute path.
+   * Source-file path relative to the project root, e.g. design/sch/charger-buck.teda. Never an absolute path.
    */
   file: string;
   /**
@@ -277,7 +277,7 @@ export interface SourceRef {
  */
 export interface Board {
   /**
-   * board_id, matching sch/<board_id>.teda and pcb/<board_id>.teda.
+   * board_id, matching design/sch/<board_id>.teda and design/pcb/<board_id>.teda.
    */
   id: string;
   /**
@@ -354,7 +354,7 @@ export interface Compliance {
  */
 export interface SourceRef1 {
   /**
-   * Source-file path relative to the project root, e.g. sch/charger-buck/buck-5v.teda. Never an absolute path.
+   * Source-file path relative to the project root, e.g. design/sch/charger-buck.teda. Never an absolute path.
    */
   file: string;
   /**

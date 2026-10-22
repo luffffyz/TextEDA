@@ -10,10 +10,10 @@ Impact: `AGENTS.md` §3 (the S1 row), §4.2 (Print page, View), §9, §10; `spec
 [ADR-0031](0031-project-tree-ownership-model.md) reorganised the project tree by ownership and
 froze its shape. It left one thing open: the print pages.
 
-A print page is a file under `sch/<board_id>/`, inside the directory of the description type
+A print page is a file under `design/sch/<board_id>/`, inside the directory of the description type
 `schematic`. It is a different description type — its own spec, its own schema, its own parser
 ([ADR-0021](0021-schematic-view-layer.md) decision 1) — living inside another type's directory,
-and it collides with its own board: `sch/hub.teda` and `sch/hub/` are two different things with
+and it collides with its own board: `design/sch/hub.teda` and `design/sch/hub/` are two different things with
 the same name.
 
 Underneath the placement question there is a second one, which the hash rules of
@@ -55,10 +55,10 @@ the board file.
   discardable, rebuildable by hand or by an agent, and outside the build identity. Putting it in
   `design/` would force every one of those consumers to learn to skip it — the same mistake as
   putting a derived thing in a source directory.
-- **The name collision disappears.** `sch/hub.teda` and `sch/hub/` no longer exist; the board
+- **The name collision disappears.** `design/sch/hub.teda` and `design/sch/hub/` no longer exist; the board
   file and the board's pages live in different roots, and no directory holds two kinds of thing.
 - **The board grouping survives.** `views/<board_id>/` holds the pages of one board, one file per
-  page, exactly as `sch/<board_id>/` did. Which pages a board has is still one directory
+  page, exactly as `design/sch/<board_id>/` did. Which pages a board has is still one directory
   listing, and the review UI can open a board's drawings from one place.
 - The IR shard path does not change: `dist/ir/boards/<board_id>/view/<page_id>.json`
   ([ADR-0023](0023-ir-layer-on-disk.md) decision 2). Moving the source file changes no hash,
@@ -172,8 +172,8 @@ borrows it. Moving the file to `views/` changes nothing about what it may refere
 
 ## Alternatives Rejected
 
-- **Keep the pages under `sch/<board_id>/`.** It keeps a description type inside another type's
-  directory and keeps the `sch/hub.teda` / `sch/hub/` collision.
+- **Keep the pages under `design/sch/<board_id>/`.** It keeps a description type inside another type's
+  directory and keeps the `design/sch/hub.teda` / `design/sch/hub/` collision.
 - **Keep the pages under `design/view/`.** It keeps the circuit layer homogeneous, which was the
   argument for the split, but it still puts a discardable drawing inside the directory that
   means "the truth". A reader of `design/` — human or tool — would have to know that one
@@ -182,7 +182,7 @@ borrows it. Moving the file to `views/` changes nothing about what it may refere
 - **Put the pages in `docs/`.** It would put them with the prose, but `docs/` is material the
   project *writes about* the design; a page is a drawing *of* the design. Mixing them puts
   reviewed artefacts and narrative in one directory.
-- **Keep the pages under `sch/<board_id>/` but rename the board file** to `sch/<board_id>/
+- **Keep the pages under `design/sch/<board_id>/` but rename the board file** to `design/sch/<board_id>/
   board.teda`. It removes the collision and keeps the pages next to the board, but it breaks the
   "one board is one file, boards are listed as files" convention for every board, and it still
   mixes two description types in one directory.

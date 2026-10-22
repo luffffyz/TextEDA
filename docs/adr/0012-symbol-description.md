@@ -2,7 +2,7 @@
 
 Status: Accepted
 Date: 2026-10-20
-Impact: [ADR-0010](0010-footprint-and-3d-model-ownership.md) decision 2 (the symbol part); [ADR-0011](0011-library-format-and-footprint-ir.md) (the same library-format principle extended to symbols); `schemas/ir/v0.1/symbol.schema.json` (new IR kind `symbol`); `packages/parser` (`symbol` surface parsing + `fmt`); `packages/exporter` (`.kicad_sym`); `spec/symbol.md`; `examples/reference-project/symbols/`; `docs/symbol-authoring.md`; `AGENTS.md` §4.5, §8, §10, §11
+Impact: [ADR-0010](0010-footprint-and-3d-model-ownership.md) decision 2 (the symbol part); [ADR-0011](0011-library-format-and-footprint-ir.md) (the same library-format principle extended to symbols); `schemas/ir/v0.1/symbol.schema.json` (new IR kind `symbol`); `packages/parser` (`symbol` surface parsing + `fmt`); `packages/exporter` (`.kicad_sym`); `spec/symbol.md`; `examples/reference-project/assets/symbols/`; `docs/symbol-authoring.md`; `AGENTS.md` §4.5, §8, §10, §11
 
 ## Background
 
@@ -19,7 +19,7 @@ Another practical constraint: **symbol libraries are almost always borrowed**. T
 
 ## Decision
 
-1. **The source of truth of a self-built symbol is `.teda` source code**, with the syntax described in `spec/symbol.md` (the `symbol` description type, v0.5). One symbol per file: `symbols/<lib>/<symbol_id>.teda`; the library name is determined by the directory and is not part of the file content. Isomorphic to `footprint`: compiled into an IR shard (contract `schemas/ir/v0.1/symbol.schema.json`, closed schema), and `.kicad_sym` is an export artifact.
+1. **The source of truth of a self-built symbol is `.teda` source code**, with the syntax described in `spec/symbol.md` (the `symbol` description type, v0.5). One symbol per file: `assets/symbols/<lib>/<symbol_id>.teda`; the library name is determined by the directory and is not part of the file content. Isomorphic to `footprint`: compiled into an IR shard (contract `schemas/ir/v0.1/symbol.schema.json`, closed schema), and `.kicad_sym` is an export artifact.
    - **Why not writing JSON directly**: same as [ADR-0011](0011-library-format-and-footprint-ir.md) decision 1 — the agent's working surface is the `.teda` source plus line/column-level diagnostics, not JSON paths.
 2. **There is exactly one owner of the electrical facts of a pin: `component`**. The `symbol` only records **where a pin is drawn and how it is drawn** (position, orientation, length, style, unit membership), plus the outline and the display switches; it **does not record pin names and does not record electrical types**.
    - When exporting `.kicad_sym` the two are combined: the pin numbers and positions come from `symbol`, the pin names and electrical types come from `component`, and they are matched **by pin number**.
@@ -36,7 +36,7 @@ Another practical constraint: **symbol libraries are almost always borrowed**. T
 
 - **The benefit**: self-built symbols have a schema, a canonical form, a content hash, and a readable diff; there is only one copy of the pin facts, so drift is downgraded from "manual synchronization in two places" to "the tool reports an error".
 - **The cost**: exporting `.kicad_sym` requires both the symbol and the component description at once, one more parameter for the exporter; the symbol library format is narrower than the footprint format (no layers, no pad geometry), but it adds one cross-description constraint that the footprint format does not have (the pin numbers must be aligned).
-- **It works end to end** (`bun run smoke:symbol`, measured): the example symbol (`examples/reference-project/symbols/project/bq24610rger.teda`) → compiled to IR (the contract passes, 25 pins) → merged with `component` by pin number (pin names/electrical types in place) → `.kicad_sym` written out (25 pins) → **KiCad 10 can parse it** (`kicad-cli sym upgrade`) → **it renders** (`kicad-cli sym export svg` produces an image; the outline, the left and right pins, the top and bottom pins, and the names are all correct).
+- **It works end to end** (`bun run smoke:symbol`, measured): the example symbol (`examples/reference-project/assets/symbols/project/bq24610rger.teda`) → compiled to IR (the contract passes, 25 pins) → merged with `component` by pin number (pin names/electrical types in place) → `.kicad_sym` written out (25 pins) → **KiCad 10 can parse it** (`kicad-cli sym upgrade`) → **it renders** (`kicad-cli sym export svg` produces an image; the outline, the left and right pins, the top and bottom pins, and the names are all correct).
 - **IR ordering depends only on semantics** (measured): `pins` by (`unit`, `number` in natural order), `body` by (`kind`, coordinates), `fields` by name, `tags` in byte order; the same symbol with reordered entries, changed units, or a changed key order compiles to IR **byte-identical** to the canonical source.
 - **`fmt` works** (measured): `bun run fmt:teda --check examples/reference-project/symbols` exits 0; the example files are fixed points of `fmt`. `fmt` only reorders the surface and refuses to format when there are semantic errors (consistent with gofmt).
 - **Diagnostics are given by line and column**: unknown scalars, unknown keys, out-of-range `unit`, a missing `layer`, and duplicate pin numbers are all reported at `file:line:col` (`packages/parser/src/symbol.ts`).

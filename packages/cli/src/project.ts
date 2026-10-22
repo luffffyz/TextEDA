@@ -1,10 +1,12 @@
 // Read a project's file layout and contents. The file system appears only at this layer (ADR-0009 decision 1):
 // `packages/core` / `packages/ir` / `packages/parser` never touch the disk.
 //
-// Project layout (AGENTS.md §9):
-//   components/**/*.teda              components (one part per file, id taken from the file name)
-//   sch/<board>.teda                  the board's schematic (one file per board, ADR-0025)
-//   sch/<board>/<page>.view.teda      a print page of the board's drawing (ADR-0021, ADR-0025)
+// Project layout (ADR-0031, see `paths.ts`):
+//   assets/components/**/*.teda        components (one part per file, id taken from the file name)
+//   design/sch/<board>.teda            the board's schematic (one file per board, ADR-0025)
+//   design/pcb/<board>.teda            the board's layout
+//   design/modules/<module>.teda       module definitions (spec/module.md)
+//   views/<board>/<page>.view.teda     a print page of the board's drawing (ADR-0021, ADR-0025, ADR-0032)
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import {
@@ -14,6 +16,7 @@ import {
   type ModuleSource,
 } from "@texteda/parser";
 import type { DiagnosticCodeId } from "@texteda/ir/diagnostics";
+import { LAYOUT } from "./paths.ts";
 
 /** Problem when a component file cannot be read (no exception thrown; the caller aggregates these into diagnostics). */
 export interface ComponentProblem {
@@ -38,7 +41,7 @@ export interface LoadedComponents {
 
 /** Read the project's components into a table the resolver can use. The component id is the file name (directory and `.teda` stripped). */
 export function loadComponents(root: string): LoadedComponents {
-  const dir = join(root, "components");
+  const dir = join(root, LAYOUT.components);
   const files: string[] = [];
   const walk = (path: string): void => {
     if (!existsSync(path)) return;
@@ -94,7 +97,7 @@ export interface LoadedBoard {
   views: ViewSource[];
 }
 
-/** A print page of a board's drawing: `sch/<board>/<page_id>.view.teda`. */
+/** A print page of a board's drawing: `views/<board>/<page_id>.view.teda`. */
 export interface ViewSource {
   /** Print page id (the view file's id). */
   pageId: string;
@@ -103,9 +106,9 @@ export interface ViewSource {
   text: string;
 }
 
-/** List the project's boards (`sch/<board>.teda`). Returns an empty array when the directory does not exist. */
+/** List the project's boards (`design/sch/<board>.teda`). Returns an empty array when the directory does not exist. */
 export function listBoards(root: string): string[] {
-  const dir = join(root, "sch");
+  const dir = join(root, LAYOUT.sch);
   if (!existsSync(dir)) return [];
   return readdirSync(dir, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith(".teda"))
@@ -114,11 +117,11 @@ export function listBoards(root: string): string[] {
 }
 
 /**
- * Read the project's modules (`modules/<module_id>.teda`). The module id is the file name, like the
+ * Read the project's modules (`design/modules/<module_id>.teda`). The module id is the file name, like the
  * component id (spec/module.md §1). Returns an empty array when the directory does not exist.
  */
 export function loadModules(root: string): ModuleSource[] {
-  const dir = join(root, "modules");
+  const dir = join(root, LAYOUT.modules);
   if (!existsSync(dir)) return [];
   return readdirSync(dir, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith(".teda"))
@@ -132,9 +135,9 @@ export function loadModules(root: string): ModuleSource[] {
 
 /** Read the board's schematic file and its print pages. Returns `null` when the schematic file does not exist. */
 export function loadBoard(root: string, board: string): LoadedBoard | null {
-  const file = join(root, "sch", `${board}.teda`);
+  const file = join(root, LAYOUT.sch, `${board}.teda`);
   if (!existsSync(file)) return null;
-  const viewDir = join(root, "sch", board);
+  const viewDir = join(root, LAYOUT.views, board);
   const views: ViewSource[] = [];
   if (existsSync(viewDir)) {
     for (const name of readdirSync(viewDir).sort()) {
@@ -155,9 +158,9 @@ export function loadBoard(root: string, board: string): LoadedBoard | null {
   };
 }
 
-/** Read `pcb/<board>.teda`; returns null when absent (pcb is an optional sibling description). */
+/** Read `design/pcb/<board>.teda`; returns null when absent (pcb is an optional sibling description). */
 export function loadPcb(root: string, board: string): LoadedBoard | null {
-  const file = join(root, "pcb", `${board}.teda`);
+  const file = join(root, LAYOUT.pcb, `${board}.teda`);
   if (!existsSync(file)) return null;
   return {
     board,

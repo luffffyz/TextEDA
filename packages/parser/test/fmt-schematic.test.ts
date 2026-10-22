@@ -23,7 +23,7 @@ function fmtModule(file: string, text: string) {
 }
 
 describe("canonical form (schematic)", () => {
-  const file = `${projectDir}/sch/mcu-board.teda`;
+  const file = `${projectDir}/design/sch/mcu-board.teda`;
   const text = readFileSync(file, "utf8");
   const canonical = fmt(file, text);
 
@@ -84,7 +84,7 @@ describe("canonical form (schematic)", () => {
 });
 
 describe("canonical form (a board that composes modules)", () => {
-  const boardFile = `${projectDir}/sch/charger-buck.teda`;
+  const boardFile = `${projectDir}/design/sch/charger-buck.teda`;
   const boardText = readFileSync(boardFile, "utf8");
   const boardCanonical = fmt(boardFile, boardText);
 
@@ -104,7 +104,7 @@ describe("canonical form (a board that composes modules)", () => {
 });
 
 describe("canonical form (a module file)", () => {
-  const moduleFile = `${projectDir}/modules/buck-5v.teda`;
+  const moduleFile = `${projectDir}/design/modules/buck-5v.teda`;
   const moduleText = readFileSync(moduleFile, "utf8");
   const moduleCanonical = fmtModule(moduleFile, moduleText);
 

@@ -17,7 +17,7 @@ const projectDir = "examples/reference-project";
 const resolver = loadResolver();
 
 describe("single-file board (mcu-board)", () => {
-  const text = readFileSync(join(projectDir, "sch", "mcu-board.teda"), "utf8");
+  const text = readFileSync(join(projectDir, "design/sch", "mcu-board.teda"), "utf8");
   const result = parseSchematic(text, { file: "sch/mcu-board.teda", board: "mcu-board", components: resolver });
 
   test("parses successfully with no error diagnostics", () => {
@@ -99,11 +99,11 @@ describe("single-file board (mcu-board)", () => {
 });
 
 describe("composed board (charger-buck)", () => {
-  const text = readFileSync(join(projectDir, "sch", "charger-buck.teda"), "utf8");
+  const text = readFileSync(join(projectDir, "design/sch", "charger-buck.teda"), "utf8");
   const modules: ModuleSource[] = ["charger-power", "buck-5v"].map((id) => ({
     moduleId: id,
     file: `modules/${id}.teda`,
-    text: readFileSync(join(projectDir, "modules", `${id}.teda`), "utf8"),
+    text: readFileSync(join(projectDir, "design/modules", `${id}.teda`), "utf8"),
   }));
   const result = parseSchematic(text, {
     file: "sch/charger-buck.teda",

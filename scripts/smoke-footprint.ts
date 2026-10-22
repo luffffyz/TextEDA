@@ -11,7 +11,7 @@ import { footprintModule, footprintInline, type FootprintBody } from "@texteda/e
 import { canonicalJson, formatDiagnostic, formatFootprint } from "@texteda/parser";
 import { loadFootprint } from "./lib/project.ts";
 
-const example = process.argv[2] ?? "examples/reference-project/footprints/project/sot-23-5.teda";
+const example = process.argv[2] ?? "examples/reference-project/assets/footprints/project/sot-23-5.teda";
 const work = "/tmp/texteda-fp-smoke";
 rmSync(work, { recursive: true, force: true });
 mkdirSync(join(work, "project.pretty"), { recursive: true });

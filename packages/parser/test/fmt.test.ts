@@ -10,7 +10,7 @@ import {
   parseSymbol,
 } from "../src/index.ts";
 
-const example = readFileSync("examples/reference-project/footprints/project/sot-23-5.teda", "utf8");
+const example = readFileSync("examples/reference-project/assets/footprints/project/sot-23-5.teda", "utf8");
 
 function format(text: string): string {
   const result = formatFootprint(text, { file: "x.teda", library: "project" });
@@ -179,7 +179,7 @@ describe("canonical form", () => {
 });
 
 describe("canonical form of symbol", () => {
-  const symbolExample = readFileSync("examples/reference-project/symbols/project/bq24610rger.teda", "utf8");
+  const symbolExample = readFileSync("examples/reference-project/assets/symbols/project/bq24610rger.teda", "utf8");
 
   function formatSymbolText(text: string): string {
     const result = formatSymbol(text, { file: "x.teda", library: "project" });

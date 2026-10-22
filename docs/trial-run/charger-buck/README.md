@@ -6,7 +6,7 @@
 
 ## 试的是什么
 
-`examples/reference-project` 的 `charger-buck` 板。输入是仓库里的 pcb 描述 `examples/reference-project/pcb/charger-buck.teda`（层：pcb / B0），
+`examples/reference-project` 的 `charger-buck` 板。输入是仓库里的 pcb 描述 `examples/reference-project/design/pcb/charger-buck.teda`（层：pcb / B0），
 输出是本目录下的 KiCad 板文件、工程文件、DRC 报告与 Gerber 清单。
 
 这块板**不是量产板**：sch 展平后有 `M1`（charger-power，60 个器件）与 `M2`（buck-5v，9 个器件）两个页面，
@@ -23,7 +23,7 @@ kicad-cli pcb export drill  --output drill/  charger-buck.kicad_pcb
 
 `--check-zones` **必须带**：`.kicad_pcb` 里只写铺铜多边形，填充结果不在文件里；不带这个开关导出的 `B_Cu` 只有过孔、没有铜皮（实测：703 B → 1158 B，缺 `G36/G37` 填充区）。
 
-板文件由**一次性原型**（未进仓库）从 `examples/reference-project/pcb/charger-buck.teda` 生成，导出器本体是 P2 的活。
+板文件由**一次性原型**（未进仓库）从 `examples/reference-project/design/pcb/charger-buck.teda` 生成，导出器本体是 P2 的活。
 本目录里的 `charger-buck.kicad_pcb` 与仓库里的输入逐字节一致（原型是确定性的：uuid 由内容派生）。
 
 `charger-buck.kicad_pro` 必须与板文件同目录——**设计规则在工程文件里，不在 `.kicad_pcb` 里**（见 `docs/kicad-pcb-format.md`）。

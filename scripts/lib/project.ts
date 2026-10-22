@@ -66,7 +66,7 @@ export function loadComponent(file: string): Loaded<ComponentFacts> {
  */
 export function loadComponentResolver(projectRoot: string): ComponentResolver {
   const table = new Map<string, ComponentFactsLite>();
-  for (const file of tedaFiles(join(projectRoot, "components"))) {
+  for (const file of tedaFiles(join(projectRoot, "assets/components"))) {
     const result = readComponentIndex(readFileSync(file, "utf8"));
     if (!result.ok || !result.facts) continue;
     table.set(basename(file, ".teda"), result.facts);
@@ -79,7 +79,7 @@ export function loadComponentResolver(projectRoot: string): ComponentResolver {
  * component id (spec/module.md §1).
  */
 export function loadModuleSources(projectRoot: string): ModuleSource[] {
-  return tedaFiles(join(projectRoot, "modules")).map((file) => ({
+  return tedaFiles(join(projectRoot, "design/modules")).map((file) => ({
     moduleId: basename(file, ".teda"),
     file,
     text: readFileSync(file, "utf8"),
@@ -91,7 +91,7 @@ export function componentUsingSymbol(
   projectRoot: string,
   ref: string,
 ): { file: string; facts: ComponentFacts } | null {
-  for (const file of tedaFiles(join(projectRoot, "components"))) {
+  for (const file of tedaFiles(join(projectRoot, "assets/components"))) {
     const text = readFileSync(file, "utf8");
     const m = /^symbol\s+(\S+)$/m.exec(text);
     if (!m || m[1] !== ref) continue;

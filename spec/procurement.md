@@ -7,7 +7,7 @@
 
 **A procurement description says which part is bought. It does not say what the circuit needs, and it does not say what a part is.**
 
-| | Design (`schematic`) | Procurement (`procurement`) | Library (`components/`, `external/libs/`) |
+| | Design (`schematic`) | Procurement (`procurement`) | Library (`assets/components/`, `external/libs/`) |
 |---|---|---|---|
 | What it is | what the board is made of | what is bought for it | what a device is |
 | File | `design/sch/<board_id>.teda` | `assets/procurement/{primary,alternatives}/<board_id>.teda` | `assets/components/**/<id>.teda`, `external/libs/<lib>/…` |

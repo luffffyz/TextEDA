@@ -142,7 +142,7 @@ and an agent act on, and the IR path says what the contract says about that reco
 - **Byte offsets only.** Rejected: a byte offset is not what an editor shows and not what a
   human reads; the scalar column is the primary number and the offset is the machine's aid.
 - **File-level positions only (the current state).** Rejected: enough to write "look at
-  `sch/mcu-board.teda`", not enough for an agent to repair a line.
+  `design/sch/mcu-board.teda`", not enough for an agent to repair a line.
 - **Write the source map to disk from the start.** Deferred: it is a second artifact that must
   agree with the IR, and the only consumer that needs it on disk — the review GUI — needs the
   identity index (D6) rather than the map. Writing it now would mean maintaining a file nothing

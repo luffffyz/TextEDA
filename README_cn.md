@@ -1,5 +1,9 @@
 # TextEDA
 
+<p align="center">
+  <img src="docs/assets/svg/texteda-logo.svg" width="420" alt="TextEDA — 用文本描述硬件">
+</p>
+
 [English](README.md) | [简体中文](README_cn.md)
 
 用**人写的文本描述**来表达一块硬件：原理图（`sch`）与 PCB（`pcb`）是两个独立描述，互为兄弟；IR 是唯一真源，源码与任何渲染结果都是派生物。
@@ -74,7 +78,6 @@ KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.
 |---|---|
 | `AGENTS.md` | **主文档**：项目是什么、不可协商的不变量、验证与验收口径 |
 | `LICENSE` / `NOTICE` | Apache-2.0 与归属声明 |
-| `teda.md` | `.teda` 语法总览 |
 | `spec/` | 分描述规范：`symbol` / `footprint` / `pcb` / `schematic-view` / `module` |
 | `schemas/ir/v0.2/` | IR 契约（JSON Schema 2020-12，唯一契约） |
 | `packages/ir` | IR 类型与契约校验 |

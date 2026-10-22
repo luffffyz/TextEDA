@@ -161,7 +161,7 @@ export interface Manifest {
  */
 export interface SourceRef {
   /**
-   * Source-file path relative to the project root, e.g. sch/charger-buck/buck-5v.teda. Never an absolute path.
+   * Source-file path relative to the project root, e.g. design/sch/charger-buck.teda. Never an absolute path.
    */
   file: string;
   /**

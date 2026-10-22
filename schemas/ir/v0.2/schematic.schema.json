@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:texteda:ir:0.2:schematic",
   "title": "TextEDA IR v0.2 — schematic shard",
-  "description": "Schematic IR of one board: the board's flat list of instances and nets, as declared in sch/<board_id>.teda. A board has exactly one schematic file; there is no page level and no flattening. See ADR-0025, ADR-0008 decision 2.",
+  "description": "Schematic IR of one board: the board's flat list of instances and nets, as declared in design/sch/<board_id>.teda. A board has exactly one schematic file; there is no page level and no flattening. See ADR-0025, ADR-0008 decision 2.",
   "type": "object",
   "additionalProperties": false,
   "required": ["ir_version", "format", "board", "instances", "nets"],
@@ -21,7 +21,7 @@
     },
     "board": {
       "$ref": "urn:texteda:ir:0.2:common#/$defs/slug",
-      "description": "The board_id shared with sch/<board_id>.teda and pcb/<board_id>.teda."
+      "description": "The board_id shared with design/sch/<board_id>.teda and design/pcb/<board_id>.teda."
     },
     "instances": {
       "type": "array",

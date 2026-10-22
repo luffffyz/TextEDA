@@ -1,5 +1,9 @@
 # TextEDA
 
+<p align="center">
+  <img src="docs/assets/svg/texteda-logo.svg" width="420" alt="TextEDA — describe hardware as text">
+</p>
+
 [English](README.md) | [简体中文](README_cn.md)
 
 Describe a piece of hardware as **human-written text**: the schematic (`sch`) and the PCB (`pcb`) are two independent, sibling descriptions; the IR is the single source of truth, and both the source syntax and any rendered output are derivatives.
@@ -74,7 +78,6 @@ The KiCad interoperability section is a **separate, optional workflow** (`.githu
 |---|---|
 | `AGENTS.md` | **Primary doc**: what the project is, the non-negotiable invariants, acceptance criteria |
 | `LICENSE` / `NOTICE` | Apache-2.0 and attribution |
-| `teda.md` | `.teda` syntax overview |
 | `spec/` | Per-description specs: `symbol` / `footprint` / `pcb` / `schematic-view` / `module` |
 | `schemas/ir/v0.2/` | IR contract (JSON Schema 2020-12, the only contract) |
 | `packages/ir` | IR types and contract validation |

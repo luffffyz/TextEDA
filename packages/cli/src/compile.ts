@@ -9,6 +9,7 @@ import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
 import { diagnosticsToPayload } from "@texteda/ir/diagnostics";
 import { canonicalJson, parsePcb, parseSchematic } from "@texteda/parser";
 import { join } from "node:path";
+import { LAYOUT } from "./paths.ts";
 import { loadBoard, loadComponents, loadModules } from "./project.ts";
 import { writeOut } from "./output.ts";
 
@@ -33,7 +34,7 @@ export function runCompile(options: CompileOptions): number {
   if (options.pcb === true) return runCompilePcb({ root, board, json, outFile });
   const loaded = loadBoard(root, board);
   if (!loaded) {
-    console.error(`Board root file not found: sch/${board}.teda`);
+    console.error(`Board root file not found: ${LAYOUT.sch}/${board}.teda`);
     return 2;
   }
   const { resolver, problems } = loadComponents(root);
@@ -89,12 +90,12 @@ function runCompilePcb(options: {
   outFile: string | undefined;
 }): number {
   const { root, board, json, outFile } = options;
-  const path = join(root, "pcb", `${board}.teda`);
+  const path = join(root, LAYOUT.pcb, `${board}.teda`);
   if (!existsSync(path)) {
-    console.error(`PCB description not found: pcb/${board}.teda`);
+    console.error(`PCB description not found: ${LAYOUT.pcb}/${board}.teda`);
     return 2;
   }
-  const file = `pcb/${board}.teda`;
+  const file = `${LAYOUT.pcb}/${board}.teda`;
   const result = parsePcb(readFileSync(path, "utf8"), { file, board });
   for (const diagnostic of result.diagnostics) {
     const where = diagnostic.location

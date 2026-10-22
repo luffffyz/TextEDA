@@ -32,8 +32,8 @@ relationship covers behave very differently from one another:
 A tree that puts all four under one root, with one mechanism, would be wrong for three of them.
 
 Underneath both questions there was a third: the tree was flat, one directory per asset kind,
-and that reads badly. Twelve top-level entries — `symbols/`, `footprints/`, `families/`,
-`components/`, `sch/`, `pcb/`, `modules/`, `system/`, `procurement/`, `docs/`, `dist/` — is a
+and that reads badly. Twelve top-level entries — `assets/symbols/`, `assets/footprints/`, `families/`,
+`assets/components/`, `design/sch/`, `design/pcb/`, `design/modules/`, `design/system/`, `procurement/`, `docs/`, `dist/` — is a
 list of kinds, not a picture of a project.
 
 ## Decision
@@ -77,6 +77,13 @@ board, because a BOM is a board's ([ADR-0030](0030-procurement-layer.md) decisio
 Seven roots. A reader sees what the project owns, what it borrows, what it describes, what it
 draws, and what it produced.
 
+**A module is not an asset, although it is reusable.** `assets/` holds the device-level things a
+board instantiates — symbols, footprints, families, components — and the procurement decisions.
+A module is a *fragment of the circuit*: it has instances, nets and ports, so it belongs to
+`design/` beside the board it serves. Reuse does not decide the place. A project-wide module
+used by four boards is still this project's own circuit; the same module vendored from elsewhere
+goes under `external/`, like any other borrowed material.
+
 The `views/` root is a special case and is decided by
 [ADR-0032](0032-view-is-a-drawing-not-a-build-input.md): the print pages are hand-written and
 tracked, but they are not part of the build identity, so they do not belong inside `design/`
@@ -84,7 +91,7 @@ tracked, but they are not part of the build identity, so they do not belong insi
 
 ### 2. `assets/` holds the project's own device assets and its own procurement decisions
 
-The four asset kinds — `symbols/`, `footprints/`, `families/`, `components/` — are the project's
+The four asset kinds — `assets/symbols/`, `assets/footprints/`, `families/`, `assets/components/` — are the project's
 own descriptions of devices it uses. The procurement decisions move here as well
 ([ADR-0030](0030-procurement-layer.md)): a selection only ever talks about devices, and it is
 project-scoped, so it belongs with the devices rather than beside the boards.
@@ -171,7 +178,7 @@ happens during a build.
 
 ### 8. `design/` groups the circuit descriptions
 
-`sch/`, `pcb/`, `modules/` and `system/` move under `design/`. They are all descriptions of
+`design/sch/`, `design/pcb/`, `design/modules/` and `design/system/` move under `design/`. They are all descriptions of
 this project's circuit, and grouping them keeps the root short.
 
 The print pages keep their own root and their per-board grouping:
@@ -221,13 +228,17 @@ decision. A change needs its own record, and a migration script, like
 
 - **The tree says what the project is.** Seven roots, and the reader can tell ownership from
   borrowing at a glance — which was the confusion that started this record: a directory called
-  `project/` holding the library, while the private assets sat in `components/`.
+  `project/` holding the library, while the private assets sat in `assets/components/`.
 - **The IR is self-sufficient.** Every asset the build uses is in the tree, vendored or owned,
   and therefore in `dist/ir/`. A consumer needs nothing else.
 - **A datasheet is declared once.** The `datasheet` field on the component is the only place it
   is written; the PDF may live in `external/cache/`, and it is never in the repository.
 - **The shard paths stop moving.** Reorganising the source tree no longer reorganises
-  `dist/ir/`, so the project hash of a project that only moved a directory does not change.
+  `dist/ir/`. The project hash of a project that only moved a directory still changes today,
+  because a shard carries its `source.file` and the per-shard `sha256` is taken over the bytes on
+  disk ([ADR-0023](0023-ir-layer-on-disk.md) decision 4); making the hash follow the design rather
+  than the file layout needs a per-shard content hash, which lands with the contract v0.3 batch
+  (backlog F29).
 - **The price**: the paths change once. `sch/<board>.teda` becomes `design/sch/<board>.teda`,
   the symbols and footprints move under `assets/`, and the CLI, the skills, the examples and
   the decision records that mention them have to be updated. This is a one-time migration, and
@@ -239,7 +250,7 @@ decision. A change needs its own record, and a migration script, like
 ## Alternatives Rejected
 
 - **Keep the tree flat, one directory per asset kind.** It reads as a list of kinds rather than
-  a picture of a project, and it cannot express ownership at all: with `symbols/` at the top
+  a picture of a project, and it cannot express ownership at all: with `assets/symbols/` at the top
   level, nothing says whether those symbols are this project's or borrowed.
 - **One `external/` root with a single mechanism for everything.** A datasheet cannot be
   vendored (copyright), a library must be, and a cache must not be in the IR. One mechanism

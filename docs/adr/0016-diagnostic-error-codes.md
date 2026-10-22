@@ -54,8 +54,8 @@ Severity is **independent** of domain (`error` / `warning` / `note`): emergent c
   "expected": "A pin may belong to only one net",
   "actual": "U1.3 appears in 2 nets",
   "hint": "A pin may belong to only one net; remove the extra member",
-  "location": { "file": "sch/charger-buck/charger-power.teda", "line": 42, "col": 12 },
-  "related": [{ "file": "sch/charger-buck.teda", "line": 18 }],
+  "location": { "file": "design/modules/charger-power.teda", "line": 42, "col": 12 },
+  "related": [{ "file": "design/sch/charger-buck.teda", "line": 18 }],
   "data": { "component_id": "U1", "pin": "3" },
   "cause": { "source": "ajv", "instancePath": "/pins/2", "keyword": "required" }
 }

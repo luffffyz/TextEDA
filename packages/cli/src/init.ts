@@ -1,8 +1,8 @@
 // `texteda init`: scaffold an empty project.
 //
 // Contract per AGENTS.md "init contract (settled)":
-//   - create only `project.toml`, `components/`, `sch/`, `pcb/`, `system/`, `modules/`, `docs/`, `docs/README.md`;
-//   - put `.gitkeep` in `components/`, `sch/`, `pcb/`, `system/`, `modules/` to keep empty directories;
+//   - create only `project.toml`, `assets/`, `design/`, `external/`, `docs/`, `docs/README.md` (ADR-0031);
+//   - put `.gitkeep` in the empty directories to keep them;
 //   - `project.toml` has only three required entries: `name` / `version` / `format`;
 //   - no network access, no template fetching, no `dist/`;
 //   - deterministic output: the same name yields byte-identical files.
@@ -71,19 +71,26 @@ export function renderDocsReadme(name: string): string {
     "```",
     `${name}/`,
     "├── project.toml        # Project metadata (name, version, format version)",
-    "├── components/         # Component descriptions: one component per .teda (component_id taken from the file name)",
-    "├── sch/                # Schematic descriptions: one board per .teda, sch/<board_id>.teda",
-    "├── modules/            # Module descriptions: one module per .teda, modules/<module_id>.teda",
-    "├── pcb/                # PCB descriptions; can be added later",
-    "├── system/             # Multi-board connection descriptions: one system per .teda",
+    "├── assets/             # What this project owns",
+    "│   ├── symbols/        # Symbol libraries: symbols/<lib>/<symbol_id>.teda",
+    "│   ├── footprints/     # Footprint libraries: footprints/<lib>/<footprint_id>.teda",
+    "│   ├── components/     # Component descriptions: one component per .teda (component_id taken from the file name)",
+    "│   └── procurement/    # Procurement selections: procurement/primary/<board_id>.teda (normative)",
+    "├── external/           # What this project references but does not own (libs, simulation models)",
+    "├── design/             # The circuit — the truth",
+    "│   ├── sch/            # Schematic descriptions: one board per .teda, sch/<board_id>.teda",
+    "│   ├── modules/        # Module descriptions: one module per .teda, modules/<module_id>.teda",
+    "│   ├── pcb/            # PCB descriptions; can be added later",
+    "│   └── system/         # Multi-board connection descriptions: one system per .teda",
+    "├── views/              # The drawings: hand-written print pages, views/<board_id>/<page_id>.view.teda",
     "└── docs/               # Design documents, review records, simulation conclusions",
     "```",
     "",
     "Next steps:",
     "",
-    "1. Write component descriptions in `components/` (symbols and footprints first, then components).",
-    "2. Write the board `sch/<board_id>.teda` in `sch/`, referencing ids from `components/` via `instances`.",
-    "3. When a physical implementation is needed, create a file with the same name under `pcb/`.",
+    "1. Write component descriptions in `assets/components/` (symbols and footprints first, then components).",
+    "2. Write the board `design/sch/<board_id>.teda`, referencing ids from `assets/components/` via `instances`.",
+    "3. When a physical implementation is needed, create a file with the same name under `design/pcb/`.",
     "",
     "See the repository's `teda.md` for the syntax and `docs/adr/` for decision records.",
     "",
@@ -93,14 +100,35 @@ export function renderDocsReadme(name: string): string {
 /** Compute the directories and files that init will create. */
 export function initTree(options: InitOptions & { name: string }): InitTree {
   return {
-    directories: ["components", "sch", "pcb", "system", "modules", "docs"],
+    directories: [
+      "assets/symbols",
+      "assets/footprints",
+      "assets/components",
+      "assets/procurement/primary",
+      "assets/procurement/alternatives",
+      "external/libs",
+      "external/simulation",
+      "design/sch",
+      "design/modules",
+      "design/pcb",
+      "design/system",
+      "views",
+      "docs",
+    ],
     files: [
       { path: "project.toml", content: renderProjectToml(options) },
-      { path: "components/.gitkeep", content: "" },
-      { path: "sch/.gitkeep", content: "" },
-      { path: "pcb/.gitkeep", content: "" },
-      { path: "system/.gitkeep", content: "" },
-      { path: "modules/.gitkeep", content: "" },
+      { path: "assets/symbols/.gitkeep", content: "" },
+      { path: "assets/footprints/.gitkeep", content: "" },
+      { path: "assets/components/.gitkeep", content: "" },
+      { path: "assets/procurement/primary/.gitkeep", content: "" },
+      { path: "assets/procurement/alternatives/.gitkeep", content: "" },
+      { path: "external/libs/.gitkeep", content: "" },
+      { path: "external/simulation/.gitkeep", content: "" },
+      { path: "design/sch/.gitkeep", content: "" },
+      { path: "design/modules/.gitkeep", content: "" },
+      { path: "design/pcb/.gitkeep", content: "" },
+      { path: "design/system/.gitkeep", content: "" },
+      { path: "views/.gitkeep", content: "" },
       { path: "docs/README.md", content: renderDocsReadme(options.name) },
     ],
   };

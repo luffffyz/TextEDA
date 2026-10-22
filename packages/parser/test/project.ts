@@ -17,7 +17,7 @@ function fileToId(file: string): string {
 
 /** Load the reference project's components into a resolver. */
 export function loadResolver(): ComponentResolver {
-  const dir = join(projectDir, "components");
+  const dir = join(projectDir, "assets/components");
   const files: string[] = [];
   const walk = (path: string): void => {
     for (const entry of readdirSync(path, { withFileTypes: true })) {

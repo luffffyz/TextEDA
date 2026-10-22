@@ -8,9 +8,9 @@ This is the **only** contract for the TextEDA IR: JSON Schema 2020-12. The seman
 |---|---|---|
 | `common.schema.json` | `urn:texteda:ir:0.2:common` | none (shared `$defs`) |
 | `project.schema.json` | `urn:texteda:ir:0.2:project` | `project.toml` |
-| `component.schema.json` | `urn:texteda:ir:0.2:component` | `components/**/<id>.teda` |
-| `schematic.schema.json` | `urn:texteda:ir:0.2:schematic` | `sch/<board_id>.teda` |
-| `pcb.schema.json` | `urn:texteda:ir:0.2:pcb` | `pcb/<board_id>.teda` |
+| `component.schema.json` | `urn:texteda:ir:0.2:component` | `assets/components/**/<id>.teda` |
+| `schematic.schema.json` | `urn:texteda:ir:0.2:schematic` | `design/sch/<board_id>.teda` |
+| `pcb.schema.json` | `urn:texteda:ir:0.2:pcb` | `design/pcb/<board_id>.teda` |
 | `system.schema.json` | `urn:texteda:ir:0.2:system` | `system/<system_id>.teda` |
 | `manifest.schema.json` | `urn:texteda:ir:0.2:manifest` | none (`dist/ir/manifest.json`) |
 

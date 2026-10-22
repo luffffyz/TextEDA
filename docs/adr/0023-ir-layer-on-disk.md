@@ -104,7 +104,7 @@ Its decisions are settled and now have an implementation: the flattening of deci
 
 ## Follow-up
 
-- The remaining shard kinds: `project.json`, `components/<component_id>.json`, `systems/<system_id>.json` — they need producers (`project.toml` parsing, the component IR, the `system` description), not a layout decision (`docs/backlog.md` F24).
+- The remaining shard kinds: `project.json`, `assets/components/<component_id>.json`, `systems/<system_id>.json` — they need producers (`project.toml` parsing, the component IR, the `system` description), not a layout decision (`docs/backlog.md` F24).
 - Incremental rebuild: change one source file, rewrite one shard, keep the rest of the tree byte-identical.
 - Whether the manifest should also record the language `format` and the schema `$id` per shard, so that a tool can self-check a tree that mixes versions (the last follow-up of [ADR-0008](0008-ir-shard-identity-and-hash.md)).
 - Whether downstream commands should read `dist/ir` instead of compiling in memory (`texteda netlist` currently compiles in memory).

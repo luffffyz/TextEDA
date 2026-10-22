@@ -10,7 +10,7 @@
 | | Module | Print page (`view`) |
 |---|---|---|
 | What it is | A piece of circuitry inside a board; it **owns electrical facts** | A split of one drawing / printout |
-| File | `modules/<module_id>.teda` | `sch/<board_id>/<page_id>.view.teda` |
+| File | `design/modules/<module_id>.teda` | `views/<board_id>/<page_id>.view.teda` |
 | Description type | `module` | `view` |
 | If you delete it | The board loses a piece of circuitry; electrical facts are gone | The drawing is gone; the logic is untouched |
 | Does it enter the IR | **Yes**: flattened instances and nets carry an `M` qualified name | **No**: the view is a derived layer |
@@ -28,7 +28,7 @@ version 0.8
 module buck-5v
 ```
 
-- The file lives at `modules/<module_id>.teda`; `module_id` has the same shape as `component_id` (`^[a-z][a-z0-9-]*$`) and is **taken from the file name**.
+- The file lives at `design/modules/<module_id>.teda`; `module_id` has the same shape as `component_id` (`^[a-z][a-z0-9-]*$`) and is **taken from the file name**.
 - The `module_id` in the file header must match the file name, otherwise it is an error (same rule as `component`, `AGENTS.md` §4.5).
 - The `module` type exists since language **0.8**; a file below 0.8 cannot be a `module`.
 
@@ -99,7 +99,7 @@ A port **creates no connection** (same meaning as the board-level `ports` sectio
 
 ## 4. Module instances in a board
 
-The board file (`sch/<board_id>.teda`) gains a `modules` section:
+The board file (`design/sch/<board_id>.teda`) gains a `modules` section:
 
 ```
 version 0.8
@@ -131,7 +131,7 @@ ports
 | Column | Meaning |
 |---|---|
 | `<module_instance_id>` | Module instance id, shape `^M[0-9]+$` (`M1`, `M2`, …). The level tag is `M` ([ADR-0024](../docs/adr/0024-level-tags-in-flattened-names.md)) |
-| `<module_id>` | Module definition id, matching `modules/<module_id>.teda` |
+| `<module_id>` | Module definition id, matching `design/modules/<module_id>.teda` |
 
 - The same module may be instantiated several times in one board (`M1` and `M2` both point at `buck-5v`); they are electrically identical (this version has no parameters, see §10).
 - **The `M` + digits shape belongs to module instances**: a board-level `refdes` must not use it (`M2` cannot be a board-level refdes), otherwise a reference like `M2.VOUT` cannot be read as "port VOUT of module M2" versus "pin of instance M2". Error: `syntax.invalid-identifier`.
@@ -173,7 +173,7 @@ Rules:
 
 | Code | When | Severity |
 |---|---|---|
-| `ref.unknown-module` | A `module_id` in the `modules` section has no `modules/<module_id>.teda` | error |
+| `ref.unknown-module` | A `module_id` in the `modules` section has no `design/modules/<module_id>.teda` | error |
 | `ref.module-id-mismatch` | The id in the module file header does not match the file name | error |
 | `ref.unknown-port` | A board net references a port the module does not declare | error |
 | `ref.unbound-port` | A module port is referenced by no board net and does not say `no_connect` | error |
@@ -248,5 +248,5 @@ modules
 
 - **No parameters**: a module instance cannot override values inside the module (constraint 3 of `docs/backlog.md` F13). Instantiating the same module several times yields electrically identical copies.
 - **No nesting**: a module cannot contain a module.
-- **No cross-project module library**: modules live inside the project (the `modules/` directory).
+- **No cross-project module library**: modules live inside the project (the `design/modules/` directory).
 - **No `use` / `import`**: the module id is the file name.

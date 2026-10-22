@@ -126,11 +126,11 @@ export interface SchematicView {
   format: string;
   source?: SourceRef;
   /**
-   * The board_id, resolved from the directory sch/<board_id>/.
+   * The board_id, resolved from the directory views/<board_id>/.
    */
   board: string;
   /**
-   * The print page id this view draws, resolved to sch/<board_id>/<page_id>.view.teda. A print page is a drawing and print unit, not a logical partition.
+   * The print page id this view draws, resolved to views/<board_id>/<page_id>.view.teda. A print page is a drawing and print unit, not a logical partition.
    */
   page: string;
   /**
@@ -176,7 +176,7 @@ export interface SchematicView {
  */
 export interface SourceRef {
   /**
-   * Source-file path relative to the project root, e.g. sch/charger-buck/buck-5v.teda. Never an absolute path.
+   * Source-file path relative to the project root, e.g. design/sch/charger-buck.teda. Never an absolute path.
    */
   file: string;
   /**
@@ -344,7 +344,7 @@ export interface Text {
  */
 export interface SourceRef1 {
   /**
-   * Source-file path relative to the project root, e.g. sch/charger-buck/buck-5v.teda. Never an absolute path.
+   * Source-file path relative to the project root, e.g. design/sch/charger-buck.teda. Never an absolute path.
    */
   file: string;
   /**

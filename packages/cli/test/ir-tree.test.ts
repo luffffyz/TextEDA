@@ -176,8 +176,8 @@ describe("texteda ir", () => {
   test("a project with errors writes nothing and fails", () => {
     const project = tempDir();
     try {
-      mkdirSync(join(project, "sch"), { recursive: true });
-      writeFileSync(join(project, "sch", "broken.teda"), "schematic broken\ninstances\n  ???\n");
+      mkdirSync(join(project, "design/sch"), { recursive: true });
+      writeFileSync(join(project, "design/sch", "broken.teda"), "schematic broken\ninstances\n  ???\n");
       const result = runIr(["ir", project]);
       expect(result.code).toBe(1);
       expect(existsSync(join(project, "dist", "ir", "manifest.json"))).toBe(false);

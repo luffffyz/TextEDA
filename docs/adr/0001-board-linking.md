@@ -31,7 +31,7 @@ In real projects, inter-board connection is an **interface problem**: which node
    - A `port` adds no connectivity whatsoever; it only gives an existing node an **outside-the-board name**.
    - `net` names inside a board may be anything; cross-board alignment goes through `port`, not through `net` names.
 
-2. **System side**: a new description type `system`, with files in `system/<system_id>.teda`.
+2. **System side**: a new description type `system`, with files in `design/system/<system_id>.teda`.
 
    ```
    version 0.2
@@ -46,7 +46,7 @@ In real projects, inter-board connection is an **interface problem**: which node
      SYS:  buck-5v.SYS_IN  charger.SYS_OUT
    ```
 
-   - `boards` segment: lists the board ids that take part in this system; every id must exist in `[boards]` of `project.toml` and have a `sch/<board_id>.teda`.
+   - `boards` segment: lists the board ids that take part in this system; every id must exist in `[boards]` of `project.toml` and have a `design/sch/<board_id>.teda`.
    - `nets` segment: `<system_net>: <board_id>.<port_id> ...` (canonical form: the net name sits flush against the colon, with at least two spaces between members); members are **port references**, and a system net has at least two members.
 
 3. **Semantics**: a `system` net merges the intra-board `net`s pointed at by its member ports into one system-level node. The `net` names on the two board sides may differ.

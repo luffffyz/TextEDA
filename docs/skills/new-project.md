@@ -29,7 +29,7 @@ read". A step that does not say "on failure, look at code X" is not finished.
   | Kind | Run from | Example |
   |---|---|---|
   | CLI commands (`init` / `check` / `compile` / `netlist`) | the repository root, or anywhere (the project is a positional argument) | `bun run texteda check /tmp/demo` |
-  | Repository scripts that touch the library (`libhash` / `compile:symbol` / `export:symbol` / `compile:footprint` / `export:footprint`) | **inside the project directory** (the script path points back at `$REPO`, the data paths are project-relative) | `cd /tmp/demo && bun run $REPO/scripts/export-symbol.ts dist/c.json --component components/c-0402.teda --out dist/c.kicad_sym` |
+  | Repository scripts that touch the library (`libhash` / `compile:symbol` / `export:symbol` / `compile:footprint` / `export:footprint`) | **inside the project directory** (the script path points back at `$REPO`, the data paths are project-relative) | `cd /tmp/demo && bun run $REPO/scripts/export-symbol.ts dist/c.json --component assets/components/c-0402.teda --out dist/c.kicad_sym` |
 
   Why the library scripts run inside the project: the `source.file` they write into the IR must be
   a path **relative to the current directory** (an IR contract requirement), and the data files
@@ -61,14 +61,18 @@ What you get (**and nothing else**):
 
 ```
 project.toml
-components/  sch/  pcb/  system/  modules/  docs/README.md
+assets/symbols/  assets/footprints/  assets/components/
+assets/procurement/{primary,alternatives}/
+external/{libs,simulation}/
+design/{sch,pcb,modules,system}/  views/  docs/README.md
 ```
 
 Two traps:
 
-1. **`init` does not create `symbols/` or `footprints/`** — create the library directories yourself
-   (§3). The project layout has them, but the init contract (AGENTS.md §9) deliberately creates only
-   the items above.
+1. **`init` creates the tree, not the content** — every directory above comes back empty (a
+   `.gitkeep` each). The library files themselves are yours to write (§3). The tree is organised by
+   ownership (AGENTS.md §9, ADR-0031): `assets/` is what the project owns, `external/` is what it
+   borrows, `design/` is the circuit, `views/` is the drawings.
 2. **`init` does not reach the network, does not fetch templates and does not create `dist/`**. The
    output is deterministic: the same project name yields byte-identical files.
 
@@ -78,10 +82,10 @@ The library holds the **view**; the component (§4) holds the pin facts. The dir
 in `project.toml` under `[libs]`, and the convention is to reference them with the `project:` prefix.
 
 ```sh
-mkdir -p /tmp/demo/symbols/project /tmp/demo/footprints/project
+mkdir -p /tmp/demo/assets/symbols/project /tmp/demo/assets/footprints/project
 ```
 
-`symbols/project/c.teda` (the symbol of a two-pin capacitor):
+`assets/symbols/project/c.teda` (the symbol of a two-pin capacitor):
 
 ```
 version 0.5
@@ -101,7 +105,7 @@ body
   line  -1.27,0.508,1.27,0.508    width=0.254
 ```
 
-`footprints/project/chip-0402.teda`:
+`assets/footprints/project/chip-0402.teda`:
 
 ```
 version 0.4
@@ -130,7 +134,7 @@ The full rules for writing library files are in `docs/symbol-authoring.md` and
 A component is a **part number plus the pin facts** (number, name, electrical type) plus references
 to the library views.
 
-`components/c-0402.teda`:
+`assets/components/c-0402.teda`:
 
 ```
 version 0.1
@@ -155,11 +159,11 @@ pins
 What matters:
 
 - **The `component_id` is the file name** (without `.teda`, **without the relative path**):
-  `components/passives/c-0402.teda` has the id `c-0402`. The `component <id>` header must match the
+  `assets/components/passives/c-0402.teda` has the id `c-0402`. The `component <id>` header must match the
   file name, otherwise `ref.component-id-mismatch`.
 - The `params` section declares **the extra columns an instance row may carry** (name, type,
   required/optional). Their order is the order the instance row supplies them in.
-- A schematic **must not define a component inline**; it references an id under `components/`. A
+- A schematic **must not define a component inline**; it references an id under `assets/components/`. A
   missing id is an error (`ref.unknown-component`) — no network lookup, no silent downgrade.
 - Generic passives are component files too (`r-0402`, `c-0402`); `params.value` tells them apart.
 
@@ -193,7 +197,7 @@ changes** — `lib:verify` reports the mismatch.
 
 ## 6. Step 4: the schematic
 
-One board file `sch/demo.teda` (a board is one schematic file; see `teda.md` §7):
+One board file `design/sch/demo.teda` (a board is one schematic file; see `teda.md` §7):
 
 ```
 version 0.2
@@ -215,7 +219,7 @@ nets
 - A `nets` row is `net_name  <pin>…`, where a pin is written `refdes.pin_number` — the **number**,
   not the name (names are ambiguous on alternate functions).
 - A pin belongs to exactly one net (`net.pin-in-two-nets`).
-- **A board may be composed of modules** (`modules/<module_id>.teda` + a `modules` section in the
+- **A board may be composed of modules** (`design/modules/<module_id>.teda` + a `modules` section in the
   board file, `spec/module.md`). A board that fits in one file needs none — modules are optional.
 
 ## 7. Step 5: check → compile → netlist
@@ -264,7 +268,7 @@ cd /tmp/demo
 
 # symbol: IR JSON + the component file (the pin facts come from the component)
 bun run $REPO/packages/parser/scripts/compile-symbol.ts symbols/project/c.teda --out dist/c.json
-bun run $REPO/scripts/export-symbol.ts dist/c.json --component components/c-0402.teda --out dist/c.kicad_sym
+bun run $REPO/scripts/export-symbol.ts dist/c.json --component assets/components/c-0402.teda --out dist/c.kicad_sym
 
 # footprint: IR JSON only
 bun run $REPO/packages/parser/scripts/compile-footprint.ts footprints/project/chip-0402.teda --out dist/fp.json
@@ -298,7 +302,7 @@ ones you actually hit:
 
 | Symptom | Code | Fix |
 |---|---|---|
-| `component r-0403 not found` | `ref.unknown-component` | Put the part under `components/`, or fix the reference name (**no subdirectory**) |
+| `component r-0403 not found` | `ref.unknown-component` | Put the part under `assets/components/`, or fix the reference name (**no subdirectory**) |
 | `The id declared in the file header is c-0402x, the file name is c-0402` | `ref.component-id-mismatch` | Make the header id and the file name agree |
 | `component r-0402 has 1 required parameters, but the row gives only 0` | `value.param-count-mismatch` | Supply as many values as the `params` section declares, in its order |
 | `pin R1.2 belongs to both net MID and VCC2` | `net.pin-in-two-nets` | A pin belongs to one net; drop the extra member |

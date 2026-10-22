@@ -95,6 +95,29 @@ export function checkBinding(facts: BindingFacts): Diagnostic[] {
     tied.add(deviation.net_a < deviation.net_b ? `${deviation.net_a}|${deviation.net_b}` : `${deviation.net_b}|${deviation.net_a}`);
   }
 
+  // Declared deviations enter the report (ADR-0035 D10): a net tie is a note, a split ground is a warning.
+  for (const deviation of facts.pcb.deviation ?? []) {
+    if (deviation.type === "net_tie") {
+      diagnostics.push({
+        code: "bind.net-tie",
+        severity: "note",
+        message: `net_tie shorts two sch nets: ${deviation.net_a} and ${deviation.net_b}`,
+        location: at,
+        hint: "a tie changes the connectivity of both nets; check that this is the one you meant",
+        data: { net_a: deviation.net_a, net_b: deviation.net_b },
+      });
+    } else if (deviation.type === "split_ground") {
+      diagnostics.push({
+        code: "bind.split-ground",
+        severity: "warning",
+        message: `net ${deviation.net} is physically split into regions that do not touch`,
+        location: at,
+        hint: "a split ground breaks the return path of every signal that crosses the gap; check the isolation and the stitching",
+        data: { net: deviation.net },
+      });
+    }
+  }
+
   const covered = new Set<string>();
   for (const edge of facts.pcb.connect) {
     for (const ref of [edge.a, edge.b]) {

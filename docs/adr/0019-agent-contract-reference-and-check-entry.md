@@ -40,7 +40,7 @@ texteda check <project dir> [--json]
 texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]
 ```
 
-`check` covers **all** boards in the project (`sch/<board>.teda`), parsing each board → semantic-layer ERC → contract-layer schema validation;
+`check` covers **all** boards in the project (`design/sch/<board>.teda`), parsing each board → semantic-layer ERC → contract-layer schema validation;
 
 - Diagnostics use the unified payload of [ADR-0016](0016-diagnostic-error-codes.md) (`code` / `severity` / `location` / `data`); `--json` goes to stdout, the human-readable form goes to stderr;
 - Exit code: 1 if there is an error, 0 if there are only warnings (warnings do not block the gate);

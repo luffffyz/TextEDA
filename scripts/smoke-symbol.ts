@@ -10,8 +10,8 @@ import { missingPartPins, symbolLibrary } from "@texteda/exporter";
 import { canonicalJson, formatDiagnostic, formatSymbol } from "@texteda/parser";
 import { loadComponent, loadSymbol } from "./lib/project.ts";
 
-const symbolFile = process.argv[2] ?? "examples/reference-project/symbols/project/bq24610rger.teda";
-const componentFile = process.argv[3] ?? "examples/reference-project/components/power/bq24610rger.teda";
+const symbolFile = process.argv[2] ?? "examples/reference-project/assets/symbols/project/bq24610rger.teda";
+const componentFile = process.argv[3] ?? "examples/reference-project/assets/components/power/bq24610rger.teda";
 const work = "/tmp/texteda-sym-smoke";
 rmSync(work, { recursive: true, force: true });
 mkdirSync(join(work, "project.pretty"), { recursive: true });

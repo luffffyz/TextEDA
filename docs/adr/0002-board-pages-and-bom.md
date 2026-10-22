@@ -31,7 +31,7 @@ So three things have to be settled:
 
 1. **Hierarchy**: board = physical board; page = partitioning unit inside the board. A page produces no standalone PCB and no standalone BOM.
 
-2. **A page is a new description type** `page`: file `sch/<board_id>/<page_id>.teda`, header `page <page_id>`. The board root `sch/<board_id>.teda` is still a `schematic`. The `sch/` directory therefore holds two kinds, told apart by hierarchy: `sch/<id>.teda` is a board root, `sch/<id>/<page>.teda` is a page of that board.
+2. **A page is a new description type** `page`: file `design/sch/<board_id>/<page_id>.teda`, header `page <page_id>`. The board root `design/sch/<board_id>.teda` is still a `schematic`. The `design/sch/` directory therefore holds two kinds, told apart by hierarchy: `design/sch/<id>.teda` is a board root, `design/sch/<id>/<page>.teda` is a page of that board.
 
 3. **The board root declares its pages with a `pages` segment**:
 
@@ -41,7 +41,7 @@ So three things have to be settled:
      M2  buck-5v
    ```
 
-   Columns: `<page_instance_id> <page_id>`. By convention `page_id` resolves to `sch/<board_id>/<page_id>.teda` — the same resolution convention as `component_id` → `components/**/<id>.teda` and `board_id` → `sch/<id>.teda`; path literals never appear in the spec. `page_instance_id` is an instance name that is unique inside the board (named like a refdes); board-level nets use it to reference page ports.
+   Columns: `<page_instance_id> <page_id>`. By convention `page_id` resolves to `design/sch/<board_id>/<page_id>.teda` — the same resolution convention as `component_id` → `assets/components/**/<id>.teda` and `board_id` → `design/sch/<id>.teda`; path literals never appear in the spec. `page_instance_id` is an instance name that is unique inside the board (named like a refdes); board-level nets use it to reference page ports.
 
 4. **There is only one port-binding mechanism**, the container differs:
 

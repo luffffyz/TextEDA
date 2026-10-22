@@ -20,10 +20,10 @@
 
 | Ref | Component | Part number | Package | Value / parameters | Basis | Library file |
 |---|---|---|---|---|---|---|
-| U1 | MCU | CH32V307VCT6 | LQFP-100 | — | CH32V307DS0 V3.9 Table 3-1 pin definitions | `components/mcu/ch32v307vct6.teda` |
-| U2 | LDO 3.3V | TPS7A2033PDBVR | SOT-23-5 | 3.3V / 300mA | SBVS348H §4 pin functions, §5.3 recommended operating conditions | `components/regulators/tps7a2033pdbvr.teda` |
-| Y1 | Crystal | SST-3225/8.000M-12PF | SMD-3225-4P | 8.000MHz, CL=12pF, ±10ppm | Sorst approval sheet, electrical characteristics / Connection diagram | `components/passives/xtal-8mhz-3225.teda` |
-| SW1 | Tactile switch | TS-1187 | SMD-5.2×5.2mm-4P | Normally open, closes on press | TS-1187 circuit diagram (1-2 and 3-4 form one pair each) | `components/mechanical/sw-ts-1187.teda` |
+| U1 | MCU | CH32V307VCT6 | LQFP-100 | — | CH32V307DS0 V3.9 Table 3-1 pin definitions | `assets/components/mcu/ch32v307vct6.teda` |
+| U2 | LDO 3.3V | TPS7A2033PDBVR | SOT-23-5 | 3.3V / 300mA | SBVS348H §4 pin functions, §5.3 recommended operating conditions | `assets/components/regulators/tps7a2033pdbvr.teda` |
+| Y1 | Crystal | SST-3225/8.000M-12PF | SMD-3225-4P | 8.000MHz, CL=12pF, ±10ppm | Sorst approval sheet, electrical characteristics / Connection diagram | `assets/components/passives/xtal-8mhz-3225.teda` |
+| SW1 | Tactile switch | TS-1187 | SMD-5.2×5.2mm-4P | Normally open, closes on press | TS-1187 circuit diagram (1-2 and 3-4 form one pair each) | `assets/components/mechanical/sw-ts-1187.teda` |
 | C1–C7 | Decoupling capacitors | 0402 X7R 16V | 0402 | 100nF | One per VDD/VIO/VDDA pin | `c-0402` |
 | C8 | 3V3 rail bulk | 0402 X7R 10V | 0402 | 1µF | CH32V307DS0 V3.9 Table 4-2: VDDA must be the same as VIO → VDDA tied directly to 3V3, 1µF as local bulk | `c-0402` |
 | C9 | LDO input | 0402 X7R 10V | 0402 | 1µF | SBVS348H footnote 2: CIN effective value ≥0.47µF | `c-0402` |
@@ -33,7 +33,7 @@
 | R1 | NRST pull-up | 0402 | 0402 | 10k | Engineering practice, not specified by the datasheet | `r-0402` |
 | R2 | BOOT0 pull-down | 0402 | 0402 | 10k | CH32V307DS0 V3.9 pin note 5: chips with BOOT0 not brought out have an internal pull-down; this chip's BOOT0 is brought out | `r-0402` |
 | R3 | Indicator current limit | 0402 | 0402 | 1k | 3.3V → green LED | `r-0402` |
-| D1 | Power indicator | LTST-C190GKT | 0603 | Green | Already in the library | `components/indicators/led-green.teda` |
+| D1 | Power indicator | LTST-C190GKT | 0603 | Green | Already in the library | `assets/components/indicators/led-green.teda` |
 
 Decoupling-capacitor placement (pin numbers from CH32V307DS0 Table 3-1): VDD_5(11), VDD_4(28), VDD_2(75), VIO_1(50), VIO_3(100), VDDA(22), VREF+(21).
 

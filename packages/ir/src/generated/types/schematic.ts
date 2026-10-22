@@ -265,7 +265,7 @@ export type ProxyLine = number;
 export type NetOrPinRef = string;
 
 /**
- * Schematic IR of one board: the board's flat list of instances and nets, as declared in sch/<board_id>.teda. A board has exactly one schematic file; there is no page level and no flattening. See ADR-0025, ADR-0008 decision 2.
+ * Schematic IR of one board: the board's flat list of instances and nets, as declared in design/sch/<board_id>.teda. A board has exactly one schematic file; there is no page level and no flattening. See ADR-0025, ADR-0008 decision 2.
  */
 export interface Schematic {
   /**
@@ -278,7 +278,7 @@ export interface Schematic {
   format: string;
   source?: SourceRef;
   /**
-   * The board_id shared with sch/<board_id>.teda and pcb/<board_id>.teda.
+   * The board_id shared with design/sch/<board_id>.teda and design/pcb/<board_id>.teda.
    */
   board: string;
   /**
@@ -311,7 +311,7 @@ export interface Schematic {
  */
 export interface SourceRef {
   /**
-   * Source-file path relative to the project root, e.g. sch/charger-buck/buck-5v.teda. Never an absolute path.
+   * Source-file path relative to the project root, e.g. design/sch/charger-buck.teda. Never an absolute path.
    */
   file: string;
   /**
@@ -411,7 +411,7 @@ export interface Bus {
  */
 export interface SourceRef1 {
   /**
-   * Source-file path relative to the project root, e.g. sch/charger-buck/buck-5v.teda. Never an absolute path.
+   * Source-file path relative to the project root, e.g. design/sch/charger-buck.teda. Never an absolute path.
    */
   file: string;
   /**

@@ -10,7 +10,7 @@ Impact: `teda.md` §6.1 (new `lcsc` scalar), §11, §13; `docs/adr/0005-manufact
 
 Facts on the SMT side (from the same official specification): the BOM requires `Comment` / `Designator` / `Footprint`, and it is recommended to fill in the **JLC part number (C-number)**, with **the number taking priority** — the official wording is "a wrong number causes wrong matching more easily than a missing number"; the coordinate file requires `Designator` / `Mid X` / `Mid Y` / `Layer` / `Rotation`, and the recommended column order is `Designator → Footprint → Mid X → Mid Y → Ref X → Ref Y → Pad X → Pad Y → Layer → Rotation → Comment`, in mm, with the origin matching the PCB; it is recommended to keep top and bottom in one file, and since each EDA rotates the bottom layer differently, a 2D review is needed. The PCB, BOM and coordinates must be of the same version, designators must have no duplicates and no omissions, and do-not-populate handling must be consistent, otherwise the SMT check flags an anomaly. The JLC DFM client can perform SMT checks (open/short analysis, rout length calculation, etc.).
 
-Current gap: the component bindings in the project (`examples/reference-project/components/**/*.teda`) only have `mpn` and KiCad symbol/footprint references, **no JLC mall part number**, so the BOM cannot reliably match SMT materials.
+Current gap: the component bindings in the project (`examples/reference-project/assets/components/**/*.teda`) only have `mpn` and KiCad symbol/footprint references, **no JLC mall part number**, so the BOM cannot reliably match SMT materials.
 
 ## Decision
 

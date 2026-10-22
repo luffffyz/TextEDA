@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { readComponentFacts } from "../src/index.ts";
 
 const example = readFileSync(
-  "examples/reference-project/components/power/bq24610rger.teda",
+  "examples/reference-project/assets/components/power/bq24610rger.teda",
   "utf8",
 );
 

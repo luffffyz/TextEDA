@@ -113,8 +113,8 @@ outside the language that reads a foreign description and writes this project's 
 
 | Scenario | What the importer produces |
 |---|---|
-| Reverse engineering: a board exists, its schematic does not | infer the connectivity from the geometry or read a foreign netlist, and write `sch/` plus `pcb/` sources; the board is then an ordinary board |
-| An external netlist arrives (a customer's, a supplier's) | a board with a schematic and no pcb — a combination that already exists — plus the `components/` the netlist needs |
+| Reverse engineering: a board exists, its schematic does not | infer the connectivity from the geometry or read a foreign netlist, and write `design/sch/` plus `design/pcb/` sources; the board is then an ordinary board |
+| An external netlist arrives (a customer's, a supplier's) | a board with a schematic and no pcb — a combination that already exists — plus the `assets/components/` the netlist needs |
 
 The importer is a generator in the sense of
 [ADR-0017](0017-fact-layer-no-expressions.md) decision 3: it lives outside the language and its
@@ -123,8 +123,11 @@ schematic, which a human can read and check against the original, rather than a 
 somewhere holds the truth. An imported schematic that nobody reads is worthless, and this
 arrangement makes that visible rather than hiding it behind a mode.
 
-**The implementation is deferred.** The decision is recorded here so that the direction is not
-reopened; the importer itself is later work (`docs/backlog.md` F36).
+**The implementation is deferred, and so is everything else importer-shaped** (2026-10-22). The
+direction above is recorded so that the "pcb only" question is not reopened, but the scope, the
+output conventions and the way inferences are presented are **not** decided now: they wait with
+the work (`docs/backlog.md` F36). Until then no importer entry point is added, not even a partial
+one — a half-imported board is a board nobody can trust.
 
 ### D7. Deviations are reported, never hidden
 
@@ -166,7 +169,107 @@ schematic, and anything the target format cannot carry — appears in the report
 
 - **Constraint vocabulary for pins**: "this pin must sit on a power net" — the rule a thermal pad
   tied to ground wants — is not expressible in the constraint section today, which knows voltages,
-  currents and ranges. Not decided here.
+  currents and ranges. Not decided here. (This is a *net membership* constraint, not a thermal
+  one: the thermal relief itself is already covered by the footprint's pad zone. No common EDA is
+  known to offer this either, so it stays a low-priority open point until a real board needs it.)
 - **The importer's scope and output conventions**: which foreign formats it reads, what it does
-  when the input is ambiguous, and how it presents its inferences for review. Belongs with the
-  implementation (`docs/backlog.md` F36).
+  when the input is ambiguous, and how it presents its inferences for review. **Deferred** with
+  the importer itself (2026-10-22): every importer-related decision waits with the work
+  (`docs/backlog.md` F36). Nothing importer-shaped is decided in the meantime.
+
+## Addendum (2026-10-22b): a test point is a device, and what is logical must be visible
+
+Amends decisions 1, 2 and 3. The question this answers: *a test point can be written two ways —
+as a physical-only entity in the `pcb` (`test_point <net> <size>`) or as a device in the
+schematic (a one-pin part). Which is it?*
+
+### D8. A test point is a device
+
+It is a device, and three things say so.
+
+- **Shapes live in the footprint library.** The board description stores coordinates, not geometry
+  (`AGENTS.md` §4.5, [ADR-0010](0010-footprint-and-3d-model-ownership.md),
+  [ADR-0029](0029-package-code-footprint-and-3d-model-ownership.md)). A test point that may have a
+  custom shape needs a land pattern, and a land pattern lives in a footprint — which belongs to a
+  device. The `physical_only` form writes a size in the board description, which is the one thing
+  the board description may not do.
+- **It has an identity.** A reference, a position, a side, an orientation. The assembly drawing,
+  the placement data and the test fixture all refer to it. A feature of a net has none of these.
+- **It has one electrical fact.** One pad on one net — which is exactly one pin.
+
+So a test point in the schematic is a **one-pin device**: a family when it is not purchased (a
+bare pad) or a part when it is (a real test-point component), following the split in
+[ADR-0027](0027-device-parts-families-and-library-dependencies.md). The board places it like any
+other device, its net membership is ordinary, and no deviation is involved.
+
+### D9. The line is: is it a pad on a net?
+
+- **Yes** → it is a device in the schematic: visible in the netlist, in the BOM when it is
+  purchased, in the placement data, and in the review.
+- **No** → it is a physical entity in the `pcb`: a via, a hole, a mark, a cutout.
+
+And with it, the rule that the question was really about: **anything that exists logically must be
+visible in the schematic.** A board fact that exists only in the `pcb` is a physical fact; if it is
+a logical fact, the schematic has to show it. Otherwise it is invisible to the netlist, to the
+BOM, to the fabrication data and to the reviewer — and a thing nobody can see is a thing that is
+forgotten.
+
+### D10. The whitelist loses `test_point`
+
+The four remaining kinds are `net_tie` and `split_ground` (logical deviations) and `stitching` and
+`fiducial` (physical entities that have to be declared). The `physical_only` section keeps
+`mounting`, `fiducial`, `stitching` and `cutout`; the `test_point` form is retired, because a pad
+on a net is a device and no longer a physical entity.
+
+Retiring a form in the language and in the IR is a contract change, and it rides with the next
+contract version rather than with this record (`docs/backlog.md` F38) — a specification that
+promises something the parser does not accept is worse than no specification, and the IR contract
+version moves as one piece.
+
+### D11. The physical-only entities have no position yet
+
+While deciding this, the shape of the section turned out to be incomplete: a `physical_only`
+entry carries an id, a type and sizes, but **no coordinates** — in the surface syntax and in the
+IR alike. A mounting hole, a fiducial or a stitching via therefore cannot be placed: the renderer
+cannot draw it and the fabrication data cannot carry it. The section is declared, but it is not
+usable, and the reference project does not use it.
+
+Positions are added with the same change that retires the `test_point` form
+(`docs/backlog.md` F38). Until then, the section is not to be used.
+
+### The open point that stays open
+
+A one-pin family that is not purchased — a bare test pad — has no manufacturer part number, so
+its BOM line is "unsourced"
+([ADR-0030](0030-procurement-layer.md) decision 9, `docs/backlog.md` F35). That is a warning
+today, and for a board full of test pads it is noise. Whether the fabrication data should carry
+such lines at all is not decided here; the state itself now exists — a selection may name
+`not-required` ([ADR-0030](0030-procurement-layer.md) D9), which is a line with nothing to buy
+rather than a line whose buying is unfinished.
+
+## Addendum (2026-10-22c): a declared deviation is reported, and a split ground is a warning
+
+Amends decision 2.
+
+### D10. Every declared deviation enters the report, and the severity says how dangerous it is
+
+Decision 2 says a deviation "must be declared and enters the report" — but nothing said what
+that report entry is, and the implementation consumed the declarations silently: a `net_tie`
+was used as an exemption and vanished, and a `split_ground` was accepted and vanished with it.
+A dangerous operation that produces no output is not reported, it is hidden.
+
+| Declaration | Severity | Why |
+|---|---|---|
+| `net_tie` | note | A deliberate and common statement: two schematic nets are physically one (a 0 Ω link, a solder jumper). It changes the connectivity of both nets, so the reader has to see it — but nothing is wrong. |
+| `split_ground` | warning | One net — usually ground — is physically split into regions that do not touch. The return path is broken by definition: every signal that crosses the gap returns on its own. It is legitimate (isolation, a separated analog ground), but it is never a default, and each instance deserves a look. |
+
+The line is not "how much the checker likes it" but "what happens if it was a mistake". A net tie
+that should not have been there still behaves like one net; a ground split that should not have
+been there breaks every return path that crossed it.
+
+### D11. Undeclared stays an error
+
+Unchanged: a short between two nets with no `net_tie` is an error, and a difference that is not
+on the whitelist is an error rather than a warning (decision 2). The severities above apply to
+the **declared** case only — declaring a deviation is how you say "this is intended", not how you
+make an error go away.

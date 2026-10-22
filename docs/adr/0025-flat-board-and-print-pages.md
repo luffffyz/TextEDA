@@ -39,7 +39,7 @@ needs none of that.
 
 ### 1. One schematic file per board
 
-`sch/<board_id>.teda` is the board's only logical description. The `page` description type and the
+`design/sch/<board_id>.teda` is the board's only logical description. The `page` description type and the
 `pages` section are **removed** (language version 0.7). A board's `instances`, `nets`, `ports` and
 `constraints` live in that one file.
 
@@ -62,7 +62,7 @@ once, in one place.
 
 ### 4. The partition moves to the view layer, as a print page
 
-`sch/<board_id>/<page_id>.view.teda` is a **print page** of the drawing: a print / format unit that
+`views/<board_id>/<page_id>.view.teda` is a **print page** of the drawing: a print / format unit that
 nothing but the renderer reads. It references **board-level** instance ids and net ids, so the
 drawing and the logic are compared by string equality, with no name resolution in between.
 
@@ -146,9 +146,9 @@ choosing a name is an authoring decision, not a mechanical one.
 
 Amended by [ADR-0032](0032-view-is-a-drawing-not-a-build-input.md) decision 1.
 
-Decision 4 placed the print page file at `sch/<board_id>/<page_id>.view.teda`. It is now
+Decision 4 placed the print page file at `views/<board_id>/<page_id>.view.teda`. It is now
 `views/<board_id>/<page_id>.view.teda`: the print pages have a root of their own, beside the
 circuit and not inside it, so `design/` holds the circuit and nothing else, and the collision
-between `sch/<board_id>.teda` and `sch/<board_id>/` is gone. What decision 4 established is
+between `design/sch/<board_id>.teda` and `design/sch/<board_id>/` is gone. What decision 4 established is
 unchanged — a print page is a drawing unit of one flat board, it creates no connectivity, it
 draws board nets and board ports that already exist, and the board has exactly one namespace.

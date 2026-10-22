@@ -19,7 +19,7 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `file` | string | yes | — | Source-file path relative to the project root, e.g. sch/charger-buck/buck-5v.teda. Never an absolute path. |
+| `file` | string | yes | — | Source-file path relative to the project root, e.g. design/sch/charger-buck.teda. Never an absolute path. |
 | `line` | integer | no | — | Line number of this object in the source file, 1-based. |
 
 ## `component`
@@ -465,7 +465,7 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `id` | slug | yes | — | board_id, matching sch/<board_id>.teda and pcb/<board_id>.teda. |
+| `id` | slug | yes | — | board_id, matching design/sch/<board_id>.teda and design/pcb/<board_id>.teda. |
 | `revision` | string | no | — | Board version, e.g. rev-A. |
 | `title` | string | no | — | Board title. |
 
@@ -481,12 +481,12 @@
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `content_hash` | sha256 | no | — | Content hash of a self-built library: SHA-256(concatenation of "<relpath>:<file_sha256>\n" lines after sorting the library's files by relative path). See ADR-0010 decision 2. |
-| `footprints` | string | no | — | Footprint directory of the project-built library (project-relative path), e.g. footprints/project. |
+| `footprints` | string | no | — | Footprint directory of the project-built library (project-relative path), e.g. assets/footprints/project. |
 | `id` | lib_id | yes | — | Library name (the table name of [libs.<name>] in project.toml). |
-| `path` | string | no | — | Project-relative directory of a self-built library with a single root (legacy form), e.g. footprints/project. With two roots, use symbols + footprints. |
+| `path` | string | no | — | Project-relative directory of a self-built library with a single root (legacy form), e.g. assets/footprints/project. With two roots, use symbols + footprints. |
 | `rev` | string | no | — | Version or revision number of the upstream library. |
 | `source` | string | yes | — | Library source: upstream name or address (kicad-official, repository URL); write project for a project-built library. |
-| `symbols` | string | no | — | Symbol directory of the project-built library (project-relative path), e.g. symbols/project. Shares the same <lib>: namespace with footprints; see ADR-0010 addendum and ADR-0012. |
+| `symbols` | string | no | — | Symbol directory of the project-built library (project-relative path), e.g. assets/symbols/project. Shares the same <lib>: namespace with footprints; see ADR-0010 addendum and ADR-0012. |
 | `version` | string | no | — | Version identifier of the upstream library. |
 
 ### variant
@@ -508,12 +508,12 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `board` | slug | yes | — | The board_id, resolved from the directory sch/<board_id>/. |
+| `board` | slug | yes | — | The board_id, resolved from the directory views/<board_id>/. |
 | `format` | format_version | yes | — | Language version of the .teda file that produced this shard; see teda.md §13. |
 | `ir_version` | ir_version | yes | — | IR contract version, currently always 0.2. |
 | `label` | array<label> | no | — | Net name labels; the text shown is the net id itself, never an override. |
 | `note` | note | no | — | Free text; canonical JSON has no comments, this is the substitute (ADR-0004 rule 8). |
-| `page` | slug | yes | — | The print page id this view draws, resolved to sch/<board_id>/<page_id>.view.teda. A print page is a drawing and print unit, not a logical partition. |
+| `page` | slug | yes | — | The print page id this view draws, resolved to views/<board_id>/<page_id>.view.teda. A print page is a drawing and print unit, not a logical partition. |
 | `place` | array<place> | yes | — | Where each component instance sits on the print page, sorted by instance id. |
 | `port` | array<port> | no | — | Board port symbols; a port names an existing net, it never creates one. |
 | `sheet` | object | yes | — | Sheet size. The source may omit it (default A4 landscape); the IR always carries the effective size. |
@@ -580,13 +580,13 @@
 ## `schematic`
 
 - schema: `urn:texteda:ir:0.2:schematic`
-- Schematic IR of one board: the board's flat list of instances and nets, as declared in sch/<board_id>.teda. A board has exactly one schematic file; there is no page level and no flattening. See ADR-0025, ADR-0008 decision 2.
+- Schematic IR of one board: the board's flat list of instances and nets, as declared in design/sch/<board_id>.teda. A board has exactly one schematic file; there is no page level and no flattening. See ADR-0025, ADR-0008 decision 2.
 
 ### Top-level
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `board` | slug | yes | — | The board_id shared with sch/<board_id>.teda and pcb/<board_id>.teda. |
+| `board` | slug | yes | — | The board_id shared with design/sch/<board_id>.teda and design/pcb/<board_id>.teda. |
 | `buses` | array<bus> | no | — | Bus definition, declaring a group of nets as one bus. |
 | `constraints` | array<constraint> | no | — | Electrical/geometric constraints: voltage/current limits, impedance and so on. |
 | `format` | format_version | yes | — | Language version of the .teda file that produced this shard. |

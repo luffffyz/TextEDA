@@ -21,11 +21,11 @@
     },
     "board": {
       "$ref": "urn:texteda:ir:0.2:common#/$defs/slug",
-      "description": "The board_id, resolved from the directory sch/<board_id>/."
+      "description": "The board_id, resolved from the directory views/<board_id>/."
     },
     "page": {
       "$ref": "urn:texteda:ir:0.2:common#/$defs/slug",
-      "description": "The print page id this view draws, resolved to sch/<board_id>/<page_id>.view.teda. A print page is a drawing and print unit, not a logical partition."
+      "description": "The print page id this view draws, resolved to views/<board_id>/<page_id>.view.teda. A print page is a drawing and print unit, not a logical partition."
     },
     "sheet": {
       "type": "object",

@@ -29,6 +29,7 @@ import {
   parseSymbol,
   parseView,
 } from "@texteda/parser";
+import { LAYOUT } from "./paths.ts";
 import { listBoards, loadBoard, loadComponents, loadModules, loadPcb } from "./project.ts";
 
 /** One compiled shard: canonical bytes plus the hash of those bytes. */
@@ -166,15 +167,18 @@ export function buildIrTree(root: string): IrTree {
   const libraries: {
     kind: SchemaKind;
     dir: string;
+    /** Directory of the shard tree (independent of the source tree). */
+    shardDir: string;
     parse: (text: string, options: { file: string; library: string }) => {
       ir?: unknown;
       diagnostics: Diagnostic[];
     };
   }[] = [
-    { kind: "symbol", dir: "symbols", parse: parseSymbol },
-    { kind: "footprint", dir: "footprints", parse: parseFootprint },
+    // The source directory follows the tree; the shard path stays by kind (ADR-0031 decision 4).
+    { kind: "symbol", dir: LAYOUT.symbols, shardDir: "symbols", parse: parseSymbol },
+    { kind: "footprint", dir: LAYOUT.footprints, shardDir: "footprints", parse: parseFootprint },
   ];
-  for (const { kind, dir, parse } of libraries) {
+  for (const { kind, dir, shardDir, parse } of libraries) {
     for (const file of libraryFiles(root, dir)) {
       const library = file.library;
       const parsed = parse(readFileSync(file.path, "utf8"), {
@@ -184,7 +188,7 @@ export function buildIrTree(root: string): IrTree {
       diagnostics.push(...parsed.diagnostics);
       if (!parsed.ir) continue;
       drafts.push({
-        path: `${dir}/${library}/${file.id}.json`,
+        path: `${shardDir}/${library}/${file.id}.json`,
         kind,
         source: file.source,
         ir: parsed.ir,
@@ -234,7 +238,7 @@ export function buildIrTree(root: string): IrTree {
       code: "cli.empty-project",
       severity: "error",
       message: `No description with a producer was found in ${root}`,
-      hint: "Add a board description (sch/<board_id>.teda), a PCB description, or a library file; or point at the right project directory",
+      hint: "Add a board description (design/sch/<board_id>.teda), a PCB description, or a library file; or point at the right project directory",
     });
   } else {
     const manifestCheck = validate("manifest", manifest);

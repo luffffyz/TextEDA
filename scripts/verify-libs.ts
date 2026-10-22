@@ -72,7 +72,7 @@ interface ComponentEntry {
 
 // 1) scan components: resolve symbol/footprint references and pin numbers
 const components: ComponentEntry[] = [];
-for (const file of listTeda(join(projectRoot, "components"))) {
+for (const file of listTeda(join(projectRoot, "assets/components"))) {
   const text = readFileSync(file, "utf8");
   const facts = readComponentFacts(text, { file });
   if (!facts.ok || !facts.facts) {
@@ -101,8 +101,8 @@ const parseRef = (ref: string): { lib: string; name: string } | null => {
   return { lib: ref.slice(0, at), name: ref.slice(at + 1) };
 };
 
-const symbolDir = join(projectRoot, "symbols", libName);
-const footprintDir = join(projectRoot, "footprints", libName);
+const symbolDir = join(projectRoot, "assets/symbols", libName);
+const footprintDir = join(projectRoot, "assets/footprints", libName);
 
 console.log(`[1] ${components.length} components`);
 for (const c of components) {

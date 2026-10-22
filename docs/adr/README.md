@@ -39,6 +39,7 @@ Every architecture decision record in this repository, in numeric order.
 | [ADR-0033](0033-review-records-and-attribution.md) | Review Is Not a Description Type — Notes, Decisions, and the One Accountable Person | Accepted | 2026-10-22 |
 | [ADR-0034](0034-manufacturing-output-target-form.md) | The Target Form of the Manufacturing Output — Derived Manufacturing Data, a Self-Describing Package, and a Gate That Is a Process | Accepted | 2026-10-22 |
 | [ADR-0035](0035-connectivity-authority-and-reverse-engineering.md) | Connectivity Has One Authority; Reverse Engineering Is an Import, Not a Mode | Accepted | 2026-10-22 |
+| [ADR-0036](0036-process-entities-outside-the-language.md) | Process Entities Stay Outside the Language — Requirements, Blocks, and Analyses | Accepted | 2026-10-22 |
 
 ## Reserved Numbers
 

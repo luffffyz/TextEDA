@@ -441,3 +441,70 @@ All closed on 2026-10-22.
   of as alternatives. A set is a whole build; a second source is one line. Making every second
   source a whole set would multiply files and make the primary/secondary relation impossible to
   state. Rejected in decision 11.
+
+## Addendum (2026-10-22b): a BOM line that requires no purchase
+
+Amends decision 4.
+
+### The question
+
+A family line in the BOM is in one of two states today: it points at a part (bought), or it has
+no part number and is marked **unsourced** (not chosen yet). But a board also contains things
+that are **never bought** — a bare test pad, a fiducial pad, a printed mark. Calling those
+`unsourced` says the wrong thing: it tells the reader that somebody forgot, when in fact nobody
+was ever going to. On a board with a dozen test points that is a dozen warnings that mean
+nothing.
+
+The shortcut — writing `n/a` in the MPN cell — is closed by decision 4: the exported BOM is
+consumed by a parts-ordering system, and a cell that reads `n/a` would be ordered as if it were
+a part. The MPN cell stays empty; the marker goes in the comment column.
+
+### D9. A selection has three states
+
+| State | How it is written | BOM | `texteda check` |
+|---|---|---|---|
+| bought | `family <params…> -> part` | MPN cell holds the part number, no marker | — |
+| not yet sourced | no selection row | MPN cell empty, marker `unsourced` | warning |
+| requires no purchase | `family <params…> -> not-required` | MPN cell empty, marker `not-required` | no warning |
+
+The state belongs in the **selection**, not in the family: the same family — a one-pin pad — is
+bought as a real test-point component on one board and left as a bare pad on another. A family
+cannot know which one it is, and a project that wants it both ways must be able to say so.
+
+`not-required` is a reserved target: it is not a part id, so a selection can never point at it
+by accident, and the check that a selection resolves to a real part has one documented
+exception.
+
+### Why the state is named `not-required`
+
+`not-purchased` was the first name for this state, and it says the wrong thing: it reads as
+"has not been purchased", which is the *unsourced* state wearing a different hat. The state is
+not about the progress of buying; it is a fact about the line: **nothing has to be bought here**.
+So the name states the fact — `not-required` — and the BOM marker uses the same word. The two
+states then read apart at a glance: `unsourced` is a gap to close, `not-required` is a line with
+no part in it.
+
+### Where the marker sits: a status of its own, not a note
+
+The status is machine output and the comment is a human's text; they do not share a cell. So the
+BOM the project produces has **a `status` column of its own** — `bought`, `unsourced` or
+`not-required` — beside a `note` column that holds free text. A tool reads the status without
+parsing prose, and a human can write a note without disturbing it.
+
+The part-number cell stays empty in both cases (decision 4: the BOM is consumed by a
+parts-ordering system, and a cell that reads `unsourced` would be ordered as if it were a part).
+
+The ordering-shaped export is a different artifact and keeps the columns the ordering format
+specifies ([ADR-0006](0006-jlc-prototype-delivery.md) decision 4: `Comment` / `Designator` /
+`Footprint` / the part number / `Quantity`) — no column is added to a format we do not own. There
+the marker goes into the format's own `Comment` cell, which is that field's purpose, and the
+empty part number already keeps the row from being ordered.
+
+### What did not change
+
+- The **component file** still does not carry `mpn n/a`. A family has no manufacturer part
+  number; that is what a family is
+  ([ADR-0027](0027-device-parts-families-and-library-dependencies.md)). A sentinel string in a
+  typed field would flow into the procurement lookup as if it were a part number.
+- The **IR** keeps the absence as an absence. The marker is a rendering of the state, not the
+  state itself.

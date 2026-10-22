@@ -36,14 +36,35 @@ describe("init file set", () => {
   const tree = initTree({ name: "demo" });
 
   test("creates only the directories and files listed in the contract", () => {
-    expect(tree.directories).toEqual(["components", "sch", "pcb", "system", "modules", "docs"]);
+    expect(tree.directories).toEqual([
+      "assets/symbols",
+      "assets/footprints",
+      "assets/components",
+      "assets/procurement/primary",
+      "assets/procurement/alternatives",
+      "external/libs",
+      "external/simulation",
+      "design/sch",
+      "design/modules",
+      "design/pcb",
+      "design/system",
+      "views",
+      "docs",
+    ]);
     expect(tree.files.map((f) => f.path)).toEqual([
       "project.toml",
-      "components/.gitkeep",
-      "sch/.gitkeep",
-      "pcb/.gitkeep",
-      "system/.gitkeep",
-      "modules/.gitkeep",
+      "assets/symbols/.gitkeep",
+      "assets/footprints/.gitkeep",
+      "assets/components/.gitkeep",
+      "assets/procurement/primary/.gitkeep",
+      "assets/procurement/alternatives/.gitkeep",
+      "external/libs/.gitkeep",
+      "external/simulation/.gitkeep",
+      "design/sch/.gitkeep",
+      "design/modules/.gitkeep",
+      "design/pcb/.gitkeep",
+      "design/system/.gitkeep",
+      "views/.gitkeep",
       "docs/README.md",
     ]);
   });
@@ -84,11 +105,15 @@ describe("init disk-write behavior", () => {
       const result = runInit(["init", dir]);
       expect(result.code).toBe(0);
       expect(existsSync(join(dir, "project.toml"))).toBe(true);
-      expect(existsSync(join(dir, "components", ".gitkeep"))).toBe(true);
-      expect(existsSync(join(dir, "sch", ".gitkeep"))).toBe(true);
-      expect(existsSync(join(dir, "pcb", ".gitkeep"))).toBe(true);
-      expect(existsSync(join(dir, "system", ".gitkeep"))).toBe(true);
-      expect(existsSync(join(dir, "modules", ".gitkeep"))).toBe(true);
+      expect(existsSync(join(dir, "assets", "components", ".gitkeep"))).toBe(true);
+      expect(existsSync(join(dir, "assets", "symbols", ".gitkeep"))).toBe(true);
+      expect(existsSync(join(dir, "assets", "footprints", ".gitkeep"))).toBe(true);
+      expect(existsSync(join(dir, "design", "sch", ".gitkeep"))).toBe(true);
+      expect(existsSync(join(dir, "design", "modules", ".gitkeep"))).toBe(true);
+      expect(existsSync(join(dir, "design", "pcb", ".gitkeep"))).toBe(true);
+      expect(existsSync(join(dir, "design", "system", ".gitkeep"))).toBe(true);
+      expect(existsSync(join(dir, "external", "libs", ".gitkeep"))).toBe(true);
+      expect(existsSync(join(dir, "views", ".gitkeep"))).toBe(true);
       expect(existsSync(join(dir, "docs", "README.md"))).toBe(true);
       // Does not create dist/.
       expect(existsSync(join(dir, "dist"))).toBe(false);

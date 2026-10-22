@@ -154,7 +154,7 @@
       "properties": {
         "id": {
           "$ref": "urn:texteda:ir:0.2:common#/$defs/slug",
-          "description": "board_id, matching sch/<board_id>.teda and pcb/<board_id>.teda."
+          "description": "board_id, matching design/sch/<board_id>.teda and design/pcb/<board_id>.teda."
         },
         "revision": {
           "type": "string",
@@ -250,17 +250,17 @@
         "path": {
           "type": "string",
           "pattern": "^(?!/)(?!.*\\.\\.)[^\\\\]+$",
-          "description": "Project-relative directory of a self-built library with a single root (legacy form), e.g. footprints/project. With two roots, use symbols + footprints."
+          "description": "Project-relative directory of a self-built library with a single root (legacy form), e.g. assets/footprints/project. With two roots, use symbols + footprints."
         },
         "symbols": {
           "type": "string",
           "pattern": "^(?!/)(?!.*\\.\\.)[^\\\\]+$",
-          "description": "Symbol directory of the project-built library (project-relative path), e.g. symbols/project. Shares the same <lib>: namespace with footprints; see ADR-0010 addendum and ADR-0012."
+          "description": "Symbol directory of the project-built library (project-relative path), e.g. assets/symbols/project. Shares the same <lib>: namespace with footprints; see ADR-0010 addendum and ADR-0012."
         },
         "footprints": {
           "type": "string",
           "pattern": "^(?!/)(?!.*\\.\\.)[^\\\\]+$",
-          "description": "Footprint directory of the project-built library (project-relative path), e.g. footprints/project."
+          "description": "Footprint directory of the project-built library (project-relative path), e.g. assets/footprints/project."
         },
         "content_hash": {
           "$ref": "urn:texteda:ir:0.2:common#/$defs/sha256",
@@ -284,7 +284,7 @@
           ]
         }
       ],
-      "description": "Library lock: must have one of rev, version or content_hash to guarantee reproducibility. A self-built library uses symbols/footprints (or the legacy path) + content_hash."
+      "description": "Library lock: must have one of rev, version or content_hash to guarantee reproducibility. A self-built library uses assets/symbols + assets/footprints (or the legacy path) + content_hash."
     },
     "compliance": {
       "type": "object",

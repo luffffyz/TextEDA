@@ -68,7 +68,7 @@ The tools (checker + KiCad DRC) are responsible, not manual review:
 
 - `docs/footprint-authoring.md`: the workflow for an agent to author footprints, the file layout, the `fp-lib-table` syntax, and the checklist.
 - Whether **symbols** in a self-built library follow the same mechanism (`component.symbol` pointing at a self-built `.kicad_sym`) — we lean toward yes, but we have to confirm whether KiCad's symbol library table and footprint library table are the same mechanism.
-- How 3D models are attached and hashed: once a self-built library uses our format, the 3D models live inside the library directory (`footprints/project/3dmodels/…`) and are covered by `content_hash` as well (change a model and the hash changes). The format is described in [ADR-0011](0011-library-format-and-footprint-ir.md).
+- How 3D models are attached and hashed: once a self-built library uses our format, the 3D models live inside the library directory (`assets/footprints/project/3dmodels/…`) and are covered by `content_hash` as well (change a model and the hash changes). The format is described in [ADR-0011](0011-library-format-and-footprint-ir.md).
 
 ## Addendum (2026-10-20): a self-built library has two roots
 
@@ -101,7 +101,7 @@ Two consequences:
   second thing to keep in step.
 - **The `project:` prefix becomes a legacy spelling.** `project:sot-23-5` still resolves and
   still means "this project's own asset", but a bare `sot-23-5` says the same thing, and the
-  `project:` level inside `symbols/project/` and `footprints/project/` disappears.
+  `project:` level inside `assets/symbols/project/` and `assets/footprints/project/` disappears.
 
 The decision itself stands: footprint geometry and 3D models do not enter the language, and a
 footprint library written in `.teda` is a first-class artifact.

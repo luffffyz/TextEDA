@@ -137,3 +137,21 @@ describe("rule 5: pcb must not reference nets absent from sch", () => {
     expect(unknown).toEqual(["NOPE", "NOPE2"]);
   });
 });
+
+describe("declared deviations enter the report (ADR-0035 D10)", () => {
+  test("a net_tie is a note and names both nets", () => {
+    const pcb: Pcb = { ...pcbBase, deviation: [{ type: "net_tie", net_a: "A", net_b: "B" }] };
+    const diagnostics = check(pcb).filter((d) => d.code === "bind.net-tie");
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]!.severity).toBe("note");
+    expect(diagnostics[0]!.data).toEqual({ net_a: "A", net_b: "B" });
+  });
+
+  test("a split_ground is a warning", () => {
+    const pcb: Pcb = { ...pcbBase, deviation: [{ type: "split_ground", net: "C" }] };
+    const diagnostics = check(pcb).filter((d) => d.code === "bind.split-ground");
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]!.severity).toBe("warning");
+    expect(diagnostics[0]!.data).toEqual({ net: "C" });
+  });
+});

@@ -37,10 +37,10 @@ nets
 /** Build a project in a temp directory. */
 function makeProject(board: string): string {
   const root = mkdtempSync(join(tmpdir(), "texteda-check-"));
-  mkdirSync(join(root, "components"), { recursive: true });
-  mkdirSync(join(root, "sch"), { recursive: true });
-  writeFileSync(join(root, "components", "r-0402.teda"), COMPONENT);
-  writeFileSync(join(root, "sch", "b.teda"), board);
+  mkdirSync(join(root, "assets/components"), { recursive: true });
+  mkdirSync(join(root, "design/sch"), { recursive: true });
+  writeFileSync(join(root, "assets/components", "r-0402.teda"), COMPONENT);
+  writeFileSync(join(root, "design/sch", "b.teda"), board);
   return root;
 }
 
@@ -71,8 +71,8 @@ nets
 function makeComposedProject(board: string, module: string | null = MODULE): string {
   const root = makeProject(board);
   if (module !== null) {
-    mkdirSync(join(root, "modules"), { recursive: true });
-    writeFileSync(join(root, "modules", "m.teda"), module);
+    mkdirSync(join(root, "design/modules"), { recursive: true });
+    writeFileSync(join(root, "design/modules", "m.teda"), module);
   }
   return root;
 }
@@ -117,7 +117,7 @@ describe("check", () => {
   test("an unreadable component file counts as an error", () => {
     const root = makeProject(BOARD);
     try {
-      writeFileSync(join(root, "components", "broken.teda"), "nonsense\n");
+      writeFileSync(join(root, "assets/components", "broken.teda"), "nonsense\n");
       const result = checkProject(root);
       const diagnostic = result.diagnostics.find((d) => d.code === "syntax.component-invalid");
       expect(diagnostic).toBeDefined();
@@ -130,7 +130,7 @@ describe("check", () => {
   test("reports an error when the file-header id does not match the file name", () => {
     const root = makeProject(BOARD);
     try {
-      writeFileSync(join(root, "components", "broken.teda"), "version 0.1\ncomponent other\n");
+      writeFileSync(join(root, "assets/components", "broken.teda"), "version 0.1\ncomponent other\n");
       const result = checkProject(root);
       const diagnostic = result.diagnostics.find((d) => d.code === "ref.component-id-mismatch");
       expect(diagnostic?.severity).toBe("error");

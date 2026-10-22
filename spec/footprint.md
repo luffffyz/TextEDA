@@ -16,7 +16,7 @@
 2. **源格式是 `.teda`，IR 是编译产物**。agent 的工作面是 `.teda` 源码 + 校验报告（[ADR-0004](../docs/adr/0004-ir-representation.md) decision 5），不是 IR JSON。
 3. **KiCad 格式是导出产物**。`.kicad_mod` 与板文件内联块都由 `packages/exporter` 从 IR 生成；库的几何改动**不回写** IR 之外的东西。
 
-`footprint` 描述是**库产物**，不是板描述：它不进 `dist/ir/` 的描述分片树，而进库目录（`footprints/<lib>/`），单独编译、单独哈希（`libs.<name>.content_hash`，[ADR-0010](../docs/adr/0010-footprint-and-3d-model-ownership.md) decision 2）。
+`footprint` 描述是**库产物**，不是板描述：它不进 `dist/ir/` 的描述分片树，而进库目录（`assets/footprints/<lib>/`），单独编译、单独哈希（`libs.<name>.content_hash`，[ADR-0010](../docs/adr/0010-footprint-and-3d-model-ownership.md) decision 2）。
 
 ---
 
@@ -28,7 +28,7 @@ footprint sot-23-5
 ```
 
 - 版本行、类型行规则同 `teda.md` §5。`footprint` 类型要求 `version 0.4` 或更高（该类型由 0.4 引入；接受规则见 `teda.md` §13.3）。
-- 文件名必须等于类型行里的 id：`footprints/<lib>/<footprint_id>.teda` ↔ `footprint sot-23-5`。
+- 文件名必须等于类型行里的 id：`assets/footprints/<lib>/<footprint_id>.teda` ↔ `footprint sot-23-5`。
 - `footprint_id` 允许 `[A-Za-z0-9_.+-]+`（比 `component_id` 宽：库里的封装名常带大写与下划线，如 `R_0402_1005Metric`）。
 
 ---

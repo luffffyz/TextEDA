@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-22
 Related: [ADR-0024](0024-level-tags-in-flattened-names.md), [ADR-0025](0025-flat-board-and-print-pages.md), [ADR-0002](0002-board-pages-and-bom.md), [ADR-0021](0021-schematic-view-layer.md)
-Impact: `teda.md` §2, §7.6, §13.4; `spec/module.md`; `AGENTS.md` §4.2; `packages/parser` (a new `module` description type, the board's `modules` section, the flattening); `packages/cli` (the project layout gains `modules/`); `examples/reference-project/`
+Impact: `teda.md` §2, §7.6, §13.4; `spec/module.md`; `AGENTS.md` §4.2; `packages/parser` (a new `module` description type, the board's `modules` section, the flattening); `packages/cli` (the project layout gains `design/modules/`); `examples/reference-project/`
 
 **Amendment to [ADR-0025](0025-flat-board-and-print-pages.md)**: decision 2 ("one namespace per board")
 now holds for the *flattened IR* and for the *board level*; the source regains one level of
@@ -52,7 +52,7 @@ likes — dozens is unremarkable.
 
 ### 2. The module body is a file, named by its id
 
-`modules/<module_id>.teda`, with `module_id` taken from the file name, like `component_id`
+`design/modules/<module_id>.teda`, with `module_id` taken from the file name, like `component_id`
 (`AGENTS.md` §4.5). The board's `modules` section references it by id. Modules are project-local
 for now; a module library across projects is a later decision (`docs/backlog.md` F10).
 
@@ -86,7 +86,7 @@ net row must mean "module M2's port VOUT" and not "instance M2's pin VOUT".
 
 ### 6. The drawing is still the view layer's job
 
-A print page (`views/<board_id>/<page_id>.view.teda`; formerly `sch/<board_id>/<page_id>.view.teda`, see [ADR-0032](0032-view-is-a-drawing-not-a-build-input.md)) references board-level ids, which after
+A print page (`views/<board_id>/<page_id>.view.teda`; formerly `views/<board_id>/<page_id>.view.teda`, see [ADR-0032](0032-view-is-a-drawing-not-a-build-input.md)) references board-level ids, which after
 flattening are the qualified ones (`M1.U1`). A page may draw several modules, or part of one.
 Pages do not affect the IR: they are the drawing, and the drawing is discardable
 ([ADR-0021](0021-schematic-view-layer.md)).

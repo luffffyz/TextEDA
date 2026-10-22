@@ -13,7 +13,7 @@ import { textAdvance, textStrokes, unsupportedChars } from "../src/font/index.ts
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const symbolFile = join(
   repoRoot,
-  "examples/reference-project/symbols/project/ldo-sot23-5.teda",
+  "examples/reference-project/assets/symbols/project/ldo-sot23-5.teda",
 );
 
 const SIZE = 1_270_000; // 1.27mm

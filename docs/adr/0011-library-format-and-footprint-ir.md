@@ -2,7 +2,7 @@
 
 Status: Accepted
 Date: 2026-10-20
-Impact: [ADR-0010](0010-footprint-and-3d-model-ownership.md) decision 2 (the format part is superseded by this ADR); `schemas/ir/v0.1/footprint.schema.json` (new IR kind `footprint`); new `packages/exporter`; `examples/reference-project/footprints/`; `docs/footprint-authoring.md`; `AGENTS.md` §4.5, §9, §11
+Impact: [ADR-0010](0010-footprint-and-3d-model-ownership.md) decision 2 (the format part is superseded by this ADR); `schemas/ir/v0.1/footprint.schema.json` (new IR kind `footprint`); new `packages/exporter`; `examples/reference-project/assets/footprints/`; `docs/footprint-authoring.md`; `AGENTS.md` §4.5, §9, §11
 
 ## Background
 
@@ -17,7 +17,7 @@ So the library format is **our own choice**, not something KiCad dictates. Since
 
 ## Decision
 
-1. **The source of truth of a self-built library is `.teda` source code**, with the syntax described in `spec/footprint.md` (the `footprint` description type, v0.4). One footprint per file: `footprints/<lib>/<footprint_id>.teda`; the library name is determined by the directory and is not part of the file content.
+1. **The source of truth of a self-built library is `.teda` source code**, with the syntax described in `spec/footprint.md` (the `footprint` description type, v0.4). One footprint per file: `assets/footprints/<lib>/<footprint_id>.teda`; the library name is determined by the directory and is not part of the file content.
    - **Why not writing JSON directly**: [ADR-0004](0004-ir-representation.md) decision 5 says outright that "agents do not read IR directly; the agent's working surface is the `.teda` source plus a validation report". Libraries are the thing agents will mostly author (datasheet → footprint), so their working surface must be `.teda` just like for board descriptions; otherwise the same job ends up with two authoring experiences and two diagnostic systems (JSON can only report a path, with no line/column).
    - **The compiled artifact is an IR shard**: `packages/parser` compiles `.teda` into IR of the `footprint` kind (contract `schemas/ir/v0.1/footprint.schema.json`), and unit conversion happens only at this layer: length → integer nanometers, angle → integer millidegrees, ratio → integer ppm (the IR forbids floats, [ADR-0004](0004-ir-representation.md) decision 3).
 2. **The KiCad format is an export artifact**. The exporter (`packages/exporter`) writes two kinds of artifact:
@@ -38,10 +38,10 @@ So the library format is **our own choice**, not something KiCad dictates. Since
 - **The benefit**: a self-built library has a schema, a canonical form, a content hash, and a readable diff; the agent writes JSON instead of S-expressions, which can be validated and can be traced down to the offending field; a KiCad version bump does not affect the source of truth.
 - **The cost**: one more exporter to maintain, and it has to wrestle with the dialect details of KiCad. The pitfalls already hit are written into code comments and tests: `(tags …)` must be **a single** quoted string (write it as several strings and KiCad refuses to load the whole library); `(zone_connect 2/1/0)` corresponds to solid/thermal/none.
 - **Two kinds of library coexist**: borrowed libraries are still in the KiCad format. Isolate them behind a "library provider" abstraction — the reference point, the checks, and the locking mechanism are the same for both, only the resolver differs.
-- **It works end to end** (`bun run smoke:footprint`, measured): the example footprint (`examples/reference-project/footprints/project/sot-23-5.teda`) → compiled to IR (the contract passes) → `.kicad_mod` → KiCad 10 can parse it (`kicad-cli fp export svg` produces an image) → inlined into the board → `kicad-cli pcb drc` **0 violations** → `kicad-cli pcb export gerbers` produces all 18 files.
+- **It works end to end** (`bun run smoke:footprint`, measured): the example footprint (`examples/reference-project/assets/footprints/project/sot-23-5.teda`) → compiled to IR (the contract passes) → `.kicad_mod` → KiCad 10 can parse it (`kicad-cli fp export svg` produces an image) → inlined into the board → `kicad-cli pcb drc` **0 violations** → `kicad-cli pcb export gerbers` produces all 18 files.
 - **One more parser**: `packages/parser` (line-level lexing + unit conversion + `footprint` surface parsing + canonical JSON writing + `fmt`). The line-level lexer and the diagnostic format are written per `teda.md` §3–§4 and §11; the general `.teda` parser reuses the same set later.
 - **IR ordering depends only on semantics as well** (measured): `pads` in natural order, `graphics` by `(kind, layer, coordinates)`, `fields` by name, `tags` in byte order; the same footprint with reordered entries, changed units, or a changed key order compiles to IR **byte-identical** to the canonical source, and the exported artifacts are identical too. The property verification script has been run: `fmt` is idempotent, the semantics are unchanged, the `.kicad_mod` is unchanged.
-- **`fmt` works** (measured): `bun run fmt:teda --check examples/reference-project/footprints/project/sot-23-5.teda` exits 0; the example file is a fixed point of `fmt`. `fmt` only reorders the surface (line/key order, column alignment, unit normalization) and refuses to format when there are semantic errors (consistent with gofmt). The smoke script checks this in its first step, to keep the source file from drifting.
+- **`fmt` works** (measured): `bun run fmt:teda --check examples/reference-project/assets/footprints/project/sot-23-5.teda` exits 0; the example file is a fixed point of `fmt`. `fmt` only reorders the surface (line/key order, column alignment, unit normalization) and refuses to format when there are semantic errors (consistent with gofmt). The smoke script checks this in its first step, to keep the source file from drifting.
 
 ## Follow-up
 

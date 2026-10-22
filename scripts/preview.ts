@@ -106,10 +106,10 @@ function splitRef(ref: string, defaultLib: string): { lib: string; name: string 
   return { lib: ref.slice(0, i), name: ref.slice(i + 1) };
 }
 
-/** The component file with the given id (under components/, one directory per category). */
+/** The component file with the given id (under assets/components/, one directory per category). */
 function findComponentFile(projectRoot: string, id: string): string | null {
   return (
-    tedaFiles(join(projectRoot, "components")).find((f) => basename(f, ".teda") === id) ?? null
+    tedaFiles(join(projectRoot, "assets/components")).find((f) => basename(f, ".teda") === id) ?? null
   );
 }
 
@@ -155,7 +155,7 @@ if (options.kind === "symbol" || options.kind === "component") {
   let symbolLib = options.lib;
   let part: { pins: { number: string; name: string; type: string }[] } | null = null;
   if (options.kind === "component") {
-    const file = tedaFiles(join(projectRoot, "components")).find(
+    const file = tedaFiles(join(projectRoot, "assets/components")).find(
       (f) => basename(f, ".teda") === options.id,
     );
     if (!file) fail(`no component ${options.id} in the project`);
@@ -182,8 +182,8 @@ if (options.kind === "symbol" || options.kind === "component") {
         }
       : null;
   }
-  const file = join(projectRoot, "symbols", symbolLib, `${symbolId}.teda`);
-  if (!existsDir(join(projectRoot, "symbols", symbolLib)) || !existsFile(file)) {
+  const file = join(projectRoot, "assets/symbols", symbolLib, `${symbolId}.teda`);
+  if (!existsDir(join(projectRoot, "assets/symbols", symbolLib)) || !existsFile(file)) {
     fail(`symbol not in library ${symbolLib}:${symbolId} (looked for ${file})`);
   }
   const parsed = loadSymbol(file, symbolLib);
@@ -204,7 +204,7 @@ if (options.kind === "footprint" || options.kind === "component") {
   let footprintId = options.id;
   let footprintLib = options.lib;
   if (options.kind === "component") {
-    const file = tedaFiles(join(projectRoot, "components")).find(
+    const file = tedaFiles(join(projectRoot, "assets/components")).find(
       (f) => basename(f, ".teda") === options.id,
     );
     if (!file) fail(`no component ${options.id} in the project`);
@@ -214,8 +214,8 @@ if (options.kind === "footprint" || options.kind === "component") {
     footprintLib = split.lib;
     footprintId = split.name;
   }
-  const file = join(projectRoot, "footprints", footprintLib, `${footprintId}.teda`);
-  if (!existsDir(join(projectRoot, "footprints", footprintLib)) || !existsFile(file)) {
+  const file = join(projectRoot, "assets/footprints", footprintLib, `${footprintId}.teda`);
+  if (!existsDir(join(projectRoot, "assets/footprints", footprintLib)) || !existsFile(file)) {
     fail(`footprint not in library ${footprintLib}:${footprintId} (looked for ${file})`);
   }
   const parsed = loadFootprint(file, footprintLib);
@@ -229,7 +229,7 @@ if (options.kind === "footprint" || options.kind === "component") {
 
 if (options.kind === "view") {
   const [board, page] = options.id.split("/") as [string, string];
-  const boardFile = join(projectRoot, "sch", `${board}.teda`);
+  const boardFile = join(projectRoot, "design/sch", `${board}.teda`);
   if (!existsFile(boardFile)) fail(`board not found: ${boardFile}`);
   // The board is flattened first: a board composes modules, and the view names the flat ids
   // (M1.U1 for a module instance, ADR-0026 decision 2).
@@ -244,7 +244,7 @@ if (options.kind === "view") {
     fail(`board ${board} failed to parse`);
   }
 
-  const viewFile = join(projectRoot, "sch", board, `${page}.view.teda`);
+  const viewFile = join(projectRoot, "views", board, `${page}.view.teda`);
   if (!existsFile(viewFile)) {
     fail(`no print page ${options.id} (looked for ${viewFile})`);
   }
@@ -275,7 +275,7 @@ if (options.kind === "view") {
     const symbolRef = readRef(readFileSync(componentFile, "utf8"), "symbol");
     if (!symbolRef) fail(`component ${componentId} has no symbol reference`);
     const split = splitRef(symbolRef, options.lib);
-    const symbolFile = join(projectRoot, "symbols", split.lib, `${split.name}.teda`);
+    const symbolFile = join(projectRoot, "assets/symbols", split.lib, `${split.name}.teda`);
     if (!existsFile(symbolFile)) {
       fail(`symbol ${split.lib}:${split.name} not found (looked for ${symbolFile})`);
     }

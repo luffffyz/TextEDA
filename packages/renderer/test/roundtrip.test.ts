@@ -32,9 +32,9 @@ function tedaFiles(dir: string): string[] {
   return out;
 }
 
-const symbolFiles = tedaFiles(join(projectRoot, "symbols", "project"));
-const footprintFiles = tedaFiles(join(projectRoot, "footprints", "project"));
-const componentFiles = tedaFiles(join(projectRoot, "components"));
+const symbolFiles = tedaFiles(join(projectRoot, "assets/symbols", "project"));
+const footprintFiles = tedaFiles(join(projectRoot, "assets/footprints", "project"));
+const componentFiles = tedaFiles(join(projectRoot, "assets/components"));
 
 /** The part that references a given symbol (the sole owner of pin names and electrical types, ADR-0012). */
 function partForSymbol(ref: string): { pins: { number: string; name: string; type: string }[] } {

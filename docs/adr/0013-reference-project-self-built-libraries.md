@@ -2,7 +2,7 @@
 
 Status: Accepted
 Date: 2026-10-20
-Impact: [ADR-0010](0010-footprint-and-3d-model-ownership.md) (self-built libraries), [ADR-0011](0011-library-format-and-footprint-ir.md) (library format), [ADR-0012](0012-symbol-description.md) (symbol library); `examples/reference-project/` (`project.toml`, `components/`, `symbols/project/`, `footprints/project/`); `schemas/ir/v0.1/project.schema.json` (`lib.symbols` / `lib.footprints`); `scripts/libhash.ts`; `scripts/verify-libs.ts`; `packages/exporter/src/symbol.ts` (stroke fix); `docs/footprint-authoring.md`; `docs/symbol-authoring.md`; `AGENTS.md` §4.5, §9, §10
+Impact: [ADR-0010](0010-footprint-and-3d-model-ownership.md) (self-built libraries), [ADR-0011](0011-library-format-and-footprint-ir.md) (library format), [ADR-0012](0012-symbol-description.md) (symbol library); `examples/reference-project/` (`project.toml`, `assets/components/`, `assets/symbols/project/`, `assets/footprints/project/`); `schemas/ir/v0.1/project.schema.json` (`lib.symbols` / `lib.footprints`); `scripts/libhash.ts`; `scripts/verify-libs.ts`; `packages/exporter/src/symbol.ts` (stroke fix); `docs/footprint-authoring.md`; `docs/symbol-authoring.md`; `AGENTS.md` §4.5, §9, §10
 
 ## Background
 

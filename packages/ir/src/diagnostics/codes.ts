@@ -581,6 +581,20 @@ export const DIAGNOSTIC_CODES = {
     summary: "The pcb references a net that does not exist in sch (the pcb must not create new logical connections)",
     spec: ["spec/pcb.md §5.2"],
   },
+  "bind.net-tie": {
+    domain: "bind",
+    severity: "note",
+    summary: "Two schematic nets are physically shorted by a declared net_tie",
+    hint: "a tie changes the connectivity of both nets; check that this is the one you meant",
+    spec: ["spec/pcb.md §4.12", "docs/adr/0035-connectivity-authority-and-reverse-engineering.md D10"],
+  },
+  "bind.split-ground": {
+    domain: "bind",
+    severity: "warning",
+    summary: "A net is physically split into regions that do not touch by a declared split_ground",
+    hint: "a split ground breaks the return path of every signal that crosses the gap; check the isolation and the stitching",
+    spec: ["spec/pcb.md §4.12", "docs/adr/0035-connectivity-authority-and-reverse-engineering.md D10"],
+  },
   "drc.silk-small": {
     domain: "drc",
     severity: "warning",

@@ -31,8 +31,8 @@ pcb main
 - 版本行、类型行规则同 `teda.md` §5。`pcb` 类型要求 `version 0.4` 或更高（该类型由 0.4 引入；接受规则见 `teda.md` §13.3）。
 - **段头独占一行**（整行只有一个单元格）。缩进不表达层级（`AGENTS.md` §2 第 6 条），所以 `via` 这类既是段名又是 `rules` 行首列的词，只能靠列数消歧：规则行至少有 2 列。
 - **同一段可以重复出现**，行按出现顺序拼接（与 `teda.md` 里同名 `net` 行合并同一先例）。`stackup` 的顺序即叠层顺序，重复段就接在后面，不做排序。
-- 文件名必须等于类型行里的 id：`pcb/<board_id>.teda` ↔ `pcb main`。
-- `pcb` 描述与 `sch` 描述共享 `board_id`；`sch/<board_id>.teda` 与 `pcb/<board_id>.teda` 描述同一块板。
+- 文件名必须等于类型行里的 id：`design/pcb/<board_id>.teda` ↔ `pcb main`。
+- `pcb` 描述与 `sch` 描述共享 `board_id`；`design/sch/<board_id>.teda` 与 `design/pcb/<board_id>.teda` 描述同一块板。
 
 ---
 
@@ -136,7 +136,7 @@ connect
 ```
 
 - pad 引用 = `<instance_id>.<pad_number>`；从**最后一个** `.` 分割出 pad 号（实例 ID 可含 `.`）。
-- pad 号来自封装（`components/` 的 `footprint`），必须与 sch 引脚编号对应（`AGENTS.md` §4.4 第 2 条）。
+- pad 号来自封装（`assets/components/` 的 `footprint`），必须与 sch 引脚编号对应（`AGENTS.md` §4.4 第 2 条）。
 - 一对 pad 构成一条"有铜箔连通"的边；一个 net 的 N 个成员至少需要 N-1 条边（可成环，不禁止）。
 - 校验见 §5.2。
 
@@ -265,9 +265,11 @@ physical_only
 
 `test_point` 与 `stitching` 的分界是**单层 vs 跨层**；连接两个不同 net 的过孔是 `deviation` 的 `net_tie`，不是 `stitching`。`test_point` / `stitching` 的 net 必须在 `sch` 里存在，否则报错。
 
+**退役（2026-10-22b）**：`test_point` 这一形态退役。测试点是 net 上的一个**焊盘**，按 [ADR-0035](../docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D8/D9 它是 `sch` 里的**单引脚器件**（不采购的是 family，采购的是 part）：有位号、有封装（形状任意）、走普通 net 成员规则，不再是 `physical_only` 实体。白名单随之从五类减为四类（`net_tie` / `split_ground` / `stitching` / `fiducial`）。该形态随下一个契约版本移除（`docs/backlog.md` F38）。
+
 ### 4.12 `deviation`
 
-受控的**逻辑**偏差。`net_tie` 与 `split_ground` 会改变逻辑连通性，必须显式声明并进报告（`AGENTS.md` §4.4 第 4 条）。`test_point` / `stitching` / `fiducial` 三类是物理实体，放在 `physical_only`；它们同样进报告，但不改逻辑。
+受控的**逻辑**偏差。`net_tie` 与 `split_ground` 会改变逻辑连通性，必须显式声明并进报告（`AGENTS.md` §4.4 第 4 条）。`stitching` / `fiducial` 两类是物理实体，放在 `physical_only`；它们同样进报告，但不改逻辑。
 
 ```
 deviation
@@ -282,7 +284,9 @@ deviation
 
 `net_tie` 与 `split_ground` 的分界是**合并 vs 拆分**。两者都是逻辑偏差：短接若没有声明就是错误；声明了也不等于"对"——检查器只负责报出来，对不对由人判（[ADR-0035](../docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D2）。
 
-**偏差白名单是封闭的**：只有 `net_tie` / `split_ground` / `test_point` / `stitching` / `fiducial` 五类，加新类要另起 ADR。白名单是给**物理特性**与**拆分/短接机制**用的，不是给"sch 没写"兜底的。
+**声明了也要进报告，严重度按危险程度分**（[ADR-0035](../docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D10）：`net_tie` 是 **note**（常见且有意的声明——0Ω 跳线、焊接跳线——但它改变两个 net 的连通性，读者要看见）；`split_ground` 是 **warning**（一个 net——通常是地——被物理拆成互不接触的区域，回流路径在缺口处断开；它可以是合法的（隔离、分开的模拟地），但绝不是默认值，每一处都值得看一眼）。
+
+**偏差白名单是封闭的**：只有 `net_tie` / `split_ground` / `stitching` / `fiducial` 四类（`test_point` 已于 2026-10-22b 退役，见 §4.11），加新类要另起 ADR。白名单是给**物理特性**与**拆分/短接机制**用的，不是给"sch 没写"兜底的。
 
 ---
 
@@ -369,7 +373,7 @@ pcb 里写的 net 名就是**板级** net 名，与 sch 同一命名空间（模
 | 差分对的几何表达 | 不表达，靠 `rules` 约束 | 保持 |
 | 阻抗计算的工艺栈 | 只存 `er` 与介质厚度，不做计算 | 交给 KiCad/仿真工具 |
 | pcb-only 模式 | 不支持（v0.4 假定有 `sch`） | `AGENTS.md` §11 第 6 条 |
-| 封装 pad 几何来源 | 引用 `components/` 的 `footprint`；IR 内 pad 几何是引用还是内联待定 | 见 [ADR-0003](../docs/adr/0003-agent-first-pcb-ir.md)"后续" |
+| 封装 pad 几何来源 | 引用 `assets/components/` 的 `footprint`；IR 内 pad 几何是引用还是内联待定 | 见 [ADR-0003](../docs/adr/0003-agent-first-pcb-ir.md)"后续" |
 | 布局约束（区域、邻接、禁布） | v0.4 不表达 | 待定 |
 | 3D 模型与装配图 | 不在 pcb 描述内（属封装库与 fab 层） | — |
 
@@ -377,7 +381,7 @@ pcb 里写的 net 名就是**板级** net 名，与 sch 同一命名空间（模
 
 ## 8. 完整示例
 
-对应的 `sch/demo.teda` 片段（net 成员只在 sch 里声明，pcb 只引用 `net_id`）：
+对应的 `design/sch/demo.teda` 片段（net 成员只在 sch 里声明，pcb 只引用 `net_id`）：
 
 ```
 instances
@@ -390,7 +394,7 @@ nets
   GND:  U1.4  C1.1  R1.2
 ```
 
-对应的 `pcb/demo.teda`：
+对应的 `design/pcb/demo.teda`：
 
 ```
 version 0.4

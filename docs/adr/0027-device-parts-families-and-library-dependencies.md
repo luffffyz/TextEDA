@@ -36,14 +36,14 @@ of it:
 - **ERC.** `c-220u` is a polarised tantalum capacitor, but its pins are typed `passive` and its
   polarity is only implied by the choice of the symbol `project:c-pol`. Nothing in the facts can
   catch a reversed part.
-- **Reuse of the file itself.** `symbols/project/` and `footprints/project/` are libraries; a
-  symbol is reused by many devices, a footprint by more. But `components/passives/c-0402.teda`
+- **Reuse of the file itself.** `assets/symbols/project/` and `assets/footprints/project/` are libraries; a
+  symbol is reused by many devices, a footprint by more. But `assets/components/passives/c-0402.teda`
   duplicates the library references it needs and adds an empty parameter shell on top.
 
 The same devices are also expected to exist outside a project. A common MCU family or a set of
 popular regulators is not something each project should re-type; it should be *referenced*. The
 current model has no room for that, because `component_id` is unique across the whole
-`components/` tree and carries no namespace.
+`assets/components/` tree and carries no namespace.
 
 ## Decision
 
@@ -115,8 +115,8 @@ Decision 3 means that a die offered in several packages produces **one part file
 each carrying its **complete** pin table:
 
 ```text
-components/mcu/stm32f407vgt6.teda   # kind: part, package LQFP-100, 100 pins
-components/mcu/stm32f407zgt6.teda   # kind: part, package LQFP-144, 144 pins
+assets/components/mcu/stm32f407vgt6.teda   # kind: part, package LQFP-100, 100 pins
+assets/components/mcu/stm32f407zgt6.teda   # kind: part, package LQFP-144, 144 pins
 ```
 
 The pin table of the LQFP-144 part is not expressed as "the LQFP-100 pins plus 44 more". It is
@@ -163,9 +163,9 @@ my-board-project/
 ├── docs/ dist/
 ```
 
-The reasoning that survives from the flat layout: `components/` and `families/` are siblings at
-the same level as `symbols/` and `footprints/`, and the `project/` level inside today's
-`symbols/project/` and `footprints/project/` disappears — the project's own assets are its own
+The reasoning that survives from the flat layout: `assets/components/` and `families/` are siblings at
+the same level as `assets/symbols/` and `assets/footprints/`, and the `project/` level inside today's
+`assets/symbols/project/` and `assets/footprints/project/` disappears — the project's own assets are its own
 directories, and they are addressed by bare id.
 
 ### 7. A library is a dependency, not a directory
@@ -260,18 +260,18 @@ change the pin table is rejected by the compiler, not by a convention.
 
 | Today | Becomes |
 |---|---|
-| `symbols/project/*.teda` | `assets/symbols/*.teda` |
-| `footprints/project/*.teda` | `assets/footprints/*.teda` |
-| `components/passives/c-0402.teda` | `assets/families/cap-0402.teda`, with `kind: family` |
-| `components/passives/c-220u.teda` | `assets/families/cap-tantalum-7343.teda`, with `construction` and `polarized` |
-| `components/passives/r-0402.teda` | `assets/families/res-th-0402.teda` |
-| `components/passives/xtal-8mhz-3225.teda` | `assets/components/xtal-8mhz-3225.teda`, with `kind: part` |
-| `components/mcu/**`, `components/regulators/**`, `components/power/**`, `components/sensors/**`, `components/indicators/**`, `components/mechanical/**` | `assets/components/**`, with `kind: part` |
+| `assets/symbols/project/*.teda` | `assets/symbols/*.teda` |
+| `assets/footprints/project/*.teda` | `assets/footprints/*.teda` |
+| `assets/components/passives/c-0402.teda` | `assets/families/cap-0402.teda`, with `kind: family` |
+| `assets/components/passives/c-220u.teda` | `assets/families/cap-tantalum-7343.teda`, with `construction` and `polarized` |
+| `assets/components/passives/r-0402.teda` | `assets/families/res-th-0402.teda` |
+| `assets/components/passives/xtal-8mhz-3225.teda` | `assets/components/xtal-8mhz-3225.teda`, with `kind: part` |
+| `assets/components/mcu/**`, `assets/components/regulators/**`, `assets/components/power/**`, `assets/components/sensors/**`, `assets/components/indicators/**`, `assets/components/mechanical/**` | `assets/components/**`, with `kind: part` |
 | `project.toml` `[libs.project]` with `symbols` / `footprints` | removed; the project's own assets are its own directories |
 | — | `external/libs/<name>.toml` (new, for each vendored library) |
 | — | `assets/procurement/primary/<board_id>.teda` (new, may be empty) |
-| `sch/<board>.teda`, `pcb/<board>.teda`, `modules/*.teda`, `system/*.teda` | `design/sch/<board>.teda`, `design/pcb/<board>.teda`, `design/modules/*.teda`, `design/system/*.teda` |
-| `sch/<board>/<page>.view.teda` | `design/sch/<board>/<page>.view.teda` |
+| `design/sch/<board>.teda`, `design/pcb/<board>.teda`, `design/modules/*.teda`, `design/system/*.teda` | `design/sch/<board>.teda`, `design/pcb/<board>.teda`, `design/modules/*.teda`, `design/system/*.teda` |
+| `views/<board>/<page>.view.teda` | `design/sch/<board>/<page>.view.teda` |
 | `package <code>` in every `component` file | removed — the package code is declared by the footprint ([ADR-0029](0029-package-code-footprint-and-3d-model-ownership.md) decision 1) |
 | `model` line in a `footprint` file | moved to the `part` that owns the body ([ADR-0029](0029-package-code-footprint-and-3d-model-ownership.md) decision 2) |
 

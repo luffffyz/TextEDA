@@ -16,7 +16,7 @@
 
 因此：
 
-- `symbol` 是**库产物**，与 `footprint` 同级：进库目录（`symbols/<lib>/`），单独编译、单独哈希。
+- `symbol` 是**库产物**，与 `footprint` 同级：进库目录（`assets/symbols/<lib>/`），单独编译、单独哈希。
 - 导出 `.kicad_sym` 时，**必须**同时给出引用它的 `component`（引脚名/编号/电气类型来自那里）；工具比对两边的引脚号集合，缺一个报错。
 - `component.symbol = "<lib>:<name>"` 指向它；这是唯一的绑定处，`symbol` 文件不重复声明。
 
@@ -32,7 +32,7 @@ symbol bq24610rger
 ```
 
 - 版本行、类型行规则同 `teda.md` §5。`symbol` 类型要求 `version 0.5` 或更高（该类型由 0.5 引入；接受规则见 `teda.md` §13.3）。
-- 文件名必须等于类型行里的 id：`symbols/<lib>/<symbol_id>.teda` ↔ `symbol bq24610rger`。
+- 文件名必须等于类型行里的 id：`assets/symbols/<lib>/<symbol_id>.teda` ↔ `symbol bq24610rger`。
 - `symbol_id` 允许 `[A-Za-z0-9_.+-]+`。一个符号是**可复用的视图**：`r` / `c` / `nmos-5` 这类通用画法供多个器件共享，所以名字不必等于 `component_id`。绑定只发生在 `component.symbol`。
 
 ---

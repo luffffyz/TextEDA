@@ -29,11 +29,11 @@
 
 ### 0.2 与板文件的关系：打印页
 
-`view` 是**一块板的一个打印页**：板的文件是 `sch/<board_id>.teda`（`schematic`），打印页是 `sch/<board_id>/<page_id>.view.teda`（`view`）。
+`view` 是**一块板的一个打印页**：板的文件是 `design/sch/<board_id>.teda`（`schematic`），打印页是 `views/<board_id>/<page_id>.view.teda`（`view`）。
 
 | | 板文件 | 打印页 |
 |---|---|---|
-| 文件 | `sch/<board_id>.teda` | `sch/<board_id>/<page_id>.view.teda` |
+| 文件 | `design/sch/<board_id>.teda` | `views/<board_id>/<page_id>.view.teda` |
 | 描述类型 | `schematic` | `view` |
 | 名字空间 | 板级（instance_id、net_id 在板内唯一） | **同一套板级名** |
 
@@ -57,8 +57,8 @@ view main
 ```
 
 - 版本行、类型行规则同 `teda.md` §5。
-- 文件名必须等于类型行里的 id（去掉 `.view` 后缀）：`sch/<board_id>/<page_id>.view.teda` ↔ `view <page_id>`。`.view` 后缀是类型标记。
-- 板 id 不写进文件，由目录 `sch/<board_id>/` 决定。
+- 文件名必须等于类型行里的 id（去掉 `.view` 后缀）：`views/<board_id>/<page_id>.view.teda` ↔ `view <page_id>`。`.view` 后缀是类型标记。
+- 板 id 不写进文件，由目录 `views/<board_id>/` 决定。
 - `page_id` 是**打印页**的名字（不是逻辑划分单元）：同一块板的打印页 id 互不相同。
 
 ---
@@ -109,7 +109,7 @@ place
 
 | 列 | 说明 |
 |---|---|
-| `instance_id` | 板级实例 id（`U1`；模块层次落地后可以是 `M1.U1`），必须在板文件 `sch/<board_id>.teda` 的 `instances` 段里存在 |
+| `instance_id` | 板级实例 id（`U1`；模块层次落地后可以是 `M1.U1`），必须在板文件 `design/sch/<board_id>.teda` 的 `instances` 段里存在 |
 | `x` `y` | 符号**原点**在图幅坐标系里的位置（mm） |
 | `rot` | 符号旋转（度，顺时针为正），缺省 `0`。v0.1 只支持直角旋转：必须是 0/90/180/270，否则报 `value.angle-invalid` |
 

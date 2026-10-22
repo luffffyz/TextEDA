@@ -6,7 +6,7 @@ Impact: `AGENTS.md` §3, §4.2, §9; `docs/backlog.md` F3; `packages/ir` (a new 
 
 **Amendment (2026-10-21, [ADR-0025](0025-flat-board-and-print-pages.md))**: the view layer's *shape* is
 unchanged, but the board-internal source partition is gone. A view file is now a **print page** of
-one flat board schematic, not the twin of a source page: `sch/<board_id>/<page_id>.view.teda` draws
+one flat board schematic, not the twin of a source page: `views/<board_id>/<page_id>.view.teda` draws
 **board-level** instance ids and net ids, and its `port` entries name the board's ports. The
 sentence "living next to `schematic` / `page`" in decision 1 no longer holds — there is no `page`
 description type.
@@ -35,7 +35,7 @@ This makes the storage question for S1 a **contract-level** decision, not an imp
 
 The schematic view is a new description type, living next to `schematic` / `page`, not a field inside the schematic IR.
 
-- A separate file per page, next to the page it draws: `sch/<board_id>/<page_id>.view.teda`.
+- A separate file per page, next to the page it draws: `views/<board_id>/<page_id>.view.teda`.
 - A separate IR shard: `dist/ir/boards/<board_id>/view/<page_id>.json`, keyed the same way the page shard is ([ADR-0008](0008-ir-shard-identity-and-hash.md)).
 - Its own schema kind in `schemas/ir/v0.2/` and its own spec file in `spec/`.
 
@@ -151,7 +151,7 @@ bytes itself.
 
 Amended by [ADR-0032](0032-view-is-a-drawing-not-a-build-input.md).
 
-- **Placement.** The page file moves from `sch/<board_id>/<page_id>.view.teda` to
+- **Placement.** The page file moves from `views/<board_id>/<page_id>.view.teda` to
   `views/<board_id>/<page_id>.view.teda`: the print pages get a root of their own, beside the
   circuit and not inside it, and no directory name is both a file and a directory. The board
   grouping is unchanged — one directory per board, one file per page. Decision 1's shard path
