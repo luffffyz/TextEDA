@@ -1,7 +1,10 @@
 # TextEDA
 
 <p align="center">
-  <img src="docs/assets/svg/texteda-logo.svg" width="420" alt="TextEDA — 用文本描述硬件">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/svg/texteda-logo-dark.svg">
+    <img src="docs/assets/svg/texteda-logo.svg" width="420" alt="TextEDA — 用文本描述硬件">
+  </picture>
 </p>
 
 [English](README.md) | [简体中文](README_cn.md)
@@ -88,8 +91,11 @@ KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.
 | `packages/cli` | `texteda init` / `compile` / `check` / `netlist` / `ir`（[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)、[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)） |
 | `examples/reference-project/` | 自包含的参考工程：22 个器件 / 15 个符号 / 16 个封装，库全部自建 |
 | `docs/adr/` | 决策记录（ADR），0001–0026（[完整索引](docs/adr/README.md)；0017 与 0020 已预留） |
+| `docs/assets/` | 品牌资产（标志、图标、生成脚本）；字体二进制不入库 |
 | `docs/backlog.md` | 待办清单 |
 | `docs/comparison.md` | 与 KiCad、EasyEDA、tscircuit 的对比（带出处） |
+| `docs/error-codes.md` / `docs/ir-reference.md` | 生成的契约参考（不手改） |
+| `scripts/` | 仓库工具：链接检查、公开清扫、库校验、预览 |
 
 ## 决策记录
 

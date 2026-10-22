@@ -1,7 +1,10 @@
 # TextEDA
 
 <p align="center">
-  <img src="docs/assets/svg/texteda-logo.svg" width="420" alt="TextEDA — describe hardware as text">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/svg/texteda-logo-dark.svg">
+    <img src="docs/assets/svg/texteda-logo.svg" width="420" alt="TextEDA — describe hardware as text">
+  </picture>
 </p>
 
 [English](README.md) | [简体中文](README_cn.md)
@@ -88,8 +91,11 @@ The KiCad interoperability section is a **separate, optional workflow** (`.githu
 | `packages/cli` | `texteda init` / `compile` / `check` / `netlist` / `ir` ([ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md), [ADR-0023](docs/adr/0023-ir-layer-on-disk.md)) |
 | `examples/reference-project/` | Self-contained reference project: 22 components / 15 symbols / 16 footprints, all libraries self-built |
 | `docs/adr/` | Architecture decision records, 0001–0026 ([full index](docs/adr/README.md); 0017 and 0020 reserved) |
+| `docs/assets/` | Brand assets (logos, icons, generator script); font binaries are not vendored |
 | `docs/backlog.md` | Open work items |
 | `docs/comparison.md` | Sourced comparison against KiCad, EasyEDA and tscircuit |
+| `docs/error-codes.md` / `docs/ir-reference.md` | Generated contract reference (never hand-edited) |
+| `scripts/` | Repo tooling: link check, public sweep, library verification, previews |
 
 ## Design decisions
 

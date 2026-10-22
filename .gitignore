@@ -8,3 +8,8 @@ dist/
 # 位置按 ADR-0031：外部材料放 external/cache/，不入库、不进 IR。
 # 决策见 docs/adr/0015-licensing-and-open-standard.md 决策 1。
 examples/reference-project/external/cache/
+
+# 品牌资产的字体二进制不入库：build_logo.py 自己下载 Cascadia Code 并固定 Regular/Bold 实例，
+# 字体许可证文本保留在 docs/assets/_font/OFL.txt（OFL 要求随字体分发）。
+docs/assets/_font/*.ttf
+docs/assets/_cjk_sc.otf

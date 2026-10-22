@@ -53,7 +53,7 @@ function trackedFiles(): { path: string; text: string }[] {
     if (!path) continue;
     const full = join(repoRoot, path);
     if (!existsSync(full) || !statSync(full).isFile()) continue;
-    if (/\.(png|jpg|jpeg|gif|pdf|zip|gz|woff2?|ttf|otf)$/i.test(path)) continue;
+    if (/\.(png|jpg|jpeg|gif|ico|pdf|zip|gz|woff2?|ttf|otf)$/i.test(path)) continue;
     try {
       files.push({ path, text: readFileSync(full, "utf-8") });
     } catch {
@@ -128,6 +128,24 @@ if (!existsSync(noticePath)) {
     }
     if (!notice.includes("James T")) {
       fail("NOTICE does not credit the copyright holder of the vendored Hershey glyph data");
+    }
+  }
+  // The brand logos in docs/assets/svg/ contain outline paths derived from Cascadia Code and
+  // Noto Sans CJK. SIL OFL 1.1 requires the licence text to travel with the font software,
+  // and the licence text itself must stay in the tree.
+  const brandSvg = join(repoRoot, "docs/assets/svg");
+  if (existsSync(brandSvg)) {
+    if (!notice.includes("Cascadia")) {
+      fail("NOTICE does not credit Cascadia Code, the face the brand wordmark is set in (SIL OFL-1.1)");
+    }
+    if (!notice.includes("Noto Sans CJK")) {
+      fail("NOTICE does not credit Noto Sans CJK, used for the Chinese tagline (SIL OFL-1.1)");
+    }
+    const ofl = join(repoRoot, "docs/assets/_font/OFL.txt");
+    if (!existsSync(ofl)) {
+      fail("docs/assets/_font/OFL.txt is missing -- SIL OFL-1.1 requires the licence text to travel with the derived outlines");
+    } else if (!readFileSync(ofl, "utf-8").includes("SIL OPEN FONT LICENSE Version 1.1")) {
+      fail("docs/assets/_font/OFL.txt does not contain the SIL Open Font License 1.1 text");
     }
   }
 }
