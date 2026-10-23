@@ -1071,9 +1071,9 @@
 
 **为什么现在不做**：角色表的形状要一次想清楚，否则会出现"一个构造一个角色名"的碎法（`cap_cl` / `xtal_cl` / …）和全局角色并存、互相打架。`ratings` 段与检查器已经就位，词表可以按构造逐批长。
 
-## F44. `pcb` 的完整性没有校验：`connect` 与 `trace` 互不校验，部分布局是静默的
+## F44. `pcb` 的完整性没有校验：`connect` 与 `trace` 互不校验，部分布局是静默的（**已完成**）
 
-**现状**：**未落地**（2026-10-23 记，首轮 PCB 评审暴露，见 `examples/reference-project/docs/reviews/charger-buck-pcb-r1.md`）。绑定校验只查"`connect` 引用了未放置实例的焊盘"（`bind.pad-unplaced`）与"`place` 引用不存在的实例"，**不查反方向**，也不查几何是否兑现了声明：
+**现状**：**已落地**（2026-10-23；两条都由 ADR 定案并实现——几何兑现：[ADR-0041](adr/0041-connect-pairs-must-be-implemented-by-copper.md) 的 `bind.connect-unbacked`；部分布局：[ADR-0040](adr/0040-partial-layout-is-legal-and-reported.md) 的 `bind.instance-unplaced`）。首轮 PCB 评审暴露的问题与当时的记录：绑定校验只查"`connect` 引用了未放置实例的焊盘"（`bind.pad-unplaced`）与"`place` 引用不存在的实例"，**不查反方向**，也不查几何是否兑现了声明：
 
 - **声明与几何不互校**：`connect` 声明哪两个 pad 之间有连续铜箔，`trace` / `via` / `zone` 画几何，两段之间没有任何校验。参考工程里就有一处对不上：`connect` 声明 `M2.R1.1` 与 `M2.C3.1` 直接相连（分压器搭在输出电容上），而 `trace` 里唯一的 VOUT 铜箔从 R1（14.5, 25）绕 28 mm 接到 x ≥ 36 的电容上。两者只能有一个是真的。
 - **部分布局是静默的**：参考工程 `design/pcb/charger-buck.teda` 只放了 9 个实例，而这块板有 61 个（`buck-5v` 9 个 + `charger-power` 52 个）。没有任何诊断说"还有 52 个器件没放"，文件里也没有标记说这是部分布局。agent 读 `place` 与 `connect` 会认为板子已经布完。原因是注释里的一句话，不是设计事实。
@@ -1082,7 +1082,7 @@
 
 **要做的事**：
 
-1. **`connect` ↔ 几何的一致性**：为每一对 `connect` 判定"是否被铜箔兑现"。**定义已提议、待签**（[ADR-0041](adr/0041-connect-pairs-must-be-implemented-by-copper.md)，Proposed）：铜 = `trace` 线段 + `via` 桶 + `zone` 多边形，链只在 via 处换层，贴合容差 1 nm，严重度 warning。需要 pad 几何（封装 + `place` 的旋转/平移）与区域多边形；"兑现"的定义要先定：一条 `trace` 同时触及两端、或两端各有一个 `via` 且 `zone` 相连，算不算？定义不清就会要么漏报要么满屏误报。
+1. ~~**`connect` ↔ 几何的一致性**：为每一对 `connect` 判定"是否被铜箔兑现"~~ **已落地**（[ADR-0041](adr/0041-connect-pairs-must-be-implemented-by-copper.md)，Accepted；参考工程首轮报 7 对，其中两对是另一网络的铜箔落在焊盘上）：铜 = `trace` 线段 + `via` 桶 + `zone` 多边形，链只在 via 处换层，贴合容差 1 nm，严重度 warning。需要 pad 几何（封装 + `place` 的旋转/平移）与区域多边形；"兑现"的定义要先定：一条 `trace` 同时触及两端、或两端各有一个 `via` 且 `zone` 相连，算不算？定义不清就会要么漏报要么满屏误报。
 2. ~~**部分布局**：先定**部分布局合不合法**~~ **已定并已落地**（2026-10-23，[ADR-0040](adr/0040-partial-layout-is-legal-and-reported.md)）：合法，且**不加显式标记**——完整性由两份描述相减得到（`sch` 的实体实例减 `place`），一块板报一条 `bind.instance-unplaced`（warning）。规范 `spec/pcb.md` §5.2 规则 12、检查器 `packages/core` 已落地，参考工程现在报 `9 of 61`。`logical_only` 豁免，`dnp` 不豁免（封装仍占位）。
 3. 两条都要先改 `spec/pcb.md` §5.2 与 IR 契约，再改 `packages/core`；严重级别与诊断码按 [ADR-0016](adr/0016-diagnostic-error-codes.md) 登记。
 
