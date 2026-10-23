@@ -258,7 +258,7 @@ describe("texteda ir", () => {
       writeFileSync(
         join(project, "assets/components/misnamed.teda"),
         [
-          "version 0.9",
+          "version 0.1",
           "component something-else",
           "kind part",
           "mpn ABC123",

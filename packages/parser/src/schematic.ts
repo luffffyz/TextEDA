@@ -28,8 +28,8 @@ import { parseLengthNm } from "./units.ts";
 
 /** The `schematic` type exists since 0.1; the `module` type since 0.8 (teda.md §13). */
 const VERSION_RANGE: Record<DocumentKind, VersionRange> = {
-  schematic: typeRange(1),
-  module: typeRange(8),
+  schematic: typeRange("schematic"),
+  module: typeRange("module"),
 };
 
 const REFDES_RE = /^[A-Z]+[0-9]+$/;

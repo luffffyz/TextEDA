@@ -32,7 +32,7 @@ const SHOW_HIDE = new Set(["show", "hide"]);
 const SYMBOL_ID_RE = /^[A-Za-z0-9_.+-]+$/;
 const PIN_NUMBER_RE = /^[A-Za-z0-9_+-]+$/;
 /** `symbol` was introduced in 0.5: files below 0.5 do not have this type. */
-const VERSION_RANGE = typeRange(5);
+const VERSION_RANGE = typeRange("symbol");
 
 export interface SymbolParseOptions {
   /** File name (used for diagnostics). */

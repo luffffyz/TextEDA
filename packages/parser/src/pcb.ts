@@ -60,7 +60,7 @@ const SECTION_SET: ReadonlySet<string> = new Set(PCB_SECTIONS);
  * `pcb` was introduced in language version 0.4; since 0.7 its instance ids and net names are the
  * board's own (no page prefix, ADR-0025), so a 0.4 pcb file has to be re-checked.
  */
-const VERSION_RANGE = typeRange(7);
+const VERSION_RANGE = typeRange("pcb");
 
 const SCALARS = new Set(["board_thickness"]);
 

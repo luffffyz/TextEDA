@@ -36,7 +36,7 @@ describe("version parsing", () => {
 });
 
 describe("version acceptance", () => {
-  const range = typeRange(7);
+  const range = typeRange("view");
 
   test("accepts the required version and any of its patches", () => {
     for (const text of ["0.7", "0.7.0", "0.7.1", "0.7.99"]) {
@@ -57,13 +57,33 @@ describe("version acceptance", () => {
     expect(verdict.ok === false && verdict.code).toBe("format.unsupported-version");
   });
 
-  test("a type accepts any version up to the language version the tool supports", () => {
-    // The upper bound is the language version, not the version that introduced the type: a symbol
-    // file written today may declare the current language version.
-    const symbol = typeRange(5);
-    expect(checkVersion("0.7", symbol, "symbol").ok).toBe(true);
-    expect(checkVersion("0.7.4", symbol, "symbol").ok).toBe(true);
+  test("each type has its own upper bound: the type's current version, not the language's", () => {
+    // teda.md §13.3 rule 4: a symbol file is at 0.5, a view file at 0.7, a procurement file at 0.9.
+    // Nothing in a symbol file means anything past 0.5, so 0.9 there is not "newer syntax", it is a
+    // file this tool cannot claim to understand.
+    const symbol = typeRange("symbol");
+    expect(checkVersion("0.5", symbol, "symbol").ok).toBe(true);
+    expect(checkVersion("0.5.4", symbol, "symbol").ok).toBe(true);
+    expect(checkVersion("0.9", symbol, "symbol").ok).toBe(false);
     expect(checkVersion("0.4", symbol, "symbol").ok).toBe(false);
+
+    const view = typeRange("view");
+    expect(checkVersion("0.7", view, "view").ok).toBe(true);
+    expect(checkVersion("0.8", view, "view").ok).toBe(false);
+    expect(checkVersion("0.6", view, "view").ok).toBe(false);
+
+    const procurement = typeRange("procurement");
+    expect(checkVersion("0.9", procurement, "procurement").ok).toBe(true);
+  });
+
+  test("a board file keeps the whole 0.1..0.8 window", () => {
+    // A board gained sections over time (ports at 0.2, modules at 0.8), so the window stays open:
+    // a flat board may still say 0.2 while a board that composes modules says 0.8.
+    const schematic = typeRange("schematic");
+    for (const text of ["0.2", "0.7", "0.8"]) {
+      expect({ text, ok: checkVersion(text, schematic, "schematic").ok }).toEqual({ text, ok: true });
+    }
+    expect(checkVersion("0.9", schematic, "schematic").ok).toBe(false);
   });
 
   test("rejects a malformed version as an invalid version, not an unsupported one", () => {

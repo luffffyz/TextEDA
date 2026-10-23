@@ -19,7 +19,7 @@ import { lex, type Line } from "./lexer.ts";
 import { checkVersion, typeRange } from "./version.ts";
 
 /** The `system` type exists since language 0.2 (spec/teda.md §8). */
-const VERSION_RANGE = typeRange(2);
+const VERSION_RANGE = typeRange("system");
 
 /** The two sections of a system file. */
 export const SYSTEM_SECTIONS = ["boards", "nets"] as const;

@@ -27,7 +27,7 @@ export type ProcurementRole = "primary" | "alternatives";
 export const PROCUREMENT_ROLES: readonly ProcurementRole[] = ["primary", "alternatives"];
 
 /** The `procurement` type exists since language 0.9 (teda.md §13). */
-const VERSION_RANGE = typeRange(9);
+const VERSION_RANGE = typeRange("procurement");
 
 /** The only section of a procurement file. */
 export const PROCUREMENT_SECTIONS = ["selections"] as const;

@@ -58,7 +58,12 @@
 3. **可读性检查**（`AGENTS.md` §6："文字重叠、线压引脚、标签碰撞、越界、连线穿过符号"）——**未落地**。越界已由 `view` 解析器的 `view.out-of-sheet` 覆盖；其余仍是 `spec/schematic-view.md` §9.2 的待实现项。
 4. **round-trip**——**未落地**：sch 的语义投影两端对比（跟符号/封装同一口径，见 [ADR-0014](adr/0014-reference-renderer.md) decision 5）。绘制指令里的 `pin`（旋转后的编号与方向）、`text`（`role` 区分字段/引脚名/标签/端口/注释）已经能反解，但视图 IR 的"摆位 + 折点"需要从图元逆推，且 `unit` 的共享项与字段要按实例归并。
 5. 与 KiCad 的 `.kicad_sch` 渲染做**一次性人工比对**——**未落地**（不进 CI）。
-6. **板 ↔ 打印页交叉校验**（`packages/core`）——**未落地**：`spec/schematic-view.md` §9.1 标"待实现"的那几条（实例 / net / port 是否存在、端点引脚是否属于该 net、`net-not-drawn`）。渲染器对未知实例或未知符号引脚是**抛错**，不是发诊断——诊断归 core，渲染器不伪造几何。
+6. **板 ↔ 打印页交叉校验**（`packages/core`）——**未落地**（2026-10-23 明确排队：先记下，等 `component` 分片与器件库那轮收尾之后做）：`spec/schematic-view.md` §9.1 标"待实现"的那几条（实例 / net / port 是否存在、端点引脚是否属于该 net、`net-not-drawn`）。渲染器对未知实例或未知符号引脚是**抛错**，不是发诊断——诊断归 core，渲染器不伪造几何。
+   缺口的具体形状（2026-10-23 复查）：
+   - 视图只**引用**身份（`place.instance_id` / `wire` 的 `pin` / `label` 的 `net_id`），可是引错、引到不存在的 id、引到别块板的 id 今天都不报——`texteda check` 只看 `schematic` 与 `pcb`，`view` 只做解析与越界（`view.out-of-sheet`）；
+   - 反向也要查：板上有 net、打印页里一条线都没有（`net-not-drawn`），以及一个实例在整块板的所有打印页里都没出现——后者与 `bind.instance-unplaced`（pcb 侧）是同一类"缺失要看得见"的信号，严重度应一致（warning）；
+   - 两条视图规则都**不改哈希**：视图是附注分片，所以这类诊断只能是 warning/note，不能拦树；
+   - 边界：视图说"这条线在这里"与板说"这两个引脚同 net"冲突时，**以板为准**（`AGENTS.md` §2 第 2 条），诊断只指出冲突，不改真源。
 
 **验收**：
 
@@ -789,11 +794,11 @@
 
 ## F31. 每种描述类型一条版本线，`0.x` 阶段只走 PATCH（ADR-0022 附录的落地）
 
-**现状**：`version` 是全语言共享的一个号，文件的 `version` 表示"读我至少要语言 0.几"；接受规则的上界是语言版本（[ADR-0022](adr/0022-language-versioning.md) decision 3）。今天在飞四个号：`schematic 0.8`、`view 0.7`、`symbol 0.5`、`component 0.1`（另有 `pcb 0.4`、`footprint 0.4`、`system 0.2`、`module 0.8`、`procurement 0.9`）。**规则已定，实现未落地**（[ADR-0022](adr/0022-language-versioning.md) 的 2026-10-22 附录与 2026-10-22b 附录）：0.x 阶段每条类型版本线只走 PATCH、全局号停在 `0.9`（新类型也诞生在 `0.9`）、`1.0` 是保留号、`1.0` 之后改表面是新的 MAJOR（`2.0`）、`0.x` 期间号码可以重新给。
+**现状**：**已落地**（2026-10-23）。`packages/parser/src/version.ts` 有一张冻结的类型线表（`TYPE_LINES`：每种描述类型的诞生号与当前号），`typeRange(type)` 按类型取窗口，接受上界是**该类型**的当前号。`SUPPORTED_LANGUAGE`（全语言的 `0.x` 线）只剩两个用途：`MAJOR` 比较，以及 `texteda init` 写进 `project.toml` 的 `format`（那不是某条类型线）。表里的号（诞生 = 当前，除 `schematic` 外都是类型诞生后没再移动过）：`component 0.1`、`footprint 0.4`、`module 0.8`、`pcb 0.7`、`procurement 0.9`、`schematic 0.1..0.8`、`symbol 0.5`、`system 0.2`、`view 0.7`。
 
 **要做的事**：
 
-1. **接受规则按类型**：上界改成**该描述类型当前支持的版本**（不再是全语言版本）；MAJOR 的比较也按类型；下界（类型诞生版本）不变；PATCH 仍不参与判定。`packages/parser/src/version.ts` 改成带"类型 → 当前版本"表的接受函数，各描述解析器传自己的类型。**表里的号是冻结的**（`schematic 0.8`、`view 0.7`、`symbol 0.5`、`component 0.1`、`pcb 0.4`、`footprint 0.4`、`system 0.2`、`module 0.8`、`procurement 0.9`），新类型加一行 `0.9`。
+1. ~~**接受规则按类型**：上界改成**该描述类型当前支持的版本**（不再是全语言版本）；MAJOR 的比较也按类型；下界（类型诞生版本）不变；PATCH 仍不参与判定~~ **已落地**（2026-10-23；`TYPE_LINES` 表在 `packages/parser/src/version.ts`，九个解析器传自己的类型名）。**表里的号是冻结的**（`schematic 0.8`、`view 0.7`、`symbol 0.5`、`component 0.1`、`pcb 0.4`、`footprint 0.4`、`system 0.2`、`module 0.8`、`procurement 0.9`），新类型加一行 `0.9`。
 2. **`0.x` 阶段只走 PATCH 位**：加段、加字段不再抬 MINOR；`teda.md` §13.1 / §13.3 / §13.4 已改（见 ADR-0022 的 2026-10-22 附录）。
 3. **收敛计划**：项目接近完成时，所有类型一次性合并为 `1.0`（一份 ADR 记录），之后全语言一个号、表面冻结、只出 PATCH。触发条件：所有类型无待做的表面变更 + 十个困难用例语料存在（F12）。
 4. **文档**：`AGENTS.md` §2 不变量 10、`teda.md` §13 同步（已改）；`docs/skills/new-project.md` 若提到版本号，同步。

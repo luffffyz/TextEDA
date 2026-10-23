@@ -36,7 +36,7 @@ const FOOTPRINT_ID_RE = /^[A-Za-z0-9_.+-]+$/;
 const PIN_NUMBER_RE = /^[A-Za-z0-9_+-]+$/;
 const LAYER_RE = /^[A-Za-z0-9_.+-]+$/;
 /** `footprint` was introduced in 0.4: files below 0.4 do not have this type. */
-const VERSION_RANGE = typeRange(4);
+const VERSION_RANGE = typeRange("footprint");
 
 export interface ParseOptions {
   /** File name (for diagnostics). */

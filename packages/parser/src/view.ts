@@ -34,7 +34,7 @@ const PIN_REF_RE = /^([A-Z]+[0-9]+\.)?[A-Z]+[0-9]+\.[A-Za-z0-9_+-]+$/;
  * `view` was introduced in language version 0.6 (teda.md §13); since 0.7 it names board-level ids
  * (ADR-0025), so a 0.6 view file is no longer accepted.
  */
-const VERSION_RANGE = typeRange(7);
+const VERSION_RANGE = typeRange("view");
 /** A4 landscape, in nanometers. */
 export const DEFAULT_SHEET_WIDTH_NM = 297_000_000;
 export const DEFAULT_SHEET_HEIGHT_NM = 210_000_000;

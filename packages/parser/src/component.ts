@@ -124,7 +124,7 @@ export interface ComponentParseResult {
 }
 
 /** The `component` type exists since 0.1 (teda.md §13). */
-const VERSION_RANGE = typeRange(1);
+const VERSION_RANGE = typeRange("component");
 
 const PIN_NUMBER_RE = /^[A-Za-z0-9_+-]+$/;
 const PIN_NAME_RE = /^[A-Za-z0-9_+-]+$/;
