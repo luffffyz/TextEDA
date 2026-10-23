@@ -14,6 +14,8 @@ export {
   type PadGeometry,
 } from "./binding/copper.ts";
 
+export { checkDeviceUsage, type DeviceUsageFacts } from "./devices/usage.ts";
+
 export {
   checkDeviceDeclaration,
   checkDeviceParamValue,

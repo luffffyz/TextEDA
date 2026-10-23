@@ -762,6 +762,13 @@ export const DIAGNOSTIC_CODES = {
     summary: "Invalid field section (attribute name missing or duplicated)",
     spec: ["spec/symbol.md §5"],
   },
+  "library.device-unused": {
+    domain: "library",
+    severity: "warning",
+    summary: "A device file is placed by no board and selected by no procurement file",
+    hint: "An unused candidate is allowed, but it is part of the project identity: say it, or delete the file",
+    spec: ["spec/teda.md §6"],
+  },
 
   // ---- format: version and canonical ----
   "format.invalid-version": {

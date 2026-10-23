@@ -558,3 +558,62 @@ describe("review rounds (ADR-0033 F33)", () => {
     }
   });
 });
+
+describe("library curation (ADR-0023: the shard set is the project's content)", () => {
+  test("a device file nothing uses is reported, not silently kept", () => {
+    const root = makeProject(BOARD);
+    try {
+      // The same file the board places, plus a candidate nobody places.
+      writeFileSync(
+        join(root, "assets/components", "ldo-abandoned.teda"),
+        COMPONENT.replace("component res-thick-0402", "component ldo-abandoned").replace(
+          "kind generic",
+          "kind part\nmpn LDO1",
+        ),
+      );
+      const result = checkProject(root);
+      const unused = result.diagnostics.filter((d) => d.code === "library.device-unused");
+      expect(unused).toHaveLength(1);
+      expect(unused[0]!.severity).toBe("warning");
+      expect(unused[0]!.message).toContain("ldo-abandoned");
+      expect(unused[0]!.location?.file).toBe("assets/components/ldo-abandoned.teda");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a device that only a procurement file names is in use", () => {
+    const root = makeProject(BOARD);
+    try {
+      // The board places `res-thick-0402`; the alternatives file names the part bought for it.
+      writeFileSync(
+        join(root, "assets/components", "rc0402-as-part.teda"),
+        COMPONENT.replace("component res-thick-0402", "component rc0402-as-part").replace(
+          "kind generic\nconstruction thick\npolarized no",
+          "kind part\nmpn RC0402FR-0710KL",
+        ),
+      );
+      mkdirSync(join(root, "assets/procurement/alternatives"), { recursive: true });
+      writeFileSync(
+        join(root, "assets/procurement/alternatives", "b.teda"),
+        procurement("res-thick-0402 10k -> rc0402-as-part", "alternatives"),
+      );
+      const result = checkProject(root);
+      expect(result.diagnostics.filter((d) => d.code === "library.device-unused")).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a broken board does not turn its devices into false orphans", () => {
+    const root = makeProject(BOARD);
+    try {
+      writeFileSync(join(root, "design/sch", "broken.teda"), "schematic broken\ninstances\n  ???\n");
+      const result = checkProject(root);
+      expect(result.diagnostics.some((d) => d.severity === "error")).toBe(true);
+      expect(result.diagnostics.filter((d) => d.code === "library.device-unused")).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

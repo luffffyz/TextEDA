@@ -30,8 +30,8 @@ reference-project/
 - `sch` references ids only and never inlines component definitions; a missing file is an error.
 - No network fetches for libraries; a `<lib>:` prefix resolves a local library (this project only has `project:`), and failure is an error.
 - Everything in this project is **in-house**: `assets/symbols/project/` + `assets/footprints/project/` are the source, and `[libs.project]` in `project.toml` pins the version with a content hash. Library-level verification: `bun run lib:verify` (every component resolves, every library file compiles/exports/reads into KiCad, and the merged board of all footprints passes DRC cleanly).
-- Examples: `tps7a02` (SOT-23-5, `assets/components/regulators/`), `tps7a2033pdbvr` (SOT-23-5, `assets/components/regulators/`), `tps5430ddar` (HSOIC-8, `assets/components/regulators/`), `r-0402` (generic resistor, `assets/components/passives/`), `xtal-8mhz-3225` (crystal, `assets/components/passives/`), `sw-ts-1187` (tactile switch, `assets/components/mechanical/`), `ch32v307vct6` (LQFP-100, `assets/components/mcu/`), `bq24610rger` (VQFN-24, `assets/components/power/`).
-- `assets/components/` is a component library: not every part is already used on a board (`tps7a02` is currently referenced by no board and by no procurement file); library and boards are managed separately.
+- Examples: `tps7a2033pdbvr` (SOT-23-5, `assets/components/regulators/`), `tps5430ddar` (HSOIC-8, `assets/components/regulators/`), `r-0402` (generic resistor, `assets/components/passives/`), `xtal-8mhz-3225` (crystal, `assets/components/passives/`), `sw-ts-1187` (tactile switch, `assets/components/mechanical/`), `ch32v307vct6` (LQFP-100, `assets/components/mcu/`), `bq24610rger` (VQFN-24, `assets/components/power/`).
+- `assets/components/` is a component library, and it is **curated**: a device file no board places and no procurement file selects is allowed (a part bought for a revision that has not been drawn yet), but it is reported (`library.device-unused`, a warning) because it is part of the project identity. `bun run texteda check` names it; nothing is deleted for you.
 
 ## docs/
 
@@ -45,7 +45,7 @@ An `instances` row = `ref component_id [params...]`:
 ```
 instances
   R1  r-0402  10k  ±1%
-  U1  tps7a02
+  U1  tps7a2033pdbvr
 ```
 
 The package is not written in the `instances` row; it is determined by `assets/components/passives/r-0402.teda`.

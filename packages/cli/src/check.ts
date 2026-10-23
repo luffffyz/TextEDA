@@ -27,6 +27,7 @@ import {
 } from "./project.ts";
 import { checkBinding, checkCopperCoverage, checkProcurement, checkReviews, checkSystem } from "@texteda/core";
 import { buildProcurementFacts } from "./procurement.ts";
+import { checkDeviceUsage } from "@texteda/core";
 import { loadReviews } from "./reviews.ts";
 import { loadFootprintLibrary, padsByInstance } from "./pads.ts";
 import { LAYOUT } from "./paths.ts";
@@ -69,7 +70,7 @@ export function checkProject(root: string): CheckResult {
 export function analyzeProject(root: string): AnalyzeResult {
   const diagnostics: Diagnostic[] = [];
   const boards = listBoards(root);
-  const { resolver, problems, devices } = loadComponents(root);
+  const { resolver, problems, devices, shards: componentShards } = loadComponents(root);
   for (const problem of problems) {
     const diagnostic: Diagnostic = {
       severity: "error",
@@ -100,6 +101,14 @@ export function analyzeProject(root: string): AnalyzeResult {
   diagnostics.push(...project.diagnostics);
 
   const analyses: BoardAnalysis[] = [];
+  /** Ids a board places or a procurement file names: the library's used half (ADR-0023). */
+  const referencedDevices = new Set<string>();
+  /**
+   * Whether every description that could name a device was read. If one was not, the reference
+   * set is incomplete and an unused-looking device may simply live on a board we could not parse:
+   * a warning that fires on a broken file is worse than no warning.
+   */
+  let referencesComplete = true;
   const modules = loadModules(root);
   const footprints = loadFootprintLibrary(root);
   for (const board of boards) {
@@ -112,7 +121,9 @@ export function analyzeProject(root: string): AnalyzeResult {
       modules,
     });
     const boardDiagnostics = [...result.diagnostics];
+    if (!result.ir) referencesComplete = false;
     if (result.ir) {
+      for (const instance of result.ir.instances) referencedDevices.add(instance.component);
       const check = validate("schematic", result.ir);
       if (!check.ok) boardDiagnostics.push(...schemaDiagnosticsToDiagnostics(check.errors));
       // Board-level consistency: run binding validation when a pcb description exists (spec/pcb.md §5.2).
@@ -161,10 +172,15 @@ export function analyzeProject(root: string): AnalyzeResult {
         components: resolver,
       });
       boardDiagnostics.push(...parsed.diagnostics);
+      if (!parsed.ir) referencesComplete = false;
       if (parsed.ir) {
         const check = validate("procurement", parsed.ir);
         if (!check.ok) boardDiagnostics.push(...schemaDiagnosticsToDiagnostics(check.errors));
         procurementShards.push({ ir: parsed.ir, file: procurement.file });
+        for (const selection of parsed.ir.procurement.selections) {
+          referencedDevices.add(selection.generic);
+          if (selection.part) referencedDevices.add(selection.part);
+        }
       }
     }
     if (result.ir && procurementShards.length > 0) {
@@ -198,6 +214,17 @@ export function analyzeProject(root: string): AnalyzeResult {
       location: { file: `${LAYOUT.pcb}/${board}.teda`, line: 1, col: 1 },
       data: { board, present: "pcb", missing: "sch" },
     });
+  }
+
+  // The library layer: a device file nothing places and nothing selects (ADR-0023 -- the shard
+  // set is the project's content, so an abandoned candidate still changes the project hash).
+  if (referencesComplete) {
+    diagnostics.push(
+      ...checkDeviceUsage({
+        devices: componentShards.map((shard) => ({ id: shard.id, file: shard.file })),
+        referenced: referencedDevices,
+      }),
+    );
   }
 
   // The system layer: how the boards are wired to each other. The systems are checked against
