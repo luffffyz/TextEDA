@@ -844,7 +844,7 @@
 
 ## F33. 评审记录：Markdown 意见 + TOML 处置（ADR-0033 的落地）
 
-**现状**：评审记录没有地方放——工程树里没有评审目录，`check` 也不知道一块板有没有被人提过意见、有人认领。库件的复核有 `provenance` / `verified_by` / `verified_on`（[ADR-0028](adr/0028-library-trust-and-derived-overrides.md)），但**设计评审**完全没有记录。决策见 [ADR-0033](adr/0033-review-records-and-attribution.md)，**未落地**。
+**现状**：**已落地**（2026-10-23）。约定文档、处置文件、责任人字段与 `check` 的三条诊断都已落地：`packages/cli/src/reviews.ts`（读盘：`docs/reviews/*.md` 的 note 行与 `*.decision.toml`）、`packages/core` 的 `checkReviews`（规则）、`[project].owner`（`owner` 不进 IR——它是工程的属性，改它不改任何哈希，见 [ADR-0033](adr/0033-review-records-and-attribution.md) 2026-10-23 修订）。诊断码：`review.round-unclosed` / `review.owner-mismatch` / `review.owner-missing` / `review.decision-invalid`。参考工程的三个轮次现在报三条 unclosed（它们确实还没处置）。
 
 **要做的事**：
 
@@ -1068,7 +1068,7 @@
 
 ## F44. `pcb` 的完整性没有校验：`connect` 与 `trace` 互不校验，部分布局是静默的
 
-**现状**：**未落地**（2026-10-23 记，首轮 PCB 评审暴露，见 `docs/reviews/charger-buck-pcb-r1.md`）。绑定校验只查"`connect` 引用了未放置实例的焊盘"（`bind.pad-unplaced`）与"`place` 引用不存在的实例"，**不查反方向**，也不查几何是否兑现了声明：
+**现状**：**未落地**（2026-10-23 记，首轮 PCB 评审暴露，见 `examples/reference-project/docs/reviews/charger-buck-pcb-r1.md`）。绑定校验只查"`connect` 引用了未放置实例的焊盘"（`bind.pad-unplaced`）与"`place` 引用不存在的实例"，**不查反方向**，也不查几何是否兑现了声明：
 
 - **声明与几何不互校**：`connect` 声明哪两个 pad 之间有连续铜箔，`trace` / `via` / `zone` 画几何，两段之间没有任何校验。参考工程里就有一处对不上：`connect` 声明 `M2.R1.1` 与 `M2.C3.1` 直接相连（分压器搭在输出电容上），而 `trace` 里唯一的 VOUT 铜箔从 R1（14.5, 25）绕 28 mm 接到 x ≥ 36 的电容上。两者只能有一个是真的。
 - **部分布局是静默的**：参考工程 `design/pcb/charger-buck.teda` 只放了 9 个实例，而这块板有 61 个（`buck-5v` 9 个 + `charger-power` 52 个）。没有任何诊断说"还有 52 个器件没放"，文件里也没有标记说这是部分布局。agent 读 `place` 与 `connect` 会认为板子已经布完。原因是注释里的一句话，不是设计事实。

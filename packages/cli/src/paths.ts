@@ -22,6 +22,8 @@ export const LAYOUT = {
   sch: "design/sch",
   /** Board layouts: `design/pcb/<board_id>.teda`. */
   pcb: "design/pcb",
+  /** Review rounds (ADR-0033): `docs/reviews/<round_id>.md` and `<round_id>.decision.toml`. */
+  reviews: "docs/reviews",
   /** Module definitions: `design/modules/<module_id>.teda`. */
   modules: "design/modules",
   /** System descriptions: `design/system/<system_id>.teda`. */

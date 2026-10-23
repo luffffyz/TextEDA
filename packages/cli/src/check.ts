@@ -25,8 +25,9 @@ import {
   loadProcurement,
   loadProject,
 } from "./project.ts";
-import { checkBinding, checkProcurement, checkSystem } from "@texteda/core";
+import { checkBinding, checkProcurement, checkReviews, checkSystem } from "@texteda/core";
 import { buildProcurementFacts } from "./procurement.ts";
+import { loadReviews } from "./reviews.ts";
 import { LAYOUT } from "./paths.ts";
 
 export interface BoardAnalysis {
@@ -208,6 +209,17 @@ export function analyzeProject(root: string): AnalyzeResult {
       }),
     );
   }
+
+  // The review layer (ADR-0033): a fact about a human process, not about the design, so it
+  // changes no shard and no hash -- but a note nobody answered must not be invisible either.
+  const reviews = loadReviews(root);
+  diagnostics.push(...reviews.diagnostics);
+  diagnostics.push(
+    ...checkReviews({
+      ...(project.owner !== undefined ? { projectOwner: project.owner } : {}),
+      rounds: reviews.rounds,
+    }),
+  );
 
   return { boards, analyses, diagnostics };
 }

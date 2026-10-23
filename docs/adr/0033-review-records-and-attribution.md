@@ -183,6 +183,32 @@ This closes the open question of [ADR-0028](0028-library-trust-and-derived-overr
 - The trust story of the ecosystem stays what it was: statements are attributed and visible;
   nothing is certified.
 
+## Amendment 2026-10-23: One Diagnostic Domain, Three Codes, and the Missing Owner
+
+Landing decisions 5 and 7 needed three facts the original record left implicit.
+
+**A. A `review` diagnostic domain.** The domain vocabulary is closed and adding a domain requires
+a decision (ADR-0016); this record is that decision. Review problems are neither `value` nor `ref`
+nor `cli`: they are about the process, and a reader of a report should be able to see at a glance
+that "nobody answered this" is not "the design is wrong". The three codes are:
+
+| Code | Severity | Meaning |
+|---|---|---|
+| `review.round-unclosed` | warning | A round has notes and no decision (D6/D7) |
+| `review.owner-mismatch` | warning | The decision's `owner` is not `[project].owner` (D5/D7) |
+| `review.owner-missing` | error | The project has review rounds and names no owner |
+| `review.decision-invalid` | error | A decision file is missing a field or carries a verdict outside the closed set (D4) |
+
+**B. `owner` stays outside the IR.** D5 says ownership changes no hash. Putting the field in the
+`project` shard would do exactly that, so the parser returns it beside the IR rather than inside
+it, and no schema changes. It is project metadata read by the review check, nothing else.
+
+**C. The missing-owner case is an error, not a warning.** F33's acceptance list requires it, and
+the reason is visible: with no accountable person, *every* decision a project writes is
+unauthorised, so a warning would report the symptom (each round unclosed) and hide the cause.
+The check therefore emits the error once per project, in addition to the unclosed warning that
+the round genuinely has.
+
 ## Alternatives Rejected
 
 - **A `review` description type in the language.** Rejected in decision 2: prose in a table

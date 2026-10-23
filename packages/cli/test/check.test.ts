@@ -493,3 +493,68 @@ describe("a skipped binding check is reported, not assumed (AGENTS.md §4.4 rule
     }
   });
 });
+
+describe("review rounds (ADR-0033 F33)", () => {
+  const ROUND = "# Review of b, round 1\n\nTarget `board:b`. Roles: power.\n\n- power (2026-10-23): the rail has no margin.\n";
+
+  /** Add `[project].owner` and an optional decision to a project built by `makeProject`. */
+  function withReviews(root: string, owner: string | null, decision: string | null): void {
+    if (owner !== null) {
+      writeFileSync(join(root, "project.toml"), `${PROJECT.replace('format = "0.9"', `format = "0.9"\nowner = "${owner}"`)}`);
+    }
+    mkdirSync(join(root, "docs/reviews"), { recursive: true });
+    writeFileSync(join(root, "docs/reviews", "b-sch-r1.md"), ROUND);
+    if (decision !== null) writeFileSync(join(root, "docs/reviews", "b-sch-r1.decision.toml"), decision);
+  }
+
+  const decision = (owner: string) =>
+    `target = "board:b"\nowner = "${owner}"\ndate = "2026-10-23"\nverdict = "deferred"\n`;
+
+  test("notes with no decision are reported, and the notes stay out of the exit code", () => {
+    const root = makeProject(BOARD);
+    try {
+      withReviews(root, "carol", null);
+      const result = checkProject(root);
+      const rounds = result.diagnostics.filter((d) => d.code === "review.round-unclosed");
+      expect(rounds).toHaveLength(1);
+      expect(rounds[0]!.data).toEqual({ round: "b-sch-r1", notes: 1, authors: "power" });
+      expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a decision by the accountable person closes the round", () => {
+    const root = makeProject(BOARD);
+    try {
+      withReviews(root, "carol", decision("carol"));
+      expect(checkProject(root).diagnostics.filter((d) => d.code.startsWith("review."))).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a decision by someone else is reported with both names", () => {
+    const root = makeProject(BOARD);
+    try {
+      withReviews(root, "carol", decision("dave"));
+      const mismatch = checkProject(root).diagnostics.filter((d) => d.code === "review.owner-mismatch");
+      expect(mismatch).toHaveLength(1);
+      expect(mismatch[0]!.data).toEqual({ round: "b-sch-r1", decision_owner: "dave", project_owner: "carol" });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("reviews without an owner cannot be closed", () => {
+    const root = makeProject(BOARD);
+    try {
+      withReviews(root, null, null);
+      const missing = checkProject(root).diagnostics.filter((d) => d.code === "review.owner-missing");
+      expect(missing).toHaveLength(1);
+      expect(missing[0]!.severity).toBe("error");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

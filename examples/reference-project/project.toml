@@ -12,6 +12,7 @@ format = "0.9"
 description = "Reference project for TextEDA"
 license = "CERN-OHL-S-2.0"   # SPDX identifier
 status = "draft"             # draft / prototype / frozen / production / deprecated
+owner = "luffffyz"           # the accountable person (ADR-0033 D5): who signs off review rounds
 default_variant = "default"
 
 [[project.authors]]

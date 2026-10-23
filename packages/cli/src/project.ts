@@ -171,7 +171,7 @@ export function listPcbBoards(root: string): string[] {
  * the library locks. It carries no circuit. A project without the file is still a project — the
  * diagnostics say so, and the boards are found from `design/sch/` as before.
  */
-export function loadProject(root: string): { ir?: Project; diagnostics: Diagnostic[] } {
+export function loadProject(root: string): { ir?: Project; owner?: string; diagnostics: Diagnostic[] } {
   const file = "project.toml";
   const path = join(root, file);
   if (!existsSync(path)) {
@@ -187,7 +187,11 @@ export function loadProject(root: string): { ir?: Project; diagnostics: Diagnost
     };
   }
   const result = parseProjectToml(readFileSync(path, "utf8"), { file });
-  return { ...(result.ir ? { ir: result.ir } : {}), diagnostics: result.diagnostics };
+  return {
+    ...(result.ir ? { ir: result.ir } : {}),
+    ...(result.owner !== undefined ? { owner: result.owner } : {}),
+    diagnostics: result.diagnostics,
+  };
 }
 
 /** A system description: `design/system/<system_id>.teda`. */

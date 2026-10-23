@@ -66,6 +66,13 @@ export interface ProjectParseOptions {
 export interface ProjectParseResult {
   ok: boolean;
   ir?: Project;
+  /**
+   * The project's accountable person (`[project].owner`, ADR-0033 D5).
+   *
+   * Deliberately outside the IR: ownership is a fact about the project, not about the design,
+   * so changing it must change no shard and no hash. The review check is its only consumer.
+   */
+  owner?: string;
   diagnostics: Diagnostic[];
 }
 
@@ -155,6 +162,12 @@ export function parseProjectToml(source: string, options: ProjectParseOptions): 
     return { ok: false, diagnostics };
   }
   rejectUnknownKeys(projectTable, PROJECT_KEYS, "`[project]`", file, 1, diagnostics);
+
+  const ownerRaw = tableValue(projectTable, "owner");
+  const owner = asString(ownerRaw);
+  if (ownerRaw !== undefined && owner === undefined) {
+    diagnostics.push(error(file, 1, 1, "value.project-owner-invalid", "`[project].owner` must be a string (the accountable person, ADR-0033 D5)"));
+  }
 
   const name = asString(tableValue(projectTable, "name"));
   const version = asString(tableValue(projectTable, "version"));
@@ -403,7 +416,7 @@ export function parseProjectToml(source: string, options: ProjectParseOptions): 
   const extTable = subTable(root, "ext");
   const ext = extTable ? ({ ...extTable } as Record<string, unknown>) : undefined;
 
-  if (diagnostics.length > 0) return { ok: false, diagnostics };
+  if (diagnostics.length > 0) return { ok: false, ...(owner !== undefined ? { owner } : {}), diagnostics };
 
   const ir: Project = {
     ir_version: irVersion,
@@ -427,5 +440,5 @@ export function parseProjectToml(source: string, options: ProjectParseOptions): 
     ...(Object.keys(compliance).length > 0 ? { compliance } : {}),
     ...(ext !== undefined ? { ext } : {}),
   };
-  return { ok: true, ir, diagnostics };
+  return { ok: true, ir, ...(owner !== undefined ? { owner } : {}), diagnostics };
 }

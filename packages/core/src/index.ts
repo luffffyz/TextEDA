@@ -37,3 +37,12 @@ export {
 } from "./procurement/rules.ts";
 
 export { checkSystem, type SystemFacts } from "./system/rules.ts";
+
+export {
+  checkReviews,
+  REVIEW_VERDICTS,
+  type ReviewDecision,
+  type ReviewFacts,
+  type ReviewNote,
+  type ReviewRound,
+} from "./review/checks.ts";

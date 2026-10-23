@@ -16,6 +16,7 @@ export const DIAGNOSTIC_DOMAINS = [
   "net",
   "bind",
   "library",
+  "review",
   "format",
   "drc",
   "cli",
@@ -445,6 +446,13 @@ export const DIAGNOSTIC_CODES = {
     hint: "Write the project version as `major.minor.patch`, e.g. `0.1.0`",
     spec: ["AGENTS.md §9"],
   },
+  "value.project-owner-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "`[project].owner` is not a string",
+    hint: "The owner is the accountable person's name, one string (ADR-0033 D5)",
+    spec: ["docs/adr/0033-review-records-and-attribution.md D5"],
+  },
   "value.project-status-invalid": {
     domain: "value",
     severity: "error",
@@ -869,6 +877,35 @@ export const DIAGNOSTIC_CODES = {
     hint: "Place the missing instances; a partial layout is legal, it is reported so a fragment cannot pass for a board",
     spec: ["spec/pcb.md §5.2", "docs/adr/0040-partial-layout-is-legal-and-reported.md D1"],
   },
+  // ---- review: the review process (ADR-0033), not the design ----
+  "review.round-unclosed": {
+    domain: "review",
+    severity: "warning",
+    summary: "A review round has notes and no decision",
+    hint: "Someone raised something and nobody answered it: write docs/reviews/<round>.decision.toml (accepted / declined / deferred)",
+    spec: ["docs/adr/0033-review-records-and-attribution.md D6", "docs/adr/0033-review-records-and-attribution.md D7"],
+  },
+  "review.owner-missing": {
+    domain: "review",
+    severity: "error",
+    summary: "The project has review rounds but no accountable person (`[project].owner`)",
+    hint: "Nobody can close a round until the project names who is accountable: write `[project].owner` in project.toml",
+    spec: ["docs/adr/0033-review-records-and-attribution.md D5"],
+  },
+  "review.owner-mismatch": {
+    domain: "review",
+    severity: "warning",
+    summary: "A decision is owned by someone other than the project's accountable person",
+    hint: "Either somebody decided without the authority, or the handover was never written into project.toml",
+    spec: ["docs/adr/0033-review-records-and-attribution.md D5", "docs/adr/0033-review-records-and-attribution.md D7"],
+  },
+  "review.decision-invalid": {
+    domain: "review",
+    severity: "error",
+    summary: "A decision file is missing a field or carries a verdict outside the closed set",
+    hint: "A decision needs target, owner, date and a verdict of accepted / declined / deferred",
+    spec: ["docs/adr/0033-review-records-and-attribution.md D4"],
+  },
   "bind.not-checked": {
     domain: "bind",
     severity: "note",
@@ -1014,6 +1051,7 @@ export const STAGE_BY_DOMAIN: Record<DiagnosticDomain, DiagnosticStage> = {
   drc: "semantic",
   bind: "semantic",
   library: "semantic",
+  review: "semantic",
   cli: "parse",
   view: "semantic",
 };

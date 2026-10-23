@@ -171,3 +171,22 @@ name = "other"
     expect(first.ir).toEqual(second.ir);
   });
 });
+
+describe("owner (ADR-0033 D5)", () => {
+  test("is returned beside the IR, not inside it", () => {
+    const result = parse(`${MINIMAL}owner = "carol"\n`);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.owner).toBe("carol");
+    // Ownership is a fact about the project: it must not reach the shard, or changing it would change a hash.
+    expect(result.ir?.project).not.toHaveProperty("owner");
+  });
+
+  test("a project without an owner simply has none", () => {
+    expect(parse(MINIMAL).owner).toBeUndefined();
+  });
+
+  test("a non-string owner is an error", () => {
+    const result = parse(`${MINIMAL}owner = 42\n`);
+    expect(result.diagnostics.map((d) => d.code)).toEqual(["value.project-owner-invalid"]);
+  });
+});
