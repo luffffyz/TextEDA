@@ -244,28 +244,30 @@ silk
 
 ### 4.11 `physical_only`
 
-不影响逻辑的物理实体。列：`<id> <type> [args…]`，参数由类型决定。
+不影响逻辑的物理实体。列：`<id> <type> <x> <y> [args…]`，参数由类型决定。
 
 ```
 physical_only
-  H1   mounting   3.2mm  2.5mm
-  F1   fiducial   1.0mm  F.Cu
-  TP1  test_point VBUS   1.0mm
-  S1   stitching  GND    0.6mm  0.3mm
-  X1   cutout     34.0 22.0  4.0  2.0
+  H1  mounting   5   5    6     3.2
+  F1  fiducial   45  31   1.0   F.Cu
+  S1  stitching  10  30   GND   0.6  0.3
+  X1  cutout     34  22   4.0   2.0
 ```
+
+单位默认 mm，与其余几何段一致（canonical form 不写 `mm` 后缀，`spec/pcb.md` §6）。
+
+`<x> <y>` 是实体的**参考点**，单位默认 mm，坐标帧同其他几何段。除了 `cutout`（参考点是矩形的一角），参考点都是几何中心——孔、点、过孔都是圆形，圆心就是它们唯一说得清的位置。
 
 | 类型 | 参数 | 说明 |
 |---|---|---|
-| `mounting` | `<size> <drill>` | 安装孔 |
-| `fiducial` | `<size> <layer>` | 基准点；**不得挂 net**（挂了是错误） |
-| `test_point` | `<net> <size>` | 测试点：单层焊盘，供探针测量；sch 中无对应器件 → 进偏差报告 |
-| `stitching` | `<net> <size> <drill>` | 缝合孔：跨层连接**同一个 net 的多个层**；过孔不是焊盘，不算 net 的新成员 |
-| `cutout` | `<x> <y> <w> <h>` | 板内矩形开孔/槽 |
+| `mounting` | `<x> <y> <size> <drill>` | 安装孔，圆环外径与孔径 |
+| `fiducial` | `<x> <y> <size> <layer>` | 基准点；**不得挂 net**（挂了是错误） |
+| `stitching` | `<x> <y> <net> <size> <drill>` | 缝合孔：跨层连接**同一个 net 的多个层**；过孔不是焊盘，不算 net 的新成员 |
+| `cutout` | `<x> <y> <w> <h>` | 板内矩形开孔/槽，`<x> <y>` 是左下角 |
 
-`test_point` 与 `stitching` 的分界是**单层 vs 跨层**；连接两个不同 net 的过孔是 `deviation` 的 `net_tie`，不是 `stitching`。`test_point` / `stitching` 的 net 必须在 `sch` 里存在，否则报错。
+`cutout` 的参考点与其余三类不同（角 vs 圆心），因为矩形用它自己的形状说话；圆形的"左下角"没有意义，所以统一取圆心。**位置是坐标，不是几何**：实体只有简单图元（圆孔、圆点、矩形开槽），要自定义形状就写成器件（`AGENTS.md` §4.4 第 7 条）。
 
-**退役（2026-10-22b）**：`test_point` 这一形态退役。测试点是 net 上的一个**焊盘**，按 [ADR-0035](../docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D8/D9 它是 `sch` 里的**单引脚器件**（不采购的是 generic，采购的是 part）：有位号、有封装（形状任意）、走普通 net 成员规则，不再是 `physical_only` 实体。白名单随之从五类减为四类（`net_tie` / `split_ground` / `stitching` / `fiducial`）。该形态随下一个契约版本移除（`docs/backlog.md` F38）。
+**测试点不是本段的形态（2026-10-22b 退役，语言 `pcb` 线 0.7.1 删除）**：测试点是某个 net 上的一个**焊盘**，按 [ADR-0035](../docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D8/D9 它是 `sch` 里的**单引脚器件**（不采购的是 generic，采购的是 part）：有位号、有封装（形状任意）、走普通 net 成员规则。分界线是"它是不是某个 net 上的焊盘"：是 → 器件；不是 → 本段的实体（过孔、安装孔、基准点、挖槽）。白名单因此是四类（`net_tie` / `split_ground` / `stitching` / `fiducial`），`stitching` 与 `fiducial` 是物理实体放本段，前两类改逻辑连通性放 `deviation`。
 
 ### 4.12 `deviation`
 
@@ -312,7 +314,7 @@ pcb 里写的 net 名就是**板级** net 名，与 sch 同一命名空间（模
 5. `connect` 引用的 net 不得超出 `sch` 的 net 集合（pcb 不得创建新逻辑连接）。
 6. `trace` / `via` / `zone` 的 `net` 必须存在于 `sch`；`layer` 必须在 `stackup` 里。
 7. `rules` 里的 net 必须存在于 `sch`。
-8. `physical_only` 的 `test_point` / `stitching` 必须引用 `sch` 里存在的 net；`fiducial` 不得挂 net。`test_point` 是单层焊盘，`stitching` 是跨层过孔；连接两个不同 net 的过孔按 `deviation` 的 `net_tie` 处理。
+8. `physical_only` 的 `stitching` 必须引用 `sch` 里存在的 net；`fiducial` 不得挂 net。`stitching` 是跨层过孔（同一 net 的多个层），连接两个不同 net 的过孔按 `deviation` 的 `net_tie` 处理。
 8a. **pcb 不得新增逻辑连接**：任何两 pad 之间的短接若不在同一个 sch net 内，必须由 `deviation` 的 `net_tie` / `split_ground` 显式覆盖，否则报 error。白名单之外的任何差异都是 error，不是 warning。
 9. `board_thickness` 与 `stackup` 厚度之和一致（容差 0.05mm，规则本身不精确）。
 10. `outline` 顶点不重复、不自交；`zone` / `keepout` 多边形同样不自交。

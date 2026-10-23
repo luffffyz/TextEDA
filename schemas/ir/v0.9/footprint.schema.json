@@ -1,18 +1,18 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:texteda:ir:0.8:footprint",
-  "title": "TextEDA IR v0.8 — footprint",
+  "$id": "urn:texteda:ir:0.9:footprint",
+  "title": "TextEDA IR v0.9 — footprint",
   "description": "One footprint of a self-built footprint library: the canonical description. This is the **source of truth**; the KiCad .kicad_mod is an export artifact (ADR-0011). Lengths are always integer nanometers, angles integer millidegrees (ADR-0008); the origin is the footprint center, +x right, +y down (KiCad convention).",
   "type": "object",
   "additionalProperties": false,
   "required": ["ir_version", "footprint"],
   "properties": {
     "ir_version": {
-      "$ref": "urn:texteda:ir:0.8:common#/$defs/ir_version",
-      "description": "IR contract version, currently always 0.8."
+      "$ref": "urn:texteda:ir:0.9:common#/$defs/ir_version",
+      "description": "IR contract version, currently always 0.9."
     },
     "source": {
-      "$ref": "urn:texteda:ir:0.8:common#/$defs/source_ref",
+      "$ref": "urn:texteda:ir:0.9:common#/$defs/source_ref",
       "description": "Source-file location: path relative to the project root plus an optional line number."
     },
     "footprint": {
@@ -22,7 +22,7 @@
       "required": ["library", "name", "pads"],
       "properties": {
         "library": {
-          "$ref": "urn:texteda:ir:0.8:common#/$defs/lib_id",
+          "$ref": "urn:texteda:ir:0.9:common#/$defs/lib_id",
           "description": "Owning library name ([libs.<name>] in project.toml); KiCad footprint id = <library>:<name>."
         },
         "name": {
@@ -36,7 +36,7 @@
           "description": "The package code of this land pattern, e.g. 0402, SOT-23-5, LQFP-100 (ADR-0029 decision 1). The device does not restate it."
         },
         "description": {
-          "$ref": "urn:texteda:ir:0.8:common#/$defs/note",
+          "$ref": "urn:texteda:ir:0.9:common#/$defs/note",
           "description": "Free-text description; becomes the description in the IR."
         },
         "tags": {
@@ -115,7 +115,7 @@
       "required": ["number", "type", "shape", "at", "size", "layers"],
       "properties": {
         "number": {
-          "$ref": "urn:texteda:ir:0.8:common#/$defs/pin_number",
+          "$ref": "urn:texteda:ir:0.9:common#/$defs/pin_number",
           "description": "Pad number; must match the symbol pin number (ADR-0010 decision 3)."
         },
         "type": { "enum": ["smd", "th"], "description": "SMD or through-hole." },
@@ -135,7 +135,7 @@
         "layers": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "urn:texteda:ir:0.8:common#/$defs/layer_name" },
+          "items": { "$ref": "urn:texteda:ir:0.9:common#/$defs/layer_name" },
           "description": "Layers the pad is on, e.g. [\"F.Cu\",\"F.Mask\",\"F.Paste\"]; through-hole uses [\"*.Cu\",\"*.Mask\"]."
         },
         "roundrect_ratio_ppm": {
@@ -189,7 +189,7 @@
           "description": "Graphic kind, e.g. line, rect, circle, arc, poly."
         },
         "layer": {
-          "$ref": "urn:texteda:ir:0.8:common#/$defs/layer_name",
+          "$ref": "urn:texteda:ir:0.9:common#/$defs/layer_name",
           "description": "Layer the graphic is on, e.g. F.SilkS, F.CrtYd."
         },
         "width_nm": { "type": "integer", "minimum": 0, "description": "Line width; 0 uses the layer default. Optional for rect/circle/poly. poly is a closed outline." },
@@ -272,7 +272,7 @@
           "description": "Text anchor position; origin at the footprint center."
         },
         "layer": {
-          "$ref": "urn:texteda:ir:0.8:common#/$defs/layer_name",
+          "$ref": "urn:texteda:ir:0.9:common#/$defs/layer_name",
           "description": "Layer the text is on, e.g. F.SilkS, F.Fab."
         },
         "hide": { "type": "boolean", "description": "Whether this text is hidden." },
@@ -295,7 +295,7 @@
           "description": "Attribute text anchor position."
         },
         "layer": {
-          "$ref": "urn:texteda:ir:0.8:common#/$defs/layer_name",
+          "$ref": "urn:texteda:ir:0.9:common#/$defs/layer_name",
           "description": "Layer the attribute is on, e.g. F.SilkS, F.Fab."
         },
         "hide": { "type": "boolean", "description": "Whether this attribute is hidden." },

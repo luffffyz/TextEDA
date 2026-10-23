@@ -1,4 +1,4 @@
-version 0.7
+version 0.7.1
 pcb charger-buck
 
 # The buck module's parts on the board. The instance ids are the board's flat ids: the buck is
@@ -88,3 +88,9 @@ rules
 silk
   refdes  F.SilkS  1  show
   value  F.SilkS  0.8  hide
+
+physical_only
+  H1  mounting  3.5  3.5  6  3.2
+  H2  mounting  46.5  3.5  6  3.2
+  H3  mounting  3.5  32.5  6  3.2
+  H4  mounting  46.5  32.5  6  3.2

@@ -1,11 +1,18 @@
 {
-  "ir_version": "0.8",
+  "ir_version": "0.9",
   "format": "0.5",
-  "source": { "file": "pcb/demo.teda" },
+  "source": {
+    "file": "pcb/demo.teda"
+  },
   "board": "demo",
   "board_thickness_nm": 1600000,
   "stackup": [
-    { "layer": "F.Cu", "type": "copper", "thickness_nm": 35000, "kind": "signal" },
+    {
+      "layer": "F.Cu",
+      "type": "copper",
+      "thickness_nm": 35000,
+      "kind": "signal"
+    },
     {
       "layer": "prepreg",
       "type": "dielectric",
@@ -13,21 +20,56 @@
       "material": "FR4",
       "er_ppm": 4300000
     },
-    { "layer": "B.Cu", "type": "copper", "thickness_nm": 35000, "kind": "signal" }
+    {
+      "layer": "B.Cu",
+      "type": "copper",
+      "thickness_nm": 35000,
+      "kind": "signal"
+    }
   ],
   "outline": [
-    { "x_nm": 0, "y_nm": 0 },
-    { "x_nm": 20000000, "y_nm": 0 },
-    { "x_nm": 20000000, "y_nm": 15000000 },
-    { "x_nm": 0, "y_nm": 15000000 }
+    {
+      "x_nm": 0,
+      "y_nm": 0
+    },
+    {
+      "x_nm": 20000000,
+      "y_nm": 0
+    },
+    {
+      "x_nm": 20000000,
+      "y_nm": 15000000
+    },
+    {
+      "x_nm": 0,
+      "y_nm": 15000000
+    }
   ],
   "place": [
-    { "instance_id": "R1", "x_nm": 5000000, "y_nm": 7500000, "rot_mdeg": 0, "side": "top" },
-    { "instance_id": "R2", "x_nm": 12000000, "y_nm": 7500000, "rot_mdeg": 90000, "side": "bottom" }
+    {
+      "instance_id": "R1",
+      "x_nm": 5000000,
+      "y_nm": 7500000,
+      "rot_mdeg": 0,
+      "side": "top"
+    },
+    {
+      "instance_id": "R2",
+      "x_nm": 12000000,
+      "y_nm": 7500000,
+      "rot_mdeg": 90000,
+      "side": "bottom"
+    }
   ],
   "connect": [
-    { "a": "R1.1", "b": "R2.2" },
-    { "a": "R1.2", "b": "R2.1" }
+    {
+      "a": "R1.1",
+      "b": "R2.2"
+    },
+    {
+      "a": "R1.2",
+      "b": "R2.1"
+    }
   ],
   "trace": [
     {
@@ -35,9 +77,18 @@
       "layer": "F.Cu",
       "width_nm": 250000,
       "points": [
-        { "x_nm": 5000000, "y_nm": 7500000 },
-        { "x_nm": 8000000, "y_nm": 7500000 },
-        { "x_nm": 12000000, "y_nm": 7500000 }
+        {
+          "x_nm": 5000000,
+          "y_nm": 7500000
+        },
+        {
+          "x_nm": 8000000,
+          "y_nm": 7500000
+        },
+        {
+          "x_nm": 12000000,
+          "y_nm": 7500000
+        }
       ]
     }
   ],
@@ -57,10 +108,22 @@
       "net": "GND",
       "layer": "B.Cu",
       "points": [
-        { "x_nm": 1000000, "y_nm": 1000000 },
-        { "x_nm": 19000000, "y_nm": 1000000 },
-        { "x_nm": 19000000, "y_nm": 14000000 },
-        { "x_nm": 1000000, "y_nm": 14000000 }
+        {
+          "x_nm": 1000000,
+          "y_nm": 1000000
+        },
+        {
+          "x_nm": 19000000,
+          "y_nm": 1000000
+        },
+        {
+          "x_nm": 19000000,
+          "y_nm": 14000000
+        },
+        {
+          "x_nm": 1000000,
+          "y_nm": 14000000
+        }
       ]
     }
   ],
@@ -69,17 +132,39 @@
       "type": "no_place",
       "layer": "F.Cu",
       "points": [
-        { "x_nm": 15000000, "y_nm": 10000000 },
-        { "x_nm": 19000000, "y_nm": 10000000 },
-        { "x_nm": 19000000, "y_nm": 14000000 },
-        { "x_nm": 15000000, "y_nm": 14000000 }
+        {
+          "x_nm": 15000000,
+          "y_nm": 10000000
+        },
+        {
+          "x_nm": 19000000,
+          "y_nm": 10000000
+        },
+        {
+          "x_nm": 19000000,
+          "y_nm": 14000000
+        },
+        {
+          "x_nm": 15000000,
+          "y_nm": 14000000
+        }
       ]
     }
   ],
   "rules": [
-    { "type": "clearance", "value_nm": 200000 },
-    { "type": "width", "value_nm": 250000 },
-    { "type": "via", "size_nm": 600000, "drill_nm": 300000 },
+    {
+      "type": "clearance",
+      "value_nm": 200000
+    },
+    {
+      "type": "width",
+      "value_nm": 250000
+    },
+    {
+      "type": "via",
+      "size_nm": 600000,
+      "drill_nm": 300000
+    },
     {
       "type": "net",
       "net": "VOUT",
@@ -88,21 +173,83 @@
       "via_size_nm": 800000,
       "via_drill_nm": 400000
     },
-    { "type": "diff", "net_a": "USB_DP", "net_b": "USB_DN", "impedance_mohm": 90000, "gap_nm": 200000 },
-    { "type": "match", "net_a": "USB_DP", "net_b": "USB_DN", "max_delta_nm": 500000 },
-    { "type": "mask", "expansion_nm": 50000 },
-    { "type": "paste", "ratio_ppm": 900000, "offset_nm": -20000 },
-    { "type": "thermal", "gap_nm": 250000, "bridge_nm": 400000 },
-    { "type": "min_width", "value_nm": 150000 }
+    {
+      "type": "diff",
+      "net_a": "USB_DP",
+      "net_b": "USB_DN",
+      "impedance_mohm": 90000,
+      "gap_nm": 200000
+    },
+    {
+      "type": "match",
+      "net_a": "USB_DP",
+      "net_b": "USB_DN",
+      "max_delta_nm": 500000
+    },
+    {
+      "type": "mask",
+      "expansion_nm": 50000
+    },
+    {
+      "type": "paste",
+      "ratio_ppm": 900000,
+      "offset_nm": -20000
+    },
+    {
+      "type": "thermal",
+      "gap_nm": 250000,
+      "bridge_nm": 400000
+    },
+    {
+      "type": "min_width",
+      "value_nm": 150000
+    }
   ],
   "silk": [
-    { "item": "refdes", "layer": "F.SilkS", "size_nm": 1000000, "mode": "show" },
-    { "item": "value", "layer": "F.SilkS", "size_nm": 800000, "mode": "hide" }
+    {
+      "item": "refdes",
+      "layer": "F.SilkS",
+      "size_nm": 1000000,
+      "mode": "show"
+    },
+    {
+      "item": "value",
+      "layer": "F.SilkS",
+      "size_nm": 800000,
+      "mode": "hide"
+    }
   ],
   "physical_only": [
-    { "id": "H1", "type": "mounting", "size_nm": 3200000, "drill_nm": 2500000 },
-    { "id": "F1", "type": "fiducial", "size_nm": 1000000, "layer": "F.Cu" },
-    { "id": "X1", "type": "cutout", "x_nm": 17000000, "y_nm": 2000000, "w_nm": 2000000, "h_nm": 1000000 }
+    {
+      "id": "H1",
+      "type": "mounting",
+      "size_nm": 3200000,
+      "drill_nm": 2500000,
+      "x_nm": 5000000,
+      "y_nm": 5000000
+    },
+    {
+      "id": "F1",
+      "type": "fiducial",
+      "size_nm": 1000000,
+      "layer": "F.Cu",
+      "x_nm": 45000000,
+      "y_nm": 31000000
+    },
+    {
+      "id": "X1",
+      "type": "cutout",
+      "x_nm": 17000000,
+      "y_nm": 2000000,
+      "w_nm": 2000000,
+      "h_nm": 1000000
+    }
   ],
-  "deviation": [{ "type": "net_tie", "net_a": "GND", "net_b": "GND_ISO" }]
+  "deviation": [
+    {
+      "type": "net_tie",
+      "net_a": "GND",
+      "net_b": "GND_ISO"
+    }
+  ]
 }

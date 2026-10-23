@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.8",
+  "ir_version": "0.9",
   "footprint": {
     "library": "project",
     "name": "th-no-drill",

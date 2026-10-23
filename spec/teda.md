@@ -681,6 +681,10 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
   - **已落地**：上表的规则表在 `packages/core`（`devices/rules.ts`），由 `texteda check` 执行（决策见 [ADR-0038](../docs/adr/0038-device-vocabulary-and-parameter-roles.md) D7）。
 - `footprint` 描述类型：`0.4` → `0.4.1`（PATCH）。新增 `package_code` 标量：这块焊盘图案的封装代号（`0402`、`SOT-23-5`、`LQFP-100`），供厂商与评审读（决策见 [ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) decision 1）。加字段在 `0.x` 阶段也走 PATCH 位；没写 `package_code` 的文件仍然合法（代号通常已经在封装 id 里），但库级检查（`bun run lib:verify`）要求每个封装都写明自己的代号。
 - `component` 描述类型：`0.1.4` → `0.1.5`（PATCH）。新增 `ratings` 段：`kind: part` 的件在这里写自己的额定值（`role type value`），`kind: generic` 不得写、`kind: part` 仍不得写 `params`（决策见 [ADR-0039](../docs/adr/0039-a-part-states-its-own-ratings.md)）。**IR 契约随之到 0.4**（`component` 分片多了 `ratings`）。用到 `ratings` 的件文件写 `version 0.1.5`；没写的件文件版本行不变（§13.4 的规矩：没用新构造的文件保持旧号）。
+- `pcb` 描述类型：`0.7` → `0.7.1`（PATCH）。`physical_only` 的实体**有位置**了：行是 `<id> <type> <x> <y> [args…]`（`spec/pcb.md` §4.11），`cutout` 的参考点是矩形左下角，其余是圆心。同时**删除** `test_point` 形态——测试点是 `sch` 里的单引脚器件，不是 `pcb` 的实体（决策见 [ADR-0035](../docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D8/D9/D11，`docs/backlog.md` F38）。**这是破坏性变更**（老的 `physical_only` 行与 `test_point` 行不再合法），按 §13.1 的 `0.x` 规则走 PATCH 位。**IR 契约随之到 0.9**（`pcb` 分片：`mounting` / `fiducial` / `stitching` 多了 `x_nm` / `y_nm`，`test_point` 变体删除）。**改法**：
+  1. 每个 `physical_only` 行在类型后面插两个坐标（mm，默认单位），写在板框里给它定的位置。
+  2. `test_point` 行改成 `sch` 里的单引脚器件（不采购的写 `kind generic`），走普通 net 成员规则；`pcb` 里只保留它的封装放置。
+  3. 用到位置的 `pcb` 文件写 `version 0.7.1`；没写 `physical_only` 的 `pcb` 文件版本行不变。
 - `0.x` 阶段各描述类型的版本线各自维护、只走 PATCH 位；项目接近完成时一次性合并为 `1.0`，之后全语言一个号（见 §13.1 / §13.2）。
 - 未知构造默认报错；`--allow-unknown` 仅用于前向兼容检查，不用于生产。**这是 `0.x` 阶段版本号只走 PATCH 位的安全依据**：不懂新构造的工具会报错停下，不会误读文件。
 - 所有破坏性变更必须写明改了什么、怎么改（见本节）；`fmt` 不自动跨 MAJOR 迁移。本项目尚无外部使用者，所以**没有迁移脚本**：破坏性变更直接改文件，工具不替人改名、不替人决定事实。

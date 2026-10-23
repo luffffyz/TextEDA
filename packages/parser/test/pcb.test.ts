@@ -103,8 +103,8 @@ keepout
 silk
   refdes  F.SilkS  1.0mm  show
 physical_only
-  H1  mounting  3.2mm  2.5mm
-  TP1 test_point VBUS  1.0mm
+  H1  mounting  5  5   3.2mm  2.5mm
+  S1  stitching 10 30  VBUS   0.6mm  0.3mm
 deviation
   net_tie  VBUS  VBUS_RAW
 `;
@@ -117,8 +117,37 @@ deviation
     expect(ir.zone![0]!.points).toHaveLength(3);
     expect(ir.keepout![0]!.type).toBe("no_place");
     expect(ir.silk).toEqual([{ item: "refdes", layer: "F.SilkS", size_nm: 1_000_000, mode: "show" }]);
-    expect(ir.physical_only!.map((p) => p.type)).toEqual(["mounting", "test_point"]);
+    expect(ir.physical_only).toEqual([
+      { type: "mounting", id: "H1", x_nm: 5_000_000, y_nm: 5_000_000, size_nm: 3_200_000, drill_nm: 2_500_000 },
+      {
+        type: "stitching",
+        id: "S1",
+        x_nm: 10_000_000,
+        y_nm: 30_000_000,
+        net: "VBUS",
+        size_nm: 600_000,
+        drill_nm: 300_000,
+      },
+    ]);
     expect(ir.deviation).toEqual([{ type: "net_tie", net_a: "VBUS", net_b: "VBUS_RAW" }]);
+  });
+
+  test("the retired test_point form is rejected as an unknown physical entity type", () => {
+    // A test point is a one-pin device in the schematic (ADR-0035 D8/D9), not a pcb entity.
+    const result = parse(`${valid}
+physical_only
+  TP1 test_point VBUS  1.0mm
+`);
+    expect(result.diagnostics.map((d) => d.code)).toContain("value.unknown-pcb-type");
+    expect(result.ir?.physical_only).toBeUndefined();
+  });
+
+  test("a physical entity row without a position is a short row", () => {
+    const result = parse(`${valid}
+physical_only
+  H1 mounting 3.2mm 2.5mm
+`);
+    expect(result.diagnostics.map((d) => d.code)).toContain("syntax.row-too-short");
   });
 
   test("same section repeated: rows are concatenated in order of appearance", () => {

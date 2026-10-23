@@ -8,7 +8,7 @@ import type { Schematic } from "@texteda/ir/schematic";
 const mm = (value: number) => Math.round(value * 1_000_000);
 
 const schematic: Schematic = {
-  ir_version: "0.8",
+  ir_version: "0.9",
   format: "0.7",
   board: "b",
   instances: [
@@ -19,7 +19,7 @@ const schematic: Schematic = {
 };
 
 const pcbBase: Pcb = {
-  ir_version: "0.8",
+  ir_version: "0.9",
   format: "0.7",
   board: "b",
   board_thickness_nm: 1_600_000,

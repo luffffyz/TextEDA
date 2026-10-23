@@ -37,7 +37,7 @@ function referencedNets(pcb: Pcb): string[] {
     if (rule.type === "diff" || rule.type === "match") nets.push(rule.net_a, rule.net_b);
   }
   for (const item of pcb.physical_only ?? []) {
-    if (item.type === "test_point" || item.type === "stitching") nets.push(item.net);
+    if (item.type === "stitching") nets.push(item.net);
   }
   for (const deviation of pcb.deviation ?? []) {
     if (deviation.type === "net_tie") nets.push(deviation.net_a, deviation.net_b);

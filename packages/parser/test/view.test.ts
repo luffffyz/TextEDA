@@ -40,7 +40,7 @@ describe("view parsing", () => {
     expect(result.diagnostics).toEqual([]);
     expect(result.ok).toBe(true);
     const ir = result.ir!;
-    expect(ir.ir_version).toBe("0.8");
+    expect(ir.ir_version).toBe("0.9");
     expect(ir.format).toBe("0.7");
     expect(ir.board).toBe("charger-buck");
     expect(ir.page).toBe("buck-5v");

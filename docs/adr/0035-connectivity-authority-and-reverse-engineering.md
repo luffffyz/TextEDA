@@ -237,6 +237,14 @@ usable, and the reference project does not use it.
 Positions are added with the same change that retires the `test_point` form
 (`docs/backlog.md` F38). Until then, the section is not to be used.
 
+**Amendment (2026-10-23).** Both halves landed together, as planned: a `physical_only` row is
+`<id> <type> <x> <y> [args…]` (the reference point is the centre, except for `cutout`, whose corner
+it is), the IR carries `x_nm` / `y_nm` on `mounting` / `fiducial` / `stitching`, the `test_point`
+variant is gone (`spec/pcb.md` §4.11, IR contract 0.9), and the `pcb` line moved `0.7` → `0.7.1`.
+The section is usable now; what is still missing is a renderer that draws it and a fabrication
+writer that carries it (`docs/backlog.md` F15), so "it is in the IR" is not yet "it is on the
+drawing".
+
 ### The open point that stays open
 
 A one-pin family that is not purchased — a bare test pad — has no manufacturer part number, so

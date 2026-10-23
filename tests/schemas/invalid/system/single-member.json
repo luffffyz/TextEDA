@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.8",
+  "ir_version": "0.9",
   "format": "0.2",
   "system": "cabinet",
   "boards": [{ "id": "amp" }],

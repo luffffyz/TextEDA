@@ -70,7 +70,7 @@ const KEEPOUT_TYPES = new Set(["no_track", "no_pour", "no_place", "no_via"]);
 const SILK_ITEMS = new Set(["refdes", "value"]);
 const SILK_LAYERS = new Set(["F.SilkS", "B.SilkS"]);
 const SILK_MODES = new Set(["show", "hide"]);
-const PHYSICAL_ONLY_TYPES = new Set(["mounting", "fiducial", "test_point", "stitching", "cutout"]);
+const PHYSICAL_ONLY_TYPES = new Set(["mounting", "fiducial", "stitching", "cutout"]);
 const DEVIATION_TYPES = new Set(["net_tie", "split_ground"]);
 
 /** The type order for `rules` (`spec/pcb.md` §6.2): IR and the formatter share the same convention. */
@@ -779,25 +779,38 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
           const nm = (i: number) => length(c[i]!, line, diagnostics, file);
           switch (kind) {
             case "mounting":
-              if (!exactColumns(line, 4, diagnostics, file)) break;
-              physicalOnly.push({ type: "mounting", id, size_nm: nm(2), drill_nm: nm(3) });
+              if (!exactColumns(line, 6, diagnostics, file)) break;
+              physicalOnly.push({
+                type: "mounting",
+                id,
+                x_nm: nm(2),
+                y_nm: nm(3),
+                size_nm: nm(4),
+                drill_nm: nm(5),
+              });
               break;
             case "fiducial":
-              if (!exactColumns(line, 4, diagnostics, file)) break;
+              if (!exactColumns(line, 6, diagnostics, file)) break;
               physicalOnly.push({
                 type: "fiducial",
                 id,
-                size_nm: nm(2),
-                layer: copperLayer(c[3]!, line, diagnostics, file),
+                x_nm: nm(2),
+                y_nm: nm(3),
+                size_nm: nm(4),
+                layer: copperLayer(c[5]!, line, diagnostics, file),
               });
               break;
-            case "test_point":
-              if (!exactColumns(line, 4, diagnostics, file)) break;
-              physicalOnly.push({ type: "test_point", id, net: netId(c[2]!), size_nm: nm(3) });
-              break;
             case "stitching":
-              if (!exactColumns(line, 5, diagnostics, file)) break;
-              physicalOnly.push({ type: "stitching", id, net: netId(c[2]!), size_nm: nm(3), drill_nm: nm(4) });
+              if (!exactColumns(line, 7, diagnostics, file)) break;
+              physicalOnly.push({
+                type: "stitching",
+                id,
+                x_nm: nm(2),
+                y_nm: nm(3),
+                net: netId(c[4]!),
+                size_nm: nm(5),
+                drill_nm: nm(6),
+              });
               break;
             case "cutout":
               if (!exactColumns(line, 6, diagnostics, file)) break;

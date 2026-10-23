@@ -980,26 +980,15 @@
 - **不要把源文本复制进 IR**；非电气标记是语义（[ADR-0004](adr/0004-ir-representation.md)）。
 - 器件侧的"电气焊盘 = 一个引脚"是 [ADR-0027](adr/0027-device-parts-families-and-library-dependencies.md) 的直接后果：引脚表变了就是另一个器件。
 
-## F38. `physical_only` 实体要有位置；退役 `test_point` 形态（ADR-0035 D10/D11 的落地）
+## F38. `physical_only` 实体要有位置；退役 `test_point` 形态（ADR-0035 D10/D11 的落地）——**已完成**
+**现状**：**已落地**（2026-10-23）。[ADR-0035](adr/0035-connectivity-authority-and-reverse-engineering.md) 2026-10-22b 附录的两件事都进了语法、IR 与校验：
+- **位置**：`physical_only` 行是 `<id> <type> <x> <y> [args…]`（`spec/pcb.md` §4.11）。`cutout` 的参考点是矩形左下角，其余三类是圆心——圆形的"左下角"没有意义。IR 的 `mounting` / `fiducial` / `stitching` 多了 `x_nm` / `y_nm`，契约随这批从 v0.8 到 **v0.9**（`schemas/ir/v0.9/`，`bun run gen` 重生成）。语言侧 `pcb` 线 `0.7` → `0.7.1`（§13.4 的 0.x PATCH 规矩；**不是** 0.8→0.9，那是 F31 之前的旧账法）。参考工程给 `charger-buck` 加了四个 M3 安装孔（`6.0mm` 盘 / `3.2mm` 孔，四角内缩 3.5mm），这一段从"声明了但没人用"变成有消费者。
+- **退役**：`test_point` 形态从语法与 IR 一起删除（`PHYSICAL_ONLY_TYPES` 四类）；测试点是 `sch` 里的单引脚器件（D8/D9）。旧写法现在报 `value.unknown-pcb-type`，不是静默忽略。
+- **绑定校验**：`referencedNets()` 只剩 `stitching` 带 net（`packages/core`），`fiducial` 在 schema 层就挂不上 net（`additionalProperties: false`）。
+- **渲染/制造**：能编译、能校验、**画不出也带不走**——PCB SVG 与 Gerber 写出器都没落地（F15），这条只做了一半，不要把"进得了 IR"当成"能出图"。
+- **采购尾巴**（不在本项内）：不采购的单引脚 generic 会产生"无来源"的 BOM 行（[ADR-0030](adr/0030-procurement-layer.md) D9、F35）。
 
-**现状**：**未落地**。[ADR-0035](adr/0035-connectivity-authority-and-reverse-engineering.md) 的 2026-10-22b 附录定了两件事：
-
-- **测试点是器件，不是 net 的附属物**（D8/D9）：分界线是"它是不是某个 net 上的焊盘"。是 → `sch` 里的单引脚器件（不采购是 generic，采购是 part），有位号、有封装、走普通 net 成员规则；不是 → `pcb` 的 `physical_only` 实体（过孔、安装孔、基准点、挖槽）。`physical_only` 的 `test_point` 形态**退役**，白名单从五类减为四类（`net_tie` / `split_ground` / `stitching` / `fiducial`）。
-- **`physical_only` 实体现在没有位置**（D11）：语法与 IR 都只有 id / 类型 / 尺寸，没有坐标 → 安装孔、基准点、缝合过孔**放不进去**：渲染器画不出，制造数据也带不走。参考工程目前没用这一段，所以这个洞还没被踩到。
-
-**要做的事**：
-
-1. `spec/pcb.md` §4.11：`physical_only` 行加位置（`<x> <y>`），删 `test_point` 那一行与表里那一行，§5.2 规则 8 里 `test_point` 的半句删掉（白名单句已是四类 ✓）。
-2. `packages/parser/src/pcb.ts` + `schemas/ir/v0.3/pcb.schema.json` 同步（**规范与实现同一次提交**）：`physical_only` 的 IR 加 `x_nm` / `y_nm`，删 `test_point` 变体。
-3. **版本记账**：删 IR 变体是破坏性改动 → 随 `ir_version` 从 `0.2` 到 `0.3` 一起走（`schemas/ir/v0.3/` → `v0.3/`，重新生成 `packages/ir/src/generated/`），与 F25 / F28 的 v0.3 增量**合并成一次移动**，不要分两次。语言侧按 ADR-0022 A2 的口径：删除形态是"老文件不再合法"的改动 → 需要 pcb 描述类型的版本线前移一位（0.8 → 0.9），而**每种类型一条版本线**本身还没做（F31）→ 依赖 F31；迁移说明写进 `teda.md` §13（照 0.7 撤销 `page` 的写法）。
-4. 绑定校验（`packages/core`）：`physical_only` 的 net 引用规则只剩 `stitching`；白名单完整性检查按四类。
-5. 渲染器与制造数据：`physical_only` 实体要能画、能带坐标——**在 PCB SVG 落地之前**这条只能做一半（能编译、不能画），要在 backlog 里写清楚，不要假装已可画。
-
-**注意**：
-
-- 位置是**坐标**，不是几何：形状仍然归封装库（`AGENTS.md` §4.4 第 7 条）——`physical_only` 的实体只有简单图元（圆孔、圆点、矩形开槽），要自定义形状就写成器件。
-- 退役是**清切**：不留兼容形态，不做"新旧都接受"；旧写法改成 `sch` 里的单引脚器件即可。
-- 采购侧的尾巴（不在本项内）：不采购的单引脚 generic 会产生一条"无来源"的 BOM 行（[ADR-0030](adr/0030-procurement-layer.md) D9、F35），板上测试点一多就是噪音——制造数据要不要收"非采购"行、generic 能不能声明"这是板上特征不是器件"，还没定。
+**原计划留档**（已完成，保留为理由）：测试点是 net 上的焊盘 → 器件；不是 → `physical_only` 实体。位置是坐标不是几何，形状归封装库。
 
 ## F39. 拆 `spec/teda.md`：语言级规范与分描述规范分家
 
