@@ -862,6 +862,13 @@ export const DIAGNOSTIC_CODES = {
     summary: "The pad referenced by connect belongs to an unplaced instance",
     spec: ["spec/pcb.md §5.2"],
   },
+  "bind.instance-unplaced": {
+    domain: "bind",
+    severity: "warning",
+    summary: "An instance of the flattened sch result has no place in the pcb (the layout is partial)",
+    hint: "Place the missing instances; a partial layout is legal, it is reported so a fragment cannot pass for a board",
+    spec: ["spec/pcb.md §5.2", "docs/adr/0040-partial-layout-is-legal-and-reported.md D1"],
+  },
   "bind.unconnected-pad": {
     domain: "bind",
     severity: "error",

@@ -54,7 +54,8 @@ function referencedNets(pcb: Pcb): string[] {
  * 2. pads in `connect` must belong to placed instances;
  * 3. a pair of pads in `connect` must be inside the same sch net — unless overridden by `deviation.net_tie`;
  * 4. each sch net's members (placed instances only) must appear in at least one `connect` pair;
- * 5. nets referenced by pcb must exist in sch.
+ * 5. nets referenced by pcb must exist in sch;
+ * 6. every physical instance of sch must be placed (a partial layout is legal, but it is reported: ADR-0040).
  */
 export function checkBinding(facts: BindingFacts): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
@@ -73,6 +74,27 @@ export function checkBinding(facts: BindingFacts): Diagnostic[] {
       location: at,
       hint: "instance ids are the board's refdes (R1); run check first to see whether the sch side already reports an error",
       data: { instance_id: item.instance_id },
+    });
+  }
+
+  // Rule 6 (ADR-0040): every physical instance must be placed. A partial layout is a normal
+  // work state, so this is a warning, and it is one diagnostic per board: "9 of 61 placed" is
+  // a fact about the description, not 52 facts about 52 instances. `logical_only` instances
+  // have no physical entity; a DNP part still has a land pattern, so it counts (D6).
+  const physical = facts.schematic.instances.filter((instance) => instance.logical_only !== true);
+  const unplaced = physical.filter((instance) => !placed.has(instance.id)).map((instance) => instance.id);
+  if (unplaced.length > 0) {
+    const shown = unplaced.slice(0, 8).join(", ");
+    const more = unplaced.length > 8 ? `, … (${unplaced.length - 8} more)` : "";
+    diagnostics.push({
+      code: "bind.instance-unplaced",
+      severity: "warning",
+      message: `the pcb places ${physical.length - unplaced.length} of the board's ${physical.length} instances; ${unplaced.length} not placed: ${shown}${more}`,
+      location: at,
+      expected: `every physical instance of the sch result has a place (${physical.length})`,
+      actual: `${physical.length - unplaced.length} placed`,
+      hint: "place the missing instances; a partial layout is legal and this warning is how it says so",
+      data: { placed: physical.length - unplaced.length, total: physical.length, unplaced: unplaced.length },
     });
   }
 

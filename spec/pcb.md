@@ -305,7 +305,7 @@ pcb 里写的 net 名就是**板级** net 名，与 sch 同一命名空间（模
 
 ### 5.2 校验规则
 
-1. `place` 的每个实例 ID 必须在 `sch` 展平结果里存在；sch 展平后未被放置的实例按变体状态处理。
+1. `place` 的每个实例 ID 必须在 `sch` 展平结果里存在；sch 展平后未被放置的实例由规则 12 报出（变体决定 DNP 件装不装，不决定它的封装放不放）。
 2. `connect` 的每个 pad 引用必须解析到已放置实例的 pad；pad 号必须存在于该器件的封装。
 3. `connect` 的一对 pad 必须落在 `sch` 展平后的同一个 net 内；否则必须由 `deviation` 的 `net_tie` / `split_ground` 显式覆盖，否则报错。
 4. `sch` 展平后每个 net 的每个成员 pad（限已放置实例）至少出现在一个 `connect` 对里；否则报"该 net 未布线"。未放置实例的 pad 不参与本检查（规则 1）。
@@ -317,10 +317,11 @@ pcb 里写的 net 名就是**板级** net 名，与 sch 同一命名空间（模
 9. `board_thickness` 与 `stackup` 厚度之和一致（容差 0.05mm，规则本身不精确）。
 10. `outline` 顶点不重复、不自交；`zone` / `keepout` 多边形同样不自交。
 11. `silk` 段的 `layer` 必须是 `F.SilkS` / `B.SilkS`；字高小于 0.5mm 给出警告（多数板厂难以辨识）。
+12. `sch` 展平后每个**实体**实例（没有 `logical_only`）都必须在 `place` 里出现。缺失时给出一条 `bind.instance-unplaced`（warning），报"已放 / 共几个"并点名缺的实例——一块板只报一条，不是每个实例一条。`dnp` 件**不豁免**：封装仍在 `place` 里占位，只是不装件（[ADR-0040](../docs/adr/0040-partial-layout-is-legal-and-reported.md) D6）。
 
 几何层面的检查（"这两个 pad 之间确实有铜箔"、"实际间距不小于 `rules`"）由几何检查器或 KiCad DRC 执行，属**校验**而非连通性真源（`AGENTS.md` §2 第 2 条）。
 
-严重度：规则 1–3、5 是 `error`（逻辑连通了是硬错）；规则 4（未布线）是 `warning`——布线是渐进过程，检查器要在中途可用。
+严重度：规则 1–3、5 是 `error`（逻辑连通了是硬错）；规则 4（未布线）与规则 12（部分布局）是 `warning`——布线是渐进过程，检查器要在中途可用；部分布局是正常的工作状态，它需要的是**说得出来**，不是被禁止（[ADR-0040](../docs/adr/0040-partial-layout-is-legal-and-reported.md) D4）。
 
 ### 5.3 报告
 

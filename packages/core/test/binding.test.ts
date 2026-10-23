@@ -155,3 +155,44 @@ describe("declared deviations enter the report (ADR-0035 D10)", () => {
     expect(diagnostics[0]!.data).toEqual({ net: "C" });
   });
 });
+
+describe("rule 12: a partial layout is reported, not forbidden (ADR-0040)", () => {
+  // R1 and R2 placed, C1 not: drop its place row *and* its connect pair, so the only
+  // complaint is the missing placement itself (rule 4 ignores unplaced instances).
+  const partial: Pcb = {
+    ...pcbBase,
+    place: pcbBase.place.filter((item) => item.instance_id !== "C1"),
+    connect: pcbBase.connect.filter((pair) => instanceOf(pair.a) !== "C1"),
+  };
+
+  test("one warning per board, naming the count and the missing instance", () => {
+    const diagnostics = check(partial);
+    expect(diagnostics.map((d) => d.code)).toEqual(["bind.instance-unplaced"]);
+    const [diagnostic] = diagnostics;
+    expect(diagnostic!.severity).toBe("warning");
+    expect(diagnostic!.message).toContain("2 of the board's 3");
+    expect(diagnostic!.message).toContain("C1");
+    expect(diagnostic!.data).toEqual({ placed: 2, total: 3, unplaced: 1 });
+  });
+
+  test("a logical_only instance needs no place", () => {
+    const sch: Schematic = {
+      ...schematic,
+      instances: [...schematic.instances, { id: "PWR_FLAG", component: "flag", logical_only: true }],
+    };
+    expect(check(partial, sch).map((d) => d.code)).toEqual(["bind.instance-unplaced"]);
+    expect(check(pcbBase, sch)).toEqual([]);
+  });
+
+  test("a dnp part still occupies a place (its land pattern is on the board)", () => {
+    const sch: Schematic = {
+      ...schematic,
+      instances: schematic.instances.map((instance) => (instance.id === "C1" ? { ...instance, dnp: true } : instance)),
+    };
+    expect(check(partial, sch).map((d) => d.code)).toEqual(["bind.instance-unplaced"]);
+  });
+
+  test("a complete layout is silent", () => {
+    expect(check(pcbBase).filter((d) => d.code === "bind.instance-unplaced")).toEqual([]);
+  });
+});

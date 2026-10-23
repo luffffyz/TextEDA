@@ -14,7 +14,7 @@ decision is the reason.
 | The accountable person | `project.toml` → `[project] owner` | one name |
 
 A **round** is one review pass over one target. The `round_id` is a short slug, unique in the
-project: `mcu-board-r1`, `mcu-board-r2`, `tps7a02-correction-1`.
+project: `mcu-board-sch-r1`, `mcu-board-sch-r2`, `charger-buck-pcb-r1`, `tps7a02-correction-1`.
 
 Reviews are **not a description type**. They are not in the language, they have no schema, they
 produce no IR shard, and they change no hash. A project may accumulate hundreds of notes; prose

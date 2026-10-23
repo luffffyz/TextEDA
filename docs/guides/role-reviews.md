@@ -53,9 +53,10 @@ Two failures are worth naming because they are cheap to prevent and expensive to
 The container does not change:
 
 - **one round = one target = one decision.** The roles are note authors, not extra rounds.
-- the round id names the target: `mcu-board-r1`, `charger-buck-r1`.
+- the round id names the target **and the artifact**: `mcu-board-sch-r1`, `charger-buck-pcb-r1`. A round covers **one artifact** of the board (`sch` or `pcb`), because the decision covers the round: a schematic round that also holds layout notes cannot be closed while the layout is open, and a verdict written to unblock it would then cover statements nobody examined. Two artifacts, two rounds, one decision each.
 - the author field carries the role, because the review is often run by agents and the person is in the commit: `- hardware (2026-10-23): ...`.
 - notes carry no verdict. Disagreement is two notes, never an average; the decision says which one the owner followed and why.
+- a note is an **observation at a date**, not a status. When its claim stops being true (a stale comment got deleted, a rating got added, a check landed), do not rewrite the note: append `→ addressed <date>: <what changed>`. A note without that line is still open, whatever the code now does — the round's decision is the only place a note is closed.
 - every note carries the **evidence** and **what would settle it**. Evidence must resolve: `file:line`, `instance_id.pin`, a net id, a constraint line, a shard path. A note whose evidence does not resolve is rejected by the owner, and that rejection is the only quality lever a review has.
 - **one agent holds one role per round.** The same agent in two roles reconciles the disagreement in silence, which is exactly the conflict a review exists to surface.
 
