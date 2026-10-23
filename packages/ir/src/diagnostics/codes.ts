@@ -1033,6 +1033,20 @@ export const DIAGNOSTIC_CODES = {
     hint: "Add the instance to the place section, or remove the wire",
     spec: ["spec/schematic-view.md §4"],
   },
+  "view.pin-net-mismatch": {
+    domain: "view",
+    severity: "error",
+    summary: "A wire endpoint is not a member of the net the wire names",
+    hint: "A wire connects two pins of the net it names; the net's members are decided in the board's nets section",
+    spec: ["spec/schematic-view.md §9.1"],
+  },
+  "view.nets-not-drawn": {
+    domain: "view",
+    severity: "warning",
+    summary: "Nets with two or more members are drawn on no print page of the board",
+    hint: "Draw each as a wire between two of its pins, or put a label on its net",
+    spec: ["spec/schematic-view.md §9.2"],
+  },
 } as const satisfies Record<string, DiagnosticCodeEntry>;
 
 /** Union type of the codes (a compile-time guarantee that a diagnostic's code is always in the registry). */

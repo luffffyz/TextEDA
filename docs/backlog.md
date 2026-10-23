@@ -58,12 +58,12 @@
 3. **可读性检查**（`AGENTS.md` §6："文字重叠、线压引脚、标签碰撞、越界、连线穿过符号"）——**未落地**。越界已由 `view` 解析器的 `view.out-of-sheet` 覆盖；其余仍是 `spec/schematic-view.md` §9.2 的待实现项。
 4. **round-trip**——**未落地**：sch 的语义投影两端对比（跟符号/封装同一口径，见 [ADR-0014](adr/0014-reference-renderer.md) decision 5）。绘制指令里的 `pin`（旋转后的编号与方向）、`text`（`role` 区分字段/引脚名/标签/端口/注释）已经能反解，但视图 IR 的"摆位 + 折点"需要从图元逆推，且 `unit` 的共享项与字段要按实例归并。
 5. 与 KiCad 的 `.kicad_sch` 渲染做**一次性人工比对**——**未落地**（不进 CI）。
-6. **板 ↔ 打印页交叉校验**（`packages/core`）——**未落地**（2026-10-23 明确排队：先记下，等 `component` 分片与器件库那轮收尾之后做）：`spec/schematic-view.md` §9.1 标"待实现"的那几条（实例 / net / port 是否存在、端点引脚是否属于该 net、`net-not-drawn`）。渲染器对未知实例或未知符号引脚是**抛错**，不是发诊断——诊断归 core，渲染器不伪造几何。
+6. ~~**板 ↔ 打印页交叉校验**（`packages/core`）~~ **已落地**（2026-10-23，`packages/core/src/view/checks.ts`，在 `texteda check` 里跑）：§9.1 的四条错误（`ref.unknown-instance` / `ref.unknown-net` / `ref.unknown-port` / `view.pin-net-mismatch`）与一条覆盖率警告（`view.nets-not-drawn`）。**两处口径修正**：`net-not-drawn` 做成**板级**（规范原写“在这个打印页里”）——打印页按模块分，按页会替另一页的线报错；而且一块板报**一条**总数 + 前十个 net 名（同 [ADR-0040](adr/0040-partial-layout-is-legal-and-reported.md) D4 的分寸）。参考工程现在报 `30 of 36 nets`：两份页是研究稿，这个数字是真的。（原记录：：`spec/schematic-view.md` §9.1 标"待实现"的那几条（实例 / net / port 是否存在、端点引脚是否属于该 net、`net-not-drawn`）。渲染器对未知实例或未知符号引脚是**抛错**，不是发诊断——诊断归 core，渲染器不伪造几何。
    缺口的具体形状（2026-10-23 复查）：
    - 视图只**引用**身份（`place.instance_id` / `wire` 的 `pin` / `label` 的 `net_id`），可是引错、引到不存在的 id、引到别块板的 id 今天都不报——`texteda check` 只看 `schematic` 与 `pcb`，`view` 只做解析与越界（`view.out-of-sheet`）；
    - 反向也要查：板上有 net、打印页里一条线都没有（`net-not-drawn`），以及一个实例在整块板的所有打印页里都没出现——后者与 `bind.instance-unplaced`（pcb 侧）是同一类"缺失要看得见"的信号，严重度应一致（warning）；
-   - 两条视图规则都**不改哈希**：视图是附注分片，所以这类诊断只能是 warning/note，不能拦树；
-   - 边界：视图说"这条线在这里"与板说"这两个引脚同 net"冲突时，**以板为准**（`AGENTS.md` §2 第 2 条），诊断只指出冲突，不改真源。
+   - ~~两条视图规则都**不改哈希**，所以这类诊断只能是 warning/note，不能拦树~~ ——**身份错误照样阻断**：规范 §9.1 一直把“引用了不存在的东西”列为 error，与 `sch` 侧同类（ADR-0016 按错误的种类分域），解析器也早就对 `view.pin-not-placed` 报 error。只有覆盖率是 warning；`ir` 不跑交叉校验，这一点仍然成立；
+   - 边界：视图说“这条线在这里”与板说“这两个引脚同 net”冲突时，**以板为准**（`AGENTS.md` §2 第 2 条），诊断只指出冲突，不改真源。）
 
 **验收**：
 

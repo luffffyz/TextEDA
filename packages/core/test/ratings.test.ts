@@ -28,7 +28,7 @@ function board(options: {
 }
 
 const VOLTAGE = (subject: string, min_uv: number, max_uv: number) =>
-  ({ type: "voltage", subject, min_uv, max_uv }) as Schematic["constraints"][number];
+  ({ type: "voltage", subject, min_uv, max_uv }) as NonNullable<Schematic["constraints"]>[number];
 
 describe("rating checks", () => {
   test("a capability below the declared window is an error, with both numbers", () => {

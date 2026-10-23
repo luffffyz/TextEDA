@@ -10,9 +10,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
 import type { Schematic } from "@texteda/ir/schematic";
+import type { SchematicView } from "@texteda/ir/schematic-view";
 import type { Procurement } from "@texteda/ir/procurement";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
-import { PROCUREMENT_ROLES, parsePcb, parseProcurement, parseSchematic, parseSystem } from "@texteda/parser";
+import { PROCUREMENT_ROLES, parsePcb, parseProcurement, parseSchematic, parseSystem, parseView } from "@texteda/parser";
 import {
   listBoards,
   listPcbBoards,
@@ -25,7 +26,15 @@ import {
   loadProcurement,
   loadProject,
 } from "./project.ts";
-import { checkBinding, checkCopperCoverage, checkProcurement, checkRatings, checkReviews, checkSystem } from "@texteda/core";
+import {
+  checkBinding,
+  checkCopperCoverage,
+  checkProcurement,
+  checkRatings,
+  checkReviews,
+  checkSystem,
+  checkViews,
+} from "@texteda/core";
 import { buildProcurementFacts } from "./procurement.ts";
 import { checkDeviceUsage } from "@texteda/core";
 import { loadReviews } from "./reviews.ts";
@@ -132,6 +141,15 @@ export function analyzeProject(root: string): AnalyzeResult {
       modules,
     });
     const boardDiagnostics = [...result.diagnostics];
+
+    // Print pages are descriptions of their own (ADR-0021): parse them here and cross-check them
+    // against the board. Coverage needs all pages at once, so the pages are collected first.
+    const pages: { file: string; view: SchematicView }[] = [];
+    for (const source of loaded.views) {
+      const parsed = parseView(source.text, { file: source.file, board });
+      boardDiagnostics.push(...parsed.diagnostics);
+      if (parsed.ir) pages.push({ file: source.file, view: parsed.ir });
+    }
     if (!result.ir) referencesComplete = false;
     if (result.ir) {
       for (const instance of result.ir.instances) referencedDevices.add(instance.component);
@@ -145,6 +163,7 @@ export function analyzeProject(root: string): AnalyzeResult {
           schematic: result.ir,
           devices: ratingDevices(),
         }),
+        ...checkViews({ file: loaded.file, schematic: result.ir, pages }),
       );
       // Board-level consistency: run binding validation when a pcb description exists (spec/pcb.md §5.2).
       const pcbSource = loadPcb(root, board);

@@ -200,6 +200,8 @@ text
 
 校验分两层：**文件自身能回答的**（解析器做）与**需要板才能回答的**（板交叉校验做，`packages/core`）。下表最后一列是落地状态。
 
+板交叉校验在 `texteda check` 里跑（[ADR-0019](../docs/adr/0019-agent-contract-reference-and-check-entry.md) 是校验入口）；`texteda ir` 只把分片写出来，不做交叉校验——视图是附注分片，不参与构建身份（[ADR-0023](../docs/adr/0023-ir-layer-on-disk.md)）。
+
 ### 9.1 错误（阻断）
 
 | 码 | 触发 | 状态 |
@@ -207,16 +209,16 @@ text
 | `view.pin-not-placed` | `wire` 的端点引脚所属实例没有出现在 `place` 段 | 已实现（解析器） |
 | `view.out-of-sheet` | 坐标落在图幅之外 | 已实现（解析器） |
 | `value.angle-invalid` | 旋转不是 0/90/180/270 之外的整数度（v0.1 只支持直角旋转） | 已实现（解析器） |
-| `ref.unknown-instance` | `place` 里的 instance id 在板的 `instances` 段里不存在 | 待实现（板交叉校验） |
-| `ref.unknown-net` | `wire` / `label` 里的 net 在板的 `nets` 段里不存在 | 待实现（板交叉校验） |
-| `ref.unknown-port` | `port` 里的 port_id 在板的 `ports` 段里不存在 | 待实现（板交叉校验） |
-| `view.pin-net-mismatch` | `wire` 的端点引脚不属于该行声明的 net | 待实现（板交叉校验） |
+| `ref.unknown-instance` | `place` 里的 instance id 在板的 `instances` 段里不存在 | 已实现（板交叉校验） |
+| `ref.unknown-net` | `wire` / `label` 里的 net 在板的 `nets` 段里不存在 | 已实现（板交叉校验） |
+| `ref.unknown-port` | `port` 里的 port_id 在板的 `ports` 段里不存在 | 已实现（板交叉校验） |
+| `view.pin-net-mismatch` | `wire` 的端点引脚不属于该行声明的 net | 已实现（板交叉校验） |
 
 ### 9.2 警告（不阻断）
 
 | 码 | 触发 | 状态 |
 |---|---|---|
-| `view.net-not-drawn` | 板里某个**成员数 ≥ 2** 的 net 在这个打印页里既没有走线也没有标签——图上看不出它连着 | 待实现（板交叉校验） |
+| `view.nets-not-drawn` | 板里**成员数 ≥ 2** 的 net 在**所有**打印页上都既没有走线也没有标签——图上看不出它连着。一块板报**一条**，带数量与前十个 net 名（画到一半是正常状态，它需要说得出来，不是被禁止——同 [ADR-0040](../docs/adr/0040-partial-layout-is-legal-and-reported.md) D4 的分寸）。没有任何打印页的板**不报**：有逻辑、无视图是合法状态 | 已实现（板交叉校验，`packages/core/src/view/checks.ts`） |
 | `view.label-not-on-net` | 标签没落在该 net 的走线或引脚上 | 待实现（可读性检查） |
 | `view.port-not-on-net` | 端口符号没落在该 net 的走线或引脚上 | 待实现（可读性检查） |
 | `view.wire-crosses-symbol` | 走线穿过某个符号的本体（`AGENTS.md` §6 的可读性检查） | 待实现（可读性检查） |
