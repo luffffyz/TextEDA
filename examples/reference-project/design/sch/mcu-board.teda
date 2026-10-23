@@ -4,7 +4,7 @@ schematic mcu-board
 # CH32V307VCT6 minimum system board: 5V in → TPS7A2033PDBVR (3.3V/300mA LDO) → MCU.
 # Component choices, rationale for values and key calculations are in docs/mcu-board-components.md.
 # Connectors (5V input, 3V3 output, SWD header) have no library parts yet, so they use board-level ports for now;
-# SWDIO/SWCLK each connect only one MCU pin today, so ERC warns about single-member nets — fill in once connector parts land in the library.
+# SWDIO/SWCLK each connect only one MCU pin today; no ERC warning fires for them, because a net that reaches a port is not single-member (spec/teda.md §11 rule 4). Fill in once connector parts land in the library.
 # Unused GPIOs stay unconnected; the per-pin unconnected ERC warnings are expected (reserved on the board).
 # With no external battery, VBAT ties to 3V3: the datasheet lists VBAT 1.8~3.6V as an optional backup supply,
 # and the backup domain runs from VBAT after VDD disappears; tying to 3V3 is equivalent to "no battery".
