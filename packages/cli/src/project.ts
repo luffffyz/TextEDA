@@ -16,6 +16,7 @@ import {
   type ModuleSource,
 } from "@texteda/parser";
 import type { DiagnosticCodeId } from "@texteda/ir/diagnostics";
+import { PROCUREMENT_ROLES, type ProcurementRole } from "@texteda/parser";
 import { LAYOUT } from "./paths.ts";
 
 /** Problem when a component file cannot be read (no exception thrown; the caller aggregates these into diagnostics). */
@@ -172,6 +173,47 @@ export function loadBoard(root: string, board: string): LoadedBoard | null {
     text: readFileSync(file, "utf8"),
     views,
   };
+}
+
+/** A procurement file: one board's selections, in one of the two positions (spec/procurement.md). */
+export interface ProcurementSource {
+  /** The role the position gives the file: the primary selections or the second sources. */
+  role: ProcurementRole;
+  /** The board the file belongs to, taken from the file name. */
+  board: string;
+  /** Path relative to the project root. */
+  file: string;
+  /** The file's text. */
+  text: string;
+}
+
+/**
+ * Read a board's procurement file in one position.
+ *
+ * The primary is normative (the build is made of those parts) and the alternatives are advisory
+ * (a second source does not change the build); the two are separate files, and each one produces
+ * exactly one shard with exactly one classification (ADR-0023 decision 4).
+ */
+export function loadProcurement(root: string, board: string, role: ProcurementRole): ProcurementSource | null {
+  const file = join(root, LAYOUT.procurement, role, `${board}.teda`);
+  if (!existsSync(file)) return null;
+  return { role, board, file: relative(root, file), text: readFileSync(file, "utf8") };
+}
+
+/** Every procurement file in the project: the primary ones first, then the alternatives. */
+export function listProcurement(root: string): ProcurementSource[] {
+  const out: ProcurementSource[] = [];
+  for (const role of PROCUREMENT_ROLES) {
+    const dir = join(root, LAYOUT.procurement, role);
+    if (!existsSync(dir)) continue;
+    for (const name of readdirSync(dir).sort()) {
+      if (!name.endsWith(".teda")) continue;
+      const board = name.slice(0, name.length - ".teda".length);
+      const file = join(dir, name);
+      out.push({ role, board, file: relative(root, file), text: readFileSync(file, "utf8") });
+    }
+  }
+  return out;
 }
 
 /** Read `design/pcb/<board>.teda`; returns null when absent (pcb is an optional sibling description). */

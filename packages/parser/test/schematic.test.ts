@@ -353,7 +353,7 @@ describe("negative cases", () => {
   });
 
   test("version higher than the tool supports", () => {
-    const text = board.replace("version 0.3", "version 0.9");
+    const text = board.replace("version 0.3", "version 0.10");
     expect(codes(text)).toContain("format.unsupported-version");
   });
 

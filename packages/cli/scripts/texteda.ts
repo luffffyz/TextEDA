@@ -5,7 +5,7 @@
 //
 // Usage:
 //   texteda init <dir> [--force] [--name <project name>]
-//   texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb]
+//   texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb] [--procurement]
 //   texteda check <project dir> [--json]
 //   texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]
 //   texteda ir <project dir> [--out <dir>] [--json]
@@ -20,7 +20,7 @@ import { writeOut } from "../src/output.ts";
 import { countByStage, diagnosticsToPayload, hintFor } from "@texteda/ir/diagnostics";
 
 /** Known flags. Failures in the cli domain do not go into the --json diagnostics array; they go to stderr plus an exit code (ADR-0016). */
-const KNOWN_FLAGS = new Set(["--force", "--name", "--json", "--out", "--board", "--pcb"]);
+const KNOWN_FLAGS = new Set(["--force", "--name", "--json", "--out", "--board", "--pcb", "--procurement"]);
 /** Flags that take a value: the argument after them is not a positional argument. */
 const VALUE_FLAGS = new Set(["--name", "--out", "--board"]);
 
@@ -31,7 +31,7 @@ function fail(code: "cli.bad-flag" | "cli.bad-usage", message: string): never {
       [
         "Usage:",
         "  texteda init <dir> [--force] [--name <project name>]",
-        "  texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb]",
+        "  texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb] [--procurement]",
         "  texteda check <project dir> [--json]",
         "  texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]",
         "  texteda ir <project dir> [--out <dir>] [--json]",
@@ -201,6 +201,7 @@ if (command === "init") {
       json: args.flags.has("--json"),
       outFile: args.values.get("--out"),
       pcb: args.flags.has("--pcb"),
+      procurement: args.flags.has("--procurement"),
     }),
   );
 } else if (command === "check") {

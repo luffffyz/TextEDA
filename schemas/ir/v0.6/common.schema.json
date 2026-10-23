@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:texteda:ir:0.5:common",
-  "title": "TextEDA IR v0.5 — common definitions",
+  "$id": "urn:texteda:ir:0.6:common",
+  "title": "TextEDA IR v0.6 — common definitions",
   "description": "Scalars, identity patterns and unit conventions shared by all shards. The field-name suffix is the unit: _nm nanometers, _mdeg millidegrees, _mohm milliohms, _uv microvolts, _na nanoamps, _uw microwatts, _mhz millihertz, _mdegc millidegrees Celsius, _ppm parts per million, _uohm microohms, _ff femtofarads, _ph picohenries. Rules: docs/adr/0008-ir-shard-identity-and-hash.md.",
   "$defs": {
     "ir_version": {
-      "const": "0.5",
-      "description": "IR contract version, currently always 0.5."
+      "const": "0.6",
+      "description": "IR contract version, currently always 0.6."
     },
     "format_version": {
       "type": "string",
@@ -58,6 +58,53 @@
       "pattern": "^[^:\\s]+:[^\\s]+$",
       "description": "Library reference lib:name, e.g. kicad:Device:R."
     },
+    "device_ref": {
+      "type": "string",
+      "pattern": "^(?:[a-z][a-z0-9_-]*:)?[a-z][a-z0-9-]*$",
+      "description": "Device id: bare for a device this project owns, `lib:id` for one from a vendored library. The library name and the id have the shapes they have everywhere else."
+    },
+    "param_value": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "value"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "description": "Parameter name, matching the column name declared in the component's params section."
+            },
+            "value": {
+              "type": "integer",
+              "description": "The unit is determined by the type declared in the component's params section (resistance→µΩ etc.; see ADR-0008 decision 4)."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "text"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "description": "Parameter name, matching the column name declared in the component's params section."
+            },
+            "text": {
+              "type": "string",
+              "description": "Non-numeric value of a parameter, e.g. a part description."
+            }
+          }
+        }
+      ]
+    },
     "layer_name": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_.+-]+$",
@@ -72,7 +119,9 @@
       "type": "object",
       "description": "Source-file location: path relative to the project root plus an optional line number.",
       "additionalProperties": false,
-      "required": ["file"],
+      "required": [
+        "file"
+      ],
       "properties": {
         "file": {
           "type": "string",

@@ -1,0 +1,8 @@
+version 0.9
+procurement charger-buck
+role primary
+
+# Which parts the board is bought with. The left side is the BOM line key — the generic and the
+# values it was given — the right side is the part that is bought (spec/procurement.md).
+selections
+  res-thick-0402 10k ±1% -> rc0402fr-0710kl

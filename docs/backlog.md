@@ -611,7 +611,7 @@
 
 **现状**：**语言与实现已落地**（2026-10-22；2026-10-23 按 [ADR-0037](adr/0037-device-kind-vocabulary-and-one-device-directory.md) 改名并合目录）——`component` 有必填 `kind`（`part` / `generic`）、通用器件专有的 `construction` / `polarized`，`part` 禁 `params`、通用器件必带必填 `value`；`packages/parser` 有真正的 `component` 解析器（`packages/parser/src/component.ts`）；**件与通用器件同在 `assets/components/` 一个目录**，`kind` 只写在文件里、不从目录推断；参考工程是 16 个件与 6 个通用器件。**本项目尚无外部使用者，没有需要迁移的旧文件，所以不写迁移脚本**——改法写在 `spec/teda.md` §13.4。决策见 [ADR-0027](adr/0027-device-parts-families-and-library-dependencies.md) 与 [ADR-0037](adr/0037-device-kind-vocabulary-and-one-device-directory.md)。
 
-**未落地**：`lib:id` 限定名与库解析顺序、变体对通用器件的作用域、采购描述类型（F35）、库的信任模型（F26）。
+**未落地**：`lib:id` 限定名与库解析顺序、变体对通用器件的作用域、库的信任模型（F26）。**采购描述类型已落地**（F35：解析器、`fmt`、IR 契约 v0.6 的 `procurement` 分片）。
 
 **要做的事**：
 
@@ -733,7 +733,7 @@
 
 ## F29. 目录按归属分组：`assets/` `external/` `design/`（ADR-0031 的落地）
 
-**现状**：**树的机械重排已落地**（2026-10-22）——目录按归属分组（`assets/` `external/` `design/` `views/`），参考工程、CLI 路径、`texteda init` 骨架与文档同步改完；`bun run check` / `lib:verify` / `fmt --check` 全绿。**未落地**：`libref` 描述类型、库 vendoring、采购层（F35）；外部库仍只有 `project.toml` 的 `[libs]` 一条引用、既不进树也不进 IR。决策见 [ADR-0031](adr/0031-project-tree-ownership-model.md)。
+**现状**：**树的机械重排已落地**（2026-10-22）——目录按归属分组（`assets/` `external/` `design/` `views/`），参考工程、CLI 路径、`texteda init` 骨架与文档同步改完；`bun run check` / `lib:verify` / `fmt --check` 全绿。**未落地**：`libref` 描述类型、库 vendoring；外部库仍只有 `project.toml` 的 `[libs]` 一条引用、既不进树也不进 IR。**采购层已落地**（F35：主料与备料两份采购文件进 `assets/procurement/`，分片进 `dist/ir/`）。决策见 [ADR-0031](adr/0031-project-tree-ownership-model.md)。
 
 **要做的事**：
 
@@ -904,12 +904,16 @@
 
 ## F35. 采购层的实现（ADR-0030 的落地）
 
-**现状**：**格式已定并落档，实现为零**。规范见 `spec/procurement.md`（新），决策见 [ADR-0030](adr/0030-procurement-layer.md)（Accepted，2026-10-22；开放点已全部关闭），语言 0.9 新增 `procurement` 描述类型。**没有**解析器、**没有** `fmt`、**没有** IR 契约条目（`schemas/ir/v0.3/procurement.schema.json` 待写）、**没有** BOM 输出、**没有**选料检查。
+**现状**：**格式已定并落档；解析器、`fmt` 与 IR 契约已落地（2026-10-23），选料检查与 BOM 输出还没有**。规范见 `spec/procurement.md`，决策见 [ADR-0030](adr/0030-procurement-layer.md)（Accepted，2026-10-22；开放点已全部关闭），语言 0.9 新增 `procurement` 描述类型。
+
+**已落地**：解析器与 canonical `fmt`（`packages/parser/src/procurement.ts`）；IR 契约 `schemas/ir/v0.6/procurement.schema.json`（**契约随本项从 v0.5 升到 v0.6**）；分片路径 `boards/<board_id>/procurement.json`（规范）与 `boards/<board_id>/procurement-alternatives.json`（附注）；`texteda compile --procurement` 与 `texteda check` 的接线；参考工程的采购文件（主料 `assets/procurement/primary/charger-buck.teda`、备料 `assets/procurement/alternatives/charger-buck.teda`）与两件料文件。
+
+**没有**：选料检查、BOM 输出（下面第 3、4 项）。
 
 **要做的事**：
 
-1. **解析器 + `fmt`**（`packages/parser`）：`procurement` 类型；头部三行（`version` / `procurement <board_id>` / `role`），`role` 必须与所在目录一致；唯一段 `selections`；行文法 `<generic> <params…> -> <part>` 与 `<generic> <params…> -> not-required`（[ADR-0030](adr/0030-procurement-layer.md) 2026-10-22b 附录：选料有三态——已选 / 未选 / **不需要采购**；`not-required` 是保留目标，不是件 id）；canonical form 按左键文本排序、**不对齐**（`teda.md` §12 规则 3 的例外）。
-2. **IR 契约**：`schemas/ir/v0.3/procurement.schema.json`（新）+ 重生成类型；分片路径 `boards/<board_id>/procurement.json`（规范）与 `boards/<board_id>/procurement-alternatives.json`（附注）；**契约 v0.2 → v0.3 与 F25 / F27 / F28 同批升**（别分两次升）。
+1. ~~**解析器 + `fmt`**（`packages/parser`）~~ **已落地**（2026-10-23）：`procurement` 类型；头部三行（`version` / `procurement <board_id>` / `role`），`role` 必须与所在目录一致；唯一段 `selections`；行文法 `<generic> <params…> -> <part>` 与 `<generic> <params…> -> not-required`；canonical form 按左键文本排序、**不对齐**。
+2. ~~**IR 契约**~~ **已落地**：`schemas/ir/v0.6/procurement.schema.json` + 重生成类型；分片路径 `boards/<board_id>/procurement.json`（规范）与 `boards/<board_id>/procurement-alternatives.json`（附注）；契约随本项升到 **v0.6**（F25 / F27 / F28 的那批已在 v0.5 落地）。
 3. **选料检查**（`packages/core`）：`spec/procurement.md` §3.2 的六条（通用器件是通用器件、件是件、件有 `mpn`、件的 `params` 覆盖通用器件的、件的 `footprint` 等于通用器件的、件不是被遮蔽的库件）；**主料违反 = error，备料违反 = warning**（严格模式 error）；通用器件行没选料 → warning（unsourced）；通用器件行写了 `not-required` → **不报**（这才是“本来就没有东西要买”，不是“还没买”）；选中的件板上没用到 → warning。
 4. **BOM 输出**（`packages/cli`）：四种行（件行、有选料的通用器件行、无选料的通用器件行、明确不采购的通用器件行）；行键统一为 `(component_id, 参数字典)`，件行的参数集为空；**无来源行：MPN 单元格留空，comment 列写 `unsourced`**；**不需要采购的行：MPN 单元格同样留空，状态写 `not-required`**（MPN 里塞 `n/a` 或标记会被下单系统当真去订——ADR-0030 D4 与 2026-10-22b 附录）。**工程自己的 BOM：`status` 列（`bought` / `unsourced` / `not-required`）与 `note` 列分开**，状态不与人的备注混在一格里；**下单格式的导出不加列**（列集由 [ADR-0006](adr/0006-jlc-prototype-delivery.md) D4 的规范定死），标记落在规范自带的 `Comment` 格里；JLC 形状的导出跟 F16 一起做。
 5. **`texteda check --json`**：采购诊断进机器载荷（unsourced / 未使用的选料 / 备料违反 / 遮蔽件）。
@@ -927,7 +931,7 @@
 **注意**：
 
 - **前置依赖**：检查要用到 ADR-0027 的 `kind`（通用器件/件）与 ADR-0028 的遮蔽语义（F25 / F32），先落它们。
-- **类型版本是 0.9，工具当前支持到 0.8**（`packages/parser/src/version.ts` 的 `SUPPORTED_LANGUAGE`）：解析器落地前，`procurement` 文件会被判为"比工具支持的版本新"——这是对的，工具确实还不认识这个类型。
+- **类型版本是 0.9，工具当前支持到 0.9**（`packages/parser/src/version.ts` 的 `SUPPORTED_LANGUAGE`）：解析器已落地，`procurement` 文件可以正常编译（2026-10-23）。
 - 采购层是**决定**不是事实：别把价格、货期、供应商塞进描述里（ADR-0030 decision 9）。
 
 ---

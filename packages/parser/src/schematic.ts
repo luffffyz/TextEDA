@@ -6,7 +6,7 @@
 // The parser never touches the filesystem: component contents are supplied by the caller (`ComponentResolver`),
 // so the `parser` package still runs in the browser (ADR-0009 decision 1).
 import { irVersion } from "@texteda/ir";
-import { PARAM_TYPE_KINDS, type ComponentParamDecl } from "./component.ts";
+import type { ComponentParamDecl } from "./component.ts";
 import type {
   Bus,
   Constraint,
@@ -17,9 +17,10 @@ import type {
   Port,
   Schematic,
 } from "@texteda/ir/schematic";
-import { checkConnectivity, checkDeviceParamValue, type ConnectivityPin } from "@texteda/core";
+import { checkConnectivity, type ConnectivityPin } from "@texteda/core";
 import type { Diagnostic, DiagnosticCodeId } from "@texteda/ir/diagnostics";
 import { lex, type Cell, type Line } from "./lexer.ts";
+import { resolveParamColumns } from "./params.ts";
 import { checkVersion, typeRange, type VersionRange } from "./version.ts";
 import { byteCompare, naturalCompare, pinRefCompare } from "@texteda/ir/order";
 import { parseQuantity, parseQuantityRange } from "./quantities.ts";
@@ -1143,74 +1144,13 @@ function resolveParams(
   file: string,
   diagnostics: Diagnostics,
 ): ParamValue[] {
-  const decls = facts.params;
-  const required = decls.filter((d) => d.required).length;
-  if (inst.paramCells.length > decls.length) {
-    diagnostics.add(
-      "error",
-      "value.param-count-mismatch",
-      `component ${inst.componentId} declares ${decls.length} parameters, but the row gives ${inst.paramCells.length}`,
-      file,
-      inst.line,
-      inst.col,
-      { expected: `at most ${decls.length} columns`, actual: `${inst.paramCells.length} columns` },
-    );
-    return [];
-  }
-  if (inst.paramCells.length < required) {
-    diagnostics.add(
-      "error",
-      "value.param-count-mismatch",
-      `component ${inst.componentId} has ${required} required parameters, but the row gives only ${inst.paramCells.length}`,
-      file,
-      inst.line,
-      inst.col,
-      { expected: `at least ${required} columns`, actual: `${inst.paramCells.length} columns` },
-    );
-    return [];
-  }
-
-  const params: ParamValue[] = [];
-  for (let i = 0; i < inst.paramCells.length; i += 1) {
-    const decl = decls[i]!;
-    const text = inst.paramCells[i]!;
-    if (decl.type === "string") {
-      // A code-valued role has a closed value set (ADR-0038 D5): the spelling is exact, because
-      // two spellings of one code would be two BOM lines.
-      diagnostics.items.push(
-        ...checkDeviceParamValue(decl.name, text, { file, line: inst.line, col: inst.col }),
-      );
-      params.push({ name: decl.name, text });
-      continue;
-    }
-    const kind = PARAM_TYPE_KINDS[decl.type];
-    if (kind === undefined) {
-      diagnostics.add(
-        "error",
-        "value.unknown-param-type",
-        `parameter ${decl.name} of component ${inst.componentId} declares unknown type ${decl.type}`,
-        file,
-        inst.line,
-        inst.col,
-      );
-      continue;
-    }
-    const parsed = parseQuantity(text, kind, { code: "value.invalid-param" });
-    if (!parsed.ok) {
-      diagnostics.add(
-        "error",
-        "value.invalid-param",
-        `invalid value for parameter ${decl.name}: ${parsed.reason}`,
-        file,
-        inst.line,
-        inst.col,
-        { expected: `a value of type ${decl.type}`, actual: text },
-      );
-      continue;
-    }
-    params.push({ name: decl.name, value: parsed.value });
-  }
-  return params;
+  return resolveParamColumns(facts.params, inst.paramCells, {
+    deviceId: inst.componentId,
+    label: "component",
+    file,
+    line: inst.line,
+    col: inst.col,
+  }, diagnostics);
 }
 
 /** Resolve a pin reference → `<instance_id>.<pin_number>`. */

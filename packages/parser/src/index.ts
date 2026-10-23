@@ -14,5 +14,7 @@ export * from "./view.ts";
 export * from "./fmt.ts";
 export * from "./fmt-schematic.ts";
 export * from "./fmt-view.ts";
+export * from "./procurement.ts";
+export * from "./fmt-procurement.ts";
 export * from "./pcb.ts";
 export * from "./fmt-pcb.ts";

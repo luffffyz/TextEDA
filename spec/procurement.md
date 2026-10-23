@@ -190,9 +190,12 @@ The procurement descriptions compile to one shard each:
 The primary shard is a board shard, so it takes part in the board hash: changing the part a board is built from changes that board's identity, and the review
 of that board has to be redone. The alternatives shard is not in the board hash and not in the project hash.
 
-The shard's shape is specified in `schemas/ir/v0.3/procurement.schema.json`, which is written together with the contract v0.3 batch
-([ADR-0008](../docs/adr/0008-ir-shard-identity-and-hash.md) decision 1, and `docs/backlog.md` F25 / F27 / F28). **There is no producer yet**: the
-`procurement` type is specified but not implemented, so no procurement shard is written to `dist/ir/` today.
+The shard's shape is specified in `schemas/ir/v0.6/procurement.schema.json` ([ADR-0008](../docs/adr/0008-ir-shard-identity-and-hash.md) decision 1).
+Both shards have a producer: `texteda ir` writes them, `texteda compile --procurement` compiles the primary one, and `texteda check` parses and
+validates both.
+
+**Not implemented yet**: the check that the selected part satisfies the line (§3.3) and the BOM output (§5). The comparison is a cross-file
+question — the part's own ratings against the requirement — so it belongs to the checker, not to the parser (`docs/backlog.md` F35).
 
 ## 9. What is not in here
 

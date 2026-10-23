@@ -7,10 +7,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
 import { diagnosticsToPayload } from "@texteda/ir/diagnostics";
-import { canonicalJson, parsePcb, parseSchematic } from "@texteda/parser";
+import { canonicalJson, parsePcb, parseProcurement, parseSchematic } from "@texteda/parser";
 import { join } from "node:path";
 import { LAYOUT } from "./paths.ts";
-import { loadBoard, loadComponents, loadModules } from "./project.ts";
+import { loadBoard, loadComponents, loadModules, loadProcurement } from "./project.ts";
 import { writeOut } from "./output.ts";
 
 export interface CompileOptions {
@@ -24,6 +24,8 @@ export interface CompileOptions {
   outFile?: string | undefined;
   /** Compile `pcb/<board>.teda` instead of the schematic. */
   pcb?: boolean | undefined;
+  /** Compile the board's procurement file instead of the schematic. */
+  procurement?: boolean | undefined;
 }
 
 /**
@@ -32,6 +34,7 @@ export interface CompileOptions {
 export function runCompile(options: CompileOptions): number {
   const { root, board, json, outFile } = options;
   if (options.pcb === true) return runCompilePcb({ root, board, json, outFile });
+  if (options.procurement === true) return runCompileProcurement({ root, board, json, outFile });
   const loaded = loadBoard(root, board);
   if (!loaded) {
     console.error(`Board root file not found: ${LAYOUT.sch}/${board}.teda`);
@@ -83,6 +86,67 @@ export function runCompile(options: CompileOptions): number {
 }
 
 /** Compile `pcb/<board>.teda`. Same contract as the schematic (`schemas/ir/v0.5/pcb.schema.json`). */
+/**
+ * Compile the board's primary procurement file (`assets/procurement/primary/<board>.teda`).
+ *
+ * The primary is the normative one: it is the parts the board is built from. The alternatives are
+ * advisory and reach the shard tree through `texteda ir`.
+ */
+function runCompileProcurement(options: {
+  root: string;
+  board: string;
+  json: boolean;
+  outFile: string | undefined;
+}): number {
+  const { root, board, json, outFile } = options;
+  const source = loadProcurement(root, board, "primary");
+  if (!source) {
+    console.error(`Procurement description not found: ${LAYOUT.procurement}/primary/${board}.teda`);
+    return 2;
+  }
+  const { resolver, problems } = loadComponents(root);
+  const result = parseProcurement(source.text, {
+    file: source.file,
+    board,
+    role: "primary",
+    components: resolver,
+  });
+
+  for (const problem of problems) {
+    console.error(`Component index: ${problem.file}:${problem.line}: ${problem.message}`);
+  }
+
+  if (json) {
+    console.log(JSON.stringify(diagnosticsToPayload(result.diagnostics), null, 2));
+  } else {
+    for (const diagnostic of result.diagnostics) {
+      const where = diagnostic.location
+        ? `${diagnostic.location.file}:${diagnostic.location.line}:${diagnostic.location.col}: `
+        : "";
+      console.error(`${where}${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}`);
+    }
+  }
+
+  if (!result.ir) return 1;
+  const check = validate("procurement", result.ir);
+  if (!check.ok) {
+    console.error("IR does not satisfy the procurement contract:");
+    for (const diagnostic of schemaDiagnosticsToDiagnostics(check.errors)) {
+      console.error(`  ${diagnostic.code}: ${diagnostic.message}`);
+    }
+    return 1;
+  }
+
+  const jsonText = canonicalJson(result.ir);
+  if (outFile) {
+    writeOut(outFile, `${jsonText}\n`);
+    console.error(`Wrote ${outFile}`);
+  } else if (!json) {
+    console.log(jsonText);
+  }
+  return 0;
+}
+
 function runCompilePcb(options: {
   root: string;
   board: string;

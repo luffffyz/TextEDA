@@ -9,8 +9,16 @@
 import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
 import type { Schematic } from "@texteda/ir/schematic";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
-import { parsePcb, parseSchematic } from "@texteda/parser";
-import { listBoards, loadBoard, loadComponents, loadModules, loadPcb } from "./project.ts";
+import { PROCUREMENT_ROLES, parsePcb, parseProcurement, parseSchematic } from "@texteda/parser";
+import {
+  listBoards,
+  listProcurement,
+  loadBoard,
+  loadComponents,
+  loadModules,
+  loadPcb,
+  loadProcurement,
+} from "./project.ts";
 import { checkBinding } from "@texteda/core";
 
 export interface BoardAnalysis {
@@ -63,6 +71,19 @@ export function analyzeProject(root: string): AnalyzeResult {
     diagnostics.push(diagnostic);
   }
 
+  // A procurement file belongs to a board: one whose design exists (spec/procurement.md §1).
+  const knownBoards = new Set(boards);
+  for (const file of listProcurement(root)) {
+    if (knownBoards.has(file.board)) continue;
+    diagnostics.push({
+      code: "ref.unknown-board",
+      severity: "error",
+      message: `board ${file.board} not found: ${file.file} selects parts for a board this project does not have`,
+      hint: `a procurement file belongs to a board: use the board id of a design/sch/${file.board}.teda file`,
+      location: { file: file.file, line: 2, col: 1 },
+    });
+  }
+
   const analyses: BoardAnalysis[] = [];
   const modules = loadModules(root);
   for (const board of boards) {
@@ -92,6 +113,24 @@ export function analyzeProject(root: string): AnalyzeResult {
         }
       }
     }
+    // The procurement layer: the parse and the contract check. Whether the selected part
+    // satisfies the line is a separate check (the selection check), not the parser's job.
+    for (const role of PROCUREMENT_ROLES) {
+      const procurement = loadProcurement(root, board, role);
+      if (!procurement) continue;
+      const parsed = parseProcurement(procurement.text, {
+        file: procurement.file,
+        board,
+        role,
+        components: resolver,
+      });
+      boardDiagnostics.push(...parsed.diagnostics);
+      if (parsed.ir) {
+        const check = validate("procurement", parsed.ir);
+        if (!check.ok) boardDiagnostics.push(...schemaDiagnosticsToDiagnostics(check.errors));
+      }
+    }
+
     diagnostics.push(...boardDiagnostics);
     analyses.push({
       board,

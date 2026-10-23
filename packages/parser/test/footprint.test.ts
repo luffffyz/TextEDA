@@ -111,7 +111,7 @@ describe("error location", () => {
   });
 
   test("version above the supported maximum reports an error", () => {
-    const result = parse(["version 0.9", "footprint t", "", "pads", "  1 smd rect 0 0 1 1"].join("\n"));
+    const result = parse(["version 0.10", "footprint t", "", "pads", "  1 smd rect 0 0 1 1"].join("\n"));
     expect(result.ok).toBe(false);
     expect(result.diagnostics[0]!.code).toBe("format.unsupported-version");
   });

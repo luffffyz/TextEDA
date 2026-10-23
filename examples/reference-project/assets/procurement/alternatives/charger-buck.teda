@@ -1,0 +1,8 @@
+version 0.9
+procurement charger-buck
+role alternatives
+
+# The second sources for the same BOM lines. A second source does not change the build, so this
+# file is advisory: it enters the advisory hash, not the project hash (spec/procurement.md §4).
+selections
+  res-thick-0402 10k ±1% -> crc0402fr-0710kl

@@ -8,7 +8,7 @@
 //   --stdout   write to stdout, leaving files untouched.
 //   --library  library name; defaults to the containing directory name.
 //
-// Dispatch on the file's type line: currently `footprint`, `symbol`, `schematic`, `pcb` and `view` are implemented; other description types are
+// Dispatch on the file's type line: currently `footprint`, `symbol`, `schematic`, `pcb`, `view` and `procurement` are implemented; other description types are
 // skipped for now (their fmt is not implemented yet); naming one explicitly is an error, to avoid "thought it was formatted".
 //
 // Pre-0.7 sources kept as inputs for the migration tool are skipped: the current language rejects
@@ -20,6 +20,7 @@ import {
   descriptionType,
   formatFootprint,
   formatPcb,
+  formatProcurement,
   formatSchematic,
   formatSymbol,
   formatView,
@@ -116,6 +117,8 @@ for (const { file, fromDirectory } of files) {
     result = formatPcb(text, { file });
   } else if (type === "view") {
     result = formatView(text, { file });
+  } else if (type === "procurement") {
+    result = formatProcurement(text, { file });
   } else if (fromDirectory) {
     continue;
   } else {

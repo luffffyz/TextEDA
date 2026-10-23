@@ -22,7 +22,8 @@
     "./system": "./src/generated/types/system.ts",
     "./manifest": "./src/generated/types/manifest.ts",
     "./footprint": "./src/generated/types/footprint.ts",
-    "./symbol": "./src/generated/types/symbol.ts"
+    "./symbol": "./src/generated/types/symbol.ts",
+    "./procurement": "./src/generated/types/procurement.ts"
   },
   "scripts": {
     "gen": "bun run scripts/generate.ts"

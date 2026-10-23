@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:texteda:ir:0.6:procurement",
+  "title": "TextEDA IR v0.6 — procurement shard",
+  "description": "Which parts a board is bought with. The primary shard is normative (the build is made of these parts); the alternatives shard is advisory (a second source does not change the build). See spec/procurement.md and ADR-0030.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ir_version",
+    "procurement"
+  ],
+  "properties": {
+    "ir_version": {
+      "$ref": "urn:texteda:ir:0.6:common#/$defs/ir_version",
+      "description": "IR contract version, currently always 0.6."
+    },
+    "format": {
+      "$ref": "urn:texteda:ir:0.6:common#/$defs/format_version",
+      "description": "Language version of the .teda file that produced this shard; see teda.md §13."
+    },
+    "source": {
+      "$ref": "urn:texteda:ir:0.6:common#/$defs/source_ref",
+      "description": "Source-file location: path relative to the project root plus an optional line number."
+    },
+    "procurement": {
+      "type": "object",
+      "description": "The selections of one board: which part is bought for which generic line.",
+      "additionalProperties": false,
+      "required": [
+        "board",
+        "role",
+        "selections"
+      ],
+      "properties": {
+        "board": {
+          "$ref": "urn:texteda:ir:0.6:common#/$defs/slug",
+          "description": "The board these selections belong to. A selection always belongs to a board, because a BOM is a board's (ADR-0002)."
+        },
+        "role": {
+          "enum": [
+            "primary",
+            "alternatives"
+          ],
+          "description": "Which of the two files this is: the primary selections (normative) or the second sources (advisory)."
+        },
+        "selections": {
+          "type": "array",
+          "description": "One row per selected BOM line, ordered by the line key.",
+          "items": {
+            "$ref": "#/$defs/selection"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "selection": {
+      "type": "object",
+      "description": "One selected BOM line: a generic and its requirement on the left, the part that is bought on the right.",
+      "additionalProperties": false,
+      "required": [
+        "generic",
+        "part"
+      ],
+      "properties": {
+        "generic": {
+          "$ref": "urn:texteda:ir:0.6:common#/$defs/device_ref",
+          "description": "The generic device this line buys. The left side of the row is the BOM line key: a generic id plus the values of its declared parameters."
+        },
+        "params": {
+          "type": "array",
+          "description": "The requirement the part has to satisfy, in the generic's declared parameter order; optional columns may be omitted.",
+          "items": {
+            "$ref": "urn:texteda:ir:0.6:common#/$defs/param_value"
+          }
+        },
+        "part": {
+          "$ref": "urn:texteda:ir:0.6:common#/$defs/device_ref",
+          "description": "The part that is bought for this line."
+        },
+        "line": {
+          "$ref": "urn:texteda:ir:0.6:common#/$defs/proxy_line",
+          "description": "Starting line of the selection in the source file, for diagnostic locations."
+        }
+      }
+    }
+  }
+}

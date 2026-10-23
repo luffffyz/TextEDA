@@ -1,26 +1,26 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:texteda:ir:0.5:system",
-  "title": "TextEDA IR v0.5 — system shard",
+  "$id": "urn:texteda:ir:0.6:system",
+  "title": "TextEDA IR v0.6 — system shard",
   "description": "Multi-board connections: system-level nets between boards. Members only reference board ports, never pins, and never rewrite any board's internal connectivity. See ADR-0001.",
   "type": "object",
   "additionalProperties": false,
   "required": ["ir_version", "format", "system", "boards", "nets"],
   "properties": {
     "ir_version": {
-      "$ref": "urn:texteda:ir:0.5:common#/$defs/ir_version",
-      "description": "IR contract version, currently always 0.5."
+      "$ref": "urn:texteda:ir:0.6:common#/$defs/ir_version",
+      "description": "IR contract version, currently always 0.6."
     },
     "format": {
-      "$ref": "urn:texteda:ir:0.5:common#/$defs/format_version",
+      "$ref": "urn:texteda:ir:0.6:common#/$defs/format_version",
       "description": "Language version of the .teda file that produced this shard."
     },
     "source": {
-      "$ref": "urn:texteda:ir:0.5:common#/$defs/source_ref",
+      "$ref": "urn:texteda:ir:0.6:common#/$defs/source_ref",
       "description": "Source-file location: path relative to the project root plus an optional line number."
     },
     "system": {
-      "$ref": "urn:texteda:ir:0.5:common#/$defs/slug",
+      "$ref": "urn:texteda:ir:0.6:common#/$defs/slug",
       "description": "System id, identifying one multi-board system."
     },
     "boards": {
@@ -33,7 +33,7 @@
         "required": ["id"],
         "properties": {
           "id": {
-            "$ref": "urn:texteda:ir:0.5:common#/$defs/slug",
+            "$ref": "urn:texteda:ir:0.6:common#/$defs/slug",
             "description": "The board's board_id."
           }
         }
@@ -66,7 +66,7 @@
       }
     },
     "note": {
-      "$ref": "urn:texteda:ir:0.5:common#/$defs/note",
+      "$ref": "urn:texteda:ir:0.6:common#/$defs/note",
       "description": "Free text; canonical JSON has no comments, this is the substitute."
     }
   }

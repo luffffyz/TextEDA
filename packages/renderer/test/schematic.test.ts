@@ -52,7 +52,7 @@ function part(): SchematicInstance {
 
 function view(over: Partial<SchematicView> = {}): SchematicView {
   return {
-    ir_version: "0.5",
+    ir_version: "0.6",
     format: "0.7",
     source: { file: "sch/b/p.view.teda", line: 1 },
     board: "b",

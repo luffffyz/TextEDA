@@ -1,0 +1,24 @@
+version 0.1.5
+component rc0402fr-0710kl
+
+# 10kΩ ±1% 0402 thick-film resistor, 1/16W. The primary source for the `res-thick-0402 10k ±1%`
+# BOM line of the charger-buck board (assets/procurement/primary/charger-buck.teda).
+kind         part
+mpn          RC0402FR-0710KL
+manufacturer Yageo
+category     resistor
+
+symbol project:r
+footprint project:chip-0402
+
+# The part's own ratings (ADR-0039): what the device is, not what the design asks of it.
+# The tolerance is the part's own; the value is its nominal, so its worst case is 9.9kΩ..10.1kΩ.
+# The power rating is not a role in the closed vocabulary (teda.md §6.2.1): the package decides it,
+# so it is not a requirement and not a rating.
+ratings
+  value      resistance  10k
+  tolerance  percent     1%
+
+pins
+  1  A  passive
+  2  B  passive

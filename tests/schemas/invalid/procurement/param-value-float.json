@@ -1,0 +1,14 @@
+{
+  "ir_version": "0.6",
+  "procurement": {
+    "board": "charger-buck",
+    "role": "primary",
+    "selections": [
+      {
+        "generic": "res-thick-0402",
+        "params": [{ "name": "value", "value": 10000.5 }],
+        "part": "rc0402fr-0710kl"
+      }
+    ]
+  }
+}

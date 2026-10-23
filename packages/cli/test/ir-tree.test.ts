@@ -31,6 +31,16 @@ describe("IR shard tree layout", () => {
     expect(paths).toContain("footprints/project/chip-0402.json");
   });
 
+  test("the procurement layer becomes one shard per file, with its own classification", () => {
+    // The primary selections are part of the build; the second sources are not (ADR-0030 D12).
+    const primary = tree.shards.find((s) => s.path === "boards/charger-buck/procurement.json");
+    const alternatives = tree.shards.find(
+      (s) => s.path === "boards/charger-buck/procurement-alternatives.json",
+    );
+    expect(primary?.normative).toBe(true);
+    expect(alternatives?.normative).toBe(false);
+  });
+
   test("shard paths are unique and sorted", () => {
     expect(new Set(paths).size).toBe(paths.length);
     expect([...paths].sort()).toEqual(paths);
@@ -55,7 +65,7 @@ describe("IR shard tree hashes", () => {
   test("the manifest lists every shard with its hash", () => {
     expect(tree.manifest.shards.length).toBe(tree.shards.length);
     expect(tree.manifest.shards.map((s) => s.path)).toEqual(tree.shards.map((s) => s.path));
-    expect(tree.manifest.ir_version).toBe("0.5");
+    expect(tree.manifest.ir_version).toBe("0.6");
     expect(tree.manifest.tool_version).toMatch(/^\d+\.\d+\.\d+$/);
   });
 

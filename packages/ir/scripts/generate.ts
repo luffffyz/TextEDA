@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { codeEntry, DIAGNOSTIC_CODES, DIAGNOSTIC_CODE_IDS, DIAGNOSTIC_DOMAINS } from "../src/diagnostics/codes.ts";
 import { IR_QUANTITY_SPECS, quantityOfField } from "../src/units.ts";
 
-const irVersion = process.env.IR_VERSION ?? "v0.5";
+const irVersion = process.env.IR_VERSION ?? "v0.6";
 const here = dirname(fileURLToPath(import.meta.url));
 const schemaDir = join(here, "../../../schemas/ir", irVersion);
 const outDir = join(here, "../src/generated");
@@ -42,6 +42,7 @@ function inlineCommonRefs(node: unknown): unknown {
 
 const ROOT_NAMES: Record<string, string> = {
   project: "Project",
+  procurement: "Procurement",
   component: "Component",
   schematic: "Schematic",
   pcb: "Pcb",

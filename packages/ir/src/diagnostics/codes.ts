@@ -352,6 +352,14 @@ export const DIAGNOSTIC_CODES = {
     spec: ["teda.md §6.2"],
   },
 
+  "syntax.selection-invalid": {
+    domain: "syntax",
+    severity: "error",
+    summary: "A procurement selection row is malformed",
+    hint: "A row reads <generic_id> <parameter_value…> -> <part_id>",
+    spec: ["spec/procurement.md §3"],
+  },
+
   // ---- ref: references and resolution ----
   "ref.unknown-component": {
     domain: "ref",
@@ -373,6 +381,27 @@ export const DIAGNOSTIC_CODES = {
     summary: "The id declared in the component file header does not match the file name",
     hint: "Make the id declared in the file header match the file name",
     spec: ["AGENTS.md §4.5"],
+  },
+  "ref.unknown-generic": {
+    domain: "ref",
+    severity: "error",
+    summary: "Reference to a generic device id that cannot be found",
+    hint: "Add this device under assets/components/, or change the referenced name",
+    spec: ["spec/procurement.md §3"],
+  },
+  "ref.unknown-board": {
+    domain: "ref",
+    severity: "error",
+    summary: "Reference to a board that does not exist in this project",
+    hint: "A procurement file belongs to a board: use the board id of a design/sch/<board_id>.teda file",
+    spec: ["spec/procurement.md §1"],
+  },
+  "ref.board-id-mismatch": {
+    domain: "ref",
+    severity: "error",
+    summary: "The board id declared in the procurement file header does not match the file name",
+    hint: "Make the board id declared in the file header match the file name",
+    spec: ["spec/procurement.md §1"],
   },
   "ref.unknown-instance": {
     domain: "ref",
@@ -560,6 +589,13 @@ export const DIAGNOSTIC_CODES = {
     summary: "The format version is higher than the version supported by this tool",
     hint: "Lower the file version, or upgrade the tool",
     spec: ["teda.md §13"],
+  },
+  "format.role-invalid": {
+    domain: "format",
+    severity: "error",
+    summary: "Invalid role: the role is not one this position allows, or it disagrees with the directory",
+    hint: "primary goes in assets/procurement/primary/, alternatives in assets/procurement/alternatives/",
+    spec: ["spec/procurement.md §1"],
   },
 
   // ---- contract: IR contract / schema ----

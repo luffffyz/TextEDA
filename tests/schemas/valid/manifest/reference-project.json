@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.5",
+  "ir_version": "0.6",
   "tool_version": "0.0.0",
   "shards": [
     { "path": "components/r-0402.json", "sha256": "3f786850e387550fdab836ed7e6dc881de23001b0b3f0d1e0a9ac32f2b0d2a3a", "normative": true },

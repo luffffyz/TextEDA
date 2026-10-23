@@ -648,7 +648,7 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
     4. `pcb` 文件里的实例 id 与 net 名去掉页面前缀。
     5. 仍带 `page` 头或 `pages` 段的文件，诊断指向本条迁移说明。
 - `0.8` 新增：`module` 描述类型、`sch` 的 `modules` 段、模块端口与板级 net 的绑定、板内展平（决策见 `docs/adr/0026-modules-compose-boards.md`，语法见 `spec/module.md`）。板内重新有了**一层逻辑层次**：模块持有电气事实，带端口；绘制划分仍在视图层的打印页里。**IR 契约不变**（仍是 0.2）：板级 IR 是展平结果，不含模块结构。用到 `module` 或 `modules` 段的文件写 `version 0.8`；只含板级内容的文件仍可写 `0.7`。
-- `0.9` 新增（**`0.x` 的最后一个全局号**）：`procurement` 描述类型——一块板的采购选料（决策见 `docs/adr/0030-procurement-layer.md`，语法见 `spec/procurement.md`）。选料是**决定**不是事实：主料进工程哈希与板哈希，备料只进 advisory 哈希。`procurement` 文件写 `version 0.9`。**实现未落地**（解析器、IR 契约 v0.3 的 `procurement` 分片、BOM 输出见 `docs/backlog.md` F34）。
+- `0.9` 新增（**`0.x` 的最后一个全局号**）：`procurement` 描述类型——一块板的采购选料（决策见 `docs/adr/0030-procurement-layer.md`，语法见 `spec/procurement.md`）。选料是**决定**不是事实：主料进工程哈希与板哈希，备料只进 advisory 哈希。`procurement` 文件写 `version 0.9`。**已落地**（2026-10-23）：解析器与 canonical fmt（`packages/parser`）、IR 契约 **v0.6** 的 `procurement` 分片（规范的主料分片 + 附注的备料分片）、`texteda compile --procurement` 与 `texteda check` 的接线。**未落地**：选料与件额定值的比对检查、BOM 输出（`docs/backlog.md` F35）。
 - `component` 描述类型：`0.1` → `0.1.1`（PATCH）。新增 `kind` / `construction` / `polarized` 三个标量，并把 `kind` 变成必填、`kind: family` 的 `params` 变成必填（决策见 [ADR-0027](../docs/adr/0027-device-parts-families-and-library-dependencies.md)）。**这是破坏性变更**（老文件不再合法），按 §13.1 的 `0.x` 规则走 PATCH 位，改法见下：
   - **改法**（本项目尚无外部使用者，没有需要迁移的旧文件；下面是改动的机械部分）：
     1. 有 `mpn` 的文件加 `kind part`，没有 `mpn` 的文件加 `kind family`；两者都不写 `construction` / `polarized`。

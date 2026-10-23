@@ -25,12 +25,22 @@ import {
   canonicalJson,
   parseFootprint,
   parsePcb,
+  parseProcurement,
   parseSchematic,
   parseSymbol,
   parseView,
 } from "@texteda/parser";
+import { PROCUREMENT_ROLES } from "@texteda/parser";
 import { LAYOUT } from "./paths.ts";
-import { listBoards, loadBoard, loadComponents, loadModules, loadPcb } from "./project.ts";
+import {
+  listBoards,
+  listProcurement,
+  loadBoard,
+  loadComponents,
+  loadModules,
+  loadPcb,
+  loadProcurement,
+} from "./project.ts";
 
 /** One compiled shard: canonical bytes plus the hash of those bytes. */
 export interface IrShard {
@@ -164,6 +174,30 @@ export function buildIrTree(root: string): IrTree {
       }
     }
 
+    // The procurement layer: which parts this board is built from (normative) and which parts
+    // could replace them (advisory). A second source does not change the build, so only the
+    // primary enters the build identity (ADR-0030 decision 12, ADR-0023 decision 4).
+    for (const role of PROCUREMENT_ROLES) {
+      const procurement = loadProcurement(root, board, role);
+      if (!procurement) continue;
+      const parsed = parseProcurement(procurement.text, {
+        file: procurement.file,
+        board,
+        role,
+        components: resolver,
+      });
+      diagnostics.push(...parsed.diagnostics);
+      if (parsed.ir) {
+        drafts.push({
+          path: `boards/${board}/procurement${role === "alternatives" ? "-alternatives" : ""}.json`,
+          kind: "procurement",
+          source: procurement.file,
+          normative: role === "primary",
+          ir: parsed.ir,
+        });
+      }
+    }
+
     // A print page's drawing is a separate description (ADR-0021); it is not part of the schematic shard.
     for (const view of loaded.views) {
       const parsed = parseView(view.text, {
@@ -216,6 +250,19 @@ export function buildIrTree(root: string): IrTree {
         ir: parsed.ir,
       });
     }
+  }
+
+  // A procurement file belongs to a board: one whose design exists (spec/procurement.md §1).
+  const boards = new Set(listBoards(root));
+  for (const file of listProcurement(root)) {
+    if (boards.has(file.board)) continue;
+    diagnostics.push({
+      code: "ref.unknown-board",
+      severity: "error",
+      message: `board ${file.board} not found: ${file.file} selects parts for a board this project does not have`,
+      hint: `a procurement file belongs to a board: use the board id of a design/sch/${file.board}.teda file`,
+      location: { file: file.file, line: 2, col: 1 },
+    });
   }
 
   const shards: IrShard[] = [];
