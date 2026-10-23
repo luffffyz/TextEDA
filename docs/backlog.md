@@ -1077,7 +1077,7 @@
 
 **要做的事**：
 
-1. **`connect` ↔ 几何的一致性**：为每一对 `connect` 判定"是否被铜箔兑现"。需要 pad 几何（封装 + `place` 的旋转/平移）与区域多边形；"兑现"的定义要先定：一条 `trace` 同时触及两端、或两端各有一个 `via` 且 `zone` 相连，算不算？定义不清就会要么漏报要么满屏误报。
+1. **`connect` ↔ 几何的一致性**：为每一对 `connect` 判定"是否被铜箔兑现"。**定义已提议、待签**（[ADR-0041](adr/0041-connect-pairs-must-be-implemented-by-copper.md)，Proposed）：铜 = `trace` 线段 + `via` 桶 + `zone` 多边形，链只在 via 处换层，贴合容差 1 nm，严重度 warning。需要 pad 几何（封装 + `place` 的旋转/平移）与区域多边形；"兑现"的定义要先定：一条 `trace` 同时触及两端、或两端各有一个 `via` 且 `zone` 相连，算不算？定义不清就会要么漏报要么满屏误报。
 2. ~~**部分布局**：先定**部分布局合不合法**~~ **已定并已落地**（2026-10-23，[ADR-0040](adr/0040-partial-layout-is-legal-and-reported.md)）：合法，且**不加显式标记**——完整性由两份描述相减得到（`sch` 的实体实例减 `place`），一块板报一条 `bind.instance-unplaced`（warning）。规范 `spec/pcb.md` §5.2 规则 12、检查器 `packages/core` 已落地，参考工程现在报 `9 of 61`。`logical_only` 豁免，`dnp` 不豁免（封装仍占位）。
 3. 两条都要先改 `spec/pcb.md` §5.2 与 IR 契约，再改 `packages/core`；严重级别与诊断码按 [ADR-0016](adr/0016-diagnostic-error-codes.md) 登记。
 

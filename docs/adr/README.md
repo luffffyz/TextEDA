@@ -44,6 +44,7 @@ Every architecture decision record in this repository, in numeric order.
 | [ADR-0038](0038-device-vocabulary-and-parameter-roles.md) | The Device Vocabulary Is Closed and Checked; a Parameter Is a Role and a Quantity | Accepted | 2026-10-23 |
 | [ADR-0039](0039-a-part-states-its-own-ratings.md) | A Part States Its Own Ratings, and the Requirements Stay in the Instance Row | Accepted | 2026-10-23 |
 | [ADR-0040](0040-partial-layout-is-legal-and-reported.md) | A Partial Layout Is Legal, and It Is Reported | Accepted | 2026-10-23 |
+| [ADR-0041](0041-connect-pairs-must-be-implemented-by-copper.md) | A Declared `connect` Pair Must Be Implemented by Copper (What "Implemented" Means) | Proposed | 2026-10-23 |
 
 ## Reserved Numbers
 
