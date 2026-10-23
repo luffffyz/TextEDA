@@ -8,6 +8,7 @@
 // (ADR-0016: code / severity / location / data are the machine contract).
 import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
 import type { Schematic } from "@texteda/ir/schematic";
+import type { Procurement } from "@texteda/ir/procurement";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
 import { PROCUREMENT_ROLES, parsePcb, parseProcurement, parseSchematic } from "@texteda/parser";
 import {
@@ -19,7 +20,8 @@ import {
   loadPcb,
   loadProcurement,
 } from "./project.ts";
-import { checkBinding } from "@texteda/core";
+import { checkBinding, checkProcurement } from "@texteda/core";
+import { buildProcurementFacts } from "./procurement.ts";
 
 export interface BoardAnalysis {
   board: string;
@@ -59,7 +61,7 @@ export function checkProject(root: string): CheckResult {
 export function analyzeProject(root: string): AnalyzeResult {
   const diagnostics: Diagnostic[] = [];
   const boards = listBoards(root);
-  const { resolver, problems } = loadComponents(root);
+  const { resolver, problems, devices } = loadComponents(root);
   for (const problem of problems) {
     const diagnostic: Diagnostic = {
       severity: "error",
@@ -113,8 +115,9 @@ export function analyzeProject(root: string): AnalyzeResult {
         }
       }
     }
-    // The procurement layer: the parse and the contract check. Whether the selected part
-    // satisfies the line is a separate check (the selection check), not the parser's job.
+    // The procurement layer: the parse, the contract check and the selection check (whether the
+    // selected part satisfies the line is a cross-file question, so it lives in packages/core).
+    const procurementShards: { ir: Procurement; file: string }[] = [];
     for (const role of PROCUREMENT_ROLES) {
       const procurement = loadProcurement(root, board, role);
       if (!procurement) continue;
@@ -128,7 +131,19 @@ export function analyzeProject(root: string): AnalyzeResult {
       if (parsed.ir) {
         const check = validate("procurement", parsed.ir);
         if (!check.ok) boardDiagnostics.push(...schemaDiagnosticsToDiagnostics(check.errors));
+        procurementShards.push({ ir: parsed.ir, file: procurement.file });
       }
+    }
+    if (result.ir && procurementShards.length > 0) {
+      boardDiagnostics.push(
+        ...checkProcurement(
+          buildProcurementFacts({
+            schematic: result.ir,
+            procurements: procurementShards,
+            devices: devices,
+          }),
+        ),
+      );
     }
 
     diagnostics.push(...boardDiagnostics);

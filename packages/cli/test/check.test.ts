@@ -80,6 +80,38 @@ function makeComposedProject(board: string, module: string | null = MODULE): str
   return root;
 }
 
+
+const PART = `version 0.1.5
+component rc0402fr-0710kl
+
+kind         part
+mpn          RC0402FR-0710KL
+manufacturer Yageo
+category     resistor
+
+symbol project:r
+footprint project:chip-0402
+
+ratings
+  value      resistance  10k
+  tolerance  percent     1%
+
+pins
+  1  A  passive
+  2  B  passive
+`;
+
+/** A procurement file: the selections of a board, in one of the two positions. */
+function procurement(rows: string, role: "primary" | "alternatives" = "primary"): string {
+  return `version 0.9
+procurement b
+role ${role}
+
+selections
+${rows}
+`;
+}
+
 describe("check", () => {
   test("a clean project has no errors", () => {
     const root = makeProject(BOARD);
@@ -87,6 +119,100 @@ describe("check", () => {
       const result = checkProject(root);
       expect(result.boards).toEqual(["b"]);
       expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a line nobody sourced is a warning, not an error", () => {
+    const root = makeProject(BOARD);
+    try {
+      mkdirSync(join(root, "assets/procurement/primary"), { recursive: true });
+      writeFileSync(
+        join(root, "assets/procurement/primary", "b.teda"),
+        procurement(""),
+      );
+      const result = checkProject(root);
+      const unsourced = result.diagnostics.filter((d) => d.code === "value.procurement-generic-unsourced");
+      expect(unsourced).toHaveLength(1);
+      expect(unsourced[0]!.severity).toBe("warning");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a selection that satisfies the line is clean", () => {
+    const root = makeProject(BOARD);
+    try {
+      writeFileSync(join(root, "assets/components", "rc0402fr-0710kl.teda"), PART);
+      mkdirSync(join(root, "assets/procurement/primary"), { recursive: true });
+      writeFileSync(
+        join(root, "assets/procurement/primary", "b.teda"),
+        procurement("  res-thick-0402  10k  ±1%  ->  rc0402fr-0710kl"),
+      );
+      const result = checkProject(root);
+      expect(result.diagnostics.filter((d) => d.code.startsWith("value.procurement-"))).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a part that changes the land pattern is an error in the primary", () => {
+    const root = makeProject(BOARD);
+    try {
+      writeFileSync(
+        join(root, "assets/components", "rc0402fr-0710kl.teda"),
+        PART.replace("footprint project:chip-0402", "footprint project:chip-0603"),
+      );
+      mkdirSync(join(root, "assets/procurement/primary"), { recursive: true });
+      writeFileSync(
+        join(root, "assets/procurement/primary", "b.teda"),
+        procurement("  res-thick-0402  10k  ±1%  ->  rc0402fr-0710kl"),
+      );
+      const result = checkProject(root);
+      const mismatch = result.diagnostics.filter(
+        (d) => d.code === "bind.procurement-footprint-mismatch",
+      );
+      expect(mismatch).toHaveLength(1);
+      expect(mismatch[0]!.severity).toBe("error");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("the same broken selection is a warning in the alternatives", () => {
+    const root = makeProject(BOARD);
+    try {
+      writeFileSync(
+        join(root, "assets/components", "rc0402fr-0710kl.teda"),
+        PART.replace("footprint project:chip-0402", "footprint project:chip-0603"),
+      );
+      mkdirSync(join(root, "assets/procurement/alternatives"), { recursive: true });
+      writeFileSync(
+        join(root, "assets/procurement/alternatives", "b.teda"),
+        procurement("  res-thick-0402  10k  ±1%  ->  rc0402fr-0710kl", "alternatives"),
+      );
+      const result = checkProject(root);
+      const mismatch = result.diagnostics.filter(
+        (d) => d.code === "bind.procurement-footprint-mismatch",
+      );
+      expect(mismatch).toHaveLength(1);
+      expect(mismatch[0]!.severity).toBe("warning");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a line marked not-required is not an unsourced line", () => {
+    const root = makeProject(BOARD);
+    try {
+      mkdirSync(join(root, "assets/procurement/primary"), { recursive: true });
+      writeFileSync(
+        join(root, "assets/procurement/primary", "b.teda"),
+        procurement("  res-thick-0402  10k  ±1%  ->  not-required"),
+      );
+      const result = checkProject(root);
+      expect(result.diagnostics.filter((d) => d.code === "value.procurement-generic-unsourced")).toEqual([]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

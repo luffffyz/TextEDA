@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:texteda:ir:0.6:manifest",
-  "title": "TextEDA IR v0.6 — manifest shard",
+  "$id": "urn:texteda:ir:0.7:manifest",
+  "title": "TextEDA IR v0.7 — manifest shard",
   "description": "Shard manifest and hashes: one sha256 per shard (computed over the canonical JSON bytes) and its classification; the project hash covers the normative shards, the advisory hash the advisory ones (ADR-0023 decision 4, amended 2026-10-22). The hashes are recomputed by rule and not persisted elsewhere. See ADR-0008 decision 5.",
   "type": "object",
   "additionalProperties": false,
@@ -13,8 +13,8 @@
   ],
   "properties": {
     "ir_version": {
-      "$ref": "urn:texteda:ir:0.6:common#/$defs/ir_version",
-      "description": "IR contract version, currently always 0.6."
+      "$ref": "urn:texteda:ir:0.7:common#/$defs/ir_version",
+      "description": "IR contract version, currently always 0.7."
     },
     "tool_version": {
       "type": "string",
@@ -40,7 +40,7 @@
             "description": "Shard path relative to dist/ir/, e.g. boards/charger-buck/schematic.json."
           },
           "sha256": {
-            "$ref": "urn:texteda:ir:0.6:common#/$defs/sha256",
+            "$ref": "urn:texteda:ir:0.7:common#/$defs/sha256",
             "description": "SHA-256 of this shard's canonical JSON bytes."
           },
           "normative": {
@@ -51,15 +51,15 @@
       }
     },
     "source_hash": {
-      "$ref": "urn:texteda:ir:0.6:common#/$defs/sha256",
+      "$ref": "urn:texteda:ir:0.7:common#/$defs/sha256",
       "description": "Project hash = SHA-256(concatenation of \"<path>:<sha256>\\n\" lines after sorting the normative shards by path). The board hash uses the same rule over the subset of that board's normative shards."
     },
     "advisory_hash": {
-      "$ref": "urn:texteda:ir:0.6:common#/$defs/sha256",
+      "$ref": "urn:texteda:ir:0.7:common#/$defs/sha256",
       "description": "Advisory hash = SHA-256(concatenation of \"<path>:<sha256>\\n\" lines after sorting the advisory shards by path). Absent when the project has no advisory shard. A hash identifies a build, not the project's file set: changing an advisory shard changes this hash and leaves the project hash alone."
     },
     "note": {
-      "$ref": "urn:texteda:ir:0.6:common#/$defs/note",
+      "$ref": "urn:texteda:ir:0.7:common#/$defs/note",
       "description": "Free text; canonical JSON has no comments, this is the substitute."
     }
   }

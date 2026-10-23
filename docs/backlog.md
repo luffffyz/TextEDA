@@ -904,19 +904,19 @@
 
 ## F35. 采购层的实现（ADR-0030 的落地）
 
-**现状**：**格式已定并落档；解析器、`fmt` 与 IR 契约已落地（2026-10-23），选料检查与 BOM 输出还没有**。规范见 `spec/procurement.md`，决策见 [ADR-0030](adr/0030-procurement-layer.md)（Accepted，2026-10-22；开放点已全部关闭），语言 0.9 新增 `procurement` 描述类型。
+**现状**：**格式已定并落档；解析器、`fmt`、IR 契约、选料检查与 BOM 输出都已落地（2026-10-23）**。规范见 `spec/procurement.md`，决策见 [ADR-0030](adr/0030-procurement-layer.md)（Accepted，2026-10-22；开放点已全部关闭），语言 0.9 新增 `procurement` 描述类型。
 
-**已落地**：解析器与 canonical `fmt`（`packages/parser/src/procurement.ts`）；IR 契约 `schemas/ir/v0.6/procurement.schema.json`（**契约随本项从 v0.5 升到 v0.6**）；分片路径 `boards/<board_id>/procurement.json`（规范）与 `boards/<board_id>/procurement-alternatives.json`（附注）；`texteda compile --procurement` 与 `texteda check` 的接线；参考工程的采购文件（主料 `assets/procurement/primary/charger-buck.teda`、备料 `assets/procurement/alternatives/charger-buck.teda`）与两件料文件。
+**已落地**：解析器与 canonical `fmt`（`packages/parser/src/procurement.ts`）；IR 契约 `schemas/ir/v0.7/procurement.schema.json`（**契约随本项从 v0.5 升到 v0.7**：v0.6 出了采购分片，v0.7 补了 `not_required` 状态）；分片路径 `boards/<board_id>/procurement.json`（规范）与 `boards/<board_id>/procurement-alternatives.json`（附注）；`texteda compile --procurement` 与 `texteda check` 的接线；**选料检查**（`packages/core/src/procurement/rules.ts`：§3.2 的六条 + §3.3 的逐角色比对 + 两条 warning，主料 error / 备料 warning）；**BOM 输出**（`texteda bom <工程目录> <board_id>`，CSV 或 `--json`）；参考工程的采购文件（主料 `assets/procurement/primary/charger-buck.teda`、备料 `assets/procurement/alternatives/charger-buck.teda`）与两件料文件。
 
-**没有**：选料检查、BOM 输出（下面第 3、4 项）。
+**没有**：遮蔽件的选料检查（ADR-0028 的遮蔽本身没落地，F10）、下单格式的 BOM 导出（ADR-0006）。
 
 **要做的事**：
 
 1. ~~**解析器 + `fmt`**（`packages/parser`）~~ **已落地**（2026-10-23）：`procurement` 类型；头部三行（`version` / `procurement <board_id>` / `role`），`role` 必须与所在目录一致；唯一段 `selections`；行文法 `<generic> <params…> -> <part>` 与 `<generic> <params…> -> not-required`；canonical form 按左键文本排序、**不对齐**。
-2. ~~**IR 契约**~~ **已落地**：`schemas/ir/v0.6/procurement.schema.json` + 重生成类型；分片路径 `boards/<board_id>/procurement.json`（规范）与 `boards/<board_id>/procurement-alternatives.json`（附注）；契约随本项升到 **v0.6**（F25 / F27 / F28 的那批已在 v0.5 落地）。
-3. **选料检查**（`packages/core`）：`spec/procurement.md` §3.2 的六条（通用器件是通用器件、件是件、件有 `mpn`、件的 `params` 覆盖通用器件的、件的 `footprint` 等于通用器件的、件不是被遮蔽的库件）；**主料违反 = error，备料违反 = warning**（严格模式 error）；通用器件行没选料 → warning（unsourced）；通用器件行写了 `not-required` → **不报**（这才是“本来就没有东西要买”，不是“还没买”）；选中的件板上没用到 → warning。
-4. **BOM 输出**（`packages/cli`）：四种行（件行、有选料的通用器件行、无选料的通用器件行、明确不采购的通用器件行）；行键统一为 `(component_id, 参数字典)`，件行的参数集为空；**无来源行：MPN 单元格留空，comment 列写 `unsourced`**；**不需要采购的行：MPN 单元格同样留空，状态写 `not-required`**（MPN 里塞 `n/a` 或标记会被下单系统当真去订——ADR-0030 D4 与 2026-10-22b 附录）。**工程自己的 BOM：`status` 列（`bought` / `unsourced` / `not-required`）与 `note` 列分开**，状态不与人的备注混在一格里；**下单格式的导出不加列**（列集由 [ADR-0006](adr/0006-jlc-prototype-delivery.md) D4 的规范定死），标记落在规范自带的 `Comment` 格里；JLC 形状的导出跟 F16 一起做。
-5. **`texteda check --json`**：采购诊断进机器载荷（unsourced / 未使用的选料 / 备料违反 / 遮蔽件）。
+2. ~~**IR 契约**~~ **已落地**：`schemas/ir/v0.7/procurement.schema.json` + 重生成类型；分片路径 `boards/<board_id>/procurement.json`（规范）与 `boards/<board_id>/procurement-alternatives.json`（附注）；契约随本项升到 **v0.7**（v0.6 出了分片，v0.7 补了 `not_required`；F25 / F27 / F28 的那批已在 v0.5 落地）。
+3. ~~**选料检查**（`packages/core`）~~ **已落地**（2026-10-23）：`spec/procurement.md` §3.2 的六条（通用器件是通用器件、件是件、件有 `mpn`、件的 `ratings` 覆盖行里写的角色、件的 `footprint` 等于通用器件的、件不是被遮蔽的库件）+ §3.3 的逐角色比对（`value` 走包络、`tolerance` / `esr` / `dcr` 是上限、`voltage` / `power` / `rated_current` / `sat_current` 是下限、`dielectric` 相等）；**主料违反 = error，备料违反 = warning**；通用器件行没选料 → warning（unsourced）；通用器件行写了 `not-required` → **不报**（这才是“本来就没有东西要买”，不是“还没买”）；选中的件板上没用到 → warning。**没做**：遮蔽件那一条（遮蔽本身没落地，F10）。
+4. ~~**BOM 输出**（`packages/cli`）~~ **已落地**（2026-10-23）：`texteda bom <工程目录> <board_id>` 出表（CSV 或 `--json`）；四种行（件行、有选料的通用器件行、无选料的通用器件行、明确不采购的通用器件行）；行键统一为 `(component_id, 参数字典)`，件行的参数集为空；**无来源行：MPN 单元格留空，`status` 列写 `unsourced`**；**不需要采购的行：MPN 单元格同样留空，状态写 `not-required`**（MPN 里塞 `n/a` 或标记会被下单系统当真去订——ADR-0030 D4 与 2026-10-22b 附录）。**工程自己的 BOM：`status` 列（`bought` / `unsourced` / `not-required`）与 `note` 列分开**，状态不与人的备注混在一格里。**没做**：下单格式的导出（列集由 [ADR-0006](adr/0006-jlc-prototype-delivery.md) D4 的规范定死）。
+5. **`texteda check --json`**：采购诊断进机器载荷（unsourced / 未使用的选料 / 备料违反 / 遮蔽件）。**已落地**（诊断是普通的 `Diagnostic` ✓，`--json` 自动带上 ✓）；**遮蔽件**那条还没有（遮蔽没落地）。
 6. **文档**：`docs/skills/new-project.md` 加一步"选料"；`AGENTS.md` §4.1 的状态行改成"已落地"；`docs/ir-reference.md` 由 `bun run gen` 重生成。
 
 **验收**：

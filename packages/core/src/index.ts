@@ -24,3 +24,14 @@ export {
   type DeviceRatingFacts,
   type DeviceRole,
 } from "./devices/rules.ts";
+
+export {
+  buildBomLines,
+  checkProcurement,
+  type BomLine,
+  type DesignLine,
+  type Device,
+  type FactLocation,
+  type ProcurementFacts,
+  type Selection,
+} from "./procurement/rules.ts";

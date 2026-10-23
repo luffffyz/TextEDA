@@ -1,9 +1,9 @@
 # Skill: Build a TextEDA Project from Scratch
 
-> **Status**: first draft (2026-10-21). Every command below has been run; the outputs are copied from real runs (see the checklist in §11).
+> **Status**: first draft (2026-10-21). Every command below has been run; the outputs are copied from real runs (see the checklist in §12).
 > **No executable form yet** — scripting it and gating it are steps 2 and 3 of [F23](../backlog.md); this file is maintained by hand for now.
 > **Audience**: agents (humans can follow it too).
-> **Endpoint**: today it reaches a **netlist + `.kicad_sym` + `.kicad_mod`**; it does **not** reach `.kicad_pcb` or Gerber (why, in §9).
+> **Endpoint**: today it reaches a **netlist + `.kicad_sym` + `.kicad_mod`**; it does **not** reach `.kicad_pcb` or Gerber (why, in §10).
 
 This file is English on purpose: a skill is an operating manual for an agent, not a design document
 (see AGENTS.md §12).
@@ -276,7 +276,50 @@ commands, not by `init`).
 The netlist is only the **connectivity projection**: topology, no values and no footprints (those
 belong to the BOM).
 
-## 8. Step 6: export the KiCad library (two steps)
+## 8. Step 6: source the parts (the procurement layer)
+
+The design says what it needs; the procurement layer says what is bought. It is a **decision**, not
+a fact of the circuit, so it lives in its own file and only the primary one changes the build's
+identity.
+
+`assets/procurement/primary/demo.teda`:
+
+```
+version 0.9
+procurement demo
+role primary
+
+selections
+  res-thick-0402  10k  ±1%  ->  rc0402fr-0710kl
+```
+
+The row reads `<generic> <requirement…> -> <part>`: the left side is the line the design asks for,
+the right side is the part that satisfies it. The part has to be a `kind: part` device with a part
+number, the same land pattern as the generic, and ratings that meet the line.
+
+```sh
+bun run texteda check /tmp/demo
+bun run texteda bom /tmp/demo demo
+```
+
+```
+component_id,mpn,params,quantity,status,refdes,note
+cap-mlcc-0402,,100nF 10% 16V dielectric=X7R,1,unsourced,C1,
+res-thick-0402,RC0402FR-0710KL,10k 1%,1,bought,R1,
+```
+
+Three states: `bought` (the part is named), `unsourced` (the line exists, nobody chose a part —
+the part number cell stays **empty**), and `not-required` (the row says `-> not-required`: there
+is nothing to order for this line, which is different from "nobody has ordered it yet").
+
+`texteda check` reports a line nobody sourced as a **warning**, not an error: an unfinished
+sourcing is not a broken design.
+
+A second source goes in `assets/procurement/alternatives/demo.teda` (same syntax, `role
+alternatives`). It is advisory: switching to it does not change the build's hash, and a broken row
+there is a warning instead of an error.
+
+## 9. Step 7: export the KiCad library (two steps)
 
 **The export scripts take IR JSON, not `.teda`** — compile first, then export. **Run them inside the
 project directory** (§1):
@@ -299,12 +342,12 @@ Products: `dist/c.kicad_sym`, `dist/chip-0402.kicad_mod`.
 facts (number, name, electrical type) live in the component** (ADR-0012). The exporter merges them
 by pin number, and the two pin number sets must match.
 
-## 9. How far this goes, and what it cannot reach
+## 10. How far this goes, and what it cannot reach
 
 | Wanted | Status today |
 |---|---|
 | Netlist (connectivity) | ✅ `texteda netlist` |
-| KiCad symbol / footprint libraries | ✅ the two-step chain in §8 |
+| KiCad symbol / footprint libraries | ✅ the two-step chain in §9 |
 | `.kicad_pcb` board file | ❌ **there is no exporter in the repository**. The file in `docs/trial-run/charger-buck/` was produced by a one-off prototype (its README says "not in the repository"). The exporter is scoped in [F23](../backlog.md) step 5 |
 | Gerber / Excellon | ❌ no writer yet ([F15](../backlog.md)) |
 | KiCad schematic (`.kicad_sch`) | ❌ ([F16](../backlog.md)) |
@@ -312,7 +355,7 @@ by pin number, and the two pin number sets must match.
 **The skill must not pretend it reaches Gerber.** A step whose dependency is missing ends at "this
 is as far as it goes".
 
-## 10. When it breaks
+## 11. When it breaks
 
 The diagnostic code registry is the single source of truth
 (`packages/ir/src/diagnostics/codes.ts`; `bun run gen` renders `docs/error-codes.md`). These are the
@@ -339,7 +382,7 @@ the wrong row**. The parser keeps reading the unknown line as a data row, so the
 row after it. Writing `netss` instead of `nets` reports `instances row needs at least 2 columns`.
 When a "column error" points at a row that looks fine, look at the **line above it** first.
 
-## 11. Checklist (run this after changing the skill)
+## 12. Checklist (run this after changing the skill)
 
 - [ ] `init` produces exactly §2 (nothing more, nothing less)
 - [ ] The library directories are created **by hand**, not expected from `init`
@@ -349,11 +392,12 @@ When a "column error" points at a row that looks fine, look at the **line above 
       `project.toml`
 - [ ] `check` reports zero errors
 - [ ] `compile` produces the IR; `netlist` produces the connectivity
+- [ ] `bom` lists every line of the board, with the selected part's number where there is one
 - [ ] The symbol export carried `--component`; both pin number sets match
 - [ ] The library scripts ran **inside the project directory** (`$REPO/...` points back at the repo)
-- [ ] No step depends on a command that does not exist in the repository (§9 is accurate)
+- [ ] No step depends on a command that does not exist in the repository (§10 is accurate)
 
-## 12. Still to do
+## 13. Still to do
 
 1. **Executable form**: `scripts/skill-new-project.ts` (build a minimal project → `check` with zero
    errors → export → assert the products exist and are byte-reproducible), plus
@@ -362,5 +406,5 @@ When a "column error" points at a row that looks fine, look at the **line above 
    `docs/trial-run/` into `packages/exporter`.
 3. **Gerber / Excellon writer** (F15); only then does this skill's endpoint move from netlist to
    manufacturing files.
-4. **Mark the dependency of every step**: this file currently lists the missing endpoints in §9;
+4. **Mark the dependency of every step**: this file currently lists the missing endpoints in §10;
    once it is scripted, each step should carry its own "what this depends on" marker.

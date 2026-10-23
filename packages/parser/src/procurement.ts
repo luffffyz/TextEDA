@@ -31,6 +31,14 @@ const VERSION_RANGE = typeRange(9);
 
 /** The only section of a procurement file. */
 export const PROCUREMENT_SECTIONS = ["selections"] as const;
+
+/**
+ * The reserved target of a selection row: the line needs nothing bought.
+ *
+ * It is not a device id — it is the statement that there is nothing to order for this line,
+ * which is different from "nobody has ordered it yet" (ADR-0030, 2026-10-22b appendix).
+ */
+export const NOT_REQUIRED = "not-required";
 export type ProcurementSection = (typeof PROCUREMENT_SECTIONS)[number];
 
 /**
@@ -63,8 +71,8 @@ export interface ProcurementSelectionRow {
   generic: string;
   /** The requirement's cells, in the order they are written. */
   paramCells: string[];
-  /** The part that is bought. */
-  part: string;
+  /** The part that is bought, or null for a line that needs nothing bought. */
+  part: string | null;
   /** The line the row is on. */
   line: number;
   /** The column the row starts at. */
@@ -261,8 +269,11 @@ export function parseProcurementDocument(
       collector.error(file, line.number, cells[0]!.col, "syntax.invalid-token", `not a valid device id: ${generic}`);
       continue;
     }
-    const part = cells[arrow + 1]!.text;
-    if (!DEVICE_REF_RE.test(part)) {
+    // The right side is a part id, or the reserved target `not-required`: the line needs
+    // nothing bought (a part that is only there to be a test point, say).
+    const target = cells[arrow + 1]!.text;
+    const part = target === NOT_REQUIRED ? null : target;
+    if (part !== null && !DEVICE_REF_RE.test(part)) {
       collector.error(file, line.number, cells[arrow + 1]!.col, "syntax.invalid-token", `not a valid device id: ${part}`);
       continue;
     }
@@ -390,7 +401,7 @@ export function parseProcurement(text: string, options: ProcurementParseOptions)
     selections.push({
       generic: row.generic,
       ...(params.length > 0 ? { params } : {}),
-      part: row.part,
+      ...(row.part === null ? { not_required: true } : { part: row.part }),
       line: row.line,
     });
   }

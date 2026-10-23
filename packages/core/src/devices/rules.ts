@@ -131,6 +131,7 @@ export const DEVICE_CONSTRUCTION_NAMES: readonly string[] = Object.keys(DEVICE_C
 export const DEVICE_ROLE_TYPES: Record<string, string> = {
   tolerance: "percent",
   voltage: "voltage",
+  power: "power",
   dielectric: "string",
   esr: "resistance",
   dcr: "resistance",

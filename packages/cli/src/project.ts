@@ -17,6 +17,7 @@ import {
 } from "@texteda/parser";
 import type { DiagnosticCodeId } from "@texteda/ir/diagnostics";
 import { PROCUREMENT_ROLES, type ProcurementRole } from "@texteda/parser";
+import type { Device } from "@texteda/core";
 import { LAYOUT } from "./paths.ts";
 
 /** Problem when a component file cannot be read (no exception thrown; the caller aggregates these into diagnostics). */
@@ -38,6 +39,8 @@ export interface LoadedComponents {
   resolver: ComponentResolver;
   /** Component files that could not be read. */
   problems: ComponentProblem[];
+  /** The devices, id -> the facts the procurement rules need (ADR-0030). */
+  devices: Map<string, Device>;
 }
 
 /**
@@ -61,6 +64,7 @@ export function loadComponents(root: string): LoadedComponents {
   walk(join(root, LAYOUT.components));
 
   const table = new Map<string, ComponentFactsLite>();
+  const devices = new Map<string, Device>();
   const problems: ComponentProblem[] = [];
   /** Device files that exist but have errors: a board referencing them must not be told "not found". */
   const broken = new Map<string, string>();
@@ -93,6 +97,19 @@ export function loadComponents(root: string): LoadedComponents {
       continue;
     }
     table.set(id, { params: result.component.params, pins: result.component.pins });
+    devices.set(id, {
+      id,
+      kind: result.component.kind,
+      ...(result.component.mpn ? { mpn: result.component.mpn } : {}),
+      footprint: result.component.footprint,
+      ratings: Object.fromEntries(
+        result.component.ratings.map((rating) => [
+          rating.name,
+          { type: rating.type, value: rating.value },
+        ]),
+      ),
+      params: result.component.params.map((param) => ({ name: param.name, type: param.type })),
+    });
   }
   return {
     resolver: {
@@ -100,6 +117,7 @@ export function loadComponents(root: string): LoadedComponents {
       broken: (id) => broken.get(id),
     },
     problems,
+    devices,
   };
 }
 

@@ -244,6 +244,17 @@ describe("a part's own ratings (ADR-0039)", () => {
     expect(ratings[3]!.value).toBe("X7R");
   });
 
+  test("a part states its power rating", () => {
+    // The power rating belongs to the package, but it is a fact of the part: it is stated here,
+    // and the procurement layer compares it with the line's requirement.
+    const result = parseComponent(
+      device(PART_SCALARS, ["ratings", "  value      capacitance  10uF", "  power      power       62.5mW"], PINS),
+      { file: "x.teda" },
+    );
+    expect(result.diagnostics).toEqual([]);
+    expect(result.component!.ratings[1]).toMatchObject({ name: "power", type: "power", value: 62_500 });
+  });
+
   test("a generic states no ratings: a class has no ratings of its own", () => {
     const result = parseComponent(device(GENERIC_SCALARS, VALUE_PARAM, RATINGS, PINS), { file: "x.teda" });
     expect(result.ok).toBe(false);

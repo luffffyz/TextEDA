@@ -86,7 +86,7 @@ That part is the purchase, and the procurement layer says nothing about it. Only
 | The generic resolves, and it is a `kind: generic` | A part may not be re-selected |
 | The part resolves, and it is a `kind: part` | A generic may not be selected as a part |
 | The part has an `mpn` | Required of every part; this is what makes the row purchasable |
-| The part's ratings cover the generic's roles — same names, same types | Otherwise the specification in the row cannot be carried by the part, and the BOM line would silently lose a column. A part states its own ratings in its `ratings` section (`kind: part` declares no `params` — the roles an `instances` row fills are the generic's, the part's are its own; see [ADR-0039](../docs/adr/0039-a-part-states-its-own-ratings.md)). |
+| The part's ratings cover the roles the line states — same names, same types | Otherwise the specification in the row cannot be carried by the part, and the BOM line would silently lose a column. A part states its own ratings in its `ratings` section (`kind: part` declares no `params` — the roles an `instances` row fills are the generic's, the part's are its own; see [ADR-0039](../docs/adr/0039-a-part-states-its-own-ratings.md)). |
 | The part's `footprint` equals the generic's `footprint` | The land pattern is a **hard constraint** of the generic; a selection that changes it is not a selection, it is a design change |
 | The part is not a library item the project has shadowed | A derived copy replaces the library item it overrides; selecting the shadowed item would put the same device in the BOM twice ([ADR-0028](../docs/adr/0028-library-trust-and-derived-overrides.md)) |
 
@@ -149,6 +149,11 @@ The marker does not go into the MPN cell: the exported BOM is consumed by a part
 ([ADR-0006](../docs/adr/0006-jlc-prototype-delivery.md)), and a part number that reads `unsourced` would be ordered as if it were a part. An empty cell plus
 an explicit marker is both honest and consumable.
 
+The BOM is written by `texteda bom <project dir> <board_id>`: a table with the device id, the part number, the parameter values, the quantity, the
+state, the instances and a note. `--json` prints the same content as a machine payload. The state is `bought`, `unsourced` or `not-required` — the
+line that says `-> not-required` carries no part number and the state `not-required`, which is different from `unsourced`: nothing was ordered because
+there is nothing to order, not because nobody has ordered it yet.
+
 `texteda check` reports every unsourced generic line as a **warning**: the design is valid, the procurement is incomplete, and the two must not be confused.
 This is deliberately not an error — a gate that rejects unfinished sourcing would make the tool unusable while the circuit is still moving.
 
@@ -173,6 +178,7 @@ This is deliberately not an error — a gate that rejects unfinished sourcing wo
 | A check of §3.2 fails in the **primary** file | error |
 | A check of §3.2 fails in the **alternatives** file | warning; error in strict mode |
 | A generic line has no selection | warning (unsourced) |
+| A selected part does not satisfy the line (§3.3) | error in the primary, warning in the alternatives |
 | A selection names a part the design does not use | warning — a selection may be made for a revision that has not been drawn yet |
 | A selected part comes from a library item with `provenance = generated` | warning; error in strict mode ([ADR-0028](../docs/adr/0028-library-trust-and-derived-overrides.md) decision 5) |
 
@@ -194,8 +200,14 @@ The shard's shape is specified in `schemas/ir/v0.6/procurement.schema.json` ([AD
 Both shards have a producer: `texteda ir` writes them, `texteda compile --procurement` compiles the primary one, and `texteda check` parses and
 validates both.
 
-**Not implemented yet**: the check that the selected part satisfies the line (§3.3) and the BOM output (§5). The comparison is a cross-file
-question — the part's own ratings against the requirement — so it belongs to the checker, not to the parser (`docs/backlog.md` F35).
+The `not_required` state is the one thing the shard says about a line that has no part: the row reads `-> not-required`, and the shard says
+`not_required: true` instead of a part id. A selection always says which of the two it is, so a consumer never has to guess.
+
+The selection check and the BOM are implemented (§3.2, §3.3, §5): the rules live in `packages/core` (the comparison is a cross-file question — the part's
+own ratings against the requirement — so it belongs to the checker, not to the parser) and `texteda check` and `texteda bom` run them.
+
+**Not implemented yet**: the check that a selected part is not a library item the project has shadowed ([ADR-0028](../docs/adr/0028-library-trust-and-derived-overrides.md)),
+because the shadowing itself is not implemented (`docs/backlog.md` F10), and the ordering export of the BOM ([ADR-0006](../docs/adr/0006-jlc-prototype-delivery.md)).
 
 ## 9. What is not in here
 

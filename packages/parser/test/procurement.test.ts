@@ -43,7 +43,7 @@ describe("procurement parsing", () => {
     expect(result.diagnostics).toEqual([]);
     expect(result.ok).toBe(true);
     const ir = result.ir!;
-    expect(ir.ir_version).toBe("0.6");
+    expect(ir.ir_version).toBe("0.7");
     expect(ir.format).toBe("0.9");
     expect(ir.procurement.board).toBe("charger-buck");
     expect(ir.procurement.role).toBe("primary");
@@ -57,6 +57,23 @@ describe("procurement parsing", () => {
       { name: "tolerance", value: 10_000 },
     ]);
     expect(validate("procurement", ir).ok).toBe(true);
+  });
+
+  test("a line that needs nothing bought carries the reserved target", () => {
+    // `not-required` is not a device id: it says there is nothing to order for the line, which is
+    // different from "nobody has ordered it yet" (ADR-0030, 2026-10-22b appendix).
+    const text = SOURCE.replace("-> rc0402fr-0710kl", "-> not-required");
+    const result = parseProcurement(text, {
+      file,
+      board: "charger-buck",
+      role: "primary",
+      components,
+    });
+    expect(result.diagnostics).toEqual([]);
+    const selection = result.ir!.procurement.selections[0]!;
+    expect(selection.part).toBeUndefined();
+    expect(selection.not_required).toBe(true);
+    expect(validate("procurement", result.ir!).ok).toBe(true);
   });
 
   test("the row keeps the requirement, not the part's own values", () => {

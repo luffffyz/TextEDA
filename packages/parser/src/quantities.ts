@@ -229,3 +229,75 @@ export function parseQuantityRange(
   }
   return { ok: true, min: low.value, max: high.value };
 }
+
+/** The SI prefixes, largest first. The exponent is relative to the unit. */
+const FORMAT_PREFIXES: readonly { exp: number; text: string }[] = [
+  { exp: 12, text: "T" },
+  { exp: 9, text: "G" },
+  { exp: 6, text: "M" },
+  { exp: 3, text: "k" },
+  { exp: 0, text: "" },
+  { exp: -3, text: "m" },
+  { exp: -6, text: "u" },
+  { exp: -9, text: "n" },
+  { exp: -12, text: "p" },
+];
+
+/** 10^n as a bigint. */
+function pow10Big(n: number): bigint {
+  return n >= 0 ? 10n ** BigInt(n) : 1n / 10n ** BigInt(-n);
+}
+
+/**
+ * Format a canonical quantity for humans: the value with a prefix and the unit.
+ *
+ * The canonical integer is the value in the quantity's canonical unit (ADR-0008 decision 4), so
+ * `10 kΩ` is `10000000000` and comes back as `10kΩ`. The result is exact: the value is scaled
+ * with big integers, never with floating point, so `4.7k` stays `4.7k`.
+ */
+export function formatQuantity(canonical: number, kind: QuantityKind): string {
+  const spec = QUANTITY_SPECS[kind];
+  const unit = spec.units[0] ?? "";
+  if (!Number.isFinite(canonical)) return String(canonical);
+  if (canonical === 0) return `0${unit}`;
+
+  // The value in the unit: canonical / 10^(unitExp + canonicalExp).
+  const shift = spec.unitExp + spec.canonicalExp;
+  let num = BigInt(Math.trunc(canonical));
+  let den = 1n;
+  if (shift >= 0) den = pow10Big(shift);
+  else num *= pow10Big(-shift);
+
+  const negative = num < 0n;
+  if (negative) num = -num;
+
+  // The largest prefix that keeps the mantissa in [1, 1000) and stays exact.
+  let mantissaNum = num;
+  let prefixText = "";
+  for (const prefix of FORMAT_PREFIXES) {
+    let candidate = mantissaNum;
+    if (prefix.exp > 0) {
+      const factor = pow10Big(prefix.exp);
+      if (num % factor !== 0n) continue;
+      candidate = num / factor;
+    } else if (prefix.exp < 0) {
+      candidate = num * pow10Big(-prefix.exp);
+    }
+    if (candidate >= den && candidate < den * 1000n) {
+      mantissaNum = candidate;
+      prefixText = prefix.text;
+      break;
+    }
+  }
+
+  const whole = mantissaNum / den;
+  const rest = mantissaNum % den;
+  let text = whole.toString();
+  if (rest !== 0n) {
+    // The fraction: as many digits as the denominator needs, without trailing zeros.
+    const digits = den.toString().length - 1;
+    const fraction = (rest * pow10Big(digits)) / den;
+    text += "." + fraction.toString().padStart(digits, "0").replace(/0+$/, "");
+  }
+  return `${negative ? "-" : ""}${text}${prefixText}${unit}`;
+}
