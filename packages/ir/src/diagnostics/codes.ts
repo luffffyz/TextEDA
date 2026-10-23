@@ -869,6 +869,13 @@ export const DIAGNOSTIC_CODES = {
     hint: "Place the missing instances; a partial layout is legal, it is reported so a fragment cannot pass for a board",
     spec: ["spec/pcb.md §5.2", "docs/adr/0040-partial-layout-is-legal-and-reported.md D1"],
   },
+  "bind.not-checked": {
+    domain: "bind",
+    severity: "note",
+    summary: "The sch/pcb binding was not checked: the board has only one of the two descriptions",
+    hint: "This is a skip, not a pass: a board with a schematic and no pcb is unverified for placement and connectivity",
+    spec: ["spec/pcb.md §5.2", "AGENTS.md §4.4"],
+  },
   "bind.unconnected-pad": {
     domain: "bind",
     severity: "error",

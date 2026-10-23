@@ -459,3 +459,37 @@ nets
     }
   });
 });
+
+describe("a skipped binding check is reported, not assumed (AGENTS.md §4.4 rule 6)", () => {
+  test("a schematic without a pcb says the binding was not checked", () => {
+    const root = makeProject(BOARD);
+    try {
+      const notes = checkProject(root).diagnostics.filter((d) => d.code === "bind.not-checked");
+      expect(notes).toHaveLength(1);
+      expect(notes[0]!.severity).toBe("note");
+      expect(notes[0]!.data).toEqual({ board: "b", present: "sch", missing: "pcb" });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a pcb without a schematic is read far enough to say so", () => {
+    const root = makeProject(BOARD);
+    try {
+      mkdirSync(join(root, "design/pcb"), { recursive: true });
+      writeFileSync(
+        join(root, "design/pcb", "b.teda"),
+        "version 0.4\npcb b\n\nboard_thickness 1.6mm\n\nstackup\n  1 copper F.Cu signal 0.035mm\n  2 core   core dielectric 1.53mm\n  3 copper B.Cu signal 0.035mm\n\noutline\n  0mm 0mm\n  50mm 0mm\n  50mm 36mm\n",
+      );
+      // Both descriptions present: nothing is skipped, so there is no such note.
+      expect(checkProject(root).diagnostics.filter((d) => d.code === "bind.not-checked")).toEqual([]);
+      // Drop the schematic: the pcb is now a lone description, which must not vanish silently.
+      rmSync(join(root, "design/sch", "b.teda"));
+      const notes = checkProject(root).diagnostics.filter((d) => d.code === "bind.not-checked");
+      expect(notes).toHaveLength(1);
+      expect(notes[0]!.data).toEqual({ board: "b", present: "pcb", missing: "sch" });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

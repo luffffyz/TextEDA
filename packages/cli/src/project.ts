@@ -154,6 +154,16 @@ export function listBoards(root: string): string[] {
     .sort();
 }
 
+/** List the boards that have a pcb description (`design/pcb/<board>.teda`). */
+export function listPcbBoards(root: string): string[] {
+  const dir = join(root, LAYOUT.pcb);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".teda"))
+    .map((entry) => entry.name.slice(0, entry.name.length - ".teda".length))
+    .sort();
+}
+
 /**
  * Read the project file (`project.toml`).
  *

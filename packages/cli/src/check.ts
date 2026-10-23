@@ -15,6 +15,7 @@ import type { Diagnostic } from "@texteda/ir/diagnostics";
 import { PROCUREMENT_ROLES, parsePcb, parseProcurement, parseSchematic, parseSystem } from "@texteda/parser";
 import {
   listBoards,
+  listPcbBoards,
   listProcurement,
   listSystems,
   loadBoard,
@@ -26,6 +27,7 @@ import {
 } from "./project.ts";
 import { checkBinding, checkProcurement, checkSystem } from "@texteda/core";
 import { buildProcurementFacts } from "./procurement.ts";
+import { LAYOUT } from "./paths.ts";
 
 export interface BoardAnalysis {
   board: string;
@@ -122,6 +124,15 @@ export function analyzeProject(root: string): AnalyzeResult {
             ...checkBinding({ file: pcbSource.file, schematic: result.ir, pcb: pcbResult.ir }),
           );
         }
+      } else {
+        // A skipped check is not a passed check (AGENTS.md §4.4 rule 6): say so, at `note` severity.
+        boardDiagnostics.push({
+          code: "bind.not-checked",
+          severity: "note",
+          message: `board ${board} has no pcb description: the sch/pcb binding was not checked`,
+          location: { file: loaded.file, line: 1, col: 1 },
+          data: { board, present: "sch", missing: "pcb" },
+        });
       }
     }
     // The procurement layer: the parse, the contract check and the selection check (whether the
@@ -160,6 +171,19 @@ export function analyzeProject(root: string): AnalyzeResult {
       board,
       ...(result.ir === undefined ? {} : { ir: result.ir }),
       diagnostics: boardDiagnostics,
+    });
+  }
+
+  // A pcb whose board has no schematic is not checked either — and would otherwise not even be
+  // read, since boards are found from `design/sch/`. Say it rather than drop the file silently.
+  for (const board of listPcbBoards(root)) {
+    if (boards.includes(board)) continue;
+    diagnostics.push({
+      code: "bind.not-checked",
+      severity: "note",
+      message: `board ${board} has a pcb description but no schematic: the sch/pcb binding was not checked`,
+      location: { file: `${LAYOUT.pcb}/${board}.teda`, line: 1, col: 1 },
+      data: { board, present: "pcb", missing: "sch" },
     });
   }
 
