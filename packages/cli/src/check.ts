@@ -25,9 +25,10 @@ import {
   loadProcurement,
   loadProject,
 } from "./project.ts";
-import { checkBinding, checkProcurement, checkReviews, checkSystem } from "@texteda/core";
+import { checkBinding, checkCopperCoverage, checkProcurement, checkReviews, checkSystem } from "@texteda/core";
 import { buildProcurementFacts } from "./procurement.ts";
 import { loadReviews } from "./reviews.ts";
+import { loadFootprintLibrary, padsByInstance } from "./pads.ts";
 import { LAYOUT } from "./paths.ts";
 
 export interface BoardAnalysis {
@@ -100,6 +101,7 @@ export function analyzeProject(root: string): AnalyzeResult {
 
   const analyses: BoardAnalysis[] = [];
   const modules = loadModules(root);
+  const footprints = loadFootprintLibrary(root);
   for (const board of boards) {
     const loaded = loadBoard(root, board);
     if (!loaded) continue;
@@ -123,6 +125,16 @@ export function analyzeProject(root: string): AnalyzeResult {
           if (!pcbCheck.ok) boardDiagnostics.push(...schemaDiagnosticsToDiagnostics(pcbCheck.errors));
           boardDiagnostics.push(
             ...checkBinding({ file: pcbSource.file, schematic: result.ir, pcb: pcbResult.ir }),
+          );
+          // Whether the drawing implements the declaration (ADR-0041): it needs pad geometry,
+          // which comes from the project's footprint library, so it is loaded once per project.
+          boardDiagnostics.push(
+            ...checkCopperCoverage({
+              file: pcbSource.file,
+              schematic: result.ir,
+              pcb: pcbResult.ir,
+              pads: padsByInstance(result.ir, devices, footprints),
+            }),
           );
         }
       } else {

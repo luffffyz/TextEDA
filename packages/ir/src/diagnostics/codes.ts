@@ -906,6 +906,13 @@ export const DIAGNOSTIC_CODES = {
     hint: "A decision needs target, owner, date and a verdict of accepted / declined / deferred",
     spec: ["docs/adr/0033-review-records-and-attribution.md D4"],
   },
+  "bind.connect-unbacked": {
+    domain: "bind",
+    severity: "warning",
+    summary: "A declared `connect` pair is not implemented by any chain of copper in the drawing",
+    hint: "Draw the copper the declaration implies, or declare the pair the copper actually joins",
+    spec: ["spec/pcb.md §5.2", "docs/adr/0041-connect-pairs-must-be-implemented-by-copper.md D1"],
+  },
   "bind.not-checked": {
     domain: "bind",
     severity: "note",

@@ -1,6 +1,6 @@
 # ADR-0041: A Declared `connect` Pair Must Be Implemented by Copper (What "Implemented" Means)
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-23
 Related: [ADR-0003](0003-agent-first-pcb-ir.md), [ADR-0010](0010-footprint-and-3d-model-ownership.md), [ADR-0035](0035-connectivity-authority-and-reverse-engineering.md), [ADR-0040](0040-partial-layout-is-legal-and-reported.md)
 Impact: `spec/pcb.md` §5.2 gains a geometry rule; `packages/core` gains a copper-coverage check; the reference project is expected to report one contradiction.
@@ -39,7 +39,15 @@ A chain may change layers only through a barrel. Two primitives are connected wh
 
 ## Consequences
 
-- On the reference project, exactly one pair is expected to be reported: the VOUT divider tap. That is a real contradiction in an authored file, and it is the evidence this rule is worth having.
+- On the reference project the check reports **seven** pairs when it first runs (2026-10-23), not the one this
+  record guessed: `M2.C1.1`–`M2.U1.7`, `M2.C1.2`–`M2.U1.6`, `M2.C2.1`–`M2.U1.1`, `M2.C2.2`–`M2.U1.8`,
+  `M2.C4.1`–`M2.L1.2`, `M2.D1.1`–`M2.L1.1`, `M2.L1.1`–`M2.U1.8`. The VOUT divider pair is **not** among them:
+  `M2.C3` is a 7343 tantalum whose pad reaches the track at (32.9, 20), so that pair is implemented — the sketch is
+  less broken there than a first reading suggested. Two of the seven are worse than a gap: `M2.C1` sits so that its
+  SYS pad is on the end of the GND track and its GND pad on the end of the SYS track, i.e. another net's copper
+  reaches the pad. The check reports the pair as unbacked, which is what it can prove (`bind.connect-unbacked` does
+  not cross nets); the short itself is the clearance question of D7, still borrowed. The observation is filed as a
+  note of `charger-buck-pcb-r1`, whose verdict is `deferred`.
 - The reference project stays a passing gate: a `warning` does not change `check`'s exit code. Fixing the file (drawing the run the declaration implies, or moving the tap) is the author's call, because which side is wrong is an electrical decision, not a geometric one.
 - A `pcb` for which no copper is drawn at all now produces a report per declared pair rather than silence — the same complaint rule 4 already makes once per net, from the other direction.
 - `spec/pcb.md` §5.2's closing paragraph ("geometry-level checks are done by a geometry checker or KiCad DRC") becomes precise: coverage is ours, DRC is borrowed.

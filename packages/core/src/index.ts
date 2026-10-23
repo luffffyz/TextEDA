@@ -6,6 +6,13 @@ export {
 } from "./erc/connectivity.ts";
 
 export { checkBinding, instanceOf, type BindingFacts } from "./binding/checks.ts";
+export {
+  checkCopperCoverage,
+  type CopperFacts,
+  type CopperGraph,
+  type InstancePads,
+  type PadGeometry,
+} from "./binding/copper.ts";
 
 export {
   checkDeviceDeclaration,
