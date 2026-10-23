@@ -19,6 +19,7 @@ export const DIAGNOSTIC_DOMAINS = [
   "review",
   "format",
   "drc",
+  "design",
   "cli",
   "view",
 ] as const;
@@ -985,6 +986,21 @@ export const DIAGNOSTIC_CODES = {
     summary: "Silkscreen text height below 0.5mm, hard for most board houses to read",
     spec: ["spec/pcb.md §5.2"],
   },
+  // ---- design: the design against the parts it is built from (ADR-0043) ----
+  "design.rating-exceeded": {
+    domain: "design",
+    severity: "error",
+    summary: "A device's declared rating cannot cover the declared window of the net it sits on",
+    hint: "raise the device's rating, lower the declared window, or state why the window is what it is",
+    spec: ["spec/teda.md §7.4", "docs/adr/0043-ratings-are-compared-against-declared-windows.md"],
+  },
+  "design.stress-unknown": {
+    domain: "design",
+    severity: "note",
+    summary: "Instances that could not be compared with their declared window, and why",
+    hint: "state the reference potential (voltage GND 0V..0V) and a window on the net; multi-pin stress models are not implemented yet",
+    spec: ["docs/adr/0043-ratings-are-compared-against-declared-windows.md"],
+  },
   "cli.bad-usage": {
     domain: "cli",
     severity: "error",
@@ -1063,6 +1079,7 @@ export const STAGE_BY_DOMAIN: Record<DiagnosticDomain, DiagnosticStage> = {
   contract: "contract",
   net: "semantic",
   drc: "semantic",
+  design: "semantic",
   bind: "semantic",
   library: "semantic",
   review: "semantic",

@@ -16,6 +16,8 @@ export {
 
 export { checkDeviceUsage, type DeviceUsageFacts } from "./devices/usage.ts";
 
+export { checkRatings, type RatingDevice, type RatingFacts } from "./design/ratings.ts";
+
 export {
   checkDeviceDeclaration,
   checkDeviceParamValue,

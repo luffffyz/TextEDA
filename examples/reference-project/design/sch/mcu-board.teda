@@ -59,5 +59,6 @@ ports
 
 constraints
   voltage  VIN_5V  4.5V..5.5V
+  voltage  GND     0V..0V
   voltage  V3V3    3.0V..3.6V
   current  V3V3    300mA

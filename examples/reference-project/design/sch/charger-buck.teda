@@ -29,6 +29,7 @@ ports
   VOUT_5V  VOUT
 
 constraints
+  voltage  GND   0V..0V
   voltage  SYS   9V..19.8V
   voltage  VBAT  9V..12.6V
   voltage  VOUT  4.85V..5.15V

@@ -1031,19 +1031,13 @@
 **为什么现在不做**：~~与"删掉器件文件里的 `package` 字段"（ADR-0029 decision 1）无关，是生成器的既有缺口；补它会让本次改动的 diff 从"一件事"变成"两件事"。~~ **已做**（2026-10-23，与 ADR-0029 无关的独立一件事）。
 
 ## F42. 规格只被"写出"，没有被"验证"（ADR-0038 留下的洞）
+**现状**：**item 0 已定、item 3 的第一片已落地**（2026-10-23，[ADR-0043](adr/0043-ratings-are-compared-against-declared-windows.md)）。
 
-**现状**：**未落地**（2026-10-23 记）。规范要求每个通用器件的 `instances` 行写出一份**完整规格**（`100nF ±10% 16V X7R`），检查器强制这些列都在（[ADR-0038](adr/0038-device-vocabulary-and-parameter-roles.md)，已落地），但**没有任何东西拿它去比对**：没有检查器拿电容的耐压去比它所在的网，没有检查器拿电阻的功耗去比封装额定功率，也没有检查器拿件去比规格——件在 IR 里根本没有额定值（`kind: part` 禁 `params`，[ADR-0027](adr/0027-device-parts-families-and-library-dependencies.md) decision 1）。
+- **分析模式（原来记作 item 0）已定**：按**声明窗口的受压端**比（不是标称点）；器件**互相独立**（语言还无法声明相关性，容差不参与比较）；**未声明即未知**，未知要计数（一块板一条 note）；降额是项目政策，不是检查器的常数。
+- **第一片已落地**：两引脚器件的 `voltage` 能力 vs 它两个 net 的声明窗口之差。`packages/core/src/design/ratings.ts`，新域 `design`（ADR-0043 D7）：`design.rating-exceeded`（error）+ `design.stress-unknown`（note，报覆盖率）。`spec/teda.md` §7.4 写清了口径；两块参考板补了 `voltage GND 0V..0V`（帧原点由设计声明，工具不假设 GND = 0V），覆盖从 0 抬到 charger-buck 11/61、mcu-board 10/21，且参考设计 0 违规。
+- **还没做**：多引脚器件的应力模型（`Vds` / `Vgs` / `Vin` 要按构造定引脚语义——这是覆盖率的大头，也是下一个真正的一步）；`current`（网电流由谁承担语言还没说）；`power` / 磁饱和 / 温度；项目级降额政策进 `project.toml`。
 
-**为什么重要**："写出规格"与"验证规格"是两件事。现在设计里写 `voltage 16V` 只是把意图记下来了，没有任何机制说"这颗 6.3V 的件接在 12V 轨上是不对的"。这条是 ERC 与采购层共同的地基：ERC 要拿规格去比网，采购要拿规格去比数据手册。
-
-**要做的事**（顺序有依赖，拆开记）：
-
-0. 先定**分析模式**：约束按标称判还是按最坏判，以及**哪些件算相关**（两颗 1% 电阻不能一边 +1% 一边 −1%，除非它们独立；匹配对同向漂）。这是**语言问题**不是 evaluator 的细节，open point 记在 [ADR-0038](adr/0038-device-vocabulary-and-parameter-roles.md)。定了它，容差才有用处：容差是**设计允许的偏差**（`10k ±1%` = [9.9k, 10.1k]），评估器拿它算区间。**未决**。
-1. ~~先定**件级额定值从哪来**~~ **已定**（[ADR-0039](adr/0039-a-part-states-its-own-ratings.md)，2026-10-23）：件在自己的文件里用**事实段** `ratings` 写自己的额定值（`role type value`，与 `pins` 并列，不是 `params`）；通用件的 `params` 仍是"设计的要求"，两者分工是硬的。解析器与检查器已落地（`value.component-rating-invalid` / `value.component-rating-value-invalid`），IR 契约随之到 `v0.4`（`component` 分片多了 `ratings`）。件的分片已有生产者（F24 已落地，2026-10-23），所以额定值现在进得了 IR——`assets/components/<id>.json` 的 `ratings` 就是比对约束的那一侧（F42）。
-2. 再定**比什么**：`constraints` 段已有 `power <component 或 net> <max>`；耐压比对要不要进 `constraints`，还是由额定值侧主动比对网电压？
-3. 最后才是 evaluator：耐压、功耗、电流、磁饱和各自的判定与诊断文案。
-
-**为什么现在不做**：件级额定值从哪来已经定了（上面第 1 条），剩下的是分析模式与比较规则——那是语言问题，得先有 ADR。
+**原记录（保留为理由）**：规范要求每个通用器件的 `instances` 行写出一份完整规格（`100nF ±10% 16V X7R`），检查器强制这些列都在（[ADR-0038](adr/0038-device-vocabulary-and-parameter-roles.md)），但没有东西拿它去比对。件级额定值的来源已由 [ADR-0039](adr/0039-a-part-states-its-own-ratings.md) 定案并落地。
 
 ## F43. 器件角色词表太薄，装不下真实器件的额定值
 

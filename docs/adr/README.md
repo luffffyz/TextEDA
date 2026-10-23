@@ -46,6 +46,7 @@ Every architecture decision record in this repository, in numeric order.
 | [ADR-0040](0040-partial-layout-is-legal-and-reported.md) | A Partial Layout Is Legal, and It Is Reported | Accepted | 2026-10-23 |
 | [ADR-0041](0041-connect-pairs-must-be-implemented-by-copper.md) | A Declared `connect` Pair Must Be Implemented by Copper (What "Implemented" Means) | Accepted | 2026-10-23 |
 | [ADR-0042](0042-a-device-description-enters-the-ir.md) | A Device's Description Is a Fact, So It Enters the IR | Accepted | 2026-10-23 |
+| [ADR-0043](0043-ratings-are-compared-against-declared-windows.md) | Ratings Are Compared Against Declared Windows | Accepted | 2026-10-23 |
 
 ## Reserved Numbers
 

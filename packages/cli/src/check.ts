@@ -25,7 +25,7 @@ import {
   loadProcurement,
   loadProject,
 } from "./project.ts";
-import { checkBinding, checkCopperCoverage, checkProcurement, checkReviews, checkSystem } from "@texteda/core";
+import { checkBinding, checkCopperCoverage, checkProcurement, checkRatings, checkReviews, checkSystem } from "@texteda/core";
 import { buildProcurementFacts } from "./procurement.ts";
 import { checkDeviceUsage } from "@texteda/core";
 import { loadReviews } from "./reviews.ts";
@@ -110,6 +110,17 @@ export function analyzeProject(root: string): AnalyzeResult {
    */
   let referencesComplete = true;
   const modules = loadModules(root);
+  /** Devices as the rating check needs them: pin facts (terminal count) + the part's own ratings. */
+  const ratingDevices = (): Map<string, { pins: readonly string[]; ratings: Record<string, { type: string; value: number | string }> }> => {
+    const built = new Map<string, { pins: readonly string[]; ratings: Record<string, { type: string; value: number | string }> }>();
+    for (const [id, device] of devices) {
+      built.set(id, {
+        pins: (resolver.resolve(id)?.pins ?? []).map((pin) => pin.number),
+        ratings: device.ratings,
+      });
+    }
+    return built;
+  };
   const footprints = loadFootprintLibrary(root);
   for (const board of boards) {
     const loaded = loadBoard(root, board);
@@ -126,6 +137,15 @@ export function analyzeProject(root: string): AnalyzeResult {
       for (const instance of result.ir.instances) referencedDevices.add(instance.component);
       const check = validate("schematic", result.ir);
       if (!check.ok) boardDiagnostics.push(...schemaDiagnosticsToDiagnostics(check.errors));
+      // The design against the parts it is built from (ADR-0043): the device limits and the
+      // declared windows come together only here, so the check runs where both are in hand.
+      boardDiagnostics.push(
+        ...checkRatings({
+          file: loaded.file,
+          schematic: result.ir,
+          devices: ratingDevices(),
+        }),
+      );
       // Board-level consistency: run binding validation when a pcb description exists (spec/pcb.md §5.2).
       const pcbSource = loadPcb(root, board);
       if (pcbSource !== null) {

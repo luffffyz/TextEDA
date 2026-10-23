@@ -404,6 +404,14 @@ constraints
 
 `<op>` 为 `<`、`<=`、`>`、`>=`。区间 `a..b` 为闭区间。
 
+**约束是设计的承诺，检查器拿它去比事实**（[ADR-0043](../docs/adr/0043-ratings-are-compared-against-declared-windows.md)）：`voltage` 声明的是**绝对电位**的窗口，同一个文件里的所有 `voltage` 处在**同一个参考帧**里，帧的原点由设计自己声明——`voltage GND 0V..0V`。工具**不假设**叫 `GND` 的 net 就是 0V：分地或隔离电源有多种参考，猜出来的比较比不比较更糟。
+
+两端的器件（电容、电阻这类两引脚器件）的电压应力是**两端电位的差**，取各自窗口的极值：
+
+`stress = max(|max(a) − min(b)|, |max(b) − min(a)|)`
+
+器件的电压能力来自 `instances` 行的 `voltage` 列（通用件：设计要求）或器件自己的 `ratings`（`kind: part`：事实，[ADR-0039](../docs/adr/0039-a-part-states-its-own-ratings.md)）。能力低于应力报 `design.rating-exceeded`；两端的 net 有一个没有窗口、或器件不是两引脚时**不比较**，并在一块板一条的 `design.stress-unknown`（note）里报出数量——没比较不等于通过。容差不参与比较（器件独立漂移，语言还无法声明相关性），降额是项目政策而不是检查器的常数：比的是"能不能扛"，不是"留了多少裕量"。
+
 ### 7.5 `ports` 段（可选，v0.2）
 
 `port` 是**板的 `net` 的对外名字**。系统级描述消费板级端口（§8）。

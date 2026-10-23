@@ -62,6 +62,7 @@ describe("single-file board (mcu-board)", () => {
     const constraints = result.ir!.constraints!;
     expect(constraints).toEqual([
       { type: "voltage", subject: "VIN_5V", min_uv: 4_500_000, max_uv: 5_500_000 },
+      { type: "voltage", subject: "GND", min_uv: 0, max_uv: 0 },
       { type: "voltage", subject: "V3V3", min_uv: 3_000_000, max_uv: 3_600_000 },
       { type: "current", subject: "V3V3", max_na: 300_000_000 },
     ]);
