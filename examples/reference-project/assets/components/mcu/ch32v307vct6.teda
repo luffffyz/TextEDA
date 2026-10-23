@@ -7,6 +7,7 @@ mpn          CH32V307VCT6
 manufacturer WCH
 category     mcu
 datasheet    https://www.wch-ic.com/downloads/CH32V307DS0_PDF.html
+description  RISC-V microcontroller, 144 MHz, 256 KB flash, 64 KB SRAM, USB, Ethernet, CAN
 
 symbol project:ch32v307vct6
 footprint project:lqfp-100

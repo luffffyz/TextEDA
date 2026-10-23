@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.7",
+  "ir_version": "0.8",
   "project": { "name": "demo", "version": "0.1.0", "format": "0.1" },
   "libs": [{ "id": "proj", "source": "project", "path": "footprints" }]
 }

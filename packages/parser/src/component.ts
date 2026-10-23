@@ -17,6 +17,8 @@
 //
 // The parser is filesystem-free (ADR-0009 decision 1): the caller supplies the text.
 
+import { irVersion } from "@texteda/ir";
+import type { Component, ParamDecl, Rating } from "@texteda/ir/component";
 import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
 import { checkDeviceDeclaration, checkDeviceRatingValue, checkDeviceRatings } from "@texteda/core";
 import { lex } from "./lexer.ts";
@@ -116,6 +118,8 @@ export interface ComponentFile {
 export interface ComponentParseResult {
   ok: boolean;
   component?: ComponentFile;
+  /** The IR shard (`schemas/ir/component`): `component` projected onto the contract, plus its header. */
+  ir?: Component;
   diagnostics: Diagnostic[];
 }
 
@@ -612,5 +616,55 @@ export function parseComponent(text: string, options: { file: string }): Compone
   }
 
   if (diagnostics.some((d) => d.severity === "error")) return { ok: false, diagnostics };
-  return { ok: true, component, diagnostics };
+
+  // The shard is a projection, not a copy: the parser's bookkeeping (line/col, the `alt` cell, the
+  // pin's `type` name) is not part of the contract, so it is dropped here rather than by canonical
+  // JSON. `pins_source` is inline: a self-built symbol carries no pin facts (ADR-0012), so a file
+  // that omits `pins` is rejected above and there is no second source today.
+  const ir: Component = {
+    ir_version: irVersion,
+    source: { file, line: 1 },
+    component: {
+      id: component.id,
+      kind: component.kind,
+      ...(component.mpn !== undefined ? { mpn: component.mpn } : {}),
+      ...(component.manufacturer !== undefined ? { manufacturer: component.manufacturer } : {}),
+      ...(component.category !== undefined ? { category: component.category } : {}),
+      ...(component.construction !== undefined ? { construction: component.construction } : {}),
+      ...(component.polarized !== undefined ? { polarized: component.polarized } : {}),
+      ...(component.datasheet !== undefined ? { datasheet: component.datasheet } : {}),
+      ...(component.lcsc !== undefined ? { lcsc: component.lcsc } : {}),
+      ...(component.description !== undefined ? { description: component.description } : {}),
+      symbol: component.symbol,
+      footprint: component.footprint,
+      // The parser already rejected a type outside `PARAM_TYPES`, so the cast only narrows a checked string.
+      ...(params.length > 0
+        ? {
+            params: params.map((param) => ({
+              name: param.name,
+              type: param.type as ParamDecl["type"],
+              required: param.required,
+            })),
+          }
+        : {}),
+      ...(ratings.length > 0
+        ? {
+            ratings: ratings.map(
+              (rating) =>
+                ({ name: rating.name, type: rating.type as ParamDecl["type"], value: rating.value }) as Rating,
+            ),
+          }
+        : {}),
+      pins: component.pins.map((pin) => ({
+        number: pin.number,
+        name: pin.name,
+        electrical_type: pin.type,
+        unit: pin.unit,
+        ...(pin.alt !== undefined ? { alternates: [pin.alt] } : {}),
+      })) as Component["component"]["pins"],
+      pins_source: "inline",
+    },
+  };
+
+  return { ok: true, component, ir, diagnostics };
 }

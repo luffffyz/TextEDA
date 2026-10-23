@@ -6,6 +6,7 @@ mpn          BQ24610RGER
 manufacturer Texas Instruments
 category     battery_charger
 datasheet    https://www.ti.com/lit/ds/symlink/bq24610.pdf
+description Standalone synchronous buck battery charger controller, 5-24 V input, up to 10 A
 
 # KiCad official Battery_Management library does not include BQ24610; add the symbol to the local library before the first export.
 # Pins are governed by the inline table; the symbol only provides the view.

@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.7",
+  "ir_version": "0.8",
   "source": { "file": "symbols/project/bq24610rger.json" },
   "symbol": {
     "library": "project",

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:texteda:ir:0.7:component",
-  "title": "TextEDA IR v0.7 — component shard",
+  "$id": "urn:texteda:ir:0.8:component",
+  "title": "TextEDA IR v0.8 — component shard",
   "description": "Semantic projection of one .teda component file. Pins must already be materialized in the IR: inline pins are copied verbatim; when `symbol` points to a third-party library that carries pin facts and the file omits `pins`, the parser expands them from the library and `pins_source` records the source. A self-built `symbol` stores only the view, without pin facts (ADR-0012), so a component pointing at a self-built symbol must inline `pins`.",
   "type": "object",
   "additionalProperties": false,
@@ -11,15 +11,15 @@
   ],
   "properties": {
     "ir_version": {
-      "$ref": "urn:texteda:ir:0.7:common#/$defs/ir_version",
-      "description": "IR contract version, currently always 0.7."
+      "$ref": "urn:texteda:ir:0.8:common#/$defs/ir_version",
+      "description": "IR contract version, currently always 0.8."
     },
     "format": {
-      "$ref": "urn:texteda:ir:0.7:common#/$defs/format_version",
+      "$ref": "urn:texteda:ir:0.8:common#/$defs/format_version",
       "description": "Language version of the .teda file that produced this shard; see teda.md §13."
     },
     "source": {
-      "$ref": "urn:texteda:ir:0.7:common#/$defs/source_ref",
+      "$ref": "urn:texteda:ir:0.8:common#/$defs/source_ref",
       "description": "Source-file location: path relative to the project root plus an optional line number."
     },
     "component": {
@@ -36,7 +36,7 @@
       ],
       "properties": {
         "id": {
-          "$ref": "urn:texteda:ir:0.7:common#/$defs/slug",
+          "$ref": "urn:texteda:ir:0.8:common#/$defs/slug",
           "description": "Equals the file name without the extension; not a relative path."
         },
         "kind": {
@@ -78,12 +78,16 @@
           "pattern": "^C[0-9]+$",
           "description": "LCSC part number; see ADR-0006."
         },
+        "description": {
+          "type": "string",
+          "description": "One-line human description of the device (e.g. `SOT-23-5 500 mA LDO`). Prose only: it never participates in a check and never changes identity."
+        },
         "symbol": {
-          "$ref": "urn:texteda:ir:0.7:common#/$defs/library_ref",
+          "$ref": "urn:texteda:ir:0.8:common#/$defs/library_ref",
           "description": "Symbol library reference lib:name; a self-built symbol stores only the view, without pin facts."
         },
         "footprint": {
-          "$ref": "urn:texteda:ir:0.7:common#/$defs/library_ref",
+          "$ref": "urn:texteda:ir:0.8:common#/$defs/library_ref",
           "description": "Footprint library reference lib:name; geometry is a fact of the component library and does not enter the board description."
         },
         "params": {
@@ -118,7 +122,7 @@
       }
     },
     "note": {
-      "$ref": "urn:texteda:ir:0.7:common#/$defs/note",
+      "$ref": "urn:texteda:ir:0.8:common#/$defs/note",
       "description": "Free text; canonical JSON has no comments, this is the substitute."
     }
   },
@@ -174,7 +178,7 @@
       ],
       "properties": {
         "number": {
-          "$ref": "urn:texteda:ir:0.7:common#/$defs/pin_number",
+          "$ref": "urn:texteda:ir:0.8:common#/$defs/pin_number",
           "description": "Key matching the footprint pad; part of the identity."
         },
         "name": {

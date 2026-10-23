@@ -1,6 +1,6 @@
 {
-  "ir_version": "0.7",
-  "format": "0.7",
+  "ir_version": "0.8",
+  "format": "0.8",
   "source": { "file": "sch/charger-buck.teda" },
   "board": "charger-buck",
   "instances": [

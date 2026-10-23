@@ -7,7 +7,7 @@ const FILE = "design/system/cabinet.teda";
 
 function board(id: string, ports: { port: string; net: string }[], voltages: { net: string; min: number; max: number }[] = []): Schematic {
   return {
-    ir_version: "0.7",
+    ir_version: "0.8",
     format: "0.9",
     board: id,
     instances: [],
@@ -24,7 +24,7 @@ function board(id: string, ports: { port: string; net: string }[], voltages: { n
 
 function system(boards: string[], nets: { id: string; members: string[] }[]): System {
   return {
-    ir_version: "0.7",
+    ir_version: "0.8",
     format: "0.2",
     system: "cabinet",
     boards: boards.map((id) => ({ id })) as [{ id: string }, ...{ id: string }[]],

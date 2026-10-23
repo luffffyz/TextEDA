@@ -585,18 +585,18 @@
 - **别把 skill 写成"复制参考工程改改"**：那会让人绕过 `init` 契约与自建库的边界（[ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) 的 `project:` 库约定），也绕过了"每个文件最小化"的写作纪律。
 - 这条 skill 是 F12 十用例语料的**种子**：先把"最小可跑工程"这条路径钉死并做成脚本，再扩到 BGA、多电源域、差分对那些难例。
 
-## F24. IR 分片树剩下的三种分片（`project` / `component` / `system`）
+## F24. IR 分片树剩下的三种分片（`project` / `component` / `system`）（**已完成**）
 
 **现状**：`bun run texteda ir <工程目录>` 已经写出整棵分片树——`boards/<board_id>/{schematic,pcb}.json`、`boards/<board_id>/view/<page_id>.json`、`assets/symbols/<lib>/<id>.json`、`assets/footprints/<lib>/<id>.json`，外加 `manifest.json`（每片 sha256 + 工程哈希），布局与哈希规则见 [ADR-0023](adr/0023-ir-layer-on-disk.md)。[ADR-0008](adr/0008-ir-shard-identity-and-hash.md) decision 1 里定的另外三种分片，**现在还差一种**（`project` 与 `system` 已落地，见 F17）：
 
 - ~~`project.json`——`project.toml` 的 IR 投影~~ **已落地**（F17）：字段对字段（`name`/`version`/`format`/`description`/`license`/`status`/`default_variant`/`authors`/`links`/`boards`/`variants`/`libs`/`compliance`/`ext`），规范类分片，进工程哈希。
-- `assets/components/<component_id>.json`——器件描述的 IR 分片。`assets/components/**` 今天只有只读事实读取 `readComponentFacts`（给符号/封装导出合并引脚用），**没有 IR schema 的生产者**；`schemas/ir/v0.3/component.schema.json` 在，但没人往里填语义。
+- ~~`assets/components/<component_id>.json`——器件描述的 IR 分片~~ **已落地**（2026-10-23）：`parseComponent` 现在把 `ComponentFile` 投影成 `component` 分片（`pins_source: "inline"`，解析器的行号/列号与 `alt` 单元格不进契约），`texteda ir` 为每个器件文件写一片，规范类、进工程哈希。**它需要 IR 升到 `0.8`**：器件文件的 `description` 标量此前既不在规范里也不在契约里，产物一写就会静默丢掉这个事实，决策见 [ADR-0042](adr/0042-a-device-description-enters-the-ir.md)。头行 id 与文件名不一致的文件不产分片（`ref.component-id-mismatch`）。
 - ~~`systems/<system_id>.json`——多板连接描述的 IR 分片~~ **已落地**（F17）：`system` 描述（`design/system/<system_id>.teda`，段 `boards` + `nets`，成员是 `<board_id>.<port_id>`）→ `system` IR，规范类分片，进工程哈希。
 
 **要做的事**：
 
 1. ~~`project.toml` 解析器 → `project.json` 分片~~ **已落地**（F17；诊断码 `syntax.*` / `ref.unknown-project` 已登记进 `packages/ir/src/diagnostics/codes.ts`）。
-2. `component` 描述的 IR 投影 → `assets/components/<component_id>.json` 分片（引脚的电学事实仍归 `component`，符号/封装只存视图，[ADR-0012](adr/0012-symbol-description.md)）。**未落地**。
+2. ~~`component` 描述的 IR 投影 → `assets/components/<component_id>.json` 分片（引脚的电学事实仍归 `component`，符号/封装只存视图，[ADR-0012](adr/0012-symbol-description.md)）~~ **已落地**（2026-10-23）。
 3. ~~`system` 描述的语法与解析器 → `systems/<system_id>.json` 分片~~ **已落地**（F17）。
 4. 三种分片进 `manifest.json` 后，**工程哈希的含义会变**——哈希覆盖的分片集合变了，旧哈希与新哈希不可比。这不是 bug，但**要写进迁移说明**（`AGENTS.md` §2 不变量 10 要求破坏性变更附迁移说明）。
 5. 每种新分片都要补 `tests/schemas/` 正反例，并过 `bun run gen:check`。
@@ -1045,7 +1045,7 @@
 **要做的事**（顺序有依赖，拆开记）：
 
 0. 先定**分析模式**：约束按标称判还是按最坏判，以及**哪些件算相关**（两颗 1% 电阻不能一边 +1% 一边 −1%，除非它们独立；匹配对同向漂）。这是**语言问题**不是 evaluator 的细节，open point 记在 [ADR-0038](adr/0038-device-vocabulary-and-parameter-roles.md)。定了它，容差才有用处：容差是**设计允许的偏差**（`10k ±1%` = [9.9k, 10.1k]），评估器拿它算区间。**未决**。
-1. ~~先定**件级额定值从哪来**~~ **已定**（[ADR-0039](adr/0039-a-part-states-its-own-ratings.md)，2026-10-23）：件在自己的文件里用**事实段** `ratings` 写自己的额定值（`role type value`，与 `pins` 并列，不是 `params`）；通用件的 `params` 仍是"设计的要求"，两者分工是硬的。解析器与检查器已落地（`value.component-rating-invalid` / `value.component-rating-value-invalid`），IR 契约随之到 `v0.4`（`component` 分片多了 `ratings`）。剩下的是**件的分片还没有生产者**（`docs/backlog.md` F24），所以额定值暂时只到文件与契约层。
+1. ~~先定**件级额定值从哪来**~~ **已定**（[ADR-0039](adr/0039-a-part-states-its-own-ratings.md)，2026-10-23）：件在自己的文件里用**事实段** `ratings` 写自己的额定值（`role type value`，与 `pins` 并列，不是 `params`）；通用件的 `params` 仍是"设计的要求"，两者分工是硬的。解析器与检查器已落地（`value.component-rating-invalid` / `value.component-rating-value-invalid`），IR 契约随之到 `v0.4`（`component` 分片多了 `ratings`）。件的分片已有生产者（F24 已落地，2026-10-23），所以额定值现在进得了 IR——`assets/components/<id>.json` 的 `ratings` 就是比对约束的那一侧（F42）。
 2. 再定**比什么**：`constraints` 段已有 `power <component 或 net> <max>`；耐压比对要不要进 `constraints`，还是由额定值侧主动比对网电压？
 3. 最后才是 evaluator：耐压、功耗、电流、磁饱和各自的判定与诊断文案。
 

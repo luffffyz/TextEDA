@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.7",
+  "ir_version": "0.8",
   "source": { "file": "footprints/project.pretty/r-0402.json" },
   "footprint": {
     "library": "project",

@@ -29,6 +29,28 @@ describe("IR shard tree layout", () => {
     expect(paths).toContain("boards/mcu-board/schematic.json");
     expect(paths).toContain("symbols/project/r.json");
     expect(paths).toContain("footprints/project/chip-0402.json");
+    expect(paths).toContain("components/bq24610rger.json");
+    expect(paths).toContain("components/ch32v307vct6.json");
+  });
+
+  test("a component shard is the device projected onto the contract", () => {
+    // The board is made of these parts, so the shard is normative; the body carries the facts the
+    // schematic and the procurement rules read (pins, kind, footprint) and nothing of the parser.
+    const shard = tree.shards.find((s) => s.path === "components/bq24610rger.json");
+    expect(shard?.normative).toBe(true);
+    expect(shard?.kind).toBe("component");
+    const body = JSON.parse(shard!.bytes) as {
+      component: { id: string; kind: string; pins: { number: string; electrical_type: string }[]; pins_source: string };
+    };
+    expect(body.component.kind).toBe("part");
+    expect(body.component.pins_source).toBe("inline");
+    expect(body.component.pins.find((pin) => pin.number === "24")?.electrical_type).toBe("power_in");
+  });
+
+  test("the description field of a component reaches the shard", () => {
+    // It is a language scalar that used to be dropped on the way to the IR (ADR-0042).
+    const shard = tree.shards.find((s) => s.path === "components/ch32v307vct6.json");
+    expect(JSON.parse(shard!.bytes).component.description).toBeTruthy();
   });
 
   test("the procurement layer becomes one shard per file, with its own classification", () => {
@@ -65,7 +87,7 @@ describe("IR shard tree hashes", () => {
   test("the manifest lists every shard with its hash", () => {
     expect(tree.manifest.shards.length).toBe(tree.shards.length);
     expect(tree.manifest.shards.map((s) => s.path)).toEqual(tree.shards.map((s) => s.path));
-    expect(tree.manifest.ir_version).toBe("0.7");
+    expect(tree.manifest.ir_version).toBe("0.8");
     expect(tree.manifest.tool_version).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
@@ -224,6 +246,35 @@ describe("texteda ir", () => {
       expect(payload.shards.length).toBe(payload.manifest.shards.length);
     } finally {
       rmSync(out, { recursive: true, force: true });
+    }
+  });
+
+  test("a component whose header id disagrees with its file name yields no shard", () => {
+    // The id is the file name: a shard whose key disagrees with its path would make the tree's
+    // identity depend on which reader looks at it.
+    const project = tempDir();
+    try {
+      cpSync(referenceProject, project, { recursive: true });
+      writeFileSync(
+        join(project, "assets/components/misnamed.teda"),
+        [
+          "version 0.9",
+          "component something-else",
+          "kind part",
+          "mpn ABC123",
+          "symbol project:r",
+          "footprint project:chip-0402",
+          "pins",
+          "  1 A passive",
+          "  2 B passive",
+          "",
+        ].join("\n"),
+      );
+      const tree = buildIrTree(project);
+      expect(tree.shards.some((s) => s.path === "components/misnamed.json")).toBe(false);
+      expect(tree.diagnostics.some((d) => d.code === "ref.component-id-mismatch")).toBe(true);
+    } finally {
+      rmSync(project, { recursive: true, force: true });
     }
   });
 

@@ -14,10 +14,9 @@
 //   ├── symbols/<lib>/<symbol_id>.json
 //   └── footprints/<lib>/<footprint_id>.json
 //
+//   ├── components/<component_id>.json
 //   ├── project.json                   # the project file's metadata
-//   ├── systems/<system_id>.json
-//
-// `components/` has no producer yet (no component IR parser), so it is absent until that lands.
+//   └── systems/<system_id>.json
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
@@ -142,8 +141,22 @@ interface Draft {
 export function buildIrTree(root: string): IrTree {
   const drafts: Draft[] = [];
   const diagnostics: Diagnostic[] = [];
-  const { resolver } = loadComponents(root);
+  const components = loadComponents(root);
+  const resolver = components.resolver;
   const modules = loadModules(root);
+
+  // The devices: one shard per file, at `components/<id>.json`. A component is a fact of the build
+  // (the board is made of these parts), so it is normative.
+  diagnostics.push(...components.diagnostics);
+  for (const shard of components.shards) {
+    drafts.push({
+      path: `components/${shard.id}.json`,
+      kind: "component",
+      source: shard.file,
+      normative: true,
+      ir: shard.ir,
+    });
+  }
 
   for (const board of listBoards(root)) {
     const loaded = loadBoard(root, board);

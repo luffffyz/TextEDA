@@ -16,6 +16,7 @@ import {
   type ComponentResolver,
   type ModuleSource,
 } from "@texteda/parser";
+import type { Component } from "@texteda/ir/component";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
 import type { Project } from "@texteda/ir/project";
 import type { DiagnosticCodeId } from "@texteda/ir/diagnostics";
@@ -44,6 +45,16 @@ export interface LoadedComponents {
   problems: ComponentProblem[];
   /** The devices, id -> the facts the procurement rules need (ADR-0030). */
   devices: Map<string, Device>;
+  /**
+   * The IR shard of every readable component file, for the shard tree (`assets/components/<id>.json`).
+   *
+   * A file only appears here when it parsed cleanly *and* its header id equals its file name: a
+   * shard whose id disagrees with its path would make the tree's identity depend on which reader
+   * looks at it.
+   */
+  shards: { id: string; file: string; ir: Component }[];
+  /** Every diagnostic the component files produced, with severity and hint intact. */
+  diagnostics: Diagnostic[];
 }
 
 /**
@@ -69,6 +80,8 @@ export function loadComponents(root: string): LoadedComponents {
   const table = new Map<string, ComponentFactsLite>();
   const devices = new Map<string, Device>();
   const problems: ComponentProblem[] = [];
+  const shards: { id: string; file: string; ir: Component }[] = [];
+  const diagnostics: Diagnostic[] = [];
   /** Device files that exist but have errors: a board referencing them must not be told "not found". */
   const broken = new Map<string, string>();
   for (const file of files.sort()) {
@@ -77,6 +90,7 @@ export function loadComponents(root: string): LoadedComponents {
     const relativeFile = relative(root, file);
     if (!result.ok || !result.component) {
       broken.set(id, relativeFile);
+      diagnostics.push(...result.diagnostics);
       for (const diagnostic of result.diagnostics) {
         problems.push({
           code: diagnostic.code,
@@ -97,8 +111,17 @@ export function loadComponents(root: string): LoadedComponents {
         message: `The id declared in the file header is ${result.component.id}, the file name is ${id}`,
         data: { declared_id: result.component.id, file_id: id },
       });
+      diagnostics.push({
+        code: "ref.component-id-mismatch",
+        severity: "error",
+        message: `The id declared in the file header is ${result.component.id}, the file name is ${id}`,
+        hint: "the id is the file name: rename the file or the header, they must agree",
+        location: { file: relativeFile, line: 2, col: 1 },
+        data: { declared_id: result.component.id, file_id: id },
+      });
       continue;
     }
+    if (result.ir) shards.push({ id, file: relativeFile, ir: result.ir });
     table.set(id, { params: result.component.params, pins: result.component.pins });
     devices.set(id, {
       id,
@@ -121,6 +144,8 @@ export function loadComponents(root: string): LoadedComponents {
     },
     problems,
     devices,
+    shards,
+    diagnostics,
   };
 }
 

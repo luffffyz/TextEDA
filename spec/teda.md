@@ -168,6 +168,7 @@ component tps7a02
 | `category` | 否 | 器件类别，开放取值集：`mcu` / `resistor` / `capacitor` / `inductor` / `led` / `diode` / `mosfet_p` / `regulator` / `battery_charger` / … |
 | `datasheet` | 否 | URL |
 | `lcsc` | 否 | 嘉立创商城料号（`C` + 数字），供 BOM 匹配 SMT 物料；见 `docs/adr/0006-jlc-prototype-delivery.md` |
+| `description` | 否 | 一行人类描述（如 `SOT-23-5 500 mA LDO`）。只是散文：不参与任何检查，也不进身份（[ADR-0042](../docs/adr/0042-a-device-description-enters-the-ir.md)） |
 | `symbol` | 是 | `lib:name` |
 | `footprint` | 是 | `lib:name` |
 
