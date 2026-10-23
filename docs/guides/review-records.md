@@ -81,6 +81,10 @@ somebody decided without the authority, or the handover was never recorded.
 
 ## What `check` reports
 
+> Status: specified here, **not implemented yet** (`docs/backlog.md` F33). Today the notes and the
+> decision are files; nothing reports an open round. How to run a round with several roles is in
+> [role-reviews.md](role-reviews.md).
+
 | Diagnostic | Severity | Meaning |
 |---|---|---|
 | A round with notes and no decision | warning | Someone raised something and nobody has answered it |

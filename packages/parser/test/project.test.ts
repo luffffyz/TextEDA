@@ -146,13 +146,9 @@ name = "TextEDA"
 
 [[project.authors]]
 name = "Someone"
-email = "someone@example.com"
 `);
     expect(result.diagnostics).toEqual([]);
-    expect(result.ir?.project.authors).toEqual([
-      { name: "TextEDA" },
-      { name: "Someone", email: "someone@example.com" },
-    ]);
+    expect(result.ir?.project.authors).toEqual([{ name: "TextEDA" }, { name: "Someone" }]);
   });
 
   test("a key defined twice is an error", () => {

@@ -385,7 +385,8 @@ texteda/
 ├── docs/            # 设计决策（ADR）、语言教程、评审流程
 │   ├── adr/         # 决策记录 + 索引（`README.md`）
 │   ├── skills/      # **skill：给 agent 的操作手册**（每步 = 命令 + 预期输出 + 出错看哪个诊断码；**英文**）。现只有 `skills/new-project.md`（从零建工程到网表 / KiCad 库；可执行形态待做，见 `docs/backlog.md` F23）
-│   ├── guides/      # **上手指南**（怎么写库、怎么记评审、KiCad 板文件格式）：`footprint-authoring.md` / `symbol-authoring.md` / `review-records.md` / `kicad-pcb-format.md`
+│   ├── guides/      # **上手指南**（怎么写库、怎么记评审、怎么按角色评审、KiCad 板文件格式）：`footprint-authoring.md` / `symbol-authoring.md` / `review-records.md` / `role-reviews.md` / `kicad-pcb-format.md`
+│   ├── reviews/     # **评审轮次**：`<target>-r<N>.md`（多角色的意见）+ `.decision.toml`（责任人的处置）；约定见 `docs/guides/review-records.md`
 │   ├── assets/      # **品牌资产**（标志、图标、生成脚本）；字体二进制不入库，见 `docs/assets/README.md`
 │   ├── trial-run/   # 试跑记录（打样前的实物验证）
 │   ├── backlog.md   # 工作登记册（未落地的都在这里）
@@ -486,7 +487,7 @@ dist/ir/
 - **conformance**：`source → IR → netlist` 的黄金文件；任何实现必须通过。**现状：未存在**（netlist 导出也未实现）。
 - **binding**：`sch + pcb` 一致性用例，含 5 类受控偏差的正反例。**现状：未存在**（pcb 解析未实现）。
 - **components**：id/文件名一致、pin 编号与封装一致、`params` 列解析、文件缺失报错。**现状：部分**——前两项在 `lib:verify` 里（符号引脚号集合与器件一致、封装焊盘号覆盖器件引脚）；`params` 列解析已随 sch 解析器落地（按器件 `params` 段声明的顺序取值，单位按 [ADR-0008](docs/adr/0008-ir-shard-identity-and-hash.md) decision 4 换算成整数）。
-- **评审记录**：约定见 `docs/guides/review-records.md`；`check` 报未闭环的轮次（有意见无处置，warning 不阻断）与「处置人不是责任人」的警告。**评审不进 IR**（无分片、无哈希影响）。**现状：未落地**（[ADR-0033](docs/adr/0033-review-records-and-attribution.md)，`docs/backlog.md` F33）。
+- **评审记录**：约定见 `docs/guides/review-records.md`；**多角色评审的做法见 `docs/guides/role-reviews.md`**（一个角色 = 一套输入集 + 一类它负责找的失效 + 一个刻意的盲区；一轮 = 一个 target、多条署名意见、一个处置）。`check` 报未闭环的轮次（有意见无处置，warning 不阻断）与「处置人不是责任人」的警告。**评审不进 IR**（无分片、无哈希影响）。**现状：约定与首轮试跑已落地**（`docs/reviews/mcu-board-r1.md`、`charger-buck-r1.md`）；**`check` 侧的轮次上报未落地**（[ADR-0033](docs/adr/0033-review-records-and-attribution.md)，`docs/backlog.md` F33）。
 - **打印页**：`view` 解析与 canonical fmt、渲染器只画不摆、打印页与板级 id 的逐字对齐。**现状：解析与 fmt 已落地**；**板 ↔ 打印页交叉校验未落地**（归 `packages/core`，`docs/backlog.md` F3）。
 - **sch 编译**：`bun run compile:schematic <项目目录> <board_id>` 把板文件编译成板级 IR 分片（canonical JSON）；参考工程两块板（`mcu-board`、`charger-buck`）都要编译通过且满足 `schematic` 契约。**现状：已落地并通过**。
 - **工程校验**：`bun run check <项目目录>` 校验工程里全部板（语义层 ERC + 契约层 schema 校验 + **选料检查**：选中的件是否满足这一行、封装是否被换掉、哪些行还没选料），`--json` 输出 [ADR-0016](docs/adr/0016-diagnostic-error-codes.md) 的诊断载荷，有 error 退出码非零。**现状：已落地**（[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)）。
@@ -500,7 +501,7 @@ dist/ir/
 - **交叉引用可解析**：`bun run check:links` 校验全部 Markdown 链接目标存在、ADR 编号能解析到文件、链接文字与目标一致、`docs/adr/README.md` 索引与磁盘上的决策记录一一对应、ADR 头部格式统一。**现状：已落地并通过**。
 - **错误质量**：每条诊断含文件、行列、期望/实际、修复建议；提供 `--json` 输出供 agent 消费。**现状：大部分已落地**——诊断码是注册表里的 `域.slug`（[ADR-0016](docs/adr/0016-diagnostic-error-codes.md)），载荷带 `expected` / `actual` / `hint` / `data` / `related` / `cause`，`texteda check --json` 输出机器可读载荷；**缺**：**schema 层诊断只有 IR 路径**（`cause.instancePath`），没有源文件的行列。位置模型已定（[ADR-0020](docs/adr/0020-source-spans.md)：span 不进 IR，编译期产出「IR 路径 → 源 span」映射，列号是 1-based Unicode 标量列 + 字节偏移，粒度是记录级），实现见 `docs/backlog.md` F11。
 - 提交前必须跑完整检查；不允许"只跑单测"。**现状：CI 已落地**（`.github/workflows/ci.yml`，push 与 PR 到 `main` 都触发）：`bun test`、`bun run typecheck`、`bun run gen:check`、`bun run lib:verify`、`bun run check:links`、`bun run check:public`、`bun run fmt:teda --check .`。**必过段全部零外部依赖**（不需要 KiCad）；KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.yml`，定时 + 手动触发），因为门禁不得依赖外部工具（不变量 20 / [ADR-0018](docs/adr/0018-zero-dependency-and-manufacturing-target.md)）。
-- **公开仓库的每次 push 前要跑 `bun run check:public`**（[ADR-0015](docs/adr/0015-licensing-and-open-standard.md) decision 1 / `docs/backlog.md` F6）。仓库**已于 2026-10-21 公开**（`luffffyz/TextEDA`），所以这条是**当前生效的**门禁，不是将来的打算。公开就是**单向门**：进过历史的文件永久可读，fork 已经存在就收不回来。所以这一项查的是**历史**而不只是工作区——厂商 datasheet PDF、凭据、维护者机器的绝对路径、邮箱，都不能出现在任何可达提交里。检查项：① 历史里没有 PDF；② 没有凭据形状的字符串（私钥、GitHub/AWS/Slack token、API key 赋值）；③ 没有 `/home/<user>`、`/Users/<user>` 这类绝对路径（`/tmp` 通用临时目录不算）；④ 没有邮箱（提交者用的 AI 工具 noreply 邮箱也算邮箱；且 commit trailer 里的模型名必须与实际 provider/model 一致，写错了要立刻改历史，别等公开后再改——那时可能已有 fork）；⑤ 每个 `package.json` 有 `license` 与 `private: true`；⑥ `NOTICE` 附上被内置的第三方组件的许可正文（内置 Hershey 字形数据 → 必须有 MIT 正文）。**往 `docs/` 里放厂商文档前先想一次"是不是受版权保护的材料"——默认不入库**；真需要时放 `examples/reference-project/docs/datasheets/`，该目录已被 gitignore。**commit message 里的 `Co-Authored-By` trailer 同样要核对**：署名错了要立刻改历史，别等公开后再改（那时可能已有 fork）。
+- **公开仓库的每次 push 前要跑 `bun run check:public`**（它扫的是 `git ls-files` 里的文件，所以要在 `git add` 之后跑——未跟踪的新文件看不见，这正是它漏过一次的位置）（[ADR-0015](docs/adr/0015-licensing-and-open-standard.md) decision 1 / `docs/backlog.md` F6）。仓库**已于 2026-10-21 公开**（`luffffyz/TextEDA`），所以这条是**当前生效的**门禁，不是将来的打算。公开就是**单向门**：进过历史的文件永久可读，fork 已经存在就收不回来。所以这一项查的是**历史**而不只是工作区——厂商 datasheet PDF、凭据、维护者机器的绝对路径、邮箱，都不能出现在任何可达提交里。检查项：① 历史里没有 PDF；② 没有凭据形状的字符串（私钥、GitHub/AWS/Slack token、API key 赋值）；③ 没有 `/home/<user>`、`/Users/<user>` 这类绝对路径（`/tmp` 通用临时目录不算）；④ 没有邮箱（提交者用的 AI 工具 noreply 邮箱也算邮箱；且 commit trailer 里的模型名必须与实际 provider/model 一致，写错了要立刻改历史，别等公开后再改——那时可能已有 fork）；⑤ 每个 `package.json` 有 `license` 与 `private: true`；⑥ `NOTICE` 附上被内置的第三方组件的许可正文（内置 Hershey 字形数据 → 必须有 MIT 正文）。**往 `docs/` 里放厂商文档前先想一次"是不是受版权保护的材料"——默认不入库**；真需要时放 `examples/reference-project/docs/datasheets/`，该目录已被 gitignore。**commit message 里的 `Co-Authored-By` trailer 同样要核对**：署名错了要立刻改历史，别等公开后再改（那时可能已有 fork）。
 
 ---
 
