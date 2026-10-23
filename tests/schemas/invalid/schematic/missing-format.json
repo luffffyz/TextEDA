@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.3",
+  "ir_version": "0.4",
   "board": "demo",
   "instances": [{ "id": "R1", "component": "r-0402" }],
   "nets": [{ "id": "GND", "members": ["R1.2"] }]

@@ -1,4 +1,4 @@
-version 0.1.2
+version 0.1.5
 component tps5430ddar
 
 kind         part
@@ -9,6 +9,11 @@ datasheet    https://www.ti.com/lit/ds/symlink/tps5430.pdf
 
 symbol project:dc-dc-soic8
 footprint project:soic-8-ep
+
+# The part's own ratings (ADR-0039): what the device is, not what the design asks of it.
+ratings
+  voltage        voltage  28V
+  rated_current  current  3A
 
 pins
   1  BOOT    passive

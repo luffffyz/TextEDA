@@ -1,7 +1,7 @@
-version 0.1.2
+version 0.1.4
 component cap-mlcc-0603
 
-kind         family
+kind         generic
 category     capacitor
 construction mlcc
 polarized    no
@@ -11,8 +11,9 @@ footprint project:chip-0603
 
 params
   value      capacitance required
-  tolerance  percent     optional
-  voltage    voltage     optional
+  tolerance  percent     required
+  voltage    voltage     required
+  dielectric string      required
 
 pins
   1  A  passive

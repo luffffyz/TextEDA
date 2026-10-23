@@ -34,11 +34,9 @@ function tedaFiles(dir: string): string[] {
 
 const symbolFiles = tedaFiles(join(projectRoot, "assets/symbols", "project"));
 const footprintFiles = tedaFiles(join(projectRoot, "assets/footprints", "project"));
-// Parts and families both own pin facts (ADR-0027): the symbols are shared between them.
-const componentFiles = [
-  ...tedaFiles(join(projectRoot, "assets/components")),
-  ...tedaFiles(join(projectRoot, "assets/families")),
-];
+// Parts and generics both own pin facts (ADR-0027): the symbols are shared between them.
+// They live in one tree (ADR-0037).
+const componentFiles = tedaFiles(join(projectRoot, "assets/components"));
 
 /** The part that references a given symbol (the sole owner of pin names and electrical types, ADR-0012). */
 function partForSymbol(ref: string): { pins: { number: string; name: string; type: string }[] } {

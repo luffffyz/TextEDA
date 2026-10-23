@@ -183,7 +183,7 @@ describe("constraint types", () => {
     "schematic b",
     "",
     "instances",
-    "  R1  res-thick-0402  10k",
+    "  R1  res-thick-0402  10k  ±1%",
     "",
     "nets",
     "  A:  R1.1",
@@ -225,7 +225,7 @@ describe("constraint types", () => {
 });
 
 describe("negative cases", () => {
-  const board = ["version 0.3", "schematic b", "", "instances", "  R1  res-thick-0402  10k", "", "nets", "  A:  R1.1"].join("\n");
+  const board = ["version 0.3", "schematic b", "", "instances", "  R1  res-thick-0402  10k  ±1%", "", "nets", "  A:  R1.1"].join("\n");
 
   function codes(text: string, options: Partial<Parameters<typeof parseSchematic>[1]> = {}): string[] {
     const result = parseSchematic(text, {
@@ -253,7 +253,7 @@ describe("negative cases", () => {
   });
 
   test("duplicate refdes", () => {
-    const text = board.replace("nets", "  R1  res-thick-0402  10k\n\nnets");
+    const text = board.replace("nets", "  R1  res-thick-0402  10k  ±1%\n\nnets");
     expect(codes(text)).toContain("ref.duplicate-refdes");
   });
 
@@ -265,6 +265,22 @@ describe("negative cases", () => {
   test("parameter value is not a value of that quantity", () => {
     const text = board.replace("10k", "10V");
     expect(codes(text)).toContain("value.invalid-param");
+  });
+
+  test("a code-valued parameter outside its closed value set is an error (ADR-0038)", () => {
+    // The dielectric is a code, not a quantity: the spelling is exact, because two spellings of
+    // one code would be two BOM lines.
+    const text = [
+      "version 0.3",
+      "schematic b",
+      "",
+      "instances",
+      "  C1  cap-mlcc-0402  100n  ±10%  16V  X7r",
+      "",
+      "nets",
+      "  A:  C1.1",
+    ].join("\n");
+    expect(codes(text)).toContain("value.component-param-value-invalid");
   });
 
   test("pin does not exist", () => {
@@ -294,7 +310,7 @@ describe("negative cases", () => {
       "schematic b",
       "",
       "instances",
-      "  R1  res-thick-0402  10k",
+      "  R1  res-thick-0402  10k  ±1%",
       "",
       "nets",
       "  A:  R1.1",
@@ -330,7 +346,7 @@ describe("negative cases", () => {
   });
 
   test("the `page` description type is gone: it says so instead of 'unknown type'", () => {
-    const text = "version 0.3\npage p1\n\ninstances\n  R2  res-thick-0402  10k";
+    const text = "version 0.3\npage p1\n\ninstances\n  R2  res-thick-0402  10k  ±1%";
     const result = parseSchematic(text, { file: "sch/b/p1.teda", board: "b", components: resolver });
     const diagnostic = result.diagnostics.find((d) => d.code === "syntax.removed-construct")!;
     expect(diagnostic.message).toContain("page");
@@ -365,7 +381,7 @@ describe("single-member net semantics (teda.md §11.4)", () => {
       "schematic b",
       "",
       "instances",
-      "  R1  res-thick-0402  10k",
+      "  R1  res-thick-0402  10k  ±1%",
       "",
       "nets",
       "  A:  R1.1",
@@ -387,7 +403,7 @@ describe("single-member net semantics (teda.md §11.4)", () => {
       "schematic b",
       "",
       "instances",
-      "  R1  res-thick-0402  10k",
+      "  R1  res-thick-0402  10k  ±1%",
       "",
       "nets",
       "  SWD:  R1.1",
@@ -407,7 +423,7 @@ describe("single-member net semantics (teda.md §11.4)", () => {
 
 describe("continuation rows (teda.md §7.2)", () => {
   // A row whose first column is a bare `:` continues the net named by the row above it.
-  const header = ["version 0.3", "schematic b", "", "instances", "  R1  res-thick-0402  10k", "  R2  res-thick-0402  10k", "", "nets"].join("\n");
+  const header = ["version 0.3", "schematic b", "", "instances", "  R1  res-thick-0402  10k  ±1%", "  R2  res-thick-0402  10k  ±1%", "", "nets"].join("\n");
 
   function parse(text: string) {
     return parseSchematic(text, { file: "sch/b.teda", board: "b", components: resolver });
@@ -457,7 +473,7 @@ describe("continuation rows (teda.md §7.2)", () => {
 });
 
 describe("bus continuation rows (teda.md §7.3)", () => {
-  const header = ["version 0.3", "schematic b", "", "instances", "  R1  res-thick-0402  10k", "  R2  res-thick-0402  10k", "", "bus i2c0 = I2C"].join("\n");
+  const header = ["version 0.3", "schematic b", "", "instances", "  R1  res-thick-0402  10k  ±1%", "  R2  res-thick-0402  10k  ±1%", "", "bus i2c0 = I2C"].join("\n");
 
   test("a continuation row adds pins to the bus member above it", () => {
     const result = parseSchematic(`${header}\n  scl:  R1.1\n  :  R2.1\n  sda:  R2.2`, {

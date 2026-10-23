@@ -52,7 +52,7 @@ nets
 
 | 类型 | 位置 | 说明 |
 |---|---|---|
-| `component` | `assets/components/**/<component_id>.teda` | 一块料一个文件，可放子目录 |
+| `component` | `assets/components/**/<component_id>.teda` | 器件定义一个文件（`part` 与 `generic` 同在这个目录），可放子目录 |
 | `schematic` | `design/sch/<board_id>.teda` | 一块板一个文件（v0.7 起：板内不再有页面文件） |
 | `pcb` | `design/pcb/<board_id>.teda` | 可后置，可为空 |
 | `system` | `design/system/<system_id>.teda` | 多板连接描述，一份系统一个文件（v0.2 新增） |
@@ -60,7 +60,7 @@ nets
 | `symbol` | `assets/symbols/<lib>/<symbol_id>.teda` | 库产物：一个符号的视图（v0.5 新增） |
 | `view` | `views/<board_id>/<page_id>.view.teda` | 一块板的一个"打印页"：S1 视图层（v0.6 新增，v0.7 起引用板级 id，语法见 `spec/schematic-view.md`） |
 | `module` | `design/modules/<module_id>.teda` | 板内的一个模块：带端口、持有电气事实（v0.8 新增，语法见 `spec/module.md`） |
-| `procurement` | `assets/procurement/{primary,alternatives}/<board_id>.teda` | 一块板的采购选料：族 → 买哪颗（v0.9 新增，语法见 `spec/procurement.md`） |
+| `procurement` | `assets/procurement/{primary,alternatives}/<board_id>.teda` | 一块板的采购选料：通用器件 → 买哪颗（v0.9 新增，语法见 `spec/procurement.md`） |
 
 文件名必须等于头部 id；不一致报错。`assets/components/` 允许子目录，子目录只用于分类；`component_id` 取文件名（不含 `.teda`），不取相对路径，同一 id 在 `assets/components/` 树内必须唯一。顶层目录与文件类型必须一致（`assets/components/` 只放 `component`，`design/modules/` 只放 `module`，以此类推）；`design/sch/<board_id>.teda` 是板的文件（`schematic`）；打印页（`view`）是独立描述类型，放在独立根目录 `views/<board_id>/<page_id>.view.teda`，靠 `.view` 后缀与目录区分（`view <page_id>`，见 [ADR-0032](../docs/adr/0032-view-is-a-drawing-not-a-build-input.md)）。`assets/footprints/` 与 `assets/symbols/` 是**库目录**而不是描述目录：它们按库分子目录（`assets/footprints/<lib>/`、`assets/symbols/<lib>/`），库名由目录决定（IR 的 `footprint.library` / `symbol.library`），不进文件内容。`assets/procurement/primary/` 与 `assets/procurement/alternatives/` 只放 `procurement` 文件，文件名是板 id，两者的区别是**哈希级别**（主料规范、备料附注），不是语法（v0.9）。工程树整体按 `docs/adr/0031-project-tree-ownership-model.md`（本表其余行的路径待同步）。
 
@@ -160,10 +160,10 @@ component tps7a02
 
 | 键 | 必填 | 说明 |
 |---|---|---|
-| `kind` | 是 | `part`（具体器件）或 `family`（器件族）；见 §6.1.1 |
-| `mpn` | 条件 | 制造商料号：`kind: part` 必填，`kind: family` **必须不写** |
-| `construction` | 条件 | 构造工艺：`kind: family` 必填，`kind: part` **必须不写** |
-| `polarized` | 条件 | 是否有极性：`kind: family` 必填（`yes` / `no`），`kind: part` **必须不写** |
+| `kind` | 是 | `part`（具体器件）或 `generic`（通用器件）；见 §6.1.1 |
+| `mpn` | 条件 | 制造商料号：`kind: part` 必填，`kind: generic` **必须不写** |
+| `construction` | 条件 | 构造工艺：`kind: generic` 必填，`kind: part` **必须不写** |
+| `polarized` | 条件 | 是否有极性：`kind: generic` 必填（`yes` / `no`），`kind: part` **必须不写** |
 | `manufacturer` | 否 | 厂商 |
 | `category` | 否 | 器件类别，开放取值集：`mcu` / `resistor` / `capacitor` / `inductor` / `led` / `diode` / `mosfet_p` / `regulator` / `battery_charger` / … |
 | `datasheet` | 否 | URL |
@@ -175,19 +175,19 @@ component tps7a02
 
 **封装名不在器件文件里**。器件只引用一个 `footprint`（`lib:name`），封装代号由封装文件自己写（`package_code`，见 `spec/footprint.md` §2）：封装代号是**焊盘图案**的名字（`0402`、`SOT-23-5`、`LQFP-100`），两个字段说同一件事、且没人校验它们一致，所以删掉一个（决策见 [ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) decision 1）。
 
-### 6.1.1 两种器件：`part` 与 `family`
+### 6.1.1 两种器件：`part` 与 `generic`
 
-`component` 描述类型同时描述两种不同的东西，用 `kind` 显式区分，**从不推断**（决策见 [ADR-0027](../docs/adr/0027-device-parts-families-and-library-dependencies.md)）：
+`component` 描述类型同时描述两种不同的东西，用 `kind` 显式区分，**从不推断**（决策见 [ADR-0027](../docs/adr/0027-device-parts-families-and-library-dependencies.md)；词汇与目录见 [ADR-0037](../docs/adr/0037-device-kind-vocabulary-and-one-device-directory.md)）：
 
 | `kind` | 身份 | `mpn` | `params` | 典型 `instances` 行 |
 |---|---|---|---|---|
 | `part` | 一个制造商料号 | **必填** | 不写（身份封闭） | `U1 tps5430ddar` |
-| `family` | 一个器件族（类别 + 构造 + 封装） | **禁止** | 至少一列必填的 `value` | `C1 cap-tantalum-7343 220uF 10V` |
+| `generic` | 一个通用器件类别（类别 + 构造 + 封装） | **禁止** | 至少一列必填的 `value` | `C1 cap-tantalum-7343 220uF 10V` |
 
-- `part` 是**买得到的那一颗**：料号固定了它的一切，所以它没有参数列，也不写构造与极性（那是从它所属的族继承的）。
-- `family` 是**设计要求的规格**：文件里没有料号，值、耐压、容差都在 `instances` 行里；`construction`（`mlcc` / `tantalum` / `film` / `shielded` / …，开放取值）与 `polarized`（`yes` / `no`）是族自己的事实，不再靠文件名或符号选择暗示。
-- 目录与 `kind` 必须一致：`assets/components/` 放 `part`，`assets/families/` 放 `family`。两者共用一个 id 命名空间，id 取文件名。
-- 族 id 不带值、不带耐压、不带容差（`cap-mlcc-0402`、`res-th-0402`、`cap-tantalum-7343`）。
+- `part` 是**买得到的那一颗**：料号固定了它的一切，所以它没有参数列，也不写构造与极性（那是从它所属的通用器件继承的）。
+- `generic` 是**设计要求的规格**：文件里没有料号，值、耐压、容差都在 `instances` 行里；`construction`（`mlcc` / `film` / `tantalum` / `electrolytic` / `thick` / `thin` / `shielded` / `molded`，**封闭取值集**，由 `texteda check` 按 [ADR-0038](../docs/adr/0038-device-vocabulary-and-parameter-roles.md) D4 检查）与 `polarized`（`yes` / `no`）是它自己的事实，不再靠文件名或符号选择暗示。买哪一颗由采购层决定（`spec/procurement.md`），不在器件文件里。**封闭的理由**：已经有一条**已决的规则**按构造分流（[ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) decision 2 用它区分"能不能带封装包络"，检查落在 `lib:verify`，**实现未落地**，见 `docs/backlog.md` F32），开放词表里的拼错不会报错，只会**静默漏掉一条安全检查**。
+- 两种器件**同在一个目录**：`assets/components/**` 放全部器件文件，子目录只用于分类。`kind` 是文件里的事实，**不从目录推断**，目录也不表达种类（决策见 [ADR-0037](../docs/adr/0037-device-kind-vocabulary-and-one-device-directory.md)）。两者共用一个 id 命名空间，id 取文件名。
+- 通用器件的 id 不带值、不带耐压、不带容差（`cap-mlcc-0402`、`res-thick-0402`、`cap-tantalum-7343`）。
 
 **引脚表是身份边界**：改了引脚表就是另一个器件。只有不改变引脚电气行为的属性才可以成为 `params`（值、耐压、容差、ESR、温度等级）。因此 `footprint` 是器件的固定属性，永远不是参数列；封装代号同理（它由封装文件写，不由器件写）。
 
@@ -204,14 +204,75 @@ params
 
 列：`name type required|optional`。
 
-`required` 必须排在 `optional` 之前，因此 `instances` 行只需从右往左省略 optional 列。
+- **`name` 是角色**（这个参数是哪个量、哪个额定值），**`type` 是量纲**（单位，以及它在 IR 里的整数表示，见 [ADR-0008](../docs/adr/0008-ir-shard-identity-and-hash.md) decision 4）。所以电感写 `value inductance required`，不写 `inductance value required`：`value` 不是量纲，它是"主量的标称值"这个角色。这个不对称在契约里已经是这样——IR 给 `param_decl.name` 的模式是 `^[a-z][a-z0-9_]*$`（开放标签），给 `param_decl.type` 的是封闭的量纲枚举。
+- 角色名一律小写加下划线。**数据手册的符号不进语言**：`I_sat` 是某家的记法（Vishay 写 `Isat`、TDK 写 `I_sat`），把语言绑到一家的记法上，而且违反上面那条模式。角色写 `sat_current`，长形式与判据写进角色词表（决策见 [ADR-0038](../docs/adr/0038-device-vocabulary-and-parameter-roles.md) D2）。
+- `required` 必须排在 `optional` 之前，因此 `instances` 行只需从右往左省略 optional 列。
 
 类型：`resistance`、`capacitance`、`inductance`、`voltage`、`current`、`power`、`frequency`、`length`、`temperature`、`percent`、`integer`、`string`。
 
 - `kind: part` **不写** `params` 段：料号已经定死身份，再有参数列就是两处身份。
-- `kind: family` **必须**写 `params` 段，且至少有一列必填的 `value`（族之间的区别就是值）。
+- `kind: generic` **必须**写 `params` 段，且至少有一列必填的 `value`（通用器件之间的区别就是值）。
 - 参数列不得叫 `package` 或 `footprint`：封装与焊盘图案是固定属性（§6.1.1、§6.1），不随取值变化。
 - 参数不得改变引脚表（§6.1.1）。
+
+#### 6.2.1 角色词表
+
+角色是**哪个额定值**，类型是**量纲**。同一个量纲有多个额定值时，角色名必须指明是哪一个；**判据写在这里，不写进类型词表**——类型词表是纯单位表（[ADR-0008](../docs/adr/0008-ir-shard-identity-and-hash.md)），而件（`kind: part`）在 IR 里根本没有额定值，IR 里只有要求，所以"要求方"与"读数据手册的人"对齐判据是人和 agent 的事，不是两台机器的事（决策见 [ADR-0038](../docs/adr/0038-device-vocabulary-and-parameter-roles.md) D3）。
+
+| 角色 | 量纲 | 含义与判据 |
+|---|---|---|
+| `value` | 主量的量纲 | 主量的标称值（容值 / 阻值 / 电感量） |
+| `tolerance` | `percent` | **设计允许的偏差上限**（不是件的容差）：`±1%` = 任何落在 ±1% 内的件都合格，**更好的件（±0.5%）也合格**，更差的（±2%）不合格 |
+| `voltage` | `voltage` | 耐压：能承受的最高电压 |
+| `dielectric` | `string` | MLCC 的温度特性码（IEC 60068-4）：`C0G` / `NP0` / `X7R` / `X5R` / `Y5V` …，**封闭取值集** |
+| `esr` | `resistance` | 直流等效串联电阻 |
+| `dcr` | `resistance` | 直流电阻 |
+| `rated_current` | `current` | 额定电流：可长期连续流过的 RMS 电流（**热限**） |
+| `sat_current` | `current` | 饱和电流：电感量跌到标称 30% 时的电流（**磁限**，数据手册惯例） |
+
+`rated_current` 与 `sat_current` 是两种不同的限制，彼此不相关（额定 6A / 饱和 3A 是常见件，磁限通常先到），所以是两个角色。
+
+**角色带一个比较方向**：`instances` 行写的是**要求**（见 §6.2.2），选料时拿来和件自己的额定值比。方向决定"哪一边更好"，也决定**更好的件永远合格**：
+
+| 角色 | 件必须 | 方向 |
+|---|---|---|
+| `value` | 落在设计给的包络内：件自己的最坏值（标称 ± 件自己的容差）必须在 `value ± tolerance` 之内 | 包络 |
+| `tolerance` | ≤ 设计给的容差 | 上限（更小更好） |
+| `voltage` | ≥ 设计给的耐压 | 下限（更大更好） |
+| `dielectric` | 与设计给的同一类别 | 相等（类别之间无序：X7R 温度特性比 X5R 好，直流偏压又更差，没有"至少"这一说） |
+| `esr` `dcr` | ≤ 设计给的上限 | 上限（更小更好） |
+| `rated_current` `sat_current` | ≥ 设计给的下限 | 下限（更大更好） |
+
+所以 `R1 10k ±1%` 允许买 ±0.5% 的件（更好，合格），不允许买 ±2% 的件（更差，超出设计给的包络）。**写容差不挡替代料，挡替代料的是"把值当事实写死"。** 比较用的件额定值从哪来已经定了：件在自己的文件里用 `ratings` 段写（[ADR-0039](../docs/adr/0039-a-part-states-its-own-ratings.md)，§6.4）。
+
+**封闭取值集**：成员就是唯一合法拼写，**不归一化、不收别名**——同一个码的两种写法会变成两行 BOM。取值不在集合里 → 源码侧报错并列出合法值（决策见 [ADR-0038](../docs/adr/0038-device-vocabulary-and-parameter-roles.md) D5）。
+
+#### 6.2.2 哪些参数必填
+
+> **必填 = 少了它这组要求就不完整**：一个 `construction` 的必填集合，就是采购时必须写清的那几项（`100nF ±10% 16V X7R`、`10k ±1%`、`10uH ±20% 3A`）。
+> **选填 = 在这一类里挑件用的额外信息**（ESR、DCR），**或者封装已经替你决定了**（电阻的功率额定值）。
+
+| `construction` | 必填 | 选填 |
+|---|---|---|
+| `mlcc` | `value` `tolerance` `voltage` `dielectric` | — |
+| `film` | `value` `tolerance` `voltage` | `esr` |
+| `tantalum` | `value` `tolerance` `voltage` | `esr` |
+| `electrolytic` | `value` `tolerance` `voltage` | `esr` |
+| `thick` `thin` | `value` `tolerance` | `power` |
+| `shielded` `molded` | `value` `tolerance` `rated_current` | `sat_current` `dcr` |
+
+理由：
+
+- **`instances` 行写的是要求集，不是件**：每一列都是对"将来买到的件"的要求（标称值、允许的偏差、耐压下限、介质类别），不是数据手册的抄写。件满足全部要求就合格，**更好的件也合格**——`R1 10k ±1%` 意为"任何落在 ±1% 内的 10k"，1% 缺货时可以买 ±0.5%，±2% 的不行。**写容差不挡替代料；把值当"事实"写死才挡。** 采购在这组要求里选件，设计只说要求（[ADR-0030](../docs/adr/0030-procurement-layer.md)）。
+- **容差必填 = 不给采购自由发挥**：不写容差，等于授权采购在这一类里随便挑；写了，它就在设计给定的包络里挑。必填集合因此是**一组完整要求**（`100nF ±10% 16V X7R`），不是半份。
+- **容差同时就是最坏情况**：`10k ±1%` 是区间 [9.9kΩ, 10.1kΩ]。评估器要在这段区间上判约束，而不是在标称值上判——设计保证"凡是它允许的件，电路都对"。**限制采购的那个数，就是分析必须扛住的那个数**：一个数，两个用途（评估器是 [ADR-0038](../docs/adr/0038-device-vocabulary-and-parameter-roles.md) 的 open point 与 `docs/backlog.md` F42 的事）。
+- 钽电容与电解电容的罐体随耐压变（[ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) 自己就是拿这条拒绝它们带封装包络的），所以耐压是要求的一部分。
+- 电阻的功率额定值由封装决定（0402 厚膜惯例 1/16W），它属于封装，不属于实例；设计的耗散是**约束**（`power R1 63mW`），不是参数。
+- `sat_current` 是角色（§6.2.1），但**选填**：它要不要写取决于设计有没有峰值电流；"峰值电流会不会让磁饱和"是**比对**，那是 `docs/backlog.md` F42 的事。
+
+**必填只保证"写出来了"**：解析器强制 `instances` 行给齐每个必填列，所以规格写在源码里。但**没有任何东西拿它去比对**——没有检查器拿电容的耐压去比它所在的网，也没有检查器拿件去比要求（件在 IR 里没有额定值，因为 `kind: part` 禁 `params`）。"写出规格"与"验证规格"是两件事（决策见 [ADR-0038](../docs/adr/0038-device-vocabulary-and-parameter-roles.md) D6 与其附录）。
+
+上表与检查落在 `packages/core` 的器件规则表里（[ADR-0038](../docs/adr/0038-device-vocabulary-and-parameter-roles.md) D7），由 `texteda check` 执行。
 
 ### 6.3 `pins` 段
 
@@ -233,13 +294,40 @@ pins
 - 可以省略的唯一情形：`symbol` 指向**自带引脚事实**的第三方库（如 KiCad `.kicad_sym`），此时引脚由库解析、`pins_source = symbol`。自建符号不能成为这个来源。
 - 两种来源同时存在时**内联优先**（用于修正库里的错误）；差异由校验报告输出，不静默采用。
 
+### 6.4 `ratings` 段（`kind: part`）
+
+```
+ratings
+  tolerance  percent  2%
+  voltage    voltage  36V
+```
+
+列：`role type value`。
+
+`ratings` 段是**事实段**（和 `pins` 一样）：它写这颗**具体的件**自己有什么额定值。与 `params` 段的分工是硬的：
+
+| | `params` | `ratings` |
+|---|---|---|
+| 是谁的 | 设计的 | 件的 |
+| 是什么 | `instances` 行要填的列 | 这颗件自己的取值 |
+| 谁填 | 板（每个实例一份） | 件文件（每个额定值一份） |
+| 允许的 `kind` | 只有 `generic` | 只有 `part` |
+
+- 角色名取 §6.2.1 的封闭角色词表；`type` 必须是该角色的量纲（`value` 除外：件的量纲由这一行自己写，因为件不声明 `construction`）。
+- 取值按该量纲解析；`dielectric` 这类封闭取值集照样只认集合里的写法。
+- **一个额定值是一个数，不是一个区间**：能承受的最高电压、长期可过的电流、标称值周围的容差。区间是**要求**（`voltage SYS 9V..19.8V`），由设计写在网的约束里。
+- 通用器件不得写 `ratings`（它是一个类，类自己没有额定值；它的要求在 `instances` 行里）；`kind: part` 不得写 `params`（参数列是 `instances` 行填的，件没有实例行可填）——两条都报错。
+- `ratings` 不改器件身份：引脚表不变、`mpn` 不变的还是同一颗件。
+
+件被选去填一条通用件的行时，逐角色按方向比（§6.2.1、`spec/procurement.md` §3.3）：**更好的件永远合格**。
+
 ---
 
 ## 7. `schematic` 文件
 
 ### 7.1 `instances` 段
 
-`assets/components/`（`part`）与 `assets/families/`（`family`）存器件定义；本段存放置实例，同一 `component_id` 可被多行引用。
+`assets/components/` 存器件定义（`part` 与 `generic` 同在一个目录）；本段存放置实例，同一 `component_id` 可被多行引用。
 
 ```
 instances
@@ -250,9 +338,9 @@ instances
 
 列：`refdes component_id [param...]`。
 
-- `component_id` 必须在 `assets/components/` 或 `assets/families/` 树中按文件名找到；同一 id 只允许一个文件；否则报错。
+- `component_id` 必须在 `assets/components/` 树中按文件名找到；同一 id 只允许一个文件；否则报错。
 - 额外列与该器件 `params` 段**声明的顺序**一一对应（不按名字或类型猜）；`optional` 列只能从右往左省略，`required` 列不能省略。
-- `kind: part` 的实例行只有 `refdes` 与 `component_id`；`kind: family` 的实例行带上它的参数（值的列必填）。
+- `kind: part` 的实例行只有 `refdes` 与 `component_id`；`kind: generic` 的实例行带上它的参数（值的列必填）。
 - `refdes` 在本文件内唯一。板只有一份原理图文件，板内没有第二套命名空间（v0.7 起，§7.6）。
 - 封装不在 `instances` 行写，由器件文件决定。
 
@@ -415,7 +503,7 @@ nets
 
 `input`、`output`、`bidirectional`、`tri_state`、`passive`、`power_in`、`power_out`、`power`、`open_collector`、`open_emitter`、`polarized`、`no_connect`、`unspecified`。
 
-其中 `power` 表示地/参考节点；`power_in` 表示供电输入；`polarized` 表示**有极性**的引脚（正负不可互换，族本身声明 `polarized yes`）。
+其中 `power` 表示地/参考节点；`power_in` 表示供电输入；`polarized` 表示**有极性**的引脚（正负不可互换，通用器件本身声明 `polarized yes`）。
 
 ### 10.2 单位与前缀
 
@@ -463,7 +551,7 @@ nets
 14. pcb（`pcb` 文件存在时）：按 `spec/pcb.md` §5.2 执行；sch↔pcb 绑定与偏差白名单见 `AGENTS.md` §4.4。
 15. footprint（库文件存在时）：按 `spec/footprint.md` §7 执行；库级检查（引脚号比对、DRC）不在这层。
 16. symbol（库文件存在时）：按 `spec/symbol.md` §7 执行；库级检查（与 `component` 的引脚号集合比对）不在这层。
-17. procurement（`procurement` 文件存在时，v0.9）：按 `spec/procurement.md` §3.2 与 §7 执行。族能解析且是族、件能解析且是件、件有 `mpn`、件的 `params` 覆盖族的、件的 `footprint` 等于族的 `footprint`、件不是被工程派生件遮蔽的库件。**主料违反是 error，备料违反是 warning**（严格模式下 error）；源文件本身解析失败一律是 error。族行没有选料 → warning（unsourced）；选中的件板上没用到 → warning。
+17. procurement（`procurement` 文件存在时，v0.9）：按 `spec/procurement.md` §3.2 与 §7 执行。通用器件能解析且是通用器件、件能解析且是件、件有 `mpn`、件的 `params` 覆盖通用器件的、件的 `footprint` 等于通用器件的 `footprint`、件不是被工程派生件遮蔽的库件。**主料违反是 error，备料违反是 warning**（严格模式下 error）；源文件本身解析失败一律是 error。通用器件行没有选料 → warning（unsourced）；选中的件板上没用到 → warning。
 
 诊断格式：`file:line:col: <severity> <code>: <message>`；`--json` 输出同字段。严重级别：`error` / `warning`。
 
@@ -494,9 +582,9 @@ nets
    - `pins` 按编号数值
    - `params` 保持源文件顺序（声明顺序即实例行的列序）；`required` 列必须排在 `optional` 列之前，否则报错
    - pcb 各段的排序与归一见 `spec/pcb.md` §6.2
-   - procurement 的 `selections` 按左键文本排序：族 id 按 ASCII，参数按声明顺序逐个按 ASCII（IR 里按解析后的值排序，见 §12 规则 9）
+   - procurement 的 `selections` 按左键文本排序：通用器件 id 按 ASCII，参数按声明顺序逐个按 ASCII（IR 里按解析后的值排序，见 §12 规则 9）
    - `constraints` 保持源文件顺序
-3. 列对齐：同段内按最宽单元格对齐，列间至少两个空格。**procurement 行不对齐**：两行的列含义不同（某族的第一个参数不是另一族的第一个参数），对齐会暗示不存在的对应关系；procurement 行的单元格之间用**一个**空格，`->` 前后各一个空格。
+3. 列对齐：同段内按最宽单元格对齐，列间至少两个空格。**procurement 行不对齐**：两行的列含义不同（某通用器件的第一个参数不是另一通用器件的第一个参数），对齐会暗示不存在的对应关系；procurement 行的单元格之间用**一个**空格，`->` 前后各一个空格。
 4. 段之间一个空行；无行尾空白；文件末尾一个换行。
 5. 整行注释保留，并跟随其后的行移动。
 6. 单元格内容不变，只调整分隔空白：表段单元格之间至少两个空格并对齐；标量行（"键 + 值"）用单个空格分隔，多单元格的值（如 `description`）按单元格重排，连续空白归一。
@@ -512,7 +600,7 @@ nets
 
 `version` 为 `MAJOR.MINOR[.PATCH]`，三位各自无前导零。**PATCH 位可省略，省略即 0**：`0.6` 与 `0.6.0` 是同一个版本，IR 里只存一种写法（`0.6`）。
 
-`version` 是**该描述类型自己的**版本线，不是全语言共享的一个版本号：今天在飞的是四个号——`schematic 0.8`、`view 0.7`、`symbol 0.5`、`component 0.1.2`（另有 `pcb 0.4`、`footprint 0.4.1`、`system 0.2`、`module 0.8`、`procurement 0.9`）。在 `0.x` 阶段**每种描述类型只走 PATCH 位**（`0.8` → `0.8.1`）：加段、加字段也不抬 MINOR。抬 MINOR 的时机留给最后的合并（见 §13.2）。决策见 `docs/adr/0022-language-versioning.md` 的 2026-10-22 附录。
+`version` 是**该描述类型自己的**版本线，不是全语言共享的一个版本号：今天在飞的是四个号——`schematic 0.8`、`view 0.7`、`symbol 0.5`、`component 0.1.4`（另有 `pcb 0.4`、`footprint 0.4.1`、`system 0.2`、`module 0.8`、`procurement 0.9`）。在 `0.x` 阶段**每种描述类型只走 PATCH 位**（`0.8` → `0.8.1`）：加段、加字段也不抬 MINOR。抬 MINOR 的时机留给最后的合并（见 §13.2）。决策见 `docs/adr/0022-language-versioning.md` 的 2026-10-22 附录。
 
 | 位 | 什么时候动 | 动它意味着 |
 |---|---|---|
@@ -567,11 +655,25 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
     2. `kind: family` 的文件补 `construction` 与 `polarized`（按文件名与符号能推出来的就推，推不出来的由作者填）。
     3. 族文件移到 `assets/families/`；件的 id 不带值的改名由作者决定（工具不替人命名）。
     4. `instances` 行里的器件 id 跟着改名。
+  - *（`0.1.3` 撤销了这条里的两件事：`family` 改名为 `generic`，器件目录也合并回 `assets/components/`——见下。）*
 - `component` 描述类型：`0.1.1` → `0.1.2`（PATCH）。**删除** `package` 标量：封装代号改由封装文件自己写（`package_code`），器件只保留 `footprint` 引用（决策见 [ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) decision 1）。**这是破坏性变更**（老文件不再合法），按 §13.1 的 `0.x` 规则走 PATCH 位，改法见下：
   - **改法**（同上没有需要迁移的旧文件）：
     1. 删掉器件文件里的 `package` 行。
     2. 把封装代号搬到对应的封装文件：写 `package_code <代号>`，封装文件的版本行改成 `0.4.1`。同一焊盘图案上出现两个不同代号时由作者决定留哪个。
+- `component` 描述类型：`0.1.2` → `0.1.3`（PATCH）。**改名与合目录**：`kind` 的第二个取值 `family` 改名为 `generic`（"族"是厂商的词：STM32F4 族、LM35 族说的都是厂商的产品线；我们这里说的是"没有厂商的器件类别"，行业里叫 generic），两种器件**合并到同一个目录** `assets/components/**`，`kind` 只写在文件里、不再从目录推断（决策见 [ADR-0037](../docs/adr/0037-device-kind-vocabulary-and-one-device-directory.md)）。**这是破坏性变更**（`kind family` 的老文件不再合法），按 §13.1 的 `0.x` 规则走 PATCH 位，改法见下：
+  - **改法**（本项目尚无外部使用者，没有需要迁移的旧文件；下面是改动的机械部分）：
+    1. 器件文件里的 `kind family` 改成 `kind generic`；id、`construction`、`polarized`、`params` 一律不动。
+    2. `assets/families/**` 下的文件移到 `assets/components/**`（按类别放进对应子目录）。
+    3. 通用器件文件的版本行改成 `0.1.3`；`kind: part` 的文件内容没变，版本行保持 `0.1.2`（§13.4 的规矩：没用新构造的文件保持旧号）。
+    4. 库里的器件同理；`lib:id` 的限定名规则不变。
+- `component` 描述类型：`0.1.3` → `0.1.4`（PATCH）。**词表封闭 + 必填列按构造收紧**：`construction` 变成封闭取值集（§6.1.1）；`params` 的角色名与量纲分工写进 §6.2；必填列按 `construction` 收紧（§6.2.2）；`dielectric` 的取值变成封闭集合（§6.2.1）。**这是破坏性变更**（`construction` 拼错、介质拼错、以及缺必填列的老文件不再合法），按 §13.1 的 `0.x` 规则走 PATCH 位（决策见 [ADR-0038](../docs/adr/0038-device-vocabulary-and-parameter-roles.md)）。**改法**：
+  1. `construction` 改成封闭取值集里的写法（`mlcc` / `film` / `tantalum` / `electrolytic` / `thick` / `thin` / `shielded` / `molded`）。
+  2. 按 §6.2.2 给每种 `construction` 补齐必填列（例：`mlcc` 补 `dielectric`，`tantalum` 把 `voltage` 提为必填）。
+  3. `dielectric` 的取值改成 IEC 60068-4 的码（`X7R` / `X5R` / `C0G` …），不归一化、不收别名。
+  4. 通用器件文件的版本行改成 `0.1.4`；`kind: part` 的文件内容没变，版本行保持原号（§13.4 的规矩：没用新构造的文件保持旧号）。
+  - **已落地**：上表的规则表在 `packages/core`（`devices/rules.ts`），由 `texteda check` 执行（决策见 [ADR-0038](../docs/adr/0038-device-vocabulary-and-parameter-roles.md) D7）。
 - `footprint` 描述类型：`0.4` → `0.4.1`（PATCH）。新增 `package_code` 标量：这块焊盘图案的封装代号（`0402`、`SOT-23-5`、`LQFP-100`），供厂商与评审读（决策见 [ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) decision 1）。加字段在 `0.x` 阶段也走 PATCH 位；没写 `package_code` 的文件仍然合法（代号通常已经在封装 id 里），但库级检查（`bun run lib:verify`）要求每个封装都写明自己的代号。
+- `component` 描述类型：`0.1.4` → `0.1.5`（PATCH）。新增 `ratings` 段：`kind: part` 的件在这里写自己的额定值（`role type value`），`kind: generic` 不得写、`kind: part` 仍不得写 `params`（决策见 [ADR-0039](../docs/adr/0039-a-part-states-its-own-ratings.md)）。**IR 契约随之到 0.4**（`component` 分片多了 `ratings`）。用到 `ratings` 的件文件写 `version 0.1.5`；没写的件文件版本行不变（§13.4 的规矩：没用新构造的文件保持旧号）。
 - `0.x` 阶段各描述类型的版本线各自维护、只走 PATCH 位；项目接近完成时一次性合并为 `1.0`，之后全语言一个号（见 §13.1 / §13.2）。
 - 未知构造默认报错；`--allow-unknown` 仅用于前向兼容检查，不用于生产。**这是 `0.x` 阶段版本号只走 PATCH 位的安全依据**：不懂新构造的工具会报错停下，不会误读文件。
 - 所有破坏性变更必须写明改了什么、怎么改（见本节）；`fmt` 不自动跨 MAJOR 迁移。本项目尚无外部使用者，所以**没有迁移脚本**：破坏性变更直接改文件，工具不替人改名、不替人决定事实。
@@ -602,13 +704,13 @@ pins
   5  OUT  power_out
 ```
 
-`assets/families/cap-tantalum-7343.teda`（一个 `family`）：
+`assets/components/passives/cap-tantalum-7343.teda`（一个 `generic`）：
 
 ```
-version 0.1.2
+version 0.1.3
 component cap-tantalum-7343
 
-kind         family
+kind         generic
 category     capacitor
 construction  tantalum
 polarized    yes

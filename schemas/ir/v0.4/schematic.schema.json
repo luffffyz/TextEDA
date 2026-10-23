@@ -1,26 +1,26 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:texteda:ir:0.3:schematic",
-  "title": "TextEDA IR v0.3 — schematic shard",
+  "$id": "urn:texteda:ir:0.4:schematic",
+  "title": "TextEDA IR v0.4 — schematic shard",
   "description": "Schematic IR of one board: the board's flat list of instances and nets, as declared in design/sch/<board_id>.teda. A board has exactly one schematic file; there is no page level and no flattening. See ADR-0025, ADR-0008 decision 2.",
   "type": "object",
   "additionalProperties": false,
   "required": ["ir_version", "format", "board", "instances", "nets"],
   "properties": {
     "ir_version": {
-      "$ref": "urn:texteda:ir:0.3:common#/$defs/ir_version",
-      "description": "IR contract version, currently always 0.3."
+      "$ref": "urn:texteda:ir:0.4:common#/$defs/ir_version",
+      "description": "IR contract version, currently always 0.4."
     },
     "format": {
-      "$ref": "urn:texteda:ir:0.3:common#/$defs/format_version",
+      "$ref": "urn:texteda:ir:0.4:common#/$defs/format_version",
       "description": "Language version of the .teda file that produced this shard."
     },
     "source": {
-      "$ref": "urn:texteda:ir:0.3:common#/$defs/source_ref",
+      "$ref": "urn:texteda:ir:0.4:common#/$defs/source_ref",
       "description": "Source-file location: path relative to the project root plus an optional line number."
     },
     "board": {
-      "$ref": "urn:texteda:ir:0.3:common#/$defs/slug",
+      "$ref": "urn:texteda:ir:0.4:common#/$defs/slug",
       "description": "The board_id shared with design/sch/<board_id>.teda and design/pcb/<board_id>.teda."
     },
     "instances": {
@@ -49,7 +49,7 @@
       "items": { "$ref": "#/$defs/constraint" }
     },
     "note": {
-      "$ref": "urn:texteda:ir:0.3:common#/$defs/note",
+      "$ref": "urn:texteda:ir:0.4:common#/$defs/note",
       "description": "Free text; canonical JSON has no comments, this is the substitute."
     }
   },
@@ -60,11 +60,11 @@
       "required": ["id", "component"],
       "properties": {
         "id": {
-          "$ref": "urn:texteda:ir:0.3:common#/$defs/instance_id",
+          "$ref": "urn:texteda:ir:0.4:common#/$defs/instance_id",
           "description": "Stable instance ID of the board's flat list: U1. Renaming changes identity; see ADR-0008 decision 3."
         },
         "component": {
-          "$ref": "urn:texteda:ir:0.3:common#/$defs/slug",
+          "$ref": "urn:texteda:ir:0.4:common#/$defs/slug",
           "description": "Component id (component_id), pointing to one component in the component library."
         },
         "params": {
@@ -81,11 +81,11 @@
           "description": "E.g. power flags: exist only at the logical layer and produce no physical entity."
         },
         "line": {
-          "$ref": "urn:texteda:ir:0.3:common#/$defs/proxy_line",
+          "$ref": "urn:texteda:ir:0.4:common#/$defs/proxy_line",
           "description": "Starting line of the instance in the source file, for diagnostic locations."
         },
         "note": {
-          "$ref": "urn:texteda:ir:0.3:common#/$defs/note",
+          "$ref": "urn:texteda:ir:0.4:common#/$defs/note",
           "description": "Free text; canonical JSON has no comments, this is the substitute."
         }
       }
@@ -132,16 +132,16 @@
       "required": ["id", "members"],
       "properties": {
         "id": {
-          "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id",
+          "$ref": "urn:texteda:ir:0.4:common#/$defs/net_id",
           "description": "The net name is the identity key."
         },
         "members": {
           "type": "array",
-          "items": { "$ref": "urn:texteda:ir:0.3:common#/$defs/pin_ref" },
+          "items": { "$ref": "urn:texteda:ir:0.4:common#/$defs/pin_ref" },
           "description": "Pin reference in numbered form (U1.1), not the pin name. A single-member net is legal but draws an ERC warning."
         },
         "note": {
-          "$ref": "urn:texteda:ir:0.3:common#/$defs/note",
+          "$ref": "urn:texteda:ir:0.4:common#/$defs/note",
           "description": "Free text; canonical JSON has no comments, this is the substitute."
         }
       }
@@ -157,7 +157,7 @@
           "description": "Port name, the name visible outside the board."
         },
         "net": {
-          "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id",
+          "$ref": "urn:texteda:ir:0.4:common#/$defs/net_id",
           "description": "Net name the port connects to (net_id)."
         }
       }
@@ -180,7 +180,7 @@
         "nets": {
           "type": "array",
           "description": "List of net names the bus contains.",
-          "items": { "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id" }
+          "items": { "$ref": "urn:texteda:ir:0.4:common#/$defs/net_id" }
         }
       }
     },
@@ -238,7 +238,7 @@
           "properties": {
             "type": { "const": "impedance", "description": "Constraint type: target impedance." },
             "net": {
-              "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id",
+              "$ref": "urn:texteda:ir:0.4:common#/$defs/net_id",
               "description": "Constraint subject: net name."
             },
             "value_mohm": { "type": "integer", "minimum": 0, "description": "Target impedance value, mΩ." }
@@ -251,7 +251,7 @@
           "properties": {
             "type": { "const": "length", "description": "Constraint type: trace-length range." },
             "net": {
-              "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id",
+              "$ref": "urn:texteda:ir:0.4:common#/$defs/net_id",
               "description": "Constraint subject: net name."
             },
             "min_nm": { "type": "integer", "minimum": 0, "description": "Length minimum, nm." },
@@ -265,11 +265,11 @@
           "properties": {
             "type": { "const": "diff", "description": "Constraint type: differential-pair impedance." },
             "net_a": {
-              "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id",
+              "$ref": "urn:texteda:ir:0.4:common#/$defs/net_id",
               "description": "Net name of the positive side of the differential pair."
             },
             "net_b": {
-              "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id",
+              "$ref": "urn:texteda:ir:0.4:common#/$defs/net_id",
               "description": "Net name of the negative side of the differential pair."
             },
             "impedance_mohm": { "type": "integer", "minimum": 0, "description": "Differential impedance value, mΩ." },
@@ -287,11 +287,11 @@
           "properties": {
             "type": { "const": "skew", "description": "Constraint type: length difference between two nets." },
             "net_a": {
-              "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id",
+              "$ref": "urn:texteda:ir:0.4:common#/$defs/net_id",
               "description": "Net name of the first net compared."
             },
             "net_b": {
-              "$ref": "urn:texteda:ir:0.3:common#/$defs/net_id",
+              "$ref": "urn:texteda:ir:0.4:common#/$defs/net_id",
               "description": "Net name of the second net compared."
             },
             "op": {

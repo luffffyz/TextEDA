@@ -1,8 +1,9 @@
 // Shared test helper: the reference project's device table.
 //
 // The device id is the file name (AGENTS.md §4.5); the facts come from the component parser,
-// which is all the schematic parser needs to resolve pins and parameter columns. Parts live in
-// `assets/components/`, families in `assets/families/` (ADR-0027); both share one id namespace.
+// which is all the schematic parser needs to resolve pins and parameter columns. The parts and
+// the generics live in one tree, `assets/components/` (ADR-0027, ADR-0037); they share one id
+// namespace.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseComponent } from "../src/component.ts";
@@ -27,7 +28,6 @@ export function loadResolver(): ComponentResolver {
     }
   };
   walk(join(projectDir, "assets/components"));
-  walk(join(projectDir, "assets/families"));
   const table = new Map<string, ComponentFactsLite>();
   for (const file of files) {
     const result = parseComponent(readFileSync(file, "utf8"), { file });

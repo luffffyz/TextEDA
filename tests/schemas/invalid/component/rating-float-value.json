@@ -1,0 +1,20 @@
+{
+  "ir_version": "0.4",
+  "format": "0.1.3",
+  "source": { "file": "assets/components/parts/c-0402-x7r-10uf-16v.teda" },
+  "component": {
+    "id": "c-0402-x7r-10uf-16v",
+    "kind": "part",
+    "mpn": "C1525",
+    "symbol": "project:c",
+    "footprint": "project:chip-0402",
+    "ratings": [
+      { "name": "value", "type": "capacitance", "value": 10.5 }
+    ],
+    "pins": [
+      { "number": "1", "name": "A", "electrical_type": "passive" },
+      { "number": "2", "name": "B", "electrical_type": "passive" }
+    ],
+    "pins_source": "inline"
+  }
+}

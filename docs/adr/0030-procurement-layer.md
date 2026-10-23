@@ -508,3 +508,18 @@ empty part number already keeps the row from being ordered.
   typed field would flow into the procurement lookup as if it were a part number.
 - The **IR** keeps the absence as an absence. The marker is a rendering of the state, not the
   state itself.
+
+## Addendum (2026-10-23): the vocabulary of the two ends of a selection
+
+Amends the vocabulary of decisions 1 to 6 and of the addendum of 2026-10-22b.
+
+Where this record says **family**, read **generic**
+([ADR-0037](0037-device-kind-vocabulary-and-one-device-directory.md)). A selection binds a
+**generic device** — what the design requires — to a **part** — what is bought — and the
+generic is now written `kind: generic` in its component file. The row shape does not change:
+`<generic_id> <parameter_value…> -> <part_id>`, and the BOM line key is still the generic's id
+plus its declared parameters, in the generic's declared order.
+
+Nothing else moves. The selection is still a project-local decision, the land pattern is still
+a hard constraint, a part is still its own answer, and the component file still carries no
+`mpn` for a generic — that is what a generic is.

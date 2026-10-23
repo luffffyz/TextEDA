@@ -1,7 +1,7 @@
 # `procurement`: which part to buy
 
-> Specification: the `procurement` description type (since language 0.9), the selection rows that bind a device family to a purchasable part, and the two files a board's procurement state is written in.
-> Decision: `docs/adr/0030-procurement-layer.md`; the device model it builds on: `docs/adr/0027-device-parts-families-and-library-dependencies.md`; the library trust rules: `docs/adr/0028-library-trust-and-derived-overrides.md`; the project tree: `docs/adr/0031-project-tree-ownership-model.md`.
+> Specification: the `procurement` description type (since language 0.9), the selection rows that bind a generic device to a purchasable part, and the two files a board's procurement state is written in.
+> Decision: `docs/adr/0030-procurement-layer.md`; the device model it builds on: `docs/adr/0027-device-parts-families-and-library-dependencies.md`; the kind vocabulary: `docs/adr/0037-device-kind-vocabulary-and-one-device-directory.md`; the library trust rules: `docs/adr/0028-library-trust-and-derived-overrides.md`; the project tree: `docs/adr/0031-project-tree-ownership-model.md`.
 
 ## 0. What it is
 
@@ -11,7 +11,7 @@
 |---|---|---|---|
 | What it is | what the board is made of | what is bought for it | what a device is |
 | File | `design/sch/<board_id>.teda` | `assets/procurement/{primary,alternatives}/<board_id>.teda` | `assets/components/**/<id>.teda`, `external/libs/<lib>/…` |
-| Vocabulary | family **or** part | family → part | the family and the part |
+| Vocabulary | generic **or** part | generic → part | the generic and the part |
 | Standing | normative | primary: normative; alternatives: advisory | normative |
 | If you delete it | the board loses its circuit | the board loses its sourcing | the devices are gone |
 
@@ -46,7 +46,7 @@ role primary
 
 selections
   cap-tantalum-7343 220uF 10V -> avx:avx-taj-220u-10v
-  res-th-0402 10k 1% -> yageo-rc0402fr-0710kl
+  res-thick-0402 10k 1% -> yageo-rc0402fr-0710kl
 ```
 
 `selections` is the only section. There are no other sections, and no scalars other than `role`.
@@ -54,22 +54,22 @@ selections
 ## 3. The row
 
 ```
-<family_id> <parameter_value…> -> <part_id>
+<generic_id> <parameter_value…> -> <part_id>
 ```
 
-- **The left side is the BOM line key**: a family id (bare if the project owns it, qualified by the library name if it comes from a vendored
-  library), followed by the values of the family's declared `params`, **in the family's declared order** — the same
-  shape as an `instances` row. The family's `params` section is the only place that order is written down.
+- **The left side is the BOM line key**: a generic id (bare if the project owns it, qualified by the library name if it comes from a vendored
+  library), followed by the values of the generic's declared `params`, **in the generic's declared order** — the same
+  shape as an `instances` row. The generic's `params` section is the only place that order is written down.
 - **The right side is the part that is bought**: a project-owned asset by its bare id, or a vendored library item by its qualified id (`avx:avx-taj-220u-10v`).
-- **`->` terminates the left side.** The parameter list has a length that depends on the family, so a reader cannot tell where the parameters stop without
-  resolving the family; the separator makes the row readable on its own. `:` is already the nets-section token, `=` already binds a type to a value, and
+- **`->` terminates the left side.** The parameter list has a length that depends on the generic, so a reader cannot tell where the parameters stop without
+  resolving the generic; the separator makes the row readable on its own. `:` is already the nets-section token, `=` already binds a type to a value, and
   neither of them can terminate an open-ended list.
 
-A row is one **BOM line**, not one instance. The same family with the same parameters may appear on the board twenty times; it gets one row.
+A row is one **BOM line**, not one instance. The same generic with the same parameters may appear on the board twenty times; it gets one row.
 
 ### 3.1 A part needs no row
 
-A selection always points **from a family to a part**. A device the design names as a part is already bought as itself:
+A selection always points **from a generic to a part**. A device the design names as a part is already bought as itself:
 
 ```text
 # design/sch/mcu-board.teda
@@ -77,20 +77,37 @@ instances
   U1 stm32l4:stm32f407vgt6
 ```
 
-That part is the purchase, and the procurement layer says nothing about it. Only family lines appear in the selection table.
+That part is the purchase, and the procurement layer says nothing about it. Only generic lines appear in the selection table.
 
 ### 3.2 What a row must satisfy
 
 | Check | Why |
 |---|---|
-| The family resolves, and it is a `kind: family` | A part may not be re-selected |
-| The part resolves, and it is a `kind: part` | A family may not be selected as a part |
+| The generic resolves, and it is a `kind: generic` | A part may not be re-selected |
+| The part resolves, and it is a `kind: part` | A generic may not be selected as a part |
 | The part has an `mpn` | Required of every part; this is what makes the row purchasable |
-| The part's `params` declaration covers the family's — same names, same types | Otherwise the specification in the row cannot be carried by the part, and the BOM line would silently lose a column |
-| The part's `footprint` equals the family's `footprint` | The land pattern is a **hard constraint** of the family; a selection that changes it is not a selection, it is a design change |
+| The part's ratings cover the generic's roles — same names, same types | Otherwise the specification in the row cannot be carried by the part, and the BOM line would silently lose a column. A part states its own ratings in its `ratings` section (`kind: part` declares no `params` — the roles an `instances` row fills are the generic's, the part's are its own; see [ADR-0039](../docs/adr/0039-a-part-states-its-own-ratings.md)). |
+| The part's `footprint` equals the generic's `footprint` | The land pattern is a **hard constraint** of the generic; a selection that changes it is not a selection, it is a design change |
 | The part is not a library item the project has shadowed | A derived copy replaces the library item it overrides; selecting the shadowed item would put the same device in the BOM twice ([ADR-0028](../docs/adr/0028-library-trust-and-derived-overrides.md)) |
 
 The last two are the checks that make the layer worth having: they catch the case where a selection quietly alters the board.
+
+### 3.3 The part must satisfy the line
+
+A row's left side is a **requirement**, not a description of a part: it says what the design needs (the nominal value, the permitted deviation, the minimum rating, the class). The part on the right must satisfy it, and each role is compared in its own direction (`teda.md` §6.2.1).
+
+| Role | The part must have | Direction |
+|---|---|---|
+| `value` | its own worst case (nominal ± its own tolerance) inside the line's envelope (`value ± tolerance`) | envelope |
+| `tolerance` | ≤ the line's tolerance | upper bound — a tighter part qualifies |
+| `voltage` | ≥ the line's rating | lower bound |
+| `dielectric` | the same class | equality |
+| `esr` `dcr` | ≤ the line's maximum | upper bound |
+| `rated_current` `sat_current` | ≥ the line's minimum | lower bound |
+
+**A better part always qualifies.** `R1 10k ±1%` accepts a 0.5% part (which is what you buy when 1% is out of stock) and rejects a 2% one: the design's guarantee holds for every part inside the envelope, and a part outside it breaks the guarantee. Substitution is blocked by *stating a value as a fact*, never by stating a bound.
+
+The part's own ratings are what the comparison reads: they live in the part file's `ratings` section ([ADR-0039](../docs/adr/0039-a-part-states-its-own-ratings.md)). The rule above is decided.
 
 ## 4. The two files
 
@@ -99,7 +116,7 @@ The last two are the checks that make the layer worth having: they catch the cas
 | File | `assets/procurement/primary/<board_id>.teda` | `assets/procurement/alternatives/<board_id>.teda` |
 | Section | `selections` | `selections` |
 | `role` | `primary` | `alternatives` |
-| Rows per family line | exactly one | zero or more |
+| Rows per generic line | exactly one | zero or more |
 | Standing | normative — enters the project hash and the board hash | advisory — enters the advisory hash only |
 | A broken row | error | warning (error in strict mode) |
 
@@ -108,7 +125,7 @@ The two files are separate files, not two sections of one file, because each fil
 is not: the Gerbers are byte-identical, and a hash that moved for that reason would make every re-sourcing exercise look like a design change and invalidate a
 manufacturing package that nothing had changed.
 
-A family line with alternatives but no primary is **unsourced** (§5.2). Alternatives do not make a line sourced, because nothing has been decided.
+A generic line with alternatives but no primary is **unsourced** (§5.2). Alternatives do not make a line sourced, because nothing has been decided.
 
 ## 5. The BOM
 
@@ -117,8 +134,8 @@ A family line with alternatives but no primary is **unsourced** (§5.2). Alterna
 | Kind | Where it comes from | What it carries |
 |---|---|---|
 | A part line | the design names a part | that part's MPN |
-| A family line with a selection | the design names a family, the selection names a part | the selected part's MPN |
-| A family line without a selection | the design names a family, nothing selects it | **no MPN** — the line is unsourced |
+| A generic line with a selection | the design names a generic, the selection names a part | the selected part's MPN |
+| A generic line without a selection | the design names a generic, nothing selects it | **no MPN** — the line is unsourced |
 
 The row key is uniform: **a BOM row is keyed by `(component_id, parameters)`, and a part has an empty parameter set**
 ([ADR-0030](../docs/adr/0030-procurement-layer.md) decision 6).
@@ -132,18 +149,18 @@ The marker does not go into the MPN cell: the exported BOM is consumed by a part
 ([ADR-0006](../docs/adr/0006-jlc-prototype-delivery.md)), and a part number that reads `unsourced` would be ordered as if it were a part. An empty cell plus
 an explicit marker is both honest and consumable.
 
-`texteda check` reports every unsourced family line as a **warning**: the design is valid, the procurement is incomplete, and the two must not be confused.
+`texteda check` reports every unsourced generic line as a **warning**: the design is valid, the procurement is incomplete, and the two must not be confused.
 This is deliberately not an error — a gate that rejects unfinished sourcing would make the tool unusable while the circuit is still moving.
 
 ## 6. Canonical form
 
 1. One section, `selections`; the header scalars come first, in the order `version`, type line, `role`.
-2. Rows are sorted by the left key as text: the family id by ASCII order, then the parameter cells in order, each by ASCII order. (The IR sorts the
+2. Rows are sorted by the left key as text: the generic id by ASCII order, then the parameter cells in order, each by ASCII order. (The IR sorts the
    resolved values numerically; a source file and its IR may order two rows differently, which `teda.md` §12 rule 9 allows.)
-3. **Procurement rows are not column-aligned.** The columns of two rows mean different things — the first parameter of one family is not the first parameter
+3. **Procurement rows are not column-aligned.** The columns of two rows mean different things — the first parameter of one generic is not the first parameter
    of another — so aligning them would suggest a correspondence that does not exist. Cells are separated by a single space, and `->` is separated from the
    key by a single space.
-4. A family line appears at most once in the primary file. A second row for the same family is an error; in the alternatives file, repeating the family is
+4. A generic line appears at most once in the primary file. A second row for the same generic is an error; in the alternatives file, repeating the generic is
    how a second and a third source are written.
 5. One blank line between the header block and the section; no trailing whitespace; one newline at the end of the file.
 
@@ -155,7 +172,7 @@ This is deliberately not an error — a gate that rejects unfinished sourcing wo
 | `role` disagrees with the directory | error |
 | A check of §3.2 fails in the **primary** file | error |
 | A check of §3.2 fails in the **alternatives** file | warning; error in strict mode |
-| A family line has no selection | warning (unsourced) |
+| A generic line has no selection | warning (unsourced) |
 | A selection names a part the design does not use | warning — a selection may be made for a revision that has not been drawn yet |
 | A selected part comes from a library item with `provenance = generated` | warning; error in strict mode ([ADR-0028](../docs/adr/0028-library-trust-and-derived-overrides.md) decision 5) |
 
@@ -194,7 +211,7 @@ role primary
 
 selections
   cap-tantalum-7343 220uF 10V -> avx:avx-taj-220u-10v
-  res-th-0402 10k 1% -> yageo-rc0402fr-0710kl
+  res-thick-0402 10k 1% -> yageo-rc0402fr-0710kl
 ```
 
 ```
@@ -205,10 +222,10 @@ role alternatives
 selections
   cap-tantalum-7343 220uF 10V -> kemet:tae-227k-010-v-w
   cap-tantalum-7343 220uF 10V -> vishay:593b-2272-103-t
-  res-th-0402 10k 1% -> vishay:rc0402fr-0710kl
+  res-thick-0402 10k 1% -> vishay:rc0402fr-0710kl
 ```
 
-### 10.2 A family line that is not sourced yet
+### 10.2 A generic line that is not sourced yet
 
 ```
 version 0.9
@@ -216,7 +233,7 @@ procurement mcu-board
 role primary
 
 selections
-  res-th-0402 10k 1% -> yageo-rc0402fr-0710kl
+  res-thick-0402 10k 1% -> yageo-rc0402fr-0710kl
 ```
 
 The board uses `ind-shielded-6045 10uH 20%` and nothing selects it: the BOM carries that line with an empty MPN and the marker `unsourced`, and

@@ -6,3 +6,21 @@ export {
 } from "./erc/connectivity.ts";
 
 export { checkBinding, instanceOf, type BindingFacts } from "./binding/checks.ts";
+
+export {
+  checkDeviceDeclaration,
+  checkDeviceParamValue,
+  checkDeviceRatingValue,
+  checkDeviceRatings,
+  DEVICE_CONSTRUCTIONS,
+  DEVICE_CONSTRUCTION_NAMES,
+  DEVICE_PARAM_VALUE_SETS,
+  DEVICE_PRIMARY_ROLE,
+  DEVICE_ROLE_TYPES,
+  type DeviceConstruction,
+  type DeviceDeclarationFacts,
+  type DeviceParamFact,
+  type DeviceRatingFact,
+  type DeviceRatingFacts,
+  type DeviceRole,
+} from "./devices/rules.ts";

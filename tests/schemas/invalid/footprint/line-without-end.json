@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.3",
+  "ir_version": "0.4",
   "footprint": {
     "library": "project",
     "name": "bad-line",

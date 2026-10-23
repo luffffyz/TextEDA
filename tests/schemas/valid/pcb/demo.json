@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.3",
+  "ir_version": "0.4",
   "format": "0.4",
   "source": { "file": "pcb/demo.teda" },
   "board": "demo",

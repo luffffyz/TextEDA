@@ -410,3 +410,26 @@ the IR.
 Making it an IR assertion would add a field that an agent can assert without checking, and
 that goes stale silently when a part is swapped. The note in `docs/` is read by the people
 flashing the board, which is exactly who needs it, and nobody else has to keep it true.
+
+## Addendum (2026-10-23): the kind is `part` or `generic`, and the devices live in one directory
+
+Amends decisions 1, 2, 6 and 12.
+
+Two changes, both recorded in
+[ADR-0037](0037-device-kind-vocabulary-and-one-device-directory.md):
+
+1. **The vocabulary.** Where this record says `family`, read `generic`. The two kinds are `part`
+   and `generic`; "family" is a vendor's word for a set of purchasable parts, and the second
+   kind here names a device class whose part is chosen later, in the project-local procurement
+   layer ([ADR-0030](0030-procurement-layer.md)). Everything else about the split stands: a
+   generic declares its `construction` and its `polarized`, its id never carries a value, the
+   pin table is the identity boundary, and a part is the only thing a variant may scope to.
+2. **The directory.** `assets/families/` is gone. `assets/components/**` holds both kinds, the
+   kind is a fact of the file and never of the path, and the check that compared the two
+   (`ref.component-kind-mismatch`) is retired with it. The tree is organised by ownership
+   ([ADR-0031](0031-project-tree-ownership-model.md)), and a directory that repeats a fact the
+   file already states is a second source of truth.
+
+The rest of this record is unchanged: the pin table is still the identity boundary, one part
+per package still carries its complete pin table, a library is still a dependency rather than a
+directory, and the procurement layer is still project-local.

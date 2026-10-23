@@ -7,10 +7,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { analyzeProject, checkProject } from "../src/check.ts";
 
-const COMPONENT = `version 0.1.2
+const COMPONENT = `version 0.1.3
 component res-thick-0402
 
-kind         family
+kind         generic
 category     resistor
 construction thick
 polarized    no
@@ -18,7 +18,8 @@ symbol project:r
 footprint project:chip-0402
 
 params
-  value  resistance  required
+  value      resistance  required
+  tolerance  percent     required
 
 pins
   1  A  passive
@@ -29,7 +30,7 @@ const BOARD = `version 0.3
 schematic b
 
 instances
-  R1  res-thick-0402  10k
+  R1  res-thick-0402  10k  ±1%
 
 nets
   GND:  R1.1
@@ -39,9 +40,9 @@ nets
 /** Build a project in a temp directory. */
 function makeProject(board: string): string {
   const root = mkdtempSync(join(tmpdir(), "texteda-check-"));
-  mkdirSync(join(root, "assets/families"), { recursive: true });
+  mkdirSync(join(root, "assets/components"), { recursive: true });
   mkdirSync(join(root, "design/sch"), { recursive: true });
-  writeFileSync(join(root, "assets/families", "res-thick-0402.teda"), COMPONENT);
+  writeFileSync(join(root, "assets/components", "res-thick-0402.teda"), COMPONENT);
   writeFileSync(join(root, "design/sch", "b.teda"), board);
   return root;
 }
@@ -50,7 +51,7 @@ const MODULE = `version 0.8
 module m
 
 instances
-  R1  res-thick-0402  10k
+  R1  res-thick-0402  10k  ±1%
 
 nets
   VCC:  R1.1
@@ -119,7 +120,7 @@ describe("check", () => {
   test("an unreadable component file counts as an error", () => {
     const root = makeProject(BOARD);
     try {
-      writeFileSync(join(root, "assets/families", "broken.teda"), "nonsense\n");
+      writeFileSync(join(root, "assets/components", "broken.teda"), "nonsense\n");
       const result = checkProject(root);
       const diagnostic = result.diagnostics.find((d) => d.code === "syntax.header-invalid");
       expect(diagnostic).toBeDefined();
@@ -133,13 +134,40 @@ describe("check", () => {
     const root = makeProject(BOARD);
     try {
       writeFileSync(
-        join(root, "assets/families", "broken.teda"),
+        join(root, "assets/components", "broken.teda"),
         COMPONENT.replace("component res-thick-0402", "component other"),
       );
       const result = checkProject(root);
       const diagnostic = result.diagnostics.find((d) => d.code === "ref.component-id-mismatch");
       expect(diagnostic?.severity).toBe("error");
       expect(diagnostic?.data).toEqual({ declared_id: "other", file_id: "broken" });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a reference to a broken device file is not reported as a missing component", () => {
+    const root = makeProject(BOARD);
+    try {
+      // The device file exists but its construction is unknown: the file has errors, so it yields
+      // no facts. The reference must say so, not claim the device is missing.
+      writeFileSync(
+        join(root, "assets/components", "res-thick-0402.teda"),
+        COMPONENT.replace("construction thick", "construction thickh"),
+      );
+      const result = checkProject(root);
+      expect(result.diagnostics.find((d) => d.code === "ref.unknown-component")).toBeUndefined();
+      const diagnostic = result.diagnostics.find((d) => d.code === "ref.component-invalid");
+      expect(diagnostic).toBeDefined();
+      expect(diagnostic?.severity).toBe("warning");
+      expect(diagnostic?.data).toEqual({
+        component_id: "res-thick-0402",
+        refdes: "R1",
+        device_file: "assets/components/res-thick-0402.teda",
+      });
+      // The cause is reported once, as an error, at the device file.
+      const cause = result.diagnostics.find((d) => d.code === "value.component-construction-invalid");
+      expect(cause?.severity).toBe("error");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

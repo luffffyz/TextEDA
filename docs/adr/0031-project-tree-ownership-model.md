@@ -301,3 +301,28 @@ tool never invents a name, an id or a fact.
 - **How a vendored library is updated** — whether a newer revision of the same library may be
   vendored beside the old one — is not decided here. The draft answer is that it may not: a
   library name has one pin.
+
+## Addendum (2026-10-23): the devices have one directory
+
+Amends decisions 1, 2, 4 and 10.
+
+Decision 11 froze the tree and said that a change needs its own record; this is that record
+([ADR-0037](0037-device-kind-vocabulary-and-one-device-directory.md)). The `families/`
+directory is gone, because the kind of a device is a fact of the device file and not a fact of
+the path:
+
+```text
+assets/
+├── symbols/  footprints/  components/     # components/ holds the parts and the generics
+└── procurement/
+```
+
+A vendored library carries the same three directories. The shard layout changes with it: a
+device shard is a `components/<component_id>.json`, for a part and for a generic alike, so the
+planned `families/<family_id>.json` line of decision 4 does not exist. The shard layout is an
+interface for tools and is not tied to the source tree; `source.file` remains the authoritative
+mapping ([ADR-0023](0023-ir-layer-on-disk.md) decision 2).
+
+`texteda init` creates `assets/{symbols,footprints,components}` — one less directory than
+before. Nothing else in the tree moves: the seven roots, the ownership grouping and the
+procurement directories stay as they are.

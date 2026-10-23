@@ -1,12 +1,12 @@
-// The `component` description type: parse the whole file and enforce the part/family rules.
+// The `component` description type: parse the whole file and enforce the part/generic rules.
 //
-// Two kinds of device live in this one type (ADR-0027):
+// Two kinds of device live in this one type (ADR-0027, ADR-0037):
 //
-//   kind: part    a specific purchasable device. It names a manufacturer part number, and its
-//                 identity is closed: the MPN fixes everything, so it declares no parameters.
-//   kind: family  a device family. It names no part at all: the value, the tolerance and the
-//                 ratings live in the `instances` row, and the family's own facts are its
-//                 construction (the technology) and whether it is polarised.
+//   kind: part     a specific purchasable device. It names a manufacturer part number, and its
+//                  identity is closed: the MPN fixes everything, so it declares no parameters.
+//   kind: generic  a device class. It names no part at all: the value, the tolerance and the
+//                  ratings live in the `instances` row, and the generic's own facts are its
+//                  construction (the technology) and whether it is polarised.
 //
 // The pin table is the identity boundary (ADR-0027 decision 3): if the pin table changes, it is a
 // different device, so only attributes that do not change a pin's electrical behaviour may become
@@ -18,7 +18,9 @@
 // The parser is filesystem-free (ADR-0009 decision 1): the caller supplies the text.
 
 import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
+import { checkDeviceDeclaration, checkDeviceRatingValue, checkDeviceRatings } from "@texteda/core";
 import { lex } from "./lexer.ts";
+import { parseQuantity, type QuantityKind } from "./quantities.ts";
 import { checkVersion, typeRange } from "./version.ts";
 
 /** Pin electrical types from `teda.md` §10.1. */
@@ -38,10 +40,10 @@ export const PIN_TYPES: Record<string, true> = {
   unspecified: true,
 };
 
-/** The two kinds of device (ADR-0027 decision 1). */
-export type ComponentKind = "part" | "family";
+/** The two kinds of device (ADR-0027 decision 1, ADR-0037 D1). */
+export type ComponentKind = "part" | "generic";
 
-export const COMPONENT_KINDS: readonly ComponentKind[] = ["part", "family"];
+export const COMPONENT_KINDS: readonly ComponentKind[] = ["part", "generic"];
 
 /** Parameter types a `params` column may declare (`teda.md` §6.2). */
 export const PARAM_TYPES: Record<string, true> = {
@@ -64,6 +66,9 @@ export interface ComponentParamDecl {
   name: string;
   type: string;
   required: boolean;
+  /** Where the row was written, so a diagnostic can point at it. */
+  line: number;
+  col: number;
 }
 
 /** One pin row. */
@@ -75,6 +80,16 @@ export interface ComponentPin {
   alt?: string;
 }
 
+/** One rating row of a part (ADR-0039). */
+export interface ComponentRating {
+  name: string;
+  type: string;
+  /** The canonical integer value (the unit comes from the type), or the text for a string type. */
+  value: number | string;
+  line: number;
+  col: number;
+}
+
 /** The parsed component file. */
 export interface ComponentFile {
   /** The id in the `component <id>` header line. */
@@ -83,9 +98,9 @@ export interface ComponentFile {
   mpn?: string;
   manufacturer?: string;
   category?: string;
-  /** The technology of the device (family only): `mlcc`, `tantalum`, `film`, `shielded`, … */
+  /** The technology of the device (generic only): `mlcc`, `tantalum`, `film`, `shielded`, … */
   construction?: string;
-  /** Whether the device is polarised (family only). */
+  /** Whether the device is polarised (generic only). */
   polarized?: boolean;
   symbol: string;
   footprint: string;
@@ -94,6 +109,8 @@ export interface ComponentFile {
   description?: string;
   params: ComponentParamDecl[];
   pins: ComponentPin[];
+  /** The part's own ratings (`kind: part` only, ADR-0039). */
+  ratings: ComponentRating[];
 }
 
 export interface ComponentParseResult {
@@ -127,6 +144,20 @@ const SCALAR_KEYS: Record<string, true> = {
 /** Parameter names that may never become a `params` column (they are fixed attributes). */
 const RESERVED_PARAM_NAMES: Record<string, true> = { package: true, footprint: true };
 
+/** A component parameter type → the quantity kind its values are parsed with. */
+export const PARAM_TYPE_KINDS: Record<string, QuantityKind> = {
+  resistance: "resistance",
+  capacitance: "capacitance",
+  inductance: "inductance",
+  voltage: "voltage",
+  current: "current",
+  power: "power",
+  impedance: "impedance",
+  percent: "percent",
+  frequency: "frequency",
+  temperature: "temperature",
+};
+
 /**
  * Scalars that used to exist, with the language version that removed them.
  *
@@ -136,9 +167,17 @@ const RESERVED_PARAM_NAMES: Record<string, true> = { package: true, footprint: t
 const REMOVED_SCALARS: Record<string, string> = { package: "0.1.2" };
 
 /**
+ * Kind values that used to exist, with the language version that renamed them.
+ *
+ * A file that still writes one is an error, not an unknown value: the message must point at the
+ * migration note instead of at the spelling (ADR-0037 D1).
+ */
+const REMOVED_KIND_VALUES: Record<string, string> = { family: "0.1.3" };
+
+/**
  * Parse a component file.
  *
- * The rules enforced here are the ones a file can violate on its own: the part/family split
+ * The rules enforced here are the ones a file can violate on its own: the part/generic split
  * (ADR-0027), the parameter identity rule, and the pin table's syntax. Cross-file rules — that the
  * id matches the file name, that the symbol and footprint resolve, that the boards use the device —
  * belong to the caller.
@@ -200,11 +239,13 @@ export function parseComponent(text: string, options: { file: string }): Compone
     footprint: "",
     params: [],
     pins: [],
+    ratings: [],
   };
 
   /** Where each scalar was written, so a diagnostic can point at it. */
   const scalarAt = new Map<string, { line: number; col: number }>();
   const params: ComponentParamDecl[] = [];
+  const ratings: ComponentRating[] = [];
   let section: string | null = null;
   let sectionLine = 0;
 
@@ -212,7 +253,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
     if (line.cells.length === 1) {
       section = line.cells[0]!.text;
       sectionLine = line.number;
-      if (section !== "params" && section !== "pins") {
+      if (section !== "params" && section !== "pins" && section !== "ratings") {
         error(line.number, line.cells[0]!.col, "syntax.unknown-section", `unknown section: ${section}`);
         section = null;
       }
@@ -240,16 +281,26 @@ export function parseComponent(text: string, options: { file: string }): Compone
       }
       scalarAt.set(key, { line: line.number, col: line.cells[0]!.col });
       switch (key) {
-        case "kind":
-          if (value !== "part" && value !== "family") {
-            error(line.number, line.cells[1]!.col, "value.component-kind-invalid", `kind must be part or family: ${value}`, {
-              expected: "part | family",
+        case "kind": {
+          const renamedIn = REMOVED_KIND_VALUES[value];
+          if (renamedIn) {
+            error(line.number, line.cells[1]!.col, "syntax.removed-construct", `the kind value \`${value}\` was renamed in ${renamedIn}`, {
+              expected: "part | generic",
+              actual: value,
+              hint: "the two kinds are `part` and `generic`: a generic names a device class, and the part that fills it is chosen in the procurement layer (teda.md §13.4)",
+            });
+            break;
+          }
+          if (value !== "part" && value !== "generic") {
+            error(line.number, line.cells[1]!.col, "value.component-kind-invalid", `kind must be part or generic: ${value}`, {
+              expected: "part | generic",
               actual: value,
             });
           } else {
             component.kind = value;
           }
           break;
+        }
         case "polarized":
           if (value !== "yes" && value !== "no") {
             error(line.number, line.cells[1]!.col, "value.invalid-value", `polarized must be yes or no: ${value}`, {
@@ -326,7 +377,55 @@ export function parseComponent(text: string, options: { file: string }): Compone
         error(line.number, name.col, "value.duplicate-field", `duplicate parameter: ${name.text}`);
         continue;
       }
-      params.push({ name: name.text, type: type.text, required: requirement.text === "required" });
+      params.push({
+        name: name.text,
+        type: type.text,
+        required: requirement.text === "required",
+        line: line.number,
+        col: name.col,
+      });
+      continue;
+    }
+    if (section === "ratings") {
+      if (line.cells.length < 3) {
+        error(line.number, line.cells[0]!.col, "syntax.row-too-short", "a ratings row needs 3 columns: role type value");
+        continue;
+      }
+      const [role, type, value] = line.cells as [
+        (typeof line.cells)[number],
+        (typeof line.cells)[number],
+        (typeof line.cells)[number],
+      ];
+      if (!PARAM_NAME_RE.test(role.text)) {
+        error(line.number, role.col, "syntax.invalid-identifier", `invalid rating role: ${role.text}`);
+        continue;
+      }
+      if (!PARAM_TYPES[type.text]) {
+        error(line.number, type.col, "value.unknown-param-type", `unknown rating type: ${type.text}`);
+        continue;
+      }
+      // A rating is a fact of the part: the value is parsed with the quantity the row declares.
+      if (type.text === "string") {
+        ratings.push({ name: role.text, type: type.text, value: value.text, line: line.number, col: role.col });
+        continue;
+      }
+      const kind = PARAM_TYPE_KINDS[type.text];
+      if (kind === undefined) {
+        error(line.number, type.col, "value.unknown-param-type", `a rating is measured in a quantity: ${type.text} has none`, {
+          expected: "a quantity type: resistance, capacitance, inductance, voltage, current, power, impedance, percent, frequency, temperature",
+          actual: type.text,
+        });
+        continue;
+      }
+      const parsed = parseQuantity(value.text, kind, { code: "value.invalid-value" });
+      if (!parsed.ok) {
+        error(line.number, value.col, "value.invalid-value", `invalid value for rating ${role.text}: ${parsed.reason}`, {
+          expected: `a value of type ${type.text}`,
+          actual: value.text,
+        });
+        continue;
+      }
+      ratings.push({ name: role.text, type: type.text, value: parsed.value, line: line.number, col: role.col });
       continue;
     }
     if (section === "pins") {
@@ -393,14 +492,15 @@ export function parseComponent(text: string, options: { file: string }): Compone
   }
 
   component.params = params;
+  component.ratings = ratings;
 
-  /* ---- the part/family rules (ADR-0027) ---- */
+  /* ---- the part/generic rules (ADR-0027, ADR-0037) ---- */
 
   const kindAt = scalarAt.get("kind");
   if (!kindAt) {
     error(sectionLine || 1, 1, "value.component-kind-invalid", "a component file must declare its kind", {
-      expected: "kind part | kind family",
-      hint: "add a `kind` line: `part` for a specific device, `family` for a device family (teda.md §6.1.1; migration note: teda.md §13.4)",
+      expected: "kind part | kind generic",
+      hint: "add a `kind` line: `part` for a specific device, `generic` for a device class (teda.md §6.1.1; migration note: teda.md §13.4)",
     });
   }
 
@@ -412,40 +512,46 @@ export function parseComponent(text: string, options: { file: string }): Compone
       });
     }
     if (component.construction !== undefined || component.polarized !== undefined) {
-      error(scalarAt.get("construction")?.line ?? scalarAt.get("polarized")?.line ?? (sectionLine || 1), 1, "value.component-family-fact-invalid", "construction and polarized are family facts, not part facts", {
+      error(scalarAt.get("construction")?.line ?? scalarAt.get("polarized")?.line ?? (sectionLine || 1), 1, "value.component-generic-fact-invalid", "construction and polarized are generic facts, not part facts", {
         expected: "a part declares neither construction nor polarized",
-        hint: "a part inherits its construction and polarity from the family it is chosen for",
+        hint: "a part inherits its construction and polarity from the generic it is chosen for",
       });
     }
     if (params.length > 0) {
       error(sectionLine || 1, 1, "value.component-identity-invalid", "a part must not declare parameters: its identity is closed", {
         expected: "a part declares no params section",
-        hint: "the part number fixes the device; a value that varies belongs to a family",
+        hint: "the part number fixes the device; a value that varies belongs to a generic",
       });
     }
-  } else if (component.kind === "family") {
+  } else if (component.kind === "generic") {
     if (component.mpn !== undefined) {
-      error(scalarAt.get("mpn")?.line ?? (sectionLine || 1), scalarAt.get("mpn")?.col ?? 1, "value.component-mpn-invalid", "a family must not declare a manufacturer part number", {
+      error(scalarAt.get("mpn")?.line ?? (sectionLine || 1), scalarAt.get("mpn")?.col ?? 1, "value.component-mpn-invalid", "a generic must not declare a manufacturer part number", {
         expected: "no mpn line",
-        hint: "which part to buy is a project-local procurement decision, not a fact of the family",
+        hint: "which part to buy is a project-local procurement decision, not a fact of the generic",
       });
     }
     if (!component.construction) {
-      error(scalarAt.get("construction")?.line ?? (sectionLine || 1), 1, "value.component-family-fact-invalid", "a family must declare its construction", {
+      error(scalarAt.get("construction")?.line ?? (sectionLine || 1), 1, "value.component-generic-fact-invalid", "a generic must declare its construction", {
         expected: "construction <technology>",
-        hint: "the technology (mlcc, tantalum, film, shielded, …) is what tells two families apart",
+        hint: "the technology (mlcc, tantalum, film, shielded, …) is what tells two generics apart",
       });
     }
     if (component.polarized === undefined) {
-      error(scalarAt.get("polarized")?.line ?? (sectionLine || 1), 1, "value.component-family-fact-invalid", "a family must declare whether it is polarised", {
+      error(scalarAt.get("polarized")?.line ?? (sectionLine || 1), 1, "value.component-generic-fact-invalid", "a generic must declare whether it is polarised", {
         expected: "polarized yes | polarized no",
       });
     }
     const identity = params.find((p) => p.name === "value" && p.required);
     if (!identity) {
-      error(sectionLine || 1, 1, "value.component-identity-invalid", "a family must declare a required value parameter", {
+      error(sectionLine || 1, 1, "value.component-identity-invalid", "a generic must declare a required value parameter", {
         expected: "params value <type> required",
-        hint: "the value is what tells two instances of the same family apart",
+        hint: "the value is what tells two instances of the same generic apart",
+      });
+    }
+    if (ratings.length > 0) {
+      error(sectionLine || 1, 1, "value.component-rating-invalid", "a generic must not declare ratings: a class has no ratings of its own", {
+        expected: "a generic declares no ratings section",
+        hint: "a generic's requirements live in the instances rows; the part chosen for them states its own ratings (ADR-0039)",
       });
     }
   }
@@ -459,6 +565,37 @@ export function parseComponent(text: string, options: { file: string }): Compone
         expected: "all required columns first, then the optional ones",
         actual: params[late]!.name,
       });
+    }
+  }
+
+  // The device rule table (ADR-0038 D4/D6): the construction is a closed vocabulary, and each
+  // construction has a fixed set of roles with fixed quantities and requiredness. The table lives
+  // in `@texteda/core` (device engineering knowledge, not language structure).
+  if (component.kind === "generic") {
+    const constructionAt = scalarAt.get("construction");
+    diagnostics.push(
+      ...checkDeviceDeclaration({
+        file,
+        construction: component.construction,
+        constructionLine: constructionAt?.line,
+        constructionCol: constructionAt?.col,
+        params,
+      }),
+    );
+  } else {
+    // A part states its own ratings (ADR-0039): the roles are the vocabulary's, and each role
+    // has one quantity. The values were parsed above; what is left is the vocabulary's rules.
+    diagnostics.push(
+      ...checkDeviceRatings({
+        file,
+        ratings: ratings.map((r) => ({ name: r.name, type: r.type, value: String(r.value), line: r.line, col: r.col })),
+      }),
+    );
+    for (const rating of ratings) {
+      if (rating.type !== "string") continue;
+      diagnostics.push(
+        ...checkDeviceRatingValue(rating.name, String(rating.value), { file, line: rating.line, col: rating.col }),
+      );
     }
   }
 

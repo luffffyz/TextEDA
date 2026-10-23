@@ -18,8 +18,8 @@ const moduleText = [
   "module m1",
   "",
   "instances",
-  "  R1  res-thick-0402  10k",
-  "  R2  res-thick-0402  10k",
+  "  R1  res-thick-0402  10k  ±1%",
+  "  R2  res-thick-0402  10k  ±1%",
   "",
   "nets",
   "  IN:   R1.1",
@@ -42,7 +42,7 @@ const boardText = [
   "  M1  m1",
   "",
   "instances",
-  "  R9  res-thick-0402  10k",
+  "  R9  res-thick-0402  10k  ±1%",
   "",
   "nets",
   "  VCC:  M1.VCC_OUT  R9.1",
@@ -151,7 +151,7 @@ describe("module diagnostics", () => {
   });
 
   test("a board refdes taking the module instance form", () => {
-    const board = boardText.replace("  R9  res-thick-0402  10k", "  M1  res-thick-0402  10k");
+    const board = boardText.replace("  R9  res-thick-0402  10k  ±1%", "  M1  res-thick-0402  10k  ±1%");
     const result = parse(board);
     expect(result.diagnostics.map((d) => d.code)).toContain("syntax.invalid-identifier");
   });

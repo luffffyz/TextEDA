@@ -1,4 +1,4 @@
-version 0.1.2
+version 0.1.5
 component xtal-8mhz-3225
 
 # 8.000MHz fundamental crystal, 3225 four-pin (3.2×2.5×0.7mm), load capacitance CL=12pF, ±10ppm at 25±3℃.
@@ -11,6 +11,11 @@ datasheet    https://www.lcsc.com/datasheet/C5181478.pdf
 
 symbol project:crystal-4
 footprint project:crystal-3225-4
+
+# The part's own ratings (ADR-0039). The load capacitance has no role in the vocabulary yet
+# (docs/backlog.md F43), so it stays in the comment above.
+ratings
+  value  frequency  8MHz
 
 pins
   1  XOUT  output

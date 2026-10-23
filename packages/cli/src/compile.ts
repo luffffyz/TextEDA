@@ -82,7 +82,7 @@ export function runCompile(options: CompileOptions): number {
   return 0;
 }
 
-/** Compile `pcb/<board>.teda`. Same contract as the schematic (`schemas/ir/v0.3/pcb.schema.json`). */
+/** Compile `pcb/<board>.teda`. Same contract as the schematic (`schemas/ir/v0.4/pcb.schema.json`). */
 function runCompilePcb(options: {
   root: string;
   board: string;

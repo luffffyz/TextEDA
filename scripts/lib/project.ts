@@ -35,12 +35,9 @@ export function tedaFiles(dir: string): string[] {
   return out;
 }
 
-/** The project's device files: parts in `assets/components/`, families in `assets/families/` (ADR-0027). */
+/** The project's device files: parts and generics alike, in `assets/components/` (ADR-0027, ADR-0037). */
 export function deviceFiles(projectRoot: string): string[] {
-  return [
-    ...tedaFiles(join(projectRoot, "assets/components")),
-    ...tedaFiles(join(projectRoot, "assets/families")),
-  ];
+  return tedaFiles(join(projectRoot, "assets/components"));
 }
 
 export type Loaded<T> =

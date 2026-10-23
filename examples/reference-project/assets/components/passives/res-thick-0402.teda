@@ -1,17 +1,17 @@
-version 0.1.2
-component res-thick-2010
+version 0.1.4
+component res-thick-0402
 
-kind         family
+kind         generic
 category     resistor
 construction thick
 polarized    no
 
 symbol project:r
-footprint project:chip-2010
+footprint project:chip-0402
 
 params
   value      resistance  required
-  tolerance  percent     optional
+  tolerance  percent     required
   power      power       optional
 
 pins

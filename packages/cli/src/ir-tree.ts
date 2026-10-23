@@ -46,7 +46,7 @@ export interface IrShard {
   sha256: string;
 }
 
-/** The manifest document (`schemas/ir/v0.3/manifest.schema.json`). */
+/** The manifest document (`schemas/ir/v0.4/manifest.schema.json`). */
 export interface IrManifest {
   ir_version: string;
   tool_version: string;

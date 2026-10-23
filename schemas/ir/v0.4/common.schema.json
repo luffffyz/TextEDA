@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:texteda:ir:0.3:common",
-  "title": "TextEDA IR v0.3 — common definitions",
+  "$id": "urn:texteda:ir:0.4:common",
+  "title": "TextEDA IR v0.4 — common definitions",
   "description": "Scalars, identity patterns and unit conventions shared by all shards. The field-name suffix is the unit: _nm nanometers, _mdeg millidegrees, _mohm milliohms, _uv microvolts, _na nanoamps, _uw microwatts, _mhz millihertz, _mdegc millidegrees Celsius, _ppm parts per million, _uohm microohms, _ff femtofarads, _ph picohenries. Rules: docs/adr/0008-ir-shard-identity-and-hash.md.",
   "$defs": {
     "ir_version": {
-      "const": "0.3",
-      "description": "IR contract version, currently always 0.3."
+      "const": "0.4",
+      "description": "IR contract version, currently always 0.4."
     },
     "format_version": {
       "type": "string",

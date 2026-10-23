@@ -1,4 +1,4 @@
-// `pcb` description → IR (`schemas/ir/v0.3/pcb.schema.json`). See `spec/pcb.md` for the spec.
+// `pcb` description → IR (`schemas/ir/v0.4/pcb.schema.json`). See `spec/pcb.md` for the spec.
 //
 // This layer only does "text → structure": read sections, validate column counts and enums,
 // and replace unit-bearing literals with integers.

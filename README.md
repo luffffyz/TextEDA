@@ -89,7 +89,7 @@ The KiCad interoperability section is a **separate, optional workflow** (`.githu
 | `packages/exporter` | footprint / symbol → KiCad (`.kicad_mod` / `.kicad_sym`); netlist |
 | `packages/renderer` | Reference renderer: IR → drawing commands → SVG ([ADR-0014](docs/adr/0014-reference-renderer.md)) |
 | `packages/cli` | `texteda init` / `compile` / `check` / `netlist` / `ir` ([ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md), [ADR-0023](docs/adr/0023-ir-layer-on-disk.md)) |
-| `examples/reference-project/` | Self-contained reference project: 22 devices (16 parts + 6 families) / 15 symbols / 16 footprints, all libraries self-built |
+| `examples/reference-project/` | Self-contained reference project: 22 devices (16 parts + 6 generics) / 15 symbols / 16 footprints, all libraries self-built |
 | `docs/adr/` | Architecture decision records ([full index](docs/adr/README.md)) |
 | `docs/guides/` | How-to guides: build a symbol, build a footprint, keep review records, read a KiCad board file |
 | `docs/skills/` | Agent manuals: every step is a command, an expected output, and the diagnostic code to read when it fails |

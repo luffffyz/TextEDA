@@ -6,7 +6,7 @@
 // The parser never touches the filesystem: component contents are supplied by the caller (`ComponentResolver`),
 // so the `parser` package still runs in the browser (ADR-0009 decision 1).
 import { irVersion } from "@texteda/ir";
-import type { ComponentParamDecl } from "./component.ts";
+import { PARAM_TYPE_KINDS, type ComponentParamDecl } from "./component.ts";
 import type {
   Bus,
   Constraint,
@@ -17,12 +17,12 @@ import type {
   Port,
   Schematic,
 } from "@texteda/ir/schematic";
-import { checkConnectivity, type ConnectivityPin } from "@texteda/core";
+import { checkConnectivity, checkDeviceParamValue, type ConnectivityPin } from "@texteda/core";
 import type { Diagnostic, DiagnosticCodeId } from "@texteda/ir/diagnostics";
 import { lex, type Cell, type Line } from "./lexer.ts";
 import { checkVersion, typeRange, type VersionRange } from "./version.ts";
 import { byteCompare, naturalCompare, pinRefCompare } from "@texteda/ir/order";
-import { parseQuantity, parseQuantityRange, type QuantityKind } from "./quantities.ts";
+import { parseQuantity, parseQuantityRange } from "./quantities.ts";
 import { parseLengthNm } from "./units.ts";
 
 /** The `schematic` type exists since 0.1; the `module` type since 0.8 (teda.md §13). */
@@ -63,6 +63,73 @@ export interface ComponentFactsLite {
 /** Component resolver: caller supplies id → facts; returns undefined when not found. */
 export interface ComponentResolver {
   resolve(componentId: string): ComponentFactsLite | undefined;
+  /**
+   * The device file of an id that exists but has errors, as a path relative to the project root.
+   *
+   * A broken file yields no facts, so a board referencing it would otherwise report "component
+   * not found" — which is false: the file is there, it is wrong. The caller says which files are
+   * broken so the diagnostic can point at the real cause.
+   */
+  broken?(componentId: string): string | undefined;
+}
+
+/**
+ * Report a reference to a component that yields no facts.
+ *
+ * Two cases, two codes: the device file is missing (`ref.unknown-component`), or it exists and has
+ * errors (`ref.component-invalid`). Saying "not found" about a file that is there sends the
+ * reader looking in the wrong place — and repeats the same lie once per reference.
+ */
+function reportUnusableComponent(
+  diagnostics: Diagnostics,
+  resolver: ComponentResolver | undefined,
+  componentId: string,
+  refdes: string,
+  file: string,
+  line: number,
+  col: number,
+  extra?: { module_instance_id?: string },
+): void {
+  const brokenFile = resolver?.broken?.(componentId);
+  if (brokenFile !== undefined) {
+    // The device file's own errors are reported separately and already block the check; this
+    // reference is a consequence, so it points at the cause instead of repeating it as an error.
+    diagnostics.add(
+      "warning",
+      "ref.component-invalid",
+      `component ${componentId} has errors in ${brokenFile}`,
+      file,
+      line,
+      col,
+      {
+        expected: "a device file without errors",
+        hint: `fix the errors reported for ${brokenFile} first`,
+        data: {
+          component_id: componentId,
+          refdes,
+          device_file: brokenFile,
+          ...(extra?.module_instance_id !== undefined ? { module_instance_id: extra.module_instance_id } : {}),
+        },
+      },
+    );
+    return;
+  }
+  diagnostics.add(
+    "error",
+    "ref.unknown-component",
+    `component ${componentId} not found`,
+    file,
+    line,
+    col,
+    {
+      expected: `components/ contains ${componentId}.teda`,
+      data: {
+        component_id: componentId,
+        refdes,
+        ...(extra?.module_instance_id !== undefined ? { module_instance_id: extra.module_instance_id } : {}),
+      },
+    },
+  );
 }
 
 export interface SchematicParseOptions {
@@ -753,15 +820,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
   for (const inst of scope.instances.values()) {
     const facts = resolver?.resolve(inst.componentId);
     if (!facts) {
-      diagnostics.add(
-        "error",
-        "ref.unknown-component",
-        `component ${inst.componentId} not found`,
-        boardDoc.file,
-        inst.line,
-        inst.col,
-        { expected: `components/ contains ${inst.componentId}.teda`, data: { component_id: inst.componentId, refdes: inst.refdes } },
-      );
+      reportUnusableComponent(diagnostics, resolver, inst.componentId, inst.refdes, boardDoc.file, inst.line, inst.col);
       continue;
     }
     const params = resolveParams(inst, facts, boardDoc.file, diagnostics);
@@ -778,18 +837,9 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
       const id = `${module.instanceId}.${inst.refdes}`;
       const facts = resolver?.resolve(inst.componentId);
       if (!facts) {
-        diagnostics.add(
-          "error",
-          "ref.unknown-component",
-          `component ${inst.componentId} not found`,
-          module.file,
-          inst.line,
-          inst.col,
-          {
-            expected: `components/ contains ${inst.componentId}.teda`,
-            data: { component_id: inst.componentId, refdes: inst.refdes, module_instance_id: module.instanceId },
-          },
-        );
+        reportUnusableComponent(diagnostics, resolver, inst.componentId, inst.refdes, module.file, inst.line, inst.col, {
+          module_instance_id: module.instanceId,
+        });
         continue;
       }
       const params = resolveParams(inst, facts, module.file, diagnostics);
@@ -1125,6 +1175,11 @@ function resolveParams(
     const decl = decls[i]!;
     const text = inst.paramCells[i]!;
     if (decl.type === "string") {
+      // A code-valued role has a closed value set (ADR-0038 D5): the spelling is exact, because
+      // two spellings of one code would be two BOM lines.
+      diagnostics.items.push(
+        ...checkDeviceParamValue(decl.name, text, { file, line: inst.line, col: inst.col }),
+      );
       params.push({ name: decl.name, text });
       continue;
     }
@@ -1158,20 +1213,6 @@ function resolveParams(
   return params;
 }
 
-/** Component parameter type → quantity kind. */
-const PARAM_TYPE_KINDS: Record<string, QuantityKind> = {
-  resistance: "resistance",
-  capacitance: "capacitance",
-  inductance: "inductance",
-  voltage: "voltage",
-  current: "current",
-  power: "power",
-  impedance: "impedance",
-  percent: "percent",
-  frequency: "frequency",
-  temperature: "temperature",
-};
-
 /** Resolve a pin reference → `<instance_id>.<pin_number>`. */
 function resolvePinRef(
   scope: Scope,
@@ -1201,15 +1242,7 @@ function resolvePinRef(
   }
   const facts = resolver?.resolve(inst.componentId);
   if (!facts) {
-    diagnostics.add(
-      "error",
-      "ref.unknown-component",
-      `component ${inst.componentId} not found`,
-      scope.doc.file,
-      inst.line,
-      inst.col,
-      { data: { component_id: inst.componentId } },
-    );
+    reportUnusableComponent(diagnostics, resolver, inst.componentId, inst.refdes, scope.doc.file, inst.line, inst.col);
     return null;
   }
   const instanceId = refdes;

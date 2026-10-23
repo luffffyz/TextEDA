@@ -265,7 +265,7 @@ physical_only
 
 `test_point` 与 `stitching` 的分界是**单层 vs 跨层**；连接两个不同 net 的过孔是 `deviation` 的 `net_tie`，不是 `stitching`。`test_point` / `stitching` 的 net 必须在 `sch` 里存在，否则报错。
 
-**退役（2026-10-22b）**：`test_point` 这一形态退役。测试点是 net 上的一个**焊盘**，按 [ADR-0035](../docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D8/D9 它是 `sch` 里的**单引脚器件**（不采购的是 family，采购的是 part）：有位号、有封装（形状任意）、走普通 net 成员规则，不再是 `physical_only` 实体。白名单随之从五类减为四类（`net_tie` / `split_ground` / `stitching` / `fiducial`）。该形态随下一个契约版本移除（`docs/backlog.md` F38）。
+**退役（2026-10-22b）**：`test_point` 这一形态退役。测试点是 net 上的一个**焊盘**，按 [ADR-0035](../docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D8/D9 它是 `sch` 里的**单引脚器件**（不采购的是 generic，采购的是 part）：有位号、有封装（形状任意）、走普通 net 成员规则，不再是 `physical_only` 实体。白名单随之从五类减为四类（`net_tie` / `split_ground` / `stitching` / `fiducial`）。该形态随下一个契约版本移除（`docs/backlog.md` F38）。
 
 ### 4.12 `deviation`
 

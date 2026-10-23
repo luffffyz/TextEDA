@@ -7,10 +7,10 @@ module buck-5v
 # (spec/module.md §3). Its nets are flattened to M2.<net> unless a port merges them into a
 # board-level net.
 instances
-  C1  cap-mlcc-1210       10u    10%  35V
-  C2  cap-mlcc-0402       10n    10%  25V
+  C1  cap-mlcc-1210       10u    10%  35V  X5R
+  C2  cap-mlcc-0402       10n    10%  25V  X7R
   C3  cap-tantalum-7343   220u   20%  10V  40mΩ
-  C4  cap-mlcc-0402       100n   10%  16V
+  C4  cap-mlcc-0402       100n   10%  16V  X7R
   D1  d-b340a
   L1  ihlp4040dzer150m11
   R1  res-thick-0402      10k    ±1%

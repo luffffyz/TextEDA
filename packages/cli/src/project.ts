@@ -2,7 +2,7 @@
 // `packages/core` / `packages/ir` / `packages/parser` never touch the disk.
 //
 // Project layout (ADR-0031, see `paths.ts`):
-//   assets/components/**/*.teda        components (one part per file, id taken from the file name)
+//   assets/components/**/*.teda        devices (one per file, id taken from the file name)
 //   design/sch/<board>.teda            the board's schematic (one file per board, ADR-0025)
 //   design/pcb/<board>.teda            the board's layout
 //   design/modules/<module>.teda       module definitions (spec/module.md)
@@ -42,9 +42,10 @@ export interface LoadedComponents {
 /**
  * Read the project's devices into a table the resolver can use.
  *
- * Two directories hold device files (ADR-0027): `assets/components/` holds parts (specific
- * devices), `assets/families/` holds families (device families). They share one id namespace:
- * the id is the file name, so a board writes `res-th-0402` without saying where it lives.
+ * One directory holds device files (ADR-0027, ADR-0037): `assets/components/` holds the parts
+ * (specific devices) and the generics (device classes) alike — the kind is a fact of the file,
+ * not of the path. One id namespace: the id is the file name, so a board writes
+ * `res-thick-0402` without saying where it lives.
  */
 export function loadComponents(root: string): LoadedComponents {
   const files: string[] = [];
@@ -57,17 +58,17 @@ export function loadComponents(root: string): LoadedComponents {
     }
   };
   walk(join(root, LAYOUT.components));
-  walk(join(root, LAYOUT.families));
 
   const table = new Map<string, ComponentFactsLite>();
   const problems: ComponentProblem[] = [];
+  /** Device files that exist but have errors: a board referencing them must not be told "not found". */
+  const broken = new Map<string, string>();
   for (const file of files.sort()) {
     const result = parseComponent(readFileSync(file, "utf8"), { file: relative(root, file) });
     const id = file.slice(file.lastIndexOf("/") + 1, file.length - ".teda".length);
     const relativeFile = relative(root, file);
-    // The directory says what the file is: parts live in assets/components/, families in assets/families/ (ADR-0027).
-    const expected = relativeFile.startsWith(`${LAYOUT.families}/`) ? "family" : "part";
     if (!result.ok || !result.component) {
+      broken.set(id, relativeFile);
       for (const diagnostic of result.diagnostics) {
         problems.push({
           code: diagnostic.code,
@@ -80,6 +81,7 @@ export function loadComponents(root: string): LoadedComponents {
     }
     // The component id is the file name (AGENTS.md §4.5): the id declared in the file header must match the file name, otherwise report an error.
     if (result.component.id !== id) {
+      broken.set(id, relativeFile);
       problems.push({
         code: "ref.component-id-mismatch",
         file: relativeFile,
@@ -89,19 +91,15 @@ export function loadComponents(root: string): LoadedComponents {
       });
       continue;
     }
-    if (result.component.kind !== expected) {
-      problems.push({
-        code: "ref.component-kind-mismatch",
-        file: relativeFile,
-        line: 2,
-        message: `The file declares kind ${result.component.kind}, but ${expected === "family" ? LAYOUT.families : LAYOUT.components} holds ${expected === "family" ? "families" : "parts"}`,
-        data: { declared_kind: result.component.kind, expected_kind: expected },
-      });
-      continue;
-    }
     table.set(id, { params: result.component.params, pins: result.component.pins });
   }
-  return { resolver: { resolve: (id) => table.get(id) }, problems };
+  return {
+    resolver: {
+      resolve: (id) => table.get(id),
+      broken: (id) => broken.get(id),
+    },
+    problems,
+  };
 }
 
 export interface LoadedBoard {

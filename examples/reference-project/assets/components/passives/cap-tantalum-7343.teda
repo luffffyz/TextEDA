@@ -1,10 +1,10 @@
-version 0.1.2
+version 0.1.4
 component cap-tantalum-7343
 
-# A polarised tantalum capacitor. The polarity is a fact of the family, not a hint in the file
+# A polarised tantalum capacitor. The polarity is a fact of the generic, not a hint in the file
 # name: the pins are typed `polarized`, so a reversed part is visible.
 
-kind         family
+kind         generic
 category     capacitor
 construction tantalum
 polarized    yes
@@ -14,8 +14,8 @@ footprint project:tantalum-7343
 
 params
   value      capacitance required
-  tolerance  percent     optional
-  voltage    voltage     optional
+  tolerance  percent     required
+  voltage    voltage     required
   esr        resistance  optional
 
 pins

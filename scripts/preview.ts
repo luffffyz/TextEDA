@@ -107,7 +107,7 @@ function splitRef(ref: string, defaultLib: string): { lib: string; name: string 
   return { lib: ref.slice(0, i), name: ref.slice(i + 1) };
 }
 
-/** The device file with the given id (a part in assets/components/, a family in assets/families/). */
+/** The device file with the given id (parts and generics alike live in assets/components/). */
 function findComponentFile(projectRoot: string, id: string): string | null {
   return deviceFiles(projectRoot).find((f) => basename(f, ".teda") === id) ?? null;
 }

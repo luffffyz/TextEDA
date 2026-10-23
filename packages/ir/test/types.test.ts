@@ -7,21 +7,21 @@ import type { Component } from "../src/generated/types/component.ts";
 import type { Pcb } from "../src/generated/types/pcb.ts";
 
 const minimalSchematic: Schematic = {
-  ir_version: "0.3",
+  ir_version: "0.4",
   format: "0.7",
   board: "demo",
   instances: [],
   nets: [],
 };
 
-// @ts-expect-error ir_version is currently only 0.3; once the type widens, this assertion fails to compile
+// @ts-expect-error ir_version is currently only 0.4; once the type widens, this assertion fails to compile
 const wrongVersion: Schematic = { ...minimalSchematic, ir_version: "0.2" };
 
 const minimalComponent: Component = {
-  ir_version: "0.3",
+  ir_version: "0.4",
   component: {
     id: "res-thick-0402",
-    kind: "family",
+    kind: "generic",
     construction: "thick_film",
     polarized: false,
     symbol: "kicad:Device:R",
@@ -38,7 +38,7 @@ const wrongPinsSource: Component = {
 };
 
 const minimalPcb: Pcb = {
-  ir_version: "0.3",
+  ir_version: "0.4",
   format: "0.7",
   board: "demo",
   board_thickness_nm: 1600000,

@@ -8,24 +8,24 @@ module charger-power
 # (spec/module.md §3). Its nets are flattened to M1.<net> unless a port merges them into a
 # board-level net.
 instances
-  C1    cap-mlcc-0402       100n    10%  25V
-  C2    cap-mlcc-0402       100n    10%  50V
-  C3    cap-mlcc-0402       100n    10%  50V
-  C4    cap-mlcc-0603       1u      10%  10V
-  C5    cap-mlcc-0603       1u      10%  10V
-  C6    cap-mlcc-0402       100n    10%  25V
-  C7    cap-mlcc-0603       1u      10%  35V
-  C8    cap-mlcc-1210       10u     10%  35V
-  C9    cap-mlcc-1210       10u     10%  35V
-  C10   cap-mlcc-0402       100n    10%  25V
-  C11   cap-mlcc-0402       100n    10%  25V
-  C12   cap-mlcc-1210       10u     10%  25V
-  C13   cap-mlcc-1210       10u     10%  35V
-  C14   cap-mlcc-0402       100n    10%  50V
-  C15   cap-mlcc-0402       100n    10%  50V
-  C16   cap-mlcc-1210       2u2     10%  35V
-  C17   cap-mlcc-0402       56n     10%  16V
-  C18   cap-mlcc-0402       22p     5%   50V
+  C1    cap-mlcc-0402       100n    10%  25V  X7R
+  C2    cap-mlcc-0402       100n    10%  50V  X7R
+  C3    cap-mlcc-0402       100n    10%  50V  X7R
+  C4    cap-mlcc-0603       1u      10%  10V  X5R
+  C5    cap-mlcc-0603       1u      10%  10V  X5R
+  C6    cap-mlcc-0402       100n    10%  25V  X7R
+  C7    cap-mlcc-0603       1u      10%  35V  X7R
+  C8    cap-mlcc-1210       10u     10%  35V  X5R
+  C9    cap-mlcc-1210       10u     10%  35V  X5R
+  C10   cap-mlcc-0402       100n    10%  25V  X7R
+  C11   cap-mlcc-0402       100n    10%  25V  X7R
+  C12   cap-mlcc-1210       10u     10%  25V  X5R
+  C13   cap-mlcc-1210       10u     10%  35V  X5R
+  C14   cap-mlcc-0402       100n    10%  50V  X7R
+  C15   cap-mlcc-0402       100n    10%  50V  X7R
+  C16   cap-mlcc-1210       2u2     10%  35V  X7R
+  C17   cap-mlcc-0402       56n     10%  16V  X7R
+  C18   cap-mlcc-0402       22p     5%   50V  C0G
   D1    d-bat54c
   D2    led-green
   D3    led-green

@@ -1,12 +1,12 @@
 {
-  "ir_version": "0.3",
+  "ir_version": "0.4",
   "source": {
     "file": "project.toml"
   },
   "project": {
     "name": "two-root-lib-demo",
     "version": "0.1.0",
-    "format": "0.3"
+    "format": "0.4"
   },
   "libs": [
     {

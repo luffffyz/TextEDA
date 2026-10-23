@@ -40,6 +40,9 @@ Every architecture decision record in this repository, in numeric order.
 | [ADR-0034](0034-manufacturing-output-target-form.md) | The Target Form of the Manufacturing Output — Derived Manufacturing Data, a Self-Describing Package, and a Gate That Is a Process | Accepted | 2026-10-22 |
 | [ADR-0035](0035-connectivity-authority-and-reverse-engineering.md) | Connectivity Has One Authority; Reverse Engineering Is an Import, Not a Mode | Accepted | 2026-10-22 |
 | [ADR-0036](0036-process-entities-outside-the-language.md) | Process Entities Stay Outside the Language — Requirements, Blocks, and Analyses | Accepted | 2026-10-22 |
+| [ADR-0037](0037-device-kind-vocabulary-and-one-device-directory.md) | The Device Kind Is `part` or `generic`, and the Devices Live in One Directory | Accepted | 2026-10-23 |
+| [ADR-0038](0038-device-vocabulary-and-parameter-roles.md) | The Device Vocabulary Is Closed and Checked; a Parameter Is a Role and a Quantity | Accepted | 2026-10-23 |
+| [ADR-0039](0039-a-part-states-its-own-ratings.md) | A Part States Its Own Ratings, and the Requirements Stay in the Instance Row | Accepted | 2026-10-23 |
 
 ## Reserved Numbers
 
