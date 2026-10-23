@@ -11,10 +11,13 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import {
   parseComponent,
+  parseProjectToml,
   type ComponentFactsLite,
   type ComponentResolver,
   type ModuleSource,
 } from "@texteda/parser";
+import type { Diagnostic } from "@texteda/ir/diagnostics";
+import type { Project } from "@texteda/ir/project";
 import type { DiagnosticCodeId } from "@texteda/ir/diagnostics";
 import { PROCUREMENT_ROLES, type ProcurementRole } from "@texteda/parser";
 import type { Device } from "@texteda/core";
@@ -149,6 +152,53 @@ export function listBoards(root: string): string[] {
     .filter((entry) => entry.isFile() && entry.name.endsWith(".teda"))
     .map((entry) => entry.name.slice(0, entry.name.length - ".teda".length))
     .sort();
+}
+
+/**
+ * Read the project file (`project.toml`).
+ *
+ * The project file is the project's own metadata: name, version, the board list, the variants,
+ * the library locks. It carries no circuit. A project without the file is still a project — the
+ * diagnostics say so, and the boards are found from `design/sch/` as before.
+ */
+export function loadProject(root: string): { ir?: Project; diagnostics: Diagnostic[] } {
+  const file = "project.toml";
+  const path = join(root, file);
+  if (!existsSync(path)) {
+    return {
+      diagnostics: [
+        {
+          severity: "error",
+          code: "ref.unknown-project",
+          message: "the project has no project.toml",
+          location: { file, line: 1, col: 1 },
+        },
+      ],
+    };
+  }
+  const result = parseProjectToml(readFileSync(path, "utf8"), { file });
+  return { ...(result.ir ? { ir: result.ir } : {}), diagnostics: result.diagnostics };
+}
+
+/** A system description: `design/system/<system_id>.teda`. */
+export interface SystemSource {
+  /** The system id, taken from the file name. */
+  systemId: string;
+  /** Path relative to the project root. */
+  file: string;
+}
+
+/** Every system description in the project (`design/system/<system_id>.teda`). */
+export function listSystems(root: string): SystemSource[] {
+  const dir = join(root, LAYOUT.system);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".teda"))
+    .map((entry) => ({
+      systemId: entry.name.slice(0, entry.name.length - ".teda".length),
+      file: relative(root, join(dir, entry.name)),
+    }))
+    .sort((a, b) => (a.systemId < b.systemId ? -1 : a.systemId > b.systemId ? 1 : 0));
 }
 
 /**

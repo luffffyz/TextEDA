@@ -1,0 +1,15 @@
+version 0.2
+system power-chain
+
+# The two boards of the reference project and how they are wired to each other.
+# The system does not change either board: each one still stands on its own (spec/teda.md §8.3).
+boards
+  charger-buck
+  mcu-board
+
+nets
+# The ground of both boards is one node.
+  GND:      charger-buck.GND  mcu-board.GND
+# The buck's 5 V output feeds the MCU board. The two sides declare their own voltage range
+# (4.85V..5.15V and 4.5V..5.5V) and the ranges overlap, so the connection is consistent.
+  VOUT_5V:  charger-buck.VOUT_5V  mcu-board.DC_IN

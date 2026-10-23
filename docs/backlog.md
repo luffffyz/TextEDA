@@ -458,7 +458,9 @@
 
 ## F17. `project.toml` 与 `system` 描述的解析（语言表面的最后两块）
 
-**现状**：语言表面还差两块没实现——`project.toml`（项目元数据：名称、版本、板列表、变体、库引用）与 `system`（板间连接）。`scripts/lib/project.ts` 里有一份只够库校验用的手写 TOML 读取，不是解析器；`system` 描述完全没有代码。`sch` 解析器已经能读板文件，但**读不到板列表**，所以跨板校验（teda.md §11 第 9 条：两侧电压区间不相交报错）做不了。
+**现状**：**已落地**（2026-10-23）——`project.toml` 有解析器（`packages/parser/src/project.ts`，手写 TOML 子集，零依赖），产出 `project` IR 分片；`system` 描述类型有解析器（`packages/parser/src/system.ts`，段只有 `boards` 与 `nets`）+ canonical `fmt` + `system` IR 分片 + 跨板校验（`packages/core/src/system/rules.ts`）。`texteda check` 现在读得到板列表、跑得了系统层的校验（板不存在 / port 未声明 / 一个板内 net 被并进两条系统 net / 两侧电压区间不相交）。参考工程多了一份 `design/system/power-chain.teda`（把 `charger-buck` 与 `mcu-board` 接起来）。
+
+**当时的现状（已过时，保留作对照）**：语言表面还差两块没实现——`project.toml`（项目元数据：名称、版本、板列表、变体、库引用）与 `system`（板间连接）。`scripts/lib/project.ts` 里有一份只够库校验用的手写 TOML 读取，不是解析器；`system` 描述完全没有代码。`sch` 解析器已经能读板文件，但**读不到板列表**，所以跨板校验（teda.md §11 第 9 条：两侧电压区间不相交报错）做不了。
 
 **要做的事**：
 
@@ -488,7 +490,7 @@
 
 **还没做的**：
 
-1. `project.toml` / `system` / `pcb` 的解析还没接进 `check`（`pcb` 描述本身还没实现；`project.toml` 与 `system` 是 F17）。
+1. ~~`project.toml` / `system` / `pcb` 的解析还没接进 `check`~~ **已落地**（`project.toml` 与 `system` 见 F17；`pcb` 描述在 F16 里落地后也接进了 `check`——板级绑定校验 `checkBinding` 随之进 `check`）。
 2. **ERC 与契约校验分层计数**：现在两类诊断在同一个数组里（`severity` 能区分 error/warning，但"契约错"与"设计错"没有分开统计）。
 3. 诊断顺序稳定 ✓（板按 id 排序、板内按产出顺序），但还没写成测试。
 
@@ -585,17 +587,17 @@
 
 ## F24. IR 分片树剩下的三种分片（`project` / `component` / `system`）
 
-**现状**：`bun run texteda ir <工程目录>` 已经写出整棵分片树——`boards/<board_id>/{schematic,pcb}.json`、`boards/<board_id>/view/<page_id>.json`、`assets/symbols/<lib>/<id>.json`、`assets/footprints/<lib>/<id>.json`，外加 `manifest.json`（每片 sha256 + 工程哈希），布局与哈希规则见 [ADR-0023](adr/0023-ir-layer-on-disk.md)。但 [ADR-0008](adr/0008-ir-shard-identity-and-hash.md) decision 1 里定的另外三种分片**一片都没有**：
+**现状**：`bun run texteda ir <工程目录>` 已经写出整棵分片树——`boards/<board_id>/{schematic,pcb}.json`、`boards/<board_id>/view/<page_id>.json`、`assets/symbols/<lib>/<id>.json`、`assets/footprints/<lib>/<id>.json`，外加 `manifest.json`（每片 sha256 + 工程哈希），布局与哈希规则见 [ADR-0023](adr/0023-ir-layer-on-disk.md)。[ADR-0008](adr/0008-ir-shard-identity-and-hash.md) decision 1 里定的另外三种分片，**现在还差一种**（`project` 与 `system` 已落地，见 F17）：
 
-- `project.json`——`project.toml` 的 IR 投影（字段对字段：`name`/`version`/`format`/`description`/`license`/`status`/`default_variant`/`authors`/`links`/`boards`/`variants`/`libs`/`compliance`/`ext`）。**`project.toml` 至今没有解析器**（F17）。
+- ~~`project.json`——`project.toml` 的 IR 投影~~ **已落地**（F17）：字段对字段（`name`/`version`/`format`/`description`/`license`/`status`/`default_variant`/`authors`/`links`/`boards`/`variants`/`libs`/`compliance`/`ext`），规范类分片，进工程哈希。
 - `assets/components/<component_id>.json`——器件描述的 IR 分片。`assets/components/**` 今天只有只读事实读取 `readComponentFacts`（给符号/封装导出合并引脚用），**没有 IR schema 的生产者**；`schemas/ir/v0.3/component.schema.json` 在，但没人往里填语义。
-- `systems/<system_id>.json`——多板连接描述的 IR 分片。`system` 描述**连语法都没有**（只有 `teda.md` 的一段与 schema）。
+- ~~`systems/<system_id>.json`——多板连接描述的 IR 分片~~ **已落地**（F17）：`system` 描述（`design/system/<system_id>.teda`，段 `boards` + `nets`，成员是 `<board_id>.<port_id>`）→ `system` IR，规范类分片，进工程哈希。
 
 **要做的事**：
 
-1. `project.toml` 解析器 → `project.json` 分片（连带 `project.toml` 的解析错误诊断码，`域.slug` 形式，登记进 `packages/ir/src/diagnostics/codes.ts`）。
-2. `component` 描述的 IR 投影 → `assets/components/<component_id>.json` 分片（引脚的电学事实仍归 `component`，符号/封装只存视图，[ADR-0012](adr/0012-symbol-description.md)）。
-3. `system` 描述的语法与解析器 → `systems/<system_id>.json` 分片（`system` 描述进不进语言本身见 `AGENTS.md` §11 Q7 / F17）。
+1. ~~`project.toml` 解析器 → `project.json` 分片~~ **已落地**（F17；诊断码 `syntax.*` / `ref.unknown-project` 已登记进 `packages/ir/src/diagnostics/codes.ts`）。
+2. `component` 描述的 IR 投影 → `assets/components/<component_id>.json` 分片（引脚的电学事实仍归 `component`，符号/封装只存视图，[ADR-0012](adr/0012-symbol-description.md)）。**未落地**。
+3. ~~`system` 描述的语法与解析器 → `systems/<system_id>.json` 分片~~ **已落地**（F17）。
 4. 三种分片进 `manifest.json` 后，**工程哈希的含义会变**——哈希覆盖的分片集合变了，旧哈希与新哈希不可比。这不是 bug，但**要写进迁移说明**（`AGENTS.md` §2 不变量 10 要求破坏性变更附迁移说明）。
 5. 每种新分片都要补 `tests/schemas/` 正反例，并过 `bun run gen:check`。
 

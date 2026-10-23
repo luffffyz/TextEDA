@@ -6,21 +6,25 @@
 //
 // Output shape matches `compile`: human-readable mode prints to stderr, `--json` mode prints the diagnostic payload to stdout
 // (ADR-0016: code / severity / location / data are the machine contract).
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
 import type { Schematic } from "@texteda/ir/schematic";
 import type { Procurement } from "@texteda/ir/procurement";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
-import { PROCUREMENT_ROLES, parsePcb, parseProcurement, parseSchematic } from "@texteda/parser";
+import { PROCUREMENT_ROLES, parsePcb, parseProcurement, parseSchematic, parseSystem } from "@texteda/parser";
 import {
   listBoards,
   listProcurement,
+  listSystems,
   loadBoard,
   loadComponents,
   loadModules,
   loadPcb,
   loadProcurement,
+  loadProject,
 } from "./project.ts";
-import { checkBinding, checkProcurement } from "@texteda/core";
+import { checkBinding, checkProcurement, checkSystem } from "@texteda/core";
 import { buildProcurementFacts } from "./procurement.ts";
 
 export interface BoardAnalysis {
@@ -85,6 +89,11 @@ export function analyzeProject(root: string): AnalyzeResult {
       location: { file: file.file, line: 2, col: 1 },
     });
   }
+
+  // The project file: the metadata, the board list, the variants. It carries no circuit, so
+  // there is nothing to check in it beyond its own shape.
+  const project = loadProject(root);
+  diagnostics.push(...project.diagnostics);
 
   const analyses: BoardAnalysis[] = [];
   const modules = loadModules(root);
@@ -153,5 +162,28 @@ export function analyzeProject(root: string): AnalyzeResult {
       diagnostics: boardDiagnostics,
     });
   }
+
+  // The system layer: how the boards are wired to each other. The systems are checked against
+  // the boards, so they come after them.
+  const boardIrs = new Map<string, Schematic>();
+  for (const analysis of analyses) {
+    if (analysis.ir) boardIrs.set(analysis.board, analysis.ir);
+  }
+  const declaredBoards = project.ir?.boards?.map((board) => board.id) ?? boards;
+  for (const source of listSystems(root)) {
+    const parsed = parseSystem(readFileSync(join(root, source.file), "utf8"), { file: source.file });
+    diagnostics.push(...parsed.diagnostics);
+    if (!parsed.ir) continue;
+    const contract = validate("system", parsed.ir);
+    if (!contract.ok) diagnostics.push(...schemaDiagnosticsToDiagnostics(contract.errors));
+    diagnostics.push(
+      ...checkSystem({
+        system: { ...parsed.ir, source: { file: source.file } },
+        declaredBoards,
+        boards: boardIrs,
+      }),
+    );
+  }
+
   return { boards, analyses, diagnostics };
 }

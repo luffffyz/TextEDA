@@ -37,11 +37,18 @@ nets
   SIG:  R1.2
 `;
 
+const PROJECT = `[project]
+name = "demo"
+version = "0.1.0"
+format = "0.9"
+`;
+
 /** Build a project in a temp directory. */
 function makeProject(board: string): string {
   const root = mkdtempSync(join(tmpdir(), "texteda-check-"));
   mkdirSync(join(root, "assets/components"), { recursive: true });
   mkdirSync(join(root, "design/sch"), { recursive: true });
+  writeFileSync(join(root, "project.toml"), PROJECT);
   writeFileSync(join(root, "assets/components", "res-thick-0402.teda"), COMPONENT);
   writeFileSync(join(root, "design/sch", "b.teda"), board);
   return root;
@@ -321,6 +328,131 @@ describe("check (a board that composes modules)", () => {
     try {
       const result = checkProject(root);
       const diagnostic = result.diagnostics.find((d) => d.code === "ref.unknown-module");
+      expect(diagnostic?.severity).toBe("error");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+const BOARD_A = `version 0.3
+schematic a
+
+instances
+  R1  res-thick-0402  10k  ±1%
+
+nets
+  GND:  R1.1
+  V5:   R1.2
+
+ports
+  GND  GND
+  V5   V5
+
+constraints
+  voltage V5 4.8V..5.2V
+`;
+
+const BOARD_B = `version 0.3
+schematic b
+
+instances
+  R1  res-thick-0402  10k  ±1%
+
+nets
+  GND:  R1.1
+  V5:   R1.2
+
+ports
+  GND  GND
+  V5   V5
+
+constraints
+  voltage V5 4.8V..5.2V
+`;
+
+/** A project with two boards that a system wires together. */
+function makeSystemProject(system: string, boardB: string = BOARD_B): string {
+  const root = mkdtempSync(join(tmpdir(), "texteda-system-"));
+  mkdirSync(join(root, "assets/components"), { recursive: true });
+  mkdirSync(join(root, "design/sch"), { recursive: true });
+  mkdirSync(join(root, "design/system"), { recursive: true });
+  writeFileSync(
+    join(root, "project.toml"),
+    `[project]
+name = "demo"
+version = "0.1.0"
+format = "0.9"
+
+[boards.a]
+[boards.b]
+`,
+  );
+  writeFileSync(join(root, "assets/components", "res-thick-0402.teda"), COMPONENT);
+  writeFileSync(join(root, "design/sch", "a.teda"), BOARD_A);
+  writeFileSync(join(root, "design/sch", "b.teda"), boardB);
+  writeFileSync(join(root, "design/system", "s.teda"), system);
+  return root;
+}
+
+describe("check (a system that wires two boards together)", () => {
+  const SYSTEM = `version 0.2
+system s
+
+boards
+  a
+  b
+
+nets
+  GND:  a.GND  b.GND
+  V5:   a.V5   b.V5
+`;
+
+  test("a consistent system reports no errors", () => {
+    const root = makeSystemProject(SYSTEM);
+    try {
+      const result = checkProject(root);
+      expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a port the board does not declare is an error", () => {
+    const root = makeSystemProject(SYSTEM.replace("b.V5", "b.NOPE"));
+    try {
+      const result = checkProject(root);
+      const diagnostic = result.diagnostics.find((d) => d.code === "ref.unknown-system-port");
+      expect(diagnostic?.severity).toBe("error");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("two sides with disjoint voltage ranges are an error", () => {
+    const root = makeSystemProject(
+      SYSTEM,
+      BOARD_B.replace("voltage V5 4.8V..5.2V", "voltage V5 1.0V..2.0V"),
+    );
+    try {
+      const result = checkProject(root);
+      const diagnostic = result.diagnostics.find((d) => d.code === "bind.system-voltage-mismatch");
+      expect(diagnostic?.severity).toBe("error");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("one board net in two system nets is an error", () => {
+    const root = makeSystemProject(
+      SYSTEM.replace(
+        "nets\n  GND:  a.GND  b.GND\n  V5:   a.V5   b.V5\n",
+        "nets\n  GND:  a.GND  b.GND\n  V5:   a.V5   b.V5\n  EXTRA: a.GND  b.GND\n",
+      ),
+    );
+    try {
+      const result = checkProject(root);
+      const diagnostic = result.diagnostics.find((d) => d.code === "ref.system-net-conflict");
       expect(diagnostic?.severity).toBe("error");
     } finally {
       rmSync(root, { recursive: true, force: true });

@@ -14,8 +14,10 @@
 //   ├── symbols/<lib>/<symbol_id>.json
 //   └── footprints/<lib>/<footprint_id>.json
 //
-// `components/`, `project.json` and `systems/` have no producer yet (no component IR parser, no
-// `project.toml` parser, no `system` parser), so they are absent until those land.
+//   ├── project.json                   # the project file's metadata
+//   ├── systems/<system_id>.json
+//
+// `components/` has no producer yet (no component IR parser), so it is absent until that lands.
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
@@ -26,8 +28,10 @@ import {
   parseFootprint,
   parsePcb,
   parseProcurement,
+  parseProjectToml,
   parseSchematic,
   parseSymbol,
+  parseSystem,
   parseView,
 } from "@texteda/parser";
 import { PROCUREMENT_ROLES } from "@texteda/parser";
@@ -35,11 +39,13 @@ import { LAYOUT } from "./paths.ts";
 import {
   listBoards,
   listProcurement,
+  listSystems,
   loadBoard,
   loadComponents,
   loadModules,
   loadPcb,
   loadProcurement,
+  loadProject,
 } from "./project.ts";
 
 /** One compiled shard: canonical bytes plus the hash of those bytes. */
@@ -250,6 +256,34 @@ export function buildIrTree(root: string): IrTree {
         ir: parsed.ir,
       });
     }
+  }
+
+  // The project file: the project's own metadata, the board list, the variants.
+  const project = loadProject(root);
+  diagnostics.push(...project.diagnostics);
+  if (project.ir) {
+    drafts.push({
+      path: "project.json",
+      kind: "project",
+      source: "project.toml",
+      normative: true,
+      ir: project.ir,
+    });
+  }
+
+  // The systems: how the boards are wired to each other. A system is part of the design, so it
+  // enters the build identity.
+  for (const source of listSystems(root)) {
+    const parsed = parseSystem(readFileSync(join(root, source.file), "utf8"), { file: source.file });
+    diagnostics.push(...parsed.diagnostics);
+    if (!parsed.ir) continue;
+    drafts.push({
+      path: `systems/${source.systemId}.json`,
+      kind: "system",
+      source: source.file,
+      normative: true,
+      ir: parsed.ir,
+    });
   }
 
   // A procurement file belongs to a board: one whose design exists (spec/procurement.md §1).

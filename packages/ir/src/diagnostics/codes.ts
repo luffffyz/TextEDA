@@ -125,6 +125,28 @@ export const DIAGNOSTIC_CODES = {
     spec: ["teda.md §4.4"],
   },
 
+  "syntax.board-invalid": {
+    domain: "syntax",
+    severity: "error",
+    summary: "Not a valid board id",
+    hint: "A board id is lower-case letters, digits and hyphens, starting with a letter",
+    spec: ["spec/teda.md §8.1"],
+  },
+  "syntax.net-invalid": {
+    domain: "syntax",
+    severity: "error",
+    summary: "Invalid system net row: the name, the members or the number of members is wrong",
+    hint: "A system net row is written as `NAME: <board_id>.<port_id> …` and needs at least two members",
+    spec: ["spec/teda.md §8.2"],
+  },
+  "syntax.port-ref-invalid": {
+    domain: "syntax",
+    severity: "error",
+    summary: "Not a valid port reference",
+    hint: "A port reference is written as <board_id>.<port_id>",
+    spec: ["spec/teda.md §8.2"],
+  },
+
   // ---- value: values and dimensions ----
   "value.length-invalid": {
     domain: "value",
@@ -409,6 +431,63 @@ export const DIAGNOSTIC_CODES = {
     spec: ["spec/procurement.md §3"],
   },
 
+  "value.project-name-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "The project name has characters a name may not have",
+    hint: "A project name may contain letters, digits, `_`, `.` and `-`",
+    spec: ["AGENTS.md §9"],
+  },
+  "value.project-version-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "The project version is not written as major.minor.patch",
+    hint: "Write the project version as `major.minor.patch`, e.g. `0.1.0`",
+    spec: ["AGENTS.md §9"],
+  },
+  "value.project-status-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "Unknown project status",
+    hint: "The status is one of draft, prototype, frozen, production, deprecated",
+    spec: ["AGENTS.md §9"],
+  },
+  "value.project-authors-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "The author list is not a list of author tables, or an author has no name",
+    hint: "Write the authors as `[[project.authors]]` tables with a `name`",
+    spec: ["AGENTS.md §9"],
+  },
+  "value.project-board-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "A board entry is not a table, or a board table has an unusable value",
+    hint: "Write `[boards.<id>]` with `revision` and `title`",
+    spec: ["AGENTS.md §9"],
+  },
+  "value.project-variant-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "A variant entry is not a table, or a variant table has an unusable value",
+    hint: "Write `[variants.<id>]` with `description`, `dnp`, `nofit` and `alternates`",
+    spec: ["AGENTS.md §9"],
+  },
+  "value.project-lib-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "A library entry is not a table, has no source, or is not pinned",
+    hint: "Write `[libs.<name>]` with a `source` and one of `rev`, `version` or `content_hash`",
+    spec: ["AGENTS.md §9"],
+  },
+  "value.project-operating-temp-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "The operating temperature range is not written as a range of temperatures",
+    hint: "Write the range as `min..max`, e.g. `0C..40C`",
+    spec: ["AGENTS.md §9"],
+  },
+
   // ---- ref: references and resolution ----
   "ref.unknown-component": {
     domain: "ref",
@@ -528,6 +607,57 @@ export const DIAGNOSTIC_CODES = {
     spec: ["spec/module.md §3"],
   },
 
+  "ref.unknown-project": {
+    domain: "ref",
+    severity: "error",
+    summary: "The project has no project.toml",
+    hint: "Create the project file with `texteda init`, or write one with a name, a version and a format version",
+    spec: ["AGENTS.md §9"],
+  },
+  "ref.unknown-variant": {
+    domain: "ref",
+    severity: "error",
+    summary: "Reference to a variant that is not defined in the project",
+    hint: "Define the variant in `[variants.<id>]` or point at one that exists",
+    spec: ["AGENTS.md §9"],
+  },
+  "ref.duplicate-board": {
+    domain: "ref",
+    severity: "error",
+    summary: "The same board is listed twice",
+    hint: "List every board of the system once",
+    spec: ["spec/teda.md §8.1"],
+  },
+  "ref.duplicate-net": {
+    domain: "ref",
+    severity: "error",
+    summary: "The same system net is defined twice",
+    hint: "Give every system net its own row; a net that spans lines uses a continuation row",
+    spec: ["spec/teda.md §8.2"],
+  },
+
+  "ref.unknown-system-board": {
+    domain: "ref",
+    severity: "error",
+    summary: "The system names a board the project does not have",
+    hint: "Declare the board in `[boards.<id>]` in project.toml, or drop it from the system's boards section",
+    spec: ["spec/teda.md §8.1"],
+  },
+  "ref.unknown-system-port": {
+    domain: "ref",
+    severity: "error",
+    summary: "The system references a port the board does not declare",
+    hint: "Declare the port in the board's ports section, or reference a port that exists",
+    spec: ["spec/teda.md §8.2"],
+  },
+  "ref.system-net-conflict": {
+    domain: "ref",
+    severity: "error",
+    summary: "One board net is in two system nets",
+    hint: "One board net belongs to one system net; two system nets sharing it would short them together",
+    spec: ["spec/teda.md §8.2"],
+  },
+
   // ---- net: net integrity ----
   "net.pin-in-two-nets": {
     domain: "net",
@@ -645,6 +775,14 @@ export const DIAGNOSTIC_CODES = {
     summary: "Invalid role: the role is not one this position allows, or it disagrees with the directory",
     hint: "primary goes in assets/procurement/primary/, alternatives in assets/procurement/alternatives/",
     spec: ["spec/procurement.md §1"],
+  },
+
+  "format.toml-invalid": {
+    domain: "format",
+    severity: "error",
+    summary: "The project file is not valid TOML, or uses a construct outside the accepted subset",
+    hint: "The project file uses tables, arrays of tables, strings, numbers, booleans and arrays; inline tables, dates and dotted keys are not accepted",
+    spec: ["AGENTS.md §9"],
   },
 
   // ---- contract: IR contract / schema ----
@@ -768,6 +906,13 @@ export const DIAGNOSTIC_CODES = {
     summary: "A net is physically split into regions that do not touch by a declared split_ground",
     hint: "a split ground breaks the return path of every signal that crosses the gap; check the isolation and the stitching",
     spec: ["spec/pcb.md §4.12", "docs/adr/0035-connectivity-authority-and-reverse-engineering.md D10"],
+  },
+  "bind.system-voltage-mismatch": {
+    domain: "bind",
+    severity: "error",
+    summary: "The voltage ranges of the boards a system net connects do not overlap",
+    hint: "Check the voltage constraints of the boards the system net connects; one of them is outside the other's range",
+    spec: ["spec/teda.md §8.2", "spec/teda.md §11"],
   },
   "drc.silk-small": {
     domain: "drc",
