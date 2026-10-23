@@ -22,6 +22,7 @@
         "@texteda/core": "workspace:*",
         "@texteda/ir": "workspace:*",
         "@texteda/parser": "workspace:*",
+        "@texteda/renderer": "workspace:*",
       },
     },
     "packages/core": {

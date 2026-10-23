@@ -16,11 +16,13 @@
     "./compile": "./src/compile.ts",
     "./project": "./src/project.ts",
     "./ir": "./src/ir.ts",
-    "./ir-tree": "./src/ir-tree.ts"
+    "./ir-tree": "./src/ir-tree.ts",
+    "./symbols": "./src/symbols.ts"
   },
   "dependencies": {
     "@texteda/core": "workspace:*",
     "@texteda/ir": "workspace:*",
-    "@texteda/parser": "workspace:*"
+    "@texteda/parser": "workspace:*",
+    "@texteda/renderer": "workspace:*"
   }
 }

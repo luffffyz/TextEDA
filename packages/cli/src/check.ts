@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
 import type { Schematic } from "@texteda/ir/schematic";
+import { schematicGeometry } from "@texteda/renderer";
 import type { SchematicView } from "@texteda/ir/schematic-view";
 import type { Procurement } from "@texteda/ir/procurement";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
@@ -33,12 +34,15 @@ import {
   checkRatings,
   checkReviews,
   checkSystem,
+  checkReadability,
   checkViews,
+  type ReadabilityGeometry,
 } from "@texteda/core";
 import { buildProcurementFacts } from "./procurement.ts";
 import { checkDeviceUsage } from "@texteda/core";
 import { loadReviews } from "./reviews.ts";
 import { loadFootprintLibrary, padsByInstance } from "./pads.ts";
+import { loadSymbolLibrary, schematicInstances } from "./symbols.ts";
 import { LAYOUT } from "./paths.ts";
 
 export interface BoardAnalysis {
@@ -131,6 +135,10 @@ export function analyzeProject(root: string): AnalyzeResult {
     return built;
   };
   const footprints = loadFootprintLibrary(root);
+  const symbols = loadSymbolLibrary(root);
+  /** The device's symbol reference: the device IR is the owner of it (ADR-0012). */
+  const symbolOf = (componentId: string): string | undefined =>
+    componentShards.find((shard) => shard.id === componentId)?.ir.component.symbol;
   for (const board of boards) {
     const loaded = loadBoard(root, board);
     if (!loaded) continue;
@@ -165,6 +173,22 @@ export function analyzeProject(root: string): AnalyzeResult {
         }),
         ...checkViews({ file: loaded.file, schematic: result.ir, pages }),
       );
+      // The drawing itself: text on top of text, a label away from its net, a wire through a body
+      // (spec/schematic-view.md §9.2). Geometry comes from the renderer, so the check sees exactly
+      // what a reader sees; the facts are handed over in `core`'s own shape, which the assignment
+      // below type-checks.
+      const instances = schematicInstances(
+        result.ir,
+        (componentId) => resolver.resolve(componentId)?.pins ?? [],
+        symbolOf,
+        symbols,
+      );
+      for (const page of pages) {
+        const geometry: ReadabilityGeometry = schematicGeometry(page.view, instances);
+        boardDiagnostics.push(
+          ...checkReadability({ file: page.file, view: page.view, schematic: result.ir, geometry }),
+        );
+      }
       // Board-level consistency: run binding validation when a pcb description exists (spec/pcb.md §5.2).
       const pcbSource = loadPcb(root, board);
       if (pcbSource !== null) {

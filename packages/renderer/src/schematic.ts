@@ -7,6 +7,7 @@
 // no view, no drawing.
 import type { SchematicView } from "@texteda/ir/schematic-view";
 import { pinDirection, type SvgDoc, type SvgPrimitive } from "./svg.ts";
+import { textAdvance } from "./font/index.ts";
 import { renderSymbol, type SymbolBody, type SymbolPart } from "./symbol.ts";
 
 /** What the renderer needs to draw one placed instance: the symbol's geometry and the pin facts from `component`. */
@@ -368,4 +369,157 @@ function notePrimitive(note: Note): SvgPrimitive {
     role: "text",
     layer: "text",
   };
+}
+
+/* -------- geometry, for the readability checks (spec/schematic-view.md §9.2) -------- */
+
+/** An axis-aligned box in sheet coordinates (nanometres). */
+export interface SheetBox {
+  readonly min_x_nm: number;
+  readonly min_y_nm: number;
+  readonly max_x_nm: number;
+  readonly max_y_nm: number;
+}
+
+/** A piece of text on the sheet: what the readability checks compare. */
+export interface SheetText {
+  /** `label` and `port` carry a net (or a port id) and must sit on it; `text` is an annotation. */
+  readonly kind: "label" | "port" | "text";
+  readonly text: string;
+  /** The anchor point: the label's position, the port's tip, the note's start. */
+  readonly x_nm: number;
+  readonly y_nm: number;
+  readonly box: SheetBox;
+  readonly line?: number;
+  /** The net a label names, or the board port a tag shows. */
+  readonly subject?: string;
+}
+
+/** A placed symbol: the box of its **drawn body** (text excluded) and its pin connection points. */
+export interface SheetSymbol {
+  readonly instance_id: string;
+  readonly box: SheetBox;
+  readonly pins: ReadonlyMap<string, { readonly x_nm: number; readonly y_nm: number }>;
+}
+
+export interface SheetGeometry {
+  readonly texts: readonly SheetText[];
+  readonly symbols: readonly SheetSymbol[];
+}
+
+/** Bounding box of drawing primitives; text is left out on purpose (a field's width must not widen the body). */
+function graphicsBox(primitives: readonly SvgPrimitive[]): SheetBox | null {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  const put = (x: number, y: number): void => {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  };
+  for (const p of primitives) {
+    switch (p.kind) {
+      case "line":
+        put(p.x1, p.y1);
+        put(p.x2, p.y2);
+        break;
+      case "rect":
+        put(p.x1, p.y1);
+        put(p.x2, p.y2);
+        break;
+      case "circle":
+        put(p.cx - p.rNm, p.cy - p.rNm);
+        put(p.cx + p.rNm, p.cy + p.rNm);
+        break;
+      case "arc":
+        put(p.x1, p.y1);
+        put(p.x2, p.y2);
+        put(p.xm, p.ym);
+        break;
+      case "poly":
+      case "polyline":
+        for (const point of p.points) put(point.x, point.y);
+        break;
+      default:
+        break;
+    }
+  }
+  if (!Number.isFinite(minX)) return null;
+  return { min_x_nm: minX, min_y_nm: minY, max_x_nm: maxX, max_y_nm: maxY };
+}
+
+/** The box a text primitive occupies: the stroke font's advance wide, one cap height about the anchor. */
+function textBox(x: number, y: number, text: string, sizeNm: number, anchor: "start" | "middle" | "end"): SheetBox {
+  const width = textAdvance(text, sizeNm);
+  const left = anchor === "start" ? x : anchor === "end" ? x - width : x - width / 2;
+  const half = sizeNm / 2;
+  return { min_x_nm: left, min_y_nm: y - half, max_x_nm: left + width, max_y_nm: y + half };
+}
+
+/**
+ * The geometry the readability checks need, computed exactly as the drawing is drawn.
+ *
+ * Kept beside `renderSchematic` on purpose: a checker that re-derived text advance or a symbol's
+ * extent would drift from what the reader sees. The caller passes the result to `packages/core`
+ * (structural typing, no dependency in either direction — `core` declares the shape it reads).
+ */
+export function schematicGeometry(
+  view: SchematicView,
+  instances: ReadonlyMap<string, SchematicInstance>,
+): SheetGeometry {
+  const texts: SheetText[] = [];
+  const symbols: SheetSymbol[] = [];
+
+  for (const place of view.place) {
+    const instance = instances.get(place.instance_id);
+    if (!instance) continue; // the cross-check reports a missing instance; geometry cannot invent one
+    const drawn = placeSymbol(instance, place, place.unit ?? 1);
+    const box = graphicsBox(drawn.filter((p) => p.kind !== "text" && p.kind !== "pin"));
+    const pins = new Map<string, { x_nm: number; y_nm: number }>();
+    for (const pin of instance.symbol.pins) {
+      const at = pinPoint(place, instance, pin.number);
+      pins.set(pin.number, { x_nm: at.x, y_nm: at.y });
+    }
+    if (box) symbols.push({ instance_id: place.instance_id, box, pins });
+    else symbols.push({ instance_id: place.instance_id, pins, box: { min_x_nm: place.x_nm, min_y_nm: place.y_nm, max_x_nm: place.x_nm, max_y_nm: place.y_nm } });
+  }
+
+  for (const label of view.label ?? []) {
+    texts.push({
+      kind: "label",
+      text: label.net,
+      x_nm: label.x_nm,
+      y_nm: label.y_nm,
+      box: textBox(label.x_nm, label.y_nm, label.net, LABEL_SIZE_NM, "start"),
+      ...(label.line === undefined ? {} : { line: label.line }),
+      subject: label.net,
+    });
+  }
+  for (const port of view.port ?? []) {
+    const rot = rotationOf(port.rot_mdeg);
+    const center = rotateVector(rot, PORT_BODY_NM / 2 + PORT_HALF_NM, 0);
+    texts.push({
+      kind: "port",
+      text: port.id,
+      x_nm: port.x_nm,
+      y_nm: port.y_nm,
+      box: textBox(port.x_nm + center.x, port.y_nm + center.y, port.id, PORT_SIZE_NM, "middle"),
+      ...(port.line === undefined ? {} : { line: port.line }),
+      subject: port.id,
+    });
+  }
+  for (const note of view.text ?? []) {
+    texts.push({
+      kind: "text",
+      text: note.text,
+      x_nm: note.x_nm,
+      y_nm: note.y_nm,
+      box: textBox(note.x_nm, note.y_nm, note.text, NOTE_SIZE_NM, "start"),
+      ...(note.line === undefined ? {} : { line: note.line }),
+    });
+  }
+
+  return { texts, symbols };
 }

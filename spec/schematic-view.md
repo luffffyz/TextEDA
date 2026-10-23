@@ -219,15 +219,17 @@ text
 | 码 | 触发 | 状态 |
 |---|---|---|
 | `view.nets-not-drawn` | 板里**成员数 ≥ 2** 的 net 在**所有**打印页上都既没有走线也没有标签——图上看不出它连着。一块板报**一条**，带数量与前十个 net 名（画到一半是正常状态，它需要说得出来，不是被禁止——同 [ADR-0040](../docs/adr/0040-partial-layout-is-legal-and-reported.md) D4 的分寸）。没有任何打印页的板**不报**：有逻辑、无视图是合法状态 | 已实现（板交叉校验，`packages/core/src/view/checks.ts`） |
-| `view.label-not-on-net` | 标签没落在该 net 的走线或引脚上 | 待实现（可读性检查） |
-| `view.port-not-on-net` | 端口符号没落在该 net 的走线或引脚上 | 待实现（可读性检查） |
-| `view.wire-crosses-symbol` | 走线穿过某个符号的本体（`AGENTS.md` §6 的可读性检查） | 待实现（可读性检查） |
-| `view.text-overlap` | 两段文字互相压住 | 待实现（可读性检查） |
-| `view.label-collision` | 两个标签压在一起 | 待实现（可读性检查） |
+| `view.label-not-on-net` | 标签没落在该 net 的走线或引脚上（该 net 在本页**有画走线**时才判：整条 net 没画是 `view.nets-not-drawn` 的事，不逐标签重复） | 已实现（可读性检查，`packages/core/src/view/readability.ts`） |
+| `view.port-not-on-net` | 端口符号没落在该 net 的走线或引脚上（同一前提） | 已实现（可读性检查，同上） |
+| `view.wire-crosses-symbol` | 走线穿过某个符号的本体（`AGENTS.md` §6 的可读性检查）；本体取符号**图形**的包围盒，不含文字字段 | 已实现（可读性检查，同上） |
+| `view.text-overlap` | 两段文字互相压住（**相切不算**，必须有重叠面积） | 已实现（可读性检查，同上） |
+| `view.label-collision` | 两个标签压在一起（label 与 label 的重叠归这条，其余文字组合归 `view.text-overlap`） | 已实现（可读性检查，同上） |
 
 > 码表见 `docs/error-codes.md`（由 `packages/ir/src/diagnostics/codes.ts` 生成）。诊断码按"错误的种类"分域，不按发现阶段分（[ADR-0016](../docs/adr/0016-diagnostic-error-codes.md)）："引用了不存在的东西"在 `view` 里和在 `sch` 里是同一类错误，所以复用 `ref.*`；"角度不合法"复用 `value.angle-invalid`。`view` 域是本描述引入的新域，授权见 [ADR-0021](../docs/adr/0021-schematic-view-layer.md)。
 >
-> **注册表只登记"已发出"的码**（[ADR-0016](../docs/adr/0016-diagnostic-error-codes.md) decision 4：码表是唯一真源，发出即冻结）。所以"待实现"的那几行此刻还不在 `docs/error-codes.md` 里——它们在对应检查落地时才登记，名字以本表为准。
+> **注册表只登记"已发出"的码**（[ADR-0016](../docs/adr/0016-diagnostic-error-codes.md) decision 4：码表是唯一真源，发出即冻结）。本表全部六个码都已发出并登记。
+>
+> **几何从渲染器来，不从检查器推**。文字宽度、符号本体范围、引脚落点都由 `packages/renderer` 的 `schematicGeometry` 按**实际画法**算出（同一套变换、同一套笔画字体度量），检查器只判断"压没压住""在不在线上"。检查器自己再算一遍就会和读者看到的东西漂移，那正是可读性检查要防的那类错误。
 
 ### 9.3 不校验的事
 
