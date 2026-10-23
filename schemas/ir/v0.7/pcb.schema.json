@@ -30,7 +30,8 @@
     },
     "place": {
       "type": "array",
-      "items": { "$ref": "#/$defs/placement" }
+      "items": { "$ref": "#/$defs/placement" },
+      "description": "Where the placed instances sit, one entry per instance."
     },
     "connect": {
       "type": "array",
@@ -39,19 +40,23 @@
     },
     "trace": {
       "type": "array",
-      "items": { "$ref": "#/$defs/trace" }
+      "items": { "$ref": "#/$defs/trace" },
+      "description": "The tracks: pieces of copper of one net on one layer."
     },
     "via": {
       "type": "array",
-      "items": { "$ref": "#/$defs/via" }
+      "items": { "$ref": "#/$defs/via" },
+      "description": "The vias: holes from one layer to another."
     },
     "zone": {
       "type": "array",
-      "items": { "$ref": "#/$defs/zone" }
+      "items": { "$ref": "#/$defs/zone" },
+      "description": "The copper zones (pours)."
     },
     "keepout": {
       "type": "array",
-      "items": { "$ref": "#/$defs/keepout" }
+      "items": { "$ref": "#/$defs/keepout" },
+      "description": "The regions where something may not be put."
     },
     "rules": {
       "type": "array",
@@ -60,15 +65,18 @@
     },
     "silk": {
       "type": "array",
-      "items": { "$ref": "#/$defs/silk" }
+      "items": { "$ref": "#/$defs/silk" },
+      "description": "The silkscreen items."
     },
     "physical_only": {
       "type": "array",
-      "items": { "$ref": "#/$defs/physical_only" }
+      "items": { "$ref": "#/$defs/physical_only" },
+      "description": "The items that exist on the board but not in the schematic."
     },
     "deviation": {
       "type": "array",
-      "items": { "$ref": "#/$defs/deviation" }
+      "items": { "$ref": "#/$defs/deviation" },
+      "description": "The controlled deviations between the schematic and the board."
     },
     "note": { "$ref": "urn:texteda:ir:0.7:common#/$defs/note" }
   },
@@ -78,9 +86,10 @@
       "additionalProperties": false,
       "required": ["x_nm", "y_nm"],
       "properties": {
-        "x_nm": { "type": "integer" },
-        "y_nm": { "type": "integer" }
-      }
+        "x_nm": { "type": "integer", "description": "X coordinate, nanometres from the origin." },
+        "y_nm": { "type": "integer", "description": "Y coordinate, nanometres from the origin." }
+      },
+      "description": "A point on the board, in nanometres from the origin."
     },
     "stackup_layer": {
       "oneOf": [
@@ -90,9 +99,16 @@
           "required": ["layer", "type", "thickness_nm", "kind"],
           "properties": {
             "layer": { "$ref": "urn:texteda:ir:0.7:common#/$defs/layer_name" },
-            "type": { "const": "copper" },
-            "thickness_nm": { "type": "integer", "minimum": 1 },
-            "kind": { "enum": ["signal", "power", "plane"] }
+            "type": { "const": "copper", "description": "The kind of layer: copper." },
+            "thickness_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Thickness of the copper, nanometres."
+            },
+            "kind": {
+              "enum": ["signal", "power", "plane"],
+              "description": "What the copper layer is for."
+            }
           }
         },
         {
@@ -101,9 +117,17 @@
           "required": ["layer", "type", "thickness_nm", "material"],
           "properties": {
             "layer": { "$ref": "urn:texteda:ir:0.7:common#/$defs/layer_name" },
-            "type": { "const": "dielectric" },
-            "thickness_nm": { "type": "integer", "minimum": 1 },
-            "material": { "type": "string", "minLength": 1 },
+            "type": { "const": "dielectric", "description": "The kind of layer: dielectric." },
+            "thickness_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Thickness of the dielectric, nanometres."
+            },
+            "material": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The dielectric material."
+            },
             "er_ppm": {
               "type": "integer",
               "minimum": 1000000,
@@ -119,14 +143,24 @@
       "required": ["instance_id", "x_nm", "y_nm", "rot_mdeg", "side"],
       "properties": {
         "instance_id": { "$ref": "urn:texteda:ir:0.7:common#/$defs/instance_id" },
-        "x_nm": { "type": "integer" },
-        "y_nm": { "type": "integer" },
+        "x_nm": {
+          "type": "integer",
+          "description": "X coordinate of the instance's origin, nanometres."
+        },
+        "y_nm": {
+          "type": "integer",
+          "description": "Y coordinate of the instance's origin, nanometres."
+        },
         "rot_mdeg": {
           "type": "integer",
           "description": "Clockwise positive, millidegrees; reduced modulo 360000."
         },
-        "side": { "enum": ["top", "bottom"] }
-      }
+        "side": {
+          "enum": ["top", "bottom"],
+          "description": "Which side of the board the instance sits on."
+        }
+      },
+      "description": "Where a placed instance sits on the board."
     },
     "connect_edge": {
       "type": "object",
@@ -145,13 +179,15 @@
       "properties": {
         "net": { "$ref": "urn:texteda:ir:0.7:common#/$defs/net_id" },
         "layer": { "$ref": "urn:texteda:ir:0.7:common#/$defs/layer_name" },
-        "width_nm": { "type": "integer", "minimum": 1 },
+        "width_nm": { "type": "integer", "minimum": 1, "description": "Track width, nanometres." },
         "points": {
           "type": "array",
           "minItems": 2,
-          "items": { "$ref": "#/$defs/point" }
+          "items": { "$ref": "#/$defs/point" },
+          "description": "The track's centre line, at least two points."
         }
-      }
+      },
+      "description": "A track: a piece of copper of one net on one layer."
     },
     "via": {
       "type": "object",
@@ -159,10 +195,24 @@
       "required": ["net", "x_nm", "y_nm", "size_nm", "drill_nm"],
       "properties": {
         "net": { "$ref": "urn:texteda:ir:0.7:common#/$defs/net_id" },
-        "x_nm": { "type": "integer" },
-        "y_nm": { "type": "integer" },
-        "size_nm": { "type": "integer", "minimum": 1 },
-        "drill_nm": { "type": "integer", "minimum": 1 },
+        "x_nm": {
+          "type": "integer",
+          "description": "X coordinate of the via's centre, nanometres."
+        },
+        "y_nm": {
+          "type": "integer",
+          "description": "Y coordinate of the via's centre, nanometres."
+        },
+        "size_nm": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Outer diameter of the via's pad, nanometres."
+        },
+        "drill_nm": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Diameter of the drilled hole, nanometres."
+        },
         "from_layer": { "$ref": "urn:texteda:ir:0.7:common#/$defs/layer_name" },
         "to_layer": { "$ref": "urn:texteda:ir:0.7:common#/$defs/layer_name" }
       },
@@ -182,7 +232,8 @@
         "points": {
           "type": "array",
           "minItems": 3,
-          "items": { "$ref": "#/$defs/point" }
+          "items": { "$ref": "#/$defs/point" },
+          "description": "The outline of the zone, at least three points; the polygon is closed implicitly."
         }
       },
       "description": "Only the intent is stored (outline + net + layer); the fill result never enters the IR and is recomputed from the outline + rules."
@@ -192,14 +243,19 @@
       "additionalProperties": false,
       "required": ["type", "layer", "points"],
       "properties": {
-        "type": { "enum": ["no_track", "no_pour", "no_place", "no_via"] },
+        "type": {
+          "enum": ["no_track", "no_pour", "no_place", "no_via"],
+          "description": "What the keepout forbids."
+        },
         "layer": { "$ref": "urn:texteda:ir:0.7:common#/$defs/layer_name" },
         "points": {
           "type": "array",
           "minItems": 3,
-          "items": { "$ref": "#/$defs/point" }
+          "items": { "$ref": "#/$defs/point" },
+          "description": "The outline of the keepout, at least three points; the polygon is closed implicitly."
         }
-      }
+      },
+      "description": "A region where something may not be put."
     },
     "rule": {
       "oneOf": [
@@ -208,8 +264,15 @@
           "additionalProperties": false,
           "required": ["type", "value_nm"],
           "properties": {
-            "type": { "const": "clearance" },
-            "value_nm": { "type": "integer", "minimum": 1 }
+            "type": {
+              "const": "clearance",
+              "description": "The kind of rule: minimum clearance between copper of different nets."
+            },
+            "value_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "The clearance, nanometres."
+            }
           }
         },
         {
@@ -217,8 +280,12 @@
           "additionalProperties": false,
           "required": ["type", "value_nm"],
           "properties": {
-            "type": { "const": "width" },
-            "value_nm": { "type": "integer", "minimum": 1 }
+            "type": { "const": "width", "description": "The kind of rule: default track width." },
+            "value_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "The track width, nanometres."
+            }
           }
         },
         {
@@ -226,9 +293,17 @@
           "additionalProperties": false,
           "required": ["type", "size_nm", "drill_nm"],
           "properties": {
-            "type": { "const": "via" },
-            "size_nm": { "type": "integer", "minimum": 1 },
-            "drill_nm": { "type": "integer", "minimum": 1 }
+            "type": { "const": "via", "description": "The kind of rule: default via geometry." },
+            "size_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Outer diameter of the via's pad, nanometres."
+            },
+            "drill_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Diameter of the drilled hole, nanometres."
+            }
           }
         },
         {
@@ -236,12 +311,31 @@
           "additionalProperties": false,
           "required": ["type", "net", "clearance_nm", "width_nm", "via_size_nm", "via_drill_nm"],
           "properties": {
-            "type": { "const": "net" },
+            "type": {
+              "const": "net",
+              "description": "The kind of rule: the overrides for one net."
+            },
             "net": { "$ref": "urn:texteda:ir:0.7:common#/$defs/net_id" },
-            "clearance_nm": { "type": "integer", "minimum": 1 },
-            "width_nm": { "type": "integer", "minimum": 1 },
-            "via_size_nm": { "type": "integer", "minimum": 1 },
-            "via_drill_nm": { "type": "integer", "minimum": 1 }
+            "clearance_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Clearance on this net, nanometres."
+            },
+            "width_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Track width on this net, nanometres."
+            },
+            "via_size_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Via pad diameter on this net, nanometres."
+            },
+            "via_drill_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Via drill diameter on this net, nanometres."
+            }
           },
           "description": "Overrides the default per net; the value must be written out in full — there is no \"inherit\"."
         },
@@ -250,11 +344,19 @@
           "additionalProperties": false,
           "required": ["type", "net_a", "net_b", "impedance_mohm", "gap_nm"],
           "properties": {
-            "type": { "const": "diff" },
+            "type": { "const": "diff", "description": "The kind of rule: a differential pair." },
             "net_a": { "$ref": "urn:texteda:ir:0.7:common#/$defs/net_id" },
             "net_b": { "$ref": "urn:texteda:ir:0.7:common#/$defs/net_id" },
-            "impedance_mohm": { "type": "integer", "minimum": 1 },
-            "gap_nm": { "type": "integer", "minimum": 1 }
+            "impedance_mohm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Target differential impedance, milliohms."
+            },
+            "gap_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Gap between the two traces of the pair, nanometres."
+            }
           }
         },
         {
@@ -262,10 +364,17 @@
           "additionalProperties": false,
           "required": ["type", "net_a", "net_b", "max_delta_nm"],
           "properties": {
-            "type": { "const": "match" },
+            "type": {
+              "const": "match",
+              "description": "The kind of rule: length matching between two nets."
+            },
             "net_a": { "$ref": "urn:texteda:ir:0.7:common#/$defs/net_id" },
             "net_b": { "$ref": "urn:texteda:ir:0.7:common#/$defs/net_id" },
-            "max_delta_nm": { "type": "integer", "minimum": 0 }
+            "max_delta_nm": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "How much the two lengths may differ, nanometres."
+            }
           }
         },
         {
@@ -273,8 +382,12 @@
           "additionalProperties": false,
           "required": ["type", "expansion_nm"],
           "properties": {
-            "type": { "const": "mask" },
-            "expansion_nm": { "type": "integer", "minimum": 0 }
+            "type": { "const": "mask", "description": "The kind of rule: solder mask opening." },
+            "expansion_nm": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "How much the mask opening grows beyond the pad, nanometres."
+            }
           }
         },
         {
@@ -282,13 +395,17 @@
           "additionalProperties": false,
           "required": ["type", "ratio_ppm", "offset_nm"],
           "properties": {
-            "type": { "const": "paste" },
+            "type": { "const": "paste", "description": "The kind of rule: solder paste stencil." },
             "ratio_ppm": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 1000000
+              "maximum": 1000000,
+              "description": "Paste area as a fraction of the pad area, parts per million."
             },
-            "offset_nm": { "type": "integer" }
+            "offset_nm": {
+              "type": "integer",
+              "description": "Offset of the stencil aperture from the pad, nanometres."
+            }
           }
         },
         {
@@ -296,9 +413,20 @@
           "additionalProperties": false,
           "required": ["type", "gap_nm", "bridge_nm"],
           "properties": {
-            "type": { "const": "thermal" },
-            "gap_nm": { "type": "integer", "minimum": 1 },
-            "bridge_nm": { "type": "integer", "minimum": 1 }
+            "type": {
+              "const": "thermal",
+              "description": "The kind of rule: thermal relief under a pad."
+            },
+            "gap_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Gap between the thermal spokes, nanometres."
+            },
+            "bridge_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Width of the thermal spokes, nanometres."
+            }
           }
         },
         {
@@ -306,23 +434,44 @@
           "additionalProperties": false,
           "required": ["type", "value_nm"],
           "properties": {
-            "type": { "const": "min_width" },
-            "value_nm": { "type": "integer", "minimum": 1 }
+            "type": {
+              "const": "min_width",
+              "description": "The kind of rule: the narrowest track the board accepts."
+            },
+            "value_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "The minimum track width, nanometres."
+            }
           }
         }
-      ]
+      ],
+      "description": "A manufacturing rule the board must satisfy."
     },
     "silk": {
       "type": "object",
       "additionalProperties": false,
       "required": ["item", "layer", "size_nm", "mode"],
       "properties": {
-        "item": { "enum": ["refdes", "value"] },
-        "layer": { "enum": ["F.SilkS", "B.SilkS"] },
-        "size_nm": { "type": "integer", "minimum": 1 },
-        "mode": { "enum": ["show", "hide"] }
+        "item": {
+          "enum": ["refdes", "value"],
+          "description": "The silkscreen item (a line, an arc or a text)."
+        },
+        "layer": {
+          "enum": ["F.SilkS", "B.SilkS"],
+          "description": "The layer the silkscreen is drawn on."
+        },
+        "size_nm": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Stroke or text size, nanometres."
+        },
+        "mode": {
+          "enum": ["show", "hide"],
+          "description": "How the item is drawn."
+        }
       },
-      "description": "Declares only whether it appears, how large it is and on which layer; layout position never enters the IR."
+      "description": "A silkscreen item."
     },
     "physical_only": {
       "oneOf": [
@@ -331,10 +480,22 @@
           "additionalProperties": false,
           "required": ["id", "type", "size_nm", "drill_nm"],
           "properties": {
-            "id": { "type": "string", "pattern": "^[A-Z]+[0-9]+$" },
-            "type": { "const": "mounting" },
-            "size_nm": { "type": "integer", "minimum": 1 },
-            "drill_nm": { "type": "integer", "minimum": 1 }
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Z]+[0-9]+$",
+              "description": "The item's id, unique in the board."
+            },
+            "type": { "const": "mounting", "description": "What the item is: a mounting hole." },
+            "size_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Diameter of the annular ring, nanometres."
+            },
+            "drill_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Diameter of the drilled hole, nanometres."
+            }
           }
         },
         {
@@ -342,9 +503,17 @@
           "additionalProperties": false,
           "required": ["id", "type", "size_nm", "layer"],
           "properties": {
-            "id": { "type": "string", "pattern": "^[A-Z]+[0-9]+$" },
-            "type": { "const": "fiducial" },
-            "size_nm": { "type": "integer", "minimum": 1 },
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Z]+[0-9]+$",
+              "description": "The item's id, unique in the board."
+            },
+            "type": { "const": "fiducial", "description": "What the item is: a fiducial mark." },
+            "size_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Diameter of the mark, nanometres."
+            },
             "layer": { "$ref": "urn:texteda:ir:0.7:common#/$defs/layer_name" }
           }
         },
@@ -353,10 +522,18 @@
           "additionalProperties": false,
           "required": ["id", "type", "net", "size_nm"],
           "properties": {
-            "id": { "type": "string", "pattern": "^[A-Z]+[0-9]+$" },
-            "type": { "const": "test_point" },
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Z]+[0-9]+$",
+              "description": "The item's id, unique in the board."
+            },
+            "type": { "const": "test_point", "description": "What the item is: a test point." },
             "net": { "$ref": "urn:texteda:ir:0.7:common#/$defs/net_id" },
-            "size_nm": { "type": "integer", "minimum": 1 }
+            "size_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Diameter of the pad, nanometres."
+            }
           }
         },
         {
@@ -364,11 +541,23 @@
           "additionalProperties": false,
           "required": ["id", "type", "net", "size_nm", "drill_nm"],
           "properties": {
-            "id": { "type": "string", "pattern": "^[A-Z]+[0-9]+$" },
-            "type": { "const": "stitching" },
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Z]+[0-9]+$",
+              "description": "The item's id, unique in the board."
+            },
+            "type": { "const": "stitching", "description": "What the item is: a stitching via." },
             "net": { "$ref": "urn:texteda:ir:0.7:common#/$defs/net_id" },
-            "size_nm": { "type": "integer", "minimum": 1 },
-            "drill_nm": { "type": "integer", "minimum": 1 }
+            "size_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Diameter of the via's pad, nanometres."
+            },
+            "drill_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Diameter of the drilled hole, nanometres."
+            }
           }
         },
         {
@@ -376,15 +565,37 @@
           "additionalProperties": false,
           "required": ["id", "type", "x_nm", "y_nm", "w_nm", "h_nm"],
           "properties": {
-            "id": { "type": "string", "pattern": "^[A-Z]+[0-9]+$" },
-            "type": { "const": "cutout" },
-            "x_nm": { "type": "integer" },
-            "y_nm": { "type": "integer" },
-            "w_nm": { "type": "integer", "minimum": 1 },
-            "h_nm": { "type": "integer", "minimum": 1 }
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Z]+[0-9]+$",
+              "description": "The item's id, unique in the board."
+            },
+            "type": {
+              "const": "cutout",
+              "description": "What the item is: a cutout in the board."
+            },
+            "x_nm": {
+              "type": "integer",
+              "description": "X coordinate of the cutout's lower-left corner, nanometres."
+            },
+            "y_nm": {
+              "type": "integer",
+              "description": "Y coordinate of the cutout's lower-left corner, nanometres."
+            },
+            "w_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Width of the cutout, nanometres."
+            },
+            "h_nm": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Height of the cutout, nanometres."
+            }
           }
         }
-      ]
+      ],
+      "description": "Something that exists on the board but not in the schematic."
     },
     "deviation": {
       "oneOf": [
@@ -393,7 +604,10 @@
           "additionalProperties": false,
           "required": ["type", "net_a", "net_b"],
           "properties": {
-            "type": { "const": "net_tie" },
+            "type": {
+              "const": "net_tie",
+              "description": "The kind of deviation: two schematic nets are shorted together."
+            },
             "net_a": { "$ref": "urn:texteda:ir:0.7:common#/$defs/net_id" },
             "net_b": { "$ref": "urn:texteda:ir:0.7:common#/$defs/net_id" }
           },
@@ -404,12 +618,16 @@
           "additionalProperties": false,
           "required": ["type", "net"],
           "properties": {
-            "type": { "const": "split_ground" },
+            "type": {
+              "const": "split_ground",
+              "description": "The kind of deviation: one schematic net is split into disconnected regions."
+            },
             "net": { "$ref": "urn:texteda:ir:0.7:common#/$defs/net_id" }
           },
           "description": "One sch net is physically split into mutually disconnected regions."
         }
-      ]
+      ],
+      "description": "A controlled deviation between the schematic and the board."
     }
   }
 }

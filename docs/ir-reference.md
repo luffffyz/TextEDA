@@ -51,6 +51,26 @@
 | `note` | note | no | — | Free text; canonical JSON has no comments, this is the substitute. |
 | `source` | source_ref | no | — | Source-file location: path relative to the project root plus an optional line number. |
 
+### component
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `category` | string | no | — | Open value set: mcu / resistor / capacitor / inductor / led / diode / mosfet_p / regulator / battery_charger / …. Used only for classification; whether a part number is required follows from the kind, not from the category (ADR-0027). |
+| `construction` | string | no | — | The technology of the generic (ADR-0027): mlcc, tantalum, film, shielded, .... Required for a generic, absent for a part. Open value set. |
+| `datasheet` | string | no | — | Datasheet URL. |
+| `footprint` | library_ref | yes | — | Footprint library reference lib:name; geometry is a fact of the component library and does not enter the board description. |
+| `id` | slug | yes | — | Equals the file name without the extension; not a relative path. |
+| `kind` | `part` \| `generic` | yes | — | Which kind of device this is (ADR-0027, ADR-0037): a part is one purchasable device named by its part number, a generic is a device class whose value lives in the instances row. Never inferred. |
+| `lcsc` | string | no | — | LCSC part number; see ADR-0006. |
+| `manufacturer` | string | no | — | Manufacturer name. |
+| `mpn` | string | no | — | Manufacturer part number; required for a part, absent for a generic (ADR-0027). |
+| `params` | array<param_decl> | no | — | Declares the extra columns allowed in instances rows; the order is the column order; required must precede optional (teda.md §12). |
+| `pins` | array<pin> | yes | — | Pin table; pin numbers are unique and form the key that aligns with the footprint. |
+| `pins_source` | `inline` \| `symbol` | yes | — | inline = the file has a pins section (inline wins); symbol = the file omits pins and the pins are resolved from a third-party library that carries pin facts (a self-built symbol has no pin facts and cannot be this source). When both are present, inline is taken; the difference is reported by validation and does not enter the IR. |
+| `polarized` | boolean | no | — | Whether the generic is polarised (ADR-0027). Required for a generic, absent for a part. |
+| `ratings` | array<rating> | no | — | The part's own ratings, one row per role (ADR-0039). Absent for a generic: a class has no ratings of its own, its requirements live in the instances rows. |
+| `symbol` | library_ref | yes | — | Symbol library reference lib:name; a self-built symbol stores only the view, without pin facts. |
+
 ### param_decl
 
 | Field | Type | Required | Unit | Description |
@@ -97,6 +117,22 @@
 | `footprint` | object | yes | — | The footprint itself: pads, graphics, attributes, the package code and the 3D model reference. |
 | `ir_version` | ir_version | yes | — | IR contract version, currently always 0.7. |
 | `source` | source_ref | no | — | Source-file location: path relative to the project root plus an optional line number. |
+
+### footprint
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `attr` | array<`smd` \| `through_hole` \| `virtual` \| `board_only`> | no | — | KiCad (attr …) flags; by default inferred from the pads (all smd → smd). |
+| `description` | note | no | — | Free-text description; becomes the description in the IR. |
+| `fields` | array<field> | no | — | Footprint attributes (Reference / Value / Datasheet etc.). |
+| `graphics` | array<graphic> | no | — | Silkscreen/assembly/solder-mask/courtyard and other graphics. |
+| `library` | lib_id | yes | — | Owning library name ([libs.<name>] in project.toml); KiCad footprint id = <library>:<name>. |
+| `model3d` | model3d | no | — | 3D model reference: file path plus offset/scale/rotation. |
+| `name` | string | yes | — | Footprint name, e.g. ti-sot-23-5. Unique within the library. |
+| `package_code` | string | no | — | The package code of this land pattern, e.g. 0402, SOT-23-5, LQFP-100 (ADR-0029 decision 1). The device does not restate it. |
+| `pads` | array<pad> | yes | — | Pad table; pad numbers in natural order; numbering must match the symbol pin numbers. |
+| `tags` | array<string> | no | — | Tag list, sorted by byte order (a set; order carries no semantics). |
+| `texts` | array<text_item> | no | — | Text primitives on the footprint (silkscreen/assembly markings). |
 
 ### field
 
@@ -211,6 +247,14 @@
 | `source_hash` | sha256 | yes | — | Project hash = SHA-256(concatenation of "<path>:<sha256>\n" lines after sorting the normative shards by path). The board hash uses the same rule over the subset of that board's normative shards. |
 | `tool_version` | string | yes | — | Version of the tool that produced the IR; the other half of artifact traceability. |
 
+### shards[]
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `normative` | boolean | yes | — | Whether the build depends on this shard. A normative shard is part of the build identity; an advisory one is not (ADR-0023 decision 4, amended 2026-10-22). The classification is a property of the source file, so a tool never has to infer it from a path. |
+| `path` | string | yes | — | Shard path relative to dist/ir/, e.g. boards/charger-buck/schematic.json. |
+| `sha256` | sha256 | yes | — | SHA-256 of this shard's canonical JSON bytes. |
+
 ## `pcb`
 
 - schema: `urn:texteda:ir:0.7:pcb`
@@ -223,21 +267,21 @@
 | `board` | slug | yes | — | Shape of component_id / board_id / view page_id / system_id / variant id. |
 | `board_thickness_nm` | integer | yes | nm | Total board thickness; matches the sum of the stackup layer thicknesses (solder-mask and silkscreen layers excluded). |
 | `connect` | array<connect_edge> | yes | — | Explicitly declares which two pads have continuous copper between them — one of the sources of truth for connectivity. |
-| `deviation` | array<deviation> | no | — | **(missing description)** |
+| `deviation` | array<deviation> | no | — | The controlled deviations between the schematic and the board. |
 | `format` | format_version | yes | — | Language version of the .teda file that produced this shard, in canonical form (the patch component is left out when it is zero); see teda.md §13. |
 | `ir_version` | ir_version | yes | — | IR contract version, currently always 0.7. |
-| `keepout` | array<keepout> | no | — | **(missing description)** |
+| `keepout` | array<keepout> | no | — | The regions where something may not be put. |
 | `note` | note | no | — | Free text; canonical JSON has no comments, this is the substitute (ADR-0004 rule 8). |
 | `outline` | array<point> | yes | — | Closed board-outline polyline (closed automatically from first to last); only polylines are supported. The coordinate origin is the lower-left corner of the outline's bounding box. |
-| `physical_only` | array<physical_only> | no | — | **(missing description)** |
-| `place` | array<placement> | yes | — | **(missing description)** |
+| `physical_only` | array<physical_only> | no | — | The items that exist on the board but not in the schematic. |
+| `place` | array<placement> | yes | — | Where the placed instances sit, one entry per instance. |
 | `rules` | array<rule> | yes | — | Design rules must enter the IR: KiCad keeps them in the project file rather than the board file, so an agent holding only the .kicad_pcb cannot check them itself. |
-| `silk` | array<silk> | no | — | **(missing description)** |
+| `silk` | array<silk> | no | — | The silkscreen items. |
 | `source` | source_ref | no | — | Source-file location: path relative to the project root plus an optional line number. |
 | `stackup` | array<stackup_layer> | yes | — | Order is top to bottom; not sorted. The first and last entries must be copper layers. |
-| `trace` | array<trace> | no | — | **(missing description)** |
-| `via` | array<via> | no | — | **(missing description)** |
-| `zone` | array<zone> | no | — | **(missing description)** |
+| `trace` | array<trace> | no | — | The tracks: pieces of copper of one net on one layer. |
+| `via` | array<via> | no | — | The vias: holes from one layer to another. |
+| `zone` | array<zone> | no | — | The copper zones (pours). |
 
 ### connect_edge
 
@@ -252,70 +296,70 @@
 |---|---|---|---|---|
 | `net_a` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
 | `net_b` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
-| `type` | `net_tie` | yes | — | **(missing description)** |
+| `type` | `net_tie` | yes | — | The kind of deviation: two schematic nets are shorted together. |
 
 ### deviation (type=split_ground)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `net` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
-| `type` | `split_ground` | yes | — | **(missing description)** |
+| `type` | `split_ground` | yes | — | The kind of deviation: one schematic net is split into disconnected regions. |
 
 ### keepout
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. |
-| `points` | array<point> | yes | — | **(missing description)** |
-| `type` | `no_track` \| `no_pour` \| `no_place` \| `no_via` | yes | — | **(missing description)** |
+| `points` | array<point> | yes | — | The outline of the keepout, at least three points; the polygon is closed implicitly. |
+| `type` | `no_track` \| `no_pour` \| `no_place` \| `no_via` | yes | — | What the keepout forbids. |
 
 ### physical_only (type=mounting)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `drill_nm` | integer | yes | nm | **(missing description)** |
-| `id` | string | yes | — | **(missing description)** |
-| `size_nm` | integer | yes | nm | **(missing description)** |
-| `type` | `mounting` | yes | — | **(missing description)** |
+| `drill_nm` | integer | yes | nm | Diameter of the drilled hole, nanometres. |
+| `id` | string | yes | — | The item's id, unique in the board. |
+| `size_nm` | integer | yes | nm | Diameter of the annular ring, nanometres. |
+| `type` | `mounting` | yes | — | What the item is: a mounting hole. |
 
 ### physical_only (type=fiducial)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `id` | string | yes | — | **(missing description)** |
+| `id` | string | yes | — | The item's id, unique in the board. |
 | `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. |
-| `size_nm` | integer | yes | nm | **(missing description)** |
-| `type` | `fiducial` | yes | — | **(missing description)** |
+| `size_nm` | integer | yes | nm | Diameter of the mark, nanometres. |
+| `type` | `fiducial` | yes | — | What the item is: a fiducial mark. |
 
 ### physical_only (type=test_point)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `id` | string | yes | — | **(missing description)** |
+| `id` | string | yes | — | The item's id, unique in the board. |
 | `net` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
-| `size_nm` | integer | yes | nm | **(missing description)** |
-| `type` | `test_point` | yes | — | **(missing description)** |
+| `size_nm` | integer | yes | nm | Diameter of the pad, nanometres. |
+| `type` | `test_point` | yes | — | What the item is: a test point. |
 
 ### physical_only (type=stitching)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `drill_nm` | integer | yes | nm | **(missing description)** |
-| `id` | string | yes | — | **(missing description)** |
+| `drill_nm` | integer | yes | nm | Diameter of the drilled hole, nanometres. |
+| `id` | string | yes | — | The item's id, unique in the board. |
 | `net` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
-| `size_nm` | integer | yes | nm | **(missing description)** |
-| `type` | `stitching` | yes | — | **(missing description)** |
+| `size_nm` | integer | yes | nm | Diameter of the via's pad, nanometres. |
+| `type` | `stitching` | yes | — | What the item is: a stitching via. |
 
 ### physical_only (type=cutout)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `h_nm` | integer | yes | nm | **(missing description)** |
-| `id` | string | yes | — | **(missing description)** |
-| `type` | `cutout` | yes | — | **(missing description)** |
-| `w_nm` | integer | yes | nm | **(missing description)** |
-| `x_nm` | integer | yes | nm | **(missing description)** |
-| `y_nm` | integer | yes | nm | **(missing description)** |
+| `h_nm` | integer | yes | nm | Height of the cutout, nanometres. |
+| `id` | string | yes | — | The item's id, unique in the board. |
+| `type` | `cutout` | yes | — | What the item is: a cutout in the board. |
+| `w_nm` | integer | yes | nm | Width of the cutout, nanometres. |
+| `x_nm` | integer | yes | nm | X coordinate of the cutout's lower-left corner, nanometres. |
+| `y_nm` | integer | yes | nm | Y coordinate of the cutout's lower-left corner, nanometres. |
 
 ### placement
 
@@ -323,116 +367,116 @@
 |---|---|---|---|---|
 | `instance_id` | instance_id | yes | — | Instance id of the board's flat list: U1. An instance of a module carries the module's prefix: <module_instance_id>.<refdes> (M1.U1). This is the identity key; see ADR-0008 decision 3 and ADR-0026 decision 2. |
 | `rot_mdeg` | integer | yes | m° | Clockwise positive, millidegrees; reduced modulo 360000. |
-| `side` | `top` \| `bottom` | yes | — | **(missing description)** |
-| `x_nm` | integer | yes | nm | **(missing description)** |
-| `y_nm` | integer | yes | nm | **(missing description)** |
+| `side` | `top` \| `bottom` | yes | — | Which side of the board the instance sits on. |
+| `x_nm` | integer | yes | nm | X coordinate of the instance's origin, nanometres. |
+| `y_nm` | integer | yes | nm | Y coordinate of the instance's origin, nanometres. |
 
 ### point
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `x_nm` | integer | yes | nm | **(missing description)** |
-| `y_nm` | integer | yes | nm | **(missing description)** |
+| `x_nm` | integer | yes | nm | X coordinate, nanometres from the origin. |
+| `y_nm` | integer | yes | nm | Y coordinate, nanometres from the origin. |
 
 ### rule (type=clearance)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `type` | `clearance` | yes | — | **(missing description)** |
-| `value_nm` | integer | yes | nm | **(missing description)** |
+| `type` | `clearance` | yes | — | The kind of rule: minimum clearance between copper of different nets. |
+| `value_nm` | integer | yes | nm | The clearance, nanometres. |
 
 ### rule (type=width)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `type` | `width` | yes | — | **(missing description)** |
-| `value_nm` | integer | yes | nm | **(missing description)** |
+| `type` | `width` | yes | — | The kind of rule: default track width. |
+| `value_nm` | integer | yes | nm | The track width, nanometres. |
 
 ### rule (type=via)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `drill_nm` | integer | yes | nm | **(missing description)** |
-| `size_nm` | integer | yes | nm | **(missing description)** |
-| `type` | `via` | yes | — | **(missing description)** |
+| `drill_nm` | integer | yes | nm | Diameter of the drilled hole, nanometres. |
+| `size_nm` | integer | yes | nm | Outer diameter of the via's pad, nanometres. |
+| `type` | `via` | yes | — | The kind of rule: default via geometry. |
 
 ### rule (type=net)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `clearance_nm` | integer | yes | nm | **(missing description)** |
+| `clearance_nm` | integer | yes | nm | Clearance on this net, nanometres. |
 | `net` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
-| `type` | `net` | yes | — | **(missing description)** |
-| `via_drill_nm` | integer | yes | nm | **(missing description)** |
-| `via_size_nm` | integer | yes | nm | **(missing description)** |
-| `width_nm` | integer | yes | nm | **(missing description)** |
+| `type` | `net` | yes | — | The kind of rule: the overrides for one net. |
+| `via_drill_nm` | integer | yes | nm | Via drill diameter on this net, nanometres. |
+| `via_size_nm` | integer | yes | nm | Via pad diameter on this net, nanometres. |
+| `width_nm` | integer | yes | nm | Track width on this net, nanometres. |
 
 ### rule (type=diff)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `gap_nm` | integer | yes | nm | **(missing description)** |
-| `impedance_mohm` | integer | yes | mΩ | **(missing description)** |
+| `gap_nm` | integer | yes | nm | Gap between the two traces of the pair, nanometres. |
+| `impedance_mohm` | integer | yes | mΩ | Target differential impedance, milliohms. |
 | `net_a` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
 | `net_b` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
-| `type` | `diff` | yes | — | **(missing description)** |
+| `type` | `diff` | yes | — | The kind of rule: a differential pair. |
 
 ### rule (type=match)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `max_delta_nm` | integer | yes | nm | **(missing description)** |
+| `max_delta_nm` | integer | yes | nm | How much the two lengths may differ, nanometres. |
 | `net_a` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
 | `net_b` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
-| `type` | `match` | yes | — | **(missing description)** |
+| `type` | `match` | yes | — | The kind of rule: length matching between two nets. |
 
 ### rule (type=mask)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `expansion_nm` | integer | yes | nm | **(missing description)** |
-| `type` | `mask` | yes | — | **(missing description)** |
+| `expansion_nm` | integer | yes | nm | How much the mask opening grows beyond the pad, nanometres. |
+| `type` | `mask` | yes | — | The kind of rule: solder mask opening. |
 
 ### rule (type=paste)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `offset_nm` | integer | yes | nm | **(missing description)** |
-| `ratio_ppm` | integer | yes | ppm | **(missing description)** |
-| `type` | `paste` | yes | — | **(missing description)** |
+| `offset_nm` | integer | yes | nm | Offset of the stencil aperture from the pad, nanometres. |
+| `ratio_ppm` | integer | yes | ppm | Paste area as a fraction of the pad area, parts per million. |
+| `type` | `paste` | yes | — | The kind of rule: solder paste stencil. |
 
 ### rule (type=thermal)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `bridge_nm` | integer | yes | nm | **(missing description)** |
-| `gap_nm` | integer | yes | nm | **(missing description)** |
-| `type` | `thermal` | yes | — | **(missing description)** |
+| `bridge_nm` | integer | yes | nm | Width of the thermal spokes, nanometres. |
+| `gap_nm` | integer | yes | nm | Gap between the thermal spokes, nanometres. |
+| `type` | `thermal` | yes | — | The kind of rule: thermal relief under a pad. |
 
 ### rule (type=min_width)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `type` | `min_width` | yes | — | **(missing description)** |
-| `value_nm` | integer | yes | nm | **(missing description)** |
+| `type` | `min_width` | yes | — | The kind of rule: the narrowest track the board accepts. |
+| `value_nm` | integer | yes | nm | The minimum track width, nanometres. |
 
 ### silk
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `item` | `refdes` \| `value` | yes | — | **(missing description)** |
-| `layer` | `F.SilkS` \| `B.SilkS` | yes | — | **(missing description)** |
-| `mode` | `show` \| `hide` | yes | — | **(missing description)** |
-| `size_nm` | integer | yes | nm | **(missing description)** |
+| `item` | `refdes` \| `value` | yes | — | The silkscreen item (a line, an arc or a text). |
+| `layer` | `F.SilkS` \| `B.SilkS` | yes | — | The layer the silkscreen is drawn on. |
+| `mode` | `show` \| `hide` | yes | — | How the item is drawn. |
+| `size_nm` | integer | yes | nm | Stroke or text size, nanometres. |
 
 ### stackup_layer (type=copper)
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `kind` | `signal` \| `power` \| `plane` | yes | — | **(missing description)** |
+| `kind` | `signal` \| `power` \| `plane` | yes | — | What the copper layer is for. |
 | `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. |
-| `thickness_nm` | integer | yes | nm | **(missing description)** |
-| `type` | `copper` | yes | — | **(missing description)** |
+| `thickness_nm` | integer | yes | nm | Thickness of the copper, nanometres. |
+| `type` | `copper` | yes | — | The kind of layer: copper. |
 
 ### stackup_layer (type=dielectric)
 
@@ -440,9 +484,9 @@
 |---|---|---|---|---|
 | `er_ppm` | integer | no | ppm | Dielectric constant × 10^6, e.g. FR4 4.3 = 4300000; omitted means unknown. |
 | `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. |
-| `material` | string | yes | — | **(missing description)** |
-| `thickness_nm` | integer | yes | nm | **(missing description)** |
-| `type` | `dielectric` | yes | — | **(missing description)** |
+| `material` | string | yes | — | The dielectric material. |
+| `thickness_nm` | integer | yes | nm | Thickness of the dielectric, nanometres. |
+| `type` | `dielectric` | yes | — | The kind of layer: dielectric. |
 
 ### trace
 
@@ -450,20 +494,20 @@
 |---|---|---|---|---|
 | `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. |
 | `net` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
-| `points` | array<point> | yes | — | **(missing description)** |
-| `width_nm` | integer | yes | nm | **(missing description)** |
+| `points` | array<point> | yes | — | The track's centre line, at least two points. |
+| `width_nm` | integer | yes | nm | Track width, nanometres. |
 
 ### via
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `drill_nm` | integer | yes | nm | **(missing description)** |
+| `drill_nm` | integer | yes | nm | Diameter of the drilled hole, nanometres. |
 | `from_layer` | layer_name | no | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. |
 | `net` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
-| `size_nm` | integer | yes | nm | **(missing description)** |
+| `size_nm` | integer | yes | nm | Outer diameter of the via's pad, nanometres. |
 | `to_layer` | layer_name | no | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. |
-| `x_nm` | integer | yes | nm | **(missing description)** |
-| `y_nm` | integer | yes | nm | **(missing description)** |
+| `x_nm` | integer | yes | nm | X coordinate of the via's centre, nanometres. |
+| `y_nm` | integer | yes | nm | Y coordinate of the via's centre, nanometres. |
 
 ### zone
 
@@ -471,7 +515,7 @@
 |---|---|---|---|---|
 | `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. |
 | `net` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
-| `points` | array<point> | yes | — | **(missing description)** |
+| `points` | array<point> | yes | — | The outline of the zone, at least three points; the polygon is closed implicitly. |
 
 ## `procurement`
 
@@ -486,6 +530,14 @@
 | `ir_version` | ir_version | yes | — | IR contract version, currently always 0.7. |
 | `procurement` | object | yes | — | The selections of one board: which part is bought for which generic line. |
 | `source` | source_ref | no | — | Source-file location: path relative to the project root plus an optional line number. |
+
+### procurement
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `board` | slug | yes | — | The board these selections belong to. A selection always belongs to a board, because a BOM is a board's (ADR-0002). |
+| `role` | `primary` \| `alternatives` | yes | — | Which of the two files this is: the primary selections (normative) or the second sources (advisory). |
+| `selections` | array<selection> | yes | — | One row per selected BOM line, ordered by the line key. |
 
 ### selection
 
@@ -515,6 +567,35 @@
 | `project` | object | yes | — | Project metadata: name, version, authors, license and status. |
 | `source` | source_ref | no | — | Source-file location: path relative to the project root plus an optional line number. |
 | `variants` | array<variant> | no | — | Variant list (e.g. production and debug versions). |
+
+### project
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `authors` | array<object> | no | — | Author list. |
+| `default_variant` | slug | no | — | Id of the default variant; omitted when there is only one variant. |
+| `description` | string | no | — | One-sentence description of the project. |
+| `format` | format_version | yes | — | The .teda language version used by the project. |
+| `license` | string | no | — | SPDX identifier. |
+| `links` | object | no | — | External links related to the project. |
+| `name` | string | yes | — | Project name. |
+| `status` | `draft` \| `prototype` \| `frozen` \| `production` \| `deprecated` | no | — | Project status: draft, prototype, frozen, production, deprecated. |
+| `version` | string | yes | — | Project version, not the language version. |
+
+### project.authors[]
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `email` | string | no | — | Author email. |
+| `name` | string | yes | — | Author name. |
+
+### project.links
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `homepage` | string | no | — | Project homepage URL. |
+| `issues` | string | no | — | Issue tracker URL. |
+| `repository` | string | no | — | Source repository URL. |
 
 ### board
 
@@ -575,6 +656,13 @@
 | `source` | source_ref | no | — | Source-file location: path relative to the project root plus an optional line number. |
 | `text` | array<text> | no | — | Free-text annotations; no electrical meaning. |
 | `wire` | array<wire> | no | — | Wire polylines, one per drawn run; several wires may belong to the same net. |
+
+### sheet
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `height_nm` | integer | yes | nm | Sheet height. |
+| `width_nm` | integer | yes | nm | Sheet width. |
 
 ### label
 
@@ -762,6 +850,25 @@
 | `source` | source_ref | no | — | Source-file location: path relative to the project root plus an optional line number. |
 | `symbol` | object | yes | — | The symbol view itself: pin placement, outline and display toggles. |
 
+### symbol
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `body` | array<body_item> | no | — | Symbol outline; excludes text (v0.1). |
+| `description` | note | no | — | Free-text description; becomes the description in the IR. |
+| `fields` | array<field> | no | — | Attributes (Reference / Value / Datasheet / Description etc.). |
+| `in_bom` | boolean | yes | — | Whether it counts toward the bill of materials. |
+| `library` | lib_id | yes | — | Owning library name ([libs.<name>] in project.toml); KiCad symbol id = <library>:<name>. |
+| `name` | string | yes | — | Symbol name, unique within the library; it is a reusable view name (multiple components may share one symbol), and binding only happens at component.symbol. |
+| `on_board` | boolean | yes | — | Whether it appears at the board (PCB) level. |
+| `pin_name_offset_nm` | integer | no | nm | Offset of the pin name relative to the pin endpoint; the exporter defaults to 0.508mm. |
+| `pin_names_hidden` | boolean | yes | — | Whether pin names are hidden. |
+| `pin_numbers_hidden` | boolean | yes | — | Whether pin numbers are hidden. |
+| `pins` | array<pin> | yes | — | Pin view table; pin numbers align with the component pin table. |
+| `power` | boolean | yes | — | Power symbol (KiCad `(power)`). |
+| `tags` | array<string> | no | — | Tag list, sorted by byte order (a set; order carries no semantics). |
+| `units` | integer | yes | — | Number of units. > 1 for multi-unit devices (e.g. dual op-amps); elements with `unit=0` are shared by all units. |
+
 ### body_item
 
 | Field | Type | Required | Unit | Description |
@@ -836,91 +943,20 @@
 | `source` | source_ref | no | — | Source-file location: path relative to the project root plus an optional line number. |
 | `system` | slug | yes | — | System id, identifying one multi-board system. |
 
+### boards[]
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `id` | slug | yes | — | The board's board_id. |
+
+### nets[]
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `id` | string | yes | — | System-level net name, independent of in-board net names. |
+| `members` | array<string> | yes | — | Members of this system-level net: port references of the boards. |
+
 ## Field-description coverage
 
-285/366 fields described (78%). Fields without a description have no citable semantics; agents can only guess when reading them.
-
-| Location | Field |
-|---|---|
-| pcb.Top-level  | `deviation` |
-| pcb.Top-level  | `keepout` |
-| pcb.Top-level  | `physical_only` |
-| pcb.Top-level  | `place` |
-| pcb.Top-level  | `silk` |
-| pcb.Top-level  | `trace` |
-| pcb.Top-level  | `via` |
-| pcb.Top-level  | `zone` |
-| pcb.deviation (type=net_tie)  | `type` |
-| pcb.deviation (type=split_ground)  | `type` |
-| pcb.keepout  | `points` |
-| pcb.keepout  | `type` |
-| pcb.physical_only (type=mounting)  | `drill_nm` |
-| pcb.physical_only (type=mounting)  | `id` |
-| pcb.physical_only (type=mounting)  | `size_nm` |
-| pcb.physical_only (type=mounting)  | `type` |
-| pcb.physical_only (type=fiducial)  | `id` |
-| pcb.physical_only (type=fiducial)  | `size_nm` |
-| pcb.physical_only (type=fiducial)  | `type` |
-| pcb.physical_only (type=test_point)  | `id` |
-| pcb.physical_only (type=test_point)  | `size_nm` |
-| pcb.physical_only (type=test_point)  | `type` |
-| pcb.physical_only (type=stitching)  | `drill_nm` |
-| pcb.physical_only (type=stitching)  | `id` |
-| pcb.physical_only (type=stitching)  | `size_nm` |
-| pcb.physical_only (type=stitching)  | `type` |
-| pcb.physical_only (type=cutout)  | `h_nm` |
-| pcb.physical_only (type=cutout)  | `id` |
-| pcb.physical_only (type=cutout)  | `type` |
-| pcb.physical_only (type=cutout)  | `w_nm` |
-| pcb.physical_only (type=cutout)  | `x_nm` |
-| pcb.physical_only (type=cutout)  | `y_nm` |
-| pcb.placement  | `side` |
-| pcb.placement  | `x_nm` |
-| pcb.placement  | `y_nm` |
-| pcb.point  | `x_nm` |
-| pcb.point  | `y_nm` |
-| pcb.rule (type=clearance)  | `type` |
-| pcb.rule (type=clearance)  | `value_nm` |
-| pcb.rule (type=width)  | `type` |
-| pcb.rule (type=width)  | `value_nm` |
-| pcb.rule (type=via)  | `drill_nm` |
-| pcb.rule (type=via)  | `size_nm` |
-| pcb.rule (type=via)  | `type` |
-| pcb.rule (type=net)  | `clearance_nm` |
-| pcb.rule (type=net)  | `type` |
-| pcb.rule (type=net)  | `via_drill_nm` |
-| pcb.rule (type=net)  | `via_size_nm` |
-| pcb.rule (type=net)  | `width_nm` |
-| pcb.rule (type=diff)  | `gap_nm` |
-| pcb.rule (type=diff)  | `impedance_mohm` |
-| pcb.rule (type=diff)  | `type` |
-| pcb.rule (type=match)  | `max_delta_nm` |
-| pcb.rule (type=match)  | `type` |
-| pcb.rule (type=mask)  | `expansion_nm` |
-| pcb.rule (type=mask)  | `type` |
-| pcb.rule (type=paste)  | `offset_nm` |
-| pcb.rule (type=paste)  | `ratio_ppm` |
-| pcb.rule (type=paste)  | `type` |
-| pcb.rule (type=thermal)  | `bridge_nm` |
-| pcb.rule (type=thermal)  | `gap_nm` |
-| pcb.rule (type=thermal)  | `type` |
-| pcb.rule (type=min_width)  | `type` |
-| pcb.rule (type=min_width)  | `value_nm` |
-| pcb.silk  | `item` |
-| pcb.silk  | `layer` |
-| pcb.silk  | `mode` |
-| pcb.silk  | `size_nm` |
-| pcb.stackup_layer (type=copper)  | `kind` |
-| pcb.stackup_layer (type=copper)  | `thickness_nm` |
-| pcb.stackup_layer (type=copper)  | `type` |
-| pcb.stackup_layer (type=dielectric)  | `material` |
-| pcb.stackup_layer (type=dielectric)  | `thickness_nm` |
-| pcb.stackup_layer (type=dielectric)  | `type` |
-| pcb.trace  | `points` |
-| pcb.trace  | `width_nm` |
-| pcb.via  | `drill_nm` |
-| pcb.via  | `size_nm` |
-| pcb.via  | `x_nm` |
-| pcb.via  | `y_nm` |
-| pcb.zone  | `points` |
+431/431 fields described (100%). Fields without a description have no citable semantics; agents can only guess when reading them.
 

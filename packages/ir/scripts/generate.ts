@@ -251,6 +251,35 @@ function fieldsOf(doc: SchemaNode, obj: SchemaNode): FieldRow[] {
   return rows;
 }
 
+/**
+ * The objects **inlined** in a shard: the payload itself (`component`, `footprint`, …) and the
+ * objects inside it (`project.authors[]`, `manifest.shards[]`, …). They are not in `$defs`, so
+ * without this the reference would list the shard's top level and stop — an agent looking for
+ * "what is a device's `mpn`" would find nothing and guess.
+ */
+function inlinedObjects(
+  node: unknown,
+  prefix: string,
+  out: { title: string; node: SchemaNode }[],
+): void {
+  if (!isSchemaNode(node)) return;
+  if (node.type === "object" && isSchemaNode(node.properties)) {
+    out.push({ title: prefix, node });
+    for (const [name, child] of Object.entries(node.properties as Record<string, unknown>)) {
+      inlinedObjects(child, `${prefix}.${name}`, out);
+    }
+    return;
+  }
+  if (node.type === "array") {
+    const items = node.items;
+    if (!isSchemaNode(items) || !isSchemaNode(items.properties)) return;
+    out.push({ title: `${prefix}[]`, node: items });
+    for (const [name, child] of Object.entries(items.properties as Record<string, unknown>)) {
+      inlinedObjects(child, `${prefix}[].${name}`, out);
+    }
+  }
+}
+
 function renderIrReferenceDoc(): string {
   const lines: string[] = [];
   const missing: string[] = [];
@@ -311,6 +340,18 @@ function renderIrReferenceDoc(): string {
       closed: doc.additionalProperties === false,
       fields: fieldsOf(doc, doc),
     });
+    // The inlined objects: the payload the shard carries, and what is inlined inside it.
+    const inlined: { title: string; node: SchemaNode }[] = [];
+    for (const [name, node] of Object.entries((doc.properties as Record<string, unknown>) ?? {})) {
+      inlinedObjects(node, name, inlined);
+    }
+    for (const block of inlined) {
+      pushBlock(kindKey, block.title, {
+        title: block.title,
+        closed: block.node.additionalProperties === false,
+        fields: fieldsOf(doc, block.node),
+      });
+    }
     const defs = ownDefs.get(kindKey) ?? {};
     for (const name of Object.keys(defs).sort()) {
       const def = defs[name];

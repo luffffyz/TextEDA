@@ -27,14 +27,32 @@ export type Slug = string;
 export type StackupLayer =
   | {
       layer: LayerName;
+      /**
+       * The kind of layer: copper.
+       */
       type: "copper";
+      /**
+       * Thickness of the copper, nanometres.
+       */
       thickness_nm: number;
+      /**
+       * What the copper layer is for.
+       */
       kind: "signal" | "power" | "plane";
     }
   | {
       layer: LayerName;
+      /**
+       * The kind of layer: dielectric.
+       */
       type: "dielectric";
+      /**
+       * Thickness of the dielectric, nanometres.
+       */
       thickness_nm: number;
+      /**
+       * The dielectric material.
+       */
       material: string;
       /**
        * Dielectric constant × 10^6, e.g. FR4 4.3 = 4300000; omitted means unknown.
@@ -70,111 +88,264 @@ export type PadRef = string;
  */
 export type NetId = string;
 /**
+ * A manufacturing rule the board must satisfy.
+ *
  * This interface was referenced by `Pcb`'s JSON-Schema
  * via the `definition` "rule".
  */
 export type Rule =
   | {
+      /**
+       * The kind of rule: minimum clearance between copper of different nets.
+       */
       type: "clearance";
+      /**
+       * The clearance, nanometres.
+       */
       value_nm: number;
     }
   | {
+      /**
+       * The kind of rule: default track width.
+       */
       type: "width";
+      /**
+       * The track width, nanometres.
+       */
       value_nm: number;
     }
   | {
+      /**
+       * The kind of rule: default via geometry.
+       */
       type: "via";
+      /**
+       * Outer diameter of the via's pad, nanometres.
+       */
       size_nm: number;
+      /**
+       * Diameter of the drilled hole, nanometres.
+       */
       drill_nm: number;
     }
   | {
+      /**
+       * The kind of rule: the overrides for one net.
+       */
       type: "net";
       net: NetId;
+      /**
+       * Clearance on this net, nanometres.
+       */
       clearance_nm: number;
+      /**
+       * Track width on this net, nanometres.
+       */
       width_nm: number;
+      /**
+       * Via pad diameter on this net, nanometres.
+       */
       via_size_nm: number;
+      /**
+       * Via drill diameter on this net, nanometres.
+       */
       via_drill_nm: number;
     }
   | {
+      /**
+       * The kind of rule: a differential pair.
+       */
       type: "diff";
       net_a: NetId;
       net_b: NetId;
+      /**
+       * Target differential impedance, milliohms.
+       */
       impedance_mohm: number;
+      /**
+       * Gap between the two traces of the pair, nanometres.
+       */
       gap_nm: number;
     }
   | {
+      /**
+       * The kind of rule: length matching between two nets.
+       */
       type: "match";
       net_a: NetId;
       net_b: NetId;
+      /**
+       * How much the two lengths may differ, nanometres.
+       */
       max_delta_nm: number;
     }
   | {
+      /**
+       * The kind of rule: solder mask opening.
+       */
       type: "mask";
+      /**
+       * How much the mask opening grows beyond the pad, nanometres.
+       */
       expansion_nm: number;
     }
   | {
+      /**
+       * The kind of rule: solder paste stencil.
+       */
       type: "paste";
+      /**
+       * Paste area as a fraction of the pad area, parts per million.
+       */
       ratio_ppm: number;
+      /**
+       * Offset of the stencil aperture from the pad, nanometres.
+       */
       offset_nm: number;
     }
   | {
+      /**
+       * The kind of rule: thermal relief under a pad.
+       */
       type: "thermal";
+      /**
+       * Gap between the thermal spokes, nanometres.
+       */
       gap_nm: number;
+      /**
+       * Width of the thermal spokes, nanometres.
+       */
       bridge_nm: number;
     }
   | {
+      /**
+       * The kind of rule: the narrowest track the board accepts.
+       */
       type: "min_width";
+      /**
+       * The minimum track width, nanometres.
+       */
       value_nm: number;
     };
 /**
+ * Something that exists on the board but not in the schematic.
+ *
  * This interface was referenced by `Pcb`'s JSON-Schema
  * via the `definition` "physical_only".
  */
 export type PhysicalOnly =
   | {
+      /**
+       * The item's id, unique in the board.
+       */
       id: string;
+      /**
+       * What the item is: a mounting hole.
+       */
       type: "mounting";
+      /**
+       * Diameter of the annular ring, nanometres.
+       */
       size_nm: number;
+      /**
+       * Diameter of the drilled hole, nanometres.
+       */
       drill_nm: number;
     }
   | {
+      /**
+       * The item's id, unique in the board.
+       */
       id: string;
+      /**
+       * What the item is: a fiducial mark.
+       */
       type: "fiducial";
+      /**
+       * Diameter of the mark, nanometres.
+       */
       size_nm: number;
       layer: LayerName;
     }
   | {
+      /**
+       * The item's id, unique in the board.
+       */
       id: string;
+      /**
+       * What the item is: a test point.
+       */
       type: "test_point";
       net: NetId;
+      /**
+       * Diameter of the pad, nanometres.
+       */
       size_nm: number;
     }
   | {
+      /**
+       * The item's id, unique in the board.
+       */
       id: string;
+      /**
+       * What the item is: a stitching via.
+       */
       type: "stitching";
       net: NetId;
+      /**
+       * Diameter of the via's pad, nanometres.
+       */
       size_nm: number;
+      /**
+       * Diameter of the drilled hole, nanometres.
+       */
       drill_nm: number;
     }
   | {
+      /**
+       * The item's id, unique in the board.
+       */
       id: string;
+      /**
+       * What the item is: a cutout in the board.
+       */
       type: "cutout";
+      /**
+       * X coordinate of the cutout's lower-left corner, nanometres.
+       */
       x_nm: number;
+      /**
+       * Y coordinate of the cutout's lower-left corner, nanometres.
+       */
       y_nm: number;
+      /**
+       * Width of the cutout, nanometres.
+       */
       w_nm: number;
+      /**
+       * Height of the cutout, nanometres.
+       */
       h_nm: number;
     };
 /**
+ * A controlled deviation between the schematic and the board.
+ *
  * This interface was referenced by `Pcb`'s JSON-Schema
  * via the `definition` "deviation".
  */
 export type Deviation =
   | {
+      /**
+       * The kind of deviation: two schematic nets are shorted together.
+       */
       type: "net_tie";
       net_a: NetId;
       net_b: NetId;
     }
   | {
+      /**
+       * The kind of deviation: one schematic net is split into disconnected regions.
+       */
       type: "split_ground";
       net: NetId;
     };
@@ -291,21 +462,45 @@ export interface Pcb {
    * @minItems 3
    */
   outline: [Point, Point, Point, ...Point[]];
+  /**
+   * Where the placed instances sit, one entry per instance.
+   */
   place: Placement[];
   /**
    * Explicitly declares which two pads have continuous copper between them — one of the sources of truth for connectivity.
    */
   connect: ConnectEdge[];
+  /**
+   * The tracks: pieces of copper of one net on one layer.
+   */
   trace?: Trace[];
+  /**
+   * The vias: holes from one layer to another.
+   */
   via?: Via[];
+  /**
+   * The copper zones (pours).
+   */
   zone?: Zone[];
+  /**
+   * The regions where something may not be put.
+   */
   keepout?: Keepout[];
   /**
    * Design rules must enter the IR: KiCad keeps them in the project file rather than the board file, so an agent holding only the .kicad_pcb cannot check them itself.
    */
   rules: Rule[];
+  /**
+   * The silkscreen items.
+   */
   silk?: Silk[];
+  /**
+   * The items that exist on the board but not in the schematic.
+   */
   physical_only?: PhysicalOnly[];
+  /**
+   * The controlled deviations between the schematic and the board.
+   */
   deviation?: Deviation[];
   note?: Note;
 }
@@ -326,25 +521,44 @@ export interface SourceRef {
   line?: number;
 }
 /**
+ * A point on the board, in nanometres from the origin.
+ *
  * This interface was referenced by `Pcb`'s JSON-Schema
  * via the `definition` "point".
  */
 export interface Point {
+  /**
+   * X coordinate, nanometres from the origin.
+   */
   x_nm: number;
+  /**
+   * Y coordinate, nanometres from the origin.
+   */
   y_nm: number;
 }
 /**
+ * Where a placed instance sits on the board.
+ *
  * This interface was referenced by `Pcb`'s JSON-Schema
  * via the `definition` "placement".
  */
 export interface Placement {
   instance_id: InstanceId;
+  /**
+   * X coordinate of the instance's origin, nanometres.
+   */
   x_nm: number;
+  /**
+   * Y coordinate of the instance's origin, nanometres.
+   */
   y_nm: number;
   /**
    * Clockwise positive, millidegrees; reduced modulo 360000.
    */
   rot_mdeg: number;
+  /**
+   * Which side of the board the instance sits on.
+   */
   side: "top" | "bottom";
 }
 /**
@@ -358,14 +572,21 @@ export interface ConnectEdge {
   b: PadRef;
 }
 /**
+ * A track: a piece of copper of one net on one layer.
+ *
  * This interface was referenced by `Pcb`'s JSON-Schema
  * via the `definition` "trace".
  */
 export interface Trace {
   net: NetId;
   layer: LayerName;
+  /**
+   * Track width, nanometres.
+   */
   width_nm: number;
   /**
+   * The track's centre line, at least two points.
+   *
    * @minItems 2
    */
   points: [Point, Point, ...Point[]];
@@ -378,9 +599,21 @@ export interface Trace {
  */
 export interface Via {
   net: NetId;
+  /**
+   * X coordinate of the via's centre, nanometres.
+   */
   x_nm: number;
+  /**
+   * Y coordinate of the via's centre, nanometres.
+   */
   y_nm: number;
+  /**
+   * Outer diameter of the via's pad, nanometres.
+   */
   size_nm: number;
+  /**
+   * Diameter of the drilled hole, nanometres.
+   */
   drill_nm: number;
   from_layer?: LayerName;
   to_layer?: LayerName;
@@ -395,31 +628,52 @@ export interface Zone {
   net: NetId;
   layer: LayerName;
   /**
+   * The outline of the zone, at least three points; the polygon is closed implicitly.
+   *
    * @minItems 3
    */
   points: [Point, Point, Point, ...Point[]];
 }
 /**
+ * A region where something may not be put.
+ *
  * This interface was referenced by `Pcb`'s JSON-Schema
  * via the `definition` "keepout".
  */
 export interface Keepout {
+  /**
+   * What the keepout forbids.
+   */
   type: "no_track" | "no_pour" | "no_place" | "no_via";
   layer: LayerName;
   /**
+   * The outline of the keepout, at least three points; the polygon is closed implicitly.
+   *
    * @minItems 3
    */
   points: [Point, Point, Point, ...Point[]];
 }
 /**
- * Declares only whether it appears, how large it is and on which layer; layout position never enters the IR.
+ * A silkscreen item.
  *
  * This interface was referenced by `Pcb`'s JSON-Schema
  * via the `definition` "silk".
  */
 export interface Silk {
+  /**
+   * The silkscreen item (a line, an arc or a text).
+   */
   item: "refdes" | "value";
+  /**
+   * The layer the silkscreen is drawn on.
+   */
   layer: "F.SilkS" | "B.SilkS";
+  /**
+   * Stroke or text size, nanometres.
+   */
   size_nm: number;
+  /**
+   * How the item is drawn.
+   */
   mode: "show" | "hide";
 }

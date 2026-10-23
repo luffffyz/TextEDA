@@ -1022,17 +1022,17 @@
 
 ## F40. IR 契约参考文档漏掉分片内的嵌套对象
 
-**现状**：**未落地**（2026-10-23 发现）。`docs/ir-reference.md`（由 `packages/ir/scripts/generate.ts` 生成）只画两块：分片的**顶层字段**与 `$defs` 里的**具名类型**。分片里**内联的对象**（`component` / `footprint` / `schematic` / `pcb` … 本身）**没有字段表**——例如 `component` 的 `id` / `kind` / `mpn` / `symbol` / `footprint` / `params` / `pins` / `pins_source` 与 `footprint` 的 `name` / `tags` / `attr` / `package_code` 都不在文档里，agent 只能去读 schema。
+**现状**：**已落地**（2026-10-23）。`docs/ir-reference.md`（由 `packages/ir/scripts/generate.ts` 生成）原来只画两块：分片的**顶层字段**与 `$defs` 里的**具名类型**；分片里**内联的对象**（`component` / `footprint` / `procurement` / `project` / `symbol` / `sheet` 本身，以及 `project.authors[]` / `manifest.shards[]` / `system.boards[]` / `system.nets[]`）没有字段表——例如器件的 `id` / `kind` / `mpn` / `symbol` / `footprint` / `params` / `pins` / `pins_source` 与封装的 `name` / `tags` / `attr` / `package_code` 都不在文档里，agent 只能去读 schema。
 
 **为什么重要**：这份文档是给 agent 的**字段查询表**（类型、单位、必填性）。字段没列出来 = agent 猜。
 
 **要做的事**：
 
-1. 生成器在画完顶层与 `$defs` 后，再遍历顶层各字段里**内联**的 object 属性（`properties` + `additionalProperties: false`），按 `kind.字段名` 出一张表（`### component` / `### footprint` …）。
-2. 顺带修覆盖率统计：现在只统计已画出的块，覆盖率分母偏小（"269/350"没有覆盖嵌套字段）。
-3. 生成产物改动会很大（文档会显著变长），同一次提交跑 `bun run gen` 与 `bun run gen:check`。
+1. ~~生成器在画完顶层与 `$defs` 后，再遍历顶层各字段里**内联**的 object 属性~~ **已落地**（2026-10-23）：生成器现在递归找出分片里内联的对象（`component` / `footprint` / `procurement` / `project` / `symbol` / `sheet`，以及 `project.authors[]` / `manifest.shards[]` / `system.boards[]` / `system.nets[]`），按 `### <字段路径>` 出一张表；内联对象里的内联对象也画（`project.authors[]`）。
+2. ~~顺带修覆盖率统计~~ **已落地**：覆盖率的分母现在包含内联对象的字段（350 → 431）。顺带把 `pcb` 分片的 81 处缺描述补齐（`$defs` 的定义与字段、顶层字段、union 的各分支），**431/431 = 100%**——描述是文案不是语义，IR 契约版本不动（ADR-0022 的 PATCH）。
+3. ~~生成产物改动会很大（文档会显著变长），同一次提交跑 `bun run gen` 与 `bun run gen:check`）~~ **已落地**：`docs/ir-reference.md` 变长约 40%，`bun run gen:check` 挡住漂移。
 
-**为什么现在不做**：与"删掉器件文件里的 `package` 字段"（ADR-0029 decision 1）无关，是生成器的既有缺口；补它会让本次改动的 diff 从"一件事"变成"两件事"。
+**为什么现在不做**：~~与"删掉器件文件里的 `package` 字段"（ADR-0029 decision 1）无关，是生成器的既有缺口；补它会让本次改动的 diff 从"一件事"变成"两件事"。~~ **已做**（2026-10-23，与 ADR-0029 无关的独立一件事）。
 
 ## F42. 规格只被"写出"，没有被"验证"（ADR-0038 留下的洞）
 
