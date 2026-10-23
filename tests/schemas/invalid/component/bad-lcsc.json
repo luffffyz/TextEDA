@@ -1,6 +1,6 @@
 {
-  "ir_version": "0.4",
-  "format": "0.4",
+  "ir_version": "0.5",
+  "format": "0.5",
   "component": {
     "id": "r-0402",
     "kind": "part",

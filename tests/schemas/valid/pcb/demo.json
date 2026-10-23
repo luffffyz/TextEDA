@@ -1,6 +1,6 @@
 {
-  "ir_version": "0.4",
-  "format": "0.4",
+  "ir_version": "0.5",
+  "format": "0.5",
   "source": { "file": "pcb/demo.teda" },
   "board": "demo",
   "board_thickness_nm": 1600000,

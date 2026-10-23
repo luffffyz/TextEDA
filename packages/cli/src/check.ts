@@ -2,7 +2,7 @@
 //
 // Validation has two layers (AGENTS.md §10 "error quality"):
 //   1. Semantic layer: parsing and ERC from `packages/parser` (unconnected pins, net member conflicts, missing components, ...);
-//   2. Contract layer: whether the produced IR satisfies `schemas/ir/v0.4/schematic.schema.json`.
+//   2. Contract layer: whether the produced IR satisfies `schemas/ir/v0.5/schematic.schema.json`.
 //
 // Output shape matches `compile`: human-readable mode prints to stderr, `--json` mode prints the diagnostic payload to stdout
 // (ADR-0016: code / severity / location / data are the machine contract).

@@ -7,7 +7,7 @@ import type { Component } from "../src/generated/types/component.ts";
 import type { Pcb } from "../src/generated/types/pcb.ts";
 
 const minimalSchematic: Schematic = {
-  ir_version: "0.4",
+  ir_version: "0.5",
   format: "0.7",
   board: "demo",
   instances: [],
@@ -18,7 +18,7 @@ const minimalSchematic: Schematic = {
 const wrongVersion: Schematic = { ...minimalSchematic, ir_version: "0.2" };
 
 const minimalComponent: Component = {
-  ir_version: "0.4",
+  ir_version: "0.5",
   component: {
     id: "res-thick-0402",
     kind: "generic",
@@ -38,7 +38,7 @@ const wrongPinsSource: Component = {
 };
 
 const minimalPcb: Pcb = {
-  ir_version: "0.4",
+  ir_version: "0.5",
   format: "0.7",
   board: "demo",
   board_thickness_nm: 1600000,

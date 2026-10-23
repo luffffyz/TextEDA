@@ -625,7 +625,7 @@
 6. **`params` 语义校验（部分落地）**：`part` 禁 `params`、通用器件必带必填 `value`、`package` / `footprint` 不得作参数列、必填列在前——都已在解析器里查（诊断码 `value.component-identity-invalid` / `value.component-param-reserved` / `value.component-param-order`）。**未落地**："改引脚表/改引脚行为"这层语义靠人工判定（编译器查不了），仍靠约定 + 库级检查。
 7. **`procurement/` 描述类型**：新描述类型（通用器件+规格 → 料），带 parser 与 fmt；BOM 行键统一为 `(component_id, 参数字典)`（part 的参数为空）。**格式已定**（[ADR-0030](adr/0030-procurement-layer.md) 已 Accepted，语法见 `spec/procurement.md`），**实现见 F35**。
    - **主料 / 备选分离**：主料在 `assets/procurement/primary/<board_id>.teda`（**规范分片**，进工程哈希与板哈希，决定 BOM 与制造包）；第二货源在 `assets/procurement/alternatives/<board_id>.teda`（**附注分片**，进 IR 但**不进工程哈希**，另聚合成 `advisory_hash`）——换备选不触发重建、不作废已评审的制造包。备选违反硬约束（封装不等、不是 part、无 `mpn`）报 **warning**，不阻断构建；主料违反则是 error；备选文件的**语法错**仍是 error（文件坏了）。
-8. ~~**IR 契约（未落地）**~~ **已落地**（2026-10-23）：`schemas/ir/v0.3/component.schema.json` 加 `kind` / `construction` / `polarized`，契约版本到 **v0.3**（纯增量），`bun run gen` 重生成类型，`tests/schemas/` 补正反例。**与 F27 同批升**（契约一次升到 v0.3，别分两次）；F28 的双哈希还没做，它不再需要抬版本。
+8. ~~**IR 契约（未落地）**~~ **已落地**（2026-10-23）：`schemas/ir/v0.3/component.schema.json` 加 `kind` / `construction` / `polarized`，契约版本到 **v0.3**（纯增量），`bun run gen` 重生成类型，`tests/schemas/` 补正反例。**与 F27 同批升**（契约一次升到 v0.3，别分两次）；F28 的双哈希（规范 / 附注分类 + `advisory_hash`）随后单独落地，契约随之到 v0.5。
 
 **验收**：
 
@@ -702,7 +702,9 @@
 
 ## F28. 分片的规范 / 附注之分与双哈希（ADR-0023 修订 + ADR-0030 的落地）
 
-**现状**：`dist/ir/` 的 manifest 逐片记 `sha256`，工程哈希 = **全部**分片按路径排序后 `<path>:<sha256>\n` 拼接的 `sha256`；没有"规范 / 附注"的概念，也没有第二个哈希。决策见 [ADR-0023](adr/0023-ir-layer-on-disk.md)（2026-10-22 修订）、[ADR-0008](adr/0008-ir-shard-identity-and-hash.md) decision 5 与 [ADR-0030](adr/0030-procurement-layer.md) decision 12，**未落地**。
+**状态**：**已落地**（2026-10-23）。manifest 逐片记 `sha256` 与 `normative`（分类是文件级属性，工具不靠路径猜）；工程哈希 = **规范**分片按路径排序后 `<path>:<sha256>\n` 拼接的 `sha256`；`advisory_hash` = 附注分片的同样聚合；板哈希 = 该板**规范**分片的同样聚合。**打印页分片已经是附注类**（[ADR-0032](adr/0032-view-is-a-drawing-not-a-build-input.md) decision 3）：挪一个标签，工程哈希与板哈希不变，只有 `advisory_hash` 变。IR 契约随之到 `v0.5`（`manifest` 分片多了 `normative` 与 `advisory_hash`）。决策见 [ADR-0023](adr/0023-ir-layer-on-disk.md)（2026-10-22 修订）、[ADR-0008](adr/0008-ir-shard-identity-and-hash.md) decision 5 与 [ADR-0030](adr/0030-procurement-layer.md) decision 12。
+
+**原来的现状**：`dist/ir/` 的 manifest 逐片记 `sha256`，工程哈希 = **全部**分片按路径排序后 `<path>:<sha256>\n` 拼接的 `sha256`；没有"规范 / 附注"的概念，也没有第二个哈希。
 
 **要做的事**：
 
@@ -764,7 +766,7 @@
 **要做的事**：
 
 1. **搬家**：**已落地**——打印页从板文件同目录（`design/sch/<board_id>/`）挪到**独立根目录** `views/<board_id>/<page_id>.view.teda`；参考工程与 CLI 的扫描路径已同步。分片路径 `dist/ir/boards/<board_id>/view/<page_id>.json` **不变**（分片布局与源码树解耦）。
-2. **分类**：打印页分片改为 **advisory**（不进工程哈希、不进板哈希）；`advisory_hash` 同时聚合采购备选与打印页。判据不变：改了会不会让已签发的制造包作废。
+2. **分类**：打印页分片改为 **advisory**（不进工程哈希、不进板哈希）；`advisory_hash` 同时聚合采购备选与打印页。判据不变：改了会不会让已签发的制造包作废。**已落地**（2026-10-23，随 [ADR-0023](adr/0023-ir-layer-on-disk.md) 的 2026-10-22 修订一起落，见 backlog F28）。
 3. **盖章**：渲染出的页面盖**该页分片自己的 `sha256`** 作为 `source_hash`（不盖板哈希）；制造类产物仍盖板哈希 / 工程哈希。评审 UI 按板 id 把 `views/<board_id>/` 的原理图页与 `design/pcb/<board_id>.teda` 渲染出的 PCB 图对上，跳转在 UI 层解决，不靠目录。
 4. **交叉校验**：页面引用的实例 / 引脚 / net 必须存在于板级，否则报错（归 `packages/core`）——与 F3 同批做。
 5. **文档**：`spec/schematic-view.md` §9 与 `AGENTS.md` §3 的 S1 行改成"手写源文件 + 附注类分片"；`docs/skills/new-project.md` 若提到打印页路径，同步。

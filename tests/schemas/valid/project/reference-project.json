@@ -1,12 +1,12 @@
 {
-  "ir_version": "0.4",
+  "ir_version": "0.5",
   "source": {
     "file": "project.toml"
   },
   "project": {
     "name": "reference-project",
     "version": "0.1.0",
-    "format": "0.4",
+    "format": "0.5",
     "description": "Reference project for TextEDA",
     "license": "CERN-OHL-S-2.0",
     "status": "draft",

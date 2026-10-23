@@ -40,18 +40,30 @@ export interface IrShard {
   kind: SchemaKind;
   /** Source file the shard was compiled from, relative to the project root. */
   source: string;
+  /**
+   * Whether the build depends on this shard (ADR-0023 decision 4, amended 2026-10-22).
+   *
+   * A normative shard is part of the build identity; an advisory one is not: nothing that is
+   * built depends on it, so changing it does not invalidate a signed manufacturing package. The
+   * classification is a property of the source file, and the manifest records it, so a tool never
+   * has to infer it from a path.
+   */
+  normative: boolean;
   /** Canonical JSON bytes of the shard (exactly what is written to disk). */
   bytes: string;
   /** SHA-256 of `bytes`, lowercase hex. */
   sha256: string;
 }
 
-/** The manifest document (`schemas/ir/v0.4/manifest.schema.json`). */
+/** The manifest document (`schemas/ir/v0.5/manifest.schema.json`). */
 export interface IrManifest {
   ir_version: string;
   tool_version: string;
-  shards: { path: string; sha256: string }[];
+  shards: { path: string; sha256: string; normative: boolean }[];
+  /** Project hash: the aggregation over the normative shards. */
   source_hash: string;
+  /** Advisory hash: the aggregation over the advisory shards. Absent when there are none. */
+  advisory_hash?: string | undefined;
 }
 
 export interface IrTree {
@@ -59,9 +71,11 @@ export interface IrTree {
   shards: IrShard[];
   /** The manifest to write as `manifest.json`. */
   manifest: IrManifest;
-  /** Project hash: the aggregation over all shards (ADR-0008 decision 5). */
+  /** Project hash: the aggregation over the normative shards (ADR-0008 decision 5, ADR-0023). */
   projectHash: string;
-  /** Board hash per board id: the same aggregation over that board's shards. */
+  /** Advisory hash: the same aggregation over the advisory shards. Absent when there are none. */
+  advisoryHash?: string | undefined;
+  /** Board hash per board id: the same aggregation over that board's normative shards. */
   boardHashes: Map<string, string>;
   /** Parse and contract diagnostics of every compiled description. */
   diagnostics: Diagnostic[];
@@ -103,6 +117,8 @@ interface Draft {
   path: string;
   kind: SchemaKind;
   source: string;
+  /** Whether the build depends on this shard (ADR-0023 decision 4). */
+  normative: boolean;
   ir: unknown;
 }
 
@@ -128,6 +144,7 @@ export function buildIrTree(root: string): IrTree {
         path: `boards/${board}/schematic.json`,
         kind: "schematic",
         source: loaded.file,
+        normative: true,
         ir: schematic.ir,
       });
     }
@@ -141,6 +158,7 @@ export function buildIrTree(root: string): IrTree {
           path: `boards/${board}/pcb.json`,
           kind: "pcb",
           source: pcb.file,
+          normative: true,
           ir: parsed.ir,
         });
       }
@@ -158,6 +176,9 @@ export function buildIrTree(root: string): IrTree {
           path: `boards/${board}/view/${view.pageId}.json`,
           kind: "schematic-view",
           source: view.file,
+          // A print page is a drawing, not a build input: nothing that is built depends on where
+          // a label sits (ADR-0032 decision 3).
+          normative: false,
           ir: parsed.ir,
         });
       }
@@ -191,6 +212,7 @@ export function buildIrTree(root: string): IrTree {
         path: `${shardDir}/${library}/${file.id}.json`,
         kind,
         source: file.source,
+        normative: true,
         ir: parsed.ir,
       });
     }
@@ -208,18 +230,28 @@ export function buildIrTree(root: string): IrTree {
       path: draft.path,
       kind: draft.kind,
       source: draft.source,
+      normative: draft.normative,
       bytes,
       sha256: sha256Hex(bytes),
     });
   }
   shards.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 
-  const entries = shards.map((shard) => ({ path: shard.path, sha256: shard.sha256 }));
-  const projectHash = aggregateShardHash(entries);
+  const entries = shards.map((shard) => ({
+    path: shard.path,
+    sha256: shard.sha256,
+    normative: shard.normative,
+  }));
+  // The project hash identifies the build, so it covers the normative shards only; the advisory
+  // hash covers everything else (ADR-0023 decision 4, amended 2026-10-22).
+  const normative = entries.filter((entry) => entry.normative);
+  const advisory = entries.filter((entry) => !entry.normative);
+  const projectHash = aggregateShardHash(normative);
+  const advisoryHash = advisory.length > 0 ? aggregateShardHash(advisory) : undefined;
   const boardHashes = new Map<string, string>();
   for (const board of listBoards(root)) {
     const prefix = `boards/${board}/`;
-    const subset = entries.filter((entry) => entry.path.startsWith(prefix));
+    const subset = normative.filter((entry) => entry.path.startsWith(prefix));
     if (subset.length > 0) boardHashes.set(board, aggregateShardHash(subset));
   }
 
@@ -228,6 +260,7 @@ export function buildIrTree(root: string): IrTree {
     tool_version: toolVersion(),
     shards: entries,
     source_hash: projectHash,
+    ...(advisoryHash === undefined ? {} : { advisory_hash: advisoryHash }),
   };
 
   // The manifest is itself a shard of the contract; check it before anything is written. An empty
@@ -245,7 +278,7 @@ export function buildIrTree(root: string): IrTree {
     if (!manifestCheck.ok) diagnostics.push(...schemaDiagnosticsToDiagnostics(manifestCheck.errors));
   }
 
-  return { shards, manifest, projectHash, boardHashes, diagnostics };
+  return { shards, manifest, projectHash, advisoryHash, boardHashes, diagnostics };
 }
 
 /**

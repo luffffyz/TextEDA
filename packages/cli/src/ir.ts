@@ -4,7 +4,8 @@
 // Usage:
 //   texteda ir <project dir> [--out <dir>] [--json]
 //     --out   output directory; defaults to <project dir>/dist/ir
-//     --json  machine payload on stdout: diagnostics, manifest, project hash, board hashes
+//     --json  machine payload on stdout: diagnostics, manifest, project hash, advisory hash,
+//              board hashes
 //
 // Nothing is written when the project has errors: a half-written tree would carry a project hash
 // that does not describe the project.
@@ -45,12 +46,14 @@ export function runIr(options: IrOptions): number {
           diagnostics: diagnosticsToPayload(tree.diagnostics),
           manifest: tree.manifest,
           project_hash: tree.projectHash,
+          ...(tree.advisoryHash === undefined ? {} : { advisory_hash: tree.advisoryHash }),
           board_hashes: Object.fromEntries([...tree.boardHashes].sort()),
           shards: tree.shards.map((shard) => ({
             path: shard.path,
             kind: shard.kind,
             source: shard.source,
             sha256: shard.sha256,
+            normative: shard.normative,
           })),
         },
         null,
@@ -69,6 +72,7 @@ export function runIr(options: IrOptions): number {
   if (!options.json) {
     console.log(`Wrote ${tree.shards.length} shards to ${outDir}`);
     console.log(`Project hash: ${tree.projectHash}`);
+    if (tree.advisoryHash !== undefined) console.log(`Advisory hash: ${tree.advisoryHash}`);
     for (const [board, hash] of [...tree.boardHashes].sort()) console.log(`  ${board}: ${hash}`);
   }
   return 0;

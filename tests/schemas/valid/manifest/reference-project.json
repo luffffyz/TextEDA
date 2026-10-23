@@ -1,9 +1,10 @@
 {
-  "ir_version": "0.4",
+  "ir_version": "0.5",
   "tool_version": "0.0.0",
   "shards": [
-    { "path": "components/r-0402.json", "sha256": "3f786850e387550fdab836ed7e6dc881de23001b0b3f0d1e0a9ac32f2b0d2a3a" },
-    { "path": "boards/charger-buck/schematic.json", "sha256": "89e6c98d92887913cadf06b2adb97f26cde4849b61b6e5b6a0aa6b0f9a1b8b6b" }
+    { "path": "components/r-0402.json", "sha256": "3f786850e387550fdab836ed7e6dc881de23001b0b3f0d1e0a9ac32f2b0d2a3a", "normative": true },
+    { "path": "boards/charger-buck/view/buck-5v.json", "sha256": "89e6c98d92887913cadf06b2adb97f26cde4849b61b6e5b6a0aa6b0f9a1b8b6b", "normative": false }
   ],
-  "source_hash": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+  "source_hash": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+  "advisory_hash": "89e6c98d92887913cadf06b2adb97f26cde4849b61b6e5b6a0aa6b0f9a1b8b6b"
 }

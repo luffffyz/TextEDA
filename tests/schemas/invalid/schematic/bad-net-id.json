@@ -1,6 +1,6 @@
 {
-  "ir_version": "0.4",
-  "format": "0.4",
+  "ir_version": "0.5",
+  "format": "0.5",
   "board": "demo",
   "instances": [{ "id": "R1", "component": "r-0402" }],
   "nets": [{ "id": "M2 BOOT", "members": ["R1.2"] }]

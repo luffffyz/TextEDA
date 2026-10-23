@@ -4,7 +4,7 @@
 // renderers, exporters): its layout, its hashes and its determinism are the contract, so they are
 // checked here rather than only inside the CLI.
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -55,7 +55,7 @@ describe("IR shard tree hashes", () => {
   test("the manifest lists every shard with its hash", () => {
     expect(tree.manifest.shards.length).toBe(tree.shards.length);
     expect(tree.manifest.shards.map((s) => s.path)).toEqual(tree.shards.map((s) => s.path));
-    expect(tree.manifest.ir_version).toBe("0.4");
+    expect(tree.manifest.ir_version).toBe("0.5");
     expect(tree.manifest.tool_version).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
@@ -72,16 +72,60 @@ describe("IR shard tree hashes", () => {
     }
   });
 
-  test("the project hash is the aggregation over the manifest shards", () => {
-    expect(aggregateShardHash(tree.manifest.shards)).toBe(tree.manifest.source_hash);
+  test("the project hash is the aggregation over the normative shards", () => {
+    const normative = tree.manifest.shards.filter((s) => s.normative);
+    expect(normative.length).toBeGreaterThan(0);
+    expect(aggregateShardHash(normative)).toBe(tree.manifest.source_hash);
     expect(tree.projectHash).toBe(tree.manifest.source_hash);
   });
 
-  test("a board hash covers that board's shards only", () => {
+  test("the advisory hash is the aggregation over the advisory shards", () => {
+    const advisory = tree.manifest.shards.filter((s) => !s.normative);
+    expect(advisory.length).toBeGreaterThan(0);
+    expect(tree.manifest.advisory_hash).toBeDefined();
+    expect(aggregateShardHash(advisory)).toBe(tree.manifest.advisory_hash!);
+    expect(tree.advisoryHash).toBe(tree.manifest.advisory_hash!);
+  });
+
+  test("a print page is a drawing, not a build input: its shard is advisory", () => {
+    // ADR-0032 decision 3: moving a label in a print page must not change the build identity.
+    const pages = tree.manifest.shards.filter((s) => s.path.includes("/view/"));
+    expect(pages.length).toBeGreaterThan(0);
+    for (const page of pages) expect(page.normative).toBe(false);
+  });
+
+  test("a board hash covers that board's normative shards only", () => {
     for (const [board, hash] of tree.boardHashes) {
-      const subset = tree.manifest.shards.filter((s) => s.path.startsWith(`boards/${board}/`));
+      const subset = tree.manifest.shards.filter(
+        (s) => s.normative && s.path.startsWith(`boards/${board}/`),
+      );
       expect(subset.length).toBeGreaterThan(0);
       expect(aggregateShardHash(subset)).toBe(hash);
+    }
+  });
+
+  test("moving a label in a print page moves the advisory hash only", () => {
+    // ADR-0032 decision 3: a drawing is not a build input, so a reviewer's label move must not
+    // invalidate a signed manufacturing package.
+    const project = tempDir();
+    try {
+      cpSync(referenceProject, project, { recursive: true });
+      const before = buildIrTree(project);
+      const page = join(project, "views", "charger-buck", "buck-5v.view.teda");
+      const text = readFileSync(page, "utf8");
+      const moved = text.replace(/^(\s*\w+\s+)([0-9.]+)(\s+[0-9.]+\s*)$/m, "$130.0$3");
+      expect(moved).not.toBe(text);
+      writeFileSync(page, moved);
+      const after = buildIrTree(project);
+      expect(after.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+      expect(after.shards.length).toBe(before.shards.length);
+      expect(after.projectHash).toBe(before.projectHash);
+      expect(after.advisoryHash).not.toBe(before.advisoryHash);
+      for (const [board, hash] of before.boardHashes) {
+        expect(after.boardHashes.get(board)).toBe(hash);
+      }
+    } finally {
+      rmSync(project, { recursive: true, force: true });
     }
   });
 });
