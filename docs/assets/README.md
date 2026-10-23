@@ -18,7 +18,7 @@ Chinese.
 | `svg/texteda-brand-sheet.svg` | One-page brand sheet |
 | `svg/texteda-positive-negative.svg` | Positive / negative colour table |
 | `png/` | Raster exports of the above at common sizes, plus `favicon.ico` and `preview.png` |
-| `build_logo.py` | Generator: rebuilds every SVG from scratch (needs `matplotlib` + `fontTools`) |
+| `build_logo.ts` | Generator: rebuilds every SVG from scratch (`bun run logo`; needs Bun, no Python) |
 | `_font/OFL.txt` | SIL Open Font License 1.1 for the Cascadia fonts the wordmark is set in |
 
 ## Which file for which job
@@ -39,8 +39,7 @@ centred in a square canvas.
 ## Regenerating
 
 ```bash
-cd docs/assets
-python3 build_logo.py      # needs matplotlib + fontTools
+bun run logo      # or, from docs/assets: bun run build_logo.ts
 ```
 
 The wordmark is set in **Cascadia Code Bold** (SIL OFL-1.1) — a monospace face, because
@@ -48,10 +47,13 @@ The wordmark is set in **Cascadia Code Bold** (SIL OFL-1.1) — a monospace face
 contain outline paths only and do not depend on the font at runtime; the font files are only
 needed to rebuild them.
 
-The font binaries are **not vendored** in this repository. `build_logo.py` fetches
-Cascadia Code from jsDelivr and pins the Regular/Bold instances itself; `_font/OFL.txt` is
-kept so the licence travels with the script. If you regenerate offline, drop
-`Cascadia-Regular.ttf` and `Cascadia-Bold.ttf` into `_font/` yourself.
+The font binaries are **not vendored** in this repository. `build_logo.ts` fetches the
+Cascadia Code variable font from jsDelivr into `_font/` and takes both weights out of it as
+variations; `_font/OFL.txt` is kept so the licence travels with the generator. The sheet
+labels are set in **Liberation Sans** and the Chinese tagline in **Noto Sans CJK**, both
+resolved from the system through fontconfig. If you regenerate offline, drop the Cascadia
+VTT into `_font/` (or point `TEXTEDA_CJK_FONT` / `TEXTEDA_LABEL_FONT` /
+`TEXTEDA_LABEL_BOLD_FONT` at font files) yourself.
 
 The raster exports in `png/` **are** committed — the GitHub avatar, the favicon and the
 social preview are uploaded through the web UI, and having them in the tree means a clone

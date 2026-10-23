@@ -33,15 +33,19 @@
     "smoke:symbol": "bun run scripts/smoke-symbol.ts",
     "preview": "bun run scripts/preview.ts",
     "check": "bun run packages/cli/scripts/texteda.ts check",
-    "ir": "bun run packages/cli/scripts/texteda.ts ir"
+    "ir": "bun run packages/cli/scripts/texteda.ts ir",
+    "logo": "bun run docs/assets/build_logo.ts"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@texteda/exporter": "workspace:*",
     "@texteda/ir": "workspace:*",
     "@texteda/parser": "workspace:*",
     "@texteda/renderer": "workspace:*",
     "@types/bun": "^1.4.3",
+    "@types/fontkit": "^2.0.9",
     "@types/node": "^22.10.0",
+    "fontkit": "^2.0.4",
     "json-schema-to-typescript": "^15.0.4",
     "typescript": "^5.7.2"
   }
