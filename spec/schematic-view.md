@@ -231,10 +231,39 @@ text
 >
 > **几何从渲染器来，不从检查器推**。文字宽度、符号本体范围、引脚落点都由 `packages/renderer` 的 `schematicGeometry` 按**实际画法**算出（同一套变换、同一套笔画字体度量），检查器只判断"压没压住""在不在线上"。检查器自己再算一遍就会和读者看到的东西漂移，那正是可读性检查要防的那类错误。
 
+### 9.2.1 每条警告带多少
+
+警告是二值的（"在"或"不在"），但**带量**才可修。`--json` 载荷的 `data` 字段因此一律给数字，单位与 IR 一致（纳米）：
+
+| 码 | `data` |
+|---|---|
+| `view.label-not-on-net` / `view.port-not-on-net` | `page` `net` `kind` `distance_nm`（到该 net 最近走线或引脚的**距离**） |
+| `view.label-collision` / `view.text-overlap` | `page` `first` `second` `overlap_area_nm2`（重叠**面积**） |
+| `view.wire-crosses-symbol` | `page` `net` `instance` `through_nm`（在**本体内部**的长度） |
+| `view.nets-not-drawn` | `count` + 前十个 net 名 |
+
+同一组数字在人类可读输出里换成 mm / mm²，出现在消息里（"nearest point of the net is 6.8 mm away"）：一个偏 0.1 mm 的标签和一个偏 20 mm 的标签是同一条警告、两种完全不同的修法。
+
 ### 9.3 不校验的事
 
 - **视图不参与 ERC**。ERC 在板的逻辑 IR 上跑（`AGENTS.md` §4.2），视图里的线画错了不会让 ERC 变红——那是 `view.*` 诊断的活。
 - **视图不改变连通性**。视图里少画一条线，逻辑层照样是那个 net。
+
+### 9.4 度量（`texteda view-metrics`）
+
+警告之外，一张页的**量**由 `texteda view-metrics <工程目录> <board>/<page> [--json]` 给（`packages/core/src/view/metrics.ts`）。它与可读性检查读**同一份几何**（`schematicGeometry`），所以"这条线离那个 net 多远"在两边只有一个答案。
+
+| 量 | 含义 |
+|---|---|
+| `content` / `content_fill_ppm` | 所有图元的外接框，以及它占图幅的比例（ppm；靠近 1000000 说明画面快撑满） |
+| `counts` | 实例 / 标签 / 端口 / 注释 / 走线数，以及本页没画走线的 net 数 |
+| `label_min_gap_nm` / `text_min_gap_nm` | 任意两段文字的最小间隙（0 = 相接或压住）；不足两段时缺省 |
+| `wire_total_nm` | 走线总长 |
+| `wire_crossings` | **不同 net** 的走线互相穿越的次数（同一 net 交叉是汇合，共享端点更不算） |
+| `wires_through_bodies` | 穿过非本端点的符号本体的走线条数 |
+| `net_texts[].distance_nm` | 每个标签/端口到它所指 net 的距离；`-1` = 该 net 在本页没有任何走线或引脚 |
+
+**为什么不是截图**：像素不能跨渲染比较（抗锯齿、视口、字体），一次截图要过视觉模型、说不出"差 0.2 mm"，也进不了 CI。agent 画图的循环是 `写 → check（对不对）→ view-metrics（差多少）→ 改`，SVG 快照留给人的评审——判定要机器给，观感要人给。
 
 ---
 

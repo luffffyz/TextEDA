@@ -17,7 +17,8 @@
     "./project": "./src/project.ts",
     "./ir": "./src/ir.ts",
     "./ir-tree": "./src/ir-tree.ts",
-    "./symbols": "./src/symbols.ts"
+    "./symbols": "./src/symbols.ts",
+    "./view-metrics": "./src/view-metrics.ts"
   },
   "dependencies": {
     "@texteda/core": "workspace:*",

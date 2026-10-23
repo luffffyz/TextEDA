@@ -10,6 +10,7 @@
 //   texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]
 //   texteda ir <project dir> [--out <dir>] [--json]
 //   texteda bom <project dir> <board_id> [--json] [--out <file>]
+//   texteda view-metrics <project dir> <board>/<page> [--json]
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { initTree, projectNameFromDir } from "../src/init.ts";
@@ -17,6 +18,7 @@ import { runCompile } from "../src/compile.ts";
 import { analyzeProject, checkProject } from "../src/check.ts";
 import { runIr } from "../src/ir.ts";
 import { runBom } from "../src/bom.ts";
+import { runViewMetrics, splitPageRef } from "../src/view-metrics.ts";
 import { formatNetlist, toNetlist } from "@texteda/exporter/netlist";
 import { writeOut } from "../src/output.ts";
 import { countByStage, diagnosticsToPayload, hintFor } from "@texteda/ir/diagnostics";
@@ -38,6 +40,7 @@ function fail(code: "cli.bad-flag" | "cli.bad-usage", message: string): never {
         "  texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]",
         "  texteda ir <project dir> [--out <dir>] [--json]",
         "  texteda bom <project dir> <board_id> [--json] [--out <file>]",
+        "  texteda view-metrics <project dir> <board>/<page> [--json]",
       ].join("\n"),
     );
   }
@@ -221,6 +224,19 @@ if (command === "init") {
       board,
       json: args.flags.has("--json"),
       outFile: args.values.get("--out"),
+    }),
+  );
+} else if (command === "view-metrics") {
+  const root = args.positional[0] ?? fail("cli.bad-usage", "Missing project directory");
+  const ref = args.positional[1] ?? fail("cli.bad-usage", "Missing board/page");
+  if (args.positional.length > 2) fail("cli.bad-usage", "Too many arguments");
+  const pageRef = splitPageRef(ref) ?? fail("cli.bad-usage", `Not a board/page reference: ${ref}`);
+  process.exit(
+    runViewMetrics({
+      root: resolve(root),
+      board: pageRef.board,
+      page: pageRef.page,
+      json: args.flags.has("--json"),
     }),
   );
 } else if (command === "ir") {

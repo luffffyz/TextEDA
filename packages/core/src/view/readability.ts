@@ -13,34 +13,32 @@
 import type { Diagnostic } from "@texteda/ir/diagnostics";
 import type { Schematic } from "@texteda/ir/schematic";
 import type { SchematicView } from "@texteda/ir/schematic-view";
+import {
+  ON_LINE_NM,
+  boxesOverlap,
+  distanceToPolyline,
+  overlapArea,
+  segmentInBox,
+  wirePath,
+  type Point,
+} from "./geometry.ts";
+import type {
+  ReadabilityBox,
+  ReadabilityGeometry,
+  ReadabilitySymbol,
+  ReadabilityText,
+} from "./facts.ts";
 
-/** An axis-aligned box in sheet coordinates (nanometres). */
-export interface ReadabilityBox {
-  readonly min_x_nm: number;
-  readonly min_y_nm: number;
-  readonly max_x_nm: number;
-  readonly max_y_nm: number;
+export type { ReadabilityBox, ReadabilityGeometry, ReadabilitySymbol, ReadabilityText } from "./facts.ts";
+
+/** mm with one decimal: the human form of a nanometre distance, small enough to read in a message. */
+function mm(nm: number): string {
+  return (nm / 1_000_000).toFixed(1);
 }
 
-export interface ReadabilityText {
-  readonly kind: "label" | "port" | "text";
-  readonly text: string;
-  readonly x_nm: number;
-  readonly y_nm: number;
-  readonly box: ReadabilityBox;
-  readonly line?: number;
-  readonly subject?: string;
-}
-
-export interface ReadabilitySymbol {
-  readonly instance_id: string;
-  readonly box: ReadabilityBox;
-  readonly pins: ReadonlyMap<string, { readonly x_nm: number; readonly y_nm: number }>;
-}
-
-export interface ReadabilityGeometry {
-  readonly texts: readonly ReadabilityText[];
-  readonly symbols: readonly ReadabilitySymbol[];
+/** mm² with two decimals, from nm². */
+function mm2(nm2: number): string {
+  return (nm2 / 1_000_000_000_000).toFixed(2);
 }
 
 export interface ReadabilityFacts {
@@ -50,91 +48,6 @@ export interface ReadabilityFacts {
   readonly view: SchematicView;
   readonly schematic: Schematic;
   readonly geometry: ReadabilityGeometry;
-}
-
-/** A point counts as "on" a line when it is this close; drawings are exact, so the tolerance is tiny. */
-const ON_LINE_NM = 1_000;
-
-/** Distance from a point to a segment's polyline (the wire's drawn path). */
-function distanceToPolyline(point: { x_nm: number; y_nm: number }, path: readonly { x_nm: number; y_nm: number }[]): number {
-  let best = Number.POSITIVE_INFINITY;
-  for (let i = 0; i + 1 < path.length; i += 1) {
-    const a = path[i]!;
-    const b = path[i + 1]!;
-    const dx = b.x_nm - a.x_nm;
-    const dy = b.y_nm - a.y_nm;
-    const lengthSquared = dx * dx + dy * dy;
-    const t =
-      lengthSquared === 0
-        ? 0
-        : Math.max(0, Math.min(1, ((point.x_nm - a.x_nm) * dx + (point.y_nm - a.y_nm) * dy) / lengthSquared));
-    const x = a.x_nm + t * dx;
-    const y = a.y_nm + t * dy;
-    best = Math.min(best, Math.hypot(point.x_nm - x, point.y_nm - y));
-  }
-  return best;
-}
-
-/** The wire path in sheet coordinates: endpoints are pins, which the geometry knows. */
-function wirePath(
-  wire: NonNullable<SchematicView["wire"]>[number],
-  symbols: ReadonlyMap<string, ReadabilitySymbol>,
-): { x_nm: number; y_nm: number }[] | null {
-  const pointOf = (ref: string): { x_nm: number; y_nm: number } | null => {
-    const dot = ref.lastIndexOf(".");
-    if (dot <= 0) return null;
-    return symbols.get(ref.slice(0, dot))?.pins.get(ref.slice(dot + 1)) ?? null;
-  };
-  const from = pointOf(wire.from_pin);
-  const to = pointOf(wire.to_pin);
-  if (!from || !to) return null;
-  return [from, ...(wire.points ?? []).map((p) => ({ x_nm: p.x_nm, y_nm: p.y_nm })), to];
-}
-
-/** Open boxes overlap only when they share area, not when they touch. */
-function boxesOverlap(a: ReadabilityBox, b: ReadabilityBox): boolean {
-  return (
-    a.min_x_nm < b.max_x_nm &&
-    b.min_x_nm < a.max_x_nm &&
-    a.min_y_nm < b.max_y_nm &&
-    b.min_y_nm < a.max_y_nm
-  );
-}
-
-/** Whether a segment enters the box's interior (touching an edge does not count). */
-function segmentEntersBox(
-  a: { x_nm: number; y_nm: number },
-  b: { x_nm: number; y_nm: number },
-  box: ReadabilityBox,
-): boolean {
-  // Liang–Barsky clip of the segment against the box, opened by the tolerance on each side.
-  const left = box.min_x_nm + ON_LINE_NM;
-  const right = box.max_x_nm - ON_LINE_NM;
-  const top = box.min_y_nm + ON_LINE_NM;
-  const bottom = box.max_y_nm - ON_LINE_NM;
-  if (left >= right || top >= bottom) return false;
-  let t0 = 0;
-  let t1 = 1;
-  const dx = b.x_nm - a.x_nm;
-  const dy = b.y_nm - a.y_nm;
-  const clip = (p: number, q: number): boolean => {
-    if (p === 0) return q >= 0;
-    const r = q / p;
-    if (p < 0) {
-      if (r > t1) return false;
-      if (r > t0) t0 = r;
-    } else {
-      if (r < t0) return false;
-      if (r < t1) t1 = r;
-    }
-    return true;
-  };
-  return (
-    clip(-dx, a.x_nm - left) &&
-    clip(dx, right - a.x_nm) &&
-    clip(-dy, a.y_nm - top) &&
-    clip(dy, bottom - a.y_nm)
-  );
 }
 
 /**
@@ -152,21 +65,20 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
   const symbols = new Map(geometry.symbols.map((symbol) => [symbol.instance_id, symbol]));
   const portNet = new Map((schematic.ports ?? []).map((port) => [port.id, port.net]));
 
-  /** Whether a point sits on the net's drawing: one of its wires, or a pin of one of its members. */
-  const onNet = (netId: string, point: { x_nm: number; y_nm: number }): boolean => {
+  /** How far a point is from the net's drawing: its nearest wire, or a pin of one of its members. */
+  const distanceToNet = (netId: string, point: Point): number => {
+    let best = Number.POSITIVE_INFINITY;
     for (const wire of wires) {
       if (wire.net !== netId) continue;
       const path = wirePath(wire, symbols);
-      if (path && path.length >= 2 && distanceToPolyline(point, path) <= ON_LINE_NM) return true;
+      if (path && path.length >= 2) best = Math.min(best, distanceToPolyline(point, path));
     }
-    const net = nets.get(netId);
-    if (!net) return false;
-    for (const member of net.members) {
+    for (const member of nets.get(netId)?.members ?? []) {
       const dot = member.lastIndexOf(".");
       const at = symbols.get(member.slice(0, dot))?.pins.get(member.slice(dot + 1));
-      if (at && Math.hypot(point.x_nm - at.x_nm, point.y_nm - at.y_nm) <= ON_LINE_NM) return true;
+      if (at) best = Math.min(best, Math.hypot(point.x_nm - at.x_nm, point.y_nm - at.y_nm));
     }
-    return false;
+    return best;
   };
 
   /**
@@ -183,14 +95,17 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
     const netId = text.kind === "label" ? text.subject : portNet.get(text.subject ?? "");
     if (netId === undefined || !nets.has(netId)) continue; // an unknown net is the cross-check's finding
     if (!drawnHere(netId)) continue;
-    if (onNet(netId, { x_nm: text.x_nm, y_nm: text.y_nm })) continue;
+    const offBy = distanceToNet(netId, { x_nm: text.x_nm, y_nm: text.y_nm });
+    if (offBy <= ON_LINE_NM) continue;
     diagnostics.push({
       code: text.kind === "label" ? "view.label-not-on-net" : "view.port-not-on-net",
       severity: "warning",
-      message: `print page ${page}: ${text.kind} ${text.text} does not sit on net ${netId}: it is not on one of its wires or pins`,
+      message: `print page ${page}: ${text.kind} ${text.text} does not sit on net ${netId}: the nearest point of the net is ${mm(offBy)} mm away`,
       hint: "place it on the wire or the pin it names: a label away from its net tells the reader nothing",
       location: { file, line: text.line ?? 1, col: 1 },
-      data: { page, net: netId, kind: text.kind },
+      // The distance is what makes this actionable: a label 0.1mm off a bus and one 20mm off it are
+      // the same finding and very different repairs.
+      data: { page, net: netId, kind: text.kind, distance_nm: Math.round(offBy) },
     });
   }
 
@@ -203,12 +118,10 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
       diagnostics.push({
         code: bothLabels ? "view.label-collision" : "view.text-overlap",
         severity: "warning",
-        message: bothLabels
-          ? `print page ${page}: labels ${a.text} and ${b.text} overlap`
-          : `print page ${page}: text ${a.text} and ${b.text} overlap`,
+        message: `print page ${page}: ${bothLabels ? "labels" : "text"} ${a.text} and ${b.text} overlap by ${mm2(overlapArea(a.box, b.box))} mm²`,
         hint: "move one of them: overlapping text cannot be read",
         location: { file, line: a.line ?? 1, col: 1 },
-        data: { page, first: a.text, second: b.text },
+        data: { page, first: a.text, second: b.text, overlap_area_nm2: overlapArea(a.box, b.box) },
       });
     }
   }
@@ -220,17 +133,21 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
     const toInstance = wire.to_pin.slice(0, wire.to_pin.lastIndexOf("."));
     for (const symbol of geometry.symbols) {
       if (symbol.instance_id === fromInstance || symbol.instance_id === toInstance) continue;
+      let through = 0;
       for (let i = 0; i + 1 < path.length; i += 1) {
-        if (!segmentEntersBox(path[i]!, path[i + 1]!, symbol.box)) continue;
+        const clipped = segmentInBox(path[i]!, path[i + 1]!, symbol.box, ON_LINE_NM);
+        if (!clipped) continue;
+        through += (clipped[1] - clipped[0]) * Math.hypot(path[i + 1]!.x_nm - path[i]!.x_nm, path[i + 1]!.y_nm - path[i]!.y_nm);
+      }
+      if (through > 0) {
         diagnostics.push({
           code: "view.wire-crosses-symbol",
           severity: "warning",
-          message: `print page ${page}: the wire on net ${wire.net} runs through the body of ${symbol.instance_id}`,
+          message: `print page ${page}: the wire on net ${wire.net} runs ${mm(through)} mm through the body of ${symbol.instance_id}`,
           hint: "route around the symbol: a wire through a body hides both the wire and the pin it might be mistaken for",
           location: { file, line: wire.line ?? 1, col: 1 },
-          data: { page, net: wire.net, instance: symbol.instance_id },
+          data: { page, net: wire.net, instance: symbol.instance_id, through_nm: Math.round(through) },
         });
-        break;
       }
     }
   }

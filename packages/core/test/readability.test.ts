@@ -210,6 +210,6 @@ describe("checkReadability", () => {
     });
     const out = checkReadability(facts(view([gndWire], {}), crossing));
     expect(out.map((d) => d.code)).toEqual(["view.wire-crosses-symbol"]);
-    expect(out[0]!.data).toEqual({ page: "p", net: "GND", instance: "C1" });
+    expect(out[0]!.data).toEqual({ page: "p", net: "GND", instance: "C1", through_nm: 3_998_000 });
   });
 });

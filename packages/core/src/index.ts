@@ -17,6 +17,7 @@ export {
 export { checkDeviceUsage, type DeviceUsageFacts } from "./devices/usage.ts";
 
 export { checkViews, type ViewFacts, type ViewPage } from "./view/checks.ts";
+export { viewMetrics, type NetTextMetric, type ViewMetrics } from "./view/metrics.ts";
 export {
   checkReadability,
   type ReadabilityBox,

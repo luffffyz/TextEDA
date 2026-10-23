@@ -397,7 +397,7 @@ texteda/
 ├── spec/            # **规范**：语言级 + 分描述。`teda.md` 是**语言总规范**（`.teda` 格式总纲：文件头与版本、词法、行类型、单位、规范形式；§6–§9 顺带定义了 `component` / `schematic` / `system` / `pcb`）；分描述规范另有 `symbol` / `footprint` / `pcb` / `schematic-view` / `module` / `procurement`。`project` / `system` / `fab` 的独立规范尚未成文（`project.toml` 与 `system` 目前只在 `teda.md` 里，`fab` 还没有任何形态）
 ├── schemas/ir/v0.9/ # IR 的契约：JSON Schema 2020-12（唯一契约；TS 类型由 schema 生成，不引入 zod）。现 11 份：common / project / component / footprint / manifest / pcb / procurement / schematic / schematic-view / symbol / system
 ├── examples/        # 参考工程 reference-project/。**十个困难用例与期望 IR 尚未存在**（§10 / §5.2 的门槛因此不可评估）
-├── packages/        # **已落地 6 个**：`ir`（IR 与契约校验）/ `parser`（footprint / symbol / schematic / module / pcb / view / procurement 解析 + fmt；component 只读事实）/ `core`（纯规则：连通性 ERC + 选料检查，ADR-0019）/ `exporter`（封装与符号 → KiCad）/ `renderer`（符号与封装 → SVG）/ `cli`（`texteda init` / `compile` / `check` / `netlist` / `ir` / `bom`）。**计划未建**：`lsp` / `vscode` / `viewer`（见 docs/adr/0009-implementation-stack.md、docs/adr/0021-schematic-view-layer.md）
+├── packages/        # **已落地 6 个**：`ir`（IR 与契约校验）/ `parser`（footprint / symbol / schematic / module / pcb / view / procurement 解析 + fmt；component 只读事实）/ `core`（纯规则：连通性 ERC + 选料检查，ADR-0019）/ `exporter`（封装与符号 → KiCad）/ `renderer`（符号与封装/打印页 → SVG，并给出可读性检查与度量用的几何）/ `cli`（`texteda init` / `compile` / `check` / `netlist` / `ir` / `bom` / `view-metrics`）。**计划未建**：`lsp` / `vscode` / `viewer`（见 docs/adr/0009-implementation-stack.md、docs/adr/0021-schematic-view-layer.md）
 └── tests/           # 现只有 `tests/schemas/`（IR 契约正反例，由 `packages/ir/test/contract.test.ts` 驱动）。单元与 round-trip 测试在各包自己的 `test/` 目录；**conformance / binding / 十用例尚未存在
 ```
 
