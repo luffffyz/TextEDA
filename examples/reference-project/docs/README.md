@@ -31,7 +31,7 @@ reference-project/
 - No network fetches for libraries; a `<lib>:` prefix resolves a local library (this project only has `project:`), and failure is an error.
 - Everything in this project is **in-house**: `assets/symbols/project/` + `assets/footprints/project/` are the source, and `[libs.project]` in `project.toml` pins the version with a content hash. Library-level verification: `bun run lib:verify` (every component resolves, every library file compiles/exports/reads into KiCad, and the merged board of all footprints passes DRC cleanly).
 - Examples: `tps7a02` (SOT-23-5, `assets/components/regulators/`), `tps7a2033pdbvr` (SOT-23-5, `assets/components/regulators/`), `tps5430ddar` (HSOIC-8, `assets/components/regulators/`), `r-0402` (generic resistor, `assets/components/passives/`), `xtal-8mhz-3225` (crystal, `assets/components/passives/`), `sw-ts-1187` (tactile switch, `assets/components/mechanical/`), `ch32v307vct6` (LQFP-100, `assets/components/mcu/`), `bq24610rger` (VQFN-24, `assets/components/power/`).
-- `assets/components/` is a component library: not every part is already used on a board (e.g. `ch32v307vct6` and `tps7a02` are currently referenced by no board); library and boards are managed separately.
+- `assets/components/` is a component library: not every part is already used on a board (`tps7a02` is currently referenced by no board and by no procurement file); library and boards are managed separately.
 
 ## docs/
 

@@ -19,7 +19,7 @@ default_variant = "default"
 name = "luffffyz"
 
 [[project.authors]]
-name = "ohmypi"
+name = "omp-agent"
 
 [project.links]
 repository = "https://example.com/reference-project"
