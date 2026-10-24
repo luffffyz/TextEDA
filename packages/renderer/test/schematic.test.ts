@@ -134,6 +134,28 @@ describe("renderSchematic", () => {
     expect(reference.text).toBe("C1");
   });
 
+  test("grows a turned part's field text away from its body", () => {
+    // A quarter turn puts `Reference` and `Value` on either side of the body. Centered on those
+    // anchors, any two texts of a few characters overlap (`220uF` under `M2.C3`), so the one on the
+    // left ends at its anchor and the one on the right starts there.
+    const doc = renderSchematic(view(), new Map([["C1", part()]]));
+    const fields = doc.primitives.filter((p) => p.kind === "text" && p.role === "field");
+    const reference = fields.find((p) => p.kind === "text" && p.name === "Reference");
+    const value = fields.find((p) => p.kind === "text" && p.name === "Value");
+    if (reference?.kind !== "text" || value?.kind !== "text") throw new Error("missing fields");
+    // Symbol `at` is +y-up: after a 90-degree clockwise turn the Reference sits right of the origin.
+    expect(reference.anchor).toBe("start");
+    expect(value.anchor).toBe("end");
+    // Upright parts keep the centered anchor: the two texts sit above and below the body.
+    const upright = renderSchematic(
+      view({ place: [{ instance_id: "C1", x_nm: 100_000_000, y_nm: 100_000_000 }] }),
+      new Map([["C1", part()]]),
+    );
+    for (const p of upright.primitives.filter((q) => q.kind === "text" && q.role === "field")) {
+      expect(p.kind === "text" ? p.anchor : undefined).toBe("middle");
+    }
+  });
+
   test("refuses to draw an instance without symbol facts", () => {
     expect(() => renderSchematic(view(), new Map())).toThrow(/no symbol facts/);
   });

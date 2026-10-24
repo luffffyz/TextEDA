@@ -146,8 +146,20 @@ function placePrimitive(primitive: SvgPrimitive, place: Place): SvgPrimitive {
     case "text": {
       const at = toSheet(place, primitive.x, primitive.y);
       const rotate = primitive.rotateMdeg;
+      // A part turned a quarter turn carries its fields to the left and right of its body, where two
+      // centered texts of any length run into each other (`220uF` under `M2.C3`). The text stays
+      // horizontal and grows away from the part instead: the left field ends where it stands, the
+      // right one starts there.
+      const quarter = rotationOf(place.rot_mdeg) === 90 || rotationOf(place.rot_mdeg) === 270;
+      const fieldAnchor =
+        primitive.role === "field" && quarter && Math.abs(at.x - place.x_nm) > 1_000
+          ? at.x < place.x_nm
+            ? ("end" as const)
+            : ("start" as const)
+          : undefined;
       return {
         ...primitive,
+        ...(fieldAnchor === undefined ? {} : { anchor: fieldAnchor }),
         x: at.x,
         y: at.y,
         // A symbol's text rotation is visually counterclockwise; the placed symbol turned clockwise by
