@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-22
 Related: [ADR-0004](0004-ir-representation.md), [ADR-0008](0008-ir-shard-identity-and-hash.md), [ADR-0016](0016-diagnostic-error-codes.md), [ADR-0021](0021-schematic-view-layer.md), [ADR-0023](0023-ir-layer-on-disk.md), [ADR-0030](0030-procurement-layer.md)
-Impact: `packages/parser` (the source map the compiler builds); `packages/ir` (the diagnostic location type); `spec/**` (the position model); `docs/backlog.md` F11
+Impact: `packages/parser` (the source map the compiler builds); `packages/ir` (the diagnostic location type); `spec/**` (the position model); `docs/backlog.md` F11; IR contract v0.10 (amendment 2026-10-23)
 
 ## Background
 
@@ -156,3 +156,44 @@ and an agent act on, and the IR path says what the contract says about that reco
   jump-to-source can be specified.
 - How a multi-site diagnostic groups its `related` locations (D5): whether the list is ordered,
   capped, and how a reviewer reads a long list.
+
+## Amendment 2026-10-23: The IR Carries No Line Numbers (Contract v0.10)
+
+D1 said spans never enter the IR. The contract disagreed: the shard records carried a `line`
+field (`$defs.proxy_line` in `common.schema.json`, and a `line: number` property on instances,
+places, wires, labels, ports, texts and selections), because the source map was read back out of
+the IR by index. The consequence was the one D1 forbids: **moving a row changed the shard**, so
+the byte-identical guarantee of `AGENTS.md` §10 held for `pcb`/`footprint` but not for
+`schematic`, `schematic-view` and `procurement`. A test that shuffled the rows of a board caught
+it.
+
+### Remove the field, do not document the contradiction
+
+`line` is gone from every shard record. The IR contract moves to **v0.10**, and to **v0.11** in the
+same unreleased batch — [ADR-0046](0046-vendored-libraries-are-verified-by-their-hash.md) widened
+`instance.component` from a slug to a device reference, so the directory that ships is
+`schemas/ir/v0.11/` (`$defs.proxy_line` deleted, `line` removed from the record definitions);
+the language version is untouched, because which source files are legal did not change. The
+remaining `line` in a shard is `source.line` — spelled `1` by every producer, a property of the
+file rather than of its contents.
+
+The position now lives in exactly one place: the source map D2 describes. Each parser records a
+record's line beside the record (identity-keyed for the duration of the parse), and the map turns
+that into the `IR path → span` entries the shard publishes. Nothing about the map changed; what
+changed is that the IR no longer holds a second, order-dependent copy of it.
+
+### Consequences
+
+- **The rules take locators, not fields.** `checkRatings` gains `locateInstance`,
+  `checkViews` gains a per-page `locate`, `checkReadability` gains `locate`, and the procurement
+  facts gain `locateInstance`; `packages/core` stays pure (facts in, diagnostics out, no file
+  reads). `packages/cli` supplies them from the parses it already holds — that is where the
+  files are.
+- **The view IR is sorted**, per `spec/schematic-view.md` §11: the spec already promised that
+  row order does not reach the IR, and it did not hold. `wire` keeps its point order, which is
+  the one row order with meaning.
+- **The renderer stops emitting `data-line`.** Two stages read the dropped field through the IR,
+  which is exactly the leak D1 exists to prevent.
+- **Two tests pin the invariant** (`packages/parser/test/schematic.test.ts`,
+  `packages/parser/test/view.test.ts`): the same description with its rows reordered must
+  compile to byte-identical IR.

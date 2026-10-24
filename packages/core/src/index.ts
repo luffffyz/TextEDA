@@ -15,6 +15,7 @@ export {
 } from "./binding/copper.ts";
 
 export { checkDeviceUsage, type DeviceUsageFacts } from "./devices/usage.ts";
+export { packagePowerRating, chipResistorPackages } from "./devices/packages.ts";
 
 export { checkViews, type ViewFacts, type ViewPage } from "./view/checks.ts";
 export { viewMetrics, type NetTextMetric, type ViewMetrics } from "./view/metrics.ts";

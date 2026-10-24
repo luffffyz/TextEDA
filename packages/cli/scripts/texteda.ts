@@ -11,6 +11,8 @@
 //   texteda ir <project dir> [--out <dir>] [--json]
 //   texteda bom <project dir> <board_id> [--json] [--out <file>]
 //   texteda view-metrics <project dir> <board>/<page> [--json]
+//   texteda review <project dir> [--port <n>] [--out <file>]
+//   texteda lib import <name> --from <dir> --rev <rev> [--only <id>,…] [--dest <lib>] [--project <dir>] [--trust <file>] [--force]
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { initTree, projectNameFromDir } from "../src/init.ts";
@@ -19,14 +21,42 @@ import { analyzeProject, checkProject } from "../src/check.ts";
 import { runIr } from "../src/ir.ts";
 import { runBom } from "../src/bom.ts";
 import { runViewMetrics, splitPageRef } from "../src/view-metrics.ts";
+import { runReview } from "../src/review.ts";
+import { runLibImport } from "../src/lib-import.ts";
 import { formatNetlist, toNetlist } from "@texteda/exporter/netlist";
 import { writeOut } from "../src/output.ts";
 import { countByStage, diagnosticsToPayload, hintFor } from "@texteda/ir/diagnostics";
 
 /** Known flags. Failures in the cli domain do not go into the --json diagnostics array; they go to stderr plus an exit code (ADR-0016). */
-const KNOWN_FLAGS = new Set(["--force", "--name", "--json", "--out", "--board", "--pcb", "--procurement"]);
+const KNOWN_FLAGS = new Set([
+  "--force",
+  "--name",
+  "--json",
+  "--out",
+  "--board",
+  "--pcb",
+  "--procurement",
+  "--from",
+  "--rev",
+  "--project",
+  "--only",
+  "--dest",
+  "--trust",
+  "--port",
+]);
 /** Flags that take a value: the argument after them is not a positional argument. */
-const VALUE_FLAGS = new Set(["--name", "--out", "--board"]);
+const VALUE_FLAGS = new Set([
+  "--name",
+  "--out",
+  "--board",
+  "--from",
+  "--rev",
+  "--project",
+  "--only",
+  "--dest",
+  "--trust",
+  "--port",
+]);
 
 function fail(code: "cli.bad-flag" | "cli.bad-usage", message: string): never {
   console.error(`${code}: ${message}`);
@@ -41,6 +71,8 @@ function fail(code: "cli.bad-flag" | "cli.bad-usage", message: string): never {
         "  texteda ir <project dir> [--out <dir>] [--json]",
         "  texteda bom <project dir> <board_id> [--json] [--out <file>]",
         "  texteda view-metrics <project dir> <board>/<page> [--json]",
+        "  texteda review <project dir> [--port <n>] [--out <file>]",
+        "  texteda lib import <name> --from <dir> --rev <rev> [--only <id>,…] [--dest <lib>] [--project <dir>] [--trust <file>] [--force]",
       ].join("\n"),
     );
   }
@@ -129,6 +161,10 @@ function runCheck(args: ParsedArgs): void {
       console.error(`${where}${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}`);
       const hint = diagnostic.hint ?? hintFor(diagnostic.code);
       if (hint) console.error(`    How to fix: ${hint}`);
+      // A reference has two ends (ADR-0020 D5): the line to fix, and where the thing is defined.
+      for (const related of diagnostic.related ?? []) {
+        console.error(`    See also: ${related.file}:${related.line}:${related.col}`);
+      }
     }
     const errors = result.diagnostics.filter((d) => d.severity === "error").length;
     const warnings = result.diagnostics.filter((d) => d.severity === "warning").length;
@@ -239,6 +275,19 @@ if (command === "init") {
       json: args.flags.has("--json"),
     }),
   );
+} else if (command === "review") {
+  const root = args.positional[0] ?? fail("cli.bad-usage", "Missing project directory");
+  if (args.positional.length > 1) fail("cli.bad-usage", "Too many arguments");
+  const portText = args.values.get("--port");
+  const port = portText === undefined ? 0 : Number(portText);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) fail("cli.bad-usage", `Not a port: ${portText}`);
+  // `exitCode`, not `exit`: the server keeps the event loop alive, and `process.exit` would close it
+  // before the first request. With `--out` the process has nothing left to do and ends on its own.
+  process.exitCode = await runReview({
+    root: resolve(root),
+    port,
+    outFile: args.values.get("--out"),
+  });
 } else if (command === "ir") {
   const root = args.positional[0] ?? fail("cli.bad-usage", "Missing project directory");
   if (args.positional.length > 1) fail("cli.bad-usage", "Too many arguments");
@@ -247,6 +296,33 @@ if (command === "init") {
       root: resolve(root),
       outDir: args.values.get("--out"),
       json: args.flags.has("--json"),
+    }),
+  );
+} else if (command === "lib") {
+  if (args.positional[0] !== "import") {
+    fail(
+      "cli.bad-usage",
+      "Only `texteda lib import` exists: it copies a library's devices into assets/ (an external library is a template, ADR-0047)",
+    );
+  }
+  const name = args.positional[1] ?? fail("cli.bad-usage", "Missing library name");
+  if (args.positional.length > 2) fail("cli.bad-usage", "Too many arguments");
+  const from = args.values.get("--from") ?? fail("cli.bad-usage", "Missing --from <dir>");
+  const rev = args.values.get("--rev") ?? fail("cli.bad-usage", "Missing --rev <tag or commit>");
+  const only = (args.values.get("--only") ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id.length > 0);
+  process.exit(
+    runLibImport({
+      root: resolve(args.values.get("--project") ?? process.cwd()),
+      name,
+      from: resolve(from),
+      rev,
+      only,
+      ...(args.values.get("--dest") !== undefined ? { dest: args.values.get("--dest")! } : {}),
+      ...(args.values.get("--trust") !== undefined ? { trust: resolve(args.values.get("--trust")!) } : {}),
+      force: args.flags.has("--force"),
     }),
   );
 } else {

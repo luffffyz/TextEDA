@@ -1,3 +1,4 @@
+import { irVersion } from "@texteda/ir";
 import { describe, expect, test } from "bun:test";
 import { checkSystem } from "../src/system/rules.ts";
 import type { Schematic } from "@texteda/ir/schematic";
@@ -7,7 +8,7 @@ const FILE = "design/system/cabinet.teda";
 
 function board(id: string, ports: { port: string; net: string }[], voltages: { net: string; min: number; max: number }[] = []): Schematic {
   return {
-    ir_version: "0.9",
+    ir_version: irVersion,
     format: "0.9",
     board: id,
     instances: [],
@@ -24,7 +25,7 @@ function board(id: string, ports: { port: string; net: string }[], voltages: { n
 
 function system(boards: string[], nets: { id: string; members: string[] }[]): System {
   return {
-    ir_version: "0.9",
+    ir_version: irVersion,
     format: "0.2",
     system: "cabinet",
     boards: boards.map((id) => ({ id })) as [{ id: string }, ...{ id: string }[]],

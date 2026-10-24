@@ -1,0 +1,9 @@
+version 0.9
+procurement mcu-board
+role primary
+
+# Nothing is selected for this board yet: it is a bring-up board and is not being bought.
+# Every generic it uses is reported by `check` (value.procurement-generic-unsourced) until a
+# part is chosen here, which is the honest state — the file exists because every board has one
+# procurement file per role (ADR-0030, spec/procurement.md §1).
+selections

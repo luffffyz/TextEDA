@@ -1,6 +1,7 @@
 export * from "./lexer.ts";
 export * from "@texteda/ir/order";
 export * from "./units.ts";
+export * from "./ids.ts";
 export * from "./version.ts";
 export * from "./diagnostics.ts";
 export * from "./canonical.ts";

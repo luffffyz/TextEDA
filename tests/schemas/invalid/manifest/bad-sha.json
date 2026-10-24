@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.9",
+  "ir_version": "0.13",
   "tool_version": "0.0.0",
   "shards": [{ "path": "project.json", "sha256": "NOT-A-SHA", "normative": true }],
   "source_hash": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"

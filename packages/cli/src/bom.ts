@@ -19,6 +19,7 @@ import { LAYOUT } from "./paths.ts";
 import { writeOut } from "./output.ts";
 import { loadBoard, loadComponents, loadModules, loadProcurement } from "./project.ts";
 import { buildProcurementFacts } from "./procurement.ts";
+import { loadFootprintLibrary, withPackageCodes } from "./pads.ts";
 
 export interface BomOptions {
   root: string;
@@ -65,7 +66,7 @@ export function runBom(options: BomOptions): number {
     console.error(`Board root file not found: ${LAYOUT.sch}/${board}.teda`);
     return 2;
   }
-  const { resolver, problems, devices } = loadComponents(root);
+  const { resolver, problems, devices: loadedDevices } = loadComponents(root);
   for (const problem of problems) {
     console.error(`Component index: ${problem.file}:${problem.line}: ${problem.message}`);
   }
@@ -99,6 +100,9 @@ export function runBom(options: BomOptions): number {
     if (parsed.ir) procurements.push({ ir: parsed.ir, file: source.file });
   }
 
+  // The package floor (ADR-0045) is keyed by the land pattern's package code, so the devices are
+  // decorated the same way `check` does it: the BOM and the check must not disagree on a selection.
+  const devices = withPackageCodes(loadedDevices, loadFootprintLibrary(root));
   const facts = buildProcurementFacts({ schematic: schematic.ir, procurements, devices });
   const lines = buildBomLines(facts);
 

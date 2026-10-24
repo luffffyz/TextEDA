@@ -1,0 +1,99 @@
+{
+  "board": "multi-unit",
+  "constraints": [
+    {
+      "max_uv": 0,
+      "min_uv": 0,
+      "subject": "GND",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "V3V3",
+      "type": "voltage"
+    }
+  ],
+  "format": "0.8",
+  "instances": [
+    {
+      "component": "res-22k1-0402",
+      "id": "R1"
+    },
+    {
+      "component": "res-10k-0402",
+      "id": "R2"
+    },
+    {
+      "component": "opa2333",
+      "id": "U1"
+    }
+  ],
+  "ir_version": "0.13",
+  "nets": [
+    {
+      "id": "FB",
+      "members": [
+        "R1.2",
+        "R2.1",
+        "U1.2"
+      ]
+    },
+    {
+      "id": "GND",
+      "members": [
+        "R2.2",
+        "U1.4"
+      ]
+    },
+    {
+      "id": "SIG_IN",
+      "members": [
+        "U1.3"
+      ]
+    },
+    {
+      "id": "SIG_MID",
+      "members": [
+        "R1.1",
+        "U1.1",
+        "U1.5"
+      ]
+    },
+    {
+      "id": "SIG_OUT",
+      "members": [
+        "U1.6",
+        "U1.7"
+      ]
+    },
+    {
+      "id": "V3V3",
+      "members": [
+        "U1.8"
+      ]
+    }
+  ],
+  "ports": [
+    {
+      "id": "GND",
+      "net": "GND"
+    },
+    {
+      "id": "SIG_IN",
+      "net": "SIG_IN"
+    },
+    {
+      "id": "SIG_OUT",
+      "net": "SIG_OUT"
+    },
+    {
+      "id": "V3V3",
+      "net": "V3V3"
+    }
+  ],
+  "source": {
+    "file": "design/sch/multi-unit.teda",
+    "line": 1
+  }
+}

@@ -1,11 +1,12 @@
 // Board ↔ print page cross checks (spec/schematic-view.md §9).
+import { irVersion } from "@texteda/ir";
 import { describe, expect, test } from "bun:test";
 import { checkViews } from "../src/index.ts";
 import type { Schematic } from "@texteda/ir/schematic";
 import type { SchematicView } from "@texteda/ir/schematic-view";
 
 const board = {
-  ir_version: "0.9",
+  ir_version: irVersion,
   format: "0.8",
   board: "b",
   instances: [
@@ -27,7 +28,7 @@ function page(
   return {
     file: `views/b/${pageId}.view.teda`,
     view: {
-      ir_version: "0.9",
+      ir_version: irVersion,
       format: "0.7",
       board: "b",
       page: pageId,
@@ -38,13 +39,12 @@ function page(
   };
 }
 
-const PLACE_R1 = { instance_id: "R1", x_nm: 0, y_nm: 0, line: 5 };
-const PLACE_R2 = { instance_id: "R2", x_nm: 0, y_nm: 20_000_000, line: 6 };
-const WIRE = (net: string, from: string, to: string, line = 9) => ({
+const PLACE_R1 = { instance_id: "R1", x_nm: 0, y_nm: 0 };
+const PLACE_R2 = { instance_id: "R2", x_nm: 0, y_nm: 20_000_000 };
+const WIRE = (net: string, from: string, to: string) => ({
   net,
   from_pin: from,
   to_pin: to,
-  line,
 });
 
 describe("board ↔ print page", () => {
@@ -54,10 +54,10 @@ describe("board ↔ print page", () => {
       schematic: board,
       pages: [
         page("main", {
-          place: [PLACE_R1, { instance_id: "R9", x_nm: 0, y_nm: 0, line: 7 }],
-          wire: [WIRE("NOPE", "R1.1", "R2.1", 11)],
-          label: [{ net: "ALSO_NOPE", x_nm: 0, y_nm: 0, line: 12 }],
-          port: [{ id: "NOT_A_PORT", x_nm: 0, y_nm: 0, line: 13 }],
+          place: [PLACE_R1, { instance_id: "R9", x_nm: 0, y_nm: 0 }],
+          wire: [WIRE("NOPE", "R1.1", "R2.1")],
+          label: [{ net: "ALSO_NOPE", x_nm: 0, y_nm: 0 }],
+          port: [{ id: "NOT_A_PORT", x_nm: 0, y_nm: 0 }],
         }),
       ],
     });
@@ -89,6 +89,27 @@ describe("board ↔ print page", () => {
     expect(mismatch[0]!.data).toMatchObject({ net: "A", pin: "R2.2" });
   });
 
+  test("a wire that contradicts a net names the board's net row (ADR-0020 D5)", () => {
+    const netRows = new Map([
+      ["A", { file: "design/sch/b.teda", line: 9, col: 3 }],
+    ]);
+    const diagnostics = checkViews({
+      file: "design/sch/b.teda",
+      schematic: board,
+      pages: [
+        page("main", {
+          place: [PLACE_R1, PLACE_R2],
+          wire: [WIRE("A", "R1.1", "R2.2")],
+        }),
+      ],
+      locateNet: (netId) => netRows.get(netId),
+    });
+    const mismatch = diagnostics.find((d) => d.code === "view.pin-net-mismatch")!;
+    // The page is where the wrong endpoint is; the nets section is what says it is wrong.
+    expect(mismatch.location).toMatchObject({ file: "views/b/main.view.teda" });
+    expect(mismatch.related).toEqual([{ file: "design/sch/b.teda", line: 9, col: 3 }]);
+  });
+
   test("a net drawn on no page is one warning per board, with the names", () => {
     const diagnostics = checkViews({
       file: "design/sch/b.teda",
@@ -112,7 +133,7 @@ describe("board ↔ print page", () => {
       schematic: board,
       pages: [
         page("one", { place: [PLACE_R1], wire: [WIRE("A", "R1.1", "R2.1")] }),
-        page("two", { place: [PLACE_R2], label: [{ net: "GND", x_nm: 0, y_nm: 0, line: 4 }] }),
+        page("two", { place: [PLACE_R2], label: [{ net: "GND", x_nm: 0, y_nm: 0 }] }),
       ],
     });
     expect(diagnostics).toEqual([]);

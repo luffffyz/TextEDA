@@ -1,11 +1,17 @@
 {
-  "ir_version": "0.9",
-  "source": { "file": "symbols/project/bq24610rger.json" },
+  "ir_version": "0.13",
+  "source": {
+    "file": "symbols/project/bq24610rger.json"
+  },
   "symbol": {
+    "rev": "2.1.0",
     "library": "project",
     "name": "bq24610rger",
     "description": "24V synchronous buck battery charger controller",
-    "tags": ["battery", "charger"],
+    "tags": [
+      "battery",
+      "charger"
+    ],
     "units": 1,
     "pin_numbers_hidden": false,
     "pin_names_hidden": false,
@@ -16,14 +22,22 @@
     "pins": [
       {
         "number": "1",
-        "at": { "x_nm": -12700000, "y_nm": 13970000, "rotation_mdeg": 0 },
+        "at": {
+          "x_nm": -12700000,
+          "y_nm": 13970000,
+          "rotation_mdeg": 0
+        },
         "length_nm": 2540000,
         "unit": 1,
         "style": "line"
       },
       {
         "number": "17",
-        "at": { "x_nm": -2540000, "y_nm": -19050000, "rotation_mdeg": 90000 },
+        "at": {
+          "x_nm": -2540000,
+          "y_nm": -19050000,
+          "rotation_mdeg": 90000
+        },
         "length_nm": 2540000,
         "unit": 1,
         "style": "line"
@@ -34,14 +48,34 @@
         "kind": "rect",
         "unit": 1,
         "width_nm": 254000,
-        "start": { "x_nm": -10160000, "y_nm": -16510000 },
-        "end": { "x_nm": 10160000, "y_nm": 16510000 },
+        "start": {
+          "x_nm": -10160000,
+          "y_nm": -16510000
+        },
+        "end": {
+          "x_nm": 10160000,
+          "y_nm": 16510000
+        },
         "fill": "background"
       }
     ],
     "fields": [
-      { "name": "Reference", "value": "U", "at": { "x_nm": -6350000, "y_nm": 17780000 } },
-      { "name": "Value", "value": "bq24610rger", "at": { "x_nm": 0, "y_nm": -21590000 } }
+      {
+        "name": "Reference",
+        "value": "U",
+        "at": {
+          "x_nm": -6350000,
+          "y_nm": 17780000
+        }
+      },
+      {
+        "name": "Value",
+        "value": "bq24610rger",
+        "at": {
+          "x_nm": 0,
+          "y_nm": -21590000
+        }
+      }
     ]
   }
 }

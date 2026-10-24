@@ -6,9 +6,12 @@ import { irVersion } from "@texteda/ir";
 import type { Symbol } from "@texteda/ir/symbol";
 import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
 import { lex, type Cell, type Line } from "./lexer.ts";
+import { SourceFile, recordObjects } from "./sources.ts";
+import type { SourceMap, Span } from "@texteda/ir/spans";
 import { byteCompare, naturalCompare } from "@texteda/ir/order";
 import { parseAngleMdeg, parseLengthNm } from "./units.ts";
 import { checkVersion, typeRange } from "./version.ts";
+import { REV_RE } from "./ids.ts";
 
 export const SYMBOL_SECTIONS = new Set(["pins", "body"]);
 export const SYMBOL_PIN_KEYS = new Set(["length", "unit", "style"]);
@@ -45,6 +48,8 @@ export interface SymbolParseResult {
   ok: boolean;
   ir?: Symbol;
   diagnostics: Diagnostic[];
+  /** IR path → span of the record that produced it (ADR-0020 D2). Never persisted. */
+  sources?: SourceMap;
 }
 
 type SymbolBody = Symbol["symbol"];
@@ -384,6 +389,14 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
   const pins: Pin[] = [];
   const bodyItems: BodyItem[] = [];
   const fields: Field[] = [];
+  // Span of each record, by object identity: the IR sorts these arrays, so the index in a pointer
+  // only means something after the sort (ADR-0020 D2/D4).
+  const at = new Map<object, Span>();
+  const src = new SourceFile(file, lex(text));
+  const put = <T extends object>(list: T[], item: T, line: Line): void => {
+    list.push(item);
+    at.set(item, src.span(line.number, line.cells[0]?.col));
+  };
   let section: "pins" | "body" | null = null;
 
   const readBool = (line: Line, key: Cell, value: string): boolean | null => {
@@ -417,6 +430,16 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
       const rest = line.cells.slice(1);
       const trailing = (from: number): string => rest.slice(from).map((c) => c.text).join(" ");
       switch (key) {
+        case "rev": {
+          // The release of *this file's* facts (ADR-0049 D1), not the format version.
+          const value = trailing(0);
+          if (!REV_RE.test(value)) {
+            collector.error(file, line.number, line.cells[1]?.col ?? line.cells[0]!.col, "value.rev-invalid", `rev must be a release name without whitespace: "${value}"`);
+          } else {
+            body.rev = value;
+          }
+          break;
+        }
         case "description":
           body.description = trailing(0);
           break;
@@ -516,7 +539,7 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
               field.effects = { width_nm: values[0]!, height_nm: values[1]! };
             }
           }
-          fields.push(field);
+          put(fields, field, line);
           break;
         }
         default:
@@ -527,10 +550,10 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
 
     if (section === "pins") {
       const pin = parsePinRow(line.cells, file, line.number, body.units, collector);
-      if (pin) pins.push(pin);
+      if (pin) put(pins, pin, line);
     } else {
       const item = parseBodyRow(line.cells, file, line.number, body.units, collector);
-      if (item) bodyItems.push(item);
+      if (item) put(bodyItems, item, line);
     }
   }
 
@@ -560,5 +583,11 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
   };
 
   if (collector.hasError) return { ok: false, diagnostics: collector.diagnostics };
-  return { ok: true, ir, diagnostics: collector.diagnostics };
+
+  const sources: SourceMap = new Map();
+  recordObjects(sources, "/symbol/pins", body.pins, at);
+  recordObjects(sources, "/symbol/body", body.body ?? [], at);
+  recordObjects(sources, "/symbol/fields", body.fields ?? [], at);
+
+  return { ok: true, ir, diagnostics: collector.diagnostics, sources };
 }

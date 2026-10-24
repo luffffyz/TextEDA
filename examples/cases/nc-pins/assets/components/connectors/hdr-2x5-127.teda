@@ -1,0 +1,26 @@
+version 0.1.7
+component hdr-2x5-127
+
+# Cortex 10-pin debug header, 2x5 at 1.27 mm. The pinout is the ARM CMSIS-DAP one; pin 7 is the
+# key (absent on a keyed connector, present and unused on an unkeyed one) and pin 8 is unused.
+# Both are `no_connect` pins here: a fact of this connector, not of this board.
+kind         part
+mpn          FTSH-105-01-L-DV-K
+manufacturer Samtec
+category     connector
+description  1.27 mm 2x5 debug header, 10 pins, keyed
+
+symbol project:hdr-2x5
+footprint project:hdr-2x5-127
+
+pins
+  1   VTREF    power_in
+  2   SWDIO     bidirectional
+  3   GND       power_in
+  4   SWCLK     input
+  5   GND       power_in
+  6   SWO       input
+  7   KEY       no_connect
+  8   NC        no_connect
+  9   GNDDET    power_in
+  10  nRESET    bidirectional

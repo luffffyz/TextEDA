@@ -16,6 +16,7 @@
 // Everything else — inline tables, dates, dotted keys on the left of `=` — is an error with a
 // line and a column.
 import type { Diagnostic } from "@texteda/ir/diagnostics";
+import { utf8ByteLength } from "./lexer.ts";
 
 /** A value in a TOML document. */
 export type TomlValue = string | number | boolean | TomlValue[];
@@ -29,6 +30,12 @@ export interface TomlParseResult {
   ok: boolean;
   value?: TomlTable;
   diagnostics: Diagnostic[];
+  /**
+   * Where each table and key was written, keyed by its dotted path (`project.name`,
+   * `[boards.hub]` → `boards.hub`, an element of `[[project.authors]]` → `project.authors#0`).
+   * The TOML reader is the only place that sees those line numbers (ADR-0020 D2).
+   */
+  positions?: Map<string, { line: number; col: number; byte: number }>;
 }
 
 interface Cursor {
@@ -331,6 +338,12 @@ export function parseToml(source: string, options: { file: string }): TomlParseR
   const diagnostics: Diagnostic[] = [];
   const root: TomlTable = {};
   const c: Cursor = { text: source, pos: 0, line: 1, col: 1 };
+  /** Span of every table header and key, by dotted path (see `TomlParseResult.positions`). */
+  const positions = new Map<string, { line: number; col: number; byte: number }>();
+  const byteAt = (pos: number): number => utf8ByteLength(source.slice(0, pos));
+  const note = (path: string, line: number, col: number, byte: number): void => {
+    if (!positions.has(path)) positions.set(path, { line, col, byte });
+  };
 
   let current: TomlTable = root;
   /** The table path of the current header, used in the diagnostics. */
@@ -340,6 +353,9 @@ export function parseToml(source: string, options: { file: string }): TomlParseR
     skipToContent(c);
     if (c.pos >= c.text.length) break;
     if (c.text[c.pos] === "[") {
+      const headerLine = c.line;
+      const headerCol = c.col;
+      const headerByte = byteAt(c.pos);
       advance(c);
       const isArray = c.text[c.pos] === "[";
       if (isArray) advance(c);
@@ -381,6 +397,7 @@ export function parseToml(source: string, options: { file: string }): TomlParseR
           diagnostics.push(error(c, file, "format.toml-invalid", `the table \`${path.join(".")}\` is defined twice`));
           break;
         }
+        note(`${path.join(".")}#${(parent[key] as TomlTable[]).length - 1}`, headerLine, headerCol, headerByte);
         current = created;
         continue;
       }
@@ -389,11 +406,15 @@ export function parseToml(source: string, options: { file: string }): TomlParseR
         diagnostics.push(error(c, file, "format.toml-invalid", `the table \`${path.join(".")}\` is nested in something that is not a table`));
         break;
       }
+      note(path.join("."), headerLine, headerCol, headerByte);
       current = table;
       continue;
     }
 
     // key = value
+    const keyLine = c.line;
+    const keyCol = c.col;
+    const keyByte = byteAt(c.pos);
     const key = parseKey(c, file, diagnostics);
     if (key === undefined) break;
     skipSpaces(c);
@@ -416,10 +437,11 @@ export function parseToml(source: string, options: { file: string }): TomlParseR
       );
       break;
     }
+    note([...currentPath, key].join("."), keyLine, keyCol, keyByte);
     current[key] = value;
   }
 
-  return { ok: diagnostics.length === 0, value: root, diagnostics };
+  return { ok: diagnostics.length === 0, value: root, diagnostics, positions };
 }
 
 /** Read a table as a plain record of values (no nested tables). */

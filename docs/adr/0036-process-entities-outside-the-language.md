@@ -99,7 +99,8 @@ and not by the language's checker.
 
 - The coverage of requirements cannot be enforced by the language.
 - The interface table — a block's power, clock and bus interfaces — is a document; if it is to be
-  checked at all, it needs a small machine-readable form. Not decided here.
+  checked at all, it needs a small machine-readable form. Not decided here
+  (`docs/backlog.md` F45: decided *not* to build it yet, with the trigger that would reopen it).
 - The stale-analysis check needs the checker to read a document header (a small parser) and to
   compute the board hash in memory (the tree builder already computes it).
 - Nothing forces these documents to be well-formed. That is the same trade the review records

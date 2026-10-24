@@ -1,0 +1,17 @@
+{
+  "name": "@texteda/viewer",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/luffffyz/TextEDA.git",
+    "directory": "packages/viewer"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/types.ts",
+    "./build": "./src/build.ts",
+    "./client": "./src/client.ts"
+  }
+}

@@ -178,6 +178,44 @@ describe("canonical form", () => {
   });
 });
 
+describe("the file revision has a canonical place", () => {
+  test("symbol: `rev` is emitted first among the scalars, wherever it was written", () => {
+    const text = [
+      "version 0.5.1",
+      "symbol t",
+      "",
+      "description a part",
+      "rev 2.1.0",
+      "",
+      "pins",
+      "  1  0  0  0",
+      "",
+    ].join("\n");
+    const result = formatSymbol(text, { file: "x.teda", library: "project" });
+    if (!result.ok) throw new Error(JSON.stringify(result.diagnostics));
+    expect(result.text).toContain(["symbol t", "", "rev 2.1.0", "description a part"].join("\n"));
+    expect(formatSymbol(result.text!, { file: "x.teda", library: "project" }).text).toBe(result.text);
+  });
+
+  test("footprint: `rev` is emitted first among the scalars", () => {
+    const text = [
+      "version 0.4.2",
+      "footprint f",
+      "",
+      "package_code 0402",
+      "rev 2.1.0",
+      "",
+      "pads",
+      "  1  smd  roundrect  0  0  1.1  0.6  rratio=0.25",
+      "",
+    ].join("\n");
+    const result = formatFootprint(text, { file: "x.teda", library: "project" });
+    if (!result.ok) throw new Error(JSON.stringify(result.diagnostics));
+    expect(result.text).toContain(["footprint f", "", "rev 2.1.0", "package_code 0402"].join("\n"));
+    expect(formatFootprint(result.text!, { file: "x.teda", library: "project" }).text).toBe(result.text);
+  });
+});
+
 describe("canonical form of symbol", () => {
   const symbolExample = readFileSync("examples/reference-project/assets/symbols/project/bq24610rger.teda", "utf8");
 

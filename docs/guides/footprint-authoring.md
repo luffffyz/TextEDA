@@ -14,7 +14,7 @@
 
 ```
 <项目>/
-  project.toml            # [libs.project] source="project" symbols/footprints + content_hash
+  project.toml            # metadata only: no library reference (assets/ is the library)
   footprints/project/     # 库目录（真源）：一份封装一个 .teda
     sot-23-5.teda
     3dmodels/sot-23-5.stp           # 可选 3D 模型（项目相对路径）
@@ -115,29 +115,7 @@ bun run export:footprint dist/ir/footprints/sot-23-5.json --out dist/footprints/
 
 - `fp-lib-table` 登记 `project`（见上）。
 - `component` 里：`footprint = "project:sot-23-5"`，`symbol` 指向符号库里的对应符号。
-- `project.toml`：
-
-```toml
-[libs.project]
-source = "project"
-symbols = "symbols/project"
-footprints = "footprints/project"
-content_hash = "…"
-```
-
-`content_hash` = SHA-256（两个库根下所有文件按**项目相对路径**排序后逐行 `"<path>:<file_sha256>\n"` 拼接）。自建库没有上游 rev，内容哈希就是它的版本锚点（[ADR-0010](../adr/0010-footprint-and-3d-model-ownership.md) decision 2 与补充）。
-
-```bash
-bun run lib:hash footprints/project symbols/project
-```
-
-不想装依赖时，等价的 shell 写法（字节序列与规范一致）：
-
-```bash
-find footprints/project symbols/project -type f | LC_ALL=C sort \
-  | while read -r f; do printf '%s:%s\n' "$f" "$(sha256sum "$f" | cut -d' ' -f1)"; done \
-  | sha256sum
-```
+- `project.toml` 里**没有**库登记项：自建库就是工程的 `assets/`，没有版本锚点、没有 `content_hash`（`[libs]` 已撤销，[ADR-0047](../adr/0047-an-external-library-is-a-template-not-a-dependency.md)）。库级的闭环由 `bun run lib:verify` 当场校验（引用可解析、引脚号与焊盘号对齐、KiCad 能读、DRC 0 违规）。
 
 ### 6. 看一眼（不用 KiCad）
 
@@ -183,4 +161,4 @@ bun run smoke:footprint            # 用 examples/reference-project/assets/footp
 | DRC 报 courtyard 越界 | 丝印或文本伸出 courtyard | 扩大 courtyard 或收图形 |
 | KiCad 拒绝加载整个库 | `(tags …)` 写成多个引号字符串 | KiCad 要求**一个**字符串，标签用空格分隔（导出器已处理） |
 | 3D 里器件浮空/沉板 | model 的 `offset` 没对齐 | 对齐 body 中心与底面 z=0 |
-| 改了封装但产物没变 | `content_hash` 没更新 | 改完封装重算哈希，产物需重出（这是有意的） |
+| 改了封装但产物没变 | 产物没有重出（导出器是纯函数，读的是当前 IR） | 重新 `compile` 再导出 |

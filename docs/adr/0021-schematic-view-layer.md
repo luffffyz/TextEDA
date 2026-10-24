@@ -256,3 +256,46 @@ tension with the rule that the tools do not parse the notes
 optional bracket in the note line - `- alice (2026-10-22) [instance:U3]: ...` - that only the
 viewer reads, leaving the notes prose in every other respect. This is an open point of
 ADR-0033, not a decision here.
+
+## Appendix (2026-10-24): the first review app landed
+
+`texteda review <project dir>` serves `review` mode from `127.0.0.1` and writes the same document
+with `--out <file>`. The decisions above are unchanged; what follows is what the first form settles.
+
+- **A board with no view file is reported, not drawn.** `mcu-board` in the reference project has a
+  schematic and no print page; the app lists it with "no view file" and draws nothing. This is
+  decision 2 made visible rather than a degradation.
+- **The pointer marks are the app's layer, not the drawing's.** The renderer's SVG is inserted as
+  it comes out of the renderer and never regenerated; hover and selection are `class` changes on
+  transparent `<rect>`s appended in the sheet's own millimetres, with `non-scaling-stroke` so the
+  mark stays 1–2 px at every zoom. Nothing about the drawing changes, which is also why the static
+  report and the served page cannot disagree: they are the same bytes.
+- **Selection runs through the pan gesture, not around it.** The stage captures the pointer to pan,
+  so a `click` never lands on a hotspot; a press is remembered and becomes a selection on release
+  only if the pointer did not travel. A viewer that went the other way round (click handlers,
+  no capture) would either lose clicks or lose panning.
+- **The document is self-contained.** Model and script are inlined into one HTML file, so
+  `--out` produces something CI can attach and a reviewer can keep. The file system stays in the
+  CLI process: the browser receives JSON and SVG, as decision 3 requires.
+- **A junction dot is drawn; a crossing is reported.** The page has no junction record: a dot is
+  derived from the runs it sits on (three or more arms of one net, an end counting one and a pass
+  counting two -- `spec/schematic-view.md` §5.1), and it stays out of the projection, so it cannot
+  contradict the wiring. That convention is also the answer to "should a crossing hop over another
+  line?" -- no: the dot already carries the whole meaning (*dot = joined, no dot = drawn past*), a
+  hop would be a second convention saying the same thing in pictures, and the real repair is routing,
+  which is why `view.wire-crossing` names the two nets and the point instead.
+- **Zoom resizes the SVG; it does not scale a bitmap.** An earlier version zoomed with
+  `transform: scale()` on the canvas, which lets the browser scale a rasterised copy of the sheet and
+  re-rasterise afterwards: the drawing goes soft for a moment on every wheel step and snaps back.
+  Panning is still a `translate()` (a moved layer stays sharp), but zoom sets the SVG's pixel size,
+  so its vectors are rendered at the new size straight away.
+- **The mark is written per zoom, not by `vector-effect`.** The canvas is scaled with CSS, so
+  `non-scaling-stroke` does not constrain a stroke's on-screen width: it only compensates the SVG's
+  own viewBox. The app therefore rewrites each mark's box, corner radius and stroke width in sheet
+  units whenever the transform changes, which is also what lets the mark stand 3 px off a 0402 as
+  well as off a QFP. The stand-off is 4 px **plus half the drawing's typical stroke**: the model's
+  boxes are centreline boxes, and ink is painted half outside them, so a purely pixel-based gap
+  looks tighter the further in the reviewer zooms.
+- **Still open.** Click-to-source needs the identity index of F11 (section 4 above), so a click
+  currently reports the facts the model already carries (instance, device, parameters, nets) and
+  nothing more; `placement` and `edit` modes are not built. F34 keeps the remaining work.

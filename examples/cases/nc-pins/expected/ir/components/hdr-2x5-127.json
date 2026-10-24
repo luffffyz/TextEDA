@@ -1,0 +1,80 @@
+{
+  "component": {
+    "category": "connector",
+    "description": "1.27 mm 2x5 debug header, 10 pins, keyed",
+    "footprint": "project:hdr-2x5-127",
+    "id": "hdr-2x5-127",
+    "kind": "part",
+    "manufacturer": "Samtec",
+    "mpn": "FTSH-105-01-L-DV-K",
+    "pins": [
+      {
+        "electrical_type": "power_in",
+        "name": "VTREF",
+        "number": "1",
+        "unit": 1
+      },
+      {
+        "electrical_type": "bidirectional",
+        "name": "SWDIO",
+        "number": "2",
+        "unit": 1
+      },
+      {
+        "electrical_type": "power_in",
+        "name": "GND",
+        "number": "3",
+        "unit": 1
+      },
+      {
+        "electrical_type": "input",
+        "name": "SWCLK",
+        "number": "4",
+        "unit": 1
+      },
+      {
+        "electrical_type": "power_in",
+        "name": "GND",
+        "number": "5",
+        "unit": 1
+      },
+      {
+        "electrical_type": "input",
+        "name": "SWO",
+        "number": "6",
+        "unit": 1
+      },
+      {
+        "electrical_type": "no_connect",
+        "name": "KEY",
+        "number": "7",
+        "unit": 1
+      },
+      {
+        "electrical_type": "no_connect",
+        "name": "NC",
+        "number": "8",
+        "unit": 1
+      },
+      {
+        "electrical_type": "power_in",
+        "name": "GNDDET",
+        "number": "9",
+        "unit": 1
+      },
+      {
+        "electrical_type": "bidirectional",
+        "name": "nRESET",
+        "number": "10",
+        "unit": 1
+      }
+    ],
+    "pins_source": "inline",
+    "symbol": "project:hdr-2x5"
+  },
+  "ir_version": "0.13",
+  "source": {
+    "file": "assets/components/connectors/hdr-2x5-127.teda",
+    "line": 1
+  }
+}

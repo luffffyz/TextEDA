@@ -18,12 +18,14 @@
     "./ir": "./src/ir.ts",
     "./ir-tree": "./src/ir-tree.ts",
     "./symbols": "./src/symbols.ts",
-    "./view-metrics": "./src/view-metrics.ts"
+    "./view-metrics": "./src/view-metrics.ts",
+    "./review": "./src/review.ts"
   },
   "dependencies": {
     "@texteda/core": "workspace:*",
     "@texteda/ir": "workspace:*",
     "@texteda/parser": "workspace:*",
-    "@texteda/renderer": "workspace:*"
+    "@texteda/renderer": "workspace:*",
+    "@texteda/viewer": "workspace:*"
   }
 }

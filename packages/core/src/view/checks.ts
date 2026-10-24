@@ -10,7 +10,7 @@
 // a symbol body) needs geometry the renderer owns and is a separate item.
 //
 // Pure: the board's IR and the pages' IR in, diagnostics out.
-import type { Diagnostic } from "@texteda/ir/diagnostics";
+import type { Diagnostic, DiagnosticLocation } from "@texteda/ir/diagnostics";
 import type { Schematic } from "@texteda/ir/schematic";
 import type { SchematicView } from "@texteda/ir/schematic-view";
 
@@ -19,7 +19,15 @@ export interface ViewPage {
   /** Path of the view file, relative to the project root. */
   readonly file: string;
   readonly view: SchematicView;
+  /**
+   * A record's IR path (`/place/3`) → where it was written. The view IR carries no line numbers
+   * (ADR-0020 D1), so a finding that names a row gets the row's span from the parse.
+   */
+  readonly locate?: (irPath: string) => DiagnosticLocation | undefined;
 }
+
+/** A board net's declaration, for the view findings that contradict it (ADR-0020 D5). */
+export type NetLocator = (netId: string) => DiagnosticLocation | undefined;
 
 export interface ViewFacts {
   /** Path of the board's schematic file, for board-level findings. */
@@ -27,6 +35,8 @@ export interface ViewFacts {
   readonly schematic: Schematic;
   /** Every print page of the board; an empty list means "no drawing", which is a legal state. */
   readonly pages: readonly ViewPage[];
+  /** A net id → the board row that declares it; the drawing is checked against that row. */
+  readonly locateNet?: NetLocator;
 }
 
 /** The pin half of a `pin` reference (`U1.3` → `3`), the same shape the nets section uses. */
@@ -55,20 +65,28 @@ export function checkViews(facts: ViewFacts): Diagnostic[] {
   /** Net ids that some page draws with a wire or a label. */
   const drawn = new Set<string>();
 
-  for (const { file, view } of pages) {
-    for (const place of view.place) {
+  /** The board's row for a net: the definition the drawing is checked against (ADR-0020 D5). */
+  const netRow = (netId: string): { related?: DiagnosticLocation[] } => {
+    const row = facts.locateNet?.(netId);
+    return row === undefined ? {} : { related: [row] };
+  };
+
+  for (const { file, view, locate } of pages) {
+    /** Where a record of this page was written; the file alone when no span came with the parse. */
+    const at = (irPath: string): DiagnosticLocation => locate?.(irPath) ?? { file, line: 1, col: 1 };
+    for (const [index, place] of view.place.entries()) {
       if (instances.has(place.instance_id)) continue;
       diagnostics.push({
         code: "ref.unknown-instance",
         severity: "error",
         message: `print page ${view.page} places ${place.instance_id}, which the board's instances do not contain`,
         hint: "the view names the board's ids: place an instance the board has, or add it to the board",
-        location: { file, line: place.line ?? 1, col: 1 },
+        location: at(`/place/${index}`),
         data: { page: view.page, instance: place.instance_id },
       });
     }
 
-    for (const wire of view.wire ?? []) {
+    for (const [index, wire] of (view.wire ?? []).entries()) {
       const net = nets.get(wire.net);
       if (!net) {
         diagnostics.push({
@@ -76,7 +94,7 @@ export function checkViews(facts: ViewFacts): Diagnostic[] {
           severity: "error",
           message: `print page ${view.page} draws a wire on net ${wire.net}, which the board does not have`,
           hint: "the view names the board's nets: a wire cannot invent one",
-          location: { file, line: wire.line ?? 1, col: 1 },
+          location: at(`/wire/${index}`),
           data: { page: view.page, net: wire.net },
         });
         continue;
@@ -94,20 +112,21 @@ export function checkViews(facts: ViewFacts): Diagnostic[] {
           severity: "error",
           message: `print page ${view.page} draws ${pin} as an endpoint of net ${net.id}: ${reason}`,
           hint: "a wire connects two pins of the net it names; the net's members are decided in the board's nets section",
-          location: { file, line: wire.line ?? 1, col: 1 },
+          location: at(`/wire/${index}`),
           data: { page: view.page, net: net.id, pin },
+          ...netRow(net.id),
         });
       }
     }
 
-    for (const label of view.label ?? []) {
+    for (const [index, label] of (view.label ?? []).entries()) {
       if (!nets.has(label.net)) {
         diagnostics.push({
           code: "ref.unknown-net",
           severity: "error",
           message: `print page ${view.page} labels net ${label.net}, which the board does not have`,
           hint: "the view names the board's nets: a label cannot invent one",
-          location: { file, line: label.line ?? 1, col: 1 },
+          location: at(`/label/${index}`),
           data: { page: view.page, net: label.net },
         });
         continue;
@@ -115,14 +134,14 @@ export function checkViews(facts: ViewFacts): Diagnostic[] {
       drawn.add(label.net);
     }
 
-    for (const port of view.port ?? []) {
+    for (const [index, port] of (view.port ?? []).entries()) {
       if (ports.has(port.id)) continue;
       diagnostics.push({
         code: "ref.unknown-port",
         severity: "error",
         message: `print page ${view.page} shows port ${port.id}, which the board's ports section does not declare`,
         hint: "a port symbol draws an existing board port: declare the port on the board, or use the net's label",
-        location: { file, line: port.line ?? 1, col: 1 },
+        location: at(`/port/${index}`),
         data: { page: view.page, port: port.id },
       });
     }

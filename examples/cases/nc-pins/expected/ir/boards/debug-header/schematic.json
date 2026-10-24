@@ -1,0 +1,100 @@
+{
+  "board": "debug-header",
+  "constraints": [
+    {
+      "max_uv": 0,
+      "min_uv": 0,
+      "subject": "GND",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 5500000,
+      "min_uv": 1800000,
+      "subject": "VTREF",
+      "type": "voltage"
+    }
+  ],
+  "format": "0.8",
+  "instances": [
+    {
+      "component": "hdr-2x5-127",
+      "id": "J1"
+    },
+    {
+      "component": "res-10k-0402",
+      "id": "R1"
+    }
+  ],
+  "ir_version": "0.13",
+  "nets": [
+    {
+      "id": "GND",
+      "members": [
+        "J1.3",
+        "J1.5"
+      ]
+    },
+    {
+      "id": "NRST",
+      "members": [
+        "J1.10",
+        "R1.1"
+      ]
+    },
+    {
+      "id": "SWCLK",
+      "members": [
+        "J1.4"
+      ]
+    },
+    {
+      "id": "SWDIO",
+      "members": [
+        "J1.2"
+      ]
+    },
+    {
+      "id": "SWO",
+      "members": [
+        "J1.6"
+      ]
+    },
+    {
+      "id": "VTREF",
+      "members": [
+        "J1.1",
+        "R1.2"
+      ]
+    }
+  ],
+  "ports": [
+    {
+      "id": "GND",
+      "net": "GND"
+    },
+    {
+      "id": "NRST",
+      "net": "NRST"
+    },
+    {
+      "id": "SWCLK",
+      "net": "SWCLK"
+    },
+    {
+      "id": "SWDIO",
+      "net": "SWDIO"
+    },
+    {
+      "id": "SWO",
+      "net": "SWO"
+    },
+    {
+      "id": "VTREF",
+      "net": "VTREF"
+    }
+  ],
+  "source": {
+    "file": "design/sch/debug-header.teda",
+    "line": 1
+  }
+}

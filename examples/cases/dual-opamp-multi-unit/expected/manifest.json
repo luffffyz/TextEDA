@@ -1,0 +1,51 @@
+{
+  "ir_version": "0.13",
+  "shards": [
+    {
+      "path": "boards/multi-unit/schematic.json",
+      "sha256": "f05c951fcd56e07d9fe312914079ac31adb496e253d52dcaa3439fec069f3242",
+      "normative": true
+    },
+    {
+      "path": "components/opa2333.json",
+      "sha256": "3bad6da1f3c159c34466b827681bf664ca917b6bf211f40d5672495b23005569",
+      "normative": true
+    },
+    {
+      "path": "components/res-10k-0402.json",
+      "sha256": "f349087442a8370db08a89bfd8d577150206e74e90adf1bff5f951a1daa0e948",
+      "normative": true
+    },
+    {
+      "path": "components/res-22k1-0402.json",
+      "sha256": "be9e4848672095c4996a9f80095f607dc5eec652479704c24a8d8f648d68a01f",
+      "normative": true
+    },
+    {
+      "path": "footprints/project/chip-0402.json",
+      "sha256": "4db4286503f4c16d0dea2e3a9b8fd374894d2beef01032a714adebf06ca3a028",
+      "normative": true
+    },
+    {
+      "path": "footprints/project/soic-8.json",
+      "sha256": "5e2612d3770fe1e693d6c567ce261f8e2e857959d4092d24e230d4275123eb10",
+      "normative": true
+    },
+    {
+      "path": "project.json",
+      "sha256": "c50a442eca162505bbb13ceb9355899d47a34a2cdeb43f01435b195483d0a87e",
+      "normative": true
+    },
+    {
+      "path": "symbols/project/opa2333.json",
+      "sha256": "f6c8e6d6792b05bf0c8d0a191133d3e40324cbbcb8b4a1191ebaabdb32b2cf07",
+      "normative": true
+    },
+    {
+      "path": "symbols/project/r.json",
+      "sha256": "cdafd49ca5da4816db69cfb51bae89a2885cc6d08d228cda55d3c2b162b55025",
+      "normative": true
+    }
+  ],
+  "source_hash": "e43d331afa44390f862ec32613a5727c0886188fd0287f4296258316e8967f7c"
+}

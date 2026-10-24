@@ -11,7 +11,8 @@
 // Output: the SVG path is printed to stdout; artifacts land in /tmp/texteda-preview/<id>/ (changeable with --out).
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import { formatDiagnostic, parseSchematic, parseView } from "@texteda/parser";
+import { formatDiagnostic, parseComponent, parseSchematic, parseView } from "@texteda/parser";
+import { instanceValueText } from "../packages/cli/src/symbols.ts";
 import {
   renderFootprint,
   renderSchematic,
@@ -254,6 +255,7 @@ if (options.kind === "view") {
 
   // The view names the board's instances by their board-level id (ADR-0025, ADR-0026).
   const componentOf = new Map(parsedBoard.ir.instances.map((i) => [i.id, i.component]));
+  const rowOf = new Map(parsedBoard.ir.instances.map((i) => [i.id, i]));
   const instances = new Map<string, SchematicInstance>();
   for (const place of parsedView.ir.place) {
     const componentId = componentOf.get(place.instance_id);
@@ -279,11 +281,19 @@ if (options.kind === "view") {
       console.error(symbol.diagnostics.map((d) => `  ${formatDiagnostic(d)}`).join("\n"));
       fail(`symbol ${split.lib}:${split.name} failed to compile`);
     }
+    // The symbol's Value field is a placeholder; the instance's `value` column is what a reader
+    // needs (the same substitution the CLI makes).
+    const declared = parseComponent(readFileSync(componentFile, "utf8"), { file: componentFile });
+    const value = instanceValueText(rowOf.get(place.instance_id)!, {
+      params: declared.component?.params ?? [],
+      ...(declared.component?.mpn === undefined ? {} : { mpn: declared.component.mpn }),
+    });
     instances.set(place.instance_id, {
       symbol: symbol.value.symbol,
       part: {
         pins: facts.value.pins.map((p) => ({ number: p.number, name: p.name, type: p.type })),
       },
+      ...(value === undefined ? {} : { value }),
     });
   }
 

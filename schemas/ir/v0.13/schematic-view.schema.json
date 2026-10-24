@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:texteda:ir:0.13:schematic-view",
+  "title": "TextEDA IR v0.13 — schematic view shard",
+  "description": "The view (S1) of one print page of a board: where the symbols sit, how the wires run, where the labels and board ports are. This layer carries no electrical facts — it references the board's logical schematic by instance id, pin number and net id, and the two must agree. Lengths are integer nanometers, angles integer millidegrees (ADR-0008). The origin is the sheet's upper-left corner, +x right, +y down. See ADR-0021, ADR-0025.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ir_version",
+    "format",
+    "board",
+    "page",
+    "sheet",
+    "place"
+  ],
+  "properties": {
+    "ir_version": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/ir_version",
+      "description": "IR contract version, currently always 0.13."
+    },
+    "format": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/format_version",
+      "description": "Language version of the .teda file that produced this shard; see teda.md §13."
+    },
+    "source": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/source_ref",
+      "description": "Source-file location: path relative to the project root plus an optional line number."
+    },
+    "board": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/slug",
+      "description": "The board_id, resolved from the directory views/<board_id>/."
+    },
+    "page": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/slug",
+      "description": "The print page id this view draws, resolved to views/<board_id>/<page_id>.view.teda. A print page is a drawing and print unit, not a logical partition."
+    },
+    "sheet": {
+      "type": "object",
+      "description": "Sheet size. The source may omit it (default A4 landscape); the IR always carries the effective size.",
+      "additionalProperties": false,
+      "required": [
+        "width_nm",
+        "height_nm"
+      ],
+      "properties": {
+        "width_nm": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Sheet width."
+        },
+        "height_nm": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Sheet height."
+        }
+      }
+    },
+    "place": {
+      "type": "array",
+      "description": "Where each component instance sits on the print page, sorted by instance id.",
+      "items": {
+        "$ref": "#/$defs/place"
+      }
+    },
+    "wire": {
+      "type": "array",
+      "description": "Wire polylines, one per drawn run; several wires may belong to the same net.",
+      "items": {
+        "$ref": "#/$defs/wire"
+      }
+    },
+    "label": {
+      "type": "array",
+      "description": "Net name labels; the text shown is the net id itself, never an override.",
+      "items": {
+        "$ref": "#/$defs/label"
+      }
+    },
+    "port": {
+      "type": "array",
+      "description": "Board port symbols; a port names an existing net, it never creates one.",
+      "items": {
+        "$ref": "#/$defs/port"
+      }
+    },
+    "text": {
+      "type": "array",
+      "description": "Free-text annotations; no electrical meaning.",
+      "items": {
+        "$ref": "#/$defs/text"
+      }
+    },
+    "note": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/note",
+      "description": "Free text; canonical JSON has no comments, this is the substitute (ADR-0004 rule 8)."
+    }
+  },
+  "$defs": {
+    "view_pin_ref": {
+      "type": "string",
+      "pattern": "^([A-Z]+[0-9]+\\.)?[A-Z]+[0-9]+\\.[A-Za-z0-9_+-]+$",
+      "description": "Board-level pin reference in numbered form: <instance_id>.<pin_number>, e.g. U1.5 or M1.U1.5. The view speaks the IR's normalized pin language (no pin names, no multi-unit shorthand), so the cross-check against the board is a direct comparison of the same strings."
+    },
+    "place": {
+      "type": "object",
+      "description": "The position and rotation of one component instance.",
+      "additionalProperties": false,
+      "required": [
+        "instance_id",
+        "x_nm",
+        "y_nm"
+      ],
+      "properties": {
+        "instance_id": {
+          "$ref": "urn:texteda:ir:0.13:common#/$defs/instance_id",
+          "description": "Board-level instance id of the instance, e.g. U1. Must exist in the board's instances. An instance of a module carries the module's prefix (M1.U1); the view names ids, it does not define them."
+        },
+        "x_nm": {
+          "type": "integer",
+          "description": "Symbol origin, x from the sheet's upper-left corner."
+        },
+        "y_nm": {
+          "type": "integer",
+          "description": "Symbol origin, y from the sheet's upper-left corner, increasing downward."
+        },
+        "rot_mdeg": {
+          "type": "integer",
+          "description": "Symbol rotation, clockwise positive, millidegrees; reduced modulo 360000. Omitted means 0."
+        },
+        "unit": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Which unit of a multi-unit symbol to draw. Omitted means unit 1."
+        }
+      }
+    },
+    "wire": {
+      "type": "object",
+      "description": "One polyline of one net, from one pin to another, optionally bending through given points.",
+      "additionalProperties": false,
+      "required": [
+        "net",
+        "from_pin",
+        "to_pin"
+      ],
+      "properties": {
+        "net": {
+          "$ref": "urn:texteda:ir:0.13:common#/$defs/net_id",
+          "description": "The net this wire draws; both endpoints must be members of it in the board's nets."
+        },
+        "from_pin": {
+          "$ref": "#/$defs/view_pin_ref",
+          "description": "Start pin; its connection point comes from the symbol, not from this file."
+        },
+        "to_pin": {
+          "$ref": "#/$defs/view_pin_ref",
+          "description": "End pin; its connection point comes from the symbol, not from this file."
+        },
+        "points": {
+          "type": "array",
+          "description": "Bend points in the order they are traversed. Omitted means a straight wire.",
+          "items": {
+            "$ref": "#/$defs/point"
+          }
+        }
+      }
+    },
+    "label": {
+      "type": "object",
+      "description": "A net name shown at a point on the print page.",
+      "additionalProperties": false,
+      "required": [
+        "net",
+        "x_nm",
+        "y_nm"
+      ],
+      "properties": {
+        "net": {
+          "$ref": "urn:texteda:ir:0.13:common#/$defs/net_id",
+          "description": "The net whose name is shown. The label text is this id; it cannot be overridden."
+        },
+        "x_nm": {
+          "type": "integer",
+          "description": "Label position, x from the sheet's upper-left corner."
+        },
+        "y_nm": {
+          "type": "integer",
+          "description": "Label position, y from the sheet's upper-left corner, increasing downward."
+        }
+      }
+    },
+    "port": {
+      "type": "object",
+      "description": "The drawn symbol of a board port.",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "x_nm",
+        "y_nm"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-]+$",
+          "description": "Port name; must exist in the board's ports section."
+        },
+        "x_nm": {
+          "type": "integer",
+          "description": "Port position, x from the sheet's upper-left corner."
+        },
+        "y_nm": {
+          "type": "integer",
+          "description": "Port position, y from the sheet's upper-left corner, increasing downward."
+        },
+        "rot_mdeg": {
+          "type": "integer",
+          "description": "Port rotation, clockwise positive, millidegrees; reduced modulo 360000. Omitted means 0."
+        }
+      }
+    },
+    "text": {
+      "type": "object",
+      "description": "A free-text annotation on the print page.",
+      "additionalProperties": false,
+      "required": [
+        "x_nm",
+        "y_nm",
+        "text"
+      ],
+      "properties": {
+        "x_nm": {
+          "type": "integer",
+          "description": "Text position, x from the sheet's upper-left corner."
+        },
+        "y_nm": {
+          "type": "integer",
+          "description": "Text position, y from the sheet's upper-left corner, increasing downward."
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 2048,
+          "description": "The annotation text."
+        }
+      }
+    },
+    "point": {
+      "type": "object",
+      "description": "A point in sheet coordinates.",
+      "additionalProperties": false,
+      "required": [
+        "x_nm",
+        "y_nm"
+      ],
+      "properties": {
+        "x_nm": {
+          "type": "integer",
+          "description": "x from the sheet's upper-left corner."
+        },
+        "y_nm": {
+          "type": "integer",
+          "description": "y from the sheet's upper-left corner, increasing downward."
+        }
+      }
+    }
+  }
+}

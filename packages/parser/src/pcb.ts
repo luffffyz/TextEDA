@@ -22,6 +22,8 @@ import type {
 } from "@texteda/ir/pcb";
 import type { Diagnostic, DiagnosticCodeId } from "@texteda/ir/diagnostics";
 import { lex, type Cell, type Line } from "./lexer.ts";
+import { SourceFile, recordObjects } from "./sources.ts";
+import type { SourceMap, Span } from "@texteda/ir/spans";
 import { parseAngleMdeg, parseLengthNm } from "./units.ts";
 import { checkVersion, typeRange } from "./version.ts";
 import { parseQuantity } from "./quantities.ts";
@@ -36,6 +38,8 @@ export interface PcbParseResult {
   ok: boolean;
   ir?: Pcb;
   diagnostics: Diagnostic[];
+  /** IR path → span of the record that produced it (ADR-0020 D2). Never persisted. */
+  sources?: SourceMap;
 }
 
 export const PCB_SECTIONS = [
@@ -446,7 +450,9 @@ function enumCell(
 export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult {
   const diagnostics = new Diagnostics();
   const file = options.file;
-  const lines = lex(text).filter((line) => !line.blank && !line.comment);
+  const lexed = lex(text);
+  const src = new SourceFile(file, lexed);
+  const lines = lexed.filter((line) => !line.blank && !line.comment);
 
   if (lines.length === 0) {
     diagnostics.add("error", "syntax.header-invalid", "the file is empty", file, 1, 1);
@@ -532,6 +538,14 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
   const physicalOnly: PhysicalOnly[] = [];
   const deviation: Deviation[] = [];
 
+  // Spans of the records built below, by object identity; the IR arrays get sorted at the end, and
+  // only then does an index mean something (ADR-0020 D2/D4).
+  const at = new Map<object, Span>();
+  const put = <T extends object>(list: T[], item: T, line: Line): void => {
+    list.push(item);
+    at.set(item, src.span(line.number, line.cells[0]?.col));
+  };
+
   for (const block of blocks) {
     // A section may repeat: rows are concatenated in order of appearance (merging same-name net rows in `teda.md` is the same precedent).
     // The order of `stackup` is the stackup order, so a repeated section is appended in order of appearance, not sorted.
@@ -545,12 +559,12 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
           if (kind === "copper") {
             if (!exactColumns(line, 4, diagnostics, file)) break;
             const layer = copperLayer(c[0]!, line, diagnostics, file);
-            stackup.push({
+            put(stackup, {
               type: "copper",
               layer,
               thickness_nm: length(c[2]!, line, diagnostics, file),
               kind: enumCell(c[3]!, line, diagnostics, file, KINDS, "copper layer type") as "signal" | "power" | "plane",
-            });
+            }, line);
           } else if (kind === "dielectric") {
             const ok = c.length === 4 || c.length === 5;
             if (!ok) {
@@ -565,13 +579,13 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
               break;
             }
             const layer = layerName(c[0]!, line, diagnostics, file);
-            stackup.push({
+            put(stackup, {
               type: "dielectric",
               layer,
               thickness_nm: length(c[2]!, line, diagnostics, file),
               material: c[3]!.text,
               ...(c[4] === undefined ? {} : { er_ppm: ratioPpm(c[4], line, diagnostics, file) }),
-            });
+            }, line);
           } else {
             diagnostics.add(
               "error",
@@ -587,21 +601,21 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
         }
         case "outline": {
           if (!exactColumns(line, 2, diagnostics, file)) break;
-          outline.push({
+          put(outline, {
             x_nm: length(c[0]!, line, diagnostics, file),
             y_nm: length(c[1]!, line, diagnostics, file),
-          });
+          }, line);
           break;
         }
         case "place": {
           if (!exactColumns(line, 5, diagnostics, file)) break;
-          place.push({
+          put(place, {
             instance_id: c[0]!.text,
             x_nm: length(c[1]!, line, diagnostics, file),
             y_nm: length(c[2]!, line, diagnostics, file),
             rot_mdeg: angle(c[3]!, line, diagnostics, file),
             side: enumCell(c[4]!, line, diagnostics, file, SIDES, "side") as "top" | "bottom",
-          });
+          }, line);
           break;
         }
         case "connect": {
@@ -609,19 +623,19 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
           // Sort the pair internally by byte order (spec §6.2): the IR itself is canonical, the formatter cannot be relied on to catch it.
           const left = padRef(c[0]!, line, diagnostics, file);
           const right = padRef(c[1]!, line, diagnostics, file);
-          connect.push(byteCompare(left, right) <= 0 ? { a: left, b: right } : { a: right, b: left });
+          put(connect, byteCompare(left, right) <= 0 ? { a: left, b: right } : { a: right, b: left }, line);
           break;
         }
         case "trace": {
           if (!atLeastColumns(line, 6, diagnostics, file, "<net> <layer> <width> <x1> <y1> [<x2> <y2> …]")) break;
           const points = pointList(c.slice(3), line, diagnostics, file, 2);
           if (points === undefined) break;
-          trace.push({
+          put(trace, {
             net: netId(c[0]!),
             layer: copperLayer(c[1]!, line, diagnostics, file),
             width_nm: length(c[2]!, line, diagnostics, file),
             points: points as Trace["points"],
-          });
+          }, line);
           break;
         }
         case "via": {
@@ -639,7 +653,7 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
           }
           const from = c[5];
           const to = c[6];
-          via.push({
+          put(via, {
             net: netId(c[0]!),
             x_nm: length(c[1]!, line, diagnostics, file),
             y_nm: length(c[2]!, line, diagnostics, file),
@@ -651,7 +665,7 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
                   from_layer: copperLayer(from, line, diagnostics, file),
                   to_layer: copperLayer(to, line, diagnostics, file),
                 }),
-          });
+          }, line);
           break;
         }
         case "zone":
@@ -661,17 +675,17 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
           const points = pointList(c.slice(2), line, diagnostics, file, 3);
           if (points === undefined) break;
           if (block.section === "zone") {
-            zone.push({
+            put(zone, {
               net: netId(c[0]!),
               layer: copperLayer(c[1]!, line, diagnostics, file),
               points: normalizeRing(points) as Zone["points"],
-            });
+            }, line);
           } else {
-            keepout.push({
+            put(keepout, {
               type: enumCell(c[0]!, line, diagnostics, file, KEEPOUT_TYPES, "keepout type") as Keepout["type"],
               layer: copperLayer(c[1]!, line, diagnostics, file),
               points: normalizeRing(points) as Zone["points"],
-            });
+            }, line);
           }
           break;
         }
@@ -694,23 +708,23 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
           const nm = (i: number) => length(c[i]!, line, diagnostics, file);
           switch (kind) {
             case "clearance":
-              rules.push({ type: "clearance", value_nm: nm(1) });
+              put(rules, { type: "clearance", value_nm: nm(1) }, line);
               break;
             case "width":
-              rules.push({ type: "width", value_nm: nm(1) });
+              put(rules, { type: "width", value_nm: nm(1) }, line);
               break;
             case "via":
-              rules.push({ type: "via", size_nm: nm(1), drill_nm: nm(2) });
+              put(rules, { type: "via", size_nm: nm(1), drill_nm: nm(2) }, line);
               break;
             case "net":
-              rules.push({
+              put(rules, {
                 type: "net",
                 net: netId(c[1]!),
                 clearance_nm: nm(2),
                 width_nm: nm(3),
                 via_size_nm: nm(4),
                 via_drill_nm: nm(5),
-              });
+              }, line);
               break;
             case "diff": {
               const impedance = parseQuantity(c[3]!.text, "impedance", { code: "value.invalid-unit" });
@@ -718,42 +732,42 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
                 diagnostics.add("error", "value.invalid-unit", impedance.reason, file, line.number, c[3]!.col, { actual: c[3]!.text });
                 break;
               }
-              rules.push({
+              put(rules, {
                 type: "diff",
                 net_a: netId(c[1]!),
                 net_b: netId(c[2]!),
                 impedance_mohm: impedance.value,
                 gap_nm: nm(4),
-              });
+              }, line);
               break;
             }
             case "match":
-              rules.push({ type: "match", net_a: netId(c[1]!), net_b: netId(c[2]!), max_delta_nm: nm(3) });
+              put(rules, { type: "match", net_a: netId(c[1]!), net_b: netId(c[2]!), max_delta_nm: nm(3) }, line);
               break;
             case "mask":
-              rules.push({ type: "mask", expansion_nm: nm(1) });
+              put(rules, { type: "mask", expansion_nm: nm(1) }, line);
               break;
             case "paste": {
-              rules.push({ type: "paste", ratio_ppm: ratioPpm(c[1]!, line, diagnostics, file), offset_nm: nm(2) });
+              put(rules, { type: "paste", ratio_ppm: ratioPpm(c[1]!, line, diagnostics, file), offset_nm: nm(2) }, line);
               break;
             }
             case "thermal":
-              rules.push({ type: "thermal", gap_nm: nm(1), bridge_nm: nm(2) });
+              put(rules, { type: "thermal", gap_nm: nm(1), bridge_nm: nm(2) }, line);
               break;
             case "min_width":
-              rules.push({ type: "min_width", value_nm: nm(1) });
+              put(rules, { type: "min_width", value_nm: nm(1) }, line);
               break;
           }
           break;
         }
         case "silk": {
           if (!exactColumns(line, 4, diagnostics, file)) break;
-          silk.push({
+          put(silk, {
             item: enumCell(c[0]!, line, diagnostics, file, SILK_ITEMS, "silk item") as "refdes" | "value",
             layer: enumCell(c[1]!, line, diagnostics, file, SILK_LAYERS, "silk layer") as "F.SilkS" | "B.SilkS",
             size_nm: length(c[2]!, line, diagnostics, file),
             mode: enumCell(c[3]!, line, diagnostics, file, SILK_MODES, "silk mode") as "show" | "hide",
-          });
+          }, line);
           const size = silk[silk.length - 1]!.size_nm;
           if (size < 500_000) {
             diagnostics.add(
@@ -780,29 +794,29 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
           switch (kind) {
             case "mounting":
               if (!exactColumns(line, 6, diagnostics, file)) break;
-              physicalOnly.push({
+              put(physicalOnly, {
                 type: "mounting",
                 id,
                 x_nm: nm(2),
                 y_nm: nm(3),
                 size_nm: nm(4),
                 drill_nm: nm(5),
-              });
+              }, line);
               break;
             case "fiducial":
               if (!exactColumns(line, 6, diagnostics, file)) break;
-              physicalOnly.push({
+              put(physicalOnly, {
                 type: "fiducial",
                 id,
                 x_nm: nm(2),
                 y_nm: nm(3),
                 size_nm: nm(4),
                 layer: copperLayer(c[5]!, line, diagnostics, file),
-              });
+              }, line);
               break;
             case "stitching":
               if (!exactColumns(line, 7, diagnostics, file)) break;
-              physicalOnly.push({
+              put(physicalOnly, {
                 type: "stitching",
                 id,
                 x_nm: nm(2),
@@ -810,11 +824,11 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
                 net: netId(c[4]!),
                 size_nm: nm(5),
                 drill_nm: nm(6),
-              });
+              }, line);
               break;
             case "cutout":
               if (!exactColumns(line, 6, diagnostics, file)) break;
-              physicalOnly.push({ type: "cutout", id, x_nm: nm(2), y_nm: nm(3), w_nm: nm(4), h_nm: nm(5) });
+              put(physicalOnly, { type: "cutout", id, x_nm: nm(2), y_nm: nm(3), w_nm: nm(4), h_nm: nm(5) }, line);
               break;
           }
           break;
@@ -824,10 +838,10 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
           enumCell(c[0]!, line, diagnostics, file, DEVIATION_TYPES, "deviation type");
           if (kind === "net_tie") {
             if (!exactColumns(line, 3, diagnostics, file)) break;
-            deviation.push({ type: "net_tie", net_a: netId(c[1]!), net_b: netId(c[2]!) });
+            put(deviation, { type: "net_tie", net_a: netId(c[1]!), net_b: netId(c[2]!) }, line);
           } else if (kind === "split_ground") {
             if (!exactColumns(line, 2, diagnostics, file)) break;
-            deviation.push({ type: "split_ground", net: netId(c[1]!) });
+            put(deviation, { type: "split_ground", net: netId(c[1]!) }, line);
           }
           break;
         }
@@ -970,7 +984,13 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
     ...(trace.length > 0
       ? {
           trace: sortByKey(
-            trace.map((item) => ({ ...item, points: orientTrace(item.points) as Trace["points"] })),
+            trace.map((item) => {
+              const mapped = { ...item, points: orientTrace(item.points) as Trace["points"] };
+              // The oriented copy is a new object; carry the record's span over to it.
+              const span = at.get(item);
+              if (span !== undefined) at.set(mapped, span);
+              return mapped;
+            }),
             (t) => `${t.net}|${t.layer}|${t.points[0]!.x_nm},${t.points[0]!.y_nm}`,
           ),
         }
@@ -987,7 +1007,22 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
     ...(deviation.length > 0 ? { deviation: sortByKey(deviation, (d) => `${d.type}|${"net_a" in d ? d.net_a : d.net}`) } : {}),
   };
 
-  return { ok: !diagnostics.hasError, ir, diagnostics: diagnostics.items };
+  // IR path → span, keyed by the canonical index of each record (ADR-0020 D2).
+  const sources: SourceMap = new Map();
+  recordObjects(sources, "/stackup", stackup, at);
+  recordObjects(sources, "/place", ir.place, at);
+  recordObjects(sources, "/connect", ir.connect, at);
+  recordObjects(sources, "/trace", ir.trace ?? [], at);
+  recordObjects(sources, "/via", ir.via ?? [], at);
+  recordObjects(sources, "/zone", ir.zone ?? [], at);
+  recordObjects(sources, "/keepout", ir.keepout ?? [], at);
+  recordObjects(sources, "/rules", ir.rules, at);
+  recordObjects(sources, "/silk", ir.silk ?? [], at);
+  recordObjects(sources, "/physical_only", ir.physical_only ?? [], at);
+  recordObjects(sources, "/deviation", ir.deviation ?? [], at);
+  recordObjects(sources, "/outline", ir.outline, at);
+
+  return { ok: !diagnostics.hasError, ir, diagnostics: diagnostics.items, sources };
 }
 
 /** Polyline direction normalization: reverse the whole polyline when the start sorts after the end (spec §6.2). */

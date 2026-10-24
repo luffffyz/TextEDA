@@ -148,6 +148,15 @@ wire
 - 端点引脚必须属于该 net：`from_pin` / `to_pin` 必须在板 `nets` 段里被声明为该 net 的成员。不一致即报错（`view.pin-net-mismatch`）——这是"视图不重复电气事实"的兑现：视图引用了逻辑层的事实，就必须对得上。
 - 不支持圆弧，只支持折线（与 `pcb` 的 `trace` 一致）。
 
+### 5.1 连接点：画出来的，不写下来的
+
+同一条 net 的走线在**三条或更多条**会合处画一个实心圆点（直径 0.9144mm，KiCad 的默认值）。这条规则完全由几何导出，**视图里没有连接点这一项**：
+
+- 一条走线**结束**在该点是**一条臂**，**穿过**该点是**两条臂**；臂数 ≥ 3 才画点。两条走线的拐角（∟）是 2，不画。
+- 臂数**按 net 分别数**：不同 net 的两条线碰在一起、或交叉穿过，都不画点。
+- 因此读法只有一条：**有点 = 这里是连接，没点 = 只是画在同一处**。这条读法不需要第二个约定去补充，所以**不用半圆跳线**——跳线是把"没连"画成一个小图形，而一条线绕开另一条线才是真正的修法；交叉会由 `view.wire-crossing` 报出来（§9.2）。
+- 点的图层是 `junction`，**不进反解投影**（§9.5）：连接点是走线的推论，写进 IR 就多了一个能与走线打架的事实。
+
 ---
 
 ## 6. `label` 段
@@ -222,12 +231,13 @@ text
 | `view.label-not-on-net` | 标签没落在该 net 的走线或引脚上（该 net 在本页**有画走线**时才判：整条 net 没画是 `view.nets-not-drawn` 的事，不逐标签重复） | 已实现（可读性检查，`packages/core/src/view/readability.ts`） |
 | `view.port-not-on-net` | 端口符号没落在该 net 的走线或引脚上（同一前提） | 已实现（可读性检查，同上） |
 | `view.wire-crosses-symbol` | 走线穿过某个符号的本体（`AGENTS.md` §6 的可读性检查）；本体取符号**图形**的包围盒，不含文字字段 | 已实现（可读性检查，同上） |
+| `view.wire-crossing` | **不同 net** 的两条走线交叉：交叉点没有圆点（§5.1），读者会误读成连接。同一 net 的交叉不报（那是连接，本来就画点） | 已实现（可读性检查，同上） |
 | `view.text-overlap` | 两段文字互相压住（**相切不算**，必须有重叠面积） | 已实现（可读性检查，同上） |
 | `view.label-collision` | 两个标签压在一起（label 与 label 的重叠归这条，其余文字组合归 `view.text-overlap`） | 已实现（可读性检查，同上） |
 
 > 码表见 `docs/error-codes.md`（由 `packages/ir/src/diagnostics/codes.ts` 生成）。诊断码按"错误的种类"分域，不按发现阶段分（[ADR-0016](../docs/adr/0016-diagnostic-error-codes.md)）："引用了不存在的东西"在 `view` 里和在 `sch` 里是同一类错误，所以复用 `ref.*`；"角度不合法"复用 `value.angle-invalid`。`view` 域是本描述引入的新域，授权见 [ADR-0021](../docs/adr/0021-schematic-view-layer.md)。
 >
-> **注册表只登记"已发出"的码**（[ADR-0016](../docs/adr/0016-diagnostic-error-codes.md) decision 4：码表是唯一真源，发出即冻结）。本表全部六个码都已发出并登记。
+> **注册表只登记"已发出"的码**（[ADR-0016](../docs/adr/0016-diagnostic-error-codes.md) decision 4：码表是唯一真源，发出即冻结）。本表全部七个码都已发出并登记。
 >
 > **几何从渲染器来，不从检查器推**。文字宽度、符号本体范围、引脚落点都由 `packages/renderer` 的 `schematicGeometry` 按**实际画法**算出（同一套变换、同一套笔画字体度量），检查器只判断"压没压住""在不在线上"。检查器自己再算一遍就会和读者看到的东西漂移，那正是可读性检查要防的那类错误。
 
@@ -240,6 +250,7 @@ text
 | `view.label-not-on-net` / `view.port-not-on-net` | `page` `net` `kind` `distance_nm`（到该 net 最近走线或引脚的**距离**） |
 | `view.label-collision` / `view.text-overlap` | `page` `first` `second` `overlap_area_nm2`（重叠**面积**） |
 | `view.wire-crosses-symbol` | `page` `net` `instance` `through_nm`（在**本体内部**的长度） |
+| `view.wire-crossing` | `page` `first_net` `second_net` `crossings`（交叉**次数**）`x_nm` `y_nm`（第一处交叉的坐标） |
 | `view.nets-not-drawn` | `count` + 前十个 net 名 |
 
 同一组数字在人类可读输出里换成 mm / mm²，出现在消息里（"nearest point of the net is 6.8 mm away"）：一个偏 0.1 mm 的标签和一个偏 20 mm 的标签是同一条警告、两种完全不同的修法。
@@ -248,6 +259,25 @@ text
 
 - **视图不参与 ERC**。ERC 在板的逻辑 IR 上跑（`AGENTS.md` §4.2），视图里的线画错了不会让 ERC 变红——那是 `view.*` 诊断的活。
 - **视图不改变连通性**。视图里少画一条线，逻辑层照样是那个 net。
+
+### 9.5 可反解（round-trip）
+
+渲染器只读（`AGENTS.md` §2 不变量 3），所以它画的每一页都必须能反解回"这一页说了什么"——`extract(render(ir)) == ir`（不变量 4，[ADR-0014](../docs/adr/0014-reference-renderer.md) decision 5）。
+
+**比的是语义投影，不是 IR 本身**。一张打印页的语义是落在纸面上的东西：图幅大小、引脚连接点与朝向、符号自身的图形、走线折点、标签与注释的文字与位置、端口标签的尖点与朝向，全部在**绝对图纸坐标**里。以下故意不在投影里：
+
+| 不进投影 | 理由 |
+|---|---|
+| 摆位原点与旋转 | 读者看到的是引脚落在哪，不是原点在哪；原点算错但每个引脚都落在原处的图，不是这张图的缺陷 |
+| 线宽、字号、对齐方式 | 外观，不是语义；符号自身的绘制由符号的 round-trip 负责 |
+| 端口标签的塔形细节 | 只比尖点与朝向，改标签外形不算失真 |
+| "这个引脚属于哪个实例" | 图上没有这条信息；同一符号的两个实例互换位置画出的是同一张图，实例身份靠 `Reference` 文字（也进投影） |
+
+**库里那两个字段是占位符**：符号文件的 `Reference`（`U`）与 `Value`（符号名）只是"这里有个位号、有个值"，图上画的是实例自己——`Reference` 用实例 id，`Value` 用实例的 `value` 列（件没有这一列时用 `mpn`），见 `spec/symbol.md` §2。因此这两段文字的**内容**进投影（两端各自算出来再比），而不是画符号文件里那句占位文本。
+
+**两端独立实现**：视图侧用象限矩阵把符号坐标换到图纸坐标（`schematicProjection`），图纸侧直接读绘制指令（`extractSchematic`），两者不共用变换函数——共用就等于自己验证自己。落在复现性上：同一份 `view` 两次渲染字节相同（§11），反解也相同。
+
+实现：`packages/renderer/src/schematic-extract.ts`；测试：`packages/renderer/test/schematic-roundtrip.test.ts`（四个象限 + 走线端点落在引脚上 + 灵敏度）与 `packages/cli/test/view-roundtrip.test.ts`（参考工程的每一页）。
 
 ### 9.4 度量（`texteda view-metrics`）
 

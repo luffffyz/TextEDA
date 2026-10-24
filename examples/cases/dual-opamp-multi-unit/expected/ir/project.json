@@ -1,0 +1,10 @@
+{
+  "ir_version": "0.13",
+  "project": {
+    "description": "Case 2 of the ten: a dual op-amp, one part with three units, both amplifiers used",
+    "format": "0.9",
+    "name": "dual-opamp-multi-unit",
+    "status": "draft",
+    "version": "0.1.0"
+  }
+}

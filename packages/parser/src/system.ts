@@ -16,6 +16,8 @@ import { irVersion } from "@texteda/ir";
 import type { System } from "@texteda/ir/system";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
 import { lex, type Line } from "./lexer.ts";
+import { SourceFile } from "./sources.ts";
+import type { SourceMap } from "@texteda/ir/spans";
 import { checkVersion, typeRange } from "./version.ts";
 
 /** The `system` type exists since language 0.2 (spec/teda.md §8). */
@@ -43,6 +45,8 @@ export interface SystemParseResult {
   ok: boolean;
   ir?: System;
   diagnostics: Diagnostic[];
+  /** IR path → span of the record that produced it (ADR-0020 D2). Never persisted. */
+  sources?: SourceMap;
 }
 
 function error(
@@ -109,10 +113,12 @@ export function parseSystem(text: string, options: SystemParseOptions): SystemPa
   }
 
   const boards: string[] = [];
-  const nets: { id: string; members: string[] }[] = [];
+  /** Line of each `boards` row, parallel to `boards` (spans; ADR-0020). */
+  const boardLines: number[] = [];
+  const nets: { id: string; members: string[]; line: number }[] = [];
   let section: SystemSection | null = null;
   /** The net the current row is adding members to (the `name:` rows and their continuations). */
-  let currentNet: { id: string; members: string[] } | null = null;
+  let currentNet: { id: string; members: string[]; line: number } | null = null;
 
   while (index < lines.length) {
     const line = lines[index]!;
@@ -164,6 +170,7 @@ export function parseSystem(text: string, options: SystemParseOptions): SystemPa
         continue;
       }
       boards.push(cell.text);
+      boardLines.push(line.number);
       continue;
     }
 
@@ -187,6 +194,7 @@ export function parseSystem(text: string, options: SystemParseOptions): SystemPa
           continue;
         }
         boards.push(cell.text);
+        boardLines.push(line.number);
       }
       continue;
     }
@@ -214,7 +222,7 @@ export function parseSystem(text: string, options: SystemParseOptions): SystemPa
           );
           continue;
         }
-        currentNet = { id: name, members: [] };
+        currentNet = { id: name, members: [], line: line.number };
         nets.push(currentNet);
         const members = line.cells.slice(1);
         for (const member of members) {
@@ -295,5 +303,12 @@ export function parseSystem(text: string, options: SystemParseOptions): SystemPa
       members: [string, string, ...string[]];
     }[],
   };
-  return { ok: true, ir, diagnostics };
+  // IR path → span. Boards and nets are built from rows that keep their line; the IR wraps them in
+  // new objects, so the pointer is filled from the rows (ADR-0020 D2/D4).
+  const src = new SourceFile(file, lex(text));
+  const sources: SourceMap = new Map();
+  ir.boards.forEach((_, index) => sources.set(`/boards/${index}`, src.span(boardLines[index] ?? 1)));
+  ir.nets.forEach((_, index) => sources.set(`/nets/${index}`, src.span(nets[index]?.line ?? 1)));
+
+  return { ok: true, ir, diagnostics, sources };
 }

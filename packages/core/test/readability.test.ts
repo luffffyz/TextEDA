@@ -1,3 +1,4 @@
+import { irVersion } from "@texteda/ir";
 import { describe, expect, test } from "bun:test";
 import type { Schematic } from "@texteda/ir/schematic";
 import type { SchematicView } from "@texteda/ir/schematic-view";
@@ -10,7 +11,7 @@ import {
 const MM = 1_000_000;
 
 const schematic: Schematic = {
-  ir_version: "0.9",
+  ir_version: irVersion,
   format: "0.8",
   board: "b",
   instances: [],
@@ -44,7 +45,7 @@ const geometry = (overrides: Partial<ReadabilityGeometry> = {}): ReadabilityGeom
 
 const view = (wires: NonNullable<SchematicView["wire"]>, texts: { label?: unknown[]; port?: unknown[]; text?: unknown[] }): SchematicView =>
   ({
-    ir_version: "0.9",
+    ir_version: irVersion,
     format: "0.8",
     board: "b",
     page: "p",
@@ -65,7 +66,6 @@ const gndWire = {
   net: "GND",
   from_pin: "R1.2",
   to_pin: "U1.2",
-  line: 12,
 };
 
 describe("checkReadability", () => {
@@ -78,7 +78,6 @@ describe("checkReadability", () => {
           x_nm: 20 * MM,
           y_nm: 5 * MM,
           box: { min_x_nm: 20 * MM, min_y_nm: 4 * MM, max_x_nm: 25 * MM, max_y_nm: 6 * MM },
-          line: 13,
           subject: "GND",
         },
       ],
@@ -95,7 +94,6 @@ describe("checkReadability", () => {
           x_nm: 20 * MM,
           y_nm: 30 * MM,
           box: { min_x_nm: 20 * MM, min_y_nm: 29 * MM, max_x_nm: 25 * MM, max_y_nm: 31 * MM },
-          line: 13,
           subject: "GND",
         },
       ],
@@ -103,7 +101,8 @@ describe("checkReadability", () => {
     const out = checkReadability(facts(view([gndWire], {}), g));
     expect(out.map((d) => d.code)).toEqual(["view.label-not-on-net"]);
     expect(out[0]!.severity).toBe("warning");
-    expect(out[0]!.location).toEqual({ file: "views/b/p.view.teda", line: 13, col: 1 });
+    // No locator was handed in, so the finding names the file only: the line was in the record.
+    expect(out[0]!.location).toEqual({ file: "views/b/p.view.teda", line: 1, col: 1 });
   });
 
   test("a label on a net's wiring drawn on no page is not reported (the coverage check owns that gap)", () => {
@@ -115,7 +114,6 @@ describe("checkReadability", () => {
           x_nm: 20 * MM,
           y_nm: 30 * MM,
           box: { min_x_nm: 20 * MM, min_y_nm: 29 * MM, max_x_nm: 25 * MM, max_y_nm: 31 * MM },
-          line: 13,
           subject: "GND",
         },
       ],
@@ -132,7 +130,6 @@ describe("checkReadability", () => {
           x_nm: 40 * MM,
           y_nm: 5 * MM,
           box: { min_x_nm: 40 * MM, min_y_nm: 4 * MM, max_x_nm: 45 * MM, max_y_nm: 6 * MM },
-          line: 13,
           subject: "GND",
         },
       ],
@@ -141,7 +138,7 @@ describe("checkReadability", () => {
   });
 
   test("a port away from the net it names is reported", () => {
-    const vinWire = { net: "VIN", from_pin: "U1.1", to_pin: "R1.2", line: 20 };
+    const vinWire = { net: "VIN", from_pin: "U1.1", to_pin: "R1.2" };
     const g = geometry({
       texts: [
         {
@@ -150,7 +147,6 @@ describe("checkReadability", () => {
           x_nm: 80 * MM,
           y_nm: 80 * MM,
           box: { min_x_nm: 80 * MM, min_y_nm: 79 * MM, max_x_nm: 90 * MM, max_y_nm: 81 * MM },
-          line: 21,
           subject: "VIN_PORT",
         },
       ],
@@ -163,8 +159,8 @@ describe("checkReadability", () => {
     const box = { min_x_nm: 20 * MM, min_y_nm: 4 * MM, max_x_nm: 26 * MM, max_y_nm: 6 * MM };
     const labels = geometry({
       texts: [
-        { kind: "label", text: "GND", x_nm: 20 * MM, y_nm: 5 * MM, box, line: 13, subject: "GND" },
-        { kind: "label", text: "VIN", x_nm: 21 * MM, y_nm: 5 * MM, box, line: 14, subject: "VIN" },
+        { kind: "label", text: "GND", x_nm: 20 * MM, y_nm: 5 * MM, box, subject: "GND" },
+        { kind: "label", text: "VIN", x_nm: 21 * MM, y_nm: 5 * MM, box, subject: "VIN" },
       ],
     });
     expect(checkReadability(facts(view([gndWire], {}), labels)).map((d) => d.code)).toContain(
@@ -173,8 +169,8 @@ describe("checkReadability", () => {
 
     const mixed = geometry({
       texts: [
-        { kind: "label", text: "GND", x_nm: 20 * MM, y_nm: 5 * MM, box, line: 13, subject: "GND" },
-        { kind: "text", text: "note", x_nm: 21 * MM, y_nm: 5 * MM, box, line: 14 },
+        { kind: "label", text: "GND", x_nm: 20 * MM, y_nm: 5 * MM, box, subject: "GND" },
+        { kind: "text", text: "note", x_nm: 21 * MM, y_nm: 5 * MM, box },
       ],
     });
     expect(checkReadability(facts(view([gndWire], {}), mixed)).map((d) => d.code)).toContain(
@@ -187,8 +183,8 @@ describe("checkReadability", () => {
     const right = { min_x_nm: 25 * MM, min_y_nm: 4 * MM, max_x_nm: 30 * MM, max_y_nm: 6 * MM };
     const g = geometry({
       texts: [
-        { kind: "text", text: "a", x_nm: 20 * MM, y_nm: 5 * MM, box: left, line: 13 },
-        { kind: "text", text: "b", x_nm: 25 * MM, y_nm: 5 * MM, box: right, line: 14 },
+        { kind: "text", text: "a", x_nm: 20 * MM, y_nm: 5 * MM, box: left },
+        { kind: "text", text: "b", x_nm: 25 * MM, y_nm: 5 * MM, box: right },
       ],
     });
     expect(checkReadability(facts(view([gndWire], {}), g))).toEqual([]);
@@ -211,5 +207,52 @@ describe("checkReadability", () => {
     const out = checkReadability(facts(view([gndWire], {}), crossing));
     expect(out.map((d) => d.code)).toEqual(["view.wire-crosses-symbol"]);
     expect(out[0]!.data).toEqual({ page: "p", net: "GND", instance: "C1", through_nm: 3_998_000 });
+  });
+
+  test("wires of two different nets that cross are reported: nothing marks the point as unjoined", () => {
+    const g = geometry({
+      symbols: [
+        ...geometry().symbols,
+        {
+          instance_id: "C1",
+          box: { min_x_nm: 29 * MM, min_y_nm: 8 * MM, max_x_nm: 31 * MM, max_y_nm: 10 * MM },
+          pins: new Map([
+            ["1", { x_nm: 30 * MM, y_nm: 0 }],
+            ["2", { x_nm: 30 * MM, y_nm: 10 * MM }],
+          ]),
+        },
+      ],
+    });
+    const out = checkReadability(
+      facts(view([gndWire, { net: "VIN", from_pin: "C1.1", to_pin: "C1.2" }], {}), g),
+    );
+    expect(out.map((d) => d.code)).toEqual(["view.wire-crossing"]);
+    expect(out[0]!.data).toEqual({
+      page: "p",
+      first_net: "GND",
+      second_net: "VIN",
+      crossings: 1,
+      x_nm: 30 * MM,
+      y_nm: 5 * MM,
+    });
+  });
+
+  test("wires of one net crossing are not reported: they join, and a join is drawn with a dot", () => {
+    const g = geometry({
+      symbols: [
+        ...geometry().symbols,
+        {
+          instance_id: "C1",
+          box: { min_x_nm: 29 * MM, min_y_nm: 8 * MM, max_x_nm: 31 * MM, max_y_nm: 10 * MM },
+          pins: new Map([
+            ["1", { x_nm: 30 * MM, y_nm: 0 }],
+            ["2", { x_nm: 30 * MM, y_nm: 10 * MM }],
+          ]),
+        },
+      ],
+    });
+    expect(
+      checkReadability(facts(view([gndWire, { net: "GND", from_pin: "C1.1", to_pin: "C1.2" }], {}), g)),
+    ).toEqual([]);
   });
 });

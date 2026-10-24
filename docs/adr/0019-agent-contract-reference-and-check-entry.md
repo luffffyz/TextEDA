@@ -75,3 +75,22 @@ This way every row of `docs/error-codes.md` has a "how to fix" column, and an ag
 - `bun run gen` produces one more document; `bun run gen:check` still blocks drift.
 - The implementation location of `bun run compile:schematic` has changed, but **the command name does not** (`bun run compile:schematic <project dir> <board_id>` still works).
 - Two new diagnostic codes: `syntax.component-invalid` (component file fails to parse) and `ref.component-id-mismatch` (the component file header id does not match the file name).
+
+## 2026-10-24 — The Contract Stage Covers Every Description the Shard Tree Serialises
+
+Decision 3 listed the boards as `check`'s scope. In practice `check` also *reads* the project's
+symbols and footprints — the drawing and coverage checks need their geometry — but it read them with
+the failures silently dropped, and it validated the contract of the schematic, pcb, procurement and
+system shards only. A project whose symbol or footprint did not compile was therefore green under
+`check` and red under `texteda ir`, which refuses to write a shard that does not compile or does not
+satisfy its contract. One gate said "fine", the other refused the same tree: the agent contract of
+decision 3 ("`check` is the entry point") was broken in the one direction that matters.
+
+`check` now applies parse + contract validation to every description the shard tree serialises:
+`component`, `symbol`, `footprint`, and the print page (`schematic-view`). A file that fails is
+reported and left out of the geometry the rest of the run sees — the same treatment `ir` gives it.
+
+**Not** part of this, deliberately: reference resolution. A device may name a symbol or footprint the
+tree does not hold yet — a logic-only project with no drawing is a legal state (AGENTS.md §4.2), and
+`assets/symbols/` is empty when `texteda init` is done. A *missing* geometry file is therefore not an
+error; an existing one that does not compile is.

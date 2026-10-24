@@ -7,7 +7,7 @@
 //   --out      output file; defaults to stdout (in --json mode the IR only goes through --out).
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { basename, dirname, relative, resolve } from "node:path";
-import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
+import { schemaDiagnosticsToDiagnostics, spanOf, validate } from "@texteda/ir";
 import { diagnosticsToPayload, type Diagnostic } from "@texteda/ir/diagnostics";
 import { canonicalJson, formatDiagnostic, parseSymbol } from "../src/index.ts";
 
@@ -63,7 +63,13 @@ let schemaFailed = false;
 if (parsed.ir) {
   const check = validate("symbol", parsed.ir);
   if (!check.ok) {
-    diagnostics.push(...schemaDiagnosticsToDiagnostics(check.errors));
+    const sources = parsed.sources;
+    diagnostics.push(
+      ...schemaDiagnosticsToDiagnostics(
+        check.errors,
+        sources === undefined ? undefined : (irPath) => spanOf(sources, irPath),
+      ),
+    );
     schemaFailed = true;
   }
 }

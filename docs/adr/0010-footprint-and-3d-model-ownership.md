@@ -119,3 +119,16 @@ Follows [ADR-0029](0029-package-code-footprint-and-3d-model-ownership.md) decisi
   provides that part (the project, or the library that provides it), covered by that tree's
   `content_hash` — the same rule as the footprint sources themselves. A change to a model
   changes the hash and invalidates the artifacts, which is the intent.
+
+## Addendum (2026-10-24): no content hash at all
+
+Amended by [ADR-0047](0047-an-external-library-is-a-template-not-a-dependency.md) decision 7.
+
+`[libs.<name>]` is withdrawn, and with it `content_hash` and `bun run lib:hash`. A project's own
+assets are its own files under `assets/`: they enter the build identity as normative shards
+([ADR-0023](0023-ir-layer-on-disk.md) decision 2), which is the same guarantee the hash provided
+(a change changes the project hash) without a second number to keep in sync. The paragraph above
+describing the two-root `[libs.project]` table is history; the two roots themselves
+(`assets/symbols/`, `assets/footprints/`) are unchanged. The 2026-10-22 addendum's "where the
+models are hashed" stands with "covered by that tree's `content_hash`" read as "part of the
+project's normative shards".

@@ -1,0 +1,34 @@
+version 0.8
+schematic multi-unit
+
+# Case 2 of the ten (AGENTS.md §10, docs/backlog.md F12): a dual op-amp, one part with three units.
+#
+# What this case is for: every pin reference here names a unit (`U1.1.OUT`, `U1.2.OUT`,
+# `U1.3.V+`), because `OUT` and `IN+`/`IN-` exist in both amplifier units. A bare `U1.OUT` is
+# ambiguous and must be rejected, not resolved to unit 1 (teda.md §4.5).
+#
+# The circuit: unit A is a non-inverting amplifier (gain 1 + 22.1k/10k = 3.21) on the single 3V3
+# supply; unit B buffers its output. Both units share one supply pair, which lives in unit 3.
+# No decoupling, no mid-rail bias offset: this case is about unit identity, not about analog design.
+instances
+  R1  res-22k1-0402
+  R2  res-10k-0402
+  U1  opa2333
+
+nets
+  FB:       R1.2  R2.1  U1.1.IN-
+  GND:      R2.2  U1.3.V-
+  SIG_IN:   U1.1.IN+
+  SIG_MID:  R1.1  U1.1.OUT  U1.2.IN+
+  SIG_OUT:  U1.2.IN-  U1.2.OUT
+  V3V3:     U1.3.V+
+
+ports
+  GND      GND
+  SIG_IN   SIG_IN
+  SIG_OUT  SIG_OUT
+  V3V3     V3V3
+
+constraints
+  voltage  GND   0V..0V
+  voltage  V3V3  3.135V..3.465V

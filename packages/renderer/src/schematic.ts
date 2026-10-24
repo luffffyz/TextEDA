@@ -14,6 +14,14 @@ import { renderSymbol, type SymbolBody, type SymbolPart } from "./symbol.ts";
 export interface SchematicInstance {
   symbol: SymbolBody;
   part: SymbolPart;
+  /**
+   * The instance's value as the page should print it (`10kΩ`, `100nF`), when the device has one.
+   *
+   * The symbol's `Value` field is a library placeholder -- a generic part's file has no value to
+   * name -- so the placed instance names itself, exactly as it does for `Reference`. A device
+   * without a value column keeps the symbol's text.
+   */
+  value?: string;
 }
 
 type Place = SchematicView["place"][number];
@@ -24,6 +32,12 @@ type Note = NonNullable<SchematicView["text"]>[number];
 
 /** Wire stroke width (0.1524mm, KiCad's 6 mil default). */
 const WIRE_WIDTH_NM = 152_400;
+/**
+ * Junction dot radius. A join is drawn, not inferred: the dot says "these runs meet here", and its
+ * absence is what tells a reader a crossing is not a connection. KiCad's default diameter (0.9144mm,
+ * 36 mil) keeps the dot familiar and visible when a whole page is zoomed out.
+ */
+const JUNCTION_RADIUS_NM = 457_200;
 const FRAME_WIDTH_NM = 127_000;
 const LABEL_SIZE_NM = 1_270_000;
 const PORT_SIZE_NM = 1_270_000;
@@ -231,6 +245,7 @@ export function renderSchematic(
   }
 
   // Wires first: they run underneath the symbols, so a wire that ends on a pin is covered by the pin line.
+  const runs: { net: string; points: Point[] }[] = [];
   for (const wire of view.wire ?? []) {
     const points = [
       wireEndpoint(placed, wire.from_pin, "from_pin"),
@@ -238,12 +253,26 @@ export function renderSchematic(
       wireEndpoint(placed, wire.to_pin, "to_pin"),
     ];
     if (points.length < 2) continue;
+    runs.push({ net: wire.net, points });
     primitives.push({
       kind: "polyline",
       points,
       widthNm: WIRE_WIDTH_NM,
       fill: "none",
       layer: "wire",
+    });
+  }
+
+  // Junction dots, over the wires and under the symbols.
+  for (const dot of junctionDots(runs)) {
+    primitives.push({
+      kind: "circle",
+      cx: dot.x,
+      cy: dot.y,
+      rNm: JUNCTION_RADIUS_NM,
+      widthNm: WIRE_WIDTH_NM,
+      fill: "solid",
+      layer: "junction",
     });
   }
 
@@ -269,6 +298,51 @@ export function renderSchematic(
     orientation: "y-down",
     primitives,
   };
+}
+
+/**
+ * Where three or more runs of one net meet.
+ *
+ * The view carries no junction records: a connection point is a property of the drawn geometry, so
+ * it is derived here and stays out of the IR (a dot that was written down could contradict the runs
+ * it sits on). The rule counts **arms**: a run ending on the point is one arm, a run passing through
+ * it is two, and three or more is a join -- an L bend between two runs is a corner, not a junction.
+ *
+ * Arms are counted per net, so two runs of different nets that merely touch draw no dot: the absence
+ * of a dot is the drawing's way of saying "not connected", and drawing one there would be a false
+ * claim about connectivity.
+ */
+function junctionDots(runs: readonly { net: string; points: Point[] }[]): Point[] {
+  const seen = new Set<string>();
+  const dots: Point[] = [];
+  for (const run of runs) {
+    for (const point of run.points) {
+      const key = `${point.x},${point.y}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      let arms = 0;
+      for (const other of runs) {
+        if (other.net !== run.net) continue;
+        for (let i = 0; i + 1 < other.points.length; i += 1) {
+          arms += armsAt(point, other.points[i]!, other.points[i + 1]!);
+          if (arms >= 3) break;
+        }
+        if (arms >= 3) break;
+      }
+      if (arms >= 3) dots.push(point);
+    }
+  }
+  return dots;
+}
+
+/** How many arms one segment contributes at a point: 0 (away), 1 (an end) or 2 (passing through). */
+function armsAt(point: Point, a: Point, b: Point): number {
+  if ((point.x === a.x && point.y === a.y) || (point.x === b.x && point.y === b.y)) return 1;
+  const cross = (b.x - a.x) * (point.y - a.y) - (b.y - a.y) * (point.x - a.x);
+  if (cross !== 0) return 0;
+  const dot = (point.x - a.x) * (b.x - a.x) + (point.y - a.y) * (b.y - a.y);
+  const length = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
+  return dot > 0 && dot < length ? 2 : 0;
 }
 
 function wireEndpoint(
@@ -299,6 +373,11 @@ function placeSymbol(instance: SchematicInstance, place: Place, unit: number): S
     // The symbol's Reference field is a placeholder (`U` in the library); the placed instance names itself.
     if (moved.kind === "text" && moved.role === "field" && moved.name === "Reference") {
       out.push({ ...moved, text: place.instance_id });
+      continue;
+    }
+    // The same for Value: `10k` is a fact about this instance, not about the resistor symbol.
+    if (moved.kind === "text" && moved.role === "field" && moved.name === "Value" && instance.value !== undefined) {
+      out.push({ ...moved, text: instance.value });
       continue;
     }
     out.push(moved);
@@ -390,7 +469,8 @@ export interface SheetText {
   readonly x_nm: number;
   readonly y_nm: number;
   readonly box: SheetBox;
-  readonly line?: number;
+  /** The view record's IR path (`/label/3`); the drawing itself does not need a line number. */
+  readonly ir_path?: string;
   /** The net a label names, or the board port a tag shows. */
   readonly subject?: string;
 }
@@ -486,18 +566,18 @@ export function schematicGeometry(
     else symbols.push({ instance_id: place.instance_id, pins, box: { min_x_nm: place.x_nm, min_y_nm: place.y_nm, max_x_nm: place.x_nm, max_y_nm: place.y_nm } });
   }
 
-  for (const label of view.label ?? []) {
+  for (const [index, label] of (view.label ?? []).entries()) {
     texts.push({
       kind: "label",
       text: label.net,
       x_nm: label.x_nm,
       y_nm: label.y_nm,
       box: textBox(label.x_nm, label.y_nm, label.net, LABEL_SIZE_NM, "start"),
-      ...(label.line === undefined ? {} : { line: label.line }),
+      ir_path: `/label/${index}`,
       subject: label.net,
     });
   }
-  for (const port of view.port ?? []) {
+  for (const [index, port] of (view.port ?? []).entries()) {
     const rot = rotationOf(port.rot_mdeg);
     const center = rotateVector(rot, PORT_BODY_NM / 2 + PORT_HALF_NM, 0);
     texts.push({
@@ -506,18 +586,18 @@ export function schematicGeometry(
       x_nm: port.x_nm,
       y_nm: port.y_nm,
       box: textBox(port.x_nm + center.x, port.y_nm + center.y, port.id, PORT_SIZE_NM, "middle"),
-      ...(port.line === undefined ? {} : { line: port.line }),
+      ir_path: `/port/${index}`,
       subject: port.id,
     });
   }
-  for (const note of view.text ?? []) {
+  for (const [index, note] of (view.text ?? []).entries()) {
     texts.push({
       kind: "text",
       text: note.text,
       x_nm: note.x_nm,
       y_nm: note.y_nm,
       box: textBox(note.x_nm, note.y_nm, note.text, NOTE_SIZE_NM, "start"),
-      ...(note.line === undefined ? {} : { line: note.line }),
+      ir_path: `/text/${index}`,
     });
   }
 

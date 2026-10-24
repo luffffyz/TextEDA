@@ -6,13 +6,16 @@ import { irVersion } from "@texteda/ir";
 import type { Footprint } from "@texteda/ir/footprint";
 import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
 import { lex, type Cell, type Line } from "./lexer.ts";
+import { SourceFile, recordObjects } from "./sources.ts";
+import type { SourceMap, Span } from "@texteda/ir/spans";
 import { byteCompare, naturalCompare } from "@texteda/ir/order";
 import { parseAngleMdeg, parseLengthNm, parsePpm } from "./units.ts";
 import { checkVersion, typeRange } from "./version.ts";
+import { REV_RE } from "./ids.ts";
 
 // Section key sets are exported for fmt reuse: both places must agree on one lexicon, not each write its own.
 export const SECTIONS = new Set(["pads", "graphics"]);
-export const SCALAR_KEYS = new Set(["description", "tags", "attr", "package_code", "model", "field"]);
+export const SCALAR_KEYS = new Set(["rev", "description", "tags", "attr", "package_code", "model", "field"]);
 export const PAD_KEYS = new Set([
   "rot",
   "drill",
@@ -34,7 +37,8 @@ const ZONE_KINDS = new Set(["solid", "thermal", "none"]);
 const ATTRS = new Set(["smd", "through_hole", "virtual", "board_only"]);
 const FOOTPRINT_ID_RE = /^[A-Za-z0-9_.+-]+$/;
 const PIN_NUMBER_RE = /^[A-Za-z0-9_+-]+$/;
-const LAYER_RE = /^[A-Za-z0-9_.+-]+$/;
+// `*` is part of a layer name: a through-hole pad is on `*.Cu` / `*.Mask` (every copper layer).
+const LAYER_RE = /^[A-Za-z0-9_.+*-]+$/;
 /** `footprint` was introduced in 0.4: files below 0.4 do not have this type. */
 const VERSION_RANGE = typeRange("footprint");
 
@@ -49,6 +53,8 @@ export interface ParseResult {
   ok: boolean;
   ir?: Footprint;
   diagnostics: Diagnostic[];
+  /** IR path → span of the record that produced it (ADR-0020 D2). Never persisted. */
+  sources?: SourceMap;
 }
 
 type Pad = Footprint["footprint"]["pads"][number];
@@ -450,6 +456,13 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
   const pads: Pad[] = [];
   const graphics: Graphic[] = [];
   const fields: Field[] = [];
+  // Span of each record, by object identity: the IR sorts these arrays (ADR-0020 D2/D4).
+  const at = new Map<object, Span>();
+  const src = new SourceFile(file, lex(text));
+  const put = <T extends object>(list: T[], item: T, line: Line): void => {
+    list.push(item);
+    at.set(item, src.span(line.number, line.cells[0]?.col));
+  };
   let section: "pads" | "graphics" | null = null;
   let model3d: Footprint["footprint"]["model3d"];
 
@@ -482,6 +495,16 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
       const rest = line.cells.slice(1);
       const trailing = (from: number): string => rest.slice(from).map((c) => c.text).join(" ");
       switch (key) {
+        case "rev": {
+          // The release of *this file's* facts (ADR-0049 D1), not the format version.
+          const value = trailing(0);
+          if (!REV_RE.test(value)) {
+            collector.error(file, line.number, line.cells[1]?.col ?? line.cells[0]!.col, "value.rev-invalid", `rev must be a release name without whitespace: "${value}"`);
+          } else {
+            body.rev = value;
+          }
+          break;
+        }
         case "description":
           body.description = trailing(0);
           break;
@@ -617,7 +640,7 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
             }
             field.effects = effects;
           }
-          fields.push(field);
+          put(fields, field, line);
           break;
         }
       }
@@ -627,10 +650,10 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
     // rows inside a section
     if (section === "pads") {
       const pad = parsePadRow(line.cells, file, line.number, collector);
-      if (pad) pads.push(pad);
+      if (pad) put(pads, pad, line);
     } else {
       const graphic = parseGraphicRow(line.cells, file, line.number, collector);
-      if (graphic) graphics.push(graphic);
+      if (graphic) put(graphics, graphic, line);
     }
   }
 
@@ -665,5 +688,11 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
   };
 
   if (collector.hasError) return { ok: false, diagnostics: collector.diagnostics };
-  return { ok: true, ir, diagnostics: collector.diagnostics };
+
+  const sources: SourceMap = new Map();
+  recordObjects(sources, "/footprint/pads", finalBody.pads, at);
+  recordObjects(sources, "/footprint/graphics", finalBody.graphics ?? [], at);
+  recordObjects(sources, "/footprint/fields", finalBody.fields ?? [], at);
+
+  return { ok: true, ir, diagnostics: collector.diagnostics, sources };
 }

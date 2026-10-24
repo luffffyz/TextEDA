@@ -14,6 +14,7 @@
 // and the BOM builder run the same rules, so a line that passes the check is the line the BOM
 // prints.
 import type { Diagnostic } from "@texteda/ir/diagnostics";
+import { packagePowerRating } from "../devices/packages.ts";
 
 /** Where a fact was written. */
 export interface FactLocation {
@@ -64,6 +65,10 @@ export interface Device {
   readonly ratings: Readonly<Record<string, { readonly type: string; readonly value: number | string }>>;
   /** The parameter columns a generic declares: role → quantity. */
   readonly params: readonly { readonly name: string; readonly type: string }[];
+  /** The generic's construction (ADR-0038): the technology a package floor is stated for. */
+  readonly construction?: string;
+  /** The land pattern's package code (ADR-0029 decision 1, JEDEC spelling): the floor's other key. */
+  readonly package_code?: string;
 }
 
 export interface ProcurementFacts {
@@ -96,6 +101,14 @@ const DIRECTIONS: Readonly<Record<string, Direction>> = {
   rated_current: "lower",
   sat_current: "lower",
 };
+
+/** `1W`, `62.5mW`, `840uW` — the canonical unit is microwatts. */
+function watts(uw: number): string {
+  const trim = (value: number): string => (Number.isInteger(value) ? String(value) : String(Number(value.toFixed(3))));
+  if (uw >= 1_000_000) return `${trim(uw / 1_000_000)}W`;
+  if (uw >= 1_000) return `${trim(uw / 1_000)}mW`;
+  return `${trim(uw)}uW`;
+}
 
 /** The role that names a device's primary quantity, whatever its construction. */
 const PRIMARY_ROLE = "value";
@@ -198,6 +211,35 @@ export function checkProcurement(facts: ProcurementFacts): Diagnostic[] {
         hint: "a selection that changes the land pattern is a design change",
         location: { file: at.file, line: at.line, col: at.col },
       });
+    }
+
+    // Rule 4a (ADR-0045): a chip resistor's package is an implied lower bound. A line that says
+    // nothing about power is asking for the standard grade of its package — the lowest a part of
+    // that size is sold at — so the selected part must state its rating and meet that floor.
+    const floor = packagePowerRating(generic.construction, generic.package_code);
+    if (floor !== undefined && selection.params["power"] === undefined) {
+      const rated = part.ratings["power"];
+      if (rated === undefined) {
+        diagnostics.push({
+          code: "value.procurement-ratings-missing",
+          severity,
+          message: `${selection.part} states no power rating, but the ${generic.package_code} package implies at least ${watts(floor)}`,
+          expected: "a power rating",
+          hint: "a chip resistor's datasheet states its power; state it, or state the line's own power requirement",
+          location: { file: at.file, line: at.line, col: at.col },
+        });
+      } else if (typeof rated.value === "number" && rated.value < floor) {
+        diagnostics.push({
+          code: "value.procurement-part-unsuitable",
+          severity,
+          message: `${selection.part} is rated ${watts(rated.value)}, below the ${watts(floor)} the ${generic.package_code} package guarantees`,
+          expected: String(floor),
+          actual: String(rated.value),
+          hint: "buy the standard grade of the package, or state the line's own power requirement",
+          data: { role: "power", part: rated.value, line: floor },
+          location: { file: at.file, line: at.line, col: at.col },
+        });
+      }
     }
 
     // Rule 4: the part's ratings cover the roles the line states.

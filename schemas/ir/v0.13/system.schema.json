@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:texteda:ir:0.13:system",
+  "title": "TextEDA IR v0.13 — system shard",
+  "description": "Multi-board connections: system-level nets between boards. Members only reference board ports, never pins, and never rewrite any board's internal connectivity. See ADR-0001.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ir_version", "format", "system", "boards", "nets"],
+  "properties": {
+    "ir_version": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/ir_version",
+      "description": "IR contract version, currently always 0.13."
+    },
+    "format": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/format_version",
+      "description": "Language version of the .teda file that produced this shard."
+    },
+    "source": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/source_ref",
+      "description": "Source-file location: path relative to the project root plus an optional line number."
+    },
+    "system": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/slug",
+      "description": "System id, identifying one multi-board system."
+    },
+    "boards": {
+      "type": "array",
+      "minItems": 1,
+      "description": "List of boards participating in this system.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "$ref": "urn:texteda:ir:0.13:common#/$defs/slug",
+            "description": "The board's board_id."
+          }
+        }
+      }
+    },
+    "nets": {
+      "type": "array",
+      "description": "System-level net list.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "members"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_+-]+$",
+            "description": "System-level net name, independent of in-board net names."
+          },
+          "members": {
+            "type": "array",
+            "minItems": 2,
+            "description": "Members of this system-level net: port references of the boards.",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_+-]+$",
+              "description": "<board_id>.<port_id>。"
+            }
+          }
+        }
+      }
+    },
+    "note": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/note",
+      "description": "Free text; canonical JSON has no comments, this is the substitute."
+    }
+  }
+}

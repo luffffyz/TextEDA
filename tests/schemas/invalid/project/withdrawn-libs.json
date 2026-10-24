@@ -1,0 +1,16 @@
+{
+  "ir_version": "0.13",
+  "source": { "file": "project.toml" },
+  "project": {
+    "name": "demo",
+    "version": "0.1.0",
+    "format": "0.9"
+  },
+  "libs": [
+    {
+      "id": "project",
+      "source": "project",
+      "content_hash": "62554fd517982e766c0afb3e43ec110a80649c4bb8780a9f1a2a98bad743bb85"
+    }
+  ]
+}

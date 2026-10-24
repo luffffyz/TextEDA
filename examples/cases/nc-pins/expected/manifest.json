@@ -1,0 +1,46 @@
+{
+  "ir_version": "0.13",
+  "shards": [
+    {
+      "path": "boards/debug-header/schematic.json",
+      "sha256": "eb34288d766a035f0da0c3e4ee02c689087197b8fa82f837e8af96a3df121d1f",
+      "normative": true
+    },
+    {
+      "path": "components/hdr-2x5-127.json",
+      "sha256": "e3852431b1b7b99677b04b707cd647c2ed0d66b5144e4dcb611203555a4fb639",
+      "normative": true
+    },
+    {
+      "path": "components/res-10k-0402.json",
+      "sha256": "f349087442a8370db08a89bfd8d577150206e74e90adf1bff5f951a1daa0e948",
+      "normative": true
+    },
+    {
+      "path": "footprints/project/chip-0402.json",
+      "sha256": "4db4286503f4c16d0dea2e3a9b8fd374894d2beef01032a714adebf06ca3a028",
+      "normative": true
+    },
+    {
+      "path": "footprints/project/hdr-2x5-127.json",
+      "sha256": "2167ec4e9361da545acf0929d6d99641757eb742911c86b77ade511233a31184",
+      "normative": true
+    },
+    {
+      "path": "project.json",
+      "sha256": "3c946919e0652be92dc55e59624a9a9414084c58b5dc23169874979448b79186",
+      "normative": true
+    },
+    {
+      "path": "symbols/project/hdr-2x5.json",
+      "sha256": "ab71bb94367ecd40062c5717d278338882a07264874e5188acf6b6181499b1dd",
+      "normative": true
+    },
+    {
+      "path": "symbols/project/r.json",
+      "sha256": "cdafd49ca5da4816db69cfb51bae89a2885cc6d08d228cda55d3c2b162b55025",
+      "normative": true
+    }
+  ],
+  "source_hash": "ec3d86e685ce6e7f357dfda74bb1d72580aac159db807f71d526b83f63f7584f"
+}

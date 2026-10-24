@@ -7,6 +7,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseComponent } from "../src/component.ts";
+import { spanOf } from "@texteda/ir/spans";
 import type { ComponentFactsLite, ComponentResolver } from "../src/schematic.ts";
 
 const projectDir = "examples/reference-project";
@@ -32,7 +33,14 @@ export function loadResolver(): ComponentResolver {
   for (const file of files) {
     const result = parseComponent(readFileSync(file, "utf8"), { file });
     if (!result.ok || !result.component) continue;
-    table.set(fileToId(file), { params: result.component.params, pins: result.component.pins });
+    const sources = result.sources;
+    table.set(fileToId(file), {
+      params: result.component.params,
+      pins: result.component.pins,
+      ...(sources === undefined
+        ? {}
+        : { locate: (irPath: string) => spanOf(sources, irPath) }),
+    });
   }
   return { resolve: (id) => table.get(id) };
 }

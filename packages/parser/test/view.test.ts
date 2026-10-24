@@ -3,7 +3,7 @@
 // The positive case is a real view file; the negative cases break exactly one thing each and the
 // diagnostic code must line up. The formatting test checks the canonical form is idempotent.
 import { describe, expect, test } from "bun:test";
-import { validate } from "@texteda/ir";
+import { irVersion, validate } from "@texteda/ir";
 import { formatView } from "../src/fmt-view.ts";
 import { parseView } from "../src/view.ts";
 
@@ -40,26 +40,42 @@ describe("view parsing", () => {
     expect(result.diagnostics).toEqual([]);
     expect(result.ok).toBe(true);
     const ir = result.ir!;
-    expect(ir.ir_version).toBe("0.9");
+    expect(ir.ir_version).toBe(irVersion);
     expect(ir.format).toBe("0.7");
     expect(ir.board).toBe("charger-buck");
     expect(ir.page).toBe("buck-5v");
     expect(ir.sheet).toEqual({ width_nm: 297_000_000, height_nm: 210_000_000 });
-    expect(ir.place.map((p) => p.instance_id)).toEqual(["U1", "C1", "U2"]);
-    expect(ir.place[0]!.x_nm).toBe(40_000_000);
+    // Canonical order (spec/schematic-view.md §11): the IR is sorted, the source need not be.
+    expect(ir.place.map((p) => p.instance_id)).toEqual(["C1", "U1", "U2"]);
+    expect(ir.place[1]!.x_nm).toBe(40_000_000);
     // A zero rotation and unit 1 are the defaults: the IR omits them.
-    expect(ir.place[0]!.rot_mdeg).toBeUndefined();
-    expect(ir.place[1]!.rot_mdeg).toBe(90_000);
+    expect(ir.place[1]!.rot_mdeg).toBeUndefined();
+    expect(ir.place[0]!.rot_mdeg).toBe(90_000);
     expect(ir.place[2]!.unit).toBe(2);
     expect(ir.wire).toHaveLength(2);
-    expect(ir.wire![0]!.points).toEqual([{ x_nm: 35_000_000, y_nm: 25_000_000 }]);
-    expect(ir.wire![1]!.points).toEqual([
+    expect(ir.wire![1]!.points).toEqual([{ x_nm: 35_000_000, y_nm: 25_000_000 }]);
+    expect(ir.wire![0]!.points).toEqual([
       { x_nm: 15_000_000, y_nm: 25_000_000 },
       { x_nm: 15_000_000, y_nm: 12_000_000 },
     ]);
     expect(ir.label![0]).toMatchObject({ net: "VDD", x_nm: 35_000_000, y_nm: 25_000_000 });
     expect(ir.port![0]).toMatchObject({ id: "SYS_OUT", rot_mdeg: 180_000 });
     expect(ir.text![0]!.text).toBe("Rev A — power section");
+  });
+
+  test("row order does not affect IR bytes (ADR-0020 D1: no line numbers in the IR)", () => {
+    const shuffled = SOURCE.replace(
+      "  U1    40.0  30.0\n  C1    20.0  30.0  90\n  U2    80.0  30.0  0   unit=2",
+      "  U2    80.0  30.0  0   unit=2\n  C1    20.0  30.0  90\n  U1    40.0  30.0",
+    ).replace(
+      "  VDD   U1.5  C1.1  35.0 25.0\n  GND   C1.2  U2.4  15.0 25.0  15.0 12.0",
+      "  GND   C1.2  U2.4  15.0 25.0  15.0 12.0\n  VDD   U1.5  C1.1  35.0 25.0",
+    );
+    expect(shuffled).not.toBe(SOURCE);
+    const a = parseView(SOURCE, { file, board: "charger-buck" });
+    const b = parseView(shuffled, { file, board: "charger-buck" });
+    expect(b.diagnostics).toEqual([]);
+    expect(JSON.stringify(b.ir)).toBe(JSON.stringify(a.ir));
   });
 
   test("the IR satisfies the schematic-view contract", () => {
@@ -94,7 +110,7 @@ describe("view parsing", () => {
     const result = parseView(source, { file, board: "b" });
     expect(result.diagnostics).toEqual([]);
     const ir = result.ir!;
-    expect(ir.place.map((p) => p.instance_id)).toEqual(["M1.U1", "M1.C1"]);
+    expect(ir.place.map((p) => p.instance_id)).toEqual(["M1.C1", "M1.U1"]);
     expect(ir.wire![0]).toMatchObject({ net: "M1.VCC", from_pin: "M1.U1.5", to_pin: "M1.C1.1" });
     expect(ir.label![0]).toMatchObject({ net: "M1.VCC" });
     // The qualified names satisfy the contract, not just the parser.

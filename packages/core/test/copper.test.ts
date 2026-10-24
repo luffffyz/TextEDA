@@ -1,5 +1,6 @@
 // Copper coverage (ADR-0041): does the drawing implement the `connect` declarations?
 // Synthetic IRs — the check consumes geometry only, so no .teda and no library is needed.
+import { irVersion } from "@texteda/ir";
 import { describe, expect, test } from "bun:test";
 import { checkCopperCoverage, type InstancePads } from "../src/index.ts";
 import type { Pcb, Point, Trace } from "@texteda/ir/pcb";
@@ -8,7 +9,7 @@ import type { Schematic } from "@texteda/ir/schematic";
 const mm = (value: number) => Math.round(value * 1_000_000);
 
 const schematic: Schematic = {
-  ir_version: "0.9",
+  ir_version: irVersion,
   format: "0.7",
   board: "b",
   instances: [
@@ -19,7 +20,7 @@ const schematic: Schematic = {
 };
 
 const pcbBase: Pcb = {
-  ir_version: "0.9",
+  ir_version: irVersion,
   format: "0.7",
   board: "b",
   board_thickness_nm: 1_600_000,

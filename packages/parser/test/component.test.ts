@@ -339,3 +339,29 @@ describe("the reference project's devices", () => {
     }
   });
 });
+
+// A file carries its own revision (ADR-0049): the release in which *its* facts were last
+// established. Optional — a project that never imports from a library never needs one.
+describe("the file revision", () => {
+  test("`rev` is a scalar and reaches the IR", () => {
+    const result = parseComponent(device(["rev 2.1.0"], PART_SCALARS, PINS), { file: "dev.teda" });
+    expect(result.diagnostics.map((d) => d.code)).toEqual([]);
+    expect(result.ir!.component.rev).toBe("2.1.0");
+  });
+
+  test("a fork marker is part of the value, not a second field", () => {
+    const result = parseComponent(device(["rev 2.1.0+local.1"], PART_SCALARS, PINS), { file: "dev.teda" });
+    expect(result.ir!.component.rev).toBe("2.1.0+local.1");
+  });
+
+  test("whitespace keeps it from being a revision", () => {
+    const result = parseComponent(device(["rev 2.1 beta"], PART_SCALARS, PINS), { file: "dev.teda" });
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.map((d) => d.code)).toContain("value.rev-invalid");
+  });
+
+  test("a file without one has no `rev` in the IR", () => {
+    const result = parseComponent(device(PART_SCALARS, PINS), { file: "dev.teda" });
+    expect(result.ir!.component.rev).toBeUndefined();
+  });
+});

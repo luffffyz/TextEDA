@@ -1,0 +1,25 @@
+version 0.4.1
+footprint hdr-2x5-127
+
+description 1.27 mm 2x5 header, through-hole 0.4 mm round pads
+tags 2x5 header th
+attr through_hole
+package_code 2x5-1.27
+field Reference at=0,-3.81 layer=F.SilkS size=1,1 thickness=0.15 J**
+field Value at=0,3.81 layer=F.Fab size=1,1 thickness=0.15 hdr-2x5-127
+
+pads
+  1   th  circle  -0.635  2.54   0.8  0.8  drill=0.4
+  2   th  circle  0.635   2.54   0.8  0.8  drill=0.4
+  3   th  circle  -0.635  1.27   0.8  0.8  drill=0.4
+  4   th  circle  0.635   1.27   0.8  0.8  drill=0.4
+  5   th  circle  -0.635  0      0.8  0.8  drill=0.4
+  6   th  circle  0.635   0      0.8  0.8  drill=0.4
+  7   th  circle  -0.635  -1.27  0.8  0.8  drill=0.4
+  8   th  circle  0.635   -1.27  0.8  0.8  drill=0.4
+  9   th  circle  -0.635  -2.54  0.8  0.8  drill=0.4
+  10  th  circle  0.635   -2.54  0.8  0.8  drill=0.4
+
+graphics
+  rect  F.CrtYd  -1.635,-3.54,1.635,3.54  width=0.05
+  rect  F.SilkS  -1.135,-3.04,1.135,3.04  width=0.12

@@ -43,6 +43,7 @@ symbol bq24610rger
 
 | 键 | 必填 | 说明 |
 |---|---|---|
+| `rev` | 否 | 该文件的事实最后确立的那个发布名（[ADR-0049](../docs/adr/0049-a-file-carries-its-own-revision.md)）。不写也能用：只有信任记录需要它 |
 | `description` | 否 | 自由文本。进 IR 的 `description`，导出为 `Description` 属性。 |
 | `tags` | 否 | 空格分隔的标签列表。 |
 | `units` | 否 | 单元数，正整数，缺省 `1`。多单元器件（双运放等）写 `2`。 |
@@ -53,6 +54,8 @@ symbol bq24610rger
 | `in_bom` | 否 | `yes` / `no`，缺省 `yes`。 |
 | `on_board` | 否 | `yes` / `no`，缺省 `yes`。 |
 | `field` | 否 | 属性，可重复：`field <Name> [key=value …] <text…>`。键：`at`（`x,y`）、`hide`（`yes`）、`size`（`w,h`）。常见 `Reference`（值如 `U`）、`Value`（缺省取符号名）。**没有 `layer`**（符号不分层）。 |
+
+**`Reference` 与 `Value` 的文本是占位符**：库里的 `U` / `R` / 符号名只说明"这里有个位号""这里有个值"。落到图纸上时由**被放置的实例**填：`Reference` 换成实例 id（`R1`），`Value` 换成该实例的 `value` 列（`10k`、`100nF`；件没有 `value` 列时用它自己的 `mpn`）。其余字段原样画（`spec/schematic-view.md` §9.5 把这两条都算进投影）。
 
 顺序无关，canonical form 固定为 `description` → `tags` → `units` → `pin_numbers` → `pin_names` → `pin_name_offset` → `power` → `in_bom` → `on_board` → `field`（按 `Name` 排序）。
 

@@ -1,12 +1,13 @@
 // The binding validation is pure functions: they only consume the two IRs, so the IRs are
 // built directly here — no need to write .teda.
+import { irVersion } from "@texteda/ir";
 import { describe, expect, test } from "bun:test";
 import { checkBinding, instanceOf } from "../src/index.ts";
 import type { Pcb } from "@texteda/ir/pcb";
 import type { Schematic } from "@texteda/ir/schematic";
 
 const schematic: Schematic = {
-  ir_version: "0.9",
+  ir_version: irVersion,
   format: "0.7",
   board: "b",
   instances: [
@@ -22,7 +23,7 @@ const schematic: Schematic = {
 };
 
 const pcbBase: Pcb = {
-  ir_version: "0.9",
+  ir_version: irVersion,
   format: "0.7",
   board: "b",
   board_thickness_nm: 1_600_000,
@@ -91,6 +92,23 @@ describe("rule 3: a pair of pads must be inside the same sch net", () => {
     const diagnostics = check(pcb).filter((d) => d.code === "bind.net-mismatch");
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0]!.data).toEqual({ a: "R1.1", b: "R1.2", net_a: "A", net_b: "B" });
+  });
+
+  test("the finding names the connect row and the net's own row (ADR-0020 D5)", () => {
+    const pcb = { ...pcbBase, connect: [...pcbBase.connect, { a: "R1.1", b: "R1.2" }] };
+    const index = pcb.connect.length - 1;
+    const diagnostics = checkBinding({
+      file: "pcb/b.teda",
+      schematic,
+      pcb,
+      locate: (irPath) =>
+        irPath === `/connect/${index}` ? { file: "pcb/b.teda", line: 40, col: 3 } : undefined,
+      locateNet: (netId) => (netId === "A" ? { file: "sch/b.teda", line: 12, col: 3 } : undefined),
+    }).filter((d) => d.code === "bind.net-mismatch");
+    expect(diagnostics).toHaveLength(1);
+    // The row to fix is the copper; the row that decides the nets is on the board.
+    expect(diagnostics[0]!.location).toEqual({ file: "pcb/b.teda", line: 40, col: 3 });
+    expect(diagnostics[0]!.related).toEqual([{ file: "sch/b.teda", line: 12, col: 3 }]);
   });
 
   test("no longer reported once overridden by net_tie", () => {

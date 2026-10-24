@@ -1,0 +1,289 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:texteda:ir:0.13:component",
+  "title": "TextEDA IR v0.13 — component shard",
+  "description": "Semantic projection of one .teda component file. Pins must already be materialized in the IR: inline pins are copied verbatim; when `symbol` points to a third-party library that carries pin facts and the file omits `pins`, the parser expands them from the library and `pins_source` records the source. A self-built `symbol` stores only the view, without pin facts (ADR-0012), so a component pointing at a self-built symbol must inline `pins`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ir_version",
+    "component"
+  ],
+  "properties": {
+    "ir_version": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/ir_version",
+      "description": "IR contract version, currently always 0.13."
+    },
+    "format": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/format_version",
+      "description": "Language version of the .teda file that produced this shard; see teda.md §13."
+    },
+    "source": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/source_ref",
+      "description": "Source-file location: path relative to the project root plus an optional line number."
+    },
+    "component": {
+      "type": "object",
+      "description": "The component itself: id, classification, library references and the materialized pin table.",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "symbol",
+        "footprint",
+        "pins",
+        "pins_source"
+      ],
+      "properties": {
+        "rev": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\s#]+$",
+          "description": "The release of this file's facts (ADR-0049): the tag or commit in which they were last established. A copy whose facts diverged appends `+local.N`. Not the format version."
+        },
+        "id": {
+          "$ref": "urn:texteda:ir:0.13:common#/$defs/slug",
+          "description": "Equals the file name without the extension; not a relative path."
+        },
+        "kind": {
+          "enum": [
+            "part",
+            "generic"
+          ],
+          "description": "Which kind of device this is (ADR-0027, ADR-0037): a part is one purchasable device named by its part number, a generic is a device class whose value lives in the instances row. Never inferred."
+        },
+        "mpn": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Manufacturer part number; required for a part, absent for a generic (ADR-0027)."
+        },
+        "manufacturer": {
+          "type": "string",
+          "description": "Manufacturer name."
+        },
+        "category": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Open value set: mcu / resistor / capacitor / inductor / led / diode / mosfet_p / regulator / battery_charger / …. Used only for classification; whether a part number is required follows from the kind, not from the category (ADR-0027)."
+        },
+        "construction": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The technology of the generic (ADR-0027): mlcc, tantalum, film, shielded, .... Required for a generic, absent for a part. Open value set."
+        },
+        "polarized": {
+          "type": "boolean",
+          "description": "Whether the generic is polarised (ADR-0027). Required for a generic, absent for a part."
+        },
+        "datasheet": {
+          "type": "string",
+          "description": "Datasheet URL."
+        },
+        "lcsc": {
+          "type": "string",
+          "pattern": "^C[0-9]+$",
+          "description": "LCSC part number; see ADR-0006."
+        },
+        "description": {
+          "type": "string",
+          "description": "One-line human description of the device (e.g. `SOT-23-5 500 mA LDO`). Prose only: it never participates in a check and never changes identity."
+        },
+        "symbol": {
+          "$ref": "urn:texteda:ir:0.13:common#/$defs/library_ref",
+          "description": "Symbol library reference lib:name; a self-built symbol stores only the view, without pin facts."
+        },
+        "footprint": {
+          "$ref": "urn:texteda:ir:0.13:common#/$defs/library_ref",
+          "description": "Footprint library reference lib:name; geometry is a fact of the component library and does not enter the board description."
+        },
+        "params": {
+          "type": "array",
+          "description": "Declares the extra columns allowed in instances rows; the order is the column order; required must precede optional (teda.md §12).",
+          "items": {
+            "$ref": "#/$defs/param_decl"
+          }
+        },
+        "ratings": {
+          "type": "array",
+          "description": "The part's own ratings, one row per role (ADR-0039). Absent for a generic: a class has no ratings of its own, its requirements live in the instances rows.",
+          "items": {
+            "$ref": "#/$defs/rating"
+          }
+        },
+        "provenance": {
+          "$ref": "urn:texteda:ir:0.13:common#/$defs/provenance",
+          "description": "Where the facts came from and whether a human checked them (ADR-0047 decision 5). Omitted means the file makes no claim. The attribution rule (`reviewed` requires `verified_by` and `verified_on`; `generated` takes neither) is enforced by the parser as `value.provenance-invalid`: expressing it here needs an `allOf` on the component object, which flattens the whole type in the TS generator."
+        },
+        "pins": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Pin table; pin numbers are unique and form the key that aligns with the footprint.",
+          "items": {
+            "$ref": "#/$defs/pin"
+          }
+        },
+        "pins_source": {
+          "enum": [
+            "inline",
+            "symbol"
+          ],
+          "description": "inline = the file has a pins section (inline wins); symbol = the file omits pins and the pins are resolved from a third-party library that carries pin facts (a self-built symbol has no pin facts and cannot be this source). When both are present, inline is taken; the difference is reported by validation and does not enter the IR."
+        }
+      }
+    },
+    "note": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/note",
+      "description": "Free text; canonical JSON has no comments, this is the substitute."
+    }
+  },
+  "$defs": {
+    "param_decl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type",
+        "required"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Parameter name, matching the column name declared in the component's params section."
+        },
+        "type": {
+          "$ref": "#/$defs/param_type",
+          "description": "Parameter type; determines the unit of this column's integer values."
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Whether this column is required; required columns must precede optional ones."
+        }
+      }
+    },
+    "param_type": {
+      "enum": [
+        "resistance",
+        "capacitance",
+        "inductance",
+        "voltage",
+        "current",
+        "power",
+        "frequency",
+        "length",
+        "temperature",
+        "percent",
+        "integer",
+        "string"
+      ],
+      "description": "The parameter type determines the integer unit in the IR: resistance→µΩ, capacitance→fF, inductance→pH, voltage→µV, current→nA, power→µW, frequency→mHz, length→nm, temperature→m°C, percent→ppm, integer→1. See ADR-0008 decision 4."
+    },
+    "pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "number",
+        "name",
+        "electrical_type"
+      ],
+      "properties": {
+        "number": {
+          "$ref": "urn:texteda:ir:0.13:common#/$defs/pin_number",
+          "description": "Key matching the footprint pad; part of the identity."
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-]+$",
+          "description": "Human-readable function name; reused functions go in alternates."
+        },
+        "electrical_type": {
+          "$ref": "#/$defs/electrical_type",
+          "description": "Pin electrical type, e.g. input, power_in, passive."
+        },
+        "unit": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Unit number of a multi-unit device; defaults to 1."
+        },
+        "alternates": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_+-]+$"
+          },
+          "description": "Alternate function name, e.g. BOOT in GPIO0/BOOT."
+        }
+      }
+    },
+    "electrical_type": {
+      "enum": [
+        "input",
+        "output",
+        "bidirectional",
+        "tri_state",
+        "passive",
+        "power_in",
+        "power_out",
+        "power",
+        "open_collector",
+        "open_emitter",
+        "no_connect",
+        "polarized",
+        "unspecified"
+      ]
+    },
+    "rating": {
+      "description": "One rating of a part: the role, the quantity it is measured in, and the value (ADR-0039). A part states its own ratings; a generic states none, because its requirements live in the instances rows.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "type",
+            "value"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "description": "The rating role, from the closed role vocabulary (teda.md §6.2.1)."
+            },
+            "type": {
+              "$ref": "#/$defs/param_type",
+              "description": "The quantity the role is measured in; the unit of the integer value."
+            },
+            "value": {
+              "type": "integer",
+              "description": "The rating, in the canonical unit of the type (resistance→µΩ, percent→ppm, …; see ADR-0008 decision 4)."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "type",
+            "text"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "description": "The rating role, from the closed role vocabulary (teda.md §6.2.1)."
+            },
+            "type": {
+              "$ref": "#/$defs/param_type",
+              "description": "The quantity the role is measured in; the value is a code, not a number."
+            },
+            "text": {
+              "type": "string",
+              "description": "The rating as a code, e.g. a dielectric class (X7R). The set is closed; the spelling is exact."
+            }
+          }
+        }
+      ]
+    }
+  }
+}

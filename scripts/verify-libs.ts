@@ -117,7 +117,12 @@ for (const c of components) {
       continue;
     }
     if (parsed.lib !== libName) {
-      fail(`${c.id}: ${kind} points to external library ${parsed.lib} (all should be self-built)`);
+      // Every asset the project reads is its own: an imported library is a copy under `assets/`
+      // (ADR-0047). A reference into any other library directory is a dangling dependency, and the
+      // library-level loop below catches the geometry itself.
+      fail(
+        `${c.id}: ${kind} points to library ${parsed.lib}, which is not a library directory of this project (imported assets keep the copy's library directory)`,
+      );
       continue;
     }
     const dir = kind === "symbol" ? symbolDir : footprintDir;

@@ -1,0 +1,7 @@
+[project]
+name = "dual-opamp-multi-unit"
+version = "0.1.0"
+format = "0.9"
+description = "Case 2 of the ten: a dual op-amp, one part with three units, both amplifiers used"
+license = "Apache-2.0"
+status = "draft"

@@ -17,6 +17,7 @@ import { irVersion } from "@texteda/ir";
 import type { Project } from "@texteda/ir/project";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
 import { parseQuantityRange } from "./quantities.ts";
+import type { SourceMap } from "@texteda/ir/spans";
 import { parseToml, subTable, tableValue, type TomlTable, type TomlValue } from "./toml.ts";
 
 /** The keys of the `[project]` table. */
@@ -39,22 +40,20 @@ const BOARD_KEYS = ["revision", "title"] as const;
 /** The keys of a `[variants.<id>]` table. */
 const VARIANT_KEYS = ["description", "dnp", "nofit", "alternates"] as const;
 
-/** The keys of a `[libs.<name>]` table. */
-const LIB_KEYS = [
-  "source",
-  "rev",
-  "version",
-  "path",
-  "symbols",
-  "footprints",
-  "content_hash",
-] as const;
-
 /** The keys of the `[compliance]` table. */
 const COMPLIANCE_KEYS = ["standards", "operating_temp"] as const;
 
 /** The top-level tables the project file may contain. `[ext]` is the free-form area. */
-const TOP_LEVEL_TABLES = ["project", "boards", "variants", "libs", "compliance", "ext"] as const;
+const TOP_LEVEL_TABLES = ["project", "boards", "variants", "compliance", "ext"] as const;
+
+/**
+ * Tables that used to be legal and are not any more, with the sentence that says what to do.
+ * A withdrawn key is not a typo: the generic "unknown table" message would send the reader
+ * looking for a spelling mistake (ADR-0047 decision 7).
+ */
+const WITHDRAWN_TABLES: Record<string, string> = {
+  libs: "`[libs]` was withdrawn: a project does not depend on a library. Import a template with `texteda lib import`; the copy becomes the project's own device files (ADR-0047)",
+};
 
 const STATUS_VALUES = ["draft", "prototype", "frozen", "production", "deprecated"] as const;
 
@@ -74,6 +73,8 @@ export interface ProjectParseResult {
    */
   owner?: string;
   diagnostics: Diagnostic[];
+  /** IR path → span of the table or key that produced it (ADR-0020 D2). Never persisted. */
+  sources?: SourceMap;
 }
 
 function error(
@@ -149,8 +150,11 @@ export function parseProjectToml(source: string, options: ProjectParseOptions): 
   // The top level: only the known tables, and `[ext]` for everything else.
   for (const key of Object.keys(root)) {
     if ((TOP_LEVEL_TABLES as readonly string[]).includes(key)) continue;
+    const withdrawn = WITHDRAWN_TABLES[key];
     diagnostics.push(
-      error(file, 1, 1, "syntax.unknown-field", `unknown top-level table \`${key}\``),
+      withdrawn === undefined
+        ? error(file, 1, 1, "syntax.unknown-field", `unknown top-level table \`${key}\``)
+        : error(file, 1, 1, "syntax.unknown-field", withdrawn),
     );
   }
 
@@ -336,60 +340,6 @@ export function parseProjectToml(source: string, options: ProjectParseOptions): 
     );
   }
 
-  // The library locks.
-  const libsTable = subTable(root, "libs");
-  const libs: {
-    id: string;
-    source: string;
-    rev?: string;
-    version?: string;
-    path?: string;
-    symbols?: string;
-    footprints?: string;
-    content_hash?: string;
-  }[] = [];
-  if (libsTable) {
-    for (const id of Object.keys(libsTable)) {
-      const value = libsTable[id];
-      if (typeof value !== "object" || Array.isArray(value)) {
-        diagnostics.push(
-          error(file, tableLine(root, ["libs", id]), 1, "value.project-lib-invalid", `\`[libs.${id}]\` must be a table`),
-        );
-        continue;
-      }
-      const lib = value as TomlTable;
-      rejectUnknownKeys(lib, LIB_KEYS, `\`[libs.${id}]\``, file, tableLine(root, ["libs", id]), diagnostics);
-      const source = asString(tableValue(lib, "source"));
-      if (source === undefined) {
-        diagnostics.push(
-          error(file, tableLine(root, ["libs", id]), 1, "value.project-lib-invalid", `\`[libs.${id}]\` needs a \`source\``),
-        );
-        continue;
-      }
-      const entry: {
-        id: string;
-        source: string;
-        rev?: string;
-        version?: string;
-        path?: string;
-        symbols?: string;
-        footprints?: string;
-        content_hash?: string;
-      } = { id, source };
-      for (const key of ["rev", "version", "path", "symbols", "footprints", "content_hash"] as const) {
-        const value2 = asString(tableValue(lib, key));
-        if (value2 !== undefined) entry[key] = value2;
-      }
-      if (entry.rev === undefined && entry.version === undefined && entry.content_hash === undefined) {
-        diagnostics.push(
-          error(file, tableLine(root, ["libs", id]), 1, "value.project-lib-invalid", `\`[libs.${id}]\` needs one of \`rev\`, \`version\` or \`content_hash\` so the library is pinned`),
-        );
-      }
-      libs.push(entry);
-    }
-    libs.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  }
-
   // The compliance targets.
   const complianceTable = subTable(root, "compliance");
   const compliance: { standards?: string[]; operating_temp?: { min_mdegc: number; max_mdegc: number } } = {};
@@ -436,9 +386,27 @@ export function parseProjectToml(source: string, options: ProjectParseOptions): 
     },
     ...(boards.length > 0 ? { boards } : {}),
     ...(variants.length > 0 ? { variants } : {}),
-    ...(libs.length > 0 ? { libs } : {}),
     ...(Object.keys(compliance).length > 0 ? { compliance } : {}),
     ...(ext !== undefined ? { ext } : {}),
   };
-  return { ok: true, ir, ...(owner !== undefined ? { owner } : {}), diagnostics };
+  // IR path → span, through the TOML reader's table/key positions. The IR sorts boards and variants
+  // by id, so the pointer is resolved by id, not by the order of appearance (ADR-0020 D2/D4).
+  const sources: SourceMap = new Map();
+  const positions = toml.positions ?? new Map();
+  const put = (pointer: string, ...keys: string[]): void => {
+    for (const key of keys) {
+      const at = positions.get(key);
+      if (at !== undefined) {
+        sources.set(pointer, { file, line: at.line, col: at.col, byte: at.byte });
+        return;
+      }
+    }
+  };
+  put("/project", "project");
+  put("/compliance", "compliance");
+  authors.forEach((_, index) => put(`/project/authors/${index}`, `project.authors#${index}`, "project.authors"));
+  boards.forEach((board, index) => put(`/boards/${index}`, `boards.${board.id}`));
+  variants.forEach((variant, index) => put(`/variants/${index}`, `variants.${variant.id}`));
+
+  return { ok: true, ir, ...(owner !== undefined ? { owner } : {}), diagnostics, sources };
 }

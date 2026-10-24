@@ -6,6 +6,7 @@
 // The parser never touches the filesystem: component contents are supplied by the caller (`ComponentResolver`),
 // so the `parser` package still runs in the browser (ADR-0009 decision 1).
 import { irVersion } from "@texteda/ir";
+import { DEVICE_ID_RE, QUALIFIED_REF_RE } from "./ids.ts";
 import type { ComponentParamDecl } from "./component.ts";
 import type {
   Bus,
@@ -18,8 +19,10 @@ import type {
   Schematic,
 } from "@texteda/ir/schematic";
 import { checkConnectivity, type ConnectivityPin } from "@texteda/core";
-import type { Diagnostic, DiagnosticCodeId } from "@texteda/ir/diagnostics";
+import type { Diagnostic, DiagnosticCodeId, DiagnosticLocation } from "@texteda/ir/diagnostics";
 import { lex, type Cell, type Line } from "./lexer.ts";
+import { SourceFile, recordAll } from "./sources.ts";
+import type { SourceMap, Span } from "@texteda/ir/spans";
 import { resolveParamColumns } from "./params.ts";
 import { checkVersion, typeRange, type VersionRange } from "./version.ts";
 import { byteCompare, naturalCompare, pinRefCompare } from "@texteda/ir/order";
@@ -59,6 +62,11 @@ export interface ComponentPinFactLite {
 export interface ComponentFactsLite {
   params: ComponentParamDecl[];
   pins: ComponentPinFactLite[];
+  /**
+   * Where the device file declares a record (`/component/params/0`), as the parse's source map
+   * maps it. A row that fails against a declaration names the declaration too (ADR-0020 D5).
+   */
+  locate?: (irPath: string) => DiagnosticLocation | undefined;
 }
 
 /** Component resolver: caller supplies id → facts; returns undefined when not found. */
@@ -148,6 +156,8 @@ export interface SchematicParseResult {
   ok: boolean;
   ir?: Schematic;
   diagnostics: Diagnostic[];
+  /** IR path → span of the record that produced it (ADR-0020 D2). Never persisted. */
+  sources?: SourceMap;
 }
 
 /* ------------------------------------------------------------------ document model */
@@ -220,6 +230,8 @@ export interface Document {
   id: string;
   version: string;
   file: string;
+  /** The file's lines as lexed, for spans (ADR-0020); never part of the IR. */
+  source: SourceFile;
   instances: RawInstance[];
   nets: RawNet[];
   ports: RawPort[];
@@ -257,8 +269,23 @@ class Diagnostics {
       hint?: string;
       /** Machine-usable structured fields: field names are stable, agents branch on them (ADR-0016). */
       data?: Record<string, string | number | boolean>;
+      /** The definition site of a reference, when it has one (ADR-0020 D5). */
+      related?: { file: string; line: number; col: number }[];
     },
   ): void {
+    // The same finding at the same place is one finding. An instance is visited once per pass
+    // (parameters, then nets, then ERC), and a reference that cannot be resolved is not resolved in
+    // any of them: without this the reader gets the same sentence three times and cannot tell
+    // whether it is one problem or three.
+    const duplicate = this.items.some(
+      (item) =>
+        item.code === code &&
+        item.location?.file === file &&
+        item.location.line === line &&
+        item.location.col === col &&
+        item.message === message,
+    );
+    if (duplicate) return;
     this.items.push({
       code,
       severity,
@@ -268,6 +295,7 @@ class Diagnostics {
       ...(extra?.actual !== undefined ? { actual: extra.actual } : {}),
       ...(extra?.hint !== undefined ? { hint: extra.hint } : {}),
       ...(extra?.data !== undefined ? { data: extra.data } : {}),
+      ...(extra?.related !== undefined ? { related: extra.related } : {}),
     });
   }
 
@@ -291,7 +319,9 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
   const { file } = options;
   const kind: DocumentKind = options.kind ?? "schematic";
   const diagnostics = new Diagnostics();
-  const lines = lex(text).filter((l) => !l.blank && !l.comment);
+  const lexed = lex(text);
+  const source = new SourceFile(file, lexed);
+  const lines = lexed.filter((l) => !l.blank && !l.comment);
 
   const versionLine = lines[0];
   if (!versionLine || versionLine.cells[0]?.text !== "version") {
@@ -345,6 +375,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
     id,
     version: versionText,
     file,
+    source,
     instances: [],
     nets: [],
     ports: [],
@@ -440,7 +471,21 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
             cells[0]!.col,
           );
         }
-        if (!SLUG_RE.test(componentId)) {
+        if (QUALIFIED_REF_RE.test(componentId)) {
+          diagnostics.add(
+            "error",
+            "ref.library-qualified-id",
+            `a device reference is qualified with a library name: ${componentId}`,
+            file,
+            line.number,
+            cells[1]!.col,
+            {
+              expected: "a bare device id",
+              actual: componentId,
+              hint: "import the device into assets/components/ (`texteda lib import`), then write its bare id (ADR-0047)",
+            },
+          );
+        } else if (!DEVICE_ID_RE.test(componentId)) {
           diagnostics.add("error", "syntax.invalid-identifier", `invalid component_id: ${componentId}`, file, line.number, cells[1]!.col);
         }
         doc.instances.push({
@@ -704,6 +749,8 @@ interface ModuleScope {
   scope: Scope;
   /** The module file, for diagnostics. */
   file: string;
+  /** The module file's lines, for spans. */
+  source: SourceFile;
 }
 
 export function parseSchematic(text: string, options: SchematicParseOptions): SchematicParseResult {
@@ -722,8 +769,12 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
     doc: boardDoc,
   };
   for (const inst of boardDoc.instances) {
-    if (scope.instances.has(inst.refdes)) {
-      diagnostics.add("error", "ref.duplicate-refdes", `duplicate refdes: ${inst.refdes}`, boardDoc.file, inst.line, inst.col);
+    const first = scope.instances.get(inst.refdes);
+    if (first !== undefined) {
+      diagnostics.add("error", "ref.duplicate-refdes", `duplicate refdes: ${inst.refdes}`, boardDoc.file, inst.line, inst.col, {
+        hint: "a refdes names one instance on this board",
+        related: [boardDoc.source.span(first.line, first.col)],
+      });
       continue;
     }
     scope.instances.set(inst.refdes, inst);
@@ -738,8 +789,10 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
 
   const moduleScopes: ModuleScope[] = [];
   const moduleInstanceIds = new Set<string>();
+  const moduleRows = new Map<string, { line: number; col: number }>();
   for (const row of boardDoc.modules) {
-    if (moduleInstanceIds.has(row.instanceId)) {
+    const firstRow = moduleRows.get(row.instanceId);
+    if (firstRow !== undefined) {
       diagnostics.add(
         "error",
         "value.duplicate-field",
@@ -747,9 +800,11 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
         boardDoc.file,
         row.line,
         row.col,
+        { related: [boardDoc.source.span(firstRow.line, firstRow.col)] },
       );
       continue;
     }
+    moduleRows.set(row.instanceId, { line: row.line, col: row.col });
     if (scope.instances.has(row.instanceId)) {
       diagnostics.add(
         "error",
@@ -798,7 +853,8 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
       doc: parsed.doc,
     };
     for (const inst of parsed.doc.instances) {
-      if (moduleScope.instances.has(inst.refdes)) {
+      const first = moduleScope.instances.get(inst.refdes);
+      if (first !== undefined) {
         diagnostics.add(
           "error",
           "ref.duplicate-refdes",
@@ -806,18 +862,28 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
           source.file,
           inst.line,
           inst.col,
+          {
+            hint: "a refdes names one instance inside a module",
+            related: [parsed.doc.source.span(first.line, first.col)],
+          },
         );
         continue;
       }
       moduleScope.instances.set(inst.refdes, inst);
     }
-    moduleScopes.push({ instanceId: row.instanceId, moduleId: row.moduleId, scope: moduleScope, file: source.file });
+    moduleScopes.push({
+      instanceId: row.instanceId,
+      moduleId: row.moduleId,
+      scope: moduleScope,
+      file: source.file,
+      source: parsed.doc.source,
+    });
   }
 
   /* -------- instances -------- */
 
   const instances: Instance[] = [];
-  const instanceOrigin = new Map<string, { file: string; line: number; col: number }>();
+  const instanceOrigin = new Map<string, Span>();
   for (const inst of scope.instances.values()) {
     const facts = resolver?.resolve(inst.componentId);
     if (!facts) {
@@ -825,12 +891,11 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
       continue;
     }
     const params = resolveParams(inst, facts, boardDoc.file, diagnostics);
-    instanceOrigin.set(inst.refdes, { file: boardDoc.file, line: inst.line, col: inst.col });
+    instanceOrigin.set(inst.refdes, boardDoc.source.span(inst.line, inst.col));
     instances.push({
       id: inst.refdes,
       component: inst.componentId,
       ...(params.length > 0 ? { params } : {}),
-      line: inst.line,
     });
   }
   for (const module of moduleScopes) {
@@ -844,12 +909,11 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
         continue;
       }
       const params = resolveParams(inst, facts, module.file, diagnostics);
-      instanceOrigin.set(id, { file: module.file, line: inst.line, col: inst.col });
+      instanceOrigin.set(id, module.source.span(inst.line, inst.col));
       instances.push({
         id,
         component: inst.componentId,
         ...(params.length > 0 ? { params } : {}),
-        line: inst.line,
       });
     }
   }
@@ -857,11 +921,11 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
   /* -------- nets -------- */
 
   const nets: Net[] = [];
-  const netOrigin = new Map<string, { file: string; line: number }>(); // net → declaration location
+  const netOrigin = new Map<string, Span>(); // net → declaration location
 
   // A module's own nets, flattened to `M1.NET` with the members `M1.R1.2`. A net that a port merges
   // into a board-level net disappears: the board-level net takes its name and its members.
-  const moduleNets = new Map<string, { id: string; members: string[]; line: number; file: string }>();
+  const moduleNets = new Map<string, { id: string; members: string[]; span: Span }>();
   for (const module of moduleScopes) {
     for (const [name, raw] of module.scope.nets) {
       const members: string[] = [];
@@ -872,8 +936,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
       moduleNets.set(`${module.instanceId}.${name}`, {
         id: `${module.instanceId}.${name}`,
         members,
-        line: raw.line,
-        file: module.file,
+        span: module.source.span(raw.line),
       });
     }
   }
@@ -919,6 +982,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
         const bound = portBinding.get(target.instanceId) ?? new Map<string, string>();
         const owner = bound.get(portId);
         if (owner !== undefined) {
+          const firstNet = netOrigin.get(owner);
           diagnostics.add(
             "error",
             "net.port-in-two-nets",
@@ -926,7 +990,10 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
             boardDoc.file,
             net.line,
             1,
-            { data: { module_instance_id: target.instanceId, port_id: portId, net: net.name } },
+            {
+              data: { module_instance_id: target.instanceId, port_id: portId, net: net.name },
+              ...(firstNet === undefined ? {} : { related: [firstNet] }),
+            },
           );
           continue;
         }
@@ -962,13 +1029,13 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
       if (resolved !== null) members.push(resolved);
     }
     nets.push({ id: net.name, members });
-    netOrigin.set(net.name, { file: boardDoc.file, line: net.line });
+    netOrigin.set(net.name, boardDoc.source.span(net.line));
   }
 
   // The module nets that no port merged into a board-level net keep their qualified name.
   for (const moduleNet of moduleNets.values()) {
     nets.push({ id: moduleNet.id, members: moduleNet.members });
-    netOrigin.set(moduleNet.id, { file: moduleNet.file, line: moduleNet.line });
+    netOrigin.set(moduleNet.id, moduleNet.span);
   }
 
   // Every port must be bound by a board-level net, unless the module declares it as no_connect.
@@ -996,6 +1063,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
   /* -------- bus -------- */
 
   const buses: Bus[] = [];
+  const busSpans: Span[] = [];
   for (const bus of boardDoc.buses) {
     const busNets: string[] = [];
     for (const member of bus.members) {
@@ -1009,6 +1077,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
       busNets.push(netId);
     }
     buses.push({ id: bus.id, type: bus.type, nets: busNets });
+    busSpans.push(boardDoc.source.span(bus.line));
   }
 
   /* -------- canonical order -------- */
@@ -1039,10 +1108,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
       nets: nets.map((net) => ({ id: net.id, members: net.members })),
       portNets: new Set(boardDoc.ports.map((port) => port.net)),
       pins,
-      locateNet: (id) => {
-        const origin = netOrigin.get(id);
-        return origin === undefined ? undefined : { file: origin.file, line: origin.line, col: 1 };
-      },
+      locateNet: (id) => netOrigin.get(id),
       locateInstance: (id) => instanceOrigin.get(id),
     }),
   );
@@ -1050,11 +1116,14 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
   /* -------- ports -------- */
 
   const ports: Port[] = [];
+  const portOrigin = new Map<string, Span>();
   // A single net is referenced by at most one port.
   const portNets = new Map<string, string>(); // net → port id
+  const portRows = new Map<string, { line: number; col: number }>();
   for (const port of boardDoc.ports) {
     const owner = portNets.get(port.net);
     if (owner !== undefined) {
+      const firstPort = portRows.get(owner);
       diagnostics.add(
         "error",
         "ref.duplicate-port-net",
@@ -1062,20 +1131,28 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
         boardDoc.file,
         port.line,
         port.col,
-        { hint: "at most one port per net; to break out in multiple places, use a different net" },
+        {
+          hint: "at most one port per net; to break out in multiple places, use a different net",
+          ...(firstPort === undefined ? {} : { related: [boardDoc.source.span(firstPort.line, firstPort.col)] }),
+        },
       );
       continue;
     }
     portNets.set(port.net, port.id);
+    portRows.set(port.id, { line: port.line, col: port.col });
     ports.push({ id: port.id, net: port.net });
+    portOrigin.set(port.id, boardDoc.source.span(port.line, port.col));
   }
 
   /* -------- constraints -------- */
 
   const constraints: Constraint[] = [];
+  const constraintSpans: Span[] = [];
   for (const raw of boardDoc.constraints) {
     const constraint = buildConstraint(raw, scope, resolver, diagnostics);
-    if (constraint !== null) constraints.push(constraint);
+    if (constraint === null) continue;
+    constraints.push(constraint);
+    constraintSpans.push(boardDoc.source.span(raw.line, raw.col));
   }
   for (const module of moduleScopes) {
     // A module's constraint names a module-local net or pin; the IR carries the flattened name.
@@ -1090,6 +1167,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
         return `${module.instanceId}.${text}`;
       };
       constraints.push(flattenConstraint(constraint, flatten));
+      constraintSpans.push(module.source.span(raw.line, raw.col));
     }
   }
 
@@ -1111,7 +1189,16 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
     ...(constraints.length > 0 ? { constraints } : {}),
   };
 
-  return { ok: !diagnostics.hasError, ir, diagnostics: diagnostics.items };
+  // IR path → span (ADR-0020 D2). Built after the canonical ordering, so the index in the pointer is
+  // the index in the shard, not the index in the source file.
+  const sources: SourceMap = new Map();
+  recordAll(sources, "/instances", instances, (instance) => instanceOrigin.get(instance.id));
+  recordAll(sources, "/nets", nets, (net) => netOrigin.get(net.id));
+  recordAll(sources, "/ports", ports, (port) => portOrigin.get(port.id));
+  constraints.forEach((_, index) => sources.set(`/constraints/${index}`, constraintSpans[index]!));
+  buses.forEach((_, index) => sources.set(`/buses/${index}`, busSpans[index]!));
+
+  return { ok: !diagnostics.hasError, ir, diagnostics: diagnostics.items, sources };
 }
 
 /* ------------------------------------------------------------------ value helpers */
@@ -1150,6 +1237,9 @@ function resolveParams(
     file,
     line: inst.line,
     col: inst.col,
+    ...(facts.locate === undefined
+      ? {}
+      : { locateParam: (index: number) => facts.locate!(`/component/params/${index}`) }),
   }, diagnostics);
 }
 
@@ -1207,8 +1297,32 @@ function resolvePinRef(
   }
 
   const needle = parts[1]!;
-  const byName = facts.pins.find((p) => p.name === needle);
+  // A pin name may repeat: two grounds in one unit, or `OUT` in each unit of a dual op-amp. A bare
+  // name then names no single pin, so picking the first one silently would connect the wrong unit.
+  const named = facts.pins.filter((p) => p.name === needle);
+  const byName = named.length === 1 ? named[0] : undefined;
   const byNumber = facts.pins.find((p) => p.number === needle);
+  if (named.length > 1) {
+    const units = [...new Set(named.map((p) => p.unit))].sort((a, b) => a - b);
+    diagnostics.add(
+      "error",
+      "ref.ambiguous-pin",
+      `${ref} matches ${named.length} pins named ${needle} (units ${units.join(", ")})`,
+      scope.doc.file,
+      inst.line,
+      inst.col,
+      {
+        expected: "a pin reference that names one pin",
+        actual: needle,
+        hint: units.length > 1
+          ? `name the unit: ${refdes}.${units[0]}.${needle}`
+          : "use the pin number instead",
+        // `data` values are scalars (ADR-0016), so the units are one comma-separated string.
+        data: { component_id: inst.componentId, pin: needle, units: units.join(",") },
+      },
+    );
+    return null;
+  }
   if (byName && byNumber && byName.number !== byNumber.number) {
     diagnostics.add(
       "error",

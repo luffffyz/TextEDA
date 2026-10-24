@@ -12,16 +12,15 @@
 //   ├── boards/<board_id>/pcb.json
 //   ├── boards/<board_id>/view/<page_id>.json
 //   ├── symbols/<lib>/<symbol_id>.json
-//   └── footprints/<lib>/<footprint_id>.json
-//
+//   ├── footprints/<lib>/<footprint_id>.json
 //   ├── components/<component_id>.json
 //   ├── project.json                   # the project file's metadata
 //   └── systems/<system_id>.json
-import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
-import { irVersion, schemaDiagnosticsToDiagnostics, validate, type SchemaKind } from "@texteda/ir";
+import { irVersion, schemaDiagnosticsToDiagnostics, validate, type SchemaKind, type SourceMap } from "@texteda/ir";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
+import { aggregateShardHash, sha256Hex } from "./hash.ts";
 import {
   canonicalJson,
   parseFootprint,
@@ -35,6 +34,7 @@ import {
 } from "@texteda/parser";
 import { PROCUREMENT_ROLES } from "@texteda/parser";
 import { LAYOUT } from "./paths.ts";
+import { locateWith } from "./locate.ts";
 import {
   listBoards,
   listProcurement,
@@ -96,24 +96,6 @@ export interface IrTree {
   diagnostics: Diagnostic[];
 }
 
-/** SHA-256 of a string, lowercase hex. */
-export function sha256Hex(text: string): string {
-  return createHash("sha256").update(text, "utf8").digest("hex");
-}
-
-/**
- * The aggregation rule of ADR-0008 decision 5: SHA-256 over the `<path>:<sha256>\n` lines of the
- * given shards, sorted by path. The project hash uses all shards, a board hash the subset of one
- * board. The rule is public, so a third party can recompute both from the manifest.
- */
-export function aggregateShardHash(entries: readonly { path: string; sha256: string }[]): string {
-  const lines = [...entries]
-    .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
-    .map((entry) => `${entry.path}:${entry.sha256}\n`)
-    .join("");
-  return sha256Hex(lines);
-}
-
 /** The tool's own version, taken from the repository's root `package.json`; `0.0.0` when it is unreadable. */
 export function toolVersion(): string {
   try {
@@ -135,6 +117,8 @@ interface Draft {
   /** Whether the build depends on this shard (ADR-0023 decision 4). */
   normative: boolean;
   ir: unknown;
+  /** IR path → span of the record that produced it, so a contract error can name a line (ADR-0020 D8). */
+  sources?: SourceMap | undefined;
 }
 
 /** Compile every description of the project that has a producer today. */
@@ -150,11 +134,14 @@ export function buildIrTree(root: string): IrTree {
   diagnostics.push(...components.diagnostics);
   for (const shard of components.shards) {
     drafts.push({
+      // Every device is the project's own file, so every device shard sits at `components/<id>.json`
+      // (ADR-0031 decision 9: layout by kind; ADR-0047: there is no library namespace).
       path: `components/${shard.id}.json`,
       kind: "component",
       source: shard.file,
       normative: true,
       ir: shard.ir,
+      sources: shard.sources,
     });
   }
 
@@ -175,6 +162,7 @@ export function buildIrTree(root: string): IrTree {
         source: loaded.file,
         normative: true,
         ir: schematic.ir,
+        sources: schematic.sources,
       });
     }
 
@@ -189,6 +177,7 @@ export function buildIrTree(root: string): IrTree {
           source: pcb.file,
           normative: true,
           ir: parsed.ir,
+          sources: parsed.sources,
         });
       }
     }
@@ -213,6 +202,7 @@ export function buildIrTree(root: string): IrTree {
           source: procurement.file,
           normative: role === "primary",
           ir: parsed.ir,
+          sources: parsed.sources,
         });
       }
     }
@@ -233,6 +223,7 @@ export function buildIrTree(root: string): IrTree {
           // a label sits (ADR-0032 decision 3).
           normative: false,
           ir: parsed.ir,
+          sources: parsed.sources,
         });
       }
     }
@@ -246,6 +237,7 @@ export function buildIrTree(root: string): IrTree {
     parse: (text: string, options: { file: string; library: string }) => {
       ir?: unknown;
       diagnostics: Diagnostic[];
+      sources?: SourceMap;
     };
   }[] = [
     // The source directory follows the tree; the shard path stays by kind (ADR-0031 decision 4).
@@ -267,6 +259,7 @@ export function buildIrTree(root: string): IrTree {
         source: file.source,
         normative: true,
         ir: parsed.ir,
+        sources: parsed.sources,
       });
     }
   }
@@ -316,7 +309,7 @@ export function buildIrTree(root: string): IrTree {
   for (const draft of drafts) {
     const check = validate(draft.kind, draft.ir);
     if (!check.ok) {
-      diagnostics.push(...schemaDiagnosticsToDiagnostics(check.errors));
+      diagnostics.push(...schemaDiagnosticsToDiagnostics(check.errors, locateWith(draft.sources)));
       continue;
     }
     const bytes = canonicalJson(draft.ir);

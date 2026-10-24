@@ -1,0 +1,170 @@
+{
+  "ir_version": "0.13",
+  "source": {
+    "file": "assets/symbols/project/hdr-2x5.teda",
+    "line": 1
+  },
+  "symbol": {
+    "body": [
+      {
+        "end": {
+          "x_nm": 3810000,
+          "y_nm": 6350000
+        },
+        "fill": "background",
+        "kind": "rect",
+        "start": {
+          "x_nm": -3810000,
+          "y_nm": -6350000
+        },
+        "unit": 1,
+        "width_nm": 254000
+      }
+    ],
+    "description": "Debug header 2x5, ten pins",
+    "fields": [
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": 7620000
+        },
+        "name": "Reference",
+        "value": "J"
+      },
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": -7620000
+        },
+        "name": "Value",
+        "value": "hdr-2x5"
+      }
+    ],
+    "in_bom": true,
+    "library": "project",
+    "name": "hdr-2x5",
+    "on_board": true,
+    "pin_name_offset_nm": 508000,
+    "pin_names_hidden": false,
+    "pin_numbers_hidden": false,
+    "pins": [
+      {
+        "at": {
+          "rotation_mdeg": 0,
+          "x_nm": -5080000,
+          "y_nm": 5080000
+        },
+        "length_nm": 2540000,
+        "number": "1",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 180000,
+          "x_nm": 5080000,
+          "y_nm": 5080000
+        },
+        "length_nm": 2540000,
+        "number": "2",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 0,
+          "x_nm": -5080000,
+          "y_nm": 2540000
+        },
+        "length_nm": 2540000,
+        "number": "3",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 180000,
+          "x_nm": 5080000,
+          "y_nm": 2540000
+        },
+        "length_nm": 2540000,
+        "number": "4",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 0,
+          "x_nm": -5080000,
+          "y_nm": 0
+        },
+        "length_nm": 2540000,
+        "number": "5",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 180000,
+          "x_nm": 5080000,
+          "y_nm": 0
+        },
+        "length_nm": 2540000,
+        "number": "6",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 0,
+          "x_nm": -5080000,
+          "y_nm": -2540000
+        },
+        "length_nm": 2540000,
+        "number": "7",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 180000,
+          "x_nm": 5080000,
+          "y_nm": -2540000
+        },
+        "length_nm": 2540000,
+        "number": "8",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 0,
+          "x_nm": -5080000,
+          "y_nm": -5080000
+        },
+        "length_nm": 2540000,
+        "number": "9",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 180000,
+          "x_nm": 5080000,
+          "y_nm": -5080000
+        },
+        "length_nm": 2540000,
+        "number": "10",
+        "style": "line",
+        "unit": 1
+      }
+    ],
+    "power": false,
+    "tags": [
+      "connector",
+      "debug",
+      "header"
+    ],
+    "units": 1
+  }
+}

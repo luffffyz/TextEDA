@@ -9,7 +9,7 @@
 //
 // Pure functions: they only consume the two IRs, touch no filesystem and know no syntax.
 // So LSP, exporters and `check` all use the same rules.
-import type { Diagnostic } from "@texteda/ir/diagnostics";
+import type { Diagnostic, DiagnosticLocation } from "@texteda/ir/diagnostics";
 import type { Pcb } from "@texteda/ir/pcb";
 import type { Schematic } from "@texteda/ir/schematic";
 
@@ -18,6 +18,10 @@ export interface BindingFacts {
   file: string;
   schematic: Schematic;
   pcb: Pcb;
+  /** A pcb record's IR path (`/connect/3`) → where it was written (ADR-0020 D2). */
+  readonly locate?: (irPath: string) => DiagnosticLocation | undefined;
+  /** A board net's id → the row that declares it: the definition a pcb reference is checked against. */
+  readonly locateNet?: (netId: string) => DiagnosticLocation | undefined;
 }
 
 /** Extract the instance id from a pad reference (`<instance>.<pin>`): split at the **last** `.` (instance ids may contain `.`). */
@@ -59,19 +63,27 @@ function referencedNets(pcb: Pcb): string[] {
  */
 export function checkBinding(facts: BindingFacts): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
-  const at = { file: facts.file, line: 1, col: 1 };
+  /** The file alone: for a finding about the board as a whole, which has no single row. */
+  const fileOnly: DiagnosticLocation = { file: facts.file, line: 1, col: 1 };
+  /** Where a pcb record was written; the file alone when the parse carried no spans. */
+  const at = (irPath: string): DiagnosticLocation => facts.locate?.(irPath) ?? fileOnly;
+  /** The board's declaration of a net, for the findings that contradict it (ADR-0020 D5). */
+  const netRows = (netId: string): { related?: DiagnosticLocation[] } => {
+    const row = facts.locateNet?.(netId);
+    return row === undefined ? {} : { related: [row] };
+  };
 
   const schInstances = new Set(facts.schematic.instances.map((instance) => instance.id));
   const placed = new Set(facts.pcb.place.map((item) => item.instance_id));
 
   // Rule 1: instances in place must exist.
-  for (const item of facts.pcb.place) {
+  for (const [index, item] of facts.pcb.place.entries()) {
     if (schInstances.has(item.instance_id)) continue;
     diagnostics.push({
       code: "bind.unknown-instance",
       severity: "error",
       message: `instance ${item.instance_id} in place does not exist in the sch result`,
-      location: at,
+      location: at(`/place/${index}`),
       hint: "instance ids are the board's refdes (R1); run check first to see whether the sch side already reports an error",
       data: { instance_id: item.instance_id },
     });
@@ -90,7 +102,7 @@ export function checkBinding(facts: BindingFacts): Diagnostic[] {
       code: "bind.instance-unplaced",
       severity: "warning",
       message: `the pcb places ${physical.length - unplaced.length} of the board's ${physical.length} instances; ${unplaced.length} not placed: ${shown}${more}`,
-      location: at,
+      location: fileOnly,
       expected: `every physical instance of the sch result has a place (${physical.length})`,
       actual: `${physical.length - unplaced.length} placed`,
       hint: "place the missing instances; a partial layout is legal and this warning is how it says so",
@@ -118,13 +130,13 @@ export function checkBinding(facts: BindingFacts): Diagnostic[] {
   }
 
   // Declared deviations enter the report (ADR-0035 D10): a net tie is a note, a split ground is a warning.
-  for (const deviation of facts.pcb.deviation ?? []) {
+  for (const [index, deviation] of (facts.pcb.deviation ?? []).entries()) {
     if (deviation.type === "net_tie") {
       diagnostics.push({
         code: "bind.net-tie",
         severity: "note",
         message: `net_tie shorts two sch nets: ${deviation.net_a} and ${deviation.net_b}`,
-        location: at,
+        location: at(`/deviation/${index}`),
         hint: "a tie changes the connectivity of both nets; check that this is the one you meant",
         data: { net_a: deviation.net_a, net_b: deviation.net_b },
       });
@@ -133,7 +145,7 @@ export function checkBinding(facts: BindingFacts): Diagnostic[] {
         code: "bind.split-ground",
         severity: "warning",
         message: `net ${deviation.net} is physically split into regions that do not touch`,
-        location: at,
+        location: at(`/deviation/${index}`),
         hint: "a split ground breaks the return path of every signal that crosses the gap; check the isolation and the stitching",
         data: { net: deviation.net },
       });
@@ -141,7 +153,7 @@ export function checkBinding(facts: BindingFacts): Diagnostic[] {
   }
 
   const covered = new Set<string>();
-  for (const edge of facts.pcb.connect) {
+  for (const [index, edge] of facts.pcb.connect.entries()) {
     for (const ref of [edge.a, edge.b]) {
       const instance = instanceOf(ref);
       if (!placed.has(instance)) {
@@ -149,7 +161,7 @@ export function checkBinding(facts: BindingFacts): Diagnostic[] {
           code: "bind.pad-unplaced",
           severity: "error",
           message: `connect references the pad of an unplaced instance: ${ref}`,
-          location: at,
+          location: at(`/connect/${index}`),
           hint: "place this instance in the place section first, or delete this connect",
           data: { pad: ref, instance_id: instance },
         });
@@ -166,7 +178,7 @@ export function checkBinding(facts: BindingFacts): Diagnostic[] {
         code: "bind.unconnected-pad",
         severity: "error",
         message: `pad ${missing} in connect does not belong to any net in sch`,
-        location: at,
+        location: at(`/connect/${index}`),
         hint: "the pin is not connected to a net in sch: connect it to a net, or mark it as no_connect in the component file",
         data: { pad: missing },
       });
@@ -179,9 +191,10 @@ export function checkBinding(facts: BindingFacts): Diagnostic[] {
       code: "bind.net-mismatch",
       severity: "error",
       message: `connect shorts net ${netA} (${edge.a}) to net ${netB} (${edge.b})`,
-      location: at,
+      location: at(`/connect/${index}`),
       hint: "only pads of the same net may be connected; if you really want a short, write deviation net_tie",
       data: { a: edge.a, b: edge.b, net_a: netA, net_b: netB },
+      ...netRows(netA),
     });
   }
 
@@ -195,9 +208,10 @@ export function checkBinding(facts: BindingFacts): Diagnostic[] {
       code: "bind.unrouted",
       severity: "warning",
       message: `net ${net} has ${missing.length} pads that do not appear in connect (unrouted)`,
-      location: at,
+      location: fileOnly,
       hint: "add the pad pairs in the connect section; this warning can be ignored while routing",
       data: { net, missing: missing.length, total: onBoard.length },
+      ...netRows(net),
     });
   }
 
@@ -211,7 +225,7 @@ export function checkBinding(facts: BindingFacts): Diagnostic[] {
       code: "bind.unknown-net",
       severity: "error",
       message: `pcb references a net that does not exist in sch: ${net}`,
-      location: at,
+      location: fileOnly,
       hint: "net names are the board's net names (GND, BUCK_VFB); pcb cannot create new logical connections",
       data: { net },
     });

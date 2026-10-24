@@ -1,3 +1,4 @@
+import { irVersion } from "@texteda/ir";
 import { describe, expect, test } from "bun:test";
 import type { Schematic } from "@texteda/ir/schematic";
 import type { SchematicView } from "@texteda/ir/schematic-view";
@@ -7,7 +8,7 @@ import type { ReadabilityGeometry } from "../src/view/facts.ts";
 const MM = 1_000_000;
 
 const schematic: Schematic = {
-  ir_version: "0.9",
+  ir_version: irVersion,
   format: "0.8",
   board: "b",
   instances: [],
@@ -59,7 +60,7 @@ const geometry: ReadabilityGeometry = {
 
 const view = (wires: NonNullable<SchematicView["wire"]>): SchematicView =>
   ({
-    ir_version: "0.9",
+    ir_version: irVersion,
     format: "0.8",
     board: "b",
     page: "p",

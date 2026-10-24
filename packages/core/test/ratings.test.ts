@@ -1,4 +1,5 @@
 // Rating checks (ADR-0043): a device's limit against the declared window of the net it sits on.
+import { irVersion } from "@texteda/ir";
 import { describe, expect, test } from "bun:test";
 import { checkRatings } from "../src/index.ts";
 import type { RatingDevice } from "../src/index.ts";
@@ -14,7 +15,7 @@ function board(options: {
   params?: Record<string, { name: string; value: number }[]>;
 }): Schematic {
   return {
-    ir_version: "0.9",
+    ir_version: irVersion,
     format: "0.8",
     board: "b",
     instances: options.instances.map((instance) => ({
@@ -119,5 +120,188 @@ describe("rating checks", () => {
     const diagnostics = checkRatings({ file: "b.teda", schematic, devices: new Map([["regulator", device]]) });
     expect(diagnostics.map((d) => d.code)).toEqual(["design.stress-unknown"]);
     expect(diagnostics[0]!.message).toContain("1 not two-terminal");
+  });
+});
+
+describe("dissipation checks (ADR-0044)", () => {
+  const RESISTOR: RatingDevice = {
+    pins: ["1", "2"],
+    ratings: {},
+    params: [
+      { name: "value", type: "resistance" },
+      { name: "tolerance", type: "percent" },
+      { name: "power", type: "power" },
+    ],
+  };
+
+  const windows = [
+    VOLTAGE("A", 0, 12_000_000),
+    VOLTAGE("B", 0, 0),
+  ];
+
+  test("a dissipation above the part's rating is an error, with both numbers", () => {
+    const schematic = board({
+      instances: [{ id: "R1", component: "res-thick-0402" }],
+      nets: [
+        { id: "A", members: ["R1.1"] },
+        { id: "B", members: ["R1.2"] },
+      ],
+      constraints: windows,
+      params: { R1: [{ name: "value", value: 100_000_000 }] }, // 100 Ω
+    });
+    const diagnostics = checkRatings({
+      file: "sch/b.teda",
+      schematic,
+      devices: new Map([["res-thick-0402", { ...RESISTOR, ratings: { power: { type: "power", value: 62_500 } } }]]),
+    });
+    const error = diagnostics.find((diagnostic) => diagnostic.code === "design.rating-exceeded");
+    // 12V across 100Ω = 1.44W; the part is rated 62.5mW.
+    expect(error?.message).toContain("1.44W");
+    expect(error?.message).toContain("62.5mW");
+    expect(error?.data?.stress_uw).toBe(1_440_000);
+  });
+
+  test("a dissipation inside every limit is not reported", () => {
+    const schematic = board({
+      instances: [{ id: "R1", component: "res-thick-0402" }],
+      nets: [
+        { id: "A", members: ["R1.1"] },
+        { id: "B", members: ["R1.2"] },
+      ],
+      constraints: windows,
+      params: { R1: [{ name: "value", value: 10_000_000_000 }] }, // 10 kΩ
+    });
+    const diagnostics = checkRatings({
+      file: "sch/b.teda",
+      schematic,
+      devices: new Map([["res-thick-0402", { ...RESISTOR, ratings: { power: { type: "power", value: 62_500 } } }]]),
+    });
+    expect(diagnostics.some((diagnostic) => diagnostic.code === "design.rating-exceeded")).toBe(false);
+    // 12V across 10kΩ = 14.4mW.
+    expect(diagnostics.some((diagnostic) => diagnostic.code === "design.power-unknown")).toBe(false);
+  });
+
+  test("the design's own limit binds when it is tighter than the part's rating", () => {
+    const schematic = board({
+      instances: [{ id: "R1", component: "res-thick-0402" }],
+      nets: [
+        { id: "A", members: ["R1.1"] },
+        { id: "B", members: ["R1.2"] },
+      ],
+      constraints: [...windows, { type: "power", subject: "R1.1", max_uw: 10_000 } as NonNullable<Schematic["constraints"]>[number]],
+      params: { R1: [{ name: "value", value: 10_000_000_000 }] },
+    });
+    const diagnostics = checkRatings({
+      file: "sch/b.teda",
+      schematic,
+      devices: new Map([["res-thick-0402", { ...RESISTOR, ratings: { power: { type: "power", value: 62_500 } } }]]),
+    });
+    const error = diagnostics.find((diagnostic) => diagnostic.code === "design.rating-exceeded");
+    expect(error?.data?.limit_uw).toBe(10_000);
+    expect(error?.message).toContain("the design's dissipation limit");
+  });
+
+  test("a resistive instance on a package the table does not know is counted, not passed", () => {
+    const schematic = board({
+      instances: [{ id: "R1", component: "res-thick-0402" }],
+      nets: [
+        { id: "A", members: ["R1.1"] },
+        { id: "B", members: ["R1.2"] },
+      ],
+      constraints: windows,
+      params: { R1: [{ name: "value", value: 10_000_000_000 }] },
+    });
+    const diagnostics = checkRatings({
+      file: "sch/b.teda",
+      schematic,
+      devices: new Map([["res-thick-0402", RESISTOR]]),
+    });
+    const note = diagnostics.find((diagnostic) => diagnostic.code === "design.power-unknown");
+    expect(note?.data?.no_package_rating).toBe(1);
+    expect(note?.data?.compared).toBe(0);
+  });
+
+  test("with nothing declared, the package's standard rating is the floor (ADR-0045)", () => {
+    const schematic = board({
+      instances: [{ id: "R1", component: "res-thick-0402" }],
+      nets: [
+        { id: "A", members: ["R1.1"] },
+        { id: "B", members: ["R1.2"] },
+      ],
+      constraints: windows,
+      params: { R1: [{ name: "value", value: 100_000_000 }] }, // 100 Ω on 12V = 1.44W
+    });
+    const diagnostics = checkRatings({
+      file: "sch/b.teda",
+      schematic,
+      devices: new Map([["res-thick-0402", { ...RESISTOR, construction: "thick", package_code: "0402" }]]),
+    });
+    const error = diagnostics.find((diagnostic) => diagnostic.code === "design.rating-exceeded");
+    expect(error?.data?.limit_uw).toBe(62_500);
+    expect(error?.message).toContain("standard rating of a 0402 chip resistor");
+    expect(diagnostics.some((diagnostic) => diagnostic.code === "design.power-unknown")).toBe(false);
+  });
+
+  test("a declared requirement wins over the floor: a 1W part in a 2010 is not second-guessed", () => {
+    const schematic = board({
+      instances: [{ id: "R1", component: "res-thick-2010" }],
+      nets: [
+        { id: "A", members: ["R1.1"] },
+        { id: "B", members: ["R1.2"] },
+      ],
+      constraints: windows,
+      params: { R1: [{ name: "value", value: 190_000_000 }, { name: "power", value: 1_000_000 }] }, // 190Ω, 1W
+    });
+    const diagnostics = checkRatings({
+      file: "sch/b.teda",
+      schematic,
+      devices: new Map([
+        ["res-thick-2010", { ...RESISTOR, construction: "thick", package_code: "2010" }],
+      ]),
+    });
+    // 12V across 190Ω = 758mW: above the 750mW floor, inside the 1W the line asked for. The
+    // declared requirement is the bound, so the package convention must not flag it.
+    expect(diagnostics.some((diagnostic) => diagnostic.code === "design.rating-exceeded")).toBe(false);
+  });
+
+  test("a declared requirement is what the error names, not the floor", () => {
+    const schematic = board({
+      instances: [{ id: "R1", component: "res-thick-2010" }],
+      nets: [
+        { id: "A", members: ["R1.1"] },
+        { id: "B", members: ["R1.2"] },
+      ],
+      constraints: windows,
+      params: { R1: [{ name: "value", value: 100_000_000 }, { name: "power", value: 1_000_000 }] }, // 100Ω, 1W
+    });
+    const diagnostics = checkRatings({
+      file: "sch/b.teda",
+      schematic,
+      devices: new Map([
+        ["res-thick-2010", { ...RESISTOR, construction: "thick", package_code: "2010" }],
+      ]),
+    });
+    const error = diagnostics.find((diagnostic) => diagnostic.code === "design.rating-exceeded");
+    expect(error?.data?.limit_uw).toBe(1_000_000); // 1.44W against the line's 1W, not the 750mW floor
+    expect(error?.message).toContain("the line's power requirement");
+  });
+
+  test("a package the table does not carry (IEC spelling) is not a violation and not a pass", () => {
+    const schematic = board({
+      instances: [{ id: "R1", component: "res-thick-0402" }],
+      nets: [
+        { id: "A", members: ["R1.1"] },
+        { id: "B", members: ["R1.2"] },
+      ],
+      constraints: windows,
+      params: { R1: [{ name: "value", value: 100_000_000 }] },
+    });
+    const diagnostics = checkRatings({
+      file: "sch/b.teda",
+      schematic,
+      devices: new Map([["res-thick-0402", { ...RESISTOR, construction: "thick", package_code: "1005" }]]),
+    });
+    expect(diagnostics.some((diagnostic) => diagnostic.code === "design.rating-exceeded")).toBe(false);
+    expect(diagnostics.find((diagnostic) => diagnostic.code === "design.power-unknown")?.data?.no_package_rating).toBe(1);
   });
 });

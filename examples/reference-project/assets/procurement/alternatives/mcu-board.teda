@@ -1,0 +1,6 @@
+version 0.9
+procurement mcu-board
+role alternatives
+
+# No second source is named yet; see primary/mcu-board.teda.
+selections

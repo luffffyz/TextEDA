@@ -13,11 +13,12 @@ footprint project:chip-0402
 
 # The part's own ratings (ADR-0039): what the device is, not what the design asks of it.
 # The tolerance is the part's own; the value is its nominal, so its worst case is 9.9kΩ..10.1kΩ.
-# The power rating is not a role in the closed vocabulary (teda.md §6.2.1): the package decides it,
-# so it is not a requirement and not a rating.
+# The power rating is the package's (1/16W for a 0402 thick film), stated here so that a design which
+# declares a dissipation limit on a 10k line can be compared against what this part can take (ADR-0044).
 ratings
   value      resistance  10k
   tolerance  percent     1%
+  power      power       62.5mW
 
 pins
   1  A  passive

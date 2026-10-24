@@ -222,3 +222,72 @@ describe("the bill of materials", () => {
     expect(rows).toHaveLength(2);
   });
 });
+
+// The package floor (ADR-0045 D4): a line that says nothing about power still asks for the
+// standard grade of its package, so the selected part must state its rating and meet the floor.
+describe("the package floor of a chip resistor", () => {
+  /** The 0402 generic, with the two facts the floor is keyed by. */
+  const chip: Device = { ...generic, construction: "thick", package_code: "0402" };
+  /** A 10 kΩ ±1% part whose only variable is its power rating. */
+  const withPower = (power: number | undefined): Device => ({
+    ...part,
+    ratings: {
+      ...part.ratings,
+      ...(power === undefined ? {} : { power: { type: "power", value: power } }),
+    },
+  });
+
+  const check = (device: Device, overrides: { line?: Partial<DesignLine>; selection?: Partial<Selection> } = {}) =>
+    checkProcurement(
+      facts({
+        devices: new Map([
+          [chip.id, chip],
+          [device.id, device],
+        ]),
+        lines: [line(overrides.line)],
+        selections: [selection(overrides.selection)],
+      }),
+    );
+
+  test("a part that states no power rating is reported, because the floor cannot be shown", () => {
+    const diagnostics = check(withPower(undefined));
+    const found = diagnostics.find((diagnostic) => diagnostic.code === "value.procurement-ratings-missing");
+    expect(found?.message).toContain("62.5mW");
+    expect(found?.severity).toBe("error");
+  });
+
+  test("a part rated below the floor is unsuitable", () => {
+    const diagnostics = check(withPower(50_000));
+    const found = diagnostics.find(
+      (diagnostic) =>
+        diagnostic.code === "value.procurement-part-unsuitable" && diagnostic.data?.["role"] === "power",
+    );
+    expect(found?.severity).toBe("error");
+    expect(found?.data?.["line"]).toBe(62_500);
+  });
+
+  test("a part at the floor passes", () => {
+    expect(check(withPower(62_500))).toHaveLength(0);
+  });
+
+  test("a line that states its own requirement is not held to the floor", () => {
+    // 200 mW on a 0402 is a real part; the line named it, so the package convention stands aside.
+    const diagnostics = check(withPower(200_000), {
+      line: { params: { value: 10_000_000_000, tolerance: 10_000, power: 200_000 } },
+      selection: { params: { value: 10_000_000_000, tolerance: 10_000, power: 200_000 } },
+    });
+    expect(diagnostics).toHaveLength(0);
+  });
+
+  test("no floor is applied to a device whose construction is not a chip resistor", () => {
+    const capacitor: Device = { ...chip, id: "cap-mlcc-0402", construction: "mlcc" };
+    const diagnostics = checkProcurement(
+      facts({
+        devices: new Map([[capacitor.id, capacitor], [withPower(undefined).id, withPower(undefined)]]),
+        lines: [line({ component: "cap-mlcc-0402", params: { value: 10_000_000_000, tolerance: 10_000 } })],
+        selections: [selection({ generic: "cap-mlcc-0402", params: { value: 10_000_000_000, tolerance: 10_000 } })],
+      }),
+    );
+    expect(diagnostics.some((diagnostic) => diagnostic.code === "value.procurement-ratings-missing")).toBe(false);
+  });
+});

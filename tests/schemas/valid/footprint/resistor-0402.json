@@ -1,29 +1,54 @@
 {
-  "ir_version": "0.9",
-  "source": { "file": "footprints/project.pretty/r-0402.json" },
+  "ir_version": "0.13",
+  "source": {
+    "file": "footprints/project.pretty/r-0402.json"
+  },
   "footprint": {
+    "rev": "2.1.0+local.1",
     "library": "project",
     "name": "r-0402",
     "package_code": "0402",
     "description": "0402 (1005 metric) chip resistor, IPC-7351 nominal",
-    "tags": ["resistor"],
+    "tags": [
+      "resistor"
+    ],
     "pads": [
       {
         "number": "1",
         "type": "smd",
         "shape": "roundrect",
-        "at": { "x_nm": -510000, "y_nm": 0 },
-        "size": { "x_nm": 540000, "y_nm": 640000 },
-        "layers": ["F.Cu", "F.Mask", "F.Paste"],
+        "at": {
+          "x_nm": -510000,
+          "y_nm": 0
+        },
+        "size": {
+          "x_nm": 540000,
+          "y_nm": 640000
+        },
+        "layers": [
+          "F.Cu",
+          "F.Mask",
+          "F.Paste"
+        ],
         "roundrect_ratio_ppm": 250000
       },
       {
         "number": "2",
         "type": "smd",
         "shape": "roundrect",
-        "at": { "x_nm": 510000, "y_nm": 0 },
-        "size": { "x_nm": 540000, "y_nm": 640000 },
-        "layers": ["F.Cu", "F.Mask", "F.Paste"],
+        "at": {
+          "x_nm": 510000,
+          "y_nm": 0
+        },
+        "size": {
+          "x_nm": 540000,
+          "y_nm": 640000
+        },
+        "layers": [
+          "F.Cu",
+          "F.Mask",
+          "F.Paste"
+        ],
         "roundrect_ratio_ppm": 250000
       }
     ],
@@ -31,14 +56,36 @@
       {
         "kind": "rect",
         "layer": "F.CrtYd",
-        "start": { "x_nm": -930000, "y_nm": -470000 },
-        "end": { "x_nm": 930000, "y_nm": 470000 },
+        "start": {
+          "x_nm": -930000,
+          "y_nm": -470000
+        },
+        "end": {
+          "x_nm": 930000,
+          "y_nm": 470000
+        },
         "width_nm": 50000
       }
     ],
     "fields": [
-      { "name": "Reference", "value": "REF**", "at": { "x_nm": 0, "y_nm": -1170000 }, "layer": "F.SilkS" },
-      { "name": "Value", "value": "R_0402_1005Metric", "at": { "x_nm": 0, "y_nm": 1170000 }, "layer": "F.Fab" }
+      {
+        "name": "Reference",
+        "value": "REF**",
+        "at": {
+          "x_nm": 0,
+          "y_nm": -1170000
+        },
+        "layer": "F.SilkS"
+      },
+      {
+        "name": "Value",
+        "value": "R_0402_1005Metric",
+        "at": {
+          "x_nm": 0,
+          "y_nm": 1170000
+        },
+        "layer": "F.Fab"
+      }
     ]
   }
 }

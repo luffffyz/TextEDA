@@ -1,9 +1,9 @@
 {
-  "ir_version": "0.9",
+  "ir_version": "0.13",
   "format": "0.9",
   "source": {
     "file": "assets/procurement/primary/charger-buck.teda",
-    "line": 2
+    "line": 1
   },
   "procurement": {
     "board": "charger-buck",
@@ -12,11 +12,16 @@
       {
         "generic": "res-thick-0402",
         "params": [
-          { "name": "value", "value": 10000000000 },
-          { "name": "tolerance", "value": 10000 }
+          {
+            "name": "value",
+            "value": 10000000000
+          },
+          {
+            "name": "tolerance",
+            "value": 10000
+          }
         ],
-        "part": "rc0402fr-0710kl",
-        "line": 8
+        "part": "rc0402fr-0710kl"
       }
     ]
   }

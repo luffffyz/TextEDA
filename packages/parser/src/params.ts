@@ -7,7 +7,7 @@
 // same way, and they are read here once.
 import { checkDeviceParamValue } from "@texteda/core";
 import type { ParamValue } from "@texteda/ir/schematic";
-import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
+import type { Diagnostic, DiagnosticCodeId, DiagnosticLocation } from "./diagnostics.ts";
 import { PARAM_TYPE_KINDS, type ComponentParamDecl } from "./component.ts";
 import { parseQuantity } from "./quantities.ts";
 
@@ -25,6 +25,8 @@ export interface ParamDiagnostics {
       actual?: string;
       hint?: string;
       data?: Record<string, string | number | boolean>;
+      /** The declaration site of the parameter, when the device file's map has one (ADR-0020 D5). */
+      related?: DiagnosticLocation[];
     },
   ): void;
   readonly items: Diagnostic[];
@@ -39,6 +41,14 @@ export interface ParamContext {
   file: string;
   line: number;
   col: number;
+  /** Where the device file declares parameter `index`, when that is known (ADR-0020 D5). */
+  locateParam?: (index: number) => DiagnosticLocation | undefined;
+}
+
+/** The declaration a row was read against, wrapped for a diagnostic's `related` list. */
+function declared(context: ParamContext, index: number): { related?: DiagnosticLocation[] } {
+  const at = context.locateParam?.(index);
+  return at === undefined ? {} : { related: [at] };
 }
 
 /**
@@ -63,7 +73,7 @@ export function resolveParamColumns(
       file,
       line,
       col,
-      { expected: `at most ${decls.length} columns`, actual: `${cells.length} columns` },
+      { expected: `at most ${decls.length} columns`, actual: `${cells.length} columns`, ...declared(context, 0) },
     );
     return [];
   }
@@ -75,7 +85,7 @@ export function resolveParamColumns(
       file,
       line,
       col,
-      { expected: `at least ${required} columns`, actual: `${cells.length} columns` },
+      { expected: `at least ${required} columns`, actual: `${cells.length} columns`, ...declared(context, 0) },
     );
     return [];
   }
@@ -102,6 +112,7 @@ export function resolveParamColumns(
         file,
         line,
         col,
+        declared(context, i),
       );
       continue;
     }
@@ -114,7 +125,7 @@ export function resolveParamColumns(
         file,
         line,
         col,
-        { expected: `a value of type ${decl.type}`, actual: text },
+        { expected: `a value of type ${decl.type}`, actual: text, ...declared(context, i) },
       );
       continue;
     }

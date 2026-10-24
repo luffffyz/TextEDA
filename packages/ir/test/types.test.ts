@@ -1,5 +1,6 @@
 // Type-level assertions: the generated TS types must line up with the contract.
 // A missing required field or a misspelled literal fails to compile here (@ts-expect-error errors when the type widens).
+import { irVersion } from "@texteda/ir";
 import { expect, test } from "bun:test";
 import { validate } from "../src/index.ts";
 import type { Schematic } from "../src/generated/types/schematic.ts";
@@ -7,7 +8,7 @@ import type { Component } from "../src/generated/types/component.ts";
 import type { Pcb } from "../src/generated/types/pcb.ts";
 
 const minimalSchematic: Schematic = {
-  ir_version: "0.9",
+  ir_version: irVersion,
   format: "0.7",
   board: "demo",
   instances: [],
@@ -18,7 +19,7 @@ const minimalSchematic: Schematic = {
 const wrongVersion: Schematic = { ...minimalSchematic, ir_version: "0.2" };
 
 const minimalComponent: Component = {
-  ir_version: "0.9",
+  ir_version: irVersion,
   component: {
     id: "res-thick-0402",
     kind: "generic",
@@ -38,7 +39,7 @@ const wrongPinsSource: Component = {
 };
 
 const minimalPcb: Pcb = {
-  ir_version: "0.9",
+  ir_version: irVersion,
   format: "0.7",
   board: "demo",
   board_thickness_nm: 1600000,

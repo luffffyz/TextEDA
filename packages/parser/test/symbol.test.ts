@@ -134,3 +134,12 @@ describe("IR order depends only on semantics", () => {
     expect(sym.body?.map((b) => b.kind)).toEqual(["line", "rect"]);
   });
 });
+
+describe("the file revision", () => {
+  test("`rev` is a scalar and reaches the IR", () => {
+    const text = ["version 0.5.1", "symbol s", "rev 2.1.0", "", "pins", "  1  0  0  0", ""].join("\n");
+    const result = parse(text);
+    expect(result.diagnostics.map(formatDiagnostic)).toEqual([]);
+    expect(result.ir!.symbol.rev).toBe("2.1.0");
+  });
+});

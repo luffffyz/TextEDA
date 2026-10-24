@@ -225,6 +225,44 @@ describe("constraint types", () => {
   });
 });
 
+describe("row order", () => {
+  // The IR depends on the semantics only: where a row was written is not part of it, and neither
+  // is the order of the rows (spec/teda.md §12; ADR-0020 D1 removed the last field that leaked it).
+  const source = [
+    "version 0.3",
+    "schematic b",
+    "",
+    "instances",
+    "  R1  res-thick-0402  10k  ±1%",
+    "  R2  res-thick-0402  4k7  ±1%",
+    "",
+    "nets",
+    "  A:  R1.1  R2.1",
+    "  B:  R1.2",
+    "  C:  R2.2",
+  ].join("\n");
+  const shuffled = [
+    "version 0.3",
+    "schematic b",
+    "",
+    "instances",
+    "  R2  res-thick-0402  4k7  ±1%",
+    "  R1  res-thick-0402  10k  ±1%",
+    "",
+    "nets",
+    "  C:  R2.2",
+    "  A:  R2.1  R1.1",
+    "  B:  R1.2",
+  ].join("\n");
+
+  test("row order and member order do not affect IR bytes", () => {
+    const a = parseSchematic(source, { file: "sch/b.teda", board: "b", components: resolver });
+    const b = parseSchematic(shuffled, { file: "sch/b.teda", board: "b", components: resolver });
+    expect(b.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(JSON.stringify(b.ir)).toBe(JSON.stringify(a.ir));
+  });
+});
+
 describe("negative cases", () => {
   const board = ["version 0.3", "schematic b", "", "instances", "  R1  res-thick-0402  10k  ±1%", "", "nets", "  A:  R1.1"].join("\n");
 
@@ -261,6 +299,22 @@ describe("negative cases", () => {
   test("parameter column count does not match the component declaration", () => {
     const text = board.replace("10k", "10k 1% 2W 3X");
     expect(codes(text)).toContain("value.param-count-mismatch");
+  });
+
+  test("a row that fails against a declaration names the declaration (ADR-0020 D5)", () => {
+    const text = board.replace("10k", "10k 1% 2W 3X");
+    const result = parseSchematic(text, {
+      file: "sch/b.teda",
+      board: "b",
+      components: resolver,
+    });
+    const diagnostic = result.diagnostics.find((d) => d.code === "value.param-count-mismatch")!;
+    // The row is the place to fix; the declaration is the file that decides how many columns there are.
+    expect(diagnostic.location).toMatchObject({ file: "sch/b.teda", line: 5 });
+    const related = diagnostic.related ?? [];
+    expect(related).toHaveLength(1);
+    expect(related[0]!.file).toContain("res-thick-0402.teda");
+    expect(related[0]!.line).toBeGreaterThan(1);
   });
 
   test("parameter value is not a value of that quantity", () => {
@@ -372,6 +426,65 @@ describe("negative cases", () => {
     });
     const diagnostic = result.diagnostics.find((d) => d.code === "value.invalid-param")!;
     expect(diagnostic.location).toEqual({ file: "sch/b.teda", line: 5, col: 3 });
+  });
+});
+
+describe("pin references into a multi-unit device (teda.md §4.5)", () => {
+  // A dual op-amp has `OUT` in unit 1 and unit 2. A bare `U1.OUT` names neither of them.
+  const resolverWithOpamp: Parameters<typeof parseSchematic>[1]["components"] = {
+    resolve: (id) =>
+      id === "dual-opamp"
+        ? {
+            params: [],
+            pins: [
+              { number: "1", name: "OUT", type: "output", unit: 1 },
+              { number: "2", name: "IN+", type: "input", unit: 1 },
+              { number: "5", name: "IN+", type: "input", unit: 2 },
+              { number: "7", name: "OUT", type: "output", unit: 2 },
+            ],
+          }
+        : undefined,
+  };
+  const text = (member: string): string =>
+    ["version 0.8", "schematic b", "", "instances", "  U1  dual-opamp", "", "nets", `  A:  ${member}`].join("\n");
+  const parse = (member: string) =>
+    parseSchematic(text(member), { file: "sch/b.teda", board: "b", components: resolverWithOpamp });
+
+  test("naming the unit resolves to that unit's pin", () => {
+    const result = parse("U1.2.OUT");
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(result.ir!.nets[0]!.members).toEqual(["U1.7"]);
+  });
+
+  test("a name that two units share is ambiguous, not unit 1", () => {
+    const result = parse("U1.OUT");
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "ref.ambiguous-pin")!;
+    expect(diagnostic.data).toEqual({ component_id: "dual-opamp", pin: "OUT", units: "1,2" });
+    expect(diagnostic.hint).toContain("U1.1.OUT");
+  });
+
+  test("a name repeated inside one unit is ambiguous too, and points at the number", () => {
+    const repeated: Parameters<typeof parseSchematic>[1]["components"] = {
+      resolve: () => ({
+        params: [],
+        pins: [
+          { number: "2", name: "GND", type: "power_in", unit: 1 },
+          { number: "4", name: "GND", type: "power_in", unit: 1 },
+        ],
+      }),
+    };
+    const result = parseSchematic(["version 0.8", "schematic b", "", "instances", "  U1  x", "", "nets", "  A:  U1.GND"].join("\n"), {
+      file: "sch/b.teda",
+      board: "b",
+      components: repeated,
+    });
+    expect(result.diagnostics.find((d) => d.code === "ref.ambiguous-pin")!.hint).toContain("pin number");
+    expect(result.diagnostics.find((d) => d.code === "ref.ambiguous-pin")!.data).toEqual({
+      component_id: "x",
+      pin: "GND",
+      units: "1",
+    });
   });
 });
 

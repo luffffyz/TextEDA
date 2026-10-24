@@ -2,6 +2,7 @@
 //
 // The renderer is a pure function of (view IR, caller-supplied symbol facts): no file system, no
 // auto-placement, and the same inputs must produce byte-identical SVG.
+import { irVersion } from "@texteda/ir";
 import { describe, expect, test } from "bun:test";
 import type { SchematicView } from "@texteda/ir/schematic-view";
 import type { SymbolBody } from "../src/index.ts";
@@ -52,7 +53,7 @@ function part(): SchematicInstance {
 
 function view(over: Partial<SchematicView> = {}): SchematicView {
   return {
-    ir_version: "0.9",
+    ir_version: irVersion,
     format: "0.7",
     source: { file: "sch/b/p.view.teda", line: 1 },
     board: "b",

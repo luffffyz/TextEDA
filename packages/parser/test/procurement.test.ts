@@ -3,7 +3,7 @@
 // The positive case is a real procurement file; the negative cases break exactly one thing each
 // and the diagnostic code must line up.
 import { describe, expect, test } from "bun:test";
-import { validate } from "@texteda/ir";
+import { irVersion, validate } from "@texteda/ir";
 import { formatProcurement } from "../src/fmt-procurement.ts";
 import { parseProcurement, parseProcurementDocument } from "../src/procurement.ts";
 import type { ComponentResolver } from "../src/schematic.ts";
@@ -18,6 +18,20 @@ const generic = {
     { name: "power", type: "power" as const, required: false, line: 3, col: 1 },
   ],
   pins: [],
+};
+
+/** The same generic, with a source map: `/component/params/0` is its first declaration. */
+const located: ComponentResolver = {
+  resolve: (id) =>
+    id === "res-thick-0402"
+      ? {
+          ...generic,
+          locate: (irPath) =>
+            irPath === "/component/params/0"
+              ? { file: "assets/components/res-thick-0402.teda", line: 12, col: 3 }
+              : undefined,
+        }
+      : undefined,
 };
 
 const components: ComponentResolver = {
@@ -43,7 +57,7 @@ describe("procurement parsing", () => {
     expect(result.diagnostics).toEqual([]);
     expect(result.ok).toBe(true);
     const ir = result.ir!;
-    expect(ir.ir_version).toBe("0.9");
+    expect(ir.ir_version).toBe(irVersion);
     expect(ir.format).toBe("0.9");
     expect(ir.procurement.board).toBe("charger-buck");
     expect(ir.procurement.role).toBe("primary");
@@ -89,7 +103,7 @@ describe("procurement parsing", () => {
     expect(selection.params?.map((p) => p.name)).toEqual(["value", "tolerance"]);
   });
 
-  test("a library-qualified part id is kept as written", () => {
+  test("a library-qualified part id is rejected (ADR-0047: nothing resolves through a library)", () => {
     const result = parseProcurement(
       `version 0.9
 procurement charger-buck
@@ -100,8 +114,9 @@ selections
 `,
       { file, board: "charger-buck", role: "alternatives", components },
     );
-    expect(result.diagnostics).toEqual([]);
-    expect(result.ir!.procurement.selections[0]!.part).toBe("vishay:rc0402fr-0710kl");
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.map((d) => d.code)).toContain("ref.library-qualified-id");
+    expect(result.diagnostics[0]!.hint).toContain("lib import");
   });
 
   test("rejects a file whose version is below the type's", () => {
@@ -210,6 +225,23 @@ selections
     );
     expect(result.ok).toBe(false);
     expect(result.diagnostics[0]!.code).toBe("value.param-count-mismatch");
+  });
+
+  test("a row that fails against a generic names the generic's declaration (ADR-0020 D5)", () => {
+    const result = parseProcurement(
+      `version 0.9
+procurement charger-buck
+role primary
+
+selections
+  res-thick-0402 10k ±1% 100mW 1W -> rc0402fr-0710kl
+`,
+      { file, board: "charger-buck", role: "primary", components: located },
+    );
+    expect(result.diagnostics[0]!.location).toMatchObject({ file, line: 6 });
+    expect(result.diagnostics[0]!.related).toEqual([
+      { file: "assets/components/res-thick-0402.teda", line: 12, col: 3 },
+    ]);
   });
 
   test("rejects a required parameter column that is missing", () => {

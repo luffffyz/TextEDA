@@ -7,10 +7,10 @@
 
 **A procurement description says which part is bought. It does not say what the circuit needs, and it does not say what a part is.**
 
-| | Design (`schematic`) | Procurement (`procurement`) | Library (`assets/components/`, `external/libs/`) |
+| | Design (`schematic`) | Procurement (`procurement`) | Devices (`assets/components/`) |
 |---|---|---|---|
 | What it is | what the board is made of | what is bought for it | what a device is |
-| File | `design/sch/<board_id>.teda` | `assets/procurement/{primary,alternatives}/<board_id>.teda` | `assets/components/**/<id>.teda`, `external/libs/<lib>/…` |
+| File | `design/sch/<board_id>.teda` | `assets/procurement/{primary,alternatives}/<board_id>.teda` | `assets/components/**/<id>.teda` |
 | Vocabulary | generic **or** part | generic → part | the generic and the part |
 | Standing | normative | primary: normative; alternatives: advisory | normative |
 | If you delete it | the board loses its circuit | the board loses its sourcing | the devices are gone |
@@ -57,10 +57,10 @@ selections
 <generic_id> <parameter_value…> -> <part_id>
 ```
 
-- **The left side is the BOM line key**: a generic id (bare if the project owns it, qualified by the library name if it comes from a vendored
-  library), followed by the values of the generic's declared `params`, **in the generic's declared order** — the same
+- **The left side is the BOM line key**: a generic id — bare, because every device a project reads is its own file
+  ([ADR-0047](../docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md)) — followed by the values of the generic's declared `params`, **in the generic's declared order** — the same
   shape as an `instances` row. The generic's `params` section is the only place that order is written down.
-- **The right side is the part that is bought**: a project-owned asset by its bare id, or a vendored library item by its qualified id (`avx:avx-taj-220u-10v`).
+- **The right side is the part that is bought**: a project-owned `kind: part` by its bare id (`avx-taj-220u-10v`). Imported devices are the project's own files, so they are bare too ([ADR-0047](../docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md)).
 - **`->` terminates the left side.** The parameter list has a length that depends on the generic, so a reader cannot tell where the parameters stop without
   resolving the generic; the separator makes the row readable on its own. `:` is already the nets-section token, `=` already binds a type to a value, and
   neither of them can terminate an open-ended list.

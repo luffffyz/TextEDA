@@ -15,8 +15,11 @@
 // checker, not to the parser.
 import { irVersion } from "@texteda/ir";
 import type { Procurement, Selection } from "@texteda/ir/procurement";
-import type { Diagnostic, DiagnosticCodeId } from "@texteda/ir/diagnostics";
+import type { Diagnostic, DiagnosticCodeId, DiagnosticLocation } from "@texteda/ir/diagnostics";
+import { DEVICE_ID_RE, QUALIFIED_REF_RE } from "./ids.ts";
 import { lex, type Line } from "./lexer.ts";
+import { SourceFile } from "./sources.ts";
+import type { SourceMap } from "@texteda/ir/spans";
 import { checkVersion, typeRange } from "./version.ts";
 import { resolveParamColumns } from "./params.ts";
 import type { ComponentResolver } from "./schematic.ts";
@@ -42,11 +45,12 @@ export const NOT_REQUIRED = "not-required";
 export type ProcurementSection = (typeof PROCUREMENT_SECTIONS)[number];
 
 /**
- * A device id: a bare id for a device this project owns, `lib:id` for one from a vendored
- * library. The library name and the id have the shapes they have everywhere else
- * (teda.md §4.2, `common#/$defs/device_ref`).
+ * A device id: bare, `[a-z][a-z0-9-]*` (teda.md §4.2, `common#/$defs/device_ref`).
+ *
+ * Every device a project reads is its own file under `assets/components/`; the `<lib>:<id>`
+ * qualifier was withdrawn with the vendored library (ADR-0047), and a qualified id is reported as
+ * `ref.library-qualified-id` rather than resolved.
  */
-const DEVICE_REF_RE = /^(?:[a-z][a-z0-9_-]*:)?[a-z][a-z0-9-]*$/;
 
 export interface ProcurementParseOptions {
   /** File name, relative to the project root. */
@@ -63,6 +67,8 @@ export interface ProcurementParseResult {
   ok: boolean;
   ir?: Procurement;
   diagnostics: Diagnostic[];
+  /** IR path → span of the record that produced it (ADR-0020 D2). Never persisted. */
+  sources?: SourceMap;
 }
 
 /** One selection row as it is written. */
@@ -113,7 +119,14 @@ class Collector {
     file: string,
     line: number,
     col: number,
-    extra?: { expected?: string; actual?: string; hint?: string; data?: Record<string, string | number | boolean> },
+    extra?: {
+      expected?: string;
+      actual?: string;
+      hint?: string;
+      data?: Record<string, string | number | boolean>;
+      /** The definition site of a reference, when it has one (ADR-0020 D5). */
+      related?: DiagnosticLocation[];
+    },
   ): void {
     this.diagnostics.push({
       code,
@@ -124,6 +137,7 @@ class Collector {
       ...(extra?.actual !== undefined ? { actual: extra.actual } : {}),
       ...(extra?.hint !== undefined ? { hint: extra.hint } : {}),
       ...(extra?.data !== undefined ? { data: extra.data } : {}),
+      ...(extra?.related !== undefined ? { related: extra.related } : {}),
     });
   }
 
@@ -133,7 +147,14 @@ class Collector {
     col: number,
     code: DiagnosticCodeId,
     message: string,
-    extra?: { expected?: string; actual?: string; hint?: string; data?: Record<string, string | number | boolean> },
+    extra?: {
+      expected?: string;
+      actual?: string;
+      hint?: string;
+      data?: Record<string, string | number | boolean>;
+      /** The definition site of a reference, when it has one (ADR-0020 D5). */
+      related?: DiagnosticLocation[];
+    },
   ): void {
     this.add("error", code, message, file, line, col, extra);
   }
@@ -144,7 +165,14 @@ class Collector {
     col: number,
     code: DiagnosticCodeId,
     message: string,
-    extra?: { expected?: string; actual?: string; hint?: string; data?: Record<string, string | number | boolean> },
+    extra?: {
+      expected?: string;
+      actual?: string;
+      hint?: string;
+      data?: Record<string, string | number | boolean>;
+      /** The definition site of a reference, when it has one (ADR-0020 D5). */
+      related?: DiagnosticLocation[];
+    },
   ): void {
     this.add("warning", code, message, file, line, col, extra);
   }
@@ -265,7 +293,22 @@ export function parseProcurementDocument(
     }
 
     const generic = cells[0]!.text;
-    if (!DEVICE_REF_RE.test(generic)) {
+    if (QUALIFIED_REF_RE.test(generic)) {
+      collector.error(
+        file,
+        line.number,
+        cells[0]!.col,
+        "ref.library-qualified-id",
+        `a device reference is qualified with a library name: ${generic}`,
+        {
+          expected: "a bare device id",
+          actual: generic,
+          hint: "import the device into assets/components/ (`texteda lib import`), then write its bare id (ADR-0047)",
+        },
+      );
+      continue;
+    }
+    if (!DEVICE_ID_RE.test(generic)) {
       collector.error(file, line.number, cells[0]!.col, "syntax.invalid-token", `not a valid device id: ${generic}`);
       continue;
     }
@@ -273,7 +316,22 @@ export function parseProcurementDocument(
     // nothing bought (a part that is only there to be a test point, say).
     const target = cells[arrow + 1]!.text;
     const part = target === NOT_REQUIRED ? null : target;
-    if (part !== null && !DEVICE_REF_RE.test(part)) {
+    if (part !== null && QUALIFIED_REF_RE.test(part)) {
+      collector.error(
+        file,
+        line.number,
+        cells[arrow + 1]!.col,
+        "ref.library-qualified-id",
+        `a device reference is qualified with a library name: ${part}`,
+        {
+          expected: "a bare device id",
+          actual: part,
+          hint: "import the device into assets/components/ (`texteda lib import`), then write its bare id (ADR-0047)",
+        },
+      );
+      continue;
+    }
+    if (part !== null && !DEVICE_ID_RE.test(part)) {
       collector.error(file, line.number, cells[arrow + 1]!.col, "syntax.invalid-token", `not a valid device id: ${part}`);
       continue;
     }
@@ -345,6 +403,11 @@ export function parseProcurement(text: string, options: ProcurementParseOptions)
   }
 
   const selections: Selection[] = [];
+  /**
+   * Line of each selection, by object identity: the rows are sorted before they enter the IR, and a
+   * line number is a function of the line order, so it stays beside the IR (ADR-0020 D1).
+   */
+  const at = new Map<object, number>();
   /** The lines already selected in the primary file: one per BOM line (spec/procurement.md §6). */
   const seen = new Map<string, number>();
 
@@ -377,7 +440,16 @@ export function parseProcurement(text: string, options: ProcurementParseOptions)
     const params = resolveParamColumns(
       facts.params,
       row.paramCells,
-      { deviceId: row.generic, label: "generic", file, line: row.line, col: row.col },
+      {
+        deviceId: row.generic,
+        label: "generic",
+        file,
+        line: row.line,
+        col: row.col,
+        ...(facts.locate === undefined
+          ? {}
+          : { locateParam: (index: number) => facts.locate!(`/component/params/${index}`) }),
+      },
       collector,
     );
 
@@ -398,12 +470,13 @@ export function parseProcurement(text: string, options: ProcurementParseOptions)
       seen.set(key, row.line);
     }
 
-    selections.push({
+    const selection: Selection = {
       generic: row.generic,
       ...(params.length > 0 ? { params } : {}),
-      ...(row.part === null ? { not_required: true } : { part: row.part }),
-      line: row.line,
-    });
+      ...(row.part === null ? { not_required: true as const } : { part: row.part }),
+    };
+    selections.push(selection);
+    at.set(selection, row.line);
   }
 
   if (collector.hasError) return { ok: false, diagnostics: collector.diagnostics };
@@ -433,12 +506,16 @@ export function parseProcurement(text: string, options: ProcurementParseOptions)
   const ir: Procurement = {
     ir_version: irVersion,
     format: document.version,
-    source: { file, line: 2 },
+    source: { file, line: 1 },
     procurement: {
       board: options.board,
       role: options.role,
       selections,
     },
   };
-  return { ok: true, ir, diagnostics: collector.diagnostics };
+  const src = new SourceFile(file, lex(text));
+  const sources: SourceMap = new Map();
+  selections.forEach((selection, index) => sources.set(`/procurement/selections/${index}`, src.span(at.get(selection) ?? 1)));
+
+  return { ok: true, ir, diagnostics: collector.diagnostics, sources };
 }

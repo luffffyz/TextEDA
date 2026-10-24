@@ -1,0 +1,69 @@
+{
+  "component": {
+    "category": "opamp",
+    "datasheet": "https://www.ti.com/lit/ds/symlink/opa2333.pdf",
+    "description": "Dual 350 kHz 5 uV zero-drift op-amp, 1.8-5.5 V, SOIC-8",
+    "footprint": "project:soic-8",
+    "id": "opa2333",
+    "kind": "part",
+    "manufacturer": "Texas Instruments",
+    "mpn": "OPA2333AIDR",
+    "pins": [
+      {
+        "electrical_type": "output",
+        "name": "OUT",
+        "number": "1",
+        "unit": 1
+      },
+      {
+        "electrical_type": "input",
+        "name": "IN-",
+        "number": "2",
+        "unit": 1
+      },
+      {
+        "electrical_type": "input",
+        "name": "IN+",
+        "number": "3",
+        "unit": 1
+      },
+      {
+        "electrical_type": "input",
+        "name": "IN+",
+        "number": "5",
+        "unit": 2
+      },
+      {
+        "electrical_type": "input",
+        "name": "IN-",
+        "number": "6",
+        "unit": 2
+      },
+      {
+        "electrical_type": "output",
+        "name": "OUT",
+        "number": "7",
+        "unit": 2
+      },
+      {
+        "electrical_type": "power_in",
+        "name": "V-",
+        "number": "4",
+        "unit": 3
+      },
+      {
+        "electrical_type": "power_in",
+        "name": "V+",
+        "number": "8",
+        "unit": 3
+      }
+    ],
+    "pins_source": "inline",
+    "symbol": "project:opa2333"
+  },
+  "ir_version": "0.13",
+  "source": {
+    "file": "assets/components/analog/opa2333.teda",
+    "line": 1
+  }
+}

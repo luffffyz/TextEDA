@@ -617,3 +617,71 @@ describe("library curation (ADR-0023: the shard set is the project's content)", 
     }
   });
 });
+
+// The project's geometry is checked at the layer that reads it: every symbol and footprint file
+// must compile and satisfy its contract. `ir` refuses to write a shard for a broken one, so a check
+// that skipped them would go green while the build is red (ADR-0019 decision 3).
+const SYMBOL = `version 0.5
+symbol r
+
+pins
+  1  -3.81  0  0
+  2  3.81   0  180
+`;
+
+const FOOTPRINT = `version 0.4.1
+footprint chip-0402
+
+package_code 0402
+
+pads
+  1  smd  roundrect  -0.5  0  0.6  0.6  rratio=0.25
+  2  smd  roundrect  0.5   0  0.6  0.6  rratio=0.25
+`;
+
+/** Put the two geometry files the board's device names into the project's own library. */
+function writeGeometry(root: string, symbol: string = SYMBOL, footprint: string = FOOTPRINT): void {
+  mkdirSync(join(root, "assets/symbols/project"), { recursive: true });
+  mkdirSync(join(root, "assets/footprints/project"), { recursive: true });
+  writeFileSync(join(root, "assets/symbols/project", "r.teda"), symbol);
+  writeFileSync(join(root, "assets/footprints/project", "chip-0402.teda"), footprint);
+}
+
+describe("check: the geometry it reads", () => {
+  test("geometry that compiles adds no diagnostic", () => {
+    const root = makeProject(BOARD);
+    try {
+      writeGeometry(root);
+      const result = checkProject(root);
+      expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+      expect(result.diagnostics.filter((d) => d.code === "library.pins-empty" || d.code === "library.pads-empty")).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a symbol that does not compile is an error, not a silent skip", () => {
+    const root = makeProject(BOARD);
+    try {
+      writeGeometry(root, "version 99\nsymbol r\n");
+      const result = checkProject(root);
+      const codes = result.diagnostics.filter((d) => d.severity === "error").map((d) => d.code);
+      expect(codes).toContain("format.invalid-version");
+      expect(codes).toContain("library.pins-empty");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a footprint that does not compile is an error, not a silent skip", () => {
+    const root = makeProject(BOARD);
+    try {
+      writeGeometry(root, undefined, "version 0.4.1\nfootprint chip-0402\npads\n");
+      const result = checkProject(root);
+      const codes = result.diagnostics.filter((d) => d.severity === "error").map((d) => d.code);
+      expect(codes).toContain("library.pads-empty");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

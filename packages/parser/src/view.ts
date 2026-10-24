@@ -11,6 +11,9 @@ import { irVersion } from "@texteda/ir";
 import type { SchematicView } from "@texteda/ir/schematic-view";
 import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
 import { lex, type Cell, type Line } from "./lexer.ts";
+import { SourceFile } from "./sources.ts";
+import type { SourceMap } from "@texteda/ir/spans";
+import { byteCompare, naturalCompare, pinRefCompare } from "@texteda/ir/order";
 import { parseAngleMdeg, parseLengthNm } from "./units.ts";
 import { checkVersion, typeRange } from "./version.ts";
 
@@ -54,6 +57,8 @@ export interface ViewParseResult {
   ok: boolean;
   ir?: SchematicView;
   diagnostics: Diagnostic[];
+  /** IR path → span of the record that produced it (ADR-0020 D2). Never persisted. */
+  sources?: SourceMap;
 }
 
 class Collector {
@@ -125,7 +130,14 @@ function parseRotation(
 export function parseView(text: string, options: ViewParseOptions): ViewParseResult {
   const collector = new Collector();
   const { file } = options;
-  const lines = lex(text);
+  const lexed = lex(text);
+  const src = new SourceFile(file, lexed);
+  const lines = lexed;
+  /**
+   * Line of each record, by object identity. A line number is a function of the line order, so it
+   * cannot enter the IR (ADR-0020 D1); it is kept beside it for this parse only.
+   */
+  const at = new Map<object, number>();
 
   let index = 0;
   const nextMeaningful = (): Line | null => {
@@ -248,7 +260,9 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
             if (unit === 1) unit = undefined;
           }
         }
-        place.push({ instance_id: instanceId, x_nm: x, y_nm: y, ...(rot === undefined ? {} : { rot_mdeg: rot }), ...(unit === undefined ? {} : { unit }), line: line.number });
+        const placed = { instance_id: instanceId, x_nm: x, y_nm: y, ...(rot === undefined ? {} : { rot_mdeg: rot }), ...(unit === undefined ? {} : { unit }) };
+        place.push(placed);
+        at.set(placed, line.number);
         continue;
       }
       case "wire": {
@@ -288,7 +302,9 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
           points.push({ x_nm: x, y_nm: y });
         }
         if (broken) continue;
-        wire.push({ net, from_pin: fromPin, to_pin: toPin, ...(points.length > 0 ? { points } : {}), line: line.number });
+        const drawn = { net, from_pin: fromPin, to_pin: toPin, ...(points.length > 0 ? { points } : {}) };
+        wire.push(drawn);
+        at.set(drawn, line.number);
         continue;
       }
       case "label": {
@@ -304,7 +320,9 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
         const x = parseGridNm(cells[1]!, file, line.number, collector);
         const y = parseGridNm(cells[2]!, file, line.number, collector);
         if (x === null || y === null) continue;
-        label.push({ net, x_nm: x, y_nm: y, line: line.number });
+        const named = { net, x_nm: x, y_nm: y };
+        label.push(named);
+        at.set(named, line.number);
         continue;
       }
       case "port": {
@@ -326,7 +344,9 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
           if (parsed === null) continue;
           rot = parsed === 0 ? undefined : parsed;
         }
-        port.push({ id, x_nm: x, y_nm: y, ...(rot === undefined ? {} : { rot_mdeg: rot }), line: line.number });
+        const printed = { id, x_nm: x, y_nm: y, ...(rot === undefined ? {} : { rot_mdeg: rot }) };
+        port.push(printed);
+        at.set(printed, line.number);
         continue;
       }
       case "text": {
@@ -342,7 +362,9 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
           collector.error(file, line.number, cells[2]!.col, "syntax.row-too-short", "a text row needs some text");
           continue;
         }
-        texts.push({ x_nm: x, y_nm: y, text: body, line: line.number });
+        const written = { x_nm: x, y_nm: y, text: body };
+        texts.push(written);
+        at.set(written, line.number);
         continue;
       }
     }
@@ -357,7 +379,7 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
       if (!placed.has(instanceId)) {
         collector.error(
           file,
-          item.line ?? 1,
+          at.get(item) ?? 1,
           1,
           "view.pin-not-placed",
           `the instance ${instanceId} of pin ${ref} is not in the place section`,
@@ -366,24 +388,37 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
     }
   }
   for (const item of place) {
-    checkOnSheet(file, item.line ?? 1, item.x_nm, item.y_nm, sheetWidth, sheetHeight, collector);
+    checkOnSheet(file, at.get(item) ?? 1, item.x_nm, item.y_nm, sheetWidth, sheetHeight, collector);
   }
   for (const item of wire) {
     for (const point of item.points ?? []) {
-      checkOnSheet(file, item.line ?? 1, point.x_nm, point.y_nm, sheetWidth, sheetHeight, collector);
+      checkOnSheet(file, at.get(item) ?? 1, point.x_nm, point.y_nm, sheetWidth, sheetHeight, collector);
     }
   }
   for (const item of label) {
-    checkOnSheet(file, item.line ?? 1, item.x_nm, item.y_nm, sheetWidth, sheetHeight, collector);
+    checkOnSheet(file, at.get(item) ?? 1, item.x_nm, item.y_nm, sheetWidth, sheetHeight, collector);
   }
   for (const item of port) {
-    checkOnSheet(file, item.line ?? 1, item.x_nm, item.y_nm, sheetWidth, sheetHeight, collector);
+    checkOnSheet(file, at.get(item) ?? 1, item.x_nm, item.y_nm, sheetWidth, sheetHeight, collector);
   }
   for (const item of texts) {
-    checkOnSheet(file, item.line ?? 1, item.x_nm, item.y_nm, sheetWidth, sheetHeight, collector);
+    checkOnSheet(file, at.get(item) ?? 1, item.x_nm, item.y_nm, sheetWidth, sheetHeight, collector);
   }
 
   if (collector.hasError) return { ok: false, diagnostics: collector.diagnostics };
+
+  // The IR depends on the drawing only, not on where the rows were written: canonical order per
+  // spec/schematic-view.md §11 (wire points keep their order — that one is semantic).
+  place.sort((a, b) => naturalCompare(a.instance_id, b.instance_id));
+  wire.sort(
+    (a, b) =>
+      byteCompare(a.net, b.net) ||
+      pinRefCompare(a.from_pin, b.from_pin) ||
+      pinRefCompare(a.to_pin, b.to_pin),
+  );
+  label.sort((a, b) => byteCompare(a.net, b.net) || a.x_nm - b.x_nm || a.y_nm - b.y_nm);
+  port.sort((a, b) => byteCompare(a.id, b.id));
+  texts.sort((a, b) => a.x_nm - b.x_nm || a.y_nm - b.y_nm || byteCompare(a.text, b.text));
 
   const ir: SchematicView = {
     ir_version: irVersion,
@@ -399,7 +434,20 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
     ...(port.length > 0 ? { port } : {}),
     ...(texts.length > 0 ? { text: texts } : {}),
   };
-  return { ok: true, ir, diagnostics: collector.diagnostics };
+  // IR path → span, read off the sorted arrays: the pointer names a position in the shard, and the
+  // record at that position is the one whose span goes there (ADR-0020 D2/D4).
+  const sources: SourceMap = new Map();
+  const note = (base: string, items: readonly object[]): void => {
+    items.forEach((item, index) => sources.set(`${base}/${index}`, src.span(at.get(item) ?? 1)));
+  };
+  note("/place", place);
+  note("/wire", wire);
+  note("/label", label);
+  note("/port", port);
+  note("/text", texts);
+  sources.set("/sheet", src.span(1));
+
+  return { ok: true, ir, diagnostics: collector.diagnostics, sources };
 }
 
 /** A coordinate outside the sheet is a drawing that cannot be shown. */

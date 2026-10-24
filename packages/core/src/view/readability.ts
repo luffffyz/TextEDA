@@ -10,7 +10,7 @@
 // declared in `core` and satisfied structurally by the renderer's output: no dependency either way.
 //
 // Pure: geometry in, diagnostics out.
-import type { Diagnostic } from "@texteda/ir/diagnostics";
+import type { Diagnostic, DiagnosticLocation } from "@texteda/ir/diagnostics";
 import type { Schematic } from "@texteda/ir/schematic";
 import type { SchematicView } from "@texteda/ir/schematic-view";
 import {
@@ -18,6 +18,7 @@ import {
   boxesOverlap,
   distanceToPolyline,
   overlapArea,
+  segmentCrossing,
   segmentInBox,
   wirePath,
   type Point,
@@ -48,6 +49,8 @@ export interface ReadabilityFacts {
   readonly view: SchematicView;
   readonly schematic: Schematic;
   readonly geometry: ReadabilityGeometry;
+  /** A record's IR path (`/wire/2`) → where it was written (ADR-0020 D1: the IR has no lines). */
+  readonly locate?: (irPath: string) => DiagnosticLocation | undefined;
 }
 
 /**
@@ -64,11 +67,14 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
   const nets = new Map(schematic.nets.map((net) => [net.id, net]));
   const symbols = new Map(geometry.symbols.map((symbol) => [symbol.instance_id, symbol]));
   const portNet = new Map((schematic.ports ?? []).map((port) => [port.id, port.net]));
+  /** Where a page record was written: the IR names the record, the parse's map gives the line. */
+  const at = (irPath: string | undefined): DiagnosticLocation =>
+    (irPath === undefined ? undefined : facts.locate?.(irPath)) ?? { file, line: 1, col: 1 };
 
   /** How far a point is from the net's drawing: its nearest wire, or a pin of one of its members. */
   const distanceToNet = (netId: string, point: Point): number => {
     let best = Number.POSITIVE_INFINITY;
-    for (const wire of wires) {
+    for (const [index, wire] of wires.entries()) {
       if (wire.net !== netId) continue;
       const path = wirePath(wire, symbols);
       if (path && path.length >= 2) best = Math.min(best, distanceToPolyline(point, path));
@@ -102,7 +108,7 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
       severity: "warning",
       message: `print page ${page}: ${text.kind} ${text.text} does not sit on net ${netId}: the nearest point of the net is ${mm(offBy)} mm away`,
       hint: "place it on the wire or the pin it names: a label away from its net tells the reader nothing",
-      location: { file, line: text.line ?? 1, col: 1 },
+      location: at(text.ir_path),
       // The distance is what makes this actionable: a label 0.1mm off a bus and one 20mm off it are
       // the same finding and very different repairs.
       data: { page, net: netId, kind: text.kind, distance_nm: Math.round(offBy) },
@@ -120,13 +126,13 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
         severity: "warning",
         message: `print page ${page}: ${bothLabels ? "labels" : "text"} ${a.text} and ${b.text} overlap by ${mm2(overlapArea(a.box, b.box))} mm²`,
         hint: "move one of them: overlapping text cannot be read",
-        location: { file, line: a.line ?? 1, col: 1 },
+        location: at(a.ir_path),
         data: { page, first: a.text, second: b.text, overlap_area_nm2: overlapArea(a.box, b.box) },
       });
     }
   }
 
-  for (const wire of wires) {
+  for (const [index, wire] of wires.entries()) {
     const path = wirePath(wire, symbols);
     if (!path || path.length < 2) continue;
     const fromInstance = wire.from_pin.slice(0, wire.from_pin.lastIndexOf("."));
@@ -145,10 +151,51 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
           severity: "warning",
           message: `print page ${page}: the wire on net ${wire.net} runs ${mm(through)} mm through the body of ${symbol.instance_id}`,
           hint: "route around the symbol: a wire through a body hides both the wire and the pin it might be mistaken for",
-          location: { file, line: wire.line ?? 1, col: 1 },
+          location: facts.locate?.(`/wire/${index}`) ?? { file, line: 1, col: 1 },
           data: { page, net: wire.net, instance: symbol.instance_id, through_nm: Math.round(through) },
         });
       }
+    }
+  }
+
+  // Two runs of *different* nets crossing each other. Nothing is drawn there (no junction dot, §5.1),
+  // so the page shows two lines meeting at a point -- the exact picture of a connection. Nothing can
+  // be drawn to fix that either: a hop would be a second convention saying "not connected" in
+  // pictures, and the drawing already says it by the absence of a dot. The repair is routing.
+  const paths = wires.map((wire) => wirePath(wire, symbols));
+  for (let i = 0; i < wires.length; i += 1) {
+    const a = paths[i];
+    if (!a || a.length < 2) continue;
+    for (let j = i + 1; j < wires.length; j += 1) {
+      const b = paths[j];
+      if (!b || b.length < 2) continue;
+      const first = wires[i]!.net;
+      const second = wires[j]!.net;
+      if (first === second) continue; // same net: they join, and a join is drawn (a dot)
+      let crossings = 0;
+      let at_x = 0;
+      let at_y = 0;
+      for (let x = 0; x + 1 < a.length; x += 1) {
+        for (let y = 0; y + 1 < b.length; y += 1) {
+          const hit = segmentCrossing(a[x]!, a[x + 1]!, b[y]!, b[y + 1]!);
+          if (hit === null) continue;
+          if (crossings === 0) {
+            const t = hit[0];
+            at_x = Math.round(a[x]!.x_nm + t * (a[x + 1]!.x_nm - a[x]!.x_nm));
+            at_y = Math.round(a[x]!.y_nm + t * (a[x + 1]!.y_nm - a[x]!.y_nm));
+          }
+          crossings += 1;
+        }
+      }
+      if (crossings === 0) continue;
+      diagnostics.push({
+        code: "view.wire-crossing",
+        severity: "warning",
+        message: `print page ${page}: the wire on net ${first} crosses the wire on net ${second}${crossings > 1 ? ` ${crossings} times` : ""} at (${mm(at_x)}, ${mm(at_y)}) mm: a crossing without a junction dot reads as a connection`,
+        hint: "route one of them around the other: the repair is geometry, not a symbol",
+        location: at(`/wire/${i}`),
+        data: { page, first_net: first, second_net: second, crossings, x_nm: at_x, y_nm: at_y },
+      });
     }
   }
 

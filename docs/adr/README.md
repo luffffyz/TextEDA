@@ -47,6 +47,12 @@ Every architecture decision record in this repository, in numeric order.
 | [ADR-0041](0041-connect-pairs-must-be-implemented-by-copper.md) | A Declared `connect` Pair Must Be Implemented by Copper (What "Implemented" Means) | Accepted | 2026-10-23 |
 | [ADR-0042](0042-a-device-description-enters-the-ir.md) | A Device's Description Is a Fact, So It Enters the IR | Accepted | 2026-10-23 |
 | [ADR-0043](0043-ratings-are-compared-against-declared-windows.md) | Ratings Are Compared Against Declared Windows | Accepted | 2026-10-23 |
+| [ADR-0044](0044-dissipation-is-checked-against-declared-limits.md) | Dissipation Is Checked Against Declared Limits | Accepted | 2026-10-23 |
+| [ADR-0045](0045-the-package-gives-a-resistor-its-floor.md) | The Package Gives a Chip Resistor Its Floor | Accepted | 2026-10-23 |
+| [ADR-0046](0046-vendored-libraries-are-verified-by-their-hash.md) | A Vendored Library Is Verified by Its Hash | Accepted | 2026-10-24 |
+| [ADR-0047](0047-an-external-library-is-a-template-not-a-dependency.md) | An External Library Is a Template, Not a Dependency | Accepted | 2026-10-24 |
+| [ADR-0048](0048-trust-in-a-library-you-do-not-own.md) | Trust in a Library You Do Not Own Is a Consumer Record | Accepted | 2026-10-24 |
+| [ADR-0049](0049-a-file-carries-its-own-revision.md) | A File Carries Its Own Revision, and Trust Matches That Revision | Accepted | 2026-10-24 |
 
 ## Reserved Numbers
 

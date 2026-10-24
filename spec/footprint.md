@@ -16,7 +16,7 @@
 2. **源格式是 `.teda`，IR 是编译产物**。agent 的工作面是 `.teda` 源码 + 校验报告（[ADR-0004](../docs/adr/0004-ir-representation.md) decision 5），不是 IR JSON。
 3. **KiCad 格式是导出产物**。`.kicad_mod` 与板文件内联块都由 `packages/exporter` 从 IR 生成；库的几何改动**不回写** IR 之外的东西。
 
-`footprint` 描述是**库产物**，不是板描述：它不进 `dist/ir/` 的描述分片树，而进库目录（`assets/footprints/<lib>/`），单独编译、单独哈希（`libs.<name>.content_hash`，[ADR-0010](../docs/adr/0010-footprint-and-3d-model-ownership.md) decision 2）。
+`footprint` 描述是**库产物**，不是板描述：它不进 `dist/ir/` 的描述分片树，而进库目录（`assets/footprints/<lib>/`），单独编译；它作为工程资产进入构建身份（规范分片），没有单独的库哈希（[ADR-0010](../docs/adr/0010-footprint-and-3d-model-ownership.md) 的 2026-10-24 附录）。
 
 ---
 
@@ -39,10 +39,11 @@ footprint sot-23-5
 
 | 键 | 必填 | 说明 |
 |---|---|---|
+| `rev` | 否 | 该文件的事实最后确立的那个发布名（[ADR-0049](../docs/adr/0049-a-file-carries-its-own-revision.md)）。不写也能用：只有信任记录需要它 |
 | `description` | 否 | 自由文本。进 IR 的 `description`。 |
 | `tags` | 否 | 空格分隔的标签列表（KiCad 的 `tags` 是一个空格分隔的字符串）。 |
 | `attr` | 否 | `smd` / `through_hole` / `virtual` / `board_only`；缺省按焊盘推断（全 `smd` → `smd`）。 |
-| `package_code` | 否 | 这块焊盘图案的封装代号，如 `0402`、`SOT-23-5`、`LQFP-100`。器件文件不再写封装名，封装代号由这里说（决策见 [ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) decision 1）。库级检查要求每个封装都写明自己的代号。 |
+| `package_code` | 否 | 这块焊盘图案的封装代号，如 `0402`、`SOT-23-5`、`LQFP-100`。器件文件不再写封装名，封装代号由这里说（决策见 [ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) decision 1）。库级检查要求每个封装都写明自己的代号。**两脚片式封装写 JEDEC（英制）代号**：`0402`，不写 IEC 公制 `1005` —— 同一个封装的两种拼法是两个代号，而工具按代号查表（片式电阻的功率底线按 `0402` 这类代号给，[ADR-0045](../docs/adr/0045-the-package-gives-a-resistor-its-floor.md) D3）；写公制不报错，但那条底线就查不到，实例会被计成未比较。 |
 | `model` | 否 | 3D 模型：`model <path> [offset=x,y,z] [scale=x,y,z] [rot=x,y,z]`。`path` 是项目相对路径。 |
 | `field` | 否 | 属性，可重复：`field <Name> [key=value …] <text…>`。可选键：`at`（`x,y`）、`layer`、`hide`（`yes`）、`size`（`w,h`）、`thickness`。`text` 是**行尾剩余文本**（可为空），所以 `key=value` 必须写在值之前。常见 `Reference` / `Value` / `Datasheet`。 |
 
@@ -93,6 +94,8 @@ pads
 
 **默认层集合**：`smd` → `F.Cu,F.Mask,F.Paste`；`th` → `*.Cu,*.Mask`。板底封装由 `packages/exporter` 决定镜像，不在源里写。
 
+**`*` 是层名的一部分**：`*.Cu` / `*.Mask` 是 KiCad 的通配层名（“每一层铜”），不是缩写——层名的字符集包含 `*`，契约的 `layer_name` 也是一样。通配层名只出现在通孔焊盘上；显式写 `layers=*.Cu,*.Mask` 与 `th` 的默认值等价。
+
 ---
 
 ## 5. `graphics` 段
@@ -137,7 +140,7 @@ graphics
 3. `field` 的 `Name` 唯一。
 4. 编译产物必须通过 `schemas/ir/v0.3/footprint.schema.json`（closed schema）。
 5. 库级检查（与符号引脚号比对、DRC）不属于本描述，属工具链（[ADR-0010](../docs/adr/0010-footprint-and-3d-model-ownership.md) decision 3）。
-6. 编译产物的顺序只依赖语义，不依赖源文件书写顺序：`pads` 按号自然序、`graphics` 按 `(kind, layer, 坐标)`、`fields` 按 `Name`、`tags` 按字节序。同一封装换个写法编译出的 IR 必须字节相同（这是 `content_hash` 与产物可复现的前提）。
+6. 编译产物的顺序只依赖语义，不依赖源文件书写顺序：`pads` 按号自然序、`graphics` 按 `(kind, layer, 坐标)`、`fields` 按 `Name`、`tags` 按字节序。同一封装换个写法编译出的 IR 必须字节相同（这是产物可复现、diff 有意义的前提）。
 
 诊断格式：`file:line:col: <severity> <code>: <message>`。
 

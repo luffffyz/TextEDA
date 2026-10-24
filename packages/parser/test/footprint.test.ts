@@ -116,3 +116,12 @@ describe("error location", () => {
     expect(result.diagnostics[0]!.code).toBe("format.unsupported-version");
   });
 });
+
+describe("the file revision", () => {
+  test("`rev` is a scalar and reaches the IR", () => {
+    const text = ["version 0.4.2", "footprint f", "rev 2.1.0", "", "pads", "  1  smd  roundrect  0  0  1.1  0.6  rratio=0.25", ""].join("\n");
+    const result = parse(text);
+    expect(result.diagnostics.map(formatDiagnostic)).toEqual([]);
+    expect(result.ir!.footprint.rev).toBe("2.1.0");
+  });
+});

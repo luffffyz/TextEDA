@@ -29,7 +29,7 @@ read". A step that does not say "on failure, look at code X" is not finished.
   | Kind | Run from | Example |
   |---|---|---|
   | CLI commands (`init` / `check` / `compile` / `netlist`) | the repository root, or anywhere (the project is a positional argument) | `bun run texteda check /tmp/demo` |
-  | Repository scripts that touch the library (`libhash` / `compile:symbol` / `export:symbol` / `compile:footprint` / `export:footprint`) | **inside the project directory** (the script path points back at `$REPO`, the data paths are project-relative) | `cd /tmp/demo && bun run $REPO/scripts/export-symbol.ts dist/c.json --component assets/components/passives/cap-mlcc-0402.teda --out dist/c.kicad_sym` |
+  | Repository scripts that touch the library (`compile:symbol` / `export:symbol` / `compile:footprint` / `export:footprint`) | **inside the project directory** (the script path points back at `$REPO`, the data paths are project-relative) | `cd /tmp/demo && bun run $REPO/scripts/export-symbol.ts dist/c.json --component assets/components/passives/cap-mlcc-0402.teda --out dist/c.kicad_sym` |
 
   Why the library scripts run inside the project: the `source.file` they write into the IR must be
   a path **relative to the current directory** (an IR contract requirement), and the data files
@@ -63,7 +63,7 @@ What you get (**and nothing else**):
 project.toml
 assets/symbols/  assets/footprints/  assets/components/
 assets/procurement/{primary,alternatives}/
-external/{libs,simulation}/
+external/simulation/
 design/{sch,pcb,modules,system}/  views/  docs/README.md
 ```
 
@@ -78,8 +78,12 @@ Two traps:
 
 ## 3. Step 1: the library (symbol + footprint)
 
-The library holds the **view**; the component (§4) holds the pin facts. The directories are declared
-in `project.toml` under `[libs]`, and the convention is to reference them with the `project:` prefix.
+The library holds the **view**; the component (§4) holds the pin facts. A project's own assets are
+named by a directory, not declared in a table (ADR-0031): `assets/symbols/<lib>/` and
+`assets/footprints/<lib>/`, referenced with the `<lib>:` prefix (the convention for the project's own
+library is `project:`). A library the project does not own is a **template**: `texteda lib import
+<name> --from <dir> --rev <tag> [--only <id>,…]` copies the devices you need into `assets/` under
+bare ids; see `docs/guides/library-import.md`. There is no `external/libs/`: a template is imported from wherever the checkout is, and the copy is the project's own.
 
 ```sh
 mkdir -p /tmp/demo/assets/symbols/project /tmp/demo/assets/footprints/project
@@ -185,33 +189,16 @@ What matters:
   attribute, never a parameter; the package code is **not** in the device file at all — the
   footprint file states it (`package_code`, ADR-0029 decision 1).
 
-## 5. Step 3: lock the library in `project.toml`
+## 5. Step 3: nothing to lock
 
-A self-built library has no upstream version, so it is anchored by a **content hash** (ADR-0010).
-Add to `project.toml`:
+A project's devices, symbols and footprints live under `assets/` and are the project's own
+content. There is no library reference to pin: `project.toml` has no `[libs]` table (it was
+withdrawn — [ADR-0047](../adr/0047-an-external-library-is-a-template-not-a-dependency.md)), and
+`lib:verify` checks the assets directly rather than against a stored hash.
 
-```toml
-[libs.project]
-source = "project"
-symbols = "symbols/project"
-footprints = "footprints/project"
-content_hash = "<computed>"
-```
-
-Compute the hash **inside the project directory, with project-relative paths** (the paths are part
-of the hash, so absolute paths give a different value):
-
-```sh
-cd /tmp/demo && bun run $REPO/scripts/libhash.ts symbols/project footprints/project
-```
-
-```
-d35415857b0258602d2f2c0b7c06df25aa6870159807f2f946d34055280314cc
-2 files, 2 roots
-```
-
-The first line is the hash; paste it into `content_hash`. **Recompute it whenever a library file
-changes** — `lib:verify` reports the mismatch.
+If the assets came from someone else's library, the copy was made with `texteda lib import`, and
+each file carries one header comment saying where it came from. Editing the file is normal work;
+to pick up a newer template, import again from the new revision and diff.
 
 ## 6. Step 4: the schematic
 
@@ -388,8 +375,7 @@ When a "column error" points at a row that looks fine, look at the **line above 
 - [ ] The library directories are created **by hand**, not expected from `init`
 - [ ] The component file name matches the header id; the `params` section matches the instance
       row's column count
-- [ ] `content_hash` was computed **inside the project directory** and pasted back into
-      `project.toml`
+- [ ] `project.toml` has no `[libs]` table (it was withdrawn; the assets are the library)
 - [ ] `check` reports zero errors
 - [ ] `compile` produces the IR; `netlist` produces the connectivity
 - [ ] `bom` lists every line of the board, with the selected part's number where there is one

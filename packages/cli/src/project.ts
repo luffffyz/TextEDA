@@ -17,12 +17,15 @@ import {
   type ModuleSource,
 } from "@texteda/parser";
 import type { Component } from "@texteda/ir/component";
+import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
 import type { Project } from "@texteda/ir/project";
 import type { DiagnosticCodeId } from "@texteda/ir/diagnostics";
 import { PROCUREMENT_ROLES, type ProcurementRole } from "@texteda/parser";
 import type { Device } from "@texteda/core";
+import type { SourceMap } from "@texteda/ir/spans";
 import { LAYOUT } from "./paths.ts";
+import { locateWith } from "./locate.ts";
 
 /** Problem when a component file cannot be read (no exception thrown; the caller aggregates these into diagnostics). */
 export interface ComponentProblem {
@@ -52,9 +55,14 @@ export interface LoadedComponents {
    * shard whose id disagrees with its path would make the tree's identity depend on which reader
    * looks at it.
    */
-  shards: { id: string; file: string; ir: Component }[];
+  shards: { id: string; file: string; ir: Component; sources?: SourceMap }[];
   /** Every diagnostic the component files produced, with severity and hint intact. */
   diagnostics: Diagnostic[];
+  /**
+   * Trees left under `external/libs/`: an external library is a template that `lib import` copies
+   * into `assets/`, so a tree there is reported and never resolved (ADR-0047).
+   */
+  unattachedLibraries: UnattachedLibrary[];
 }
 
 /**
@@ -80,7 +88,7 @@ export function loadComponents(root: string): LoadedComponents {
   const table = new Map<string, ComponentFactsLite>();
   const devices = new Map<string, Device>();
   const problems: ComponentProblem[] = [];
-  const shards: { id: string; file: string; ir: Component }[] = [];
+  const shards: { id: string; file: string; ir: Component; sources?: SourceMap }[] = [];
   const diagnostics: Diagnostic[] = [];
   /** Device files that exist but have errors: a board referencing them must not be told "not found". */
   const broken = new Map<string, string>();
@@ -121,8 +129,23 @@ export function loadComponents(root: string): LoadedComponents {
       });
       continue;
     }
-    if (result.ir) shards.push({ id, file: relativeFile, ir: result.ir });
-    table.set(id, { params: result.component.params, pins: result.component.pins });
+    if (result.ir) {
+      // The contract layer, the same one the shard tree applies (ADR-0019 decision 3): a device whose
+      // IR does not satisfy `component` blocks the build, so `check` reports it rather than passing.
+      const contract = validate("component", result.ir);
+      if (!contract.ok) {
+        broken.set(id, relativeFile);
+        diagnostics.push(...schemaDiagnosticsToDiagnostics(contract.errors, locateWith(result.sources)));
+        continue;
+      }
+      shards.push({ id, file: relativeFile, ir: result.ir, ...(result.sources ? { sources: result.sources } : {}) });
+    }
+    const locate = locateWith(result.sources);
+    table.set(id, {
+      params: result.component.params,
+      pins: result.component.pins,
+      ...(locate === undefined ? {} : { locate }),
+    });
     devices.set(id, {
       id,
       kind: result.component.kind,
@@ -135,8 +158,24 @@ export function loadComponents(root: string): LoadedComponents {
         ]),
       ),
       params: result.component.params.map((param) => ({ name: param.name, type: param.type })),
+      ...(result.component.construction ? { construction: result.component.construction } : {}),
     });
   }
+  // A tree under `external/libs/` that holds asset groups is the shape this project no longer reads
+  // (ADR-0047). Report it here rather than at each reference: otherwise the symptom is a pile of
+  // "unknown component" errors whose cause is a directory nobody is supposed to have.
+  const unattachedLibraries = findUnattachedLibraries(root);
+  for (const library of unattachedLibraries) {
+    diagnostics.push({
+      code: "ref.library-in-tree",
+      severity: "error",
+      message: `external/libs/${library.name} holds library assets, but the build does not read that directory`,
+      hint: "import the devices you need (`texteda lib import <name> --from <dir> --rev <rev>`), then delete the tree: an external library is a template, not a dependency (ADR-0047)",
+      location: { file: `external/libs/${library.name}`, line: 1, col: 1 },
+      data: { library: library.name, groups: library.groups.join(",") },
+    });
+  }
+
   return {
     resolver: {
       resolve: (id) => table.get(id),
@@ -146,7 +185,9 @@ export function loadComponents(root: string): LoadedComponents {
     devices,
     shards,
     diagnostics,
+    unattachedLibraries,
   };
+
 }
 
 export interface LoadedBoard {
@@ -333,4 +374,32 @@ export function loadPcb(root: string, board: string): LoadedBoard | null {
     text: readFileSync(file, "utf8"),
     views: [],
   };
+}
+
+/** One tree under `external/libs/` that the build refuses to read (ADR-0047). */
+export interface UnattachedLibrary {
+  /** Directory name; it was the qualifier when trees were consumed. */
+  name: string;
+  /** Which asset groups it holds (`components`, `symbols`, `footprints`). */
+  groups: string[];
+}
+
+const LIBRARY_GROUPS = ["components", "symbols", "footprints"] as const;
+
+/**
+ * Trees under `external/libs/` that hold asset groups.
+ *
+ * An empty directory, or one with notes only, is not reported: it is not a library. The name is
+ * the directory name, because the file name was the anchor and the anchor is gone.
+ */
+function findUnattachedLibraries(root: string): UnattachedLibrary[] {
+  const base = join(root, "external", "libs");
+  if (!existsSync(base)) return [];
+  const found: UnattachedLibrary[] = [];
+  for (const entry of readdirSync(base, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const groups = LIBRARY_GROUPS.filter((group) => existsSync(join(base, entry.name, group)));
+    if (groups.length > 0) found.push({ name: entry.name, groups: [...groups] });
+  }
+  return found.sort((a, b) => a.name.localeCompare(b.name));
 }

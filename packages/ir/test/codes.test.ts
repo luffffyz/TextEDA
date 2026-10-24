@@ -56,6 +56,8 @@ function stripComments(text: string): string {
 
 const sources = sourceFiles().map((path) => ({ path, text: stripComments(readFileSync(path, "utf8")) }));
 
+const FILE_EXTENSIONS = /^(toml|md|json|jsonl|ts|js|svg|kicad_mod|kicad_sym|teda)$/;
+
 describe("diagnostic error code registry", () => {
   test("every code has a real call site", () => {
     const missing: string[] = [];
@@ -77,6 +79,9 @@ describe("diagnostic error code registry", () => {
       for (const match of source.text.matchAll(pattern)) {
         const domain = match[1]!;
         if (!(DIAGNOSTIC_DOMAINS as readonly string[]).includes(domain)) continue;
+        // A file name is not a code: `library.toml` names the library's manifest, and no diagnostic
+        // code carries a file extension (codes are `domain.slug`, and slugs are kebab-case words).
+        if (FILE_EXTENSIONS.test(match[2]!)) continue;
         const code = `${domain}.${match[2]!}`;
         if (!known.has(code)) wild.push({ file: source.path, code });
       }

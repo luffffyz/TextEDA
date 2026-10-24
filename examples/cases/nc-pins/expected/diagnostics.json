@@ -1,0 +1,26 @@
+[
+  {
+    "code": "bind.not-checked",
+    "severity": "note",
+    "file": "design/sch/debug-header.teda",
+    "line": 1
+  },
+  {
+    "code": "design.power-unknown",
+    "severity": "note",
+    "file": "design/sch/debug-header.teda",
+    "line": 1
+  },
+  {
+    "code": "design.stress-unknown",
+    "severity": "note",
+    "file": "design/sch/debug-header.teda",
+    "line": 1
+  },
+  {
+    "code": "net.pin-unassigned",
+    "severity": "warning",
+    "file": "design/sch/debug-header.teda",
+    "line": 18
+  }
+]

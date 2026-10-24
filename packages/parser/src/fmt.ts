@@ -253,6 +253,9 @@ function canonicalFootprintGraphicRow(row: RawRow, file: string): Row {
 function canonicalFootprintScalars(walk: SurfaceWalk, file: string): Row[] {
   const rows: Row[] = [];
 
+  const rev = walk.scalars.get("rev");
+  if (rev) rows.push({ comments: rev.comments, cells: ["rev", trailingText(rev.cells, 1)] });
+
   const description = walk.scalars.get("description");
   if (description) {
     rows.push({ comments: description.comments, cells: ["description", trailingText(description.cells, 1)] });
@@ -437,6 +440,7 @@ function canonicalSymbolBodyRow(row: RawRow, file: string): Row {
 }
 
 const SYMBOL_SCALARS = [
+  "rev",
   "description",
   "tags",
   "units",

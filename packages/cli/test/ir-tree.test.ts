@@ -3,12 +3,14 @@
 // The tree is the bridge between the source descriptions and everything downstream (netlist,
 // renderers, exporters): its layout, its hashes and its determinism are the contract, so they are
 // checked here rather than only inside the CLI.
+import { irVersion } from "@texteda/ir";
 import { describe, expect, test } from "bun:test";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { aggregateShardHash, buildIrTree, sha256Hex, writeIrTree } from "../src/ir-tree.ts";
+import { buildIrTree, writeIrTree } from "../src/ir-tree.ts";
+import { aggregateShardHash, sha256Hex } from "../src/hash.ts";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const referenceProject = join(repoRoot, "examples", "reference-project");
@@ -87,7 +89,7 @@ describe("IR shard tree hashes", () => {
   test("the manifest lists every shard with its hash", () => {
     expect(tree.manifest.shards.length).toBe(tree.shards.length);
     expect(tree.manifest.shards.map((s) => s.path)).toEqual(tree.shards.map((s) => s.path));
-    expect(tree.manifest.ir_version).toBe("0.9");
+    expect(tree.manifest.ir_version).toBe(irVersion);
     expect(tree.manifest.tool_version).toMatch(/^\d+\.\d+\.\d+$/);
   });
 

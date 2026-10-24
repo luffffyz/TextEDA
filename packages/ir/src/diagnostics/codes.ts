@@ -363,6 +363,13 @@ export const DIAGNOSTIC_CODES = {
     summary: "Invalid value (format, dimension or enum)",
     spec: ["teda.md §4.6"],
   },
+  "value.rev-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "Invalid file revision (`rev`)",
+    hint: "A revision is a release tag or a commit hash, not a branch: no whitespace, no `#`; `+local.N` marks a fork (ADR-0049)",
+    spec: ["teda.md §6.1", "spec/symbol.md §2", "spec/footprint.md §2"],
+  },
   "value.duplicate-field": {
     domain: "value",
     severity: "error",
@@ -482,12 +489,33 @@ export const DIAGNOSTIC_CODES = {
     hint: "Write `[variants.<id>]` with `description`, `dnp`, `nofit` and `alternates`",
     spec: ["AGENTS.md §9"],
   },
+  "value.libref-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "[DEPRECATED] A libref is missing a key or carries a value outside the vocabulary (the `libref` description type was withdrawn)",
+    hint: "Nothing writes or reads a libref: an external library is a template that `texteda lib import` copies into assets/ (ADR-0047)",
+    spec: ["docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md"],
+  },
+  "value.libref-unpinned": {
+    domain: "value",
+    severity: "error",
+    summary: "[DEPRECATED] A libref does not pin an immutable revision (the `libref` description type was withdrawn)",
+    hint: "Nothing writes or reads a libref: the revision is recorded as a header comment in every imported file (ADR-0047)",
+    spec: ["docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md"],
+  },
+  "value.provenance-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "The provenance block does not say what it claims: `reviewed` without an attribution, or `generated` with one",
+    hint: "`provenance reviewed` needs `verified_by` and `verified_on` (YYYY-MM-DD); `provenance generated` takes neither (ADR-0047 decision 5)",
+    spec: ["docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md", "teda.md §6.1"],
+  },
   "value.project-lib-invalid": {
     domain: "value",
     severity: "error",
-    summary: "A library entry is not a table, has no source, or is not pinned",
-    hint: "Write `[libs.<name>]` with a `source` and one of `rev`, `version` or `content_hash`",
-    spec: ["AGENTS.md §9"],
+    summary: "[DEPRECATED] A library entry is not a table, has no source, or is not pinned (`[libs]` was withdrawn)",
+    hint: "A project does not depend on a library: import a template with `texteda lib import` (ADR-0047 decision 7)",
+    spec: ["docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md"],
   },
   "value.project-operating-temp-invalid": {
     domain: "value",
@@ -498,6 +526,41 @@ export const DIAGNOSTIC_CODES = {
   },
 
   // ---- ref: references and resolution ----
+  "ref.library-unverified": {
+    domain: "ref",
+    severity: "error",
+    summary: "[DEPRECATED] A vendored library does not match the content hash its libref pins (there is no vendored library any more)",
+    hint: "Nothing is verified after an import: the copy is the project's own content and editing it is normal work (ADR-0047)",
+    spec: ["docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md"],
+  },
+  "ref.library-unpinned": {
+    domain: "ref",
+    severity: "error",
+    summary: "[DEPRECATED] A directory under external/libs/ has no libref (anchors were withdrawn)",
+    hint: "A tree under external/libs/ is not read at all: import the devices you need with `texteda lib import` (ADR-0047)",
+    spec: ["docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md"],
+  },
+  "ref.id-ambiguous": {
+    domain: "ref",
+    severity: "error",
+    summary: "[DEPRECATED] A bare id resolves to more than one vendored library (libraries are not resolved any more)",
+    hint: "Every device is a file of this project: two providers of one id cannot happen (ADR-0047)",
+    spec: ["docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md"],
+  },
+  "ref.library-in-tree": {
+    domain: "ref",
+    severity: "error",
+    summary: "A tree under external/libs/ holds library assets, but the build does not read that directory",
+    hint: "Import the devices you need (`texteda lib import <name> --from <dir> --rev <rev>`), then delete the tree: an external library is a template, not a dependency (ADR-0047)",
+    spec: ["docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md", "docs/guides/library-import.md"],
+  },
+  "ref.library-qualified-id": {
+    domain: "ref",
+    severity: "error",
+    summary: "A device reference is qualified with a library name (`lib:id`), which no longer resolves",
+    hint: "Write the bare id: an imported device lives in assets/components/ under its own name (ADR-0047)",
+    spec: ["docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md", "teda.md §4.2"],
+  },
   "ref.unknown-component": {
     domain: "ref",
     severity: "error",
@@ -992,7 +1055,7 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     summary: "A device's declared rating cannot cover the declared window of the net it sits on",
     hint: "raise the device's rating, lower the declared window, or state why the window is what it is",
-    spec: ["spec/teda.md §7.4", "docs/adr/0043-ratings-are-compared-against-declared-windows.md"],
+    spec: ["spec/teda.md §7.4", "docs/adr/0043-ratings-are-compared-against-declared-windows.md", "docs/adr/0044-dissipation-is-checked-against-declared-limits.md"],
   },
   "design.stress-unknown": {
     domain: "design",
@@ -1000,6 +1063,13 @@ export const DIAGNOSTIC_CODES = {
     summary: "Instances that could not be compared with their declared window, and why",
     hint: "state the reference potential (voltage GND 0V..0V) and a window on the net; multi-pin stress models are not implemented yet",
     spec: ["docs/adr/0043-ratings-are-compared-against-declared-windows.md"],
+  },
+  "design.power-unknown": {
+    domain: "design",
+    severity: "note",
+    summary: "Resistive instances whose worst-case dissipation could not be compared with any power limit",
+    hint: "state the reference potential (voltage GND 0V..0V) and a window on the net; the package floor covers chip resistors with a JEDEC size, nothing else",
+    spec: ["docs/adr/0044-dissipation-is-checked-against-declared-limits.md", "docs/adr/0045-the-package-gives-a-resistor-its-floor.md"],
   },
   "cli.bad-usage": {
     domain: "cli",
@@ -1059,6 +1129,13 @@ export const DIAGNOSTIC_CODES = {
     severity: "warning",
     summary: "A port symbol does not sit on any wire or pin of the net it names",
     hint: "Place the port's tip on the wire or pin of its net",
+    spec: ["spec/schematic-view.md §9.2"],
+  },
+  "view.wire-crossing": {
+    domain: "view",
+    severity: "warning",
+    summary: "Wires of two different nets cross on a print page",
+    hint: "Route one of them around the other: a crossing carries no junction dot, so it reads as a joined pair",
     spec: ["spec/schematic-view.md §9.2"],
   },
   "view.text-overlap": {

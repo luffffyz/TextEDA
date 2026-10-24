@@ -3,6 +3,8 @@ symbol led
 
 description LED, 2-pin generic view
 tags diode led
+pin_numbers hide
+pin_names hide
 # LED: diode triangle + cathode bar + two light rays.
 field Reference at=0,2.54 U
 field Value at=0,-2.54 led

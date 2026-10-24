@@ -1,0 +1,47 @@
+{
+  "ir_version": "0.13",
+  "format": "0.1.3",
+  "source": {
+    "file": "assets/components/passives/res-thick-0402.teda"
+  },
+  "component": {
+    "id": "res-thick-0402",
+    "rev": "2.1 beta",
+    "kind": "generic",
+    "category": "resistor",
+    "construction": "thick_film",
+    "polarized": false,
+    "symbol": "kicad:Device:R",
+    "footprint": "kicad:Resistor_SMD:R_0402_1005Metric",
+    "params": [
+      {
+        "name": "value",
+        "type": "resistance",
+        "required": true
+      },
+      {
+        "name": "tolerance",
+        "type": "percent",
+        "required": false
+      },
+      {
+        "name": "power",
+        "type": "power",
+        "required": false
+      }
+    ],
+    "pins": [
+      {
+        "number": "1",
+        "name": "A",
+        "electrical_type": "passive"
+      },
+      {
+        "number": "2",
+        "name": "B",
+        "electrical_type": "passive"
+      }
+    ],
+    "pins_source": "inline"
+  }
+}

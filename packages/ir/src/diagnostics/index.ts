@@ -43,11 +43,20 @@ export function hintFor(code: DiagnosticCodeId): string | undefined {
 /** Severity. `error` blocks the export, `warning` only reports, `note` is informational. */
 export type Severity = "error" | "warning" | "note";
 
-/** Location of a diagnostic: path of the file relative to the project root + 1-based line and column. */
+/**
+ * Location of a diagnostic: path of the file relative to the project root + 1-based line and column.
+ *
+ * `col` counts Unicode scalars (a `Ω` or `±` is one column, not two), `byte` is the 0-based UTF-8
+ * offset of the same character. Both are carried because a human reads a column and a tool seeks a
+ * byte (ADR-0020 D3). `end` is exclusive and optional: record-level diagnostics point at the first
+ * token of the record and may give its end.
+ */
 export interface DiagnosticLocation {
   file: string;
   line: number;
   col: number;
+  byte?: number;
+  end?: { line: number; col: number; byte: number };
 }
 
 /** Raw cause of a diagnostic (machine-produced information such as schema validation). */

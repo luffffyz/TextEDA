@@ -3,6 +3,8 @@ symbol thermistor
 
 description NTC thermistor, 2-pin generic view
 tags ntc temperature thermistor
+pin_numbers hide
+pin_names hide
 # NTC thermistor: resistor body + diagonal line + bar at the ends.
 field Reference at=0,2.54 U
 field Value at=0,-2.54 thermistor

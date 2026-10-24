@@ -11,7 +11,7 @@ import type { Schematic } from "@texteda/ir/schematic";
 import { schematicGeometry } from "@texteda/renderer";
 import { viewMetrics, type ViewMetrics } from "@texteda/core";
 import { loadBoard, loadComponents, loadModules } from "./project.ts";
-import { loadSymbolLibrary, schematicInstances } from "./symbols.ts";
+import { loadSymbolLibrary, schematicInstances, type DeviceFacts } from "./symbols.ts";
 
 export interface ViewMetricsOptions {
   readonly root: string;
@@ -117,6 +117,11 @@ export function runViewMetrics(options: ViewMetricsOptions): number {
     (componentId) => resolver.resolve(componentId)?.pins ?? [],
     (componentId) => shards.find((shard) => shard.id === componentId)?.ir.component.symbol,
     loadSymbolLibrary(root),
+    (componentId): DeviceFacts | undefined => {
+      const component = shards.find((shard) => shard.id === componentId)?.ir.component;
+      if (component === undefined) return undefined;
+      return { params: component.params ?? [], ...(component.mpn === undefined ? {} : { mpn: component.mpn }) };
+    },
   );
   const metrics = viewMetrics({
     view: view.ir,

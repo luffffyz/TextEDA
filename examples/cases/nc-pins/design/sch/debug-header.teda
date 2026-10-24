@@ -1,0 +1,39 @@
+version 0.8
+schematic debug-header
+
+# Case 10 of the ten (AGENTS.md §10, docs/backlog.md F12): the three ways a pin can be unconnected.
+#
+#   1. `no_connect` — a fact of the device: pin 7 (key) and pin 8 (unused) are dead pins of this
+#      connector. Left out of every net, they are silent; put them in a net and ERC reports
+#      `net.no-connect-connected`, because a dead pin cannot be wired.
+#   2. intentionally open — pin 9 (GNDDetect) is a live pin this board does not use. It stays out
+#      of every net and ERC says `net.pin-unassigned`: not an error, and not silence either. The
+#      warning is the point — it is what turns "I forgot" and "I decided" into a visible choice.
+#   3. connected — everything else, including the pull-up that keeps the target out of reset when
+#      no probe is attached.
+#
+# SWDIO / SWCLK / SWO each reach only one pin here (the target end is off-board), so they are
+# exposed as ports: a net that ends at a port is not single-member (teda.md §11.4).
+instances
+  J1  hdr-2x5-127
+  R1  res-10k-0402
+
+nets
+  GND:    J1.3  J1.5
+  NRST:   J1.10  R1.1
+  SWCLK:  J1.4
+  SWDIO:  J1.2
+  SWO:    J1.6
+  VTREF:  J1.1  R1.2
+
+ports
+  GND    GND
+  NRST   NRST
+  SWCLK  SWCLK
+  SWDIO  SWDIO
+  SWO    SWO
+  VTREF  VTREF
+
+constraints
+  voltage  GND    0V..0V
+  voltage  VTREF  1.8V..5.5V

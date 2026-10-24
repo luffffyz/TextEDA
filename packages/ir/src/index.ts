@@ -11,7 +11,8 @@ export { irVersion, schemaKinds };
 export type SchemaKind = (typeof schemaKinds)[number];
 
 export * from "./diagnostics/index.ts";
-import type { Diagnostic } from "./diagnostics/index.ts";
+export * from "./spans.ts";
+import type { Diagnostic, DiagnosticLocation } from "./diagnostics/index.ts";
 
 /** Schema-validation diagnostics: only an IR path, no file/line/column (the IR has no line numbers). */
 export interface SchemaDiagnostic {
@@ -62,12 +63,24 @@ export function validate(kind: SchemaKind, data: unknown): { ok: boolean; errors
  *
  * Third-party implementations using Ajv directly can also map to `contract.*` codes without
  * inventing their own scheme — the raw `cause` is preserved alongside.
+ *
+ * `locate` turns an IR path into the source location of the record that produced it (ADR-0020 D8):
+ * schema errors otherwise name a JSON pointer, which its reader — who holds a `.teda` file — cannot
+ * act on. Both points are kept when a locator is supplied: the location is what gets fixed, the
+ * pointer says what the contract objects to.
  */
-export function schemaDiagnosticsToDiagnostics(errors: readonly SchemaDiagnostic[]): Diagnostic[] {
-  return errors.map((e) => ({
-    code: e.keyword === "additionalProperties" ? "contract.unknown-field" : "contract.schema-violation",
-    severity: "error",
-    message: `${e.path === "" ? "/" : e.path} ${e.message}`,
-    cause: { source: "ajv", instancePath: e.path, keyword: e.keyword },
-  }));
+export function schemaDiagnosticsToDiagnostics(
+  errors: readonly SchemaDiagnostic[],
+  locate?: (irPath: string) => DiagnosticLocation | undefined,
+): Diagnostic[] {
+  return errors.map((e) => {
+    const location = locate?.(e.path);
+    return {
+      code: e.keyword === "additionalProperties" ? "contract.unknown-field" : "contract.schema-violation",
+      severity: "error",
+      message: `${e.path === "" ? "/" : e.path} ${e.message}`,
+      ...(location === undefined ? {} : { location }),
+      cause: { source: "ajv", instancePath: e.path, keyword: e.keyword },
+    };
+  });
 }

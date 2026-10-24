@@ -16,7 +16,7 @@
 
 ```
 <项目>/
-  project.toml            # [libs.project] source="project" symbols/footprints + content_hash
+  project.toml            # metadata only: no library reference (assets/ is the library)
   symbols/project/        # 库目录（真源）：一个符号一个 .teda
     bq24610rger.teda
   assets/components/power/bq24610rger.teda   # 引脚名与电气类型在这里

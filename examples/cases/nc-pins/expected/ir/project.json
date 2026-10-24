@@ -1,0 +1,10 @@
+{
+  "ir_version": "0.13",
+  "project": {
+    "description": "Case 10 of the ten: the three ways a pin can be unconnected",
+    "format": "0.9",
+    "name": "nc-pins",
+    "status": "draft",
+    "version": "0.1.0"
+  }
+}

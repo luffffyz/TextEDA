@@ -326,3 +326,22 @@ mapping ([ADR-0023](0023-ir-layer-on-disk.md) decision 2).
 `texteda init` creates `assets/{symbols,footprints,components}` — one less directory than
 before. Nothing else in the tree moves: the seven roots, the ownership grouping and the
 procurement directories stay as they are.
+
+## Addendum (2026-10-24): there is no vendored library to namespace
+
+[ADR-0047](0047-an-external-library-is-a-template-not-a-dependency.md) replaces the dependency
+shape of decisions 5–6: an external library is a **template** copied into `assets/` once, and the
+build does not read `external/libs/**`. Three consequences for this record:
+
+- **Decision 5 (`libref` is a description type) does not apply.** There is no anchor, no
+  `librefs/` shard, and no dependency whose change moves the build. The description type is
+  withdrawn; `external/libs/<name>.toml` is not read.
+- **Decision 6 (libraries are vendored) does not apply.** A tree under `external/libs/` holding
+  asset groups is an error (`ref.library-in-tree`): resolution never looks there.
+- **Decision 7 (namespaces) collapses to the bare id.** Every asset a project reads is its own,
+  so every reference is bare; the `<lib>:<id>` form is rejected with `ref.library-qualified-id`
+  rather than resolved. The `project:` prefix remains accepted as the explicit synonym for a bare
+  id (it was never a library reference — it named the project's own assets).
+
+The tree layout of decisions 3–4 and the shard layout of decision 9 are unchanged, minus the
+`librefs/**` shard and the `components/<lib>/**` shard path that the vendored form required.

@@ -41,14 +41,6 @@ description = "fully populated"
 # dnp = ["comp_c7", "comp_c8"]
 # nofit = ["comp_u3"]
 
-# Library lock: everything in this project is self-built — components, symbols and footprints all live in the repo; no external libraries.
-# Self-built libraries have no upstream rev, so a content hash anchors the version (ADR-0010; recompute: bun run lib:hash assets/symbols/project assets/footprints/project).
-[libs.project]
-source = "project"
-symbols = "assets/symbols/project"
-footprints = "assets/footprints/project"
-content_hash = "5ebab4e0a574d87541d0866664c3cf544dd736ad10cd9d6e3cdbe772ccb970a0"
-
 # Compliance targets: for the review/certification checklist.
 [compliance]
 standards = ["CE", "RoHS"]

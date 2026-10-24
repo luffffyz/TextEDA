@@ -86,12 +86,6 @@ description = "fully populated"
 [variants.lite]
 dnp = ["comp_c7"]
 nofit = ["comp_u3"]
-
-[libs.project]
-source = "project"
-symbols = "assets/symbols/project"
-footprints = "assets/footprints/project"
-content_hash = "5ebab4e0a574d87541d0866664c3cf544dd736ad10cd9d6e3cdbe772ccb970a0"
 `);
     expect(result.diagnostics).toEqual([]);
     expect(result.ok).toBe(true);
@@ -100,16 +94,18 @@ content_hash = "5ebab4e0a574d87541d0866664c3cf544dd736ad10cd9d6e3cdbe772ccb970a0
     expect(result.ir?.boards?.[0]?.revision).toBe("A");
     expect(result.ir?.variants?.map((variant) => variant.id)).toEqual(["default", "lite"]);
     expect(result.ir?.variants?.[1]?.dnp).toEqual(["comp_c7"]);
-    expect(result.ir?.libs?.[0]?.source).toBe("project");
   });
 
-  test("a library that is not pinned is an error", () => {
+  test("`[libs]` is withdrawn, and the message says what to do instead", () => {
     const result = parse(`${MINIMAL}
 [libs.project]
 source = "project"
+content_hash = "00"
 `);
     expect(result.ok).toBe(false);
-    expect(result.diagnostics.some((d) => d.code === "value.project-lib-invalid")).toBe(true);
+    const found = result.diagnostics.find((d) => d.code === "syntax.unknown-field");
+    expect(found?.message).toContain("`[libs]` was withdrawn");
+    expect(found?.message).toContain("lib import");
   });
 
   test("the default variant must exist", () => {

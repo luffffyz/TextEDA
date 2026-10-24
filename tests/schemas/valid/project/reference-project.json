@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.9",
+  "ir_version": "0.13",
   "source": {
     "file": "project.toml"
   },
@@ -36,15 +36,6 @@
     {
       "id": "default",
       "description": "fully populated"
-    }
-  ],
-  "libs": [
-    {
-      "id": "project",
-      "source": "project",
-      "symbols": "symbols/project",
-      "footprints": "footprints/project",
-      "content_hash": "62554fd517982e766c0afb3e43ec110a80649c4bb8780a9f1a2a98bad743bb85"
     }
   ],
   "compliance": {

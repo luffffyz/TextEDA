@@ -103,6 +103,7 @@ nets
 | 名称 | 规则 | 示例 |
 |---|---|---|
 | `component_id` / `board_id` / `page_id` | `[a-z][a-z0-9-]*` | `tps7a02`, `res-thick-0402`, `ch32v307vct6` |
+| 器件引用（`component_id` 出现处） | `[a-z][a-z0-9-]*` | `tps7a02`（`<lib>:<id>` 已撤销，见 §13.4） |
 | `refdes` | `[A-Z]+[0-9]+` | `U1`, `R10`, `LED1` |
 | `net_id` | `[A-Za-z0-9_+-]+(\.[A-Za-z0-9_+-]+)*` | `VBUS`, `USB_DP`, `i2c0.scl` |
 | 引脚名 | `[A-Za-z0-9_+-]+` | `PA0`, `VREF+`, `OSC_IN` |
@@ -134,6 +135,8 @@ description USB hub with 2 downstream ports
 
 解析顺序：先按名称匹配；名称不存在则按编号；两者都命中不同引脚时报“歧义”，要求改用编号。
 
+**匹配到多个引脚就是歧义，不取第一个**：`U1.OUT` 在双运放上命中单元 1 与单元 2 的 `OUT`，报 `ref.ambiguous-pin`，提示写 `U1.1.OUT`；同一单元内重名的引脚（两个 `GND`）同样报歧义，提示改用编号。静默取第一个会把线接到错误的单元上，而图上看不出区别。
+
 ### 4.6 数字与单位
 
 数字为十进制，可带前缀与单位。单位由列类型提供时可以省略。详见 §10.2。
@@ -162,6 +165,7 @@ component tps7a02
 
 | 键 | 必填 | 说明 |
 |---|---|---|
+| `rev` | 否 | 该文件的事实最后确立的那个发布名（tag 或 commit，不是分支、不是格式 `version`、不是库整体版本）。信任记录按它逐字匹配；副本事实偏离来源时写 `<rev>+local.N`（[ADR-0049](../docs/adr/0049-a-file-carries-its-own-revision.md)） |
 | `kind` | 是 | `part`（具体器件）或 `generic`（通用器件）；见 §6.1.1 |
 | `mpn` | 条件 | 制造商料号：`kind: part` 必填，`kind: generic` **必须不写** |
 | `construction` | 条件 | 构造工艺：`kind: generic` 必填，`kind: part` **必须不写** |
@@ -173,6 +177,11 @@ component tps7a02
 | `description` | 否 | 一行人类描述（如 `SOT-23-5 500 mA LDO`）。只是散文：不参与任何检查，也不进身份（[ADR-0042](../docs/adr/0042-a-device-description-enters-the-ir.md)） |
 | `symbol` | 是 | `lib:name` |
 | `footprint` | 是 | `lib:name` |
+| `provenance` | 否 | `generated`（从模板/数据手册抄来、没人核对过）或 `reviewed`（有人对照数据手册核过，必须同时写 `verified_by` 与 `verified_on`）；省略 = 未声明。导入的器件写 `generated`，人核过之后**就地**改成 `reviewed`（[ADR-0047](../docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md)） |
+| `verified_by` | 条件 | `provenance reviewed` 必填：核对人（自由文本，一个名字或账号） |
+| `verified_on` | 条件 | `provenance reviewed` 必填：核对日期 `YYYY-MM-DD` |
+
+`provenance` 是**声明**不是证明：没有签名、没有 strict mode（[ADR-0028](../docs/adr/0028-library-trust-and-derived-overrides.md) 附录）。校验只管形状——`reviewed` 缺归属是错误（`value.provenance-invalid`），因为不可归属的声明比没有声明更糟。
 
 `category` 是**器件类别**，取值是**开放集合**：不设封闭目录，库里没有的类别直接用，小写加下划线。它只做分类，不参与校验逻辑分支；与文件头的类型（`component` / `schematic` / `pcb` / `system`）无关。
 
@@ -272,7 +281,7 @@ params
 - **容差必填 = 不给采购自由发挥**：不写容差，等于授权采购在这一类里随便挑；写了，它就在设计给定的包络里挑。必填集合因此是**一组完整要求**（`100nF ±10% 16V X7R`），不是半份。
 - **容差同时就是最坏情况**：`10k ±1%` 是区间 [9.9kΩ, 10.1kΩ]。评估器要在这段区间上判约束，而不是在标称值上判——设计保证"凡是它允许的件，电路都对"。**限制采购的那个数，就是分析必须扛住的那个数**：一个数，两个用途（评估器是 [ADR-0038](../docs/adr/0038-device-vocabulary-and-parameter-roles.md) 的 open point 与 `docs/backlog.md` F42 的事）。
 - 钽电容与电解电容的罐体随耐压变（[ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) 自己就是拿这条拒绝它们带封装包络的），所以耐压是要求的一部分。
-- 电阻的功率额定值由封装决定（0402 厚膜惯例 1/16W），但**三件事要分开**：件自己的额定值写在件的 `ratings` 段里（它是件的事实）；设计需要的**最低功率能力**写在实例行的 `power` 参数里（它是采购要求，见 [ADR-0039](../docs/adr/0039-a-part-states-its-own-ratings.md)）；设计的**耗散上限**是**约束**（`power R1 63mW`，ERC 检查）。
+- 电阻的功率额定值由封装决定（0402 厚膜惯例 1/16W），但**三件事要分开**：件自己的额定值写在件的 `ratings` 段里（它是件的事实）；设计需要的**最低功率能力**写在实例行的 `power` 参数里（它是采购要求，见 [ADR-0039](../docs/adr/0039-a-part-states-its-own-ratings.md)）；设计的**耗散上限**是**约束**（`power R1.1 63mW`）。三者在 `texteda check` 里会合：阻性器件的做最坏耗散 `ΔV²/R` 同时比这三条边界（[ADR-0044](../docs/adr/0044-dissipation-is-checked-against-declared-limits.md)、§7.4）。**封装惯例不在语言里，在工具的器件表里**（[ADR-0045](../docs/adr/0045-the-package-gives-a-resistor-its-floor.md)）：片式电阻的功率底线按 `(construction, package_code)` 查表（0402 = 62.5mW、0603 = 100mW……），而厚膜是同一封装的最低档，所以这张表给的是**底线**而不是猜测买了哪颗件——超过底线意味着这个封装的任何标准件都扛不住（确定的违规），不超过不证明通过了（高功率档的件确实存在，要它就把要求写出来）。底线**只在没有任何声明时**生效：设计的耗散上限、行的 `power` 要求、件的 `power` 额定值，哪一个说了话，就按它比。
 - `sat_current` 是角色（§6.2.1），但**选填**：它要不要写取决于设计有没有峰值电流；"峰值电流会不会让磁饱和"是**比对**，那是 `docs/backlog.md` F42 的事。
 
 **必填只保证"写出来了"**：解析器强制 `instances` 行给齐每个必填列，所以规格写在源码里。**写出来**与**验证**是两件事（决策见 [ADR-0038](../docs/adr/0038-device-vocabulary-and-parameter-roles.md) D6 与其附录）：现在有一样东西拿件去比要求——采购层拿选中的件自己的 `ratings` 逐角色比这组要求（`spec/procurement.md` §3.3）；**还没有**的东西是拿要求去比电路：没有检查器拿电容的耐压去比它所在的网，也没有评估器在这段容差区间上判约束（`docs/backlog.md` F42）。
@@ -343,7 +352,7 @@ instances
 
 列：`refdes component_id [param...]`。
 
-- `component_id` 必须在 `assets/components/` 树中按文件名找到；同一 id 只允许一个文件；否则报错。
+- `component_id` 是**器件引用**（§4.2）：在 `assets/components/` 树中按文件名找到，同一 id 只允许一个文件。工程里每个器件都是本工程自己的文件——外部库是**模板**，用 `texteda lib import` 一次拷贝进来（做法见 `docs/guides/library-import.md`）。
 - 额外列与该器件 `params` 段**声明的顺序**一一对应（不按名字或类型猜）；`optional` 列只能从右往左省略，`required` 列不能省略。
 - `kind: part` 的实例行只有 `refdes` 与 `component_id`；`kind: generic` 的实例行带上它的参数（值的列必填）。
 - `refdes` 在本文件内唯一。板只有一份原理图文件，板内没有第二套命名空间（v0.7 起，§7.6）。
@@ -411,6 +420,24 @@ constraints
 `stress = max(|max(a) − min(b)|, |max(b) − min(a)|)`
 
 器件的电压能力来自 `instances` 行的 `voltage` 列（通用件：设计要求）或器件自己的 `ratings`（`kind: part`：事实，[ADR-0039](../docs/adr/0039-a-part-states-its-own-ratings.md)）。能力低于应力报 `design.rating-exceeded`；两端的 net 有一个没有窗口、或器件不是两引脚时**不比较**，并在一块板一条的 `design.stress-unknown`（note）里报出数量——没比较不等于通过。容差不参与比较（器件独立漂移，语言还无法声明相关性），降额是项目政策而不是检查器的常数：比的是"能不能扛"，不是"留了多少裕量"。
+
+**耗散同理**（[ADR-0044](../docs/adr/0044-dissipation-is-checked-against-declared-limits.md)）：阻性器件（主量是 `resistance` 的两引脚器件）的最坏耗散是 `P = stress² / R`，`stress` 就是上式那一段窗口差，`R` 取实例行的 `value`（通用件）或件的 `value` 额定值。上界有三处来源，比较取**最紧的那一条**：
+
+| 来源 | 写法 | 说的是 |
+|---|---|---|
+| 设计的耗散上限 | `power <引脚> <max>` 约束 | 这个位置允许多少耗散 |
+| 行的功率要求 | `instances` 行的 `power` 列 | 买到的件至少要能扛多少 |
+| 件的功率额定值 | 件 `ratings` 段的 `power` | 这颗件实际能扛多少 |
+
+超过任一条报 `design.rating-exceeded`（载荷里带 `stress_uw` / `limit_uw` / 起作用的那个来源）。
+
+三处都没说话时，还有一条**兜底**的边界：片式电阻的**封装底线**——同一封装的最低档（厚膜）的功率额定值，按 `(construction, package_code)` 查器件的规则表（`0402` = 62.5mW，[ADR-0045](../docs/adr/0045-the-package-gives-a-resistor-its-floor.md)）。它是**下界**：超过它意味着这个封装的任何标准件都扛不住，违规是确定的；不超过它不证明通过了（更高档的件存在，也需要更高档就把要求写出来）。底线**只在三处都没有声明时**才用，声明了就以声明为准——`power 1W` 的 2010 行买的是 1W 的件，封装惯例不许反过来质疑它。
+
+两端有一个没有窗口、器件不是两引脚、或封装代号这张表不认（例如按 IEC 写成 `1005`）时**不比较**，计入 `design.power-unknown`（note，一块板一条，按原因分列）。
+
+**这是上界，不是实测**：它假设两端同时到达各自窗口的极端，所以两端窗口相同时它给 0——而实际耗散可以不是 0（电流由谁承担，语言还没说，`current VOUT 3A` 不指成员）。因此它只能报违规、不能证明通过。同一个道理，串在两条声明窗口的**交流/阻尼**元件（RC 缓冲的串联电阻）上，这个上界没有物理意义：设计不该给这种位置写耗散上限。
+
+`power` 约束的**主语必须是引脚**（`R1.1`、`M1.R1.1`）：耗散属于器件实例，不属于 net；写 net 的 `power` 约束当前不参与任何比较，也不报错（net 的功率预算还没有语义）。
 
 ### 7.5 `ports` 段（可选，v0.2）
 
@@ -613,7 +640,7 @@ nets
 
 `version` 为 `MAJOR.MINOR[.PATCH]`，三位各自无前导零。**PATCH 位可省略，省略即 0**：`0.6` 与 `0.6.0` 是同一个版本，IR 里只存一种写法（`0.6`）。
 
-`version` 是**该描述类型自己的**版本线，不是全语言共享的一个版本号：今天在飞的是四个号——`schematic 0.8`、`view 0.7`、`symbol 0.5`、`component 0.1.4`（另有 `pcb 0.4`、`footprint 0.4.1`、`system 0.2`、`module 0.8`、`procurement 0.9`）。在 `0.x` 阶段**每种描述类型只走 PATCH 位**（`0.8` → `0.8.1`）：加段、加字段也不抬 MINOR。抬 MINOR 的时机留给最后的合并（见 §13.2）。决策见 `docs/adr/0022-language-versioning.md` 的 2026-10-22 附录。
+`version` 是**该描述类型自己的**版本线，不是全语言共享的一个版本号：今天在飞的是这些号——`schematic 0.8`、`view 0.7`、`symbol 0.5.1`、`component 0.1.7`（另有 `pcb 0.7`、`footprint 0.4.2`、`system 0.2`、`module 0.8`、`procurement 0.9`）。在 `0.x` 阶段**每种描述类型只走 PATCH 位**（`0.8` → `0.8.1`）：加段、加字段也不抬 MINOR。抬 MINOR 的时机留给最后的合并（见 §13.2）。决策见 `docs/adr/0022-language-versioning.md` 的 2026-10-22 附录。
 
 | 位 | 什么时候动 | 动它意味着 |
 |---|---|---|
@@ -689,6 +716,12 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
   - **已落地**：上表的规则表在 `packages/core`（`devices/rules.ts`），由 `texteda check` 执行（决策见 [ADR-0038](../docs/adr/0038-device-vocabulary-and-parameter-roles.md) D7）。
 - `footprint` 描述类型：`0.4` → `0.4.1`（PATCH）。新增 `package_code` 标量：这块焊盘图案的封装代号（`0402`、`SOT-23-5`、`LQFP-100`），供厂商与评审读（决策见 [ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) decision 1）。加字段在 `0.x` 阶段也走 PATCH 位；没写 `package_code` 的文件仍然合法（代号通常已经在封装 id 里），但库级检查（`bun run lib:verify`）要求每个封装都写明自己的代号。
 - `component` 描述类型：`0.1.4` → `0.1.5`（PATCH）。新增 `ratings` 段：`kind: part` 的件在这里写自己的额定值（`role type value`），`kind: generic` 不得写、`kind: part` 仍不得写 `params`（决策见 [ADR-0039](../docs/adr/0039-a-part-states-its-own-ratings.md)）。**IR 契约随之到 0.4**（`component` 分片多了 `ratings`）。用到 `ratings` 的件文件写 `version 0.1.5`；没写的件文件版本行不变（§13.4 的规矩：没用新构造的文件保持旧号）。
+- `component` 描述类型：`0.1.5` → `0.1.6`（PATCH）。新增 `provenance` 标量与 `verified_by` / `verified_on`：器件自己声明事实的来源与核对状态（决策见 [ADR-0047](../docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md) decision 5，取代 [ADR-0028](../docs/adr/0028-library-trust-and-derived-overrides.md) 的派生件）。**IR 契约随之到 v0.12**（`component` 分片多了 `provenance`）。**改法**：不写这三个标量的文件保持原号；`texteda lib import` 写出的文件是 `0.1.6` + `provenance generated`。
+- `component` / `symbol` / `footprint` 三种描述：各新增一个可选标量 `rev`——**该文件的事实最后确立的那个发布名**（不是格式 `version`，不是库整体版本），信任记录按它逐字匹配（决策见 [ADR-0049](../docs/adr/0049-a-file-carries-its-own-revision.md)）。版本线：`component 0.1.6` → `0.1.7`、`symbol 0.5` → `0.5.1`、`footprint 0.4.1` → `0.4.2`（PATCH；**IR 契约随之到 v0.13**）。**改法**：不写 `rev` 的文件保持原号——`rev` 是可选的，没有信任记录时它什么也不影响；`texteda lib import` 写出的器件是 `0.1.7`，并在没有 `rev` 的文件里盖上一个（几何文件保持它自己的版本行：patch 位不决定接受与否）。**同批改动**：`library.toml` 的 `[library] rev` 与 `[[trust]]` 的行级 `rev` 删除，条目的写法变成 `<id>@<rev>`（`docs/guides/library-import.md` §3）。
+- **契约更正**（`v0.13` 原地修，不抬契约号）：`common.schema.json` 的 `layer_name` 模式原先拒绝 `*`，而同一个 schema 的说明、`spec/footprint.md` §3 与解析器都写着“通孔焊盘用 `*.Cu` / `*.Mask`”——于是**任何通孔封装都过不了契约**（`syntax` 过了，`contract.schema-violation` 挡在门口）。模式改为允许 `*`，解析器的 `LAYER_RE` 同步，并补了通孔正例夹具（`tests/schemas/valid/footprint/th-header.json`）。**为什么原地修**：字段、类型、语义都没变，改的是与自身说明矛盾的一条正则；抬一个契约号会让“v0.13 的 IR 到底能不能有通孔封装”变成两个答案。触发用例：`examples/cases/nc-pins`。
+- **撤销**：`project.toml` 的 `[libs]` 表（连同 `content_hash` 与 `bun run lib:hash`）。工程不引用外部库；自建资产就在 `assets/`，作为规范分片进构建身份。旧文件里的 `[libs.*]` 现在报 `syntax.unknown-field`，消息直说改法；`init` 也不再建 `external/libs/`（决策见 [ADR-0047](../docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md) decision 7）。
+- **撤销**：`libref` 描述类型（`external/libs/<name>.toml`）与器件引用的 `<lib>:<id>` 限定形式。工程不再消费 `external/libs/**` 里的树；外部库是模板，用 `texteda lib import` 拷进 `assets/`（决策见 [ADR-0047](../docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md)）。旧工程里的 `external/libs/<name>.toml` 与限定 id 现在分别报 `ref.library-in-tree` 与 `ref.library-qualified-id`；改法：删掉锚点与树，重新 `lib import` 你要用的器件。
+- **收严**（`schematic`，PATCH 位不动）：**引脚引用命中多个引脚就是歧义**。`U1.OUT` 在双运放上同时命中单元 1 与单元 2 的 `OUT`，以前静默取第一个，现在报 `ref.ambiguous-pin` 并提示写 `U1.1.OUT`；同一单元内重名的引脚（两个 `GND`）同样报歧义，提示改用编号（§4.5）。**改法**：多单元器件的 net 成员写成 `<refdes>.<unit>.<pin>`；重名引脚改用编号。**为什么算 PATCH**：它不新增构造，只把一条一直写在规范里、实现却没执行的规则（"名称不唯一时改用编号"）接上——而它咬到的正是**已经在做错事**的文件（把线接到错误的单元上），与 §13.4 里"对本来就该报错的文件收严"同类。触发用例：`examples/cases/dual-opamp-multi-unit`（`docs/backlog.md` F12）。
 - `pcb` 描述类型：`0.7` → `0.7.1`（PATCH）。`physical_only` 的实体**有位置**了：行是 `<id> <type> <x> <y> [args…]`（`spec/pcb.md` §4.11），`cutout` 的参考点是矩形左下角，其余是圆心。同时**删除** `test_point` 形态——测试点是 `sch` 里的单引脚器件，不是 `pcb` 的实体（决策见 [ADR-0035](../docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D8/D9/D11，`docs/backlog.md` F38）。**这是破坏性变更**（老的 `physical_only` 行与 `test_point` 行不再合法），按 §13.1 的 `0.x` 规则走 PATCH 位。**IR 契约随之到 0.9**（`pcb` 分片：`mounting` / `fiducial` / `stitching` 多了 `x_nm` / `y_nm`，`test_point` 变体删除）。**改法**：
   1. 每个 `physical_only` 行在类型后面插两个坐标（mm，默认单位），写在板框里给它定的位置。
   2. `test_point` 行改成 `sch` 里的单引脚器件（不采购的写 `kind generic`），走普通 net 成员规则；`pcb` 里只保留它的封装放置。

@@ -3,13 +3,15 @@ symbol r
 
 description Resistor, 2-pin generic view
 tags passive resistor
-# Generic resistor view: rectangular body + one pin on each side. Shared by several components (0402 / 2010 etc.).
+pin_numbers hide
+pin_names hide
+# Generic resistor view: the IEC rectangle, one pin on each side. Shared by several components (0402 / 2010 etc.).
 field Reference at=0,2.54 U
 field Value at=0,-2.54 r
 
 pins
-  1  -3.81  0  0
-  2  3.81   0  180
+  1  -3.81  0  0    length=1.27
+  2  3.81   0  180  length=1.27
 
 body
-  rect  -1.27,-0.635,1.27,0.635  fill=background  width=0.254
+  rect  -2.54,-1.016,2.54,1.016  fill=background  width=0.254

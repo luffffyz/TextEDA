@@ -22,8 +22,11 @@ import type { Component, ParamDecl, Rating } from "@texteda/ir/component";
 import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
 import { checkDeviceDeclaration, checkDeviceRatingValue, checkDeviceRatings } from "@texteda/core";
 import { lex } from "./lexer.ts";
+import { SourceFile } from "./sources.ts";
+import type { SourceMap } from "@texteda/ir/spans";
 import { parseQuantity, type QuantityKind } from "./quantities.ts";
 import { checkVersion, typeRange } from "./version.ts";
+import { REV_RE } from "./ids.ts";
 
 /** Pin electrical types from `teda.md` §10.1. */
 export const PIN_TYPES: Record<string, true> = {
@@ -96,6 +99,8 @@ export interface ComponentRating {
 export interface ComponentFile {
   /** The id in the `component <id>` header line. */
   id: string;
+  /** The release of this file's facts (ADR-0049); omitted when the file states none. */
+  rev?: string;
   kind: ComponentKind;
   mpn?: string;
   manufacturer?: string;
@@ -113,6 +118,20 @@ export interface ComponentFile {
   pins: ComponentPin[];
   /** The part's own ratings (`kind: part` only, ADR-0039). */
   ratings: ComponentRating[];
+  /**
+   * Where the facts came from, and whether a human checked them (ADR-0047 decision 5).
+   *
+   * Omitted means the file makes no claim. `generated` is what `texteda lib import` writes;
+   * `reviewed` is what a human writes after comparing the facts with the datasheet, in the same
+   * file, together with the attribution that makes the claim answerable.
+   */
+  provenance?: ComponentProvenance;
+}
+
+export interface ComponentProvenance {
+  status: "generated" | "reviewed";
+  verifiedBy?: string;
+  verifiedOn?: string;
 }
 
 export interface ComponentParseResult {
@@ -121,6 +140,8 @@ export interface ComponentParseResult {
   /** The IR shard (`schemas/ir/component`): `component` projected onto the contract, plus its header. */
   ir?: Component;
   diagnostics: Diagnostic[];
+  /** IR path → span of the record that produced it (ADR-0020 D2). Never persisted. */
+  sources?: SourceMap;
 }
 
 /** The `component` type exists since 0.1 (teda.md §13). */
@@ -132,6 +153,7 @@ const PARAM_NAME_RE = /^[a-z][a-z0-9_]*$/;
 
 /** Scalar keys a component file may carry before its first section (`teda.md` §6.1). */
 const SCALAR_KEYS: Record<string, true> = {
+  rev: true,
   kind: true,
   mpn: true,
   manufacturer: true,
@@ -143,6 +165,9 @@ const SCALAR_KEYS: Record<string, true> = {
   datasheet: true,
   lcsc: true,
   description: true,
+  provenance: true,
+  verified_by: true,
+  verified_on: true,
 };
 
 /** Parameter names that may never become a `params` column (they are fixed attributes). */
@@ -207,7 +232,9 @@ export function parseComponent(text: string, options: { file: string }): Compone
     });
   };
 
-  const lines = lex(text);
+  const lexed = lex(text);
+  const src = new SourceFile(file, lexed);
+  const lines = lexed;
   let index = 0;
   const next = () => {
     while (index < lines.length) {
@@ -248,8 +275,13 @@ export function parseComponent(text: string, options: { file: string }): Compone
 
   /** Where each scalar was written, so a diagnostic can point at it. */
   const scalarAt = new Map<string, { line: number; col: number }>();
+  /** The attribution of a review, collected before the provenance block is assembled. */
+  let verifiedBy: string | undefined;
+  let verifiedOn: string | undefined;
   const params: ComponentParamDecl[] = [];
   const ratings: ComponentRating[] = [];
+  /** Line of each `pins` row, parallel to `component.pins` (spans; ADR-0020). */
+  const pinAt: { line: number; col: number }[] = [];
   let section: string | null = null;
   let sectionLine = 0;
 
@@ -285,6 +317,19 @@ export function parseComponent(text: string, options: { file: string }): Compone
       }
       scalarAt.set(key, { line: line.number, col: line.cells[0]!.col });
       switch (key) {
+        case "rev": {
+          // The release of *this file's* facts (ADR-0049 D1): not the format version, not the
+          // library's release, and never a branch name.
+          if (!REV_RE.test(value)) {
+            error(line.number, line.cells[1]?.col ?? line.cells[0]!.col, "value.rev-invalid", `rev must be a release name without whitespace: ${JSON.stringify(value)}`, {
+              expected: "a tag or a commit hash, e.g. 2.1.0",
+              actual: value,
+            });
+          } else {
+            component.rev = value;
+          }
+          break;
+        }
         case "kind": {
           const renamedIn = REMOVED_KIND_VALUES[value];
           if (renamedIn) {
@@ -341,6 +386,23 @@ export function parseComponent(text: string, options: { file: string }): Compone
           break;
         case "description":
           component.description = value;
+          break;
+        case "provenance":
+          if (value !== "generated" && value !== "reviewed") {
+            error(line.number, line.cells[1]!.col, "value.provenance-invalid", `provenance must be generated or reviewed: ${value}`, {
+              expected: "generated | reviewed",
+              actual: value,
+              hint: "`generated` means the facts were transcribed and nobody checked them; `reviewed` means a human compared them with the datasheet",
+            });
+          } else {
+            component.provenance = { ...(component.provenance ?? {}), status: value };
+          }
+          break;
+        case "verified_by":
+          verifiedBy = value;
+          break;
+        case "verified_on":
+          verifiedOn = value;
           break;
       }
       continue;
@@ -492,6 +554,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
         continue;
       }
       component.pins.push({ number: number.text, name: name.text, type: type.text, unit, ...(alt ? { alt } : {}) });
+      pinAt.push({ line: line.number, col: number.col });
     }
   }
 
@@ -603,6 +666,41 @@ export function parseComponent(text: string, options: { file: string }): Compone
     }
   }
 
+  /* ---- provenance (ADR-0047 decision 5): a claim that can be answered, or no claim ---- */
+
+  const provenanceAt = scalarAt.get("provenance");
+  const attributionAt = scalarAt.get("verified_by") ?? scalarAt.get("verified_on");
+  if (component.provenance === undefined) {
+    if (attributionAt !== undefined) {
+      error(attributionAt.line, attributionAt.col, "value.provenance-invalid", "verified_by / verified_on state a review, but the file declares no provenance", {
+        expected: "provenance reviewed",
+        actual: "no provenance line",
+        hint: "write `provenance reviewed` above the attribution, or delete the attribution lines",
+      });
+    }
+  } else if (component.provenance.status === "reviewed") {
+    if (verifiedBy === undefined || verifiedOn === undefined) {
+      error(provenanceAt?.line ?? 1, provenanceAt?.col ?? 1, "value.provenance-invalid", "a reviewed device must say who checked it and when", {
+        expected: "provenance reviewed, verified_by <who>, verified_on <YYYY-MM-DD>",
+        actual: verifiedBy === undefined ? "no verified_by" : "no verified_on",
+        hint: "an unattributable claim is worse than no claim: name the person and the day",
+      });
+    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(verifiedOn)) {
+      error(scalarAt.get("verified_on")!.line, scalarAt.get("verified_on")!.col, "value.provenance-invalid", `verified_on must be YYYY-MM-DD: ${verifiedOn}`, {
+        expected: "YYYY-MM-DD",
+        actual: verifiedOn,
+      });
+    } else {
+      component.provenance = { status: "reviewed", verifiedBy, verifiedOn };
+    }
+  } else if (verifiedBy !== undefined || verifiedOn !== undefined) {
+    error(attributionAt!.line, attributionAt!.col, "value.provenance-invalid", "a generated device carries no attribution", {
+      expected: "provenance generated",
+      actual: "generated with an attribution",
+      hint: "delete verified_by / verified_on, or change the provenance to reviewed",
+    });
+  }
+
   if (!component.symbol) {
     error(sectionLine || 1, 1, "syntax.unknown-field", "a component file must declare its symbol");
   }
@@ -626,6 +724,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
     source: { file, line: 1 },
     component: {
       id: component.id,
+      ...(component.rev !== undefined ? { rev: component.rev } : {}),
       kind: component.kind,
       ...(component.mpn !== undefined ? { mpn: component.mpn } : {}),
       ...(component.manufacturer !== undefined ? { manufacturer: component.manufacturer } : {}),
@@ -635,6 +734,15 @@ export function parseComponent(text: string, options: { file: string }): Compone
       ...(component.datasheet !== undefined ? { datasheet: component.datasheet } : {}),
       ...(component.lcsc !== undefined ? { lcsc: component.lcsc } : {}),
       ...(component.description !== undefined ? { description: component.description } : {}),
+      ...(component.provenance !== undefined
+        ? {
+            provenance: {
+              status: component.provenance.status,
+              ...(component.provenance.verifiedBy !== undefined ? { verified_by: component.provenance.verifiedBy } : {}),
+              ...(component.provenance.verifiedOn !== undefined ? { verified_on: component.provenance.verifiedOn } : {}),
+            },
+          }
+        : {}),
       symbol: component.symbol,
       footprint: component.footprint,
       // The parser already rejected a type outside `PARAM_TYPES`, so the cast only narrows a checked string.
@@ -666,5 +774,12 @@ export function parseComponent(text: string, options: { file: string }): Compone
     },
   };
 
-  return { ok: true, component, ir, diagnostics };
+  // IR path → span. The IR projects the rows one for one, in source order, so the index in the
+  // pointer is the index of the row (ADR-0020 D2/D4).
+  const sources: SourceMap = new Map();
+  params.forEach((param, index) => sources.set(`/component/params/${index}`, src.span(param.line, param.col)));
+  ratings.forEach((rating, index) => sources.set(`/component/ratings/${index}`, src.span(rating.line, rating.col)));
+  pinAt.forEach((at, index) => sources.set(`/component/pins/${index}`, src.span(at.line, at.col)));
+
+  return { ok: true, component, ir, diagnostics, sources };
 }

@@ -3,7 +3,9 @@ symbol d
 
 description Diode, 2-pin generic view
 tags diode
-# Plain diode: anode on the right (pin 2), cathode on the left (pin 1).
+pin_numbers hide
+pin_names hide
+# Plain diode: anode on the left (pin 1), cathode bar on the right (pin 2).
 field Reference at=0,2.54 U
 field Value at=0,-2.54 d
 

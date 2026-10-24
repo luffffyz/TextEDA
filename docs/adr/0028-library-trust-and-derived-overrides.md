@@ -288,3 +288,21 @@ The question was asked as a library question, and it is a review question. A tea
 **designs**, not only library parts, and the record of that review — who, when, verdict,
 notes — is a project artifact with its own rules. Those rules are in
 [ADR-0033](0033-review-records-and-attribution.md).
+
+## Addendum (2026-10-24): derived files are withdrawn; review is an in-place edit
+
+[ADR-0047](0047-an-external-library-is-a-template-not-a-dependency.md) removes the read-only
+library from the project's tree: an external library is a template, copied into `assets/` under
+bare ids, and the copy is the project's own content.
+
+That makes decisions 3 and 4 (derived components, derived families) unnecessary rather than
+wrong: their whole purpose was to let a project disagree with a library it could not edit. A
+project that finds a wrong pin now edits the file it owns — one source, one diff, no second
+description to compare. **Decisions 3 and 4 are withdrawn in the consuming direction.**
+
+Decision 1 (per-part provenance) survives and is now implemented, cheaply: `provenance` is a
+scalar of the component itself (`generated` | `reviewed`), and a human review flips it in place
+with `verified_by` / `verified_on`. Decision 2 (a library carries a manifest and a disclaimer)
+stays valid for the **publishing** side — a library that somebody distributes still says what it
+is — but the consumer no longer carries a disclaimer for content it does not consume. Decision 5
+(strict mode) remains unimplemented and unneeded until a project consumes a library at all.

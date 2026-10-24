@@ -1,0 +1,395 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:texteda:ir:0.13:schematic",
+  "title": "TextEDA IR v0.13 — schematic shard",
+  "description": "Schematic IR of one board: the board's flat list of instances and nets, as declared in design/sch/<board_id>.teda. A board has exactly one schematic file; there is no page level and no flattening. See ADR-0025, ADR-0008 decision 2.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ir_version",
+    "format",
+    "board",
+    "instances",
+    "nets"
+  ],
+  "properties": {
+    "ir_version": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/ir_version",
+      "description": "IR contract version, currently always 0.13."
+    },
+    "format": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/format_version",
+      "description": "Language version of the .teda file that produced this shard."
+    },
+    "source": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/source_ref",
+      "description": "Source-file location: path relative to the project root plus an optional line number."
+    },
+    "board": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/slug",
+      "description": "The board_id shared with design/sch/<board_id>.teda and design/pcb/<board_id>.teda."
+    },
+    "instances": {
+      "type": "array",
+      "description": "All component instances on the board, as declared in the board's schematic file.",
+      "items": {
+        "$ref": "#/$defs/instance"
+      }
+    },
+    "nets": {
+      "type": "array",
+      "description": "All nets of the board.",
+      "items": {
+        "$ref": "#/$defs/net"
+      }
+    },
+    "ports": {
+      "type": "array",
+      "description": "Board-level ports, connecting to external interfaces.",
+      "items": {
+        "$ref": "#/$defs/port"
+      }
+    },
+    "buses": {
+      "type": "array",
+      "description": "Bus definition, declaring a group of nets as one bus.",
+      "items": {
+        "$ref": "#/$defs/bus"
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "description": "Electrical/geometric constraints: voltage/current limits, impedance and so on.",
+      "items": {
+        "$ref": "#/$defs/constraint"
+      }
+    },
+    "note": {
+      "$ref": "urn:texteda:ir:0.13:common#/$defs/note",
+      "description": "Free text; canonical JSON has no comments, this is the substitute."
+    }
+  },
+  "$defs": {
+    "instance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "component"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "urn:texteda:ir:0.13:common#/$defs/instance_id",
+          "description": "Stable instance ID of the board's flat list: U1. Renaming changes identity; see ADR-0008 decision 3."
+        },
+        "component": {
+          "$ref": "urn:texteda:ir:0.13:common#/$defs/device_ref",
+          "description": "Device reference (component_id), bare: every device the project reads is its own file under assets/components/ (ADR-0047)."
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:texteda:ir:0.13:common#/$defs/param_value"
+          },
+          "description": "Ordered as declared in the component's params section; optional columns may be omitted."
+        },
+        "dnp": {
+          "type": "boolean",
+          "description": "Whether it is not placed (unmounted but occupies a spot)."
+        },
+        "logical_only": {
+          "type": "boolean",
+          "description": "E.g. power flags: exist only at the logical layer and produce no physical entity."
+        },
+        "note": {
+          "$ref": "urn:texteda:ir:0.13:common#/$defs/note",
+          "description": "Free text; canonical JSON has no comments, this is the substitute."
+        }
+      }
+    },
+    "net": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "members"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "urn:texteda:ir:0.13:common#/$defs/net_id",
+          "description": "The net name is the identity key."
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:texteda:ir:0.13:common#/$defs/pin_ref"
+          },
+          "description": "Pin reference in numbered form (U1.1), not the pin name. A single-member net is legal but draws an ERC warning."
+        },
+        "note": {
+          "$ref": "urn:texteda:ir:0.13:common#/$defs/note",
+          "description": "Free text; canonical JSON has no comments, this is the substitute."
+        }
+      }
+    },
+    "port": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "net"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-]+$",
+          "description": "Port name, the name visible outside the board."
+        },
+        "net": {
+          "$ref": "urn:texteda:ir:0.13:common#/$defs/net_id",
+          "description": "Net name the port connects to (net_id)."
+        }
+      }
+    },
+    "bus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "nets"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-]+$",
+          "description": "Bus name, unique within the board."
+        },
+        "type": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-]+$",
+          "description": "As of v0.4 this is only a naming convention; no protocol validation is performed."
+        },
+        "nets": {
+          "type": "array",
+          "description": "List of net names the bus contains.",
+          "items": {
+            "$ref": "urn:texteda:ir:0.13:common#/$defs/net_id"
+          }
+        }
+      }
+    },
+    "net_or_pin_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_+-]+(\\.[A-Za-z0-9_+-]+)*$",
+      "description": "The subject can be a net (flattened name) or a pin reference; the two share the same shape and the parser resolves ambiguity by context."
+    },
+    "constraint": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "subject",
+            "min_uv",
+            "max_uv"
+          ],
+          "properties": {
+            "type": {
+              "const": "voltage",
+              "description": "Constraint type: voltage maximum."
+            },
+            "subject": {
+              "$ref": "#/$defs/net_or_pin_ref",
+              "description": "Constraint subject: net name or pin reference."
+            },
+            "min_uv": {
+              "type": "integer",
+              "description": "Voltage minimum, µV."
+            },
+            "max_uv": {
+              "type": "integer",
+              "description": "Voltage maximum, µV."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "subject",
+            "max_na"
+          ],
+          "properties": {
+            "type": {
+              "const": "current",
+              "description": "Constraint type: current maximum."
+            },
+            "subject": {
+              "$ref": "#/$defs/net_or_pin_ref",
+              "description": "Constraint subject: net name or pin reference."
+            },
+            "max_na": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Current maximum, nA."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "subject",
+            "max_uw"
+          ],
+          "properties": {
+            "type": {
+              "const": "power",
+              "description": "Constraint type: power-dissipation maximum."
+            },
+            "subject": {
+              "$ref": "#/$defs/net_or_pin_ref",
+              "description": "Constraint subject: net name or pin reference."
+            },
+            "max_uw": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Power-dissipation maximum, µW."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "net",
+            "value_mohm"
+          ],
+          "properties": {
+            "type": {
+              "const": "impedance",
+              "description": "Constraint type: target impedance."
+            },
+            "net": {
+              "$ref": "urn:texteda:ir:0.13:common#/$defs/net_id",
+              "description": "Constraint subject: net name."
+            },
+            "value_mohm": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Target impedance value, mΩ."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "net",
+            "min_nm",
+            "max_nm"
+          ],
+          "properties": {
+            "type": {
+              "const": "length",
+              "description": "Constraint type: trace-length range."
+            },
+            "net": {
+              "$ref": "urn:texteda:ir:0.13:common#/$defs/net_id",
+              "description": "Constraint subject: net name."
+            },
+            "min_nm": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Length minimum, nm."
+            },
+            "max_nm": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Length maximum, nm."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "net_a",
+            "net_b",
+            "impedance_mohm"
+          ],
+          "properties": {
+            "type": {
+              "const": "diff",
+              "description": "Constraint type: differential-pair impedance."
+            },
+            "net_a": {
+              "$ref": "urn:texteda:ir:0.13:common#/$defs/net_id",
+              "description": "Net name of the positive side of the differential pair."
+            },
+            "net_b": {
+              "$ref": "urn:texteda:ir:0.13:common#/$defs/net_id",
+              "description": "Net name of the negative side of the differential pair."
+            },
+            "impedance_mohm": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Differential impedance value, mΩ."
+            },
+            "tolerance_ppm": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Allowed tolerance of the differential impedance, ppm."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "net_a",
+            "net_b",
+            "op",
+            "length_nm"
+          ],
+          "properties": {
+            "type": {
+              "const": "skew",
+              "description": "Constraint type: length difference between two nets."
+            },
+            "net_a": {
+              "$ref": "urn:texteda:ir:0.13:common#/$defs/net_id",
+              "description": "Net name of the first net compared."
+            },
+            "net_b": {
+              "$ref": "urn:texteda:ir:0.13:common#/$defs/net_id",
+              "description": "Net name of the second net compared."
+            },
+            "op": {
+              "enum": [
+                "<",
+                "<=",
+                ">",
+                ">="
+              ],
+              "description": "Comparison operator applied to the length difference of the two nets."
+            },
+            "length_nm": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Length-difference threshold, nm."
+            }
+          }
+        }
+      ]
+    }
+  }
+}

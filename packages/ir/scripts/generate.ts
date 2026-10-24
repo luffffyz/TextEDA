@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { codeEntry, DIAGNOSTIC_CODES, DIAGNOSTIC_CODE_IDS, DIAGNOSTIC_DOMAINS } from "../src/diagnostics/codes.ts";
 import { IR_QUANTITY_SPECS, quantityOfField } from "../src/units.ts";
 
-const irVersion = process.env.IR_VERSION ?? "v0.9";
+const irVersion = process.env.IR_VERSION ?? "v0.13";
 const here = dirname(fileURLToPath(import.meta.url));
 const schemaDir = join(here, "../../../schemas/ir", irVersion);
 const outDir = join(here, "../src/generated");

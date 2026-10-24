@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.9",
+  "ir_version": "0.13",
   "format": "0.9",
   "source": {
     "file": "assets/procurement/primary/charger-buck.teda",

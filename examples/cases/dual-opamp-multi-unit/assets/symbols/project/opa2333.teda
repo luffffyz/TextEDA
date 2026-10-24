@@ -1,0 +1,27 @@
+version 0.5
+symbol opa2333
+
+# Three units (teda.md §4.5, spec/symbol.md §2): A and B are the amplifiers, drawn identically;
+# unit 3 carries the supply pins, which belong to neither amplifier. `units 3` is what makes the
+# unit column of the pins mean anything.
+description Dual zero-drift op-amp, three units
+tags analog dual opamp
+units 3
+# The device file owns the pin facts (numbers, names, electrical types); this file only draws.
+field Reference at=0,7.62 U
+field Value at=0,-7.62 opa2333
+
+pins
+  1  5.08   0      180
+  2  -5.08  -1.27  0
+  3  -5.08  1.27   0
+  5  -5.08  1.27   0    unit=2
+  6  -5.08  -1.27  0    unit=2
+  7  5.08   0      180  unit=2
+  4  0      -7.62  90   unit=3
+  8  0      7.62   270  unit=3
+
+body
+  poly  -2.54,-2.54,2.54,0,-2.54,2.54,-2.54,-2.54  width=0.254
+  poly  -2.54,-2.54,2.54,0,-2.54,2.54,-2.54,-2.54  unit=2       width=0.254
+  rect  -1.27,-2.54,1.27,2.54                      unit=3       width=0.254

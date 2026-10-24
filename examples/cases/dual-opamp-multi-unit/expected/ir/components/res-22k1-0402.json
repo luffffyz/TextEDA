@@ -1,0 +1,48 @@
+{
+  "component": {
+    "category": "resistor",
+    "footprint": "project:chip-0402",
+    "id": "res-22k1-0402",
+    "kind": "part",
+    "manufacturer": "Yageo",
+    "mpn": "RC0402FR-0722K1L",
+    "pins": [
+      {
+        "electrical_type": "passive",
+        "name": "A",
+        "number": "1",
+        "unit": 1
+      },
+      {
+        "electrical_type": "passive",
+        "name": "B",
+        "number": "2",
+        "unit": 1
+      }
+    ],
+    "pins_source": "inline",
+    "ratings": [
+      {
+        "name": "value",
+        "type": "resistance",
+        "value": 22100000000
+      },
+      {
+        "name": "tolerance",
+        "type": "percent",
+        "value": 10000
+      },
+      {
+        "name": "power",
+        "type": "power",
+        "value": 62500
+      }
+    ],
+    "symbol": "project:r"
+  },
+  "ir_version": "0.13",
+  "source": {
+    "file": "assets/components/passives/res-22k1-0402.teda",
+    "line": 1
+  }
+}
