@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-label="TextEDA avatar">
-  <path d="M61.00 94.00 L179.00 94.00" fill="none" stroke="#00A38E" stroke-width="22" stroke-linecap="round"/>
+  <path d="M55.86 94.00 L184.14 94.00" fill="none" stroke="#00A38E" stroke-width="22" stroke-linecap="round"/>
   <path d="M120.00 94.00 L120.00 127.00" fill="none" stroke="#00A38E" stroke-width="22" stroke-linecap="round"/>
-  <circle cx="40" cy="94" r="14" fill="none" stroke="#FF6B4A" stroke-width="8"/>
-  <circle cx="200" cy="94" r="14" fill="none" stroke="#FF6B4A" stroke-width="8"/>
-  <circle cx="120" cy="148" r="14" fill="none" stroke="#FF6B4A" stroke-width="8"/>
+  <circle cx="34.86" cy="94.00" r="14" fill="none" stroke="#FF6B4A" stroke-width="8"/>
+  <circle cx="205.14" cy="94.00" r="14" fill="none" stroke="#FF6B4A" stroke-width="8"/>
+  <circle cx="120.00" cy="148.00" r="14" fill="none" stroke="#FF6B4A" stroke-width="8"/>
 </svg>

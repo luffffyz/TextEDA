@@ -40,7 +40,11 @@ const FONT_SIZE = 100;
 /** Wordmark size in final units. */
 const WORD_SIZE = 86;
 const PAD = 40;
-const GAP = 58;
+/** Gap between the mark's design-space edge and the wordmark. The chip is centred in its
+ *  240-wide box, so a narrower chip leaves more air in the box; the gap is trimmed to keep the
+ *  optical distance between chip and wordmark the same as before the chip changed width.
+ *  74 - (240 - 204) / 2 = 56. */
+const GAP = 56;
 
 /** Wordmark settings, all measured against the rendered ink gaps. */
 const WORDMARK = {
@@ -358,13 +362,37 @@ function wordmark(
 /** A 2-D point in design space. */
 type Point = [number, number];
 
+/** The board chip and the T that lives in it, in the 240x170 mark design space.
+ *
+ *  The chip is 204x142 (ratio 1.44). It used to be 208x138 (1.51), which read as a squashed slab:
+ *  the T inside it had no room to stand up. Everything inside the chip is derived from the chip
+ *  box, so the T keeps its proportions when the box changes shape. */
+const CHIP = { w: 204, h: 142, r: 30 };
+/** Ring centres, as offsets inside the chip box. */
+const T_IN = {
+  /** Left/right ring centres, inset from the chip's vertical edges. */
+  side: 36,
+  /** Horizontal bar, as a fraction of the chip height, measured from its top edge. */
+  bar: 0.32,
+  /** Bottom ring centre, as a fraction of the chip height. */
+  bottom: 0.70,
+};
+
 /** Flattened T in a landscape board frame -> body in a 240x170 design space. */
 function markFlatSvg(p: Palette, ox = 0, oy = 0, s = 1): string {
-  // Board frame 208x138 at (16,16), trace 22 wide, three 14-radius rings with an 8-wide ring wall,
-  // vias at the bottom corners. All in the 240x170 design space.
-  const tw = 22, ringR = 14, ringW = 8, lx = 54, rx = 186, cy = 60, by = 112;
-  const fx = 16, fy = 16, fw = 208, fh = 138, frx = 30, viaR = 7.5;
-  const viaPos: [number, number][] = [[46, 124], [194, 124]];
+  // Trace 22 wide, three 14-radius rings with an 8-wide ring wall, mounting holes at the
+  // bottom corners. The chip box is centred in the 240x170 design space; the rings sit at the
+  // offsets in T_IN. The holes sit on the corner arcs' centres, so they stay concentric with
+  // the rounded corners however the chip box is resized.
+  const tw = 22, ringR = 14, ringW = 8, holeR = 7.5;
+  const fw = CHIP.w, fh = CHIP.h, frx = CHIP.r;
+  const fx = (240 - fw) / 2, fy = (170 - fh) / 2;
+  const lx = fx + T_IN.side, rx = fx + fw - T_IN.side;
+  const cy = fy + Math.round(fh * T_IN.bar), by = fy + Math.round(fh * T_IN.bottom);
+  const holePos: [number, number][] = [
+    [fx + frx, fy + fh - frx],
+    [fx + fw - frx, fy + fh - frx],
+  ];
   const edge = ringR - ringW / 2 + tw / 2;
   const g = (x: number, y: number): Point => [ox + x * s, oy + y * s];
   const parts: string[] = [];
@@ -384,27 +412,37 @@ function markFlatSvg(p: Palette, ox = 0, oy = 0, s = 1): string {
       `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(ringR * s).toFixed(2)}" fill="none" stroke="${p.coral}" stroke-width="${(ringW * s).toFixed(2)}"/>`,
     );
   }
-  for (const [cx, cyy] of viaPos) {
+  for (const [cx, cyy] of holePos) {
     const [x, y] = g(cx, cyy);
-    parts.push(`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(viaR * s).toFixed(2)}" fill="${p.pale}"/>`);
+    parts.push(`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(holeR * s).toFixed(2)}" fill="${p.pale}"/>`);
   }
   return parts.join("\n  ");
 }
 
-/** Bare flat T in a square canvas — safe for circular crops (GitHub avatar). */
+/** Bare T in a square canvas — safe for circular crops (GitHub avatar).
+ *
+ *  This is the chip's T with the frame dropped. The horizontal span is widened so the T fills
+ *  the circle's width; the vertical offsets stay as the chip has them, so the bar keeps landing
+ *  near the circle's equator (its widest point) and all three rings stay inside the crop.
+ *  Strokes keep their width, so the avatar reads heavier than the chip, as it always has. */
+const ICON_SPREAD = 1.29;
 function avatarBody(p: Palette): string {
   const edge = 14 - 8 / 2 + 22 / 2;
+  const fy = (170 - CHIP.h) / 2;
+  const half = (CHIP.w / 2 - T_IN.side) * ICON_SPREAD;
+  const barY = 120 + (fy + Math.round(CHIP.h * T_IN.bar) - (fy + CHIP.h / 2));
+  const bottomY = 120 + (fy + Math.round(CHIP.h * T_IN.bottom) - (fy + CHIP.h / 2));
   const parts: string[] = [];
   for (const [x1, y1, x2, y2] of [
-    [40 + edge, 94, 200 - edge, 94],
-    [120, 94, 120, 148 - edge],
+    [120 - half + edge, barY, 120 + half - edge, barY],
+    [120, barY, 120, bottomY - edge],
   ]) {
     parts.push(
       `<path d="M${x1.toFixed(2)} ${y1.toFixed(2)} L${x2.toFixed(2)} ${y2.toFixed(2)}" fill="none" stroke="${p.teal}" stroke-width="22" stroke-linecap="round"/>`,
     );
   }
-  for (const [cx, cy] of [[40, 94], [200, 94], [120, 148]]) {
-    parts.push(`<circle cx="${cx}" cy="${cy}" r="14" fill="none" stroke="${p.coral}" stroke-width="8"/>`);
+  for (const [cx, cy] of [[120 - half, barY], [120 + half, barY], [120, bottomY]]) {
+    parts.push(`<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="14" fill="none" stroke="${p.coral}" stroke-width="8"/>`);
   }
   return parts.join("\n  ");
 }
@@ -598,7 +636,7 @@ function buildBrandSheet(path: string): Size {
 
   caption("色板");
   const swatches: [string, string][] = [
-    ["#14213D", "Ink"], ["#00A38E", "Teal"], ["#FF6B4A", "Coral"], ["#EDF3FF", "Chip"], ["#B0C2DB", "Via"],
+    ["#14213D", "Ink"], ["#00A38E", "Teal"], ["#FF6B4A", "Coral"], ["#EDF3FF", "Chip"], ["#B0C2DB", "Hole"],
   ];
   for (const [i, [color, name]] of swatches.entries()) {
     const x = 60 + i * 150;
