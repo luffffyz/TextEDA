@@ -6,7 +6,7 @@ tags diode led
 pin_numbers hide
 pin_names hide
 # LED: diode triangle + cathode bar + two light rays.
-field Reference at=0,2.54 U
+field Reference at=0,3.51 U
 field Value at=0,-2.54 led
 
 pins
@@ -14,9 +14,9 @@ pins
   2  3.81   0  180
 
 body
-  line  -0.635,0.635,-0.254,1.27               width=0.254
-  line  0,0.635,0.381,1.27                     width=0.254
-  line  1.27,-0.635,1.27,0.635                 width=0.254
-  poly  -0.408,1.013,-0.537,1.09,-0.279,0.936
-  poly  -1.27,0.635,1.27,0,-1.27,-0.635        width=0.254
-  poly  0.227,1.013,0.098,1.09,0.356,0.936
+  line  -0.273,1.224,0.112,1.609             width=0.254
+  line  0.489,1.224,0.874,1.609              width=0.254
+  line  1.27,-1.27,1.27,1.27                 width=0.254
+  poly  -1.27,1.27,1.27,0,-1.27,-1.27        width=0.254
+  poly  0.434,1.931,0.253,1.255,-0.242,1.75  fill=outline
+  poly  1.196,1.931,1.015,1.255,0.52,1.75    fill=outline
