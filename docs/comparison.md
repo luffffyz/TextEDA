@@ -1,6 +1,6 @@
 # Tooling comparison: TextEDA vs KiCad vs EasyEDA vs tscircuit
 
-Comparison date: **2026-10-21**. Product versions, licenses and feature splits change; re-check the linked sources before quoting this document. Every statement about TextEDA is made against this repository at that date, including the parts that are not implemented yet.
+Comparison date: **2026-10-25** for every statement about TextEDA (the repository as it stands today, including the parts that are not implemented yet); the third-party facts below were checked on **2026-10-21**. Product versions, licenses and feature splits change; re-check the linked sources before quoting this document.
 
 ## Read this first: the four tools do not occupy the same layers
 
@@ -9,9 +9,9 @@ Comparing a language-and-validator project with a GUI editor is a category error
 | Layer | What lives there | TextEDA | KiCad | EasyEDA | tscircuit |
 |---|---|---|---|---|---|
 | **Source of truth** | the artifact a human edits | `.teda` text files — `sch` and `pcb` are two independent sibling descriptions | `.kicad_sch` / `.kicad_pcb` s-expression files; the schematic drives the PCB | JSON project source (Std and Pro) | TypeScript / TSX code |
-| **Typed IR** | a machine-checkable intermediate form | `schemas/ir/v0.3/` — JSON Schema 2020-12, canonical JSON, integer-only units, `source_hash` | no separate layer; the file *is* the model | JSON project format (partly published) | `circuit-json` — zod-defined element types |
-| **Validation** | ERC / DRC / binding | connectivity ERC + sch↔pcb binding (`packages/core`), IR contract validation, frozen diagnostic codes | built-in ERC and DRC | DRC in both editions; netlist comparison in Pro | zod parse errors plus design-rule warnings carried inside the IR |
-| **Rendering** | the picture of the design | own reference renderer (symbol/footprint → SVG; schematic print pages from the `view` layer, [ADR-0021](adr/0021-schematic-view-layer.md)) | schematic, PCB and 3D viewer in the GUI | schematic and PCB editor in the browser and the desktop client | web viewers for PCB, schematic and 3D |
+| **Typed IR** | a machine-checkable intermediate form | `schemas/ir/v0.13/` — JSON Schema 2020-12, canonical JSON, integer-only units, `source_hash` | no separate layer; the file *is* the model | JSON project format (partly published) | `circuit-json` — zod-defined element types |
+| **Validation** | ERC / DRC / binding | connectivity ERC + sch↔pcb binding + device rules and ratings + procurement selection (`packages/core`), IR contract validation, frozen diagnostic codes | built-in ERC and DRC | DRC in both editions; netlist comparison in Pro | zod parse errors plus design-rule warnings carried inside the IR |
+| **Rendering** | the picture of the design | own reference renderer (symbol / footprint / schematic print page → SVG, each with its reverse extraction, [ADR-0021](adr/0021-schematic-view-layer.md)) plus a browser review app over the rendered pages | schematic, PCB and 3D viewer in the GUI | schematic and PCB editor in the browser and the desktop client | web viewers for PCB, schematic and 3D |
 | **Layout and routing** | placement and copper | **not implemented**; borrowed (KiCad, freerouting) | built in — interactive routing, DRC | built in — routing and DRC | computed in code; `dsn-converter` bridges to freerouting |
 | **Manufacturing output** | Gerbers, drill, pick-and-place | **not implemented yet** (backlog F15); the target shape is manufacturing-neutral data ([ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md)) | built in — Gerber, Excellon, STEP, BOM, position files | built in, plus one-click JLC ordering | `circuit-json-to-gerber`, `-bom-csv`, `-pnp-csv` |
 | **Component library** | symbols and footprints | project-built libraries in `.teda`; a general-purpose library is deliberately out of scope | official symbol and footprint libraries | LCSC / JLCPCB parts library integrated with ordering | per-component npm packages plus `registry.tscircuit.com` |
@@ -23,8 +23,8 @@ One structural difference is worth pulling out of the table, because it is the o
 ## TextEDA (this repository)
 
 - **What it is**: a text description language for a whole hardware project, a typed IR as the single source of truth, validators, a reference renderer and exporters. It is not an editor, not a layout engine, not a library product.
-- **What exists today**: `footprint`, `symbol`, `schematic` and `page` parsing plus canonical formatting; `component` facts (read-only); `pcb` parsing (12 sections); connectivity ERC and sch↔pcb binding checks; KiCad `.kicad_mod` / `.kicad_sym` export; a netlist as the connectivity projection of the IR; a symbol/footprint SVG renderer with a built-in stroke font; `texteda init` / `compile` / `check` / `netlist`. A self-contained reference project with 22 components, 15 symbols and 16 footprints, all libraries self-built.
-- **What it is not, yet**: no schematic renderer, no stable component IDs (identity is still the flattened name — [ADR-0008](adr/0008-ir-shard-identity-and-hash.md) decision 3 is unfulfilled), no manufacturing output, no hierarchy or `fab` description, no ten-case conformance corpus, and no general component library. The honest summary: the front half of the toolchain is landed, the back half is designed.
+- **What exists today**: parsing and canonical formatting for `schematic`, `module`, `view`, `pcb`, `system`, `procurement`, `symbol` and `footprint` (plus read-only `component` facts and `project.toml`); connectivity ERC, sch↔pcb binding (including copper backing of every declared `connect` pair and reporting of partial layouts), device vocabulary and parameter roles, ratings and dissipation against declared limits, procurement selection, review-round closure, and board ↔ print-page cross-checks with readability numbers; KiCad `.kicad_mod` / `.kicad_sym` export; a netlist as the connectivity projection of the IR; a symbol / footprint / schematic-print-page SVG renderer with a built-in stroke font, each closed by `extract(render(ir)) == ir`; the HTML review app; the `dist/ir/` shard tree with a manifest, per-shard sha256, a project hash and a separate `advisory_hash`; `texteda init` / `compile` / `check` / `netlist` / `ir` / `bom` / `view-metrics` / `review` / `lib import`. A self-contained reference project with two boards, 23 devices (17 parts + 6 generics), 15 symbols and 16 footprints, all libraries self-built — plus 2 of the planned 10 difficult cases in `examples/cases/`.
+- **What it is not, yet**: no layout or routing, no manufacturing output (Gerber / Excellon writers and the `fab` description), no KiCad schematic export, no importer for reverse-engineered or external netlists, no module parameters or nesting, and no stable component IDs (identity is still the flattened name — [ADR-0008](adr/0008-ir-shard-identity-and-hash.md) decision 3 is unfulfilled). The review app has one mode (`review`); `placement` / `edit` and click-to-source are pending (backlog F11 / F34). The honest summary: the description layer and the checks are landed, and so is a rendering path you can look at; the physical half is designed.
 - **Its bet**: the *contract* is the product. A third party can implement the language without using this implementation, and the corpus — not the code — is the thing that spreads.
 
 ## KiCad
@@ -60,8 +60,8 @@ The comparison is only honest if the gaps are on the same page as the features:
 | No GUI, no layout, no routing | you cannot finish a board inside TextEDA | by design — KiCad is the backend |
 | No manufacturing output | the pipeline ends at KiCad import for now | backlog F15, target shape decided in [ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md) |
 | Identity is the flattened name | renaming a reference changes its identity; diffs across renames are not stable | [ADR-0008](adr/0008-ir-shard-identity-and-hash.md) (Proposed) decision 3, unfulfilled |
-| No conformance corpus | "standard" is currently a claim backed by one reference project, not by third-party implementations | backlog F12, deliberately deferred |
-| No schematic rendering | a reviewer cannot yet read the design as a picture | backlog F3, view layer decided in [ADR-0021](adr/0021-schematic-view-layer.md) |
+| No conformance corpus | "standard" is currently a claim backed by one reference project and 2 landed cases, not by third-party implementations | backlog F12 (2 of 10 cases), deliberately deferred |
+| No physical sign-off | the design is checked, but no DRC-grade rule set and no manufacturing files | by design — the DRC engine and the manufacturing exit are borrowed ([ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md)) |
 | Small, project-built library | real parts must be authored per project | by design — see [ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) |
 
 ## Which one to use
@@ -73,7 +73,7 @@ The comparison is only honest if the gaps are on the same page as the features:
 
 ## What would change this comparison
 
-TextEDA's claim is that the contract layer becomes the standard. That claim is currently ahead of the evidence: it needs the conformance corpus (F12), stable identity (ADR-0008), a schematic view layer (ADR-0021) and a language version that reaches 1.0 ([ADR-0022](adr/0022-language-versioning.md)). Until then the honest position is: **a well-specified, machine-checkable description language with a working toolchain, and a standard that is not yet demonstrated.**
+TextEDA's claim is that the contract layer becomes the standard. That claim is currently ahead of the evidence: it needs the full ten-case conformance corpus (F12 — 2 of 10 landed), stable identity (ADR-0008), a third-party implementation (F4), and a language version that reaches 1.0 ([ADR-0022](adr/0022-language-versioning.md)). Until then the honest position is: **a well-specified, machine-checkable description language with a working toolchain, and a standard that is not yet demonstrated.**
 
 ## Sources
 
