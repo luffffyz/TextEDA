@@ -1,4 +1,4 @@
-version 0.8
+version 0.9
 schematic multi-unit
 
 # Case 2 of the ten (AGENTS.md §10, docs/backlog.md F12): a dual op-amp, one part with three units.
@@ -11,9 +11,9 @@ schematic multi-unit
 # supply; unit B buffers its output. Both units share one supply pair, which lives in unit 3.
 # No decoupling, no mid-rail bias offset: this case is about unit identity, not about analog design.
 instances
-  R1  res-22k1-0402
-  R2  res-10k-0402
-  U1  opa2333
+  R1  IDrv7pbd  res-22k1-0402
+  R2  IDykgsg8  res-10k-0402
+  U1  IDrqteny  opa2333
 
 nets
   FB:       R1.2  R2.1  U1.1.IN-

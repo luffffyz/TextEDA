@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.13",
+  "ir_version": "0.14",
   "procurement": {
     "board": "charger-buck",
     "role": "secondary",

@@ -15,7 +15,7 @@ const minimalSchematic: Schematic = {
   nets: [],
 };
 
-// @ts-expect-error ir_version is currently only 0.9; once the type widens, this assertion fails to compile
+// @ts-expect-error ir_version is currently only 0.14; once the type widens, this assertion fails to compile
 const wrongVersion: Schematic = { ...minimalSchematic, ir_version: "0.2" };
 
 const minimalComponent: Component = {

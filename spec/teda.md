@@ -345,12 +345,16 @@ ratings
 
 ```
 instances
-  R1  res-th-0402  10k  ±1%
-  C1  cap-tantalum-7343  220uF  10V
-  U1  tps7a02
+  R1  ID7k3m9q  res-th-0402       10k   ±1%
+  C1  IDk2m8q4  cap-tantalum-7343  220uF  10V
+  U1  IDp8x2n4  tps7a02
 ```
 
-列：`refdes component_id [param...]`。
+列：`refdes [uid] component_id [param...]`。
+
+- `uid` 是实例的**稳定身份**（`ID` + 6 个 Crockford Base32 小写字符，共 8 位；决策见 [ADR-0051](../docs/adr/0051-instances-have-a-stable-project-local-uid.md)）。它由实例创建时生成一次，之后不可变、不复用；工程内唯一。第二个单元格以 `ID` 开头时按 UID 解析，因此旧行（`refdes component_id ...`）仍然合法；`0.9` 起新文件应写 UID，缺失由 `texteda check` 报 `value.instance-uid-missing`（warning，不阻断旧文件迁移）。
+- UID **不是** refdes：改 refdes 不改 UID；`fmt` 永不生成、改写或删除 UID。重复 UID 在任何入口都是 error（`value.duplicate-instance-uid`），不会被静默改写。
+- 模块内的实例写自己的本地 UID；展平后的板级 UID 是 `<模块实例 UID>/<本地 UID>`（如 `IDp8x2n4/IDk2m8q4`），本地 UID 可以在不同模块实例里重复。
 
 - `component_id` 是**器件引用**（§4.2）：在 `assets/components/` 树中按文件名找到，同一 id 只允许一个文件。工程里每个器件都是本工程自己的文件——外部库是**模板**，用 `texteda lib import` 一次拷贝进来（做法见 `docs/guides/library-import.md`）。
 - 额外列与该器件 `params` 段**声明的顺序**一一对应（不按名字或类型猜）；`optional` 列只能从右往左省略，`required` 列不能省略。
@@ -372,7 +376,7 @@ nets
 - 其余单元格是引脚引用。
 - **续行**：首个单元格是**裸 `:`** 的行，是上一 net 行的延续——它给上一行命名的 net 增加成员。续行的标志是显式的符号，不是缩进（§3：缩进不表达任何含义）；续行成员与首行成员对齐到同一列。
 - 续行必须跟在某个 net 行之后，否则报错（`net.continuation-without-net`）。连续多行续行都归属同一个 net。
-- **同名 net 行可重复出现并合并成员**；同一引脚在同一 net 中重复出现报错。
+- **同名 net 行可重复出现并合并成员**：`nets` 段的同名行、以及同一个 `bus` 块内同名的成员行，都合并成一个 net。重复判断的键是 **net 上下文**——同一个 bus 块的不同成员 net（如 `sda:` 与 `scl:`）各自维护成员列表；同一个引脚只有在**同一个** net 的成员列表里重复出现才算错误（`net.duplicate-member`，error），跨 net 重复由 `net.pin-in-two-nets` 报错。
 - 只有一个成员的 net 合法，但 ERC 给出警告。
 - 每个引脚最多属于一个 net；未连接且不是 `no_connect` 的引脚给出警告。
 
@@ -387,6 +391,8 @@ bus i2c0 = I2C
 - `bus <bus_id> = <type>` 开始一个 bus 块，直到下一个段头或指令。
 - 成员行格式同 `nets`，包括续行：裸 `:` 的行给上一个 bus 成员行增加引脚。
 - 成员 net 的全名是 `<bus_id>.<member>`，例如 `i2c0.scl`。
+- **一个 bus id 只允许一个块**：`bus i2c0` 出现两次报 `ref.duplicate-bus`（error），第二个块不进入 IR。重复的**成员行**（同一个 `<member>` 写两次）会像 `nets` 的重复行一样合并；重复的**引脚**只在同一个成员 net 内报 `net.duplicate-member`（error）——不同成员 net 之间不互相判重。
+- bus 成员 net 是普通 net：`ports` 与 `constraints` 可以直接点名 `<bus_id>.<member>`（解析顺序同 §4.5，先 net 后引脚引用）。
 - v0.1 的 bus 类型只有命名意义，不做协议校验。
 
 ### 7.4 `constraints` 段
@@ -463,11 +469,11 @@ ports
 
 一块板 = 一份 `design/sch/<board_id>.teda` + 若干个模块文件。板内**没有**第二套绘制划分：没有 `pages` 段，没有 `page` 描述类型。板内**有**一层逻辑层次：**模块**——带端口、持有电气事实，语法见 `spec/module.md`，决策见 `docs/adr/0026-modules-compose-boards.md`。
 
-- 板文件里有一个 `modules` 段，列出模块实例（`M1  charger-power`）；模块体在 `design/modules/<module_id>.teda`。
+- 板文件里有一个 `modules` 段，列出模块实例（`M1  IDp8x2n4  charger-power`）；模块体在 `design/modules/<module_id>.teda`。模块实例行同样带稳定 UID（§7.1）；模块内的实例本地 UID 展平后带模块实例 UID 作前缀。
 - 板级 `instances` 与模块并存：不属于任何模块的器件直接写在板文件里，用普通 `refdes`。
 - `refdes` 与 `net` 名在**板级**唯一；模块内部有**自己的一套** `refdes` 与 `net` 名，展平后带 `M` 限定名（`M1.R1`、`M1.VCC`）。撞名由作者改名解决（工具不限定名、不重编号）。
 - 模块端口与板级 net 的绑定写在板级 `nets` 段（成员可以是 `M2.VOUT` 这样的模块端口引用）。
-- 展平后的板级 IR 是**扁平的**：一张实例表、一张 net 表，不含模块结构（IR 契约仍是 0.2）。
+- 展平后的板级 IR 是**扁平的**：一张实例表、一张 net 表，不含模块结构（IR 契约仍是平表；`instance.uid` 是附加身份字段，见 [ADR-0051](../docs/adr/0051-instances-have-a-stable-project-local-uid.md)）。
 - 板的 `ports` 段是它对外的唯一接口（§7.5）。
 - 板内的**绘制划分**（"这块图画不下"、评审想分块看）属于**视图层**：`views/<board_id>/<page_id>.view.teda` 是一个**打印页**，它引用板级的 `instance_id` 与 `net_id`（模块实例化之后是 `M1.U1`），语法见 `spec/schematic-view.md`。打印页可以随时丢弃、随时重画；删掉全部打印页，板的逻辑依然完整、可校验、可导网表。
 - **BOM**：行 = (`component_id`, 参数字典, 变体状态)，聚合键**不含** `refdes`；数量 = 板上的实物数（模块实例化几次就算几份）。详见 §11。
@@ -640,7 +646,7 @@ nets
 
 `version` 为 `MAJOR.MINOR[.PATCH]`，三位各自无前导零。**PATCH 位可省略，省略即 0**：`0.6` 与 `0.6.0` 是同一个版本，IR 里只存一种写法（`0.6`）。
 
-`version` 是**该描述类型自己的**版本线，不是全语言共享的一个版本号：今天在飞的是这些号——`schematic 0.8`、`view 0.7`、`symbol 0.5.1`、`component 0.1.7`（另有 `pcb 0.7`、`footprint 0.4.2`、`system 0.2`、`module 0.8`、`procurement 0.9`）。在 `0.x` 阶段**每种描述类型只走 PATCH 位**（`0.8` → `0.8.1`）：加段、加字段也不抬 MINOR。抬 MINOR 的时机留给最后的合并（见 §13.2）。决策见 `docs/adr/0022-language-versioning.md` 的 2026-10-22 附录。
+`version` 是**该描述类型自己的**版本线，不是全语言共享的一个版本号：今天在飞的是这些号——`schematic 0.9`、`view 0.7`、`symbol 0.5.1`、`component 0.1.7`（另有 `pcb 0.7`、`footprint 0.4.2`、`system 0.2`、`module 0.9`、`procurement 0.9`）。在 `0.x` 阶段**每种描述类型默认只走 PATCH 位**（`0.8` → `0.8.1`）：加段、加字段一般也不抬 MINOR；0.9 的 UID 是最后一个全局号上的表面新增。抬 MINOR 的时机留给最后的合并（见 §13.2）。决策见 `docs/adr/0022-language-versioning.md` 的 2026-10-22 附录。
 
 | 位 | 什么时候动 | 动它意味着 |
 |---|---|---|
@@ -691,6 +697,7 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
     5. 仍带 `page` 头或 `pages` 段的文件，诊断指向本条迁移说明。
 - `0.8` 新增：`module` 描述类型、`sch` 的 `modules` 段、模块端口与板级 net 的绑定、板内展平（决策见 `docs/adr/0026-modules-compose-boards.md`，语法见 `spec/module.md`）。板内重新有了**一层逻辑层次**：模块持有电气事实，带端口；绘制划分仍在视图层的打印页里。**IR 契约不变**（仍是 0.2）：板级 IR 是展平结果，不含模块结构。用到 `module` 或 `modules` 段的文件写 `version 0.8`；只含板级内容的文件仍可写 `0.7`。
 - `0.9` 新增（**`0.x` 的最后一个全局号**）：`procurement` 描述类型——一块板的采购选料（决策见 `docs/adr/0030-procurement-layer.md`，语法见 `spec/procurement.md`）。选料是**决定**不是事实：主料进工程哈希与板哈希，备料只进 advisory 哈希。`procurement` 文件写 `version 0.9`。**已落地**（2026-10-23）：解析器与 canonical fmt（`packages/parser`）、IR 契约 **v0.6** 的 `procurement` 分片（规范的主料分片 + 附注的备料分片）、`texteda compile --procurement` 与 `texteda check` 的接线。**未落地**：选料与件额定值的比对检查、BOM 输出（`docs/backlog.md` F35）。
+- `0.9` 同时新增：`schematic` 与 `module` 的实例行可带稳定 UID（`refdes IDxxxxxx …`、`M1 IDxxxxxx module_id`；决策见 [ADR-0051](../docs/adr/0051-instances-have-a-stable-project-local-uid.md)）。IR 契约到 **v0.14**，`instance` 多一个可选 `uid`；展平后的模块实例 UID 形如 `IDmodule/IDlocal`。这不是引用重写：`nets` 成员、`view` 摆位、`pcb` 摆位仍按显示名引用。
 - `component` 描述类型：`0.1` → `0.1.1`（PATCH）。新增 `kind` / `construction` / `polarized` 三个标量，并把 `kind` 变成必填、`kind: family` 的 `params` 变成必填（决策见 [ADR-0027](../docs/adr/0027-device-parts-families-and-library-dependencies.md)）。**这是破坏性变更**（老文件不再合法），按 §13.1 的 `0.x` 规则走 PATCH 位，改法见下：
   - **改法**（本项目尚无外部使用者，没有需要迁移的旧文件；下面是改动的机械部分）：
     1. 有 `mpn` 的文件加 `kind part`，没有 `mpn` 的文件加 `kind family`；两者都不写 `construction` / `polarized`。

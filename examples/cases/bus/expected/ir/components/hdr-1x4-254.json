@@ -1,0 +1,44 @@
+{
+  "component": {
+    "category": "connector",
+    "description": "2.54 mm 1x4 header, through-hole",
+    "footprint": "project:hdr-1x4-254",
+    "id": "hdr-1x4-254",
+    "kind": "part",
+    "manufacturer": "Samtec",
+    "mpn": "TSW-104-07-F-S",
+    "pins": [
+      {
+        "electrical_type": "power_in",
+        "name": "GND",
+        "number": "1",
+        "unit": 1
+      },
+      {
+        "electrical_type": "power_in",
+        "name": "VDD",
+        "number": "2",
+        "unit": 1
+      },
+      {
+        "electrical_type": "bidirectional",
+        "name": "SDA",
+        "number": "3",
+        "unit": 1
+      },
+      {
+        "electrical_type": "input",
+        "name": "SCL",
+        "number": "4",
+        "unit": 1
+      }
+    ],
+    "pins_source": "inline",
+    "symbol": "project:hdr-1x4"
+  },
+  "ir_version": "0.14",
+  "source": {
+    "file": "assets/components/connectors/hdr-1x4-254.teda",
+    "line": 1
+  }
+}

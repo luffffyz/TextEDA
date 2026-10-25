@@ -1,0 +1,56 @@
+version 0.9
+schematic sensor-hub
+
+# Case 7 of the ten (AGENTS.md §10, docs/backlog.md F12): a bus names nets, it does not join them.
+#
+#   `bus i2c0 = I2C` with members `sda` / `scl` is a naming scheme: the compiler expands it into two
+#   ordinary nets called `i2c0.sda` and `i2c0.scl`, each with its own member list. Nothing about
+#   connectivity is implied — a member net is checked by the same rules as any other net. The type
+#   (`I2C`) is a label: it does not check the protocol.
+#
+# The rows are long on purpose: fourteen downstream ports plus the uplink on each net is more than
+# 80 columns, so the canonical form continues them with a bare `:` in the first column. The
+# continuation is a layout fact, not a semantic one — the same description on one line compiles to
+# identical IR bytes (§10).
+#
+# Two buses on one board, because a bus is a naming scheme and not a signal class: `pwr` carries the
+# supply, named per rail (`pwr.gnd`, `pwr.vdd`). A bus whose member is a power net is still a net —
+# and a port may name it, which is how the hub's uplink reaches the board above it.
+instances
+  H1   ID6hv1af  hdr-1x4-254
+  J1   IDfp6f16  jst-sh-4
+  J2   IDbhxg83  jst-sh-4
+  J3   IDe0tafm  jst-sh-4
+  J4   IDh2ey48  jst-sh-4
+  J5   IDdye73d  jst-sh-4
+  J6   IDj7nbrs  jst-sh-4
+  J7   IDajm6zd  jst-sh-4
+  J8   ID3ww4a8  jst-sh-4
+  J9   ID73f4qn  jst-sh-4
+  J10  ID33b82n  jst-sh-4
+  J11  IDa9rgf5  jst-sh-4
+  J12  IDdj8k7y  jst-sh-4
+  J13  ID5z6fts  jst-sh-4
+  J14  ID8cz7r6  jst-sh-4
+
+ports
+  I2C_SCL  i2c0.scl
+  I2C_SDA  i2c0.sda
+  PWR_GND  pwr.gnd
+  PWR_VDD  pwr.vdd
+
+bus pwr = PWR
+  gnd:  H1.1  J1.1  J2.1  J3.1  J4.1  J5.1  J6.1  J7.1  J8.1  J9.1  J10.1
+  :     J11.1  J12.1  J13.1  J14.1
+  vdd:  H1.2  J1.2  J2.2  J3.2  J4.2  J5.2  J6.2  J7.2  J8.2  J9.2  J10.2
+  :     J11.2  J12.2  J13.2  J14.2
+
+bus i2c0 = I2C
+  sda:  H1.3  J1.3  J2.3  J3.3  J4.3  J5.3  J6.3  J7.3  J8.3  J9.3  J10.3
+  :     J11.3  J12.3  J13.3  J14.3
+  scl:  H1.4  J1.4  J2.4  J3.4  J4.4  J5.4  J6.4  J7.4  J8.4  J9.4  J10.4
+  :     J11.4  J12.4  J13.4  J14.4
+
+constraints
+  voltage  pwr.gnd  0V..0V
+  voltage  pwr.vdd  3.0V..3.6V

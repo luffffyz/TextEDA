@@ -3,7 +3,7 @@
 `texteda review` serves the review app: the project's print pages, drawn by the renderer, with
 hover and click so a reviewer can ask "what is this, and what is it on" without leaving the drawing.
 Decision: [ADR-0021](../adr/0021-schematic-view-layer.md) (the 2026-10-24 appendix records the form
-this first version takes).
+this first version takes; the 2026-10-25 appendix records the planned `layout` mode).
 
 ## Run it
 
@@ -38,9 +38,10 @@ server sends. That file is the static report for a pull request: no build step, 
   It does not invent a layout. What it does show is the board's instances as chips: the logic is
   there even when the drawing is not, and clicking a chip reports that instance's facts.
 - **A page that cannot be drawn says why** and is marked in the board list.
-- **Nothing is written back.** The app adds behaviour to the SVG it is given; the drawing is not
-  regenerated, and there is no way to move a symbol from the canvas (ADR-0021, AGENTS.md §2
-  invariant 3).
+- **`review` writes nothing back.** The app adds behaviour to the SVG it is given; the drawing is
+  not regenerated, and there is no way to move a symbol from the `review` canvas (ADR-0021,
+  AGENTS.md §2 invariant 3). The planned `layout` mode is the one exception: it writes `place`
+  rows, never `design/**` (2026-10-25 appendix).
 
 ## Interaction
 
@@ -55,6 +56,11 @@ server sends. That file is the static report for a pull request: no build step, 
 | `+` / `-` | Zooms in and out. |
 | `←` / `→` | Previous and next print page of the board. |
 
+These bindings are `review`'s. The planned `layout` mode reuses click to select, drag to move the
+selected symbol (not to pan), and a 90-degree rotate key; wires are not recomputed until `Apply`
+(2026-10-25 appendix). The source jump is an explicit action in both modes: double-click or press
+`Enter`; a single click only selects.
+
 The mark is a screen annotation: its stand-off (4 px plus half the drawing's typical 0.25 mm stroke)
 and its stroke (1.25 px hovered, 1.75 px picked) are rewritten in sheet units on every zoom, so both
 the outline and the gap to the drawn edge keep their size at any magnification. The half-stroke term
@@ -65,9 +71,12 @@ a "1.5 px" stroke then paints 1.5 mm, which reads as a slug over small parts.
 
 ## What is not built
 
-- **Click-to-source.** Selecting an element reports the facts the model already carries. Opening the
-  file at the line that mentions it needs the identity index of `docs/backlog.md` F11.
-- **`placement` and `edit` modes** from ADR-0021 decision 5.
+- **Source jump.** Selecting an element reports the facts the model already carries. Opening the
+  file at the line that mentions it needs the identity index of `docs/backlog.md` F11, and it is
+  an explicit action: double-click the selection or press `Enter`, not the click that selects it.
+- **`layout`, `placement` and `edit` modes** from ADR-0021 decision 5. `layout` is the S1
+  placement surface: select, drag, 90-degree rotate, writes `place` only; routing is rerouted on
+  `Apply`, never live (2026-10-25 appendix).
 - **Note anchors** (`[instance:U3]` prefixes), which are an open point of
   [ADR-0033](../adr/0033-review-records-and-attribution.md).
 

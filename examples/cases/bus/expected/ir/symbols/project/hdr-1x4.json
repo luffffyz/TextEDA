@@ -1,0 +1,103 @@
+{
+  "ir_version": "0.14",
+  "source": {
+    "file": "assets/symbols/project/hdr-1x4.teda",
+    "line": 1
+  },
+  "symbol": {
+    "body": [
+      {
+        "end": {
+          "x_nm": 3810000,
+          "y_nm": 5080000
+        },
+        "fill": "background",
+        "kind": "rect",
+        "start": {
+          "x_nm": -2540000,
+          "y_nm": -5080000
+        },
+        "unit": 1,
+        "width_nm": 254000
+      }
+    ],
+    "description": "2.54 mm 1x4 header, view only",
+    "fields": [
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": 5080000
+        },
+        "name": "Reference",
+        "value": "J"
+      },
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": -5080000
+        },
+        "name": "Value",
+        "value": "hdr-1x4"
+      }
+    ],
+    "in_bom": true,
+    "library": "project",
+    "name": "hdr-1x4",
+    "on_board": true,
+    "pin_name_offset_nm": 508000,
+    "pin_names_hidden": false,
+    "pin_numbers_hidden": false,
+    "pins": [
+      {
+        "at": {
+          "rotation_mdeg": 180000,
+          "x_nm": 5080000,
+          "y_nm": 3810000
+        },
+        "length_nm": 2540000,
+        "number": "1",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 180000,
+          "x_nm": 5080000,
+          "y_nm": 1270000
+        },
+        "length_nm": 2540000,
+        "number": "2",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 180000,
+          "x_nm": 5080000,
+          "y_nm": -1270000
+        },
+        "length_nm": 2540000,
+        "number": "3",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 180000,
+          "x_nm": 5080000,
+          "y_nm": -3810000
+        },
+        "length_nm": 2540000,
+        "number": "4",
+        "style": "line",
+        "unit": 1
+      }
+    ],
+    "power": false,
+    "tags": [
+      "connector",
+      "header"
+    ],
+    "units": 1
+  }
+}

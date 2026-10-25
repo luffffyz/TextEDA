@@ -1,0 +1,19 @@
+version 0.4.1
+footprint jst-sh-4
+
+description 1.0 mm 4-pin side-entry connector, generic land pattern
+tags connector jst smd
+attr smd
+package_code SH-4
+field Reference at=0,-2.6 layer=F.SilkS size=1,1 thickness=0.15 J**
+field Value at=0,2.6 layer=F.Fab size=1,1 thickness=0.15 jst-sh-4
+
+pads
+  1  smd  roundrect  -1.5  0  0.6  1.55  rratio=0.25
+  2  smd  roundrect  -0.5  0  0.6  1.55  rratio=0.25
+  3  smd  roundrect  0.5   0  0.6  1.55  rratio=0.25
+  4  smd  roundrect  1.5   0  0.6  1.55  rratio=0.25
+
+graphics
+  rect  F.CrtYd  -2.35,-1.4,2.35,1.4  width=0.05
+  rect  F.Fab    -1.9,-0.4,1.9,1.4    width=0.1

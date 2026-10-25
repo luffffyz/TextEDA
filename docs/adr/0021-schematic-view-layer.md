@@ -104,6 +104,8 @@ All nine are `semantic` stage: the view file is readable, and what is wrong is t
 
 The registry only holds the codes that are actually emitted ([ADR-0016](0016-diagnostic-error-codes.md)): a code is registered when the code that raises it lands, and not before. So the table above is the **planned** vocabulary of the view layer, not the current registry — `docs/error-codes.md` is the registry, `spec/schematic-view.md` §9 says which checks are implemented.
 
+This was the **opening** vocabulary, not a closed list: `view.text-on-wire`, `view.wire-diagonal` and `view.wire-crosses-pin` were added later through the registry and the spec, not through a new record. The registry remains authoritative; see the 2026-10-25 appendix for where the checks live and why they are advisory.
+
 ## Alternatives Rejected
 
 **Put optional placement fields inside the schematic IR.** Cheapest to implement (one parser, one shard) and it keeps everything in one file. Rejected because it mixes a discardable view layer into the logical contract: the logical IR would then carry a part that may be absent, stale, or contradictory, and every consumer of the logical IR would have to know to ignore it. AGENTS.md §3 separates S0 from S1 precisely so that the logic can be consumed by tools that never draw anything (netlist export, ERC, binding checks). It would also be a breaking change to a published contract for no functional gain, which means an IR version bump and a migration — all to avoid one extra file type.
@@ -282,8 +284,9 @@ with `--out <file>`. The decisions above are unchanged; what follows is what the
   counting two -- `spec/schematic-view.md` §5.1), and it stays out of the projection, so it cannot
   contradict the wiring. That convention is also the answer to "should a crossing hop over another
   line?" -- no: the dot already carries the whole meaning (*dot = joined, no dot = drawn past*), a
-  hop would be a second convention saying the same thing in pictures, and the real repair is routing,
-  which is why `view.wire-crossing` names the two nets and the point instead.
+  hop would be a second convention saying the same thing in pictures. (The first draft of this
+  appendix also reported crossings with `view.wire-crossing`; the 2026-10-25c appendix supersedes
+  that: a plain crossing carries no dot and is not a connection.)
 - **Zoom resizes the SVG; it does not scale a bitmap.** An earlier version zoomed with
   `transform: scale()` on the canvas, which lets the browser scale a rasterised copy of the sheet and
   re-rasterise afterwards: the drawing goes soft for a moment on every wheel step and snaps back.
@@ -299,3 +302,125 @@ with `--out <file>`. The decisions above are unchanged; what follows is what the
 - **Still open.** Click-to-source needs the identity index of F11 (section 4 above), so a click
   currently reports the facts the model already carries (instance, device, parameters, nets) and
   nothing more; `placement` and `edit` modes are not built. F34 keeps the remaining work.
+
+## Appendix (2026-10-25): the readability checks live in `core`, and they are advisory
+
+The checks landed in `packages/core/src/view/readability.ts`, not in `packages/renderer` as
+decision 4 step 3 sketched. The split is deliberate:
+
+- **Geometry from the renderer, judgement in `core`.** `packages/renderer`'s
+  `schematicGeometry` computes text boxes, symbol bodies and pin connection points with the same
+  transforms and stroke-font metrics as the drawing; `core` declares the shape it reads
+  (`ReadabilityGeometry`) and the renderer satisfies it structurally. Neither package imports the
+  other, and `core` stays free of drawing and file-system dependencies.
+- **Every readability finding is a warning.** `texteda check` reports them; `compile`, `export`,
+  `ir` and the netlist are not blocked by them. The findings never enter an IR shard, the project hash or
+  any manufacturing artifact — the view is a drawing, not a build input
+  ([ADR-0032](0032-view-is-a-drawing-not-a-build-input.md)).
+- **A new check is a spec and registry change, not a new record.** Add the rule to
+  `spec/schematic-view.md` (§5 and §9.2), add the code to
+  `packages/ir/src/diagnostics/codes.ts`, regenerate `docs/error-codes.md`: that is the whole
+  contract change ([ADR-0016](0016-diagnostic-error-codes.md);
+  [ADR-0022](0022-language-versioning.md) classifies it as a PATCH). The list in decision 5 was
+  the opening vocabulary; `view.text-on-wire`, `view.wire-diagonal` and `view.wire-crosses-pin`
+  were added this way.
+- **`view.wire-crosses-pin` reads connection points only.** The rule tests a wire's path
+  (pin -> bends -> pin) against the coordinates in `ReadabilitySymbol.pins`, excluding the wire's
+  own `from_pin` / `to_pin`; it does not model the pin's graphic stroke, because the view's
+  geometry facts do not carry one. One finding per wire-pin pair, with the pin's sheet coordinate
+  in `data`.
+
+## Appendix (2026-10-25): S1 placement is a hand tool, and routing is a committed step
+
+The 2026-10-22 addendum said the canvas navigates and does not edit, with no dragging or snapping
+in the viewer. That remains true for `review`. This appendix carves out one exception, for the print
+page only, and settles how its wires are recomputed.
+
+- **A fourth mode, `layout`, places S1 symbols.** `review` stays read-only (hover, select, jump,
+  notes); `layout` lets a person select one symbol, drag it, and rotate it in 90-degree steps;
+  `placement` stays the PCB canvas; `edit` stays the text split view. The drag/rotate in `layout`
+  edits only `views/<board_id>/<page_id>.view.teda` `place` rows; `Apply` writes those rows and the
+  recomputed `wire` rows. It does not write `design/**`, `assets/**`, an IR shard, the project
+  hash or a manufacturing artifact. The view file remains the single source; the canvas is a
+  second *input* to that source, not a second model.
+- **Drag snaps, but the view grid does not move.** Placement snaps to 1.27 mm (or the symbol's own
+  pin pitch); the view's 0.01 mm grid remains the storage precision, not the placement grid.
+  Rotation is 90 degrees. The first form selects one symbol; multi-select is not part of this
+  decision.
+- **Selection is a state; navigation is an action.** A single click selects a symbol (and in
+  `layout` a press-and-move starts a drag); it does not open a file. `Enter`, or a double-click that
+  did not travel, opens the definition menu: the `sch` instance row for parameters, the `view`
+  placement, the component file, the footprint, and the net/pin lines. This keeps the
+  drag/rotate branch and the edit-source branch from competing for one gesture, and leaves
+  selection usable for inspection and a later multi-select. The 2026-10-24 addendum's
+  "click-to-source" means this explicit action, not the selecting click. `edit` owns `Enter` for
+  text; the shortcut is for `review` and `layout`.
+- **Routing is not live.** A `wire` row is a derivative of `place` + the logical netlist, so it is
+  recomputed at a commit point, not on every pointer move. A move or rotation marks the page's
+  routing stale: the existing wires stay (their endpoints are pin references and follow the
+  symbol), but their absolute bends may no longer be orthogonal or clear, and `check` may report
+  `view.wire-diagonal` or `view.wire-crosses-pin`. Those are warnings, and
+  they are the stale signal; the page is not a review artifact until it is rerouted
+  (`docs/skills/draw-print-page.md` §2.4).
+- **The commit is an Apply, not a per-frame loop.** The first form keeps the pending placement in
+  the UI; `Apply` writes the `place` rows and recomputes the affected `wire` rows in one
+  transaction. The affected set is the nets of the moved/rotated symbols, the nets whose wires
+  intersect the new symbol geometry, and the labels/ports on those nets; every other net is left
+  untouched. The router is outside the viewer (an agent or a deterministic generator); the viewer
+  does not own a routing algorithm or an auto-placer. A full `Re-route all` is a separate action
+  that says it may replace manual wire edits.
+- **Why not real time.** Per-frame routing makes the result depend on the drag path rather than on
+  the final `place` rows, so the same layout can produce different wires. It also churns the
+  drawing while the person is judging placement, overwrites manual wire/label edits
+  ([ADR-0032](0032-view-is-a-drawing-not-a-build-input.md)), and turns the canvas into the
+  interactive router this project does not have. If routing is generated by an agent, a per-frame
+  loop is not even available.
+- **Manual wire edits survive.** A reroute must not silently overwrite a wire the person edited
+  (ADR-0032). The first form reroutes only the affected set and shows the diff; a manual wire edit
+  on an affected net is a conflict to resolve, not a line to replace. A wholesale regeneration is
+  an explicit `Re-route all`, never the default.
+- **Not built yet.** `review` is the only mode that exists. `layout`, `placement` and `edit` remain
+  F34 work. This appendix is the decision; it does not claim the canvas exists.
+
+## Appendix (2026-10-25b): `view.wire-crosses-pin` also tests the pin's drawn stroke
+
+The earlier appendix said the check read connection points only, because the geometry facts did
+not carry the pin's graphic. That gap is now closed without adding a geometry field: a pin sits
+outside its symbol's body and runs along an axis, so its stroke is the axis-aligned segment from
+the connection point to the nearest body edge (`pinStroke` in `packages/core/src/view/geometry.ts`).
+
+- **The rule covers both the point and the stroke.** A wire that misses the connection point but
+  crosses the short line the reader sees as the pin is the same defect: the pin looks like part of
+  the wire, and the drawing no longer says where the pin ends. The connection-point test is still
+  skipped when that pin is the wire's endpoint (the wire ends there); the stroke test is not
+  skipped, because a run that reaches the pin from the wrong side still crosses the drawn pin.
+- **One code, two shapes.** `view.wire-crosses-pin` keeps its meaning and code. A point hit carries
+  the pin's coordinate in `x_nm` / `y_nm`; a stroke hit adds `cross_x_nm` / `cross_y_nm`, the point
+  on the stroke. The spec change is §5 and §9.2 of `spec/schematic-view.md`; the registry summary
+  now says "connection point or drawn line". This is a PATCH under
+  [ADR-0022](0022-language-versioning.md), not a new diagnostic.
+- **The body check no longer exempts the wire's own endpoints.** `view.wire-crosses-symbol` already
+  treated the body as an obstacle; a wire through the body of the symbol that owns one of its ends
+  is still a wire through a body. `viewMetrics`'s `wires_through_bodies` now uses the same rule, so
+  the measurement and the warning agree.
+
+## Appendix (2026-10-25c): a crossing is not a connection, and arms are directions
+
+The 2026-10-24 appendix said a crossing of two nets is reported and must be routed around. That
+made a standard schematic convention into a defect: with one rule — **dot = joined, no dot = drawn
+past** — a plain crossing already says "not connected", and routing around every crossing costs
+page space for no gain. This appendix supersedes that sentence.
+
+- **Different-net wires may cross without a dot.** A crossing point is not a junction; only three
+  or more arms of one net draw a dot (spec §5.1). `view.wire-crossing` is deprecated: the code and
+  its row stay for old reports, but `checkReadability` no longer emits it. Crossings remain a
+  `view-metrics` number, not a rule.
+- **Arms are distinct directions, not `wire` rows.** Two rows that overlap along the same line are
+  one visible arm. Counting rows made a pin fed by two coincident runs grow a dot even though the
+  page shows a single wire; `junctionDots` now dedupes by normalized direction.
+- **A foreign pin never gets a dot.** A pin belongs to one net; a run of another net that passes
+  through it is `view.wire-crosses-pin` (a warning), not a junction. Without this, a PH run passing
+  through a VOUT pin would draw a PH dot on a VOUT pin and claim a short. The reference buck page
+  had exactly that shape at L1 and is now routed around the foreign pin.
+- **The reference page uses the allowance.** C1.2 drops straight to the GND bus and crosses the
+  VFB run; no dot, no warning, and the wire no longer needs a label-only fallback.

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:texteda:ir:0.13:project",
-  "title": "TextEDA IR v0.13 — project shard",
+  "$id": "urn:texteda:ir:0.14:project",
+  "title": "TextEDA IR v0.14 — project shard",
   "description": "IR projection of project.toml: human-written metadata plus the board, variant and compliance lists. Contains no circuit semantics. See ADR-0008 decision 6.",
   "type": "object",
   "additionalProperties": false,
@@ -11,11 +11,11 @@
   ],
   "properties": {
     "ir_version": {
-      "$ref": "urn:texteda:ir:0.13:common#/$defs/ir_version",
-      "description": "IR contract version, currently always 0.13."
+      "$ref": "urn:texteda:ir:0.14:common#/$defs/ir_version",
+      "description": "IR contract version, currently always 0.14."
     },
     "source": {
-      "$ref": "urn:texteda:ir:0.13:common#/$defs/source_ref",
+      "$ref": "urn:texteda:ir:0.14:common#/$defs/source_ref",
       "description": "Source-file location: path relative to the project root plus an optional line number."
     },
     "project": {
@@ -39,7 +39,7 @@
           "description": "Project version, not the language version."
         },
         "format": {
-          "$ref": "urn:texteda:ir:0.13:common#/$defs/format_version",
+          "$ref": "urn:texteda:ir:0.14:common#/$defs/format_version",
           "description": "The .teda language version used by the project."
         },
         "description": {
@@ -61,7 +61,7 @@
           "description": "Project status: draft, prototype, frozen, production, deprecated."
         },
         "default_variant": {
-          "$ref": "urn:texteda:ir:0.13:common#/$defs/slug",
+          "$ref": "urn:texteda:ir:0.14:common#/$defs/slug",
           "description": "Id of the default variant; omitted when there is only one variant."
         },
         "authors": {
@@ -132,7 +132,7 @@
       "description": "The one free-extension area; unknown top-level keys are always an error (AGENTS.md §9)."
     },
     "note": {
-      "$ref": "urn:texteda:ir:0.13:common#/$defs/note",
+      "$ref": "urn:texteda:ir:0.14:common#/$defs/note",
       "description": "Free text; canonical JSON has no comments, this is the substitute."
     }
   },
@@ -146,7 +146,7 @@
       ],
       "properties": {
         "id": {
-          "$ref": "urn:texteda:ir:0.13:common#/$defs/slug",
+          "$ref": "urn:texteda:ir:0.14:common#/$defs/slug",
           "description": "board_id, matching design/sch/<board_id>.teda and design/pcb/<board_id>.teda."
         },
         "revision": {
@@ -168,7 +168,7 @@
       ],
       "properties": {
         "id": {
-          "$ref": "urn:texteda:ir:0.13:common#/$defs/slug",
+          "$ref": "urn:texteda:ir:0.14:common#/$defs/slug",
           "description": "Variant id, unique within the project."
         },
         "description": {
@@ -178,7 +178,7 @@
         "dnp": {
           "type": "array",
           "items": {
-            "$ref": "urn:texteda:ir:0.13:common#/$defs/slug"
+            "$ref": "urn:texteda:ir:0.14:common#/$defs/slug"
           },
           "description": "component_id or instance id not to be placed; affects only the BOM and manufacturing, never connectivity (AGENTS.md §11 item 8)."
         },
@@ -186,7 +186,7 @@
           "type": "array",
           "description": "component_id or instance id not to be assembled; affects only the BOM and manufacturing, never connectivity.",
           "items": {
-            "$ref": "urn:texteda:ir:0.13:common#/$defs/slug"
+            "$ref": "urn:texteda:ir:0.14:common#/$defs/slug"
           }
         },
         "alternates": {
@@ -201,11 +201,11 @@
             ],
             "properties": {
               "from": {
-                "$ref": "urn:texteda:ir:0.13:common#/$defs/slug",
+                "$ref": "urn:texteda:ir:0.14:common#/$defs/slug",
                 "description": "Id of the component being replaced."
               },
               "to": {
-                "$ref": "urn:texteda:ir:0.13:common#/$defs/slug",
+                "$ref": "urn:texteda:ir:0.14:common#/$defs/slug",
                 "description": "Id of the replacement component."
               }
             }

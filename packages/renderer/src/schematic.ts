@@ -275,8 +275,21 @@ export function renderSchematic(
     });
   }
 
+  // The net each pin belongs to, learned from the runs that end there. A pin named by two nets is
+  // malformed (the cross-check reports it); it gets no dot, so the drawing never invents a join.
+  const pinNets = new Map<string, string | null>();
+  for (const run of runs) {
+    for (const point of [run.points[0], run.points[run.points.length - 1]]) {
+      if (point === undefined) continue;
+      const key = `${point.x},${point.y}`;
+      const known = pinNets.get(key);
+      if (known === undefined) pinNets.set(key, run.net);
+      else if (known !== run.net) pinNets.set(key, null);
+    }
+  }
+
   // Junction dots, over the wires and under the symbols.
-  for (const dot of junctionDots(runs)) {
+  for (const dot of junctionDots(runs, pinNets)) {
     primitives.push({
       kind: "circle",
       cx: dot.x,
@@ -313,48 +326,75 @@ export function renderSchematic(
 }
 
 /**
- * Where three or more runs of one net meet.
+ * Where three or more arms of one net meet.
  *
  * The view carries no junction records: a connection point is a property of the drawn geometry, so
  * it is derived here and stays out of the IR (a dot that was written down could contradict the runs
  * it sits on). The rule counts **arms**: a run ending on the point is one arm, a run passing through
- * it is two, and three or more is a join -- an L bend between two runs is a corner, not a junction.
+ * it is two, a pin connection point is one, and three or more is a join -- an L bend between two
+ * runs is a corner and a single wire on a pin is a two-arm connection, neither is a junction.
  *
  * Arms are counted per net, so two runs of different nets that merely touch draw no dot: the absence
  * of a dot is the drawing's way of saying "not connected", and drawing one there would be a false
  * claim about connectivity.
  */
-function junctionDots(runs: readonly { net: string; points: Point[] }[]): Point[] {
+function junctionDots(
+  runs: readonly { net: string; points: Point[] }[],
+  pinNets: ReadonlyMap<string, string | null>,
+): Point[] {
+  // A pin connection point is itself one arm: one wire ending there is a two-arm connection (wire
+  // plus pin) and draws no dot, while two wires ending there make three arms and draw one. Arms are
+  // **distinct directions**, not records: two wire rows that overlap along the same line make one
+  // visible arm, so a pin fed by two coincident runs must not gain a dot. A pin belongs to exactly
+  // one net; a run of another net that happens to pass through it is a crossing, not a junction.
   const seen = new Set<string>();
   const dots: Point[] = [];
   for (const run of runs) {
     for (const point of run.points) {
       const key = `${point.x},${point.y}`;
+      const pinNet = pinNets.get(key);
+      if (pinNet !== undefined && pinNet !== run.net) continue; // a foreign pin is not this net's join
       if (seen.has(key)) continue;
       seen.add(key);
-      let arms = 0;
+      const arms = new Set<string>();
+      if (pinNet === run.net) arms.add("pin");
       for (const other of runs) {
         if (other.net !== run.net) continue;
         for (let i = 0; i + 1 < other.points.length; i += 1) {
-          arms += armsAt(point, other.points[i]!, other.points[i + 1]!);
-          if (arms >= 3) break;
+          for (const arm of armDirections(point, other.points[i]!, other.points[i + 1]!)) arms.add(arm);
         }
-        if (arms >= 3) break;
+        if (arms.size >= 3) break;
       }
-      if (arms >= 3) dots.push(point);
+      if (arms.size >= 3) dots.push(point);
     }
   }
   return dots;
 }
 
-/** How many arms one segment contributes at a point: 0 (away), 1 (an end) or 2 (passing through). */
-function armsAt(point: Point, a: Point, b: Point): number {
-  if ((point.x === a.x && point.y === a.y) || (point.x === b.x && point.y === b.y)) return 1;
+/** The distinct directions in which a segment leaves a point: none, one (an end) or two (a pass). */
+function armDirections(point: Point, a: Point, b: Point): string[] {
+  const dir = (to: Point): string => {
+    let dx = to.x - point.x;
+    let dy = to.y - point.y;
+    const g = gcd(Math.abs(dx), Math.abs(dy)) || 1;
+    dx /= g;
+    dy /= g;
+    return `${dx},${dy}`;
+  };
+  if ((point.x === a.x && point.y === a.y) && (point.x === b.x && point.y === b.y)) return [];
+  if (point.x === a.x && point.y === a.y) return [dir(b)];
+  if (point.x === b.x && point.y === b.y) return [dir(a)];
   const cross = (b.x - a.x) * (point.y - a.y) - (b.y - a.y) * (point.x - a.x);
-  if (cross !== 0) return 0;
+  if (cross !== 0) return [];
   const dot = (point.x - a.x) * (b.x - a.x) + (point.y - a.y) * (b.y - a.y);
   const length = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
-  return dot > 0 && dot < length ? 2 : 0;
+  if (dot <= 0 || dot >= length) return [];
+  return [dir(a), dir(b)];
+}
+
+function gcd(a: number, b: number): number {
+  while (b !== 0) [a, b] = [b, a % b];
+  return a;
 }
 
 function wireEndpoint(
@@ -494,8 +534,29 @@ export interface SheetSymbol {
   readonly pins: ReadonlyMap<string, { readonly x_nm: number; readonly y_nm: number }>;
 }
 
+/**
+ * A field text the symbol drew (its Reference or Value), as laid out on the sheet.
+ *
+ * Kept apart from `texts` on purpose: `texts` holds the *view's* records — the things an author can
+ * move inside this file — while a field is placed by the symbol's own `field` segments. A reader
+ * cannot tell the two apart on paper, so the checks read both.
+ */
+export interface SheetField {
+  readonly instance_id: string;
+  /** The symbol's field name (`Reference` / `Value`). */
+  readonly name: string;
+  /** What is actually printed: the instance's designator or value, not the symbol's placeholder. */
+  readonly text: string;
+  readonly box: SheetBox;
+  /** The view record that places the instance (`/place/3`): moving the field means editing the symbol. */
+  readonly ir_path?: string;
+}
+
+
 export interface SheetGeometry {
   readonly texts: readonly SheetText[];
+  /** Text the symbols drew (Reference / Value), in the same coordinates as `texts`. */
+  readonly fields: readonly SheetField[];
   readonly symbols: readonly SheetSymbol[];
 }
 
@@ -551,6 +612,39 @@ function textBox(x: number, y: number, text: string, sizeNm: number, anchor: "st
 }
 
 /**
+ * Box of a text drawn at an angle, as the page shows it: the run keeps its anchor and rotates about
+ * it, so the axis-aligned box is the box of the rotated rectangle. Right angles only (a symbol's
+ * field rotation is a multiple of 90), which is why the corners give an exact box and not a bound.
+ */
+function rotatedTextBox(
+  x: number,
+  y: number,
+  text: string,
+  sizeNm: number,
+  anchor: "start" | "middle" | "end",
+  rotateMdeg: number,
+): SheetBox {
+  const width = textAdvance(text, sizeNm);
+  const half = sizeNm / 2;
+  const left = anchor === "start" ? 0 : anchor === "end" ? -width : -width / 2;
+  const rad = (rotateMdeg * Math.PI) / 180_000;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const corner of [
+    { x: left, y: -half },
+    { x: left + width, y: -half },
+    { x: left + width, y: half },
+    { x: left, y: half },
+  ]) {
+    xs.push(x + corner.x * cos - corner.y * sin);
+    ys.push(y + corner.x * sin + corner.y * cos);
+  }
+  return { min_x_nm: Math.min(...xs), min_y_nm: Math.min(...ys), max_x_nm: Math.max(...xs), max_y_nm: Math.max(...ys) };
+}
+
+/**
  * The geometry the readability checks need, computed exactly as the drawing is drawn.
  *
  * Kept beside `renderSchematic` on purpose: a checker that re-derived text advance or a symbol's
@@ -562,9 +656,10 @@ export function schematicGeometry(
   instances: ReadonlyMap<string, SchematicInstance>,
 ): SheetGeometry {
   const texts: SheetText[] = [];
+  const fields: SheetField[] = [];
   const symbols: SheetSymbol[] = [];
 
-  for (const place of view.place) {
+  for (const [index, place] of view.place.entries()) {
     const instance = instances.get(place.instance_id);
     if (!instance) continue; // the cross-check reports a missing instance; geometry cannot invent one
     const drawn = placeSymbol(instance, place, place.unit ?? 1);
@@ -576,6 +671,16 @@ export function schematicGeometry(
     }
     if (box) symbols.push({ instance_id: place.instance_id, box, pins });
     else symbols.push({ instance_id: place.instance_id, pins, box: { min_x_nm: place.x_nm, min_y_nm: place.y_nm, max_x_nm: place.x_nm, max_y_nm: place.y_nm } });
+    for (const primitive of drawn) {
+      if (primitive.kind !== "text" || primitive.role !== "field") continue;
+      fields.push({
+        instance_id: place.instance_id,
+        name: primitive.name ?? "field",
+        text: primitive.text,
+        box: rotatedTextBox(primitive.x, primitive.y, primitive.text, primitive.sizeNm, primitive.anchor, primitive.rotateMdeg ?? 0),
+        ir_path: `/place/${index}`,
+      });
+    }
   }
 
   for (const [index, label] of (view.label ?? []).entries()) {
@@ -613,5 +718,5 @@ export function schematicGeometry(
     });
   }
 
-  return { texts, symbols };
+  return { texts, fields, symbols };
 }

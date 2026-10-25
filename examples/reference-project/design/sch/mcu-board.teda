@@ -1,4 +1,4 @@
-version 0.2
+version 0.9
 schematic mcu-board
 
 # CH32V307VCT6 minimum system board: 5V in → TPS7A2033PDBVR (3.3V/300mA LDO) → MCU.
@@ -9,27 +9,27 @@ schematic mcu-board
 # With no external battery, VBAT ties to 3V3: the datasheet lists VBAT 1.8~3.6V as an optional backup supply,
 # and the backup domain runs from VBAT after VDD disappears; tying to 3V3 is equivalent to "no battery".
 instances
-  C1   cap-mlcc-0402   100n  10%  16V  X7R
-  C2   cap-mlcc-0402   100n  10%  16V  X7R
-  C3   cap-mlcc-0402   100n  10%  16V  X7R
-  C4   cap-mlcc-0402   100n  10%  16V  X7R
-  C5   cap-mlcc-0402   100n  10%  16V  X7R
-  C6   cap-mlcc-0402   100n  10%  16V  X7R
-  C7   cap-mlcc-0402   100n  10%  16V  X7R
-  C8   cap-mlcc-0402   1u    10%  10V  X7R
-  C9   cap-mlcc-0402   1u    10%  10V  X7R
-  C10  cap-mlcc-0402   1u    10%  10V  X7R
-  C11  cap-mlcc-0402   10p   5%   50V  C0G
-  C12  cap-mlcc-0402   10p   5%   50V  C0G
-  C13  cap-mlcc-0402   100n  10%  16V  X7R
-  D1   led-green
-  R1   res-thick-0402  10k   ±1%
-  R2   res-thick-0402  10k   ±1%
-  R3   res-thick-0402  1k    ±5%
-  SW1  sw-ts-1187
-  U1   ch32v307vct6
-  U2   tps7a2033pdbvr
-  Y1   xtal-8mhz-3225
+  C1   ID2a2a13  cap-mlcc-0402   100n  10%  16V  X7R
+  C2   IDz9qgcz  cap-mlcc-0402   100n  10%  16V  X7R
+  C3   ID7saa78  cap-mlcc-0402   100n  10%  16V  X7R
+  C4   IDbp0t1q  cap-mlcc-0402   100n  10%  16V  X7R
+  C5   ID7ah6zr  cap-mlcc-0402   100n  10%  16V  X7R
+  C6   IDk70arj  cap-mlcc-0402   100n  10%  16V  X7R
+  C7   ID8psgn2  cap-mlcc-0402   100n  10%  16V  X7R
+  C8   IDq22r0w  cap-mlcc-0402   1u    10%  10V  X7R
+  C9   ID9dcmtf  cap-mlcc-0402   1u    10%  10V  X7R
+  C10  IDxpdg25  cap-mlcc-0402   1u    10%  10V  X7R
+  C11  IDc3ksa8  cap-mlcc-0402   10p   5%   50V  C0G
+  C12  IDrvpztz  cap-mlcc-0402   10p   5%   50V  C0G
+  C13  ID43ddg3  cap-mlcc-0402   100n  10%  16V  X7R
+  D1   ID9h7zxg  led-green
+  R1   ID0gm2vz  res-thick-0402  10k   ±1%
+  R2   IDf069y5  res-thick-0402  10k   ±1%
+  R3   IDp37ksb  res-thick-0402  1k    ±5%
+  SW1  ID82mj81  sw-ts-1187
+  U1   IDfxdmkq  ch32v307vct6
+  U2   IDp28tcv  tps7a2033pdbvr
+  Y1   IDqayc41  xtal-8mhz-3225
 
 nets
   BOOT0:    R2.1  U1.BOOT0

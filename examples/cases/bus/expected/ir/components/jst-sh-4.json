@@ -1,0 +1,44 @@
+{
+  "component": {
+    "category": "connector",
+    "description": "1.0 mm 4-pin side-entry, Qwiic pin order",
+    "footprint": "project:jst-sh-4",
+    "id": "jst-sh-4",
+    "kind": "part",
+    "manufacturer": "JST",
+    "mpn": "SM04B-SRSS-TB",
+    "pins": [
+      {
+        "electrical_type": "power_in",
+        "name": "GND",
+        "number": "1",
+        "unit": 1
+      },
+      {
+        "electrical_type": "power_in",
+        "name": "VDD",
+        "number": "2",
+        "unit": 1
+      },
+      {
+        "electrical_type": "bidirectional",
+        "name": "SDA",
+        "number": "3",
+        "unit": 1
+      },
+      {
+        "electrical_type": "input",
+        "name": "SCL",
+        "number": "4",
+        "unit": 1
+      }
+    ],
+    "pins_source": "inline",
+    "symbol": "project:jst-sh-4"
+  },
+  "ir_version": "0.14",
+  "source": {
+    "file": "assets/components/connectors/jst-sh-4.teda",
+    "line": 1
+  }
+}

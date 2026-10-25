@@ -42,7 +42,7 @@ describe("canonical form (schematic)", () => {
         id: doc.id,
         version: doc.version,
         instances: doc.instances
-          .map((i) => `${i.refdes} ${i.componentId} ${i.paramCells.join(" ")}`)
+          .map((i) => `${i.refdes} ${i.uid ?? ""} ${i.componentId} ${i.paramCells.join(" ")}`)
           .sort(),
         nets: doc.nets
           .map((n) => `${n.name}: ${[...n.memberRefs].sort().join(" ")}`)
@@ -57,6 +57,12 @@ describe("canonical form (schematic)", () => {
   test("section order is fixed", () => {
     const order = [...canonical.matchAll(/^(\w+)$/gm)].map((m) => m[1]!);
     expect(order).toEqual(["instances", "nets", "ports", "constraints"]);
+  });
+
+  test("the UID column survives formatting unchanged", () => {
+    const before = parseSchematicDocument(text, { file });
+    const after = parseSchematicDocument(canonical, { file });
+    expect(after.doc!.instances.map((i) => i.uid)).toEqual(before.doc!.instances.map((i) => i.uid));
   });
 
   test("instances are ordered by refdes naturally", () => {
@@ -125,6 +131,21 @@ describe("canonical form (a module file)", () => {
 
   test("a module file has no modules section", () => {
     expect(moduleCanonical).not.toContain("\nmodules\n");
+  });
+});
+
+describe("bus blocks (teda.md §7.3)", () => {
+  const header = ["version 0.3", "schematic b", "", "instances", "  R1  res-thick-0402  10k", "  R2  res-thick-0402  10k", "", "bus pwr = PWR"].join("\n");
+
+  test("two bus blocks both survive formatting", () => {
+    // The blocks share the section name `bus` but are separate statements: keying them by the name
+    // alone let the second overwrite the first, and the lost members went with it.
+    const canonical = fmt("sch/b.teda", `${header}\n  gnd:  R1.2  R2.2\n  vdd:  R1.1\n\nbus i2c0 = I2C\n  scl:  R2.1`);
+    expect(canonical).toContain("bus pwr = PWR");
+    expect(canonical).toContain("  gnd:  R1.2  R2.2");
+    expect(canonical).toContain("bus i2c0 = I2C");
+    expect(canonical).toContain("  scl:  R2.1");
+    expect(fmt("sch/b.teda", canonical)).toBe(canonical);
   });
 });
 

@@ -31,6 +31,12 @@ module buck-5v
 - The file lives at `design/modules/<module_id>.teda`; `module_id` has the same shape as `component_id` (`^[a-z][a-z0-9-]*$`) and is **taken from the file name**.
 - The `module_id` in the file header must match the file name, otherwise it is an error (same rule as `component`, `AGENTS.md` §4.5).
 - The `module` type exists since language **0.8**; a file below 0.8 cannot be a `module`.
+- Since language **0.9**, an instance row may carry a stable UID as its second cell
+  (`C1 ID7k3m9q cap-mlcc-1210 …`); the board's `modules` row likewise carries the module
+  instance's UID (`M1 IDp8x2n4 charger-power`). The UID is project-scoped, immutable and
+  duplicate-checked ([ADR-0051](../docs/adr/0051-instances-have-a-stable-project-local-uid.md)).
+  In a 0.9 file a missing UID is reported as a warning; in a 0.8 or older file the row keeps
+  name identity and no warning is emitted.
 
 ## 2. Sections
 
@@ -71,13 +77,17 @@ constraints
 
 | Section | Content | Note |
 |---|---|---|
-| `instances` | `<refdes> <component_id> [params…]` | Exactly the syntax of the board-level `instances` section (`teda.md` §7.1) |
+| `instances` | `<refdes> [uid] <component_id> [params…]` | Exactly the syntax of the board-level `instances` section (`teda.md` §7.1) |
 | `nets` | `<net>: <pin refs>…` | Pin refs resolve in the **module's own** namespace (`U1.BOOT` is this module's U1) |
 | `ports` | `<port name> <net inside the module>` | The module's interface, see §3 |
 | `constraints` | `<kind> <net> <value>` | Applies to the module's own nets |
 
 - A module has **no** `bus` section, no `pages` section, and no `modules` section: a module cannot contain another module (the hierarchy is one level deep, `docs/backlog.md` F13).
 - `refdes` and net names are unique **only inside their module**. Two modules may each have an `R1`; after flattening they are `M1.R1` and `M2.R1` (§5).
+- A module-local UID is local to the definition, so two module instances may use the same local
+  UID. The flattened `instance.uid` is path-qualified: `<module instance uid>/<local uid>`
+  (e.g. `IDp8x2n4/ID7k3m9q`). A module instance UID is required for that path to exist. Net
+  members and the view still reference the display name (`M1.R1`), not the UID.
 
 ## 3. Ports: the module's interface
 
@@ -131,6 +141,7 @@ ports
 | Column | Meaning |
 |---|---|
 | `<module_instance_id>` | Module instance id, shape `^M[0-9]+$` (`M1`, `M2`, …). The level tag is `M` ([ADR-0024](../docs/adr/0024-level-tags-in-flattened-names.md)) |
+| `<uid>` | Optional stable module-instance UID since 0.9, shape `^ID[0-9a-hjkmnp-tv-z]{6}$` ([ADR-0051](../docs/adr/0051-instances-have-a-stable-project-local-uid.md)) |
 | `<module_id>` | Module definition id, matching `design/modules/<module_id>.teda` |
 
 - The same module may be instantiated several times in one board (`M1` and `M2` both point at `buck-5v`); they are electrically identical (this version has no parameters, see §10).

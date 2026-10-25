@@ -1,0 +1,7 @@
+[project]
+name = "bus"
+version = "0.1.0"
+format = "0.9"
+description = "Case 7 of the ten: a bus names nets, it does not join them"
+license = "Apache-2.0"
+status = "draft"

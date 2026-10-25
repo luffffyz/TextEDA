@@ -41,8 +41,15 @@ const VERSION_RANGE = typeRange("view");
 /** A4 landscape, in nanometers. */
 export const DEFAULT_SHEET_WIDTH_NM = 297_000_000;
 export const DEFAULT_SHEET_HEIGHT_NM = 210_000_000;
-/** The view's coordinates are kept on a 0.1 mm grid, so the canonical form is lossless. */
-export const VIEW_GRID_NM = 100_000;
+/**
+ * The view's coordinates are kept on a 0.01 mm grid, so the canonical form is lossless.
+ *
+ * 0.01 mm, not 0.1: wiring is drawn at right angles only (spec/schematic-view.md §5), and a wire
+ * leaving a pin must start on that pin's own column or row. Pin offsets are multiples of 1.27 mm
+ * (0.05 in), which the 0.1 mm grid cannot represent, so the grid has to be finer than the pitch it
+ * must land on. 1.27 mm is 127 steps of 0.01 mm exactly.
+ */
+export const VIEW_GRID_NM = 10_000;
 /** v0.1 supports right angles only. */
 const RIGHT_ANGLE_MDEG = 90_000;
 
@@ -82,7 +89,7 @@ function restOfLine(line: Line, from: number): string {
   return line.text.slice(cell.col - 1 - offset).trim();
 }
 
-/** A length on the 0.1 mm grid; the canonical form prints it back without losing information. */
+/** A length on the 0.01 mm grid; the canonical form prints it back without losing information. */
 function parseGridNm(
   cell: Cell,
   file: string,
@@ -95,7 +102,7 @@ function parseGridNm(
     return null;
   }
   if (parsed.value % VIEW_GRID_NM !== 0) {
-    collector.error(file, line, cell.col, "value.length-invalid", `coordinates are limited to 0.1 mm resolution: ${cell.text}`);
+    collector.error(file, line, cell.col, "value.length-invalid", `coordinates are limited to 0.01 mm resolution: ${cell.text}`);
     return null;
   }
   return parsed.value;
@@ -466,7 +473,7 @@ function checkOnSheet(
       line,
       1,
       "view.out-of-sheet",
-      `the coordinate (${x / VIEW_GRID_NM}mm, ${y / VIEW_GRID_NM}mm) is outside the sheet (${width / VIEW_GRID_NM}mm x ${height / VIEW_GRID_NM}mm)`,
+      `the coordinate (${x / 1_000_000}mm, ${y / 1_000_000}mm) is outside the sheet (${width / 1_000_000}mm x ${height / 1_000_000}mm)`,
     );
   }
 }

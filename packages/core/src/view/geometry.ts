@@ -30,6 +30,23 @@ export function wirePath(
   return [from, ...(wire.points ?? []).map((p) => ({ x_nm: p.x_nm, y_nm: p.y_nm })), to];
 }
 
+/**
+ * The line a pin draws from its connection point to the symbol's body edge.
+ *
+ * A pin is drawn as a short stroke, not just a point: a wire can cross the stroke without touching
+ * the connection point, and the reader still sees it as a line through a pin. Pins sit outside the
+ * body and run along an axis, so the stroke is the axis-aligned segment to the nearest body edge.
+ * A pin on or inside the body has no stroke to check.
+ */
+export function pinStroke(symbol: ReadabilitySymbol, pin: Point): [Point, Point] | null {
+  const { box } = symbol;
+  if (pin.x_nm < box.min_x_nm) return [pin, { x_nm: box.min_x_nm, y_nm: pin.y_nm }];
+  if (pin.x_nm > box.max_x_nm) return [{ x_nm: box.max_x_nm, y_nm: pin.y_nm }, pin];
+  if (pin.y_nm < box.min_y_nm) return [pin, { x_nm: pin.x_nm, y_nm: box.min_y_nm }];
+  if (pin.y_nm > box.max_y_nm) return [{ x_nm: pin.x_nm, y_nm: box.max_y_nm }, pin];
+  return null;
+}
+
 /** Distance from a point to a polyline (to the nearest segment). */
 export function distanceToPolyline(point: Point, path: readonly Point[]): number {
   let best = Number.POSITIVE_INFINITY;

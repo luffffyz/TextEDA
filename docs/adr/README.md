@@ -53,6 +53,8 @@ Every architecture decision record in this repository, in numeric order.
 | [ADR-0047](0047-an-external-library-is-a-template-not-a-dependency.md) | An External Library Is a Template, Not a Dependency | Accepted | 2026-10-24 |
 | [ADR-0048](0048-trust-in-a-library-you-do-not-own.md) | Trust in a Library You Do Not Own Is a Consumer Record | Accepted | 2026-10-24 |
 | [ADR-0049](0049-a-file-carries-its-own-revision.md) | A File Carries Its Own Revision, and Trust Matches That Revision | Accepted | 2026-10-24 |
+| [ADR-0050](0050-renumbering-is-a-code-executed-global-rename.md) | Renumbering Is a Code-Executed Global Rename, Not an Agent Edit | Accepted | 2026-10-25 |
+| [ADR-0051](0051-instances-have-a-stable-project-local-uid.md) | Instance Identity Is a Stable Project-Local UID, Not the Refdes | Accepted | 2026-10-25 |
 
 ## Reserved Numbers
 

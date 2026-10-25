@@ -1,4 +1,4 @@
-version 0.8
+version 0.9
 schematic charger-buck
 
 # One physical board: BQ24610 charge/power path + TPS5430 5V buck, sharing one BOM and one PCB.
@@ -9,8 +9,8 @@ schematic charger-buck
 #
 # The drawing is partitioned separately: the print pages live in sch/charger-buck/*.view.teda.
 modules
-  M1  charger-power
-  M2  buck-5v
+  M1  ID5w4pv5  charger-power
+  M2  IDee5b8n  buck-5v
 
 nets
   AC_COMMON:  M1.AC_RET

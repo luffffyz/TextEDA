@@ -93,11 +93,13 @@ export type DescriptionType =
 const TYPE_LINES: Record<DescriptionType, { born: number; current: number }> = {
   component: { born: 1, current: 1 },
   footprint: { born: 4, current: 4 },
-  module: { born: 8, current: 8 },
+  // 0.9 adds the stable instance UID column (ADR-0051).
+  module: { born: 8, current: 9 },
   pcb: { born: 7, current: 7 },
   procurement: { born: 9, current: 9 },
-  // A board file may still be `0.2` (a plain flat board); `0.8` added the `modules` section.
-  schematic: { born: 1, current: 8 },
+  // A board file may still be `0.2` (a plain flat board); `0.8` added the `modules` section;
+  // `0.9` adds the optional UID column (ADR-0051).
+  schematic: { born: 1, current: 9 },
   symbol: { born: 5, current: 5 },
   system: { born: 2, current: 2 },
   view: { born: 7, current: 7 },

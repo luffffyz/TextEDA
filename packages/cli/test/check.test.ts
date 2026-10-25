@@ -77,6 +77,39 @@ nets
   VCC:  M1.VCC_OUT
 `;
 
+const MODULE_WITH_UID = `version 0.9
+module m
+
+instances
+  R1  ID7k3m9q  res-thick-0402  10k  ±1%
+
+nets
+  VCC:  R1.1
+
+ports
+  VCC_OUT  VCC
+`;
+
+const COMPOSED_UID_BOARD = `version 0.9
+schematic b
+
+modules
+  M1  IDp8x2n4  m
+
+nets
+  VCC:  M1.VCC_OUT
+`;
+
+const COMPOSED_UID_BOARD_C = `version 0.9
+schematic c
+
+modules
+  M1  IDp8x2n4  m
+
+nets
+  VCC:  M1.VCC_OUT
+`;
+
 /** Build a project whose board composes a module. */
 function makeComposedProject(board: string, module: string | null = MODULE): string {
   const root = makeProject(board);
@@ -119,6 +152,28 @@ ${rows}
 `;
 }
 
+const UID_BOARD_B = `version 0.9
+schematic b
+
+instances
+  R1  ID7k3m9q  res-thick-0402  10k  ±1%
+
+nets
+  GND:  R1.1
+  SIG:  R1.2
+`;
+
+const UID_BOARD_C = `version 0.9
+schematic c
+
+instances
+  R1  ID7k3m9q  res-thick-0402  1k  ±1%
+
+nets
+  GND:  R1.1
+  SIG:  R1.2
+`;
+
 describe("check", () => {
   test("a clean project has no errors", () => {
     const root = makeProject(BOARD);
@@ -126,6 +181,53 @@ describe("check", () => {
       const result = checkProject(root);
       expect(result.boards).toEqual(["b"]);
       expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("the same UID on two boards is a project-wide error", () => {
+    const root = makeProject(UID_BOARD_B);
+    try {
+      writeFileSync(join(root, "design/sch", "c.teda"), UID_BOARD_C);
+      const result = checkProject(root);
+      const duplicate = result.diagnostics.filter((d) => d.code === "value.duplicate-instance-uid");
+      expect(duplicate).toHaveLength(1);
+      expect(duplicate[0]!.severity).toBe("error");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("the same module-instance UID on two boards is a project-wide error", () => {
+    const root = makeComposedProject(COMPOSED_UID_BOARD, MODULE_WITH_UID);
+    try {
+      writeFileSync(join(root, "design/sch", "c.teda"), COMPOSED_UID_BOARD_C);
+      const result = checkProject(root);
+      const duplicate = result.diagnostics.filter((d) => d.code === "value.duplicate-instance-uid");
+      // Both the module-instance UID and the flattened local UID are project-scoped identities.
+      expect(duplicate.length).toBeGreaterThan(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a 0.9 board without a UID reports a warning, not an error", () => {
+    const root = makeProject(`version 0.9
+schematic b
+
+instances
+  R1  res-thick-0402  10k  ±1%
+
+nets
+  GND:  R1.1
+  SIG:  R1.2
+`);
+    try {
+      const result = checkProject(root);
+      const missing = result.diagnostics.filter((d) => d.code === "value.instance-uid-missing");
+      expect(missing).toHaveLength(1); // the board-level instance
+      expect(missing.every((d) => d.severity === "warning")).toBe(true);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -36,7 +36,7 @@
 
 ## F3. 原理图的 SVG 渲染（sch renderer）
 
-**现状**：sch 打印页渲染**已落地**。`packages/renderer` 的 `renderSchematic(view: SchematicView, instances)` 把视图 IR 画成 `SvgDoc`（图幅框、摆位符号、走线折线、标签、端口、注释），调用方负责把每个 `place.instance_id` 解析成符号 IR 与器件引脚事实——渲染器仍然不碰文件系统、不排版。`bun run preview view <board>/<page>` 能出图；参考工程有两份打印页：`views/charger-buck/buck-5v.view.teda`（全部 net 走线，GND 走一条总线）与 `views/charger-buck/charger-power.view.teda`（摆位研究，线在评审时逐网补）。**未落地**：与 `.kicad_sch` 的人工比对。旧状态见 [ADR-0014](adr/0014-reference-renderer.md)（符号/封装先落地）。
+**现状**：sch 打印页渲染**已落地**。`packages/renderer` 的 `renderSchematic(view: SchematicView, instances)` 把视图 IR 画成 `SvgDoc`（图幅框、摆位符号、走线折线、标签、端口、注释），调用方负责把每个 `place.instance_id` 解析成符号 IR 与器件引脚事实——渲染器仍然不碰文件系统、不排版。`bun run preview view <board>/<page>` 能出图；参考工程有两份打印页：`views/charger-buck/buck-5v.view.teda`（全部 net 走线，GND 走一条总线）与 `views/charger-buck/charger-power.view.teda`（摆位研究，线在评审时逐网补）。**未落地**：与 `.kicad_sch` 的人工比对。旧状态见 [ADR-0014](adr/0014-reference-renderer.md)（符号/封装先落地）。**规则现状（2026-10-25）**：`view` 域九个码，最新两条是 `view.text-on-wire`（走线穿过文字，含符号画的字段）与 `view.wire-diagonal`（走线只走 90 度）；视图坐标网格随之从 0.1 mm 细到 0.01 mm，否则在 1.27 mm 的引脚偏置上无法表达正交出线。
 
 **为什么现在做**：
 
@@ -50,7 +50,7 @@
    - 器件的引脚连接点与符号渲染器用同一份 `renderSymbol` 几何（走线端点直接取变换后的引脚连接点，不另算）；
    - 走线是"引脚连接点 → IR 折点 → 引脚连接点"的折线，不做自动布线。
 2. ~~预览命令扩一档~~ **已落地**：`bun run preview view <board>/<page>`（旧的 `preview schematic <board_id> --page` 方案改成按打印页取 `views/<board>/<page>.view.teda`，与文件布局一致）。
-3. ~~**可读性检查**（`AGENTS.md` §6："文字重叠、线压引脚、标签碰撞、越界、连线穿过符号"）~~ **已落地**（2026-10-23）：`spec/schematic-view.md` §9.2 的六个码全部发出——越界原本就由 `view` 解析器的 `view.out-of-sheet` 覆盖，其余五个（`view.label-not-on-net` / `view.port-not-on-net` / `view.label-collision` / `view.text-overlap` / `view.wire-crosses-symbol`）在 `packages/core/src/view/readability.ts`，由 `texteda check` 跑。**几何从渲染器来**：`packages/renderer` 的 `schematicGeometry` 用与 `renderSchematic` 同一套变换与同一套笔画字体度量算出文字框、符号本体框与引脚落点，检查器只做判断——自己再算一遍就会与读者看到的东西漂移。两条口径：`*-not-on-net` 只在该 net **本页画了走线**时判（整条 net 没画是 `view.nets-not-drawn` 的事，不逐标签重复）；`view.text-overlap` 要求有重叠**面积**，相切不算。参考工程当前 0 条（标签都落在线上）。**配套的度量**：`texteda view-metrics <工程目录> <board>/<page> [--json]`（`packages/core/src/view/metrics.ts`，`spec/schematic-view.md` §9.4）报内容占比、文字最小间隙、走线总长、跨 net 交叉数、穿身条数，以及每个标签/端口到其 net 的**距离**；同一批数字也进了五条警告的 `data`（距离 / 重叠面积 / 穿身长度），人类可读输出里换成 mm。**agent 的循环因此是 `写 → check（对不对）→ view-metrics（差多少）→ 改`**，截图只留给人的评审：像素不能跨渲染比较，也进不了 CI。
+3. ~~**可读性检查**（`AGENTS.md` §6："文字重叠、线压引脚、标签碰撞、越界、连线穿过符号"）~~ **已落地**（2026-10-23）：`spec/schematic-view.md` §9.2 的六个码全部发出——越界原本就由 `view` 解析器的 `view.out-of-sheet` 覆盖，其余五个（`view.label-not-on-net` / `view.port-not-on-net` / `view.label-collision` / `view.text-overlap` / `view.wire-crosses-symbol`）在 `packages/core/src/view/readability.ts`，由 `texteda check` 跑。（2026-10-25 补了 `view.text-on-wire`：走线穿过文字，含符号画的 Reference / Value 字段——这两类字原先不在检查器看的几何里，试跑打印页评审时被 `charger-buck-buck-5v-view-r1` 的两条意见抓到；同日又补了 `view.wire-diagonal`：走线只走 90 度，任何一段两端坐标同时变化就报警——引脚偏置是 1.27 mm，所以视图网格从 0.1 mm 收细到 0.01 mm，否则从第一个引脚就无法正交出线。同日又补了 `view.wire-crosses-pin`：走线穿过某个引脚连接点（该引脚不是这条走线的端点时），或穿过引脚从连接点到符号本体的短笔画，就报警——引脚是连接点，线从它中间穿过而不在这里结束，读者会读成一个没有圆点的连接；横穿引脚笔画时，读者也分不清哪一段是引脚。参考工程的 buck 页按此把 PH 线绕开 U1 的引脚列与 C2 的引脚笔画。）**几何从渲染器来**：`packages/renderer` 的 `schematicGeometry` 用与 `renderSchematic` 同一套变换与同一套笔画字体度量算出文字框、符号本体框与引脚落点，检查器只做判断——自己再算一遍就会与读者看到的东西漂移。两条口径：`*-not-on-net` 只在该 net **本页画了走线**时判（整条 net 没画是 `view.nets-not-drawn` 的事，不逐标签重复）；`view.text-overlap` 要求有重叠**面积**，相切不算。参考工程当前 0 条（标签都落在线上）。**配套的度量**：`texteda view-metrics <工程目录> <board>/<page> [--json]`（`packages/core/src/view/metrics.ts`，`spec/schematic-view.md` §9.4）报内容占比、文字最小间隙、走线总长、跨 net 交叉数、穿身条数，以及每个标签/端口到其 net 的**距离**；同一批数字也进了五条警告的 `data`（距离 / 重叠面积 / 穿身长度），人类可读输出里换成 mm。**agent 的循环因此是 `写 → check（对不对）→ view-metrics（差多少）→ 改`**，截图只留给人的评审：像素不能跨渲染比较，也进不了 CI。
 4. ~~**round-trip**~~ **已落地**（2026-10-23）：`packages/renderer/src/schematic-extract.ts` 的 `schematicProjection(view, instances)` 与 `extractSchematic(doc)` 两端对比，口径写在 `spec/schematic-view.md` §9.5。**投影是"纸面上的东西"**：图幅、引脚连接点与朝向、符号图形、走线折点、标签/注释文字与位置、端口尖点与朝向，全在绝对图纸坐标；**摆位原点与旋转、线宽字号、端口塔形细节、引脚归属哪个实例**都不进投影（图上没有这些信息；实例身份靠 `Reference` 文字进投影）。**两端不共用变换函数**：视图侧用象限矩阵，图纸侧直接读绘制指令——共用就是自己验证自己。测试：`packages/renderer/test/schematic-roundtrip.test.ts`（四个象限、灵敏度、走线端点落在引脚上）与 `packages/cli/test/view-roundtrip.test.ts`（参考工程每一页）。已用一次故意写错 `toSheet` 的变异验证过：两个参考页的测试都变红。
 5. 与 KiCad 的 `.kicad_sch` 渲染做**一次性人工比对**——**未落地**（不进 CI）。
 6. ~~**板 ↔ 打印页交叉校验**（`packages/core`）~~ **已落地**（2026-10-23，`packages/core/src/view/checks.ts`，在 `texteda check` 里跑）：§9.1 的四条错误（`ref.unknown-instance` / `ref.unknown-net` / `ref.unknown-port` / `view.pin-net-mismatch`）与一条覆盖率警告（`view.nets-not-drawn`）。**两处口径修正**：`net-not-drawn` 做成**板级**（规范原写“在这个打印页里”）——打印页按模块分，按页会替另一页的线报错；而且一块板报**一条**总数 + 前十个 net 名（同 [ADR-0040](adr/0040-partial-layout-is-legal-and-reported.md) D4 的分寸）。参考工程现在报 `30 of 36 nets`：两份页是研究稿，这个数字是真的。（原记录：：`spec/schematic-view.md` §9.1 标"待实现"的那几条（实例 / net / port 是否存在、端点引脚是否属于该 net、`net-not-drawn`）。渲染器对未知实例或未知符号引脚是**抛错**，不是发诊断——诊断归 core，渲染器不伪造几何。
@@ -282,20 +282,21 @@ ADR-0020 的决策：
 - 评审 GUI（F34）依赖的是 D6 的身份索引，不是 D2 的源映射；两者别混。
 
 
-## F12. 十用例语料（语法准入规则的闸门）——**进行中（2 / 10）**
+## F12. 十用例语料（语法准入规则的闸门）——**进行中（3 / 10）**
 
-**进度（2026-10-24）**：约定落地在 `examples/cases/README.md`（一个用例 = 一个完整小工程 + `expected/{ir/**,manifest.json,diagnostics.json}`；`bun run cases:check` 比对、`--update` 重写，`bun test` 里有一条带上它；用例必须无 error）。已写：
+**进度（2026-10-25）**：约定落地在 `examples/cases/README.md`（一个用例 = 一个完整小工程 + `expected/{ir/**,manifest.json,diagnostics.json}`；`bun run cases:check` 比对、`--update` 重写，`bun test` 里有一条带上它；用例必须无 error）。已写：
 
 | 用例 | 证明什么 | 暴露的问题 |
 |---|---|---|
 | `dual-opamp-multi-unit` | 一个件三个单元；net 成员必须写单元（`U1.2.OUT`）；unit 只是引脚的事实，实例仍是一行 | 裸名 `U1.OUT` 原先**静默取第一个**（会把线接到错的单元上）→ 已改成 `ref.ambiguous-pin`，提示写单元 |
 | `nc-pins` | `no_connect` 静默 / 有意悬空告警 / 已连静默，三者分得开；port 豁免单成员告警；三爪（TH）封装 | 契约的 `layer_name` 模式拒绝 `*.Cu`——**任何 TH 封装都过不了契约**（解析器一直在产出这个名字）→ 已修模式并补正例夹具 |
+| `bus` | `bus` 只是命名方案：成员行展开成普通 net（`i2c0.scl`），不连接成员；port / constraint 可以点名成员 net；一个 bus id 只允许一个块，重复**成员行**才合并 | 成员 net 原先**不在** `scope.nets` 里，port 与 constraint 点名它会被报 `ref.unknown-net`；重复的 `bus` 块原先静默产出两个同 id 的 bus 分片 → 已补 `busNets` 解析、`ref.duplicate-bus` 与 `net.duplicate-member`，并修 `fmt` 把第二个 bus 块覆盖掉的问题 |
 
-**剩下的 8 个，各自的已知障碍**（写之前先读）：
+**剩下的 7 个，各自的已知障碍**（写之前先读）：
 
 - **DNP 变体**：语言**没有** `dnp` 的表面（`project.toml` 的 `[variants]` 也还没解析），IR 有 `dnp` 字段但没有来源 → 先定表面（ADR），再写用例。
 - **net tie**：受控偏差在 `pcb` 的类型里，需要 `pcb` 描述 + `connect` 段 + 铜箔，用例要带一块最小的板。
-- 其余 6 个（BGA 200 脚、20 路电源域、差分对、总线、层次复用、参数化分压）都能用现有语言写，按难度排：总线 → 差分对 → 层次复用 → BGA 200 脚 → 参数化分压 → 20 路电源域。
+- 其余 5 个（BGA 200 脚、20 路电源域、差分对、层次复用、参数化分压）都能用现有语言写，按难度排：差分对 → 层次复用 → BGA 200 脚 → 参数化分压 → 20 路电源域。
 - **20 路电源域**写完后要回头回答 §11 Q2（表达式程度）：如果表真的宽到不可用，那才是引入受限表达式的触发条件。
 
 
@@ -886,31 +887,35 @@ ADR-0020 的决策：
 
 ---
 
-## F34. 评审 GUI（`packages/viewer`）：高亮指针、跳转源码、三种模式
+## F34. 评审 GUI（`packages/viewer`）：高亮指针、跳转源码、四种模式
 
-**现状**：**`review` 模式已落地（2026-10-24）**——`packages/viewer`（无框架的浏览器端）+ `packages/cli/src/review.ts`，`texteda review <工程目录>` 起 `node:http` 服务、`--out` 写自包含 HTML；渲染器的打印页 SVG 原样插入，hover 高亮与点击选身份都是 DOM 层（`packages/cli/test/review.test.ts`）。**没落地**：点击跳源码（要 F11 的身份索引）、`placement` / `edit` 两种模式、意见锚点。决策见 [ADR-0021](adr/0021-schematic-view-layer.md) 的 2026-10-22 与 2026-10-24 附录。
+**现状**：**`review` 模式已落地（2026-10-24）**——`packages/viewer`（无框架的浏览器端）+ `packages/cli/src/review.ts`，`texteda review <工程目录>` 起 `node:http` 服务、`--out` 写自包含 HTML；渲染器的打印页 SVG 原样插入，hover 高亮与点击选身份都是 DOM 层（`packages/cli/test/review.test.ts`）。**没落地**：双击/`Enter` 跳源码（要 F11 的身份索引）、`layout` / `placement` / `edit` 三种模式、意见锚点。决策见 [ADR-0021](adr/0021-schematic-view-layer.md) 的 2026-10-22、2026-10-24 与 2026-10-25 附录。
 
 **要做的事**：
 
 1. **`packages/viewer`**：浏览器应用，`texteda review <工程目录>` 起本地服务（`node:http`，ADR-0021 decision 3；文件读写留在 CLI 侧，浏览器只收 JSON + SVG）。
 2. **元素 id**：渲染器给每个绘制对象发稳定 id（`instance:U1` / `net:VCC` / `label:...`），SVG 里落成 `data-ref`。这是 renderer 侧的小改动，**渲染器仍然纯**（不知道 hover 与点击）。
 3. **hover 高亮**：纯 CSS/SVG 层（描边 / 透明度 / 小浮层），**不重绘、不重排**——性能不构成压力；不做命中测试几何、不做空间索引。
-4. **点击跳转**：需要**身份索引**（`identity -> [(file, line, col), ...]`），来自 **span 侧车表**（`dist/ir/<shard>.spans.json`）——**依赖 F11 / ADR-0020**。点击后给出「这个身份定义在哪里」的短菜单（sch 的实例行 / view 的摆位 / 器件文件 / 封装文件 / net 行 / pin 行），选中即打开该文件到该行。
-5. **三种模式**：`review`（读图 + 高亮 + 跳转 + 写意见）、`placement`（PCB 画布：摆位、板框、courtyard、net 高亮）、`edit`（分栏：源码文本 + 画布；点画布移动文本光标，改文本刷新画布，**编辑发生在文本里**）。切模式换 SVG 与覆盖层，不重新实现交互。
+4. **双击/`Enter` 跳转**：需要**身份索引**（`identity -> [(file, line, col), ...]`），来自 **span 侧车表**（`dist/ir/<shard>.spans.json`）——**依赖 F11 / ADR-0020**。选中一个元素后，双击它或按 `Enter`，给出「这个身份定义在哪里」的短菜单（sch 的实例行 / view 的摆位 / 器件文件 / 封装文件 / net 行 / pin 行），选中即打开该文件到该行。**单次点击只选中，不跳转**；否则会与 `layout` 的拖拽/旋转抢同一个手势。`edit` 模式的 `Enter` 归文本编辑器。
+5. **四种模式**：`review`（读图 + 高亮 + 跳转 + 写意见）、`layout`（S1 打印页摆位：选中一个符号、拖拽、90° 旋转；拖动/旋转只写 `place` 行；**不在拖动中走线**，Apply 时才写回 `place` 并重算受影响的 net，见 2026-10-25 附录）、`placement`（PCB 画布：摆位、板框、courtyard、net 高亮）、`edit`（分栏：源码文本 + 画布；点画布移动文本光标，改文本刷新画布，**编辑发生在文本里**）。切模式换 SVG 与覆盖层，不重新实现交互。
 6. **意见锚点（可选）**：note 行允许 `[instance:U3]` 这样的可选前缀，只有 viewer 解析——与 ADR-0033「工具不解析散文」的张力是 ADR-0033 的开放点。
 
 **验收**：
 
 - hover 一个符号 → 该符号高亮并显示身份（实例 id、器件、封装），**SVG 不重新生成**（渲染一次后只看 DOM 变化）。
-- 点击一个符号 → 出现「定义位置」菜单，至少含 sch 实例行与 view 摆位两项；选中后打开对应文件并定位到行。
-- `review` / `placement` / `edit` 三个模式都能用，且共用同一套高亮与跳转代码。
-- `edit` 模式改文本 → 画布更新；画布上不做任何直接编辑（没有拖动、没有吸附）。
+- 双击或按 `Enter` 一个符号 → 出现「定义位置」菜单，至少含 sch 实例行与 view 摆位两项；选中后打开对应文件并定位到行。
+- 单次点击一个符号 → 只选中并显示 facts，不打开文件；在 `layout` 里按住拖动不会触发跳转。
+- `review` / `layout` / `placement` / `edit` 四个模式都能用，且共用同一套高亮与跳转代码。
+- `layout` 拖动/旋转一个符号 → 只改 `place` 行，`design/**` 不变；Apply 前不重算走线，旧线标 stale；Apply 后只重算相关 net，未受影响 net 的 wire 与手改不动；`check` 无新增 error，`view.*` warning 清零。
+- `edit` 模式改文本 → 画布更新；`edit` 的画布不做直接编辑（`layout` 才有拖动/吸附）。
 
 **注意**：
 
-- **GUI 不写设计**：改东西一律改文本。画布能改就意味着同一件事有两个写入口，而没有 diff 的那个会赢。
+- **选中是状态，跳转是动作**：单击只选中；`layout` 的拖拽/旋转与双击/`Enter` 跳转不共享手势。
+- **GUI 不写设计**：`design/**` 一律不改；`layout` 的拖动/旋转只写 view 的 `place` 行，Apply 才写 `wire`；`edit` 改文本；没有第二个设计模型。
+- **viewer 不布线**：`layout` 只产生摆位；Apply 调用的路由在 viewer 之外（agent/CLI），不是拖动循环里的 interactive router。
 - **F11 是前置**：没有 span 侧车表就没有"跳到源码"。F11 的交付物要包含 **身份索引**（不只诊断用的 IR 路径索引）。
-- 别在 viewer 里做布局求解或走线——那是渲染器与布线器的事（AGENTS §1）。
+- 别在 viewer 里做布局求解或自己的走线算法——那是渲染器与布线器的事（AGENTS §1）。
 - `placement` 模式依赖 PCB 画布（`packages/renderer` 的 PCB SVG，F21），**在那之前这个模式可以先空着**（如实报"还没有 PCB 画布"，别用 sch 画布顶替）。
 
 ---
@@ -1189,3 +1194,31 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 - **`+local.N` 是约定，不是校验**：工具只做精确字符串比对，不判断 fork 的正当性。
 - **`rev` 进分片会改工程哈希**（它是文件的公开事实，同 `datasheet`）；这不是回归，是预期，验收时按此口径看哈希变化。
 - 与 F29（跨工程共享自有库）**分开**：本条不做依赖层、不做 lockfile、不改"构建只读 `assets/`"。
+
+## F47. 位号重编号（`texteda renumber`，ADR-0050 的落地）
+
+**现状**：决策已定（[ADR-0050](adr/0050-renumbering-is-a-code-executed-global-rename.md)，2026-10-25），命令未实现。加元件仍是直接改源码，`fmt` 只排序、不填洞；重编号是**显示名改名**：实例的 `uid` 保留（[ADR-0051](adr/0051-instances-have-a-stable-project-local-uid.md)），但 net 成员、view/pcb 摆位与 `source_hash` 仍会变，BOM 显示也会变。agent 可以选策略或给映射，但不能手改编号。
+
+**要做的事**：
+
+1. **CLI**：新增 `texteda renumber <project> <board>`，默认 `--dry-run`；`--apply` 才写盘。策略 `--policy preserve|compact|position`，或 `--mapping <file>`；`position` 依赖 view 的 `place`，没有 view 就报错而不是猜。
+2. **映射**：解析 sch / pcb / view，收集实例 id；按前缀分组，按自然序排；校验同一前缀内唯一、前缀不变、无碰撞；处理多单元（`U1.2.OUT`）与模块实例（`M1.R1`）。不改 net 名、port 名、`component_id`、symbol/footprint id。
+3. **原子应用**：一次写完或一行不写。更新 sch 实例行与 net 成员、view 的 `place` 与 `wire` 引脚引用、pcb 的摆放实例引用、variants 里引用具体实例的条目；模块按所选命名空间改模块源，不把扁平视图名硬改成全局连续号。
+4. **报告**：old→new 表、受影响文件、碰撞、重编号前后的工程哈希 / `advisory_hash`、Markdown 里仍出现旧位号的位置（只报告，不改散文，ADR-0033）；apply 后跑 `fmt` 与 `check`。
+5. **测试**：空号 compact、preserve 保持旧号、position 按 view 顺序、mapping 正反例、模块与多单元、碰撞拒绝、dry-run 不写盘、重复执行幂等、view/pcb 同步更新、`fmt` 不重编号。
+6. **文档**：命令落地后补 `docs/guides/renumbering.md`（何时用、dry-run 输出、怎么审映射、哪些散文要人工跟），并更新 CLI 帮助与 `AGENTS.md` §10 的命令列表。
+
+**验收**：
+
+- `--dry-run` 打印 old→new 与受影响文件，工作区不变；`--apply` 后 `check` 0 error、`fmt --check` 通过，工程哈希变化被明确报告。
+- `compact` 把 `R1, R2, R5` 变成 `R1..R3`；`preserve` 只给新件下一个空号；`position` 按 view 从上到下、从左到右；同一映射第二次执行是 no-op。
+- 多单元 `U1.2.OUT`、模块实例 `M1.R1`、view 的 `place`/`wire`、pcb 的实例引用全部跟着改；net 名、port 名、`component_id` 不变。
+- 映射有重复或前缀冲突 → 拒绝，不写任何文件，消息指出冲突的两项。
+- Markdown/评审记录里的旧位号 → 报告位置，不自动改。
+
+**注意**：
+
+- **`fmt` 永不重编号**：格式化必须只改排版；重编号是独立命令。
+- **`uid` 保留，引用仍是名字**：重编号会改 `source_hash`；把 net 成员、view/pcb 摆位整体重键到 UID 并做身份哈希，是另一条决策，不在本条里偷做。
+- **模块的全局连续号不是机械映射**：模块内 refdes 是本地的，所有实例共享；要跨实例全局连续，先改模块模型，不要伪造。
+- **不自动跑**：加元件不会触发重编号；用户显式调用。agent 只能给 `--mapping` 或选策略，写盘由代码做。

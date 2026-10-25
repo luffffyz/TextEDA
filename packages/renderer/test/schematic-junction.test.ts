@@ -1,6 +1,6 @@
 // Junction dots (spec/schematic-view.md §5.1): the dot is derived from the drawn runs, per net, by
-// counting arms -- one for a run that ends there, two for a run that passes through. Three or more
-// is a join.
+// counting arms -- one for a run that ends there, two for a run that passes through, one for a pin
+// connection point. Three or more is a join.
 import { describe, expect, test } from "bun:test";
 import { irVersion } from "@texteda/ir";
 import type { SchematicView } from "@texteda/ir/schematic-view";
@@ -94,11 +94,24 @@ describe("junction dots", () => {
     expect(out).toEqual([{ x: 70_000_000, y: 40_000_000 }]);
   });
 
-  test("a corner and a shared pin are not junctions", () => {
-    // Two runs leaving the same pin: two arms, and the pin is the marker already.
+  test("two runs leaving one pin are joined", () => {
+    // The pin connection point is one arm; the two run ends are the other two. A single run leaving
+    // a pin is only two arms (wire + pin) and stays undotted.
     expect(dots([
       { net: "N1", from_pin: "R1.2", to_pin: "R2.1", points: [{ x_nm: 70_000_000, y_nm: 30_000_000 }] },
       { net: "N1", from_pin: "R1.2", to_pin: "R3.1" },
+    ])).toEqual([{ x: 53_810_000, y: 40_000_000 }]);
+    expect(dots([
+      { net: "N1", from_pin: "R1.2", to_pin: "R2.1", points: [{ x_nm: 70_000_000, y_nm: 30_000_000 }] },
+    ])).toEqual([]);
+  });
+
+  test("two coincident runs leaving a pin make one visible arm and no dot", () => {
+    // Two rows are one line to a reader. Counting rows instead of directions would give the pin
+    // three arms and a dot on a pin that visibly has a single wire.
+    expect(dots([
+      { net: "N1", from_pin: "R1.2", to_pin: "R2.1", points: [{ x_nm: 70_000_000, y_nm: 40_000_000 }] },
+      { net: "N1", from_pin: "R1.2", to_pin: "R2.1", points: [{ x_nm: 70_000_000, y_nm: 40_000_000 }] },
     ])).toEqual([]);
   });
 
@@ -108,6 +121,18 @@ describe("junction dots", () => {
       { net: "N1", from_pin: "R1.2", to_pin: "R2.1", points: [{ x_nm: 70_000_000, y_nm: 40_000_000 }] },
       { net: "GND", from_pin: "R4.1", to_pin: "R4.2", points: [{ x_nm: 70_000_000, y_nm: 40_000_000 }] },
     ])).toEqual([]);
+  });
+
+  test("a run passing through a pin of another net draws no dot there", () => {
+    // R1.2 is a VOUT pin (one VOUT wire ends there); a PH run crosses it vertically. A dot would
+    // claim PH is joined to VOUT, so the pin's net vetoes the PH junction.
+    expect(dots(
+      [
+        { net: "VOUT", from_pin: "R1.2", to_pin: "R2.2" },
+        { net: "PH", from_pin: "R3.1", to_pin: "R4.1" },
+      ],
+      { R3: [57_620_000, 60_000_000], R4: [57_620_000, 20_000_000] },
+    )).toEqual([]);
   });
 
   test("a run ending on a run that passes through is joined", () => {

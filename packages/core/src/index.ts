@@ -23,6 +23,7 @@ export {
   checkReadability,
   type ReadabilityBox,
   type ReadabilityFacts,
+  type ReadabilityField,
   type ReadabilityGeometry,
   type ReadabilitySymbol,
   type ReadabilityText,

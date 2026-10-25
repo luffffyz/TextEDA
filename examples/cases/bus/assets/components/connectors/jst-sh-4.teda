@@ -1,0 +1,19 @@
+version 0.1.7
+component jst-sh-4
+
+# JST SH 4-pin in the Qwiic / STEMMA QT pin order (GND, 3V3, SDA, SCL). The hub board carries ten of
+# these on one bus, which is what makes the bus rows long enough to need continuation lines.
+kind         part
+mpn          SM04B-SRSS-TB
+manufacturer JST
+category     connector
+description  1.0 mm 4-pin side-entry, Qwiic pin order
+
+symbol project:jst-sh-4
+footprint project:jst-sh-4
+
+pins
+  1  GND  power_in
+  2  VDD  power_in
+  3  SDA  bidirectional
+  4  SCL  input

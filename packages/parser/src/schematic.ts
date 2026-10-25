@@ -24,7 +24,7 @@ import { lex, type Cell, type Line } from "./lexer.ts";
 import { SourceFile, recordAll } from "./sources.ts";
 import type { SourceMap, Span } from "@texteda/ir/spans";
 import { resolveParamColumns } from "./params.ts";
-import { checkVersion, typeRange, type VersionRange } from "./version.ts";
+import { checkVersion, compareVersions, typeRange, type VersionRange } from "./version.ts";
 import { byteCompare, naturalCompare, pinRefCompare } from "@texteda/ir/order";
 import { parseQuantity, parseQuantityRange } from "./quantities.ts";
 import { parseLengthNm } from "./units.ts";
@@ -41,6 +41,14 @@ const NET_ID_RE = /^[A-Za-z0-9_+-]+$/;
 const PORT_ID_RE = /^[A-Za-z0-9_+-]+$/;
 /** A module instance id: the `M` tag plus digits (ADR-0024, ADR-0026 decision 5). */
 const MODULE_INSTANCE_RE = /^M[0-9]+$/;
+/**
+ * Stable instance UID (ADR-0051): `ID` plus six lowercase Crockford Base32 characters. The fixed width and
+ * the reserved prefix make it visually distinct from a refdes; the suffix uses the Crockford
+ * alphabet (no letters i/l/o/u; 0 and 1 are ordinary digits).
+ */
+export const INSTANCE_UID_RE = /^ID[0-9a-hjkmnp-tv-z]{6}$/;
+/** The language version that introduced the UID column (ADR-0051). */
+const UID_VERSION = { major: 0, minor: 9, patch: 0 } as const;
 /** The value a module's `ports` row uses for a port that is intentionally not connected. */
 const NO_CONNECT = "no_connect";
 
@@ -158,12 +166,20 @@ export interface SchematicParseResult {
   diagnostics: Diagnostic[];
   /** IR path → span of the record that produced it (ADR-0020 D2). Never persisted. */
   sources?: SourceMap;
+  /**
+   * Project-scoped UIDs declared directly in the board file: board-level instances and module
+   * instances (ADR-0051). Module-local UIDs are not global (the same local UID may appear in every
+   * instance of a module), so they are not listed here; their flattened form is in the IR.
+   */
+  sourceUids?: { uid: string; kind: "instance" | "module"; id: string; line: number; col: number }[];
 }
 
 /* ------------------------------------------------------------------ document model */
 
 interface RawInstance {
   refdes: string;
+  /** Stable instance identity (ADR-0051); absent in pre-0.9 files and legacy fixtures. */
+  uid?: string;
   componentId: string;
   paramCells: string[];
   line: number;
@@ -207,6 +223,8 @@ interface RawBus {
 interface RawModule {
   /** Module instance id (`M1`). */
   instanceId: string;
+  /** Stable module-instance identity (ADR-0051). */
+  uid?: string;
   /** Module definition id (`buck-5v`): the file name without `.teda`. */
   moduleId: string;
   line: number;
@@ -344,6 +362,10 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
   }
   // The canonical spelling of the version: `0.3` and `0.3.0` are the same version, so the IR stores one of them.
   const versionText = verdict.text;
+  /** The UID column was introduced in language 0.9 (ADR-0051); older files keep name identity. */
+  const uidAllowed = compareVersions(verdict.version, UID_VERSION) >= 0;
+  /** A source UID already seen in this document, for the one-document duplicate check. */
+  const uidRows = new Map<string, { line: number; col: number }>();
 
   const typeLine = lines[1];
   const expectedType = kind;
@@ -451,12 +473,77 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
 
     switch (section) {
       case "instances": {
-        if (cells.length < 2) {
-          diagnostics.add("error", "syntax.row-too-short", "an instances row needs at least 2 columns: refdes component_id", file, line.number, cells[0]!.col);
+        const refdes = cells[0]!.text;
+        const hasUidCell = cells[1]?.text.startsWith("ID") ?? false;
+        const minimumColumns = hasUidCell ? 3 : 2;
+        if (cells.length < minimumColumns) {
+          diagnostics.add(
+            "error",
+            "syntax.row-too-short",
+            hasUidCell
+              ? "an instances row with a UID needs at least 3 columns: refdes uid component_id"
+              : "an instances row needs at least 2 columns: refdes component_id",
+            file,
+            line.number,
+            cells[0]!.col,
+          );
           continue;
         }
-        const refdes = cells[0]!.text;
-        const componentId = cells[1]!.text;
+        let uid: string | undefined;
+        if (hasUidCell) {
+          const rawUid = cells[1]!.text;
+          if (!INSTANCE_UID_RE.test(rawUid)) {
+            diagnostics.add(
+              "error",
+              "syntax.invalid-identifier",
+              `invalid instance uid: ${rawUid}`,
+              file,
+              line.number,
+              cells[1]!.col,
+              {
+                expected: "ID plus six lowercase Crockford Base32 characters (e.g. ID7k3m9q)",
+                actual: rawUid,
+              },
+            );
+          } else if (!uidAllowed) {
+            diagnostics.add(
+              "error",
+              "format.unsupported-version",
+              `an instance uid requires language 0.9: ${rawUid}`,
+              file,
+              line.number,
+              cells[1]!.col,
+              { hint: `write version ${versionText} without a uid, or upgrade this file to 0.9` },
+            );
+          } else {
+            uid = rawUid;
+            const first = uidRows.get(rawUid);
+            if (first !== undefined) {
+              diagnostics.add(
+                "error",
+                "value.duplicate-instance-uid",
+                `duplicate instance uid: ${rawUid}`,
+                file,
+                line.number,
+                cells[1]!.col,
+                { related: [source.span(first.line, first.col)] },
+              );
+            } else {
+              uidRows.set(rawUid, { line: line.number, col: cells[1]!.col });
+            }
+          }
+        } else if (uidAllowed) {
+          diagnostics.add(
+            "warning",
+            "value.instance-uid-missing",
+            `instance ${refdes} has no stable uid`,
+            file,
+            line.number,
+            cells[0]!.col,
+            { hint: "add a uid as the second column (ADR-0051)" },
+          );
+        }
+        const componentId = cells[hasUidCell ? 2 : 1]!.text;
         if (!REFDES_RE.test(refdes)) {
           diagnostics.add("error", "syntax.invalid-identifier", `invalid refdes: ${refdes}`, file, line.number, cells[0]!.col);
         } else if (kind === "schematic" && MODULE_INSTANCE_RE.test(refdes)) {
@@ -478,7 +565,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
             `a device reference is qualified with a library name: ${componentId}`,
             file,
             line.number,
-            cells[1]!.col,
+            cells[hasUidCell ? 2 : 1]!.col,
             {
               expected: "a bare device id",
               actual: componentId,
@@ -486,12 +573,13 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
             },
           );
         } else if (!DEVICE_ID_RE.test(componentId)) {
-          diagnostics.add("error", "syntax.invalid-identifier", `invalid component_id: ${componentId}`, file, line.number, cells[1]!.col);
+          diagnostics.add("error", "syntax.invalid-identifier", `invalid component_id: ${componentId}`, file, line.number, cells[hasUidCell ? 2 : 1]!.col);
         }
         doc.instances.push({
           refdes,
+          ...(uid === undefined ? {} : { uid }),
           componentId,
-          paramCells: cells.slice(2).map((c) => c.text),
+          paramCells: cells.slice(hasUidCell ? 3 : 2).map((c) => c.text),
           line: line.number,
           col: cells[0]!.col,
         });
@@ -600,12 +688,77 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
         continue;
       }
       case "modules": {
-        if (cells.length !== 2) {
-          diagnostics.add("error", "syntax.row-too-short", "a modules row needs exactly 2 columns: module_instance_id module_id", file, line.number, cells[0]!.col);
+        const hasUidCell = cells[1]?.text.startsWith("ID") ?? false;
+        const minimumColumns = hasUidCell ? 3 : 2;
+        if (cells.length < minimumColumns || cells.length > minimumColumns) {
+          diagnostics.add(
+            "error",
+            "syntax.row-too-short",
+            hasUidCell
+              ? "a modules row needs exactly 3 columns: module_instance_id uid module_id"
+              : "a modules row needs exactly 2 columns: module_instance_id module_id",
+            file,
+            line.number,
+            cells[0]!.col,
+          );
           continue;
         }
         const instanceId = cells[0]!.text;
-        const moduleId = cells[1]!.text;
+        let uid: string | undefined;
+        if (hasUidCell) {
+          const rawUid = cells[1]!.text;
+          if (!INSTANCE_UID_RE.test(rawUid)) {
+            diagnostics.add(
+              "error",
+              "syntax.invalid-identifier",
+              `invalid module instance uid: ${rawUid}`,
+              file,
+              line.number,
+              cells[1]!.col,
+              {
+                expected: "ID plus six lowercase Crockford Base32 characters (e.g. ID7k3m9q)",
+                actual: rawUid,
+              },
+            );
+          } else if (!uidAllowed) {
+            diagnostics.add(
+              "error",
+              "format.unsupported-version",
+              `a module instance uid requires language 0.9: ${rawUid}`,
+              file,
+              line.number,
+              cells[1]!.col,
+              { hint: `write version ${versionText} without a uid, or upgrade this file to 0.9` },
+            );
+          } else {
+            uid = rawUid;
+            const first = uidRows.get(rawUid);
+            if (first !== undefined) {
+              diagnostics.add(
+                "error",
+                "value.duplicate-instance-uid",
+                `duplicate instance uid: ${rawUid}`,
+                file,
+                line.number,
+                cells[1]!.col,
+                { related: [source.span(first.line, first.col)] },
+              );
+            } else {
+              uidRows.set(rawUid, { line: line.number, col: cells[1]!.col });
+            }
+          }
+        } else if (uidAllowed) {
+          diagnostics.add(
+            "warning",
+            "value.instance-uid-missing",
+            `module instance ${instanceId} has no stable uid`,
+            file,
+            line.number,
+            cells[0]!.col,
+            { hint: "add a uid as the second column (ADR-0051)" },
+          );
+        }
+        const moduleId = cells[hasUidCell ? 2 : 1]!.text;
         if (!MODULE_INSTANCE_RE.test(instanceId)) {
           diagnostics.add(
             "error",
@@ -618,10 +771,16 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
           continue;
         }
         if (!SLUG_RE.test(moduleId)) {
-          diagnostics.add("error", "syntax.invalid-identifier", `invalid module_id: ${moduleId}`, file, line.number, cells[1]!.col);
+          diagnostics.add("error", "syntax.invalid-identifier", `invalid module_id: ${moduleId}`, file, line.number, cells[hasUidCell ? 2 : 1]!.col);
           continue;
         }
-        doc.modules.push({ instanceId, moduleId, line: line.number, col: cells[0]!.col });
+        doc.modules.push({
+          instanceId,
+          ...(uid === undefined ? {} : { uid }),
+          moduleId,
+          line: line.number,
+          col: cells[0]!.col,
+        });
         continue;
       }
       case "constraints": {
@@ -665,9 +824,10 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
   }
 
   // The net referenced by a port must exist (a port does not create a node).
+  const busIds = busNetIds(doc);
   for (const port of doc.ports) {
     if (port.net === NO_CONNECT) continue; // a module port that is intentionally not connected
-    if (!netIndex.has(port.net)) {
+    if (!netIndex.has(port.net) && !busIds.has(port.net)) {
       diagnostics.add(
         "error",
         "ref.unknown-net",
@@ -728,12 +888,26 @@ function splitNetRow(cells: Cell[]): { name: string; members: string[] } {
 
 /* ------------------------------------------------------------------ board assembly */
 
+/**
+ * The net ids a `bus` declaration names: `<bus_id>.<member>` (teda.md §7.3).
+ *
+ * A bus member *is* a net — it lands in the IR's `nets` with that id — so a port or a constraint may
+ * name it, and the resolution order of §4.5 (nets first, then pin references) applies to it too.
+ */
+function busNetIds(doc: Document): Set<string> {
+  const ids = new Set<string>();
+  for (const bus of doc.buses) for (const member of bus.members) ids.add(`${bus.id}.${member.member}`);
+  return ids;
+}
+
 /** Scope: the instances, nets and ports of one board. */
 interface Scope {
   /** refdes → instance. */
   instances: Map<string, RawInstance>;
   /** net name → net. */
   nets: Map<string, RawNet>;
+  /** net ids named by a `bus` declaration: they are nets, but they have no row of their own. */
+  busNets: Set<string>;
   /** port_id → net name. */
   ports: Map<string, string>;
   doc: Document;
@@ -743,6 +917,8 @@ interface Scope {
 interface ModuleScope {
   /** Module instance id (`M1`). */
   instanceId: string;
+  /** Stable module-instance identity (ADR-0051); absent in pre-0.9 sources. */
+  uid?: string;
   /** Module definition id (`buck-5v`). */
   moduleId: string;
   /** The module's own instances, nets and ports. */
@@ -765,6 +941,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
   const scope: Scope = {
     instances: new Map(),
     nets: new Map(boardDoc.nets.map((n) => [n.name, n])),
+    busNets: busNetIds(boardDoc),
     ports: new Map(boardDoc.ports.map((p) => [p.id, p.net])),
     doc: boardDoc,
   };
@@ -849,6 +1026,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
     const moduleScope: Scope = {
       instances: new Map(),
       nets: new Map(parsed.doc.nets.map((n) => [n.name, n])),
+      busNets: busNetIds(parsed.doc),
       ports: new Map(parsed.doc.ports.map((p) => [p.id, p.net])),
       doc: parsed.doc,
     };
@@ -873,6 +1051,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
     }
     moduleScopes.push({
       instanceId: row.instanceId,
+      ...(row.uid === undefined ? {} : { uid: row.uid }),
       moduleId: row.moduleId,
       scope: moduleScope,
       file: source.file,
@@ -894,6 +1073,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
     instanceOrigin.set(inst.refdes, boardDoc.source.span(inst.line, inst.col));
     instances.push({
       id: inst.refdes,
+      ...(inst.uid === undefined ? {} : { uid: inst.uid }),
       component: inst.componentId,
       ...(params.length > 0 ? { params } : {}),
     });
@@ -909,9 +1089,12 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
         continue;
       }
       const params = resolveParams(inst, facts, module.file, diagnostics);
+      const uid =
+        module.uid !== undefined && inst.uid !== undefined ? `${module.uid}/${inst.uid}` : undefined;
       instanceOrigin.set(id, module.source.span(inst.line, inst.col));
       instances.push({
         id,
+        ...(uid === undefined ? {} : { uid }),
         component: inst.componentId,
         ...(params.length > 0 ? { params } : {}),
       });
@@ -1064,14 +1247,51 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
 
   const buses: Bus[] = [];
   const busSpans: Span[] = [];
+  const busIdsSeen = new Set<string>();
   for (const bus of boardDoc.buses) {
-    const busNets: string[] = [];
+    // One bus id, one block: two `bus i2c0` declarations would put two entries with the same id in the
+    // IR, and the second block's members would describe a bus the design does not have.
+    if (busIdsSeen.has(bus.id)) {
+      diagnostics.add(
+        "error",
+        "ref.duplicate-bus",
+        `bus ${bus.id} is declared more than once`,
+        boardDoc.file,
+        bus.line,
+        1,
+        { hint: "declare every member of a bus in its one block: a repeated member row merges, a repeated bus does not" },
+      );
+      continue;
+    }
+    busIdsSeen.add(bus.id);
+    // A member row that names a member already named above merges into that member's net, exactly as
+    // a repeated net row does in the `nets` section (§7.2).
+    const memberRefs = new Map<string, { refs: string[]; line: number }>();
     for (const member of bus.members) {
-      const netId = `${bus.id}.${member.member}`;
+      const seen = memberRefs.get(member.member);
+      if (seen === undefined) memberRefs.set(member.member, { refs: [...member.refs], line: member.line });
+      else seen.refs.push(...member.refs);
+    }
+    const busNets: string[] = [];
+    for (const [member, source] of memberRefs) {
+      const netId = `${bus.id}.${member}`;
       const members: string[] = [];
-      for (const ref of member.refs) {
+      for (const ref of source.refs) {
         const resolved = resolvePinRef(scope, ref, resolver, diagnostics);
-        if (resolved !== null) members.push(resolved);
+        if (resolved === null) continue;
+        if (members.includes(resolved)) {
+          diagnostics.add(
+            "error",
+            "net.duplicate-member",
+            `pin ${ref} appears more than once in net ${netId}`,
+            boardDoc.file,
+            source.line,
+            1,
+            { hint: "a pin belongs to a net once" },
+          );
+          continue;
+        }
+        members.push(resolved);
       }
       nets.push({ id: netId, members });
       busNets.push(netId);
@@ -1160,7 +1380,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
       const constraint = buildConstraint(raw, module.scope, resolver, diagnostics);
       if (constraint === null) continue;
       const flatten = (text: string): string => {
-        if (module.scope.nets.has(text)) {
+        if (module.scope.nets.has(text) || module.scope.busNets.has(text)) {
           const key = `${module.instanceId}.${text}`;
           return mergedInto.get(key) ?? key;
         }
@@ -1198,7 +1418,28 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
   constraints.forEach((_, index) => sources.set(`/constraints/${index}`, constraintSpans[index]!));
   buses.forEach((_, index) => sources.set(`/buses/${index}`, busSpans[index]!));
 
-  return { ok: !diagnostics.hasError, ir, diagnostics: diagnostics.items, sources };
+  const sourceUids = [
+    ...boardDoc.instances
+      .filter((instance) => instance.uid !== undefined)
+      .map((instance) => ({
+        uid: instance.uid!,
+        kind: "instance" as const,
+        id: instance.refdes,
+        line: instance.line,
+        col: instance.col,
+      })),
+    ...boardDoc.modules
+      .filter((module) => module.uid !== undefined)
+      .map((module) => ({
+        uid: module.uid!,
+        kind: "module" as const,
+        id: module.instanceId,
+        line: module.line,
+        col: module.col,
+      })),
+  ];
+
+  return { ok: !diagnostics.hasError, ir, diagnostics: diagnostics.items, sources, sourceUids };
 }
 
 /* ------------------------------------------------------------------ value helpers */
@@ -1369,7 +1610,7 @@ function buildConstraint(
 
   // subject: nets first, then pin references.
   const resolveSubject = (text: string, netOnly: boolean): string | null => {
-    if (scope.nets.has(text)) return text;
+    if (scope.nets.has(text) || scope.busNets.has(text)) return text;
     if (netOnly || !text.includes(".")) {
       diagnostics.add("error", "ref.unknown-net", `net ${text} does not exist`, file, raw.line, raw.col);
       return null;

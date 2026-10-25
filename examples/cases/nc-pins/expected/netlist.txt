@@ -1,4 +1,4 @@
-# netlist debug-header (ir 0.13)
+# netlist debug-header (ir 0.14)
 GND: J1.3 J1.5
 NRST: J1.10 R1.1
 SWCLK: J1.4

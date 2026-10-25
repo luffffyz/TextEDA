@@ -2,7 +2,7 @@
 //
 // Validation has two layers (AGENTS.md §10 "error quality"):
 //   1. Semantic layer: parsing and ERC from `packages/parser` (unconnected pins, net member conflicts, missing components, ...);
-//   2. Contract layer: whether the produced IR satisfies `schemas/ir/v0.5/schematic.schema.json`.
+//   2. Contract layer: whether the produced IR satisfies `schemas/ir/v0.14/schematic.schema.json`.
 //
 // Output shape matches `compile`: human-readable mode prints to stderr, `--json` mode prints the diagnostic payload to stdout
 // (ADR-0016: code / severity / location / data are the machine contract).
@@ -55,6 +55,7 @@ import { loadFootprintLibrary, padsByInstance, withPackageCodes } from "./pads.t
 import { loadSymbolLibrary, schematicInstances, type DeviceFacts } from "./symbols.ts";
 import { LAYOUT } from "./paths.ts";
 import { idLocator, locateWith } from "./locate.ts";
+import { checkProjectInstanceUids, type ProjectUidInput } from "./uids.ts";
 
 export interface BoardAnalysis {
   board: string;
@@ -94,6 +95,8 @@ export function checkProject(root: string): CheckResult {
 export function analyzeProject(root: string): AnalyzeResult {
   const diagnostics: Diagnostic[] = [];
   const boards = listBoards(root);
+  /** Per-board UID declarations, checked across the project after all boards are parsed. */
+  const uidInputs: ProjectUidInput[] = [];
   const {
     resolver,
     problems,
@@ -218,6 +221,13 @@ export function analyzeProject(root: string): AnalyzeResult {
       }
     }
     if (!result.ir) referencesComplete = false;
+    uidInputs.push({
+      board,
+      file: loaded.file,
+      ...(result.sourceUids === undefined ? {} : { sourceUids: result.sourceUids }),
+      ...(result.ir === undefined ? {} : { ir: result.ir }),
+      ...(result.sources === undefined ? {} : { sources: result.sources }),
+    });
     if (result.ir) {
       for (const instance of result.ir.instances) referencedDevices.add(instance.component);
       const check = validate("schematic", result.ir);
@@ -407,6 +417,8 @@ export function analyzeProject(root: string): AnalyzeResult {
       rounds: reviews.rounds,
     }),
   );
+
+  diagnostics.push(...checkProjectInstanceUids(uidInputs));
 
   return { boards, analyses, diagnostics };
 }

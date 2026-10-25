@@ -14,18 +14,20 @@
       "type": "voltage"
     }
   ],
-  "format": "0.8",
+  "format": "0.9",
   "instances": [
     {
       "component": "hdr-2x5-127",
-      "id": "J1"
+      "id": "J1",
+      "uid": "IDty8s4q"
     },
     {
       "component": "res-10k-0402",
-      "id": "R1"
+      "id": "R1",
+      "uid": "IDv66dfw"
     }
   ],
-  "ir_version": "0.13",
+  "ir_version": "0.14",
   "nets": [
     {
       "id": "GND",

@@ -1,4 +1,4 @@
-version 0.8
+version 0.9
 module buck-5v
 
 # The TPS5430 5V/3A buck (datasheet SLVS632 Figure 7-1): 12V in, 5V out, 3A.
@@ -7,15 +7,15 @@ module buck-5v
 # (spec/module.md §3). Its nets are flattened to M2.<net> unless a port merges them into a
 # board-level net.
 instances
-  C1  cap-mlcc-1210       10u    10%  35V  X5R
-  C2  cap-mlcc-0402       10n    10%  25V  X7R
-  C3  cap-tantalum-7343   220u   20%  10V  40mΩ
-  C4  cap-mlcc-0402       100n   10%  16V  X7R
-  D1  d-b340a
-  L1  ihlp4040dzer150m11
-  R1  res-thick-0402      10k    ±1%
-  R2  res-thick-0402      3.24k  ±1%
-  U1  tps5430ddar
+  C1  ID4dyg23  cap-mlcc-1210       10u    10%  35V  X5R
+  C2  IDfmzbaz  cap-mlcc-0402       10n    10%  25V  X7R
+  C3  IDsgrfhg  cap-tantalum-7343   220u   20%  10V  40mΩ
+  C4  ID46a8m4  cap-mlcc-0402       100n   10%  16V  X7R
+  D1  ID3x6t45  d-b340a
+  L1  IDx874ka  ihlp4040dzer150m11
+  R1  IDdhbpj2  res-thick-0402      10k    ±1%
+  R2  ID2qyz83  res-thick-0402      3.24k  ±1%
+  U1  ID56qc2k  tps5430ddar
 
 nets
   BOOT:  C2.1  U1.BOOT

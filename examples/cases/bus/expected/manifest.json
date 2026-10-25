@@ -1,0 +1,46 @@
+{
+  "ir_version": "0.14",
+  "shards": [
+    {
+      "path": "boards/sensor-hub/schematic.json",
+      "sha256": "4e4e7364b29cca976a9318a5952b570bbdfae43c07ccd2be9fe5a2b0bc74eceb",
+      "normative": true
+    },
+    {
+      "path": "components/hdr-1x4-254.json",
+      "sha256": "f3b79a2accd526a70bba9808c26c8fee8c94fbd638c729700f3e45c23c37eefd",
+      "normative": true
+    },
+    {
+      "path": "components/jst-sh-4.json",
+      "sha256": "9f95d6f4f5040d5f736ee7125792e930ab6214d8ece67c582ec02bf777e165b2",
+      "normative": true
+    },
+    {
+      "path": "footprints/project/hdr-1x4-254.json",
+      "sha256": "ae3c8a995ecc6383bd1b23c825a43bf56fadc31aa7396ac47f55fe6de805846f",
+      "normative": true
+    },
+    {
+      "path": "footprints/project/jst-sh-4.json",
+      "sha256": "9c17e659971773e88c5d1fc7f9257813b6a1acf63fb55eb856764d09a53ca4be",
+      "normative": true
+    },
+    {
+      "path": "project.json",
+      "sha256": "78275ac6f0b63d8758e1b1daeadb0334a872d1f66af9cd32a24be067d46d6b95",
+      "normative": true
+    },
+    {
+      "path": "symbols/project/hdr-1x4.json",
+      "sha256": "38176a5b2337c05695b422102daaf138a49a75a958891e2bc2897fd1aac41e29",
+      "normative": true
+    },
+    {
+      "path": "symbols/project/jst-sh-4.json",
+      "sha256": "fadaea8b555bf05d45084a6f9c9840e3bef9c5ed9f68ffbeebdc01b76b2b06f3",
+      "normative": true
+    }
+  ],
+  "source_hash": "f9fce133acfa8a5e5130c1f7de5937dbb88be4701510452002a8dbdf57e2840e"
+}

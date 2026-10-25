@@ -17,7 +17,9 @@ import {
   ON_LINE_NM,
   boxesOverlap,
   distanceToPolyline,
+  distanceToSegment,
   overlapArea,
+  pinStroke,
   segmentCrossing,
   segmentInBox,
   wirePath,
@@ -30,11 +32,16 @@ import type {
   ReadabilityText,
 } from "./facts.ts";
 
-export type { ReadabilityBox, ReadabilityGeometry, ReadabilitySymbol, ReadabilityText } from "./facts.ts";
+export type { ReadabilityBox, ReadabilityField, ReadabilityGeometry, ReadabilitySymbol, ReadabilityText } from "./facts.ts";
 
 /** mm with one decimal: the human form of a nanometre distance, small enough to read in a message. */
 function mm(nm: number): string {
   return (nm / 1_000_000).toFixed(1);
+}
+
+/** mm with two decimals: a coordinate, which the page draws on a 0.01 mm grid. */
+function mmAt(nm: number): string {
+  return (nm / 1_000_000).toFixed(2);
 }
 
 /** mm² with two decimals, from nm². */
@@ -132,13 +139,87 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
     }
   }
 
+  /**
+   * How much of a wire path runs inside a box, in nanometres: the part of the stroke the reader
+   * cannot tell apart from the letters.
+   *
+   * Summed over the segments, so a wire that enters, leaves and re-enters — a pad drop on each side
+   * of a value field — counts both runs.
+   */
+  const lengthInBox = (path: readonly Point[], box: ReadabilityBox): number => {
+    let total = 0;
+    for (let i = 0; i + 1 < path.length; i += 1) {
+      const clipped = segmentInBox(path[i]!, path[i + 1]!, box);
+      if (!clipped) continue;
+      total += (clipped[1] - clipped[0]) * Math.hypot(path[i + 1]!.x_nm - path[i]!.x_nm, path[i + 1]!.y_nm - path[i]!.y_nm);
+    }
+    return total;
+  };
+
+  // Everything printed on the sheet, view records and symbol fields alike: a reader cannot tell
+  // which file a line of text came from, so neither can this loop.
+  const printed: {
+    readonly kind: string;
+    readonly label: string;
+    readonly text: string;
+    readonly box: ReadabilityBox;
+    readonly ownNet?: string | undefined;
+    readonly instance?: string | undefined;
+    readonly irPath?: string | undefined;
+  }[] = [
+    ...geometry.texts.map((text) => ({
+      kind: text.kind,
+      label: text.kind === "text" ? `the note "${text.text}"` : `the ${text.kind} ${text.text}`,
+      text: text.text,
+      box: text.box,
+      ...(text.kind === "label" ? { ownNet: text.subject } : {}),
+      ...(text.kind === "port" ? { ownNet: portNet.get(text.subject ?? "") } : {}),
+      ...(text.ir_path === undefined ? {} : { irPath: text.ir_path }),
+    })),
+    ...geometry.fields.map((field) => ({
+      kind: "field",
+      label:
+        field.text === field.instance_id
+          ? `the ${field.name} field of ${field.instance_id}`
+          : `the ${field.name} field of ${field.instance_id} (${field.text})`,
+      text: field.text,
+      box: field.box,
+      instance: field.instance_id,
+      ...(field.ir_path === undefined ? {} : { irPath: field.ir_path }),
+    })),
+  ];
+
+  for (const text of printed) {
+    for (const wire of wires) {
+      // A label or a port sits on the wire it names by construction; a field is exempt from nothing
+      // — the symbol put it there, and no run has a reason to cross it.
+      if (text.ownNet !== undefined && text.ownNet === wire.net) continue;
+      const path = wirePath(wire, symbols);
+      if (!path || path.length < 2) continue;
+      const through = lengthInBox(path, text.box);
+      if (through <= ON_LINE_NM) continue;
+      diagnostics.push({
+        code: "view.text-on-wire",
+        severity: "warning",
+        message: `print page ${page}: the wire on net ${wire.net} runs ${mm(through)} mm through ${text.label}`,
+        hint: "move the text or reroute the wire: a line through a word makes it unreadable",
+        location: at(text.irPath),
+        data: {
+          page,
+          net: wire.net,
+          kind: text.kind,
+          text: text.text,
+          ...(text.instance === undefined ? {} : { instance: text.instance }),
+          through_nm: Math.round(through),
+        },
+      });
+    }
+  }
+
   for (const [index, wire] of wires.entries()) {
     const path = wirePath(wire, symbols);
     if (!path || path.length < 2) continue;
-    const fromInstance = wire.from_pin.slice(0, wire.from_pin.lastIndexOf("."));
-    const toInstance = wire.to_pin.slice(0, wire.to_pin.lastIndexOf("."));
     for (const symbol of geometry.symbols) {
-      if (symbol.instance_id === fromInstance || symbol.instance_id === toInstance) continue;
       let through = 0;
       for (let i = 0; i + 1 < path.length; i += 1) {
         const clipped = segmentInBox(path[i]!, path[i + 1]!, symbol.box, ON_LINE_NM);
@@ -158,45 +239,96 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
     }
   }
 
-  // Two runs of *different* nets crossing each other. Nothing is drawn there (no junction dot, §5.1),
-  // so the page shows two lines meeting at a point -- the exact picture of a connection. Nothing can
-  // be drawn to fix that either: a hop would be a second convention saying "not connected" in
-  // pictures, and the drawing already says it by the absence of a dot. The repair is routing.
-  const paths = wires.map((wire) => wirePath(wire, symbols));
-  for (let i = 0; i < wires.length; i += 1) {
-    const a = paths[i];
-    if (!a || a.length < 2) continue;
-    for (let j = i + 1; j < wires.length; j += 1) {
-      const b = paths[j];
-      if (!b || b.length < 2) continue;
-      const first = wires[i]!.net;
-      const second = wires[j]!.net;
-      if (first === second) continue; // same net: they join, and a join is drawn (a dot)
-      let crossings = 0;
-      let at_x = 0;
-      let at_y = 0;
-      for (let x = 0; x + 1 < a.length; x += 1) {
-        for (let y = 0; y + 1 < b.length; y += 1) {
-          const hit = segmentCrossing(a[x]!, a[x + 1]!, b[y]!, b[y + 1]!);
-          if (hit === null) continue;
-          if (crossings === 0) {
-            const t = hit[0];
-            at_x = Math.round(a[x]!.x_nm + t * (a[x + 1]!.x_nm - a[x]!.x_nm));
-            at_y = Math.round(a[x]!.y_nm + t * (a[x + 1]!.y_nm - a[x]!.y_nm));
+  // A wire must not run through a pin's connection point or through the pin's drawn line unless it
+  // ends at that pin. A pin is a connection; a wire passing through it without a junction dot reads
+  // as a connection the drawing does not declare. The repair is local: split the run at the pin (a
+  // second `wire` row) or route around it. The wire's own endpoint is excluded from the point test —
+  // that is the connection it declares — but not from the line test: a run that approaches the pin
+  // from the wrong side still crosses the line the reader sees.
+  for (const [index, wire] of wires.entries()) {
+    const path = wirePath(wire, symbols);
+    if (!path || path.length < 2) continue;
+    for (const symbol of geometry.symbols) {
+      for (const [pinNumber, pin] of symbol.pins) {
+        const pinRef = `${symbol.instance_id}.${pinNumber}`;
+        const stroke = pinStroke(symbol, pin);
+        let atConnection = false;
+        let crossingPoint: Point | null = null;
+        for (let i = 0; i + 1 < path.length; i += 1) {
+          const a = path[i]!;
+          const b = path[i + 1]!;
+          if (pinRef !== wire.from_pin && pinRef !== wire.to_pin && distanceToSegment(pin, a, b) <= ON_LINE_NM) {
+            atConnection = true;
+            break;
           }
-          crossings += 1;
+          if (stroke !== null) {
+            const hit = segmentCrossing(a, b, stroke[0], stroke[1]);
+            if (hit !== null) {
+              crossingPoint = {
+                x_nm: Math.round(a.x_nm + (b.x_nm - a.x_nm) * hit[0]),
+                y_nm: Math.round(a.y_nm + (b.y_nm - a.y_nm) * hit[0]),
+              };
+              break;
+            }
+          }
         }
+        if (!atConnection && crossingPoint === null) continue;
+        diagnostics.push({
+          code: "view.wire-crosses-pin",
+          severity: "warning",
+          message:
+            crossingPoint === null
+              ? `print page ${page}: the wire on net ${wire.net} passes through pin ${pinRef}`
+              : `print page ${page}: the wire on net ${wire.net} passes through the line of pin ${pinRef} at (${mmAt(crossingPoint.x_nm)}, ${mmAt(crossingPoint.y_nm)}) mm`,
+          hint: "split the run at the pin (a second wire row) or route around it: a wire through a pin reads as a connection",
+          location: at(`/wire/${index}`),
+          data: {
+            page,
+            net: wire.net,
+            instance: symbol.instance_id,
+            pin: pinNumber,
+            x_nm: pin.x_nm,
+            y_nm: pin.y_nm,
+            ...(crossingPoint === null
+              ? {}
+              : { cross_x_nm: crossingPoint.x_nm, cross_y_nm: crossingPoint.y_nm }),
+          },
+        });
       }
-      if (crossings === 0) continue;
-      diagnostics.push({
-        code: "view.wire-crossing",
-        severity: "warning",
-        message: `print page ${page}: the wire on net ${first} crosses the wire on net ${second}${crossings > 1 ? ` ${crossings} times` : ""} at (${mm(at_x)}, ${mm(at_y)}) mm: a crossing without a junction dot reads as a connection`,
-        hint: "route one of them around the other: the repair is geometry, not a symbol",
-        location: at(`/wire/${i}`),
-        data: { page, first_net: first, second_net: second, crossings, x_nm: at_x, y_nm: at_y },
-      });
     }
+  }
+
+  // Wiring runs along the sheet's axes (spec/schematic-view.md §5). A slanted segment is not a
+  // matter of taste: every other run on the page is horizontal or vertical, so the one line at an
+  // angle reads as a leader or a note, and its two ends are two connections whose relationship the
+  // reader has to work out. The repair is always local — put a corner where the two ends meet.
+  for (const [index, wire] of wires.entries()) {
+    const path = wirePath(wire, symbols);
+    if (!path || path.length < 2) continue;
+    let slanted = 0;
+    let firstX = 0;
+    let firstY = 0;
+    let worst = 0;
+    for (let i = 0; i + 1 < path.length; i += 1) {
+      const dx = Math.abs(path[i + 1]!.x_nm - path[i]!.x_nm);
+      const dy = Math.abs(path[i + 1]!.y_nm - path[i]!.y_nm);
+      if (dx === 0 || dy === 0) continue;
+      if (slanted === 0) {
+        firstX = path[i]!.x_nm;
+        firstY = path[i]!.y_nm;
+      }
+      slanted += 1;
+      worst = Math.max(worst, Math.min(dx, dy));
+    }
+    if (slanted === 0) continue;
+    diagnostics.push({
+      code: "view.wire-diagonal",
+      severity: "warning",
+      message: `print page ${page}: ${slanted === 1 ? "a segment of the wire" : `${slanted} segments of the wire`} on net ${wire.net} leaves the axes, the first from (${mmAt(firstX)}, ${mmAt(firstY)}) mm`,
+      hint: "put a corner where the run turns: wiring is drawn at right angles only",
+      location: at(`/wire/${index}`),
+      data: { page, net: wire.net, segments: slanted, x_nm: firstX, y_nm: firstY, off_axis_nm: worst },
+    });
   }
 
   return diagnostics;

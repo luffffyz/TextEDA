@@ -35,6 +35,7 @@ import {
 import { PROCUREMENT_ROLES } from "@texteda/parser";
 import { LAYOUT } from "./paths.ts";
 import { locateWith } from "./locate.ts";
+import { checkProjectInstanceUids, type ProjectUidInput } from "./uids.ts";
 import {
   listBoards,
   listProcurement,
@@ -128,6 +129,8 @@ export function buildIrTree(root: string): IrTree {
   const components = loadComponents(root);
   const resolver = components.resolver;
   const modules = loadModules(root);
+  /** Per-board UID declarations, checked across the project before hashes are computed (ADR-0051). */
+  const uidInputs: ProjectUidInput[] = [];
 
   // The devices: one shard per file, at `components/<id>.json`. A component is a fact of the build
   // (the board is made of these parts), so it is normative.
@@ -155,6 +158,13 @@ export function buildIrTree(root: string): IrTree {
       modules,
     });
     diagnostics.push(...schematic.diagnostics);
+    uidInputs.push({
+      board,
+      file: loaded.file,
+      ...(schematic.sourceUids === undefined ? {} : { sourceUids: schematic.sourceUids }),
+      ...(schematic.ir === undefined ? {} : { ir: schematic.ir }),
+      ...(schematic.sources === undefined ? {} : { sources: schematic.sources }),
+    });
     if (schematic.ir) {
       drafts.push({
         path: `boards/${board}/schematic.json`,
@@ -291,6 +301,8 @@ export function buildIrTree(root: string): IrTree {
       ir: parsed.ir,
     });
   }
+
+  diagnostics.push(...checkProjectInstanceUids(uidInputs));
 
   // A procurement file belongs to a board: one whose design exists (spec/procurement.md §1).
   const boards = new Set(listBoards(root));

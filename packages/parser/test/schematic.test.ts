@@ -34,7 +34,7 @@ describe("single-file board (mcu-board)", () => {
   test("instances and nets are unique sets of the board", () => {
     const ir = result.ir!;
     expect(ir.board).toBe("mcu-board");
-    expect(ir.format).toBe("0.2");
+    expect(ir.format).toBe("0.9");
     expect(ir.instances.length).toBe(21);
     expect(ir.nets.length).toBe(10);
   });
@@ -175,6 +175,108 @@ describe("composed board (charger-buck)", () => {
   test("ERC warning: ENA intentionally left open (internal pull-up)", () => {
     const warnings = result.diagnostics.filter((d) => d.severity === "warning");
     expect(warnings.map((w) => w.message)).toEqual(["pin M2.U1.5 (ENA) is not connected"]);
+  });
+});
+
+
+describe("stable instance UIDs (ADR-0051)", () => {
+  const board = (rows: string) => [
+    "version 0.9",
+    "schematic b",
+    "",
+    "instances",
+    ...rows.split("\n"),
+    "",
+    "nets",
+    "  A:  R1.1",
+    "  B:  R1.2",
+  ].join("\n");
+
+  test("a top-level row carries its UID into the IR", () => {
+    const result = parseSchematic(board("  R1  ID7k3m9q  res-thick-0402  10k  ±1%"), {
+      file: "sch/b.teda",
+      board: "b",
+      components: resolver,
+    });
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(result.ir!.instances[0]!.uid).toBe("ID7k3m9q");
+  });
+
+  test("a module-local UID is path-qualified by the module instance UID", () => {
+    const moduleText = [
+      "version 0.9",
+      "module m",
+      "",
+      "instances",
+      "  R1  ID7k3m9q  res-thick-0402  10k  ±1%",
+      "",
+      "nets",
+      "  N:  R1.1",
+      "",
+      "ports",
+      "  P  N",
+    ].join("\n");
+    const boardText = [
+      "version 0.9",
+      "schematic b",
+      "",
+      "modules",
+      "  M1  IDp8x2n4  m",
+      "  M2  IDq4m7sc  m",
+      "",
+      "nets",
+      "  A:  M1.P  M2.P",
+    ].join("\n");
+    const composed = parseSchematic(boardText, {
+      file: "sch/b.teda",
+      board: "b",
+      components: resolver,
+      modules: [{ moduleId: "m", file: "modules/m.teda", text: moduleText }],
+    });
+    expect(composed.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    const m1 = composed.ir!.instances.find((i) => i.id === "M1.R1")!;
+    const m2 = composed.ir!.instances.find((i) => i.id === "M2.R1")!;
+    expect(m1.uid).toBe("IDp8x2n4/ID7k3m9q");
+    expect(m2.uid).toBe("IDq4m7sc/ID7k3m9q");
+  });
+
+  test("a duplicate UID in one file is an error", () => {
+    const result = parseSchematic(
+      board("  R1  ID7k3m9q  res-thick-0402  10k  ±1%\n  R2  ID7k3m9q  res-thick-0402  1k  ±1%"),
+      { file: "sch/b.teda", board: "b", components: resolver },
+    );
+    expect(result.diagnostics.map((d) => d.code)).toContain("value.duplicate-instance-uid");
+  });
+
+  test("a malformed UID is a syntax error", () => {
+    const result = parseSchematic(board("  R1  ID7K3M9Q  res-thick-0402  10k  ±1%"), {
+      file: "sch/b.teda",
+      board: "b",
+      components: resolver,
+    });
+    expect(result.diagnostics.map((d) => d.code)).toContain("syntax.invalid-identifier");
+  });
+
+  test("a 0.9 row without a UID warns; an older file does not", () => {
+    const current = parseSchematic(board("  R1  res-thick-0402  10k  ±1%"), {
+      file: "sch/b.teda",
+      board: "b",
+      components: resolver,
+    });
+    expect(current.diagnostics.map((d) => d.code)).toContain("value.instance-uid-missing");
+    const legacy = parseSchematic(
+      "version 0.8\nschematic b\n\ninstances\n  R1  res-thick-0402  10k  ±1%\n\nnets\n  A:  R1.1\n  B:  R1.2\n",
+      { file: "sch/b.teda", board: "b", components: resolver },
+    );
+    expect(legacy.diagnostics.map((d) => d.code)).not.toContain("value.instance-uid-missing");
+  });
+
+  test("a UID below language 0.9 is rejected", () => {
+    const result = parseSchematic(
+      "version 0.8\nschematic b\n\ninstances\n  R1  ID7k3m9q  res-thick-0402  10k  ±1%\n\nnets\n  A:  R1.1\n  B:  R1.2\n",
+      { file: "sch/b.teda", board: "b", components: resolver },
+    );
+    expect(result.diagnostics.map((d) => d.code)).toContain("format.unsupported-version");
   });
 });
 
@@ -610,5 +712,59 @@ describe("bus continuation rows (teda.md §7.3)", () => {
       components: resolver,
     });
     expect(result.diagnostics.map((d) => d.code)).toContain("net.continuation-without-net");
+  });
+
+  test("a member net may be named by a port", () => {
+    // `i2c0.scl` is a net with no row of its own; the bus declaration is what brings it into existence.
+    const result = parseSchematic(`${header}\n  scl:  R1.1\n  sda:  R2.2\n\nports\n  I2C_SCL  i2c0.scl`, {
+      file: "sch/b.teda",
+      board: "b",
+      components: resolver,
+    });
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(result.ir!.ports).toEqual([{ id: "I2C_SCL", net: "i2c0.scl" }]);
+  });
+
+  test("a member net may be the subject of a constraint", () => {
+    const result = parseSchematic(`${header}\n  scl:  R1.1\n  sda:  R2.2\n\nconstraints\n  voltage  i2c0.scl  3.0V..3.6V`, {
+      file: "sch/b.teda",
+      board: "b",
+      components: resolver,
+    });
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(result.ir!.constraints).toEqual([{ type: "voltage", subject: "i2c0.scl", min_uv: 3_000_000, max_uv: 3_600_000 }]);
+  });
+
+  test("the same bus declared twice is an error, and only the first block reaches the IR", () => {
+    const result = parseSchematic(`${header}\n  scl:  R1.1\n  sda:  R2.2\n\nbus i2c0 = I2C\n  scl:  R2.1`, {
+      file: "sch/b.teda",
+      board: "b",
+      components: resolver,
+    });
+    expect(result.diagnostics.map((d) => d.code)).toContain("ref.duplicate-bus");
+    expect(result.ir!.buses).toHaveLength(1);
+    const scl = result.ir!.nets.find((n) => n.id === "i2c0.scl")!;
+    expect(scl.members).toEqual(["R1.1"]);
+  });
+
+  test("a repeated member row merges into one member net", () => {
+    const result = parseSchematic(`${header}\n  scl:  R1.1\n  scl:  R2.1\n  sda:  R2.2`, {
+      file: "sch/b.teda",
+      board: "b",
+      components: resolver,
+    });
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(result.ir!.nets.filter((n) => n.id === "i2c0.scl")).toHaveLength(1);
+    expect(result.ir!.nets.find((n) => n.id === "i2c0.scl")!.members).toEqual(["R1.1", "R2.1"]);
+  });
+
+  test("a pin repeated across two member rows is an error", () => {
+    const result = parseSchematic(`${header}\n  scl:  R1.1\n  scl:  R1.1`, {
+      file: "sch/b.teda",
+      board: "b",
+      components: resolver,
+    });
+    expect(result.diagnostics.map((d) => d.code)).toContain("net.duplicate-member");
+    expect(result.ir!.nets.find((n) => n.id === "i2c0.scl")!.members).toEqual(["R1.1"]);
   });
 });

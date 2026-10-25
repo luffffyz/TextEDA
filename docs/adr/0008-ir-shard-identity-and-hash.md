@@ -107,8 +107,18 @@ The implementation language is undecided (`AGENTS.md` §11 rule 13). Until it is
 - **Hashes come in three layers**: shards can be cached, a board can be traced individually, the project can be traced as a whole; the cost is that every consumer has to implement the three-line aggregation rule. Since 2026-10-22 the project hash covers the normative shards and an `advisory_hash` covers the advisory ones, so a consumer that must distinguish "the build changed" from "the purchasing state changed" has two hashes to read.
 - **Constraint subjects get renamed during flattening**: the person writing `.teda` will not notice, but a reader of the IR has to know that `M2.VFB` originates from the page net `VFB` being flattened.
 
+## Amendment (2026-10-25)
+
+Decision 3 is amended by [ADR-0051](0051-instances-have-a-stable-project-local-uid.md). A component
+or module instance may now carry an explicit, immutable `uid` (project-local, `ID` plus six
+characters); the schematic `instance` record has an optional `uid` field since IR 0.14. The
+flattened name remains the display name and the syntax used by existing references, so this does
+not yet make a refdes rename hash-neutral: `source_hash` still changes when the refdes changes.
+The "no separate stable id table" part of decision 3 still holds — the UID is a column on the
+instance row, not a mapping layer.
+
 ## Follow-up
 
 - Whether the geometry of `place`/`connect`/`trace` in the `pcb` shard should be **quantized to a fixed grid** (the "export boundary" pitfall in `AGENTS.md` §7) — whether quantization is an exporter strategy or an IR invariant is decided in the next round.
-- Whether the language layer gets an explicit `id` column (rename without changing identity); once it does, `ir_version` rises by MINOR and old shards remain readable.
+- Whether the language layer gets an explicit `id` column (rename without changing identity); once it does, `ir_version` rises by MINOR and old shards remain readable. **Partly answered 2026-10-25**: the column exists ([ADR-0051](0051-instances-have-a-stable-project-local-uid.md)); rekeying references and making the hash rename-neutral remains open.
 - Whether `manifest.json` should also record the `format` and the schema `$id` of each shard, so that tools can self-check in projects with mixed versions.

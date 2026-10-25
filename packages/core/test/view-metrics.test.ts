@@ -38,6 +38,7 @@ const geometry: ReadabilityGeometry = {
       ]),
     },
   ],
+  fields: [],
   texts: [
     {
       kind: "label",
@@ -91,7 +92,7 @@ describe("viewMetrics", () => {
     const metrics = viewMetrics({
       view: view([]),
       schematic,
-      geometry: { symbols: [], texts: geometry.texts },
+      geometry: { symbols: [], fields: [], texts: geometry.texts },
     });
     const byText = new Map(metrics.net_texts.map((text) => [text.text, text]));
     // Nothing of the net exists here: 0 would read as "on the net", which is the opposite.
@@ -174,7 +175,7 @@ describe("viewMetrics", () => {
     const metrics = viewMetrics({
       view: view([]),
       schematic,
-      geometry: { symbols: [], texts: [] },
+      geometry: { symbols: [], fields: [], texts: [] },
     });
     expect(metrics.content).toBeNull();
     expect(metrics.content_fill_ppm).toBe(0);

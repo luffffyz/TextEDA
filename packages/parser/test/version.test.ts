@@ -76,14 +76,14 @@ describe("version acceptance", () => {
     expect(checkVersion("0.9", procurement, "procurement").ok).toBe(true);
   });
 
-  test("a board file keeps the whole 0.1..0.8 window", () => {
-    // A board gained sections over time (ports at 0.2, modules at 0.8), so the window stays open:
-    // a flat board may still say 0.2 while a board that composes modules says 0.8.
+  test("a board file keeps the whole 0.1..0.9 window", () => {
+    // A board gained sections over time (ports at 0.2, modules at 0.8, instance UIDs at 0.9), so the
+    // window stays open: a flat board may still say 0.2 while a board that carries UIDs says 0.9.
     const schematic = typeRange("schematic");
-    for (const text of ["0.2", "0.7", "0.8"]) {
+    for (const text of ["0.2", "0.7", "0.8", "0.9"]) {
       expect({ text, ok: checkVersion(text, schematic, "schematic").ok }).toEqual({ text, ok: true });
     }
-    expect(checkVersion("0.9", schematic, "schematic").ok).toBe(false);
+    expect(checkVersion("1.0", schematic, "schematic").ok).toBe(false);
   });
 
   test("rejects a malformed version as an invalid version, not an unsupported one", () => {

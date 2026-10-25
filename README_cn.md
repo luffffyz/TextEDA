@@ -53,7 +53,7 @@ bun run texteda init ./my-board        # 生成空工程骨架
 
 **导出与哈希。** KiCad `.kicad_mod` / `.kicad_sym`、网表（IR 的连通性投影）、物料表。`texteda ir` 写 `dist/ir/`：每种描述一份 canonical JSON 分片、一份带每片 sha256 的 manifest、一个覆盖**规范**分片的工程哈希，以及另一个 `advisory_hash`——画（打印页）与第二货源（备料）属于附注类（[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)）。
 
-**还没落地。** 布局与布线（借用）、Gerber / Excellon 与 `fab` 描述（backlog F15，[ADR-0034](docs/adr/0034-manufacturing-output-target-form.md)）、KiCad 原理图导出（F16）、逆向工程与外部网表的导入器（F36）、评审 GUI 的 `placement` / `edit` 两模式与点击跳源码（F11 / F34）、模块参数与嵌套（F13），以及「改名不换身份」（[ADR-0008](docs/adr/0008-ir-shard-identity-and-hash.md) decision 3）。KiCad 仍是制造出口（[ADR-0005](docs/adr/0005-manufacturing-output.md)）。
+**还没落地。** 布局与布线（借用）、Gerber / Excellon 与 `fab` 描述（backlog F15，[ADR-0034](docs/adr/0034-manufacturing-output-target-form.md)）、KiCad 原理图导出（F16）、逆向工程与外部网表的导入器（F36）、评审 GUI 的 `placement` / `edit` 两模式与点击跳源码（F11 / F34）、模块参数与嵌套（F13），以及把引用整体重键到实例 UID（实例已有稳定 `uid`，但改 refdes 仍会改源码与哈希；[ADR-0051](docs/adr/0051-instances-have-a-stable-project-local-uid.md)）。KiCad 仍是制造出口（[ADR-0005](docs/adr/0005-manufacturing-output.md)）。
 
 给 agent 用的两份派生物（都由 `bun run gen` 生成，不手改）：
 
@@ -96,7 +96,7 @@ KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.
 | `AGENTS.md` | **主文档**：项目是什么、不可协商的不变量、验证与验收口径 |
 | `LICENSE` / `NOTICE` | Apache-2.0 与归属声明 |
 | `spec/` | 规范：`teda.md`（语言总规范）+ 分描述规范 `symbol` / `footprint` / `pcb` / `schematic-view` / `module` / `procurement` |
-| `schemas/ir/v0.13/` | IR 契约（JSON Schema 2020-12，唯一契约）：11 份 schema |
+| `schemas/ir/v0.14/` | IR 契约（JSON Schema 2020-12，唯一契约）：11 份 schema |
 | `packages/ir` | IR 类型、契约校验，与诊断码注册表 |
 | `packages/parser` | 每种描述的 `.teda` → IR，含 `fmt`（canonical form）；`module` 文件展平进板级 IR |
 | `packages/core` | 纯规则，不碰 fs：连通性 ERC、sch↔pcb 绑定、器件词表与额定值、选料、评审轮次、板 ↔ 视图校验与可读性 |

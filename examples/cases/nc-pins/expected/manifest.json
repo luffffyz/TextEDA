@@ -1,46 +1,46 @@
 {
-  "ir_version": "0.13",
+  "ir_version": "0.14",
   "shards": [
     {
       "path": "boards/debug-header/schematic.json",
-      "sha256": "eb34288d766a035f0da0c3e4ee02c689087197b8fa82f837e8af96a3df121d1f",
+      "sha256": "975676ce79827439a7fd5139ea17dca6a9a74cd62b292cbb5ee76cafce669074",
       "normative": true
     },
     {
       "path": "components/hdr-2x5-127.json",
-      "sha256": "e3852431b1b7b99677b04b707cd647c2ed0d66b5144e4dcb611203555a4fb639",
+      "sha256": "69bafadf613bbe92327e8108b4c7a2cbc5038c4ab6f74d554d8b71cb7254e2d1",
       "normative": true
     },
     {
       "path": "components/res-10k-0402.json",
-      "sha256": "f349087442a8370db08a89bfd8d577150206e74e90adf1bff5f951a1daa0e948",
+      "sha256": "1e607de64e5a2a9681e6dac4b3991cae9efe9d7e9c9ad642e5136668b3a65cd7",
       "normative": true
     },
     {
       "path": "footprints/project/chip-0402.json",
-      "sha256": "4db4286503f4c16d0dea2e3a9b8fd374894d2beef01032a714adebf06ca3a028",
+      "sha256": "ab6387326ec4506405de5725ad12a6336f7aa84032f45b0c400228e13eee4e13",
       "normative": true
     },
     {
       "path": "footprints/project/hdr-2x5-127.json",
-      "sha256": "2167ec4e9361da545acf0929d6d99641757eb742911c86b77ade511233a31184",
+      "sha256": "1c145c3a230068a6923c79d037d03565542f0501c72dc77fc06e037e9310b9ba",
       "normative": true
     },
     {
       "path": "project.json",
-      "sha256": "3c946919e0652be92dc55e59624a9a9414084c58b5dc23169874979448b79186",
+      "sha256": "e05a4222932708e6685c34bca0408cba44becbff515c79480096d0760d9dbe36",
       "normative": true
     },
     {
       "path": "symbols/project/hdr-2x5.json",
-      "sha256": "ab71bb94367ecd40062c5717d278338882a07264874e5188acf6b6181499b1dd",
+      "sha256": "925548473bb0cdc5d29816ee1abecfd01172c0e7c25b9e234ac8f4a2e630b3dc",
       "normative": true
     },
     {
       "path": "symbols/project/r.json",
-      "sha256": "cdafd49ca5da4816db69cfb51bae89a2885cc6d08d228cda55d3c2b162b55025",
+      "sha256": "b45625e63041efb79a595537b6133668116130c7b75d9305d0dbb95f5c90b350",
       "normative": true
     }
   ],
-  "source_hash": "ec3d86e685ce6e7f357dfda74bb1d72580aac159db807f71d526b83f63f7584f"
+  "source_hash": "e077f393b490e58f4e81691477aea310716a2bc46ae848a5ce764d11beed3c84"
 }

@@ -40,7 +40,7 @@
     ],
     "symbol": "project:r"
   },
-  "ir_version": "0.13",
+  "ir_version": "0.14",
   "source": {
     "file": "assets/components/passives/res-22k1-0402.teda",
     "line": 1

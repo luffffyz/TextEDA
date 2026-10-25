@@ -1,4 +1,4 @@
-version 0.8
+version 0.9
 schematic debug-header
 
 # Case 10 of the ten (AGENTS.md §10, docs/backlog.md F12): the three ways a pin can be unconnected.
@@ -15,8 +15,8 @@ schematic debug-header
 # SWDIO / SWCLK / SWO each reach only one pin here (the target end is off-board), so they are
 # exposed as ports: a net that ends at a port is not single-member (teda.md §11.4).
 instances
-  J1  hdr-2x5-127
-  R1  res-10k-0402
+  J1  IDty8s4q  hdr-2x5-127
+  R1  IDv66dfw  res-10k-0402
 
 nets
   GND:    J1.3  J1.5

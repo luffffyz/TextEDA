@@ -94,17 +94,22 @@ function walkSchematic(text: string, sectionNames: ReadonlySet<string>): Walk | 
   const isBusHeader = (row: Row): boolean => row.cells[0] === "bus" && row.cells.length >= 4;
 
   let current: Section | null = null;
+  // A section's key: its name, except a `bus` block, whose key is unique per block. Keying every bus
+  // block by the name `bus` would make the second block overwrite the first: a board with two buses
+  // would come out of the formatter with one, and the members of the lost block with it.
+  let busBlocks = 0;
   for (let row = next(); row !== null; row = next()) {
     if (isSectionHeader(row) || isBusHeader(row)) {
       const name = row.cells[0]!;
+      const key = isBusHeader(row) ? `bus#${(busBlocks += 1)}` : name;
       current = {
         comments: row.comments,
         // A bus header is one line (`bus <id> = <type>`); other sections use the section name.
         header: isBusHeader(row) ? [row.cells.join(" ")] : [name],
         rows: [],
       };
-      if (!walk.sections.has(name)) walk.order.push(name);
-      walk.sections.set(name, current);
+      if (!walk.sections.has(key)) walk.order.push(key);
+      walk.sections.set(key, current);
       continue;
     }
     if (current === null) continue; // rows outside a section are reported by the parser; nothing is emitted here
@@ -250,28 +255,33 @@ export function formatSchematic(text: string, options: SchematicFormatOptions): 
   ]);
 
   for (const name of sections) {
-    const section = walk.sections.get(name);
-    if (!section) continue;
-    const block: string[] = [...section.comments, ...section.header];
-    if (name === "nets") {
-      block.push(...alignNetRows(section.rows, "  ", true));
-    } else if (name === "bus") {
-      block.push(...alignNetRows(section.rows, "  ", false));
-    } else if (name === "instances") {
-      const rows = [...section.rows].sort((a, b) => naturalCompare(a.cells[0]!, b.cells[0]!));
-      block.push(...alignTableRows(rows, "  "));
-    } else if (name === "modules") {
-      // The module instances are ordered by their id: `M1`, `M2`, ... (natural order, not byte order).
-      const rows = [...section.rows].sort((a, b) => naturalCompare(a.cells[0]!, b.cells[0]!));
-      block.push(...alignTableRows(rows, "  "));
-    } else if (name === "ports") {
-      const rows = [...section.rows].sort((a, b) => byteCompare(a.cells[0]!, b.cells[0]!));
-      block.push(...alignTableRows(rows, "  "));
-    } else {
-      // constraints keep the source file's order.
-      block.push(...alignTableRows(section.rows, "  "));
+    // Every `bus` block is emitted, in the order the file declared them: they share the section name
+    // but not the section.
+    const keys = name === "bus" ? walk.order.filter((key) => key.startsWith("bus#")) : [name];
+    for (const key of keys) {
+      const section = walk.sections.get(key);
+      if (!section) continue;
+      const block: string[] = [...section.comments, ...section.header];
+      if (name === "nets") {
+        block.push(...alignNetRows(section.rows, "  ", true));
+      } else if (name === "bus") {
+        block.push(...alignNetRows(section.rows, "  ", false));
+      } else if (name === "instances") {
+        const rows = [...section.rows].sort((a, b) => naturalCompare(a.cells[0]!, b.cells[0]!));
+        block.push(...alignTableRows(rows, "  "));
+      } else if (name === "modules") {
+        // The module instances are ordered by their id: `M1`, `M2`, ... (natural order, not byte order).
+        const rows = [...section.rows].sort((a, b) => naturalCompare(a.cells[0]!, b.cells[0]!));
+        block.push(...alignTableRows(rows, "  "));
+      } else if (name === "ports") {
+        const rows = [...section.rows].sort((a, b) => byteCompare(a.cells[0]!, b.cells[0]!));
+        block.push(...alignTableRows(rows, "  "));
+      } else {
+        // constraints keep the source file's order.
+        block.push(...alignTableRows(section.rows, "  "));
+      }
+      blocks.push(block);
     }
-    blocks.push(block);
   }
 
   if (walk.trailing.length > 0) blocks.push([...walk.trailing]);

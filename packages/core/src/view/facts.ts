@@ -34,7 +34,25 @@ export interface ReadabilitySymbol {
   readonly pins: ReadonlyMap<string, { readonly x_nm: number; readonly y_nm: number }>;
 }
 
+/**
+ * A field the symbol drew (Reference / Value), laid out on the sheet.
+ *
+ * Not a record of the view: the text is placed by the symbol's own `field` segments, so the author
+ * cannot move it here. It is in these facts anyway because a reader cannot tell which text belongs
+ * to which file — a line through a designator is unreadable whoever placed it.
+ */
+export interface ReadabilityField {
+  readonly instance_id: string;
+  /** The symbol's field name (`Reference` / `Value`). */
+  readonly name: string;
+  readonly text: string;
+  readonly box: ReadabilityBox;
+  /** The place row that put the instance there (`/place/3`): the record that owns the field's spot. */
+  readonly ir_path?: string;
+}
+
 export interface ReadabilityGeometry {
   readonly texts: readonly ReadabilityText[];
+  readonly fields: readonly ReadabilityField[];
   readonly symbols: readonly ReadabilitySymbol[];
 }

@@ -7,8 +7,8 @@ tags buck dc-dc regulator
 # Same-side pins follow natural pin-number order: right side bottom to top 1, 2, 3, 8; left side bottom to top 4, 5; bottom side left to right 6, 9.
 # Body width is the 2-pin/side minimum 5.08, body height the 4-pin/side 10.16; body width is widened to 25.4 to leave clearance for long pin
 # names like VSENSE and for the vertical pin names of GND/PAD below (still multiples of 1.27).
-field Reference at=0,10.16 U
-field Value at=0,-10.16 dc-dc-soic8
+field Reference at=12.7,10.16 U
+field Value at=12.7,-10.16 dc-dc-soic8
 
 pins
   1  15.24   -3.81  180

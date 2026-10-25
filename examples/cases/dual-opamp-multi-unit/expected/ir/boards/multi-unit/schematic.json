@@ -14,22 +14,25 @@
       "type": "voltage"
     }
   ],
-  "format": "0.8",
+  "format": "0.9",
   "instances": [
     {
       "component": "res-22k1-0402",
-      "id": "R1"
+      "id": "R1",
+      "uid": "IDrv7pbd"
     },
     {
       "component": "res-10k-0402",
-      "id": "R2"
+      "id": "R2",
+      "uid": "IDykgsg8"
     },
     {
       "component": "opa2333",
-      "id": "U1"
+      "id": "U1",
+      "uid": "IDrqteny"
     }
   ],
-  "ir_version": "0.13",
+  "ir_version": "0.14",
   "nets": [
     {
       "id": "FB",

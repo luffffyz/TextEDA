@@ -87,8 +87,8 @@ export function viewMetrics(facts: {
   const nets = new Map(schematic.nets.map((net) => [net.id, net]));
 
   const paths = wires
-    .map((wire) => ({ net: wire.net, path: wirePath(wire, symbols), wire }))
-    .filter((entry): entry is { net: string; path: Point[]; wire: (typeof wires)[number] } => entry.path !== null && entry.path.length >= 2);
+    .map((wire) => ({ net: wire.net, path: wirePath(wire, symbols) }))
+    .filter((entry): entry is { net: string; path: Point[] } => entry.path !== null && entry.path.length >= 2);
 
   const distanceToNet = (netId: string, point: Point): number => {
     let best = Number.POSITIVE_INFINITY;
@@ -148,16 +148,11 @@ export function viewMetrics(facts: {
 
   let throughBodies = 0;
   for (const entry of paths) {
-    const fromInstance = entry.wire.from_pin.slice(0, entry.wire.from_pin.lastIndexOf("."));
-    const toInstance = entry.wire.to_pin.slice(0, entry.wire.to_pin.lastIndexOf("."));
-    const hit = geometry.symbols.some(
-      (symbol) =>
-        symbol.instance_id !== fromInstance &&
-        symbol.instance_id !== toInstance &&
-        entry.path.some((point, index) => {
-          if (index + 1 >= entry.path.length) return false;
-          return segmentInBox(entry.path[index]!, entry.path[index + 1]!, symbol.box, ON_LINE_NM) !== null;
-        }),
+    const hit = geometry.symbols.some((symbol) =>
+      entry.path.some((point, index) => {
+        if (index + 1 >= entry.path.length) return false;
+        return segmentInBox(entry.path[index]!, entry.path[index + 1]!, symbol.box, ON_LINE_NM) !== null;
+      }),
     );
     if (hit) throughBodies += 1;
   }

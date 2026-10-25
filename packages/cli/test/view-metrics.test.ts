@@ -33,7 +33,7 @@ describe("texteda view-metrics", () => {
     const metrics = JSON.parse(result.stdout) as Metrics;
     expect(metrics.board).toBe("charger-buck");
     expect(metrics.page).toBe("buck-5v");
-    expect(metrics.counts.labels).toBe(10);
+    expect(metrics.counts.labels).toBe(9);
     expect(metrics.wire_total_nm).toBeGreaterThan(0);
     expect(metrics.content_fill_ppm).toBeGreaterThan(0);
     expect(metrics.content_fill_ppm).toBeLessThan(1_000_000);

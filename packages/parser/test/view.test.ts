@@ -90,6 +90,14 @@ describe("view parsing", () => {
     expect(ir.sheet).toEqual({ width_nm: 297_000_000, height_nm: 210_000_000 });
   });
 
+  test("a bend point lands on a pin's column: the grid is 0.01 mm, not 0.1", () => {
+    // 1.27 mm pin pitch is 127 steps of 0.01 mm and 12.7 steps of 0.1 mm, so a wire that leaves a
+    // pin straight and then turns needs the finer grid (spec/schematic-view.md §2.1, §5).
+    const result = parseView("version 0.7\nview main\n\nplace\n  U1  10.0  10.0\n\nwire\n  VDD  U1.5  U1.6  124.76  10.0\n", { file, board: "b" });
+    expect(result.ok).toBe(true);
+    expect(result.ir!.wire![0]!.points).toEqual([{ x_nm: 124_760_000, y_nm: 10_000_000 }]);
+  });
+
   test("the module-qualified names of the module hierarchy are board-level names", () => {
     // The view names ids, it does not define them: a module instance is `M1.U1`, its pin
     // reference is `M1.U1.5`, and a module-internal net is `M1.VCC`.
@@ -146,8 +154,8 @@ describe("view diagnostics", () => {
       code: "syntax.row-too-short",
     },
     {
-      name: "a coordinate finer than the 0.1 mm grid",
-      source: "version 0.7\nview main\n\nplace\n  U1  10.05  10.0\n",
+      name: "a coordinate finer than the 0.01 mm grid",
+      source: "version 0.7\nview main\n\nplace\n  U1  10.005  10.0\n",
       code: "value.length-invalid",
     },
     {

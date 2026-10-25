@@ -1,4 +1,4 @@
-version 0.8
+version 0.9
 module charger-power
 
 # The BQ24610 charge and power path (datasheet SLUS892D Figure 20): 19V adapter, 3-cell Li-ion
@@ -8,58 +8,58 @@ module charger-power
 # (spec/module.md §3). Its nets are flattened to M1.<net> unless a port merges them into a
 # board-level net.
 instances
-  C1    cap-mlcc-0402       100n    10%  25V  X7R
-  C2    cap-mlcc-0402       100n    10%  50V  X7R
-  C3    cap-mlcc-0402       100n    10%  50V  X7R
-  C4    cap-mlcc-0603       1u      10%  10V  X5R
-  C5    cap-mlcc-0603       1u      10%  10V  X5R
-  C6    cap-mlcc-0402       100n    10%  25V  X7R
-  C7    cap-mlcc-0603       1u      10%  35V  X7R
-  C8    cap-mlcc-1210       10u     10%  35V  X5R
-  C9    cap-mlcc-1210       10u     10%  35V  X5R
-  C10   cap-mlcc-0402       100n    10%  25V  X7R
-  C11   cap-mlcc-0402       100n    10%  25V  X7R
-  C12   cap-mlcc-1210       10u     10%  25V  X5R
-  C13   cap-mlcc-1210       10u     10%  35V  X5R
-  C14   cap-mlcc-0402       100n    10%  50V  X7R
-  C15   cap-mlcc-0402       100n    10%  50V  X7R
-  C16   cap-mlcc-1210       2u2     10%  35V  X7R
-  C17   cap-mlcc-0402       56n     10%  16V  X7R
-  C18   cap-mlcc-0402       22p     5%   50V  C0G
-  D1    d-bat54c
-  D2    led-green
-  D3    led-green
-  D4    led-green
-  L1    ihlp2525czer6r8m01
-  NTC1  ntc-103at
-  Q1    q-si7617dn
-  Q2    q-si7616dn
-  Q3    q-si7617dn
-  Q4    q-sis412dn
-  Q5    q-sis412dn
-  R1    res-thick-0402      100k    ±1%
-  R2    res-thick-0402      500k    ±1%
-  R3    res-thick-0402      100k    ±1%
-  R4    res-thick-0402      32.4k   ±1%
-  R5    res-thick-0402      100k    ±1%
-  R6    res-thick-0402      10k     ±1%
-  R7    res-thick-0402      100k    ±1%
-  R8    res-thick-0402      22.1k   ±1%
-  R9    res-thick-0402      9.31k   ±1%
-  R10   res-thick-0402      430k    ±1%
-  R11   res-thick-0402      10k     ±5%
-  R12   res-thick-0402      10k     ±5%
-  R13   res-thick-0402      10k     ±5%
-  R14   res-thick-0402      100k    ±5%
-  R15   res-thick-0402      100k    ±5%
-  R16   res-thick-0402      100Ω    ±1%
-  R17   res-thick-0402      10Ω     ±5%
-  R18   res-thick-0402      1k      ±5%
-  R19   res-thick-0402      1k      ±5%
-  R20   res-thick-0402      2Ω      ±5%
-  R21   res-thick-2010      0.010Ω  ±1%  1W
-  R22   res-thick-2010      0.010Ω  ±1%  1W
-  U1    bq24610rger
+  C1    IDm78w8s  cap-mlcc-0402       100n    10%  25V  X7R
+  C2    ID6ges83  cap-mlcc-0402       100n    10%  50V  X7R
+  C3    IDyvrjy7  cap-mlcc-0402       100n    10%  50V  X7R
+  C4    IDghwpg5  cap-mlcc-0603       1u      10%  10V  X5R
+  C5    IDj2f7bv  cap-mlcc-0603       1u      10%  10V  X5R
+  C6    IDq271jm  cap-mlcc-0402       100n    10%  25V  X7R
+  C7    IDyqxdgd  cap-mlcc-0603       1u      10%  35V  X7R
+  C8    IDy0cp7r  cap-mlcc-1210       10u     10%  35V  X5R
+  C9    ID3k4eem  cap-mlcc-1210       10u     10%  35V  X5R
+  C10   ID4rkb3y  cap-mlcc-0402       100n    10%  25V  X7R
+  C11   IDhf0x1s  cap-mlcc-0402       100n    10%  25V  X7R
+  C12   IDxcsv05  cap-mlcc-1210       10u     10%  25V  X5R
+  C13   ID344avp  cap-mlcc-1210       10u     10%  35V  X5R
+  C14   IDqz32yz  cap-mlcc-0402       100n    10%  50V  X7R
+  C15   IDksk3bd  cap-mlcc-0402       100n    10%  50V  X7R
+  C16   IDdqrzd2  cap-mlcc-1210       2u2     10%  35V  X7R
+  C17   IDg4cpga  cap-mlcc-0402       56n     10%  16V  X7R
+  C18   IDmmyh5n  cap-mlcc-0402       22p     5%   50V  C0G
+  D1    IDz4esq1  d-bat54c
+  D2    ID8j6bf8  led-green
+  D3    IDtaq6qd  led-green
+  D4    IDshj5px  led-green
+  L1    IDm6dcbm  ihlp2525czer6r8m01
+  NTC1  IDwdvkr6  ntc-103at
+  Q1    ID1m7gxg  q-si7617dn
+  Q2    ID9x8fxw  q-si7616dn
+  Q3    ID2132jp  q-si7617dn
+  Q4    ID8mah9c  q-sis412dn
+  Q5    IDxnahe6  q-sis412dn
+  R1    IDxw1ha8  res-thick-0402      100k    ±1%
+  R2    ID08hjc0  res-thick-0402      500k    ±1%
+  R3    IDvvhvr5  res-thick-0402      100k    ±1%
+  R4    ID0hfx00  res-thick-0402      32.4k   ±1%
+  R5    IDfwghd3  res-thick-0402      100k    ±1%
+  R6    ID8gcnnb  res-thick-0402      10k     ±1%
+  R7    IDpn0chc  res-thick-0402      100k    ±1%
+  R8    IDpvwxh7  res-thick-0402      22.1k   ±1%
+  R9    IDnqtjpy  res-thick-0402      9.31k   ±1%
+  R10   ID2ts376  res-thick-0402      430k    ±1%
+  R11   ID0xykgd  res-thick-0402      10k     ±5%
+  R12   IDcz399y  res-thick-0402      10k     ±5%
+  R13   ID5p0ag4  res-thick-0402      10k     ±5%
+  R14   IDj00rbx  res-thick-0402      100k    ±5%
+  R15   IDexqqj5  res-thick-0402      100k    ±5%
+  R16   IDfshg8h  res-thick-0402      100Ω    ±1%
+  R17   IDtrxjxe  res-thick-0402      10Ω     ±5%
+  R18   IDbr6jy3  res-thick-0402      1k      ±5%
+  R19   IDnyhv8d  res-thick-0402      1k      ±5%
+  R20   ID2gkwkm  res-thick-0402      2Ω      ±5%
+  R21   IDptfx8m  res-thick-2010      0.010Ω  ±1%  1W
+  R22   IDbe796h  res-thick-2010      0.010Ω  ±1%  1W
+  U1    IDv2fw14  bq24610rger
 
 nets
   ACDRV:         R18.2  U1.ACDRV
