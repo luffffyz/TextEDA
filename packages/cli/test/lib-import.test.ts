@@ -4,9 +4,9 @@
 // legal but closed under references, the origin travels as a header comment, and a device declares
 // `provenance generated` until a human says otherwise.
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { analyzeProject, checkProject } from "../src/check.ts";
 import { runLibImport } from "../src/lib-import.ts";
 
@@ -121,6 +121,62 @@ describe("texteda lib import", () => {
 
       expect(runLibImport({ root, name: "vendor", from, rev: "v2", only: [], force: true })).toBe(0);
       expect(readFileSync(join(root, "assets/components/power/tps7a02.teda"), "utf8")).not.toContain("corrected by hand");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(from, { recursive: true, force: true });
+    }
+  });
+
+  test("a device id the project already holds under another category stops the import", () => {
+    const root = makeProject();
+    const from = makeTemplate();
+    try {
+      // The id is the namespace, the category directory is a filing choice (spec/teda.md §2). The
+      // template files its device under `components/power/`; the project already has that id at the
+      // root of `assets/components/`, so the copy would be a second file of the same id.
+      writeFileSync(join(root, "assets/components/tps7a02.teda"), TEMPLATE_DEVICE);
+      expect(runLibImport({ root, name: "vendor", from, rev: "v1", only: [], force: false })).toBe(2);
+      // `--force` replaces a file; it cannot merge two files of one id, so the second copy is refused
+      // as well rather than silently shadowing the project's own device.
+      expect(runLibImport({ root, name: "vendor", from, rev: "v1", only: [], force: true })).toBe(2);
+      expect(existsSync(join(root, "assets/components/power/tps7a02.teda"))).toBe(false);
+      expect(readFileSync(join(root, "assets/components/tps7a02.teda"), "utf8")).toBe(TEMPLATE_DEVICE);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(from, { recursive: true, force: true });
+    }
+  });
+
+  test("refuses a device that names its geometry without the qualifier", () => {
+    const root = makeProject();
+    const from = makeTemplate();
+    try {
+      // A symbol reference is `lib:name` (spec/teda.md §6.1). A bare id resolves to nothing in
+      // `assets/symbols/`, so the copy would arrive unable to draw, with the error pointing at the
+      // copy instead of at the template it was copied from.
+      writeFileSync(
+        join(from, "components/power/tps7a02.teda"),
+        TEMPLATE_DEVICE.replace("symbol       vendor:tps7a02", "symbol       tps7a02"),
+      );
+      expect(runLibImport({ root, name: "vendor", from, rev: "v1", only: [], force: false })).toBe(2);
+      expect(existsSync(join(root, "assets/components/power/tps7a02.teda"))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(from, { recursive: true, force: true });
+    }
+  });
+
+  test("refuses a template that provides two files of one id", () => {
+    const root = makeProject();
+    const from = makeTemplate();
+    try {
+      // A reference, a trust item and the copy's own path all name a file by its id alone, so two
+      // files of one id in one group cannot be told apart: one of them would be dropped silently.
+      mkdirSync(join(from, "components/analog"), { recursive: true });
+      writeFileSync(join(from, "components/analog/tps7a02.teda"), TEMPLATE_DEVICE);
+      expect(runLibImport({ root, name: "vendor", from, rev: "v1", only: [], force: false })).toBe(2);
+      expect(existsSync(join(root, "assets/components/power/tps7a02.teda"))).toBe(false);
+      expect(existsSync(join(root, "assets/components/analog/tps7a02.teda"))).toBe(false);
     } finally {
       rmSync(root, { recursive: true, force: true });
       rmSync(from, { recursive: true, force: true });
@@ -397,9 +453,9 @@ footprints = ["sot-23-5@v2.1.0"]
       expect(device).toContain("verified_by company-reviewer");
       expect(device).toContain("verified_on 2026-10-20");
       // the header names the deciding record, so a reader can tell it from the library's own claim
-      expect(device).toContain(`as ${table} says`);
+      expect(device).toContain(`as ${relative(root, table)} says`);
       const footprint = readFileSync(join(root, "assets/footprints/vendor/sot-23-5.teda"), "utf8");
-      expect(footprint).toContain(`reviewed (company-reviewer, 2026-10-20) as ${table} says`);
+      expect(footprint).toContain(`reviewed (company-reviewer, 2026-10-20) as ${relative(root, table)} says`);
       // the project accepts the inherited claim
       expect(checkProject(root).diagnostics.filter((d) => d.code === "value.provenance-invalid")).toEqual([]);
     } finally {
@@ -445,7 +501,7 @@ footprints = ["sot-23-5@v2.1.0"]
       expect(device).toContain("verified_by upstream");
       expect(device).toContain("as the library's trust record says");
       const footprint = readFileSync(join(root, "assets/footprints/vendor/sot-23-5.teda"), "utf8");
-      expect(footprint).toContain(`as ${table} says`);
+      expect(footprint).toContain(`as ${relative(root, table)} says`);
     } finally {
       rmSync(root, { recursive: true, force: true });
       rmSync(from, { recursive: true, force: true });
@@ -467,6 +523,30 @@ footprints = ["sot-23-5@v2.1.0"]
       const code = runLibImport({ root, name: "vendor", from, rev: "v2.1.0", only: [], force: false, trust: table });
       expect(code).toBe(2);
       expect(existsSync(join(root, "assets/components/power/tps7a02.teda"))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(from, { recursive: true, force: true });
+      rmSync(join(table, ".."), { recursive: true, force: true });
+    }
+  });
+
+  test("a conflict about a file that sorts late still writes nothing", () => {
+    const root = makeProject();
+    const from = makeTemplate();
+    // The footprints sort after the components, so a refusal raised while that file is claimed used
+    // to leave the device behind even though the command reported the failure.
+    const table = makeTable(
+      `[[trust]]\nlibrary = "vendor"\nby = "company-reviewer"\non = "2026-10-20"\nfootprints = ["sot-23-5@v1"]\n`,
+    );
+    try {
+      writeFileSync(
+        join(from, "library.toml"),
+        `[[trust]]\nby = "upstream"\non = "2026-01-01"\nfootprints = ["sot-23-5@v1"]\n`,
+      );
+      expect(runLibImport({ root, name: "vendor", from, rev: "v1", only: [], force: false, trust: table })).toBe(2);
+      expect(existsSync(join(root, "assets/components/power/tps7a02.teda"))).toBe(false);
+      expect(existsSync(join(root, "assets/symbols/vendor/tps7a02.teda"))).toBe(false);
+      expect(existsSync(join(root, "assets/footprints/vendor/sot-23-5.teda"))).toBe(false);
     } finally {
       rmSync(root, { recursive: true, force: true });
       rmSync(from, { recursive: true, force: true });
@@ -559,6 +639,63 @@ footprints = ["sot-23-5@v2.1.0"]
       rmSync(from, { recursive: true, force: true });
     }
   });
+  test("the same id@rev under two libraries is two acts, not a duplicate", () => {
+    const root = makeProject();
+    const from = makeTemplate();
+    const table = makeTable(
+      `[[trust]]
+library = "vendor-b"
+by = "company-b"
+on = "2026-10-20"
+components = ["tps7a02@v2.1.0"]
+
+[[trust]]
+library = "vendor-c"
+by = "company-c"
+on = "2026-10-21"
+components = ["tps7a02@v2.1.0"]
+`,
+    );
+    try {
+      // A table vouches for several libraries (ADR-0048): the same id at the same revision under
+      // two libraries is two distinct acts, so neither is a duplicate (this used to be refused).
+      expect(runLibImport({ root, name: "vendor", from, rev: "v2.1.0", only: [], force: false, trust: table })).toBe(0);
+      expect(existsSync(join(root, "assets/components/power/tps7a02.teda"))).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(from, { recursive: true, force: true });
+      rmSync(join(table, ".."), { recursive: true, force: true });
+    }
+  });
+
+  test("the same id@rev under one library is still one act, still a duplicate", () => {
+    const root = makeProject();
+    const from = makeTemplate();
+    const table = makeTable(
+      `[[trust]]
+library = "vendor"
+by = "company-reviewer"
+on = "2026-10-20"
+components = ["tps7a02@v2.1.0"]
+
+[[trust]]
+library = "vendor"
+by = "company-reviewer-2"
+on = "2026-10-21"
+components = ["tps7a02@v2.1.0"]
+`,
+    );
+    try {
+      // Same library, same id at the same revision, two authors: still one act, so refused.
+      expect(runLibImport({ root, name: "vendor", from, rev: "v2.1.0", only: [], force: false, trust: table })).toBe(2);
+      expect(existsSync(join(root, "assets/components/power/tps7a02.teda"))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(from, { recursive: true, force: true });
+      rmSync(join(table, ".."), { recursive: true, force: true });
+    }
+  });
+
 });
 
 // ADR-0049: a file carries its own revision, a trust row is one act, and every item names the
@@ -616,6 +753,8 @@ footprints = ["sot-23-5@3.0.0"]
       );
       expect(runLibImport({ root, name: "vendor", from, rev: "v1", only: [], force: false })).toBe(0);
       const device = readFileSync(join(root, "assets/components/power/tps7a02.teda"), "utf8");
+      expect(device).toContain("# imported from vendor@v1 on ");
+      expect(device).not.toContain("vendor@9.9.9");
       expect(device).toContain("rev          9.9.9");
       expect(device).not.toContain("rev v1");
       expect(device).toContain("provenance reviewed");
@@ -687,13 +826,49 @@ components = ["tps7a02@v2"]
       const forked = readFileSync(devicePath, "utf8").replace("rev v1", "rev v1+local.1");
       writeFileSync(devicePath, forked);
       // The upstream item names `v1`; `v1+local.1` is an exact string and matches nothing.
-      expect(runLibImport({ root, name: "vendor", from, rev: "v1", only: [], force: true })).toBe(0);
+      // Re-importing a newer tree with the same facts must not re-stamp the copy to v2 and lose
+      // the review: it rejoins the base revision the record vouches for.
+      expect(runLibImport({ root, name: "vendor", from, rev: "v2", only: [], force: true })).toBe(0);
       const back = readFileSync(devicePath, "utf8");
-      // Same facts as the library: the fork marker described an edit that is gone, so the copy
-      // rejoins the revision the record vouches for.
+      expect(back).toContain("# imported from vendor@v2 on ");
       expect(back).toContain("rev v1\n");
       expect(back).not.toContain("+local");
       expect(back).toContain("provenance reviewed");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(from, { recursive: true, force: true });
+    }
+  });
+
+  test("a review written into the copy survives a re-import of unchanged facts", () => {
+    const root = makeProject();
+    const from = makeTemplate();
+    try {
+      expect(runLibImport({ root, name: "vendor", from, rev: "v1", only: [], force: false })).toBe(0);
+      const devicePath = join(root, "assets/components/power/tps7a02.teda");
+      // The guide's own workflow: the copy arrives `generated`, a human compares it with the
+      // datasheet and flips the claim inside the copy (ADR-0047 decision 5).
+      writeFileSync(
+        devicePath,
+        readFileSync(devicePath, "utf8").replace(
+          "provenance generated",
+          "provenance reviewed\nverified_by tz\nverified_on 2026-10-24",
+        ),
+      );
+
+      // v2 touches the symbol only, so the device's facts did not move and it is not written at all.
+      writeFileSync(join(from, "symbols/tps7a02.teda"), TEMPLATE_SYMBOL.replace("-5.08", "-6.35"));
+      expect(runLibImport({ root, name: "vendor", from, rev: "v2", only: [], force: true })).toBe(0);
+      expect(readFileSync(join(root, "assets/symbols/vendor/tps7a02.teda"), "utf8")).toContain("rev v2");
+
+      const device = readFileSync(devicePath, "utf8");
+      // The claim is the copy's: withdrawing it would make the run say "unchanged" and hand back an
+      // unreviewed file.
+      expect(device).toContain("provenance reviewed");
+      expect(device).toContain("verified_by tz");
+      expect(device).not.toContain("provenance generated");
+      expect(device).toContain("rev v1");
+      expect(device).not.toContain("rev v2");
     } finally {
       rmSync(root, { recursive: true, force: true });
       rmSync(from, { recursive: true, force: true });
@@ -726,6 +901,117 @@ components = ["tps7a02@v2"]
       rmSync(root, { recursive: true, force: true });
       rmSync(from, { recursive: true, force: true });
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+describe("`--rev`, path reads, and target preflight", () => {
+  test("`--rev` refuses a branch name, only a tag or commit hash is accepted", () => {
+    const root = makeProject();
+    const from = makeTemplate();
+    try {
+      for (const branch of ["main", "master", "head", "develop", "trunk", "latest"]) {
+        expect(runLibImport({ root, name: "vendor", from, rev: branch, only: [], force: false })).toBe(2);
+      }
+      expect(existsSync(join(root, "assets/components/power/tps7a02.teda"))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(from, { recursive: true, force: true });
+    }
+  });
+
+  test("`--rev` rejects whitespace and trims surrounding spaces", () => {
+    const root = makeProject();
+    const from = makeTemplate();
+    try {
+      for (const bad of ["v1 hotfix", "v1#x"]) {
+        expect(runLibImport({ root, name: "vendor", from, rev: bad, only: [], force: false })).toBe(2);
+      }
+      expect(existsSync(join(root, "assets/components/power/tps7a02.teda"))).toBe(false);
+
+      expect(runLibImport({ root, name: "vendor", from, rev: " v1 ", only: [], force: false })).toBe(0);
+      const device = readFileSync(join(root, "assets/components/power/tps7a02.teda"), "utf8");
+      expect(device).toContain("# imported from vendor@v1 on ");
+      expect(device).toContain("\nrev v1\n");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(from, { recursive: true, force: true });
+    }
+  });
+
+  test("a --trust path that is a directory is an actionable refusal", () => {
+    const root = makeProject();
+    const from = makeTemplate();
+    try {
+      const trust = join(root, "trust-dir");
+      mkdirSync(trust);
+      expect(runLibImport({ root, name: "vendor", from, rev: "v1", only: [], force: false, trust })).toBe(2);
+      expect(existsSync(join(root, "assets/components/power/tps7a02.teda"))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(from, { recursive: true, force: true });
+    }
+  });
+
+  test("--from that is not a directory and library.toml that is a directory are refusals", () => {
+    const root = makeProject();
+    const from = makeTemplate();
+    const file = join(root, "not-a-dir");
+    writeFileSync(file, "");
+    try {
+      expect(runLibImport({ root, name: "vendor", from: file, rev: "v1", only: [], force: false })).toBe(2);
+      mkdirSync(join(from, "library.toml"), { recursive: true });
+      expect(runLibImport({ root, name: "vendor", from, rev: "v1", only: [], force: false })).toBe(2);
+      expect(existsSync(join(root, "assets/components/power/tps7a02.teda"))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(from, { recursive: true, force: true });
+    }
+  });
+
+  test("a target that is a directory is refused, even with --force", () => {
+    const root = makeProject();
+    const from = makeTemplate();
+    try {
+      mkdirSync(join(root, "assets/components/power/tps7a02.teda"), { recursive: true });
+      expect(runLibImport({ root, name: "vendor", from, rev: "v1", only: [], force: true })).toBe(2);
+      expect(existsSync(join(root, "assets/components/power/tps7a02.teda"))).toBe(true);
+      expect(existsSync(join(root, "assets/symbols/vendor/tps7a02.teda"))).toBe(false);
+      expect(existsSync(join(root, "assets/footprints/vendor/sot-23-5.teda"))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(from, { recursive: true, force: true });
+    }
+  });
+
+  test("a dangling symlink target is refused, not followed", () => {
+    const root = makeProject();
+    const from = makeTemplate();
+    try {
+      mkdirSync(join(root, "assets/symbols/vendor"), { recursive: true });
+      const outside = join(root, "outside.teda");
+      symlinkSync(outside, join(root, "assets/symbols/vendor/tps7a02.teda"));
+      expect(runLibImport({ root, name: "vendor", from, rev: "v1", only: [], force: false })).toBe(2);
+      expect(existsSync(outside)).toBe(false);
+      expect(existsSync(join(root, "assets/components/power/tps7a02.teda"))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(from, { recursive: true, force: true });
+    }
+  });
+
+  test("the origin header names the consumer trust file the reader can find", () => {
+    const root = makeProject();
+    const from = makeTemplate();
+    const trust = join(root, "trust.txt");
+    writeFileSync(trust, `[[trust]]\nlibrary = "vendor"\nby = "tz"\non = "2026-10-24"\ncomponents = ["tps7a02@v1"]\n`);
+    try {
+      expect(runLibImport({ root, name: "vendor", from, rev: "v1", only: [], force: false, trust })).toBe(0);
+      const device = readFileSync(join(root, "assets/components/power/tps7a02.teda"), "utf8");
+      expect(device).toContain(`as trust.txt says`);
+      expect(device).toContain("provenance reviewed");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(from, { recursive: true, force: true });
     }
   });
 });

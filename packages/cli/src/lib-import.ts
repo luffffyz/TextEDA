@@ -14,10 +14,11 @@
 // A subset is legal (`--only`) and is closed under references: the symbols and footprints the chosen
 // devices name are pulled in with them. A device without its geometry cannot be drawn or matched
 // against a land pattern, so the closure is not a convenience.
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { lstatSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import {
   parseComponent,
+  REV_RE,
   SECTIONS as FOOTPRINT_SECTIONS,
   SYMBOL_SECTIONS,
 } from "@texteda/parser";
@@ -84,20 +85,25 @@ export function runLibImport(options: LibImportOptions): number {
 }
 
 function importLibrary(options: LibImportOptions): number {
-  const { root, name, from, rev, force } = options;
+  const { root, name, from, force } = options;
   const dest = options.dest ?? name;
   if (!LIB_NAME.test(name)) usage(`not a library name: ${name} (^[a-z][a-z0-9_-]*$)`);
   if (!LIB_NAME.test(dest)) usage(`not a library directory: ${dest} (^[a-z][a-z0-9_-]*$)`);
-  if (rev.trim().length === 0 || /^(main|master|head|develop|trunk|latest)$/i.test(rev.trim())) {
+  const revision = options.rev.trim();
+  if (revision.length === 0) {
+    usage("--rev must be a tag or a commit hash, not an empty string");
+  }
+  if (/^(main|master|head|develop|trunk|latest)$/i.test(revision)) {
     usage(
-      `--rev must be a tag or a commit hash, not ${JSON.stringify(rev)}: a branch describes an instant, not a revision`,
+      `--rev must be a tag or a commit hash, not ${JSON.stringify(options.rev)}: a branch describes an instant, not a revision`,
     );
   }
-  if (!existsSync(from) || !statSync(from).isDirectory()) usage(`not a directory: ${from}`);
-
+  if (!REV_RE.test(revision)) {
+    usage(`--rev must be a tag or a commit hash without whitespace or "#", not ${JSON.stringify(options.rev)}`);
+  }
   // A template is the asset groups plus its manifest, not a checkout: `.git`, notes and build output
   // are not content, and copying them would put things in the project that no reader can use.
-  for (const entry of readdirSync(from)) {
+  for (const entry of readDirectory(from, "--from")) {
     if (entry === MANIFEST || (ASSET_DIRS as readonly string[]).includes(entry)) continue;
     usage(`${from} contains ${entry}, which is not part of a library (${ASSET_DIRS.join(" / ")} / ${MANIFEST})`);
   }
@@ -108,9 +114,28 @@ function importLibrary(options: LibImportOptions): number {
     usage(`${from} contains none of ${ASSET_DIRS.join(" / ")}: a library template carries its own assets`);
   }
 
+  // A file is named by its id alone — in a device's reference, in a trust item, in the copy's own
+  // path — so two files of one id in one group cannot be told apart: only one of them could be
+  // imported, and the closure would pick it by directory order.
+  const byId = new Map<string, LibraryFile>();
+  for (const file of files) {
+    const duplicate = byId.get(chosenKey(file));
+    if (duplicate !== undefined) {
+      usage(
+        `${from} provides two ${file.group} with the id ${file.id}: ${duplicate.relativePath} and ${file.relativePath}`,
+      );
+    }
+    byId.set(chosenKey(file), file);
+  }
+
   // The library's own record of what a human checked. It is the one place a reviewer writes to; the
   // copy carries the resulting per-file claim (ADR-0047 addendum).
-  const trustEntries = existsSync(join(from, MANIFEST)) ? readTrust(from) : [];
+  // A library that ships without `library.toml` vests no trust records — that is a fact about the
+  // library, not a failure — so the manifest is read only when present.
+  const manifestPath = join(from, MANIFEST);
+  const trustEntries = existsSync(manifestPath)
+    ? readTrust(readTextFile(manifestPath, `--from: ${MANIFEST}`), `the library manifest in ${from}`)
+    : [];
 
   // The consumer's record about libraries it does not own (ADR-0048): an upstream library will not
   // carry our manifest, so the vouching act has to live on the consuming side. Both records use the
@@ -118,12 +143,17 @@ function importLibrary(options: LibImportOptions): number {
   // decides is therefore not a precedence question — it is decided per item, and two records saying
   // different things about the same item are a conflict a person resolves.
   const consumer = options.trust === undefined ? [] : readConsumerTrust(options.trust).filter((entry) => entry.library === name);
+  // Which record a consumer entry points at is what a reader will see in the origin header (ADR-0049).
+  // The path is resolved from the importer's root so the header names a path the reader can find.
+  const trustLabel: string = options.trust === undefined
+    ? "the library's trust record"
+    : relative(root, options.trust) || options.trust;
   const records: TrustRecord[] =
     options.trust === undefined
       ? [{ rows: trustEntries, source: "the library's trust record" }]
       : [
           { rows: trustEntries, source: "the library's trust record" },
-          { rows: consumer, source: options.trust },
+          { rows: consumer, source: trustLabel },
         ];
 
   // A record is about ids the library actually provides: an entry naming a file that is not there
@@ -161,7 +191,7 @@ function importLibrary(options: LibImportOptions): number {
     ];
     for (const [reference, group] of references) {
       const [qualifier, id] = splitReference(reference);
-      if (qualifier !== "" && qualifier !== name) {
+      if (qualifier !== name) {
         usage(
           `${device.relativePath} names ${reference}: a template's devices must name their own assets as ${name}:<id>`,
         );
@@ -183,6 +213,46 @@ function importLibrary(options: LibImportOptions): number {
   }
 
   // Nothing is written before every collision is known: a half-imported library is worse than none.
+  // A device id is one namespace (spec/teda.md §2): the category directory is a filing choice, so
+  // an id the project already holds under another one collides too, and `--force` cannot merge two
+  // files of one id into one.
+  const deviceAt = new Map<string, string>();
+  const walkDevices = (path: string): void => {
+    if (!existsSync(path)) return;
+    for (const entry of readdirSync(path, { withFileTypes: true })) {
+      const full = join(path, entry.name);
+      if (entry.isDirectory()) walkDevices(full);
+      else if (entry.name.endsWith(".teda")) deviceAt.set(entry.name.slice(0, -".teda".length), full);
+    }
+  };
+  walkDevices(join(root, "assets", "components"));
+  const elsewhere = [...chosen.values()].filter(
+    (file) =>
+      file.group === "components" &&
+      deviceAt.get(file.id) !== undefined &&
+      deviceAt.get(file.id) !== targetPath(root, file, dest),
+  );
+  if (elsewhere.length > 0) {
+    usage(
+      `the project already holds these device ids under another category directory (a device id is one namespace):\n  ${elsewhere
+        .map((file) => `${file.id} at ${relative(root, deviceAt.get(file.id)!)}`)
+        .join("\n  ")}\n  move or delete the project's file: two files of one id cannot both be read`,
+    );
+  }
+  // A target that is not a regular file — a directory, or a dangling symlink — cannot be copied:
+  // the entry is not the file the import would write. A dangling symlink is caught here via lstat
+  // (rather than later statSync, which throws) and applies with `--force` too: `--force` replaces
+  // an existing regular file, it does not turn a directory or a symlink into one.
+  for (const file of chosen.values()) {
+    const target = targetPath(root, file, dest);
+    const stats = lstatSync(target, { throwIfNoEntry: false });
+    if (stats !== undefined && !stats.isFile()) {
+      usage(
+        `${target} is not a regular file (a directory or a symlink): move it away, then import\n` +
+          `  --force replaces a regular file, not a directory or symlink`,
+      );
+    }
+  }
   const collisions = [...chosen.values()]
     .map((file) => targetPath(root, file, dest))
     .filter((target) => existsSync(target));
@@ -196,11 +266,11 @@ function importLibrary(options: LibImportOptions): number {
 
   const stamp = today();
   const ordered = [...chosen.values()].sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-  const unvouched: string[] = [];
-  let unchanged = 0;
-  for (const file of ordered) {
-    const source = join(from, file.relativePath);
-    const template = readFileSync(source, "utf8");
+  // The whole selection is resolved before the first byte is written: a claim can be refused (two
+  // records stating one item, one author), and a refusal after some copies had landed would leave
+  // half a library in the project while the command reported a failure.
+  const plan = ordered.map((file) => {
+    const template = readFileSync(join(from, file.relativePath), "utf8");
     const target = targetPath(root, file, dest);
     const previous = existsSync(target) ? readFileSync(target, "utf8") : undefined;
     // The revision a claim is matched against is the one the copy will carry (ADR-0049 decision 4):
@@ -211,21 +281,41 @@ function importLibrary(options: LibImportOptions): number {
     const sameFacts = previous !== undefined && factsOf(previous, name, dest) === factsOf(template, name, dest);
     const previousRev = previous === undefined ? undefined : fileRev(previous, file.group);
     // A copy marked `+local.N` claims its facts diverged from the library. When they did not (the
-    // edit was reverted, or the marker outlived it), the copy rejoins the library's revision — the
-    // marker is a statement about the facts, and this comparison is the check of that statement.
-    const forked = sameFacts && previousRev !== undefined && previousRev.includes("+local.");
-    const effective = own ?? (sameFacts && !forked ? previousRev : undefined) ?? rev;
-    const claim = claimFor(file, effective, records);
-    if (claim === undefined) unvouched.push(`${file.group}/${file.id}`);
-    const text = rewrite(template, file, name, dest, effective, stamp, claim, own === undefined);
-    if (previous !== undefined && previousRev === effective && withoutOrigin(previous) === withoutOrigin(text)) {
-      // Same copy, same revision: keep the day it arrived and write nothing. The comparison is
-      // local and leaves no hash behind.
+    // edit was reverted, or the marker outlived it), the copy rejoins the base revision — the marker
+    // is a statement about the facts, and this comparison is the check of that statement. A newer
+    // import tag must not re-stamp unchanged facts and lose the revision the record vouches for.
+    const previousBase = previousRev?.replace(/\+local\.\d+$/, "");
+    const effective = own ?? (sameFacts ? previousBase : undefined) ?? revision;
+    return {
+      file,
+      template,
+      target,
+      previous,
+      sameFacts,
+      previousRev,
+      effective,
+      own,
+      claim: claimFor(file, effective, records),
+    };
+  });
+
+  const unvouched = plan
+    .filter((entry) => entry.claim === undefined)
+    .map((entry) => `${entry.file.group}/${entry.file.id}`);
+  let unchanged = 0;
+  for (const entry of plan) {
+    const { file, template, target, previous, sameFacts, previousRev, effective, own, claim } = entry;
+    if (previous !== undefined && sameFacts && previousRev === effective) {
+      // The same facts at the same revision: the copy keeps the day it arrived, its claim and its
+      // date, and is not written at all. The comparison is the facts, not the text: the text also
+      // carries the claim the import derives, and a review a human wrote into the copy is the
+      // copy's own (ADR-0047 decision 5) — a re-import of unchanged facts has no business
+      // withdrawing it.
       unchanged += 1;
       continue;
     }
     mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, text);
+    writeFileSync(target, rewrite(template, file, name, dest, revision, effective, stamp, claim, own === undefined));
   }
   if (records.length > 0 && unvouched.length > 0) {
     console.log(`${unvouched.length} of ${ordered.length} file(s) are not vouched for by the record(s) in use: ${unvouched.join(", ")}`);
@@ -234,7 +324,7 @@ function importLibrary(options: LibImportOptions): number {
     console.log(`${unchanged} file(s) were unchanged and kept their imported revision`);
   }
 
-  console.log(`Imported ${ordered.length - unchanged} file(s) from ${name}@${rev} into ${relative(root, join(root, "assets")) || "assets"}`);
+  console.log(`Imported ${ordered.length - unchanged} file(s) from ${name}@${revision} into ${relative(root, join(root, "assets")) || "assets"}`);
   console.log("These are the project's own files now: edit them in place, and review them before manufacturing.");
   return 0;
 }
@@ -243,23 +333,24 @@ function importLibrary(options: LibImportOptions): number {
 const MANIFEST = "library.toml";
 
 /** The library's trust records; a manifest this importer cannot read refuses the whole import. */
-function readTrust(from: string): TrustEntry[] {
-  const read = readLibraryManifest(readFileSync(join(from, MANIFEST), "utf8"), MANIFEST);
+function readTrust(text: string, label: string): TrustEntry[] {
+  const read = readLibraryManifest(text, MANIFEST);
   if (read.errors.length > 0) {
-    usage(`${MANIFEST} is not a manifest this importer accepts:\n  ${read.errors.join("\n  ")}`);
+    usage(`${label}: ${MANIFEST} is not a manifest this importer accepts:\n  ${read.errors.join("\n  ")}`);
   }
   return read.manifest === undefined ? [] : [...read.manifest.trust];
 }
 
 /** The consumer's trust table (ADR-0048); a table that cannot be read vouches for nothing. */
 function readConsumerTrust(file: string): readonly ConsumerTrustEntry[] {
-  if (!existsSync(file)) usage(`no trust table at ${file}: the path is explicit, nothing is discovered`);
-  const read = readTrustTable(readFileSync(file, "utf8"), file);
+  const text = readTextFile(file, `--trust: ${file}`);
+  const read = readTrustTable(text, file);
   if (read.errors.length > 0) {
     usage(`${file} is not a trust table this importer accepts:\n  ${read.errors.join("\n  ")}`);
   }
   return read.entries ?? [];
 }
+
 
 /** One trust record and the name a reader will see in the origin header. */
 interface TrustRecord {
@@ -317,7 +408,7 @@ function checkIds(files: readonly LibraryFile[], row: TrustRow, source: string):
   }
 }
 
-/** Two files of one id in one group is impossible (a file has one path), but sorting stays explicit. */
+/** A file's identity in the selection: the group and the id, which is how a reference names it. */
 function chosenKey(file: LibraryFile): string {
   return `${file.group}/${file.id}`;
 }
@@ -374,7 +465,8 @@ function rewrite(
   file: LibraryFile,
   name: string,
   dest: string,
-  rev: string,
+  originRev: string,
+  fileRev: string,
   stamp: string,
   reviewed: Claim | undefined,
   stampRev: boolean,
@@ -385,11 +477,11 @@ function rewrite(
   // header must not contradict the file below it.
   const claim = templateClaim(text);
   const header = claim.reviewed
-    ? `# imported from ${name}@${rev} on ${stamp}: the template declares provenance reviewed${claim.by === undefined ? "" : ` (${claim.by})`}`
+    ? `# imported from ${name}@${originRev} on ${stamp}: the template declares provenance reviewed${claim.by === undefined ? "" : ` (${claim.by})`}`
     : reviewed !== undefined
-      ? `# imported from ${name}@${rev} on ${stamp}: reviewed (${reviewed.by}, ${reviewed.on}) as ${reviewed.source} says`
-      : `# imported from ${name}@${rev} on ${stamp}: verify before manufacturing, the template was not human-reviewed`;
-  const out: string[] = [];
+      ? `# imported from ${name}@${originRev} on ${stamp}: reviewed (${reviewed.by}, ${reviewed.on}) as ${reviewed.source} says`
+      : `# imported from ${name}@${originRev} on ${stamp}: verify before manufacturing, the template was not human-reviewed`;
+  let out: string[] = [];
   let headerWritten = false;
   let provenanceWritten = false;
   let sawType = false;
@@ -419,7 +511,7 @@ function rewrite(
       if (!headerWritten) {
         out.push(header);
         headerWritten = true;
-        if (stampRev) out.push(`rev ${rev}`);
+        if (stampRev) out.push(`rev ${fileRev}`);
       }
     }
   }
@@ -494,19 +586,6 @@ function factsOf(text: string, name: string, dest: string): string {
 }
 
 /**
- * A copy with the origin header taken out: the only line an import adds on every run.
- *
- * Everything else the importer writes is a fact the copy keeps (`rev`, a component's `version`, the
- * provenance block), so two texts that match here are the same copy, arrived at the same revision.
- */
-function withoutOrigin(text: string): string {
-  return text
-    .split("\n")
-    .filter((line) => !line.trim().startsWith("# imported from "))
-    .join("\n");
-}
-
-/**
  * What a template component says about its own review, read from the scalars before the first
  * section (`provenance` / `verified_by` are scalars, teda.md §6.1).
  *
@@ -535,6 +614,43 @@ function today(): string {
   const month = String(now.getUTCMonth() + 1).padStart(2, "0");
   const day = String(now.getUTCDate()).padStart(2, "0");
   return `${now.getUTCFullYear()}-${month}-${day}`;
+}
+
+/** What a path is, as an actionable refusal rather than a thrown exception: a missing path, a
+ *  directory, or an unreadable file are all the same failure to report with a message a person
+ *  can act on. */
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Read a file as text, refusing a path that is not a regular file (missing, directory, ...) or
+ *  that cannot be read (permission, a file the process cannot open). */
+function readTextFile(path: string, label: string): string {
+  try {
+    const stats = statSync(path, { throwIfNoEntry: false });
+    if (stats === undefined || !stats.isFile()) {
+      usage(`${label}: ${path} is not a regular file (it is missing or a directory)`);
+    }
+    return readFileSync(path, "utf8");
+  } catch (error) {
+    if (error instanceof UsageError) throw error;
+    usage(`${label}: ${path} cannot be read: ${describeError(error)}`);
+  }
+}
+
+/** Read a directory listing, refusing a path that is not a directory (missing, a file, ...) or
+ *  that cannot be listed (permission). */
+function readDirectory(path: string, label: string): readonly string[] {
+  try {
+    const stats = statSync(path, { throwIfNoEntry: false });
+    if (stats === undefined || !stats.isDirectory()) {
+      usage(`${label}: ${path} is not a directory (it is missing or a file)`);
+    }
+    return readdirSync(path);
+  } catch (error) {
+    if (error instanceof UsageError) throw error;
+    usage(`${label}: ${path} cannot be listed: ${describeError(error)}`);
+  }
 }
 
 function usage(message: string): never {

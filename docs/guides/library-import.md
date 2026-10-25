@@ -42,9 +42,18 @@ texteda lib import vendor --from /path/to/library --rev v2.1.0
   claim it is the whole revision — but it is **closed under references**: the symbols and
   footprints the chosen devices name are pulled in with them, because a device without its
   geometry cannot be drawn or matched against a land pattern.
+- The template must be able to name itself: a device's `symbol` and `footprint` are library
+  references (`lib:name`), and both must be written as `<name>:<id>`. A bare id, or somebody
+  else's qualifier, refuses the import before anything is written — a bare id resolves to no
+  directory under `assets/symbols/`, so the copy would arrive unable to draw. Two files of one id
+  in one group are refused for the same reason the closure exists: a reference, a trust item and
+  the copy's own path all name a file by its id alone.
 - `--force` replaces files that already exist. Without it, an id that is already in `assets/`
   stops the import, naming the file: overwriting a device by accident is how a project loses a
-  correction it made.
+  correction it made. What collides is the **id**, not the path: the directory under
+  `assets/components/` is a filing choice (`spec/teda.md` §2), so an id the project already
+  holds under another one stops the import as well, and `--force` does not resolve that — it
+  replaces a file, it cannot merge two files of one id into one.
 - `--dest <lib>` names the symbol/footprint library directory under `assets/symbols/` and
   `assets/footprints/` (default: the library name). The qualifier in the copied files is
   rewritten to it.
@@ -104,7 +113,9 @@ shapes in tracked files (`bun run check:public`).
 comparison there, at the revision you are about to import: every project that imports it then
 inherits the reviewed claim, and no project has to flip hundreds of files by hand. Flipping after
 import is legal but local: it says "this copy was checked", which is what a per-file claim means,
-and it does not travel back upstream.
+and it does not travel back upstream. A claim written into a copy is that copy's own: a re-import
+that finds the same facts at the same revision does not write the file at all (§5), so it cannot
+withdraw the review.
 
 ### The library's trust record
 

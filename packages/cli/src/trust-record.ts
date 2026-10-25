@@ -31,13 +31,16 @@ export interface TrustItem {
   readonly rev: string;
 }
 
-/** One act: who checked, on which day, and which files at which revisions. */
+/** One act: who checked, on which day, and which files at which revisions. A consumer table also
+ * names the library the act is about (`library`), so the library is part of the item it covers. */
 export interface TrustRow {
   readonly by: string;
   readonly on: string;
   readonly components: readonly TrustItem[];
   readonly symbols: readonly TrustItem[];
   readonly footprints: readonly TrustItem[];
+  /** The library an act is about, a consumer table's `library` key; absent for a library record. */
+  readonly library?: string;
 }
 
 const ID = /^[a-z][a-z0-9-]*$/;
@@ -92,14 +95,21 @@ export function itemsOf(
 /**
  * The same item stated twice in one record is a defect, not a merge: two rows for one
  * `(id, rev)` would claim two authors for one act (the importer refuses the same disagreement
- * between two records).
+ * between two records). A consumer table vouches for several libraries, so the library is part of
+ * the item: the same `id@rev` under one library is still one act, while the same `id@rev` under
+ * two different libraries is two distinct acts (ADR-0048).
  */
-export function checkDuplicates(rows: readonly TrustRow[], where: string, errors: string[]): void {
+export function checkDuplicates(
+  rows: readonly TrustRow[],
+  where: string,
+  errors: string[],
+): void {
   const seen = new Set<string>();
   for (const row of rows) {
+    const library = typeof row.library === "string" ? row.library : undefined;
     for (const group of TRUST_GROUPS) {
       for (const item of row[group]) {
-        const key = `${group}/${item.id}@${item.rev}`;
+        const key = `${library ?? ""}/${group}/${item.id}@${item.rev}`;
         if (seen.has(key)) {
           errors.push(`${where}: ${key} is stated twice: one act, one author`);
         }
