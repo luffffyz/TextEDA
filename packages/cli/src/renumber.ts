@@ -155,6 +155,9 @@ const REFDES_RE = /^([A-Za-z]+)([0-9]+)$/;
 function fail(message: string): never {
   throw new RenumberError(message);
 }
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 /** Split a refdes or module tag into its alphabetic prefix and numeric suffix. */
 function splitPrefix(name: string): { prefix: string; number: number } {
@@ -908,8 +911,16 @@ function buildWithOverrides(root: string, overrides: readonly SourceEdit[]): { p
       fail(`the renumbered project would not compile: ${first.code}: ${first.message}`);
     }
     return { project: tree.projectHash, advisory: tree.advisoryHash ?? null };
+  } catch (error) {
+    if (error instanceof RenumberError) throw error;
+    return fail(`renumber: cannot build the renumbered project in ${temp}: ${describeError(error)}`);
   } finally {
-    rmSync(temp, { recursive: true, force: true });
+    try {
+      rmSync(temp, { recursive: true, force: true });
+    } catch {
+      // Best-effort removal of the scratch tree: a read-only copy (copied from a read-only source)
+      // must not mask the renumber error that triggered the build.
+    }
   }
 }
 
@@ -936,11 +947,12 @@ function writeAll(root: string, edits: readonly SourceEdit[]): void {
         // Best effort: the caller still gets the original error.
       }
     }
-    throw error;
+    if (error instanceof RenumberError) throw error;
+    fail(`renumber: cannot write the renumbered sources at ${root}: ${describeError(error)}`);
   }
 }
 
-function markdownHits(root: string, names: ReadonlyMap<string, string>): MarkdownHit[] {
+function markdownHits(root: string, names: ReadonlyMap<string, string>, board: string): MarkdownHit[] {
   if (names.size === 0) return [];
   const files: string[] = [];
   const skip = new Set([".git", "dist", "node_modules"]);
@@ -955,12 +967,23 @@ function markdownHits(root: string, names: ReadonlyMap<string, string>): Markdow
   };
   walk(root);
   const hits: MarkdownHit[] = [];
+  // Module-qualified refdes (e.g. `M2.C1`) carry the module's tag and are unambiguous, so they are
+  // searched everywhere. Bare board refdes only exist in the board's own documents, so they are only
+  // searched in markdown owned by the board.
+  const qualified = new Set<string>();
+  for (const old of names.keys()) if (old.includes(".")) qualified.add(old);
   for (const file of files.sort()) {
+    const boardOwned =
+      basename(file).startsWith(`${board}-`) ||
+      basename(file) === `${board}.md` ||
+      dirname(file) === join(root, "docs", board) ||
+      dirname(file).startsWith(`${join(root, "docs", board)}/`);
     const content = readFileSync(file, "utf8");
     const lines = content.split(/\r?\n/);
     for (const [index, line] of lines.entries()) {
       for (const [old, next] of names) {
         if (old === next) continue;
+        if (!boardOwned && !qualified.has(old)) continue;
         const re = new RegExp(`(?<![A-Za-z0-9_.])${old.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9_])`, "g");
         if (re.test(line)) hits.push({ file: relative(root, file), line: index + 1, old, new: next });
       }
@@ -1073,7 +1096,7 @@ export function runRenumber(options: RenumberOptions): number {
         applied: applied || (options.apply === true && edits.length === 0),
         changes,
         files: edits.map((edit) => edit.file).sort(),
-        markdown: markdownHits(options.root, names),
+        markdown: markdownHits(options.root, names, options.board),
         project_hash: { before: before.project, after: after.project },
         advisory_hash: { before: before.advisory, after: after.advisory },
         check,

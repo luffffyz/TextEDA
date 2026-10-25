@@ -3,12 +3,12 @@
 // The command is exercised through the CLI because flags, dry-run/apply and output are part of its
 // contract. Small pure checks cover the formatter boundary and the `project.toml` variant scanner.
 import { afterEach, describe, expect, test } from "bun:test";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { formatSchematic } from "@texteda/parser";
-import { editProjectVariants } from "../src/renumber.ts";
+import { type RenumberReport, editProjectVariants } from "../src/renumber.ts";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const reference = join(repoRoot, "examples", "reference-project");
@@ -365,5 +365,40 @@ describe("renumber boundaries", () => {
     expect(result.text).toContain("R2");
     expect(result.text).toContain("R5");
     expect(result.text).not.toContain("R3");
+  });
+});
+describe("renumber markdown scoping and io errors", () => {
+  test("bare board refdes are only reported in board-owned markdown", () => {
+    const root = copyProject(reference);
+    const map = mappingFile(["R1 R9"]);
+    const result = run(["renumber", root, "mcu-board", "--json", "--mapping", map]);
+    expect(result.code).toBe(0);
+    const report = JSON.parse(result.stdout) as RenumberReport;
+    const bare = report.markdown.filter((hit) => hit.old === "R1");
+    expect(bare.length).toBeGreaterThan(0);
+    expect(bare.every((hit) => /mcu-board-components|mcu-board-sch-r1/.test(hit.file))).toBe(true);
+    expect(bare.every((hit) => !/charger-buck|README\.md/.test(hit.file))).toBe(true);
+  });
+
+  test("module-qualified refdes are still reported in charger-buck docs", () => {
+    const root = copyProject(reference);
+    const map = mappingFile(["buck-5v/C1 C9"]);
+    const result = run(["renumber", root, "charger-buck", "--json", "--mapping", map]);
+    expect(result.code).toBe(0);
+    const report = JSON.parse(result.stdout) as RenumberReport;
+    const qualified = report.markdown.filter((hit) => hit.old === "M2.C1");
+    expect(qualified.length).toBeGreaterThan(0);
+    expect(qualified.some((hit) => hit.file.includes("charger-buck"))).toBe(true);
+  });
+
+  test("an unwritable directory is an actionable renumber error, not a stack trace", () => {
+    if (typeof process.getuid === "function" && process.getuid() === 0) return;
+    const root = copyProject(reference);
+    chmodSync(join(root, "views", "charger-buck"), 0o555);
+    const result = run(["renumber", root, "charger-buck", "--mapping", mappingFile(["buck-5v/U1 U5"]), "--apply"]);
+    chmodSync(join(root, "views", "charger-buck"), 0o755);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("renumber: cannot write the renumbered sources");
+    expect(result.stderr).toContain(root);
   });
 });
