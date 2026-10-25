@@ -1197,7 +1197,7 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 
 ## F47. 位号重编号（`texteda renumber`，ADR-0050 的落地）
 
-**现状**：决策已定（[ADR-0050](adr/0050-renumbering-is-a-code-executed-global-rename.md)，2026-10-25），命令未实现。加元件仍是直接改源码，`fmt` 只排序、不填洞；重编号是**显示名改名**：实例的 `uid` 保留（[ADR-0051](adr/0051-instances-have-a-stable-project-local-uid.md)），但 net 成员、view/pcb 摆位与 `source_hash` 仍会变，BOM 显示也会变。agent 可以选策略或给映射，但不能手改编号。
+**现状**：**已落地**（2026-10-26，`packages/cli/src/renumber.ts`，CLI `texteda renumber`，测试 `packages/cli/test/renumber.test.ts`，做法见 `docs/guides/renumbering.md`）。加元件仍是直接改源码，`fmt` 只排序、不填洞；重编号是**显示名改名**：实例的 `uid` 保留（[ADR-0051](adr/0051-instances-have-a-stable-project-local-uid.md)），但 net 成员、view/pcb 摆位与 `source_hash` 仍会变，BOM 显示也会变。agent 可以选策略或给映射，但不能手改编号。`preserve` 对已有行是 no-op（命令不负责创建新实例）；`position` 在模块被多个实例摆到不同坐标时拒绝猜测，要求 `--mapping`；`project.toml` 的 variants 当前契约仍是 `slug`（`component_id`），扫描器只在条目点名实例时改名（为后续放开预留）。
 
 **要做的事**：
 

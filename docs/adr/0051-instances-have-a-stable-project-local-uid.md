@@ -166,5 +166,6 @@ Negative:
 - It does not rekey net member, view, pcb or pin-reference syntax to UIDs.
 - It does not add a UID to boards, PCB descriptions, print pages, variants, component definitions,
   module definitions, symbol/footprint definitions, pins or pads.
-- It does not implement `texteda renumber`; [ADR-0050](0050-renumbering-is-a-code-executed-global-rename.md)
-  remains the command decision, with the identity premise amended by this record.
+- It did not implement `texteda renumber`; that landed separately as F47 (2026-10-26), under
+  [ADR-0050](0050-renumbering-is-a-code-executed-global-rename.md), with the identity premise
+  amended by this record.

@@ -6,6 +6,7 @@
 // Usage:
 //   texteda init <dir> [--force] [--name <project name>]
 //   texteda id <project dir> [--count N] [--json]
+//   texteda renumber <project dir> <board_id> [--policy preserve|compact|position] [--mapping <file>] [--apply] [--dry-run] [--json]
 //   texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb] [--procurement]
 //   texteda check <project dir> [--json]
 //   texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]
@@ -24,6 +25,7 @@ import { runBom } from "../src/bom.ts";
 import { runViewMetrics, splitPageRef } from "../src/view-metrics.ts";
 import { runReview } from "../src/review.ts";
 import { runId } from "../src/id.ts";
+import { runRenumber } from "../src/renumber.ts";
 import { runLibImport } from "../src/lib-import.ts";
 import { formatNetlist, toNetlist } from "@texteda/exporter/netlist";
 import { writeOut } from "../src/output.ts";
@@ -46,6 +48,10 @@ const KNOWN_FLAGS = new Set([
   "--trust",
   "--port",
   "--count",
+  "--apply",
+  "--dry-run",
+  "--policy",
+  "--mapping",
 ]);
 /** Flags that take a value: the argument after them is not a positional argument. */
 const VALUE_FLAGS = new Set([
@@ -60,6 +66,8 @@ const VALUE_FLAGS = new Set([
   "--trust",
   "--port",
   "--count",
+  "--policy",
+  "--mapping",
 ]);
 
 function fail(code: "cli.bad-flag" | "cli.bad-usage", message: string): never {
@@ -70,6 +78,7 @@ function fail(code: "cli.bad-flag" | "cli.bad-usage", message: string): never {
         "Usage:",
         "  texteda init <dir> [--force] [--name <project name>]",
         "  texteda id <project dir> [--count N] [--json]",
+        "  texteda renumber <project dir> <board_id> [--policy preserve|compact|position] [--mapping <file>] [--apply] [--dry-run] [--json]",
         "  texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb] [--procurement]",
         "  texteda check <project dir> [--json]",
         "  texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]",
@@ -244,6 +253,31 @@ if (command === "init") {
   const count = countText === undefined ? 1 : Number(countText);
   if (!Number.isInteger(count) || count < 1) fail("cli.bad-usage", `Not a positive integer: ${countText}`);
   process.exit(runId({ root: resolve(root), count, json: args.flags.has("--json") }));
+} else if (command === "renumber") {
+  const root = args.positional[0] ?? fail("cli.bad-usage", "Missing project directory");
+  const board = args.positional[1] ?? fail("cli.bad-usage", "Missing board id");
+  if (args.positional.length > 2) fail("cli.bad-usage", "Too many arguments");
+  if (args.flags.has("--apply") && args.flags.has("--dry-run")) {
+    fail("cli.bad-usage", "--apply and --dry-run are mutually exclusive");
+  }
+  const mapping = args.values.get("--mapping");
+  const policyFlag = args.values.get("--policy");
+  if (mapping !== undefined && policyFlag !== undefined) {
+    fail("cli.bad-usage", "--mapping and --policy are mutually exclusive");
+  }
+  if (policyFlag !== undefined && policyFlag !== "preserve" && policyFlag !== "compact" && policyFlag !== "position") {
+    fail("cli.bad-usage", "--policy must be preserve, compact, or position");
+  }
+  process.exit(
+    runRenumber({
+      root: resolve(root),
+      board,
+      ...(policyFlag === undefined ? {} : { policy: policyFlag }),
+      ...(mapping === undefined ? {} : { mapping: resolve(mapping) }),
+      apply: args.flags.has("--apply"),
+      json: args.flags.has("--json"),
+    }),
+  );
 } else if (command === "compile") {
   const root = args.positional[0] ?? fail("cli.bad-usage", "Missing project directory");
   const board = args.positional[1] ?? fail("cli.bad-usage", "Missing board_id");

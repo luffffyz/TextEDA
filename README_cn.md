@@ -41,6 +41,7 @@ bun run texteda bom examples/reference-project charger-buck   # 物料表，带�
 bun run texteda view-metrics examples/reference-project charger-buck/buck-5v  # 打印页可读性数值
 bun run texteda review examples/reference-project   # 在 127.0.0.1 上服务评审 app（--out 写一份 HTML）
 bun run texteda id examples/reference-project --count 3  # 生成工程内未使用的实例 UID
+bun run texteda renumber examples/reference-project charger-buck --policy compact  # 试跑一次经过校验的位号重编号
 bun run texteda init ./my-board        # 生成空工程骨架
 ```
 

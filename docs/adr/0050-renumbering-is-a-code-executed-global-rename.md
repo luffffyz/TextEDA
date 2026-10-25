@@ -119,6 +119,22 @@ edits those files and still changes `source_hash`. A future rekey of references 
 identity hash) is a separate decision. The command's mapping, atomic apply and "fmt never
 renumbers" rules stand.
 
+## Implementation (2026-10-26)
+
+F47 landed as `texteda renumber` (`packages/cli/src/renumber.ts`, tests in
+`packages/cli/test/renumber.test.ts`, user guide `docs/guides/renumbering.md`). The implementation
+keeps the decisions above and adds these operational details:
+
+- `preserve` is identity for existing rows; the command does not create instances, so "give a new
+  instance the next free number" remains the authoring step.
+- A module-local refdes is mapped in the module definition and therefore updates every board that
+  uses that module, including the other boards' schematic, view and pcb references.
+- When `--apply` is given, the command formats the touched sources and then runs `check`; it exits
+  non-zero if `check` reports an error. The dry run compiles the renumbered sources in a temporary
+  copy and reports the project and advisory hashes it would produce.
+- `preserve`/`compact`/`position` are the only policies; a mapping file is the escape hatch for a
+  hand-chosen order. A mapping that is already applied is accepted as a no-op.
+
 ## What this does not do
 
 - It does not change `fmt`, the canonical row order, or the IR contract.
