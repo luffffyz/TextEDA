@@ -110,7 +110,9 @@ refdes edit is hash-neutral.
 
 Uniqueness is not probabilistic policy. Every entry point checks:
 
-1. **Generation**: a generated UID that already exists is regenerated.
+1. **Generation** (`texteda id`): the command scans the project's board and module sources,
+   draws a candidate, and retries when it is already taken. It only prints UIDs; assigning a UID
+   to a row is still an authoring action.
 2. **Parsing**: a duplicate source UID in one namespace is an error.
 3. **Project check**: the full flattened UID set across all boards is checked; a duplicate is an
    error with both locations.

@@ -5,6 +5,7 @@
 //
 // Usage:
 //   texteda init <dir> [--force] [--name <project name>]
+//   texteda id <project dir> [--count N] [--json]
 //   texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb] [--procurement]
 //   texteda check <project dir> [--json]
 //   texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]
@@ -22,6 +23,7 @@ import { runIr } from "../src/ir.ts";
 import { runBom } from "../src/bom.ts";
 import { runViewMetrics, splitPageRef } from "../src/view-metrics.ts";
 import { runReview } from "../src/review.ts";
+import { runId } from "../src/id.ts";
 import { runLibImport } from "../src/lib-import.ts";
 import { formatNetlist, toNetlist } from "@texteda/exporter/netlist";
 import { writeOut } from "../src/output.ts";
@@ -43,6 +45,7 @@ const KNOWN_FLAGS = new Set([
   "--dest",
   "--trust",
   "--port",
+  "--count",
 ]);
 /** Flags that take a value: the argument after them is not a positional argument. */
 const VALUE_FLAGS = new Set([
@@ -56,6 +59,7 @@ const VALUE_FLAGS = new Set([
   "--dest",
   "--trust",
   "--port",
+  "--count",
 ]);
 
 function fail(code: "cli.bad-flag" | "cli.bad-usage", message: string): never {
@@ -65,6 +69,7 @@ function fail(code: "cli.bad-flag" | "cli.bad-usage", message: string): never {
       [
         "Usage:",
         "  texteda init <dir> [--force] [--name <project name>]",
+        "  texteda id <project dir> [--count N] [--json]",
         "  texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb] [--procurement]",
         "  texteda check <project dir> [--json]",
         "  texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]",
@@ -232,6 +237,13 @@ const args = parseArgs(argv.slice(1));
 
 if (command === "init") {
   runInit(args);
+} else if (command === "id") {
+  const root = args.positional[0] ?? fail("cli.bad-usage", "Missing project directory");
+  if (args.positional.length > 1) fail("cli.bad-usage", "Too many arguments");
+  const countText = args.values.get("--count");
+  const count = countText === undefined ? 1 : Number(countText);
+  if (!Number.isInteger(count) || count < 1) fail("cli.bad-usage", `Not a positive integer: ${countText}`);
+  process.exit(runId({ root: resolve(root), count, json: args.flags.has("--json") }));
 } else if (command === "compile") {
   const root = args.positional[0] ?? fail("cli.bad-usage", "Missing project directory");
   const board = args.positional[1] ?? fail("cli.bad-usage", "Missing board_id");

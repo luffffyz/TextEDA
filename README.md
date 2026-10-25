@@ -40,6 +40,7 @@ bun run texteda netlist examples/reference-project --board mcu-board  # netlist 
 bun run texteda bom examples/reference-project charger-buck   # bill of materials, with its procurement status
 bun run texteda view-metrics examples/reference-project charger-buck/buck-5v  # print-page readability numbers
 bun run texteda review examples/reference-project   # serve the review app on 127.0.0.1 (--out writes one HTML file)
+bun run texteda id examples/reference-project --count 3  # generate unused project-scoped instance UIDs
 bun run texteda init ./my-board        # generate an empty project skeleton
 ```
 
@@ -103,7 +104,7 @@ The KiCad interoperability section is a **separate, optional workflow** (`.githu
 | `packages/exporter` | footprint / symbol → KiCad (`.kicad_mod` / `.kicad_sym`); netlist |
 | `packages/renderer` | Reference renderer: IR → drawing commands → SVG, plus the reverse extraction that closes the round trip ([ADR-0014](docs/adr/0014-reference-renderer.md)) |
 | `packages/viewer` | The review app's browser side: page, hover highlight, identity selection; no framework, no canvas editing ([ADR-0021](docs/adr/0021-schematic-view-layer.md)) |
-| `packages/cli` | `texteda init` / `compile` / `check` / `netlist` / `ir` / `bom` / `view-metrics` / `review` / `lib import` ([ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md), [ADR-0023](docs/adr/0023-ir-layer-on-disk.md)) |
+| `packages/cli` | `texteda init` / `id` / `compile` / `check` / `netlist` / `ir` / `bom` / `view-metrics` / `review` / `lib import` ([ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md), [ADR-0023](docs/adr/0023-ir-layer-on-disk.md)) |
 | `examples/reference-project/` | Self-contained reference project: 2 boards (one with a `pcb`, two print pages), 23 devices (17 parts + 6 generics) / 15 symbols / 16 footprints, all libraries self-built, plus procurement files and three review rounds |
 | `examples/cases/` | The ten difficult cases: a whole project each, pinned by expected IR and diagnostics (2 of 10 landed; `bun run cases:check`) |
 | `docs/adr/` | Architecture decision records: 49 of them ([full index](docs/adr/README.md)) |

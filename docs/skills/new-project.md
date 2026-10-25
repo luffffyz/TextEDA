@@ -35,11 +35,12 @@ read". A step that does not say "on failure, look at code X" is not finished.
   a path **relative to the current directory** (an IR contract requirement), and the data files
   live in the project anyway.
 
-- The four CLI commands (`bun run texteda <subcommand>`):
+- Core CLI commands (`bun run texteda <subcommand>`):
 
 | Command | What it does | Output |
 |---|---|---|
 | `texteda init <dir>` | Scaffold an empty project | directories + `project.toml` |
+| `texteda id <dir> [--count N]` | Print unused project-scoped instance UIDs | one UID per line; `--json` for machines |
 | `texteda check <dir>` | Parse → contract validation → ERC | diagnostics (human readable; `--json` for machines) |
 | `texteda compile <dir> <board>` | One board file → board-level IR | IR JSON (stdout, or `--out`) |
 | `texteda netlist <dir>` | The connectivity projection of the IR | netlist text |
@@ -205,13 +206,13 @@ to pick up a newer template, import again from the new revision and diff.
 One board file `design/sch/demo.teda` (a board is one schematic file; see `teda.md` §7):
 
 ```
-version 0.2
+version 0.9
 schematic demo
 
 instances
-  R1  res-thick-0402  10k
-  R2  res-thick-0402  10k
-  C1  cap-mlcc-0402  100nF
+  R1  IDr1a2b3  res-thick-0402  10k
+  R2  IDr2c4d5  res-thick-0402  10k
+  C1  IDc1e6f7  cap-mlcc-0402  100nF
 
 nets
   VCC  R1.1 C1.1
@@ -219,8 +220,11 @@ nets
   GND  R2.2 C1.2
 ```
 
-- An `instances` row is `refdes  component_id  <param values…>`; the number and order of the values
-  come from the component's `params` section (§4).
+- An `instances` row is `refdes  [uid]  component_id  <param values…>`; the number and order of the
+  values come from the component's `params` section (§4). The UID is the project-scoped stable
+  identity ([ADR-0051](../adr/0051-instances-have-a-stable-project-local-uid.md)); generate one with
+  `texteda id <dir> --count N`, then paste it. A missing UID is a warning on a 0.9 file, not a
+  silent default.
 - A `nets` row is `net_name  <pin>…`, where a pin is written `refdes.pin_number` — the **number**,
   not the name (names are ambiguous on alternate functions).
 - A pin belongs to exactly one net (`net.pin-in-two-nets`).
