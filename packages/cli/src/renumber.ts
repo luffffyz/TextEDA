@@ -17,13 +17,15 @@
 //
 // References that follow a rename:
 //   - schematic net members and bus members, including pin references (`U1.2.OUT`, `M1.U1.6`);
+//   - the pin subject of a `voltage`/`current`/`power` constraint (`power R1.1 2mW`);
 //   - view `place` rows and the pin references in `wire` rows;
 //   - pcb `place` rows and `connect` pad references;
 //   - variant entries in `project.toml` that name an instance.
 //
 // A view wire's first column is a net name, not an instance: `M2.BOOT` must stay untouched even
-// though it has the same shape as a module-qualified instance. The source editor therefore walks
-// sections and columns instead of replacing tokens over the whole text.
+// though it has the same shape as a module-qualified instance. The same applies to a two-segment
+// `M1.X` in a net/bus row (a module port) and to a constraint subject that names a net. The source
+// editor therefore walks sections and columns instead of replacing tokens over the whole text.
 import {
   cpSync,
   existsSync,
@@ -381,7 +383,16 @@ function computePolicyMaps(context: ProjectContext, policy: RenumberPolicy): Nam
 /** Parse `old new` lines; a module-local name is written `module_id/refdes`. */
 function parseMappingFile(path: string): { board: Map<string, string>; modules: Map<string, Map<string, string>> } {
   if (!existsSync(path)) fail(`mapping file does not exist: ${path}`);
-  const text = readFileSync(path, "utf8");
+  let text: string;
+  try {
+    text = readFileSync(path, "utf8");
+  } catch (error) {
+    const code =
+      error !== null && typeof error === "object" && "code" in error && typeof error.code === "string"
+        ? error.code
+        : undefined;
+    fail(`cannot read mapping file ${path}: ${code === "EISDIR" ? "is a directory" : (code ?? "read failed")}`);
+  }
   const board = new Map<string, string>();
   const modules = new Map<string, Map<string, string>>();
   const lines = text.split(/\r?\n/);
@@ -469,6 +480,7 @@ function mapRef(
   moduleByTag: ReadonlyMap<string, string>,
   moduleMaps: ReadonlyMap<string, ReadonlyMap<string, string>>,
   localMap?: ReadonlyMap<string, string>,
+  moduleRefs = true,
 ): string {
   const parts = ref.split(".");
   if (localMap !== undefined) {
@@ -481,6 +493,9 @@ function mapRef(
   if (moduleId !== undefined) {
     const local = parts[1];
     if (local === undefined) return ref;
+    // In a net/bus row and in a constraint subject, `M1.X` is a port or a net name, not an
+    // instance: only the three-or-more-segment form (`M1.U1.6`) carries a refdes (spec/module.md).
+    if (!moduleRefs && parts.length === 2) return ref;
     const localMap = moduleMaps.get(moduleId);
     const next = localMap?.get(local);
     if (next === undefined) return ref;
@@ -514,6 +529,7 @@ function editSchematicSource(
   moduleByTag: ReadonlyMap<string, string>,
   moduleMaps: ReadonlyMap<string, ReadonlyMap<string, string>>,
   localMap?: ReadonlyMap<string, string>,
+  netNames: ReadonlySet<string> = new Set(),
 ): { text: string; changed: boolean } {
   const edits: Edit[] = [];
   const sectionNames = new Set(["instances", "nets", "ports", "constraints", "bus", "modules"]);
@@ -553,7 +569,31 @@ function editSchematicSource(
       const start = memberStart(line.cells);
       for (let index = start; index < line.cells.length; index++) {
         const cell = line.cells[index]!;
-        pushIfChanged(edits, line.number, cell, mapRef(cell.text, boardMap, moduleByTag, moduleMaps, localMap));
+        pushIfChanged(
+          edits,
+          line.number,
+          cell,
+          mapRef(cell.text, boardMap, moduleByTag, moduleMaps, localMap, false),
+        );
+      }
+      continue;
+    }
+    if (section === "constraints") {
+      // voltage/current/power take a pin or a net. A net name that looks like a pin (`R1.1`) is
+      // resolved as a net by the parser, so leave every net subject untouched; only the pin form
+      // is an instance reference. impedance/length/diff/skew are net-only.
+      const subject = line.cells[1];
+      if (
+        subject &&
+        (first.text === "voltage" || first.text === "current" || first.text === "power") &&
+        !netNames.has(subject.text)
+      ) {
+        pushIfChanged(
+          edits,
+          line.number,
+          subject,
+          mapRef(subject.text, boardMap, moduleByTag, moduleMaps, localMap, false),
+        );
       }
     }
   }
@@ -676,6 +716,26 @@ function applyEdits(text: string, edits: readonly Edit[]): string {
   return lines.join("\n");
 }
 
+/** Every net id a document declares, including bus member nets. */
+function documentedNetNames(doc: Document): Set<string> {
+  const names = new Set<string>();
+  for (const net of doc.nets) names.add(net.name);
+  for (const bus of doc.buses) for (const member of bus.members) names.add(`${bus.id}.${member.member}`);
+  return names;
+}
+
+/** A board's nets plus the module-local nets it can name after flattening (`M1.NET`). */
+function boardNetNames(board: BoardContext, modules: ReadonlyMap<string, ModuleSource>): Set<string> {
+  const names = documentedNetNames(board.doc);
+  for (const module of board.doc.modules) {
+    const source = modules.get(module.moduleId);
+    if (!source) continue;
+    const doc = parseDoc(source.text, source.file, "module");
+    for (const name of documentedNetNames(doc)) names.add(`${module.instanceId}.${name}`);
+  }
+  return names;
+}
+
 /** The old full names and their new names, for project variants and the Markdown report. */
 function fullNameMap(context: ProjectContext, maps: NameMaps): Map<string, string> {
   const out = new Map<string, string>();
@@ -770,7 +830,16 @@ function editsForProject(context: ProjectContext, maps: NameMaps): { edits: Sour
   const names = fullNameMap(context, maps);
   for (const board of context.boards) {
     const boardMap = board.id === context.target.id ? maps.board : new Map<string, string>();
-    const edit = editSchematicSource(board.text, board.file, "schematic", boardMap, board.moduleByTag, maps.modules);
+    const edit = editSchematicSource(
+      board.text,
+      board.file,
+      "schematic",
+      boardMap,
+      board.moduleByTag,
+      maps.modules,
+      undefined,
+      boardNetNames(board, context.modules),
+    );
     if (edit.changed) edits.push({ file: board.file, before: board.text, after: edit.text, changed: true });
     for (const view of board.views) {
       const viewEdit = editViewSource(view.text, view.file, board, boardMap, maps.modules);
@@ -785,7 +854,17 @@ function editsForProject(context: ProjectContext, maps: NameMaps): { edits: Sour
     if (!hasChanges(map)) continue;
     const source = context.modules.get(moduleId);
     if (!source) fail(`module ${moduleId} is missing`);
-    const edit = editSchematicSource(source.text, source.file, "module", new Map(), new Map(), maps.modules, map);
+    const sourceDoc = parseDoc(source.text, source.file, "module");
+    const edit = editSchematicSource(
+      source.text,
+      source.file,
+      "module",
+      new Map(),
+      new Map(),
+      maps.modules,
+      map,
+      documentedNetNames(sourceDoc),
+    );
     if (edit.changed) edits.push({ file: source.file, before: source.text, after: edit.text, changed: true });
   }
   const projectFile = join(context.root, "project.toml");

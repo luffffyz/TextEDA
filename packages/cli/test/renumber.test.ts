@@ -178,6 +178,14 @@ describe("renumber mapping and references", () => {
     expect(run(["renumber", root, "mcu-board", "--policy", "mapping"]).code).toBe(2);
   });
 
+  test("a directory as the mapping file is a diagnostic, not a stack trace", () => {
+    const root = copyProject(reference);
+    const result = run(["renumber", root, "mcu-board", "--mapping", root]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("cannot read mapping file");
+    expect(result.stderr).not.toContain("EISDIR");
+  });
+
   test("a collision or a prefix change is rejected before any write", () => {
     const root = copyProject(reference);
     const before = read(join(root, "design/sch/mcu-board.teda"));
@@ -190,6 +198,70 @@ describe("renumber mapping and references", () => {
     expect(prefix.code).toBe(1);
     expect(prefix.stderr).toContain("changes the prefix");
     expect(read(join(root, "design/sch/mcu-board.teda"))).toBe(before);
+  });
+
+  test("constraint pin subjects follow the rename", () => {
+    const root = copyProject(reference);
+    const boardFile = join(root, "design/sch/mcu-board.teda");
+    writeFileSync(
+      boardFile,
+      read(boardFile).replace("constraints\n", "constraints\n  power    R1.1    2mW\n"),
+    );
+    const result = run(["renumber", root, "mcu-board", "--mapping", mappingFile(["R1 R9"]), "--apply"]);
+    expect(result.code).toBe(0);
+    const source = read(boardFile);
+    expect(source).toMatch(/power\s+R9\.1\s+2mW/);
+    expect(source).not.toMatch(/power\s+R1\.1\s+2mW/);
+  });
+
+  test("module constraint pin subjects follow the local rename", () => {
+    const root = copyProject(reference);
+    const moduleFile = join(root, "design/modules/buck-5v.teda");
+    writeFileSync(
+      moduleFile,
+      read(moduleFile).replace("constraints\n  voltage  VFB", "constraints\n  current  R1.1    1mA\n  voltage  VFB"),
+    );
+    const result = run([
+      "renumber",
+      root,
+      "charger-buck",
+      "--mapping",
+      mappingFile(["buck-5v/R1 R7"]),
+      "--apply",
+    ]);
+    expect(result.code).toBe(0);
+    const source = read(moduleFile);
+    expect(source).toMatch(/current\s+R7\.1\s+1mA/);
+    expect(source).not.toMatch(/current\s+R1\.1\s+1mA/);
+  });
+
+  test("a module port reference is not an instance reference", () => {
+    const root = copyProject(reference);
+    rmSync(join(root, "views"), { recursive: true, force: true });
+    rmSync(join(root, "design/pcb"), { recursive: true, force: true });
+    const moduleFile = join(root, "design/modules/buck-5v.teda");
+    writeFileSync(
+      moduleFile,
+      read(moduleFile).replace("ports\n  GND     GND", "ports\n  C1      BOOT\n  GND     GND"),
+    );
+    const boardFile = join(root, "design/sch/charger-buck.teda");
+    writeFileSync(
+      boardFile,
+      read(boardFile).replace("\nports\n", "\n  TAP:  M2.C1\n\nports\n"),
+    );
+    const result = run([
+      "renumber",
+      root,
+      "charger-buck",
+      "--mapping",
+      mappingFile(["buck-5v/C1 C9"]),
+      "--apply",
+    ]);
+    expect(result.code).toBe(0);
+    const board = read(boardFile);
+    expect(board).toMatch(/TAP:\s+M2\.C1/);
+    expect(board).not.toMatch(/TAP:\s+M2\.C9/);
+    expect(read(moduleFile)).toMatch(/^  C9\s/m);
   });
 
   test("multi-unit and pin references are rewritten", () => {

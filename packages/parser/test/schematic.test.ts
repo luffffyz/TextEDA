@@ -240,6 +240,40 @@ describe("stable instance UIDs (ADR-0051)", () => {
     expect(m2.uid).toBe("IDq4m7sc/ID7k3m9q");
   });
 
+  test("a module-local UID stays bare when the module instance has no UID", () => {
+    const moduleText = [
+      "version 0.9",
+      "module m",
+      "",
+      "instances",
+      "  R1  ID7k3m9q  res-thick-0402  10k  ±1%",
+      "",
+      "nets",
+      "  N:  R1.1",
+      "",
+      "ports",
+      "  P  N",
+    ].join("\n");
+    const boardText = [
+      "version 0.9",
+      "schematic b",
+      "",
+      "modules",
+      "  M1  m",
+      "",
+      "nets",
+      "  A:  M1.P",
+    ].join("\n");
+    const composed = parseSchematic(boardText, {
+      file: "sch/b.teda",
+      board: "b",
+      components: resolver,
+      modules: [{ moduleId: "m", file: "modules/m.teda", text: moduleText }],
+    });
+    expect(composed.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(composed.ir!.instances.find((i) => i.id === "M1.R1")!.uid).toBe("ID7k3m9q");
+  });
+
   test("a duplicate UID in one file is an error", () => {
     const result = parseSchematic(
       board("  R1  ID7k3m9q  res-thick-0402  10k  ±1%\n  R2  ID7k3m9q  res-thick-0402  1k  ±1%"),

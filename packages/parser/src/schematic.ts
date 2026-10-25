@@ -1090,7 +1090,11 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
       }
       const params = resolveParams(inst, facts, module.file, diagnostics);
       const uid =
-        module.uid !== undefined && inst.uid !== undefined ? `${module.uid}/${inst.uid}` : undefined;
+        inst.uid === undefined
+          ? undefined
+          : module.uid === undefined
+            ? inst.uid
+            : `${module.uid}/${inst.uid}`;
       instanceOrigin.set(id, module.source.span(inst.line, inst.col));
       instances.push({
         id,

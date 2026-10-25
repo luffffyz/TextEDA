@@ -212,6 +212,34 @@ describe("check", () => {
     }
   });
 
+  test("a bare module-local UID collides with a board-level UID", () => {
+    const board = `version 0.9
+schematic b
+
+instances
+  R1  ID7k3m9q  res-thick-0402  10k  ±1%
+
+modules
+  M1  m
+
+nets
+  VCC:  M1.VCC_OUT
+  GND:  R1.1
+  SIG:  R1.2
+`;
+    const root = makeComposedProject(board, MODULE_WITH_UID);
+    try {
+      const result = checkProject(root);
+      const duplicate = result.diagnostics.filter((d) => d.code === "value.duplicate-instance-uid");
+      expect(duplicate).toHaveLength(1);
+      expect(duplicate[0]!.severity).toBe("error");
+      expect(duplicate[0]!.message).toContain("b.M1.R1");
+      expect(duplicate[0]!.message).toContain("b.R1");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test("a 0.9 board without a UID reports a warning, not an error", () => {
     const root = makeProject(`version 0.9
 schematic b

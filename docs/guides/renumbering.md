@@ -70,13 +70,17 @@ The command parses the project and rewrites only machine-readable positions:
 - schematic `instances` rows;
 - net members and bus members, including multi-unit pin references (`U1.2.OUT`) and
   module-qualified pins (`M1.U1.6`);
+- the pin subject of a `voltage`, `current` or `power` constraint (`power R1.1 2mW`); a constraint
+  subject that names a net is left alone even when the net name looks like a pin;
 - view `place` rows and the two pin references of each `wire` row;
 - pcb `place` rows and `connect` pad references;
 - variant values in `project.toml` when an entry names an instance (the current contract only
   admits component ids, so this is forward-looking).
 
 A view wire's first column is a **net name**, not an instance. `M2.BOOT` stays untouched even when
-the module's local refdes change. Comments and prose are not parsed; Markdown files under the project
+the module's local refdes change. For the same reason, a two-segment `M1.X` in a `nets`/`bus` row is
+a module **port** name, not an instance reference; only `M1.U1.6` and longer forms carry a refdes.
+Comments and prose are not parsed; Markdown files under the project
 root that still mention an old name are reported with file and line (build output and caches are
 skipped), and left for a person to edit
 ([ADR-0033](../adr/0033-review-records-and-attribution.md)).

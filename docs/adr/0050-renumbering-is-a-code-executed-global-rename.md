@@ -47,11 +47,13 @@ instance. It is not a display format and cannot be treated as one.
    mapping, collisions, the files it would touch, and the resulting hash change. `--apply` writes
    all files or none. A second run with the same policy and the same input is a no-op.
 
-5. **Update every machine-readable reference.** The command updates the schematic instance rows and
-   net members (`U1.2.OUT`), the view's `place` rows and `wire` pin references, the PCB's placement
+5. **Update every machine-readable reference.** The command updates the schematic instance rows,
+   net members (`U1.2.OUT`), the pin subject of a `voltage`/`current`/`power` constraint
+   (`power R1.1 2mW`), the view's `place` rows and `wire` pin references, the PCB's placement
    references, and variant entries that name an instance. `component_id` references are untouched.
    Net names and port names are untouched: a net called `R1_DIV` is a human decision, not a
-   renumbering target. Prose and review records are not parsed
+   renumbering target, and a two-segment `M1.X` in a net/bus row is a port name, not an instance.
+   Prose and review records are not parsed
    ([ADR-0033](0033-review-records-and-attribution.md)); the command reports old names found in
    Markdown so a person can update them.
 
