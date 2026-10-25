@@ -21,6 +21,7 @@ import { basename, dirname, join, relative } from "node:path";
 import { irVersion, schemaDiagnosticsToDiagnostics, validate, type SchemaKind, type SourceMap } from "@texteda/ir";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
 import { aggregateShardHash, sha256Hex } from "./hash.ts";
+import { buildIdentityDocument, type IdentityDocument } from "./identity.ts";
 import {
   canonicalJson,
   parseFootprint,
@@ -95,6 +96,11 @@ export interface IrTree {
   boardHashes: Map<string, string>;
   /** Parse and contract diagnostics of every compiled description. */
   diagnostics: Diagnostic[];
+  /**
+   * Advisory identity index (ADR-0020 D6): identity → source locations. It is written beside the
+   * shards as `identity.json`, but it is not a shard and never enters a hash.
+   */
+  identity: IdentityDocument;
 }
 
 /** The tool's own version, taken from the repository's root `package.json`; `0.0.0` when it is unreadable. */
@@ -318,12 +324,14 @@ export function buildIrTree(root: string): IrTree {
   }
 
   const shards: IrShard[] = [];
+  const validDrafts: Draft[] = [];
   for (const draft of drafts) {
     const check = validate(draft.kind, draft.ir);
     if (!check.ok) {
       diagnostics.push(...schemaDiagnosticsToDiagnostics(check.errors, locateWith(draft.sources)));
       continue;
     }
+    validDrafts.push(draft);
     const bytes = canonicalJson(draft.ir);
     shards.push({
       path: draft.path,
@@ -377,7 +385,8 @@ export function buildIrTree(root: string): IrTree {
     if (!manifestCheck.ok) diagnostics.push(...schemaDiagnosticsToDiagnostics(manifestCheck.errors));
   }
 
-  return { shards, manifest, projectHash, advisoryHash, boardHashes, diagnostics };
+  const identity = buildIdentityDocument(validDrafts);
+  return { shards, manifest, projectHash, advisoryHash, boardHashes, diagnostics, identity };
 }
 
 /**
@@ -388,7 +397,7 @@ export function buildIrTree(root: string): IrTree {
  */
 export function writeIrTree(outDir: string, tree: IrTree): void {
   mkdirSync(outDir, { recursive: true });
-  const owned = new Set<string>(["manifest.json"]);
+  const owned = new Set<string>(["manifest.json", "identity.json"]);
   for (const shard of tree.shards) {
     const target = join(outDir, shard.path);
     mkdirSync(dirname(target), { recursive: true });
@@ -396,6 +405,7 @@ export function writeIrTree(outDir: string, tree: IrTree): void {
     owned.add(shard.path);
   }
   writeFileSync(join(outDir, "manifest.json"), canonicalJson(tree.manifest));
+  writeFileSync(join(outDir, "identity.json"), canonicalJson(tree.identity));
   for (const file of filesUnder(outDir)) {
     if (owned.has(file)) continue;
     rmSync(join(outDir, file), { force: true });

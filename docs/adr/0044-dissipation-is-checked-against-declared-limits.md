@@ -141,8 +141,8 @@ missing concept (who carries a net's current).
    "declared inapplicable". If a real design hits this, the fix is a vocabulary word
    (`power ... dc-applicable` or a rule), not a special case in the checker.
 3. **Multi-terminal resistive devices** (potentiometers, resistor networks) are counted
-   as `not_two_terminal` and skipped; they need the terminal semantics F42 item 2
-   reserves for multi-pin stress models.
+   as `not_two_terminal` and skipped; [ADR-0052](0052-a-rating-names-its-terminals.md)
+   decides the terminal-pair syntax they will use, but the checker change is still F42 work.
 
 ## Consequences
 

@@ -74,12 +74,36 @@ describe("IR shard tree layout", () => {
     expect(tree.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
   });
 
+  test("the advisory identity index names every selectable identity", () => {
+    // ADR-0020 D6: the review app needs identity → source locations, but this index is not a
+    // shard and never enters a hash.
+    expect(tree.identity.identities["instance:charger-buck/M2.C1"]?.map((location) => location.kind)).toEqual([
+      "instance",
+      "pcb-place",
+      "view-place",
+    ]);
+    expect(tree.identity.identities["net:charger-buck/SYS"]?.map((location) => location.kind)).toContain("net");
+    expect(tree.identity.identities["component:cap-mlcc-1210"]?.[0]?.file).toBe(
+      "assets/components/passives/cap-mlcc-1210.teda",
+    );
+    expect(tree.identity.identities["symbol:project:c"]?.[0]?.file).toBe("assets/symbols/project/c.teda");
+    expect(tree.identity.identities["footprint:project:chip-1210"]?.[0]?.file).toBe(
+      "assets/footprints/project/chip-1210.teda",
+    );
+    expect(tree.identity.identities["component-pin:bq24610rger/24"]?.[0]?.file).toBe(
+      "assets/components/power/bq24610rger.teda",
+    );
+  });
+
   test("no absolute path leaks into the tree", () => {
     for (const shard of tree.shards) {
       expect(shard.source.startsWith("/")).toBe(false);
       expect(shard.bytes).not.toContain(repoRoot);
     }
     expect(tree.manifest.shards.map((s) => s.path).some((p) => p.startsWith("/"))).toBe(false);
+    for (const locations of Object.values(tree.identity.identities)) {
+      for (const location of locations) expect(location.file.startsWith("/")).toBe(false);
+    }
   });
 });
 
@@ -91,6 +115,22 @@ describe("IR shard tree hashes", () => {
     expect(tree.manifest.shards.map((s) => s.path)).toEqual(tree.shards.map((s) => s.path));
     expect(tree.manifest.ir_version).toBe(irVersion);
     expect(tree.manifest.tool_version).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  test("identity.json is written beside the shards and is not a manifest shard", () => {
+    const out = tempDir();
+    try {
+      writeIrTree(out, tree);
+      const identity = JSON.parse(readFileSync(join(out, "identity.json"), "utf8")) as {
+        version: number;
+        identities: Record<string, unknown[]>;
+      };
+      expect(identity.version).toBe(1);
+      expect(identity.identities["instance:mcu-board/U1"]).toBeDefined();
+      expect(tree.manifest.shards.some((shard) => shard.path === "identity.json")).toBe(false);
+    } finally {
+      rmSync(out, { recursive: true, force: true });
+    }
   });
 
   test("the written bytes hash to the manifest entry", () => {
@@ -170,6 +210,7 @@ describe("IR shard tree determinism", () => {
     const second = buildIrTree(referenceProject);
     expect(second.manifest).toEqual(first.manifest);
     expect(second.shards.map((s) => s.bytes)).toEqual(first.shards.map((s) => s.bytes));
+    expect(second.identity).toEqual(first.identity);
   });
 
   test("writing the tree twice leaves the same bytes on disk", () => {
@@ -178,8 +219,10 @@ describe("IR shard tree determinism", () => {
       const tree = buildIrTree(referenceProject);
       writeIrTree(out, tree);
       const first = readFileSync(join(out, "manifest.json"), "utf8");
+      const firstIdentity = readFileSync(join(out, "identity.json"), "utf8");
       writeIrTree(out, tree);
       expect(readFileSync(join(out, "manifest.json"), "utf8")).toBe(first);
+      expect(readFileSync(join(out, "identity.json"), "utf8")).toBe(firstIdentity);
     } finally {
       rmSync(out, { recursive: true, force: true });
     }

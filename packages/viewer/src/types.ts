@@ -52,10 +52,14 @@ export interface ReviewPage {
   problems: string[];
 }
 
-/** An instance of the board: what a click on its symbol reports beyond the refdes. */
+/** One instance of the board: what a click on its symbol reports beyond the refdes. */
 export interface ReviewInstance {
   id: string;
   component: string;
+  /** Symbol reference (`lib:id`) the component points at, when it declares one. */
+  symbol?: string;
+  /** Footprint reference (`lib:id`) the component points at, when it declares one. */
+  footprint?: string;
   /** Parameter values as a person writes them (`10kΩ`, `±1%`, …), in the device's declared order. */
   params: string[];
   /** Net ids this instance has a pin on. */
@@ -63,6 +67,35 @@ export interface ReviewInstance {
   /** Source file of the board (the instance row lives there). */
   file: string;
 }
+
+/** What a definition location names: the record a reviewer can open. */
+export type ReviewSourceKind =
+  | "instance"
+  | "net"
+  | "port"
+  | "component"
+  | "component-pin"
+  | "symbol"
+  | "footprint"
+  | "view-place"
+  | "view-wire"
+  | "view-label"
+  | "view-port"
+  | "pcb-place";
+
+/** One place an identity is defined or used, as a source location (ADR-0020 D6). */
+export interface ReviewSourceLocation {
+  kind: ReviewSourceKind;
+  /** Human label for the definition menu (`sch instance row`, `view place (buck-5v)`, …). */
+  label: string;
+  /** Path relative to the project root. */
+  file: string;
+  line: number;
+  col: number;
+}
+
+/** Identity key → locations. Keys are namespaced (`instance:<board>/<id>`, `component:<id>`). */
+export type ReviewSources = Record<string, ReviewSourceLocation[]>;
 
 /** A net of the board, with the pins it joins (`U1.7`). */
 export interface ReviewNet {
@@ -100,4 +133,6 @@ export interface ReviewModel {
   hash?: string;
   boards: ReviewBoard[];
   diagnostics: ReviewDiagnostic[];
+  /** Identity → source locations (ADR-0020 D6); advisory, derived from the same parse as the IR. */
+  sources: ReviewSources;
 }

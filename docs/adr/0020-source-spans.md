@@ -150,10 +150,8 @@ and an agent act on, and the IR path says what the contract says about that reco
 
 ## Open Points
 
-- The shape of the persisted identity index for the review GUI (D6): which identities are
-  indexed, how the occurrences are grouped, and how the artifact is named and versioned. It
-  belongs with the GUI work (`docs/backlog.md` F34), and it must land before the GUI's
-  jump-to-source can be specified.
+- ~~The shape of the persisted identity index for the review GUI (D6).~~ Resolved 2026-10-26:
+  `dist/ir/identity.json`, advisory, `version: 1`; see the amendment below.
 - How a multi-site diagnostic groups its `related` locations (D5): whether the list is ordered,
   capped, and how a reviewer reads a long list.
 
@@ -197,3 +195,62 @@ changed is that the IR no longer holds a second, order-dependent copy of it.
 - **Two tests pin the invariant** (`packages/parser/test/schematic.test.ts`,
   `packages/parser/test/view.test.ts`): the same description with its rows reordered must
   compile to byte-identical IR.
+
+## Amendment 2026-10-26: the identity index is `dist/ir/identity.json`
+
+D6 left the shape open. It is now fixed by the first consumer, the review app's jump-to-source
+(`docs/backlog.md` F34):
+
+```json
+{
+  "version": 1,
+  "identities": {
+    "instance:charger-buck/M2.C1": [
+      {
+        "kind": "instance",
+        "label": "sch instance row",
+        "file": "design/modules/buck-5v.teda",
+        "line": 10,
+        "col": 3
+      },
+      {
+        "kind": "view-place",
+        "label": "view place (buck-5v)",
+        "file": "views/charger-buck/buck-5v.view.teda",
+        "line": 12,
+        "col": 3
+      }
+    ]
+  }
+}
+```
+
+- **The file sits beside the shards, not inside them.** `texteda ir` writes `identity.json` next to
+  `manifest.json`; it is not a shard, is absent from `manifest.shards`, and never enters the
+  project hash, a board hash or `advisory_hash`. Moving it, deleting it or editing it changes no
+  build identity. This is the advisory split D6 already required.
+- **The key is the identity, the value is every place it appears.** The namespaces are
+  `instance:<board>/<id>`, `net:<board>/<id>`, `port:<board>/<id>`, `component:<component-id>`,
+  `component-pin:<component-id>/<pin-number>`, `symbol:<lib>:<id>` and
+  `footprint:<lib>:<id>`. Board-level instances are the flattened ids (`M2.C1`), and a module-local
+  row points at its module file because that is where the fact is written.
+- **Occurrences share the identity key.** A print-page `place` appends to its instance, a `wire`
+  or `label` to its net, a `port` to its port, and a PCB `place` to its instance. The `kind` and
+  `label` fields say which record it is (`sch instance row`, `view wire (buck-5v)`, …); the viewer
+  does not need to know where to look.
+- **Locations are relative to the project root** and use `/` separators, exactly like
+  `DiagnosticLocation.file` (D3). The artifact therefore contains no machine-specific path and no
+  absolute path.
+- **Only descriptions that compiled are indexed.** The index is built from the same `Draft`s whose
+  shards passed the contract; a file with an error is not silently presented as a definition.
+- **The document has its own version.** `version: 1` describes this advisory shape, not the IR
+  contract. A future change to the key grammar or location fields increments it; the IR contract
+  is untouched.
+- **The index is derived, never authoritative.** It is reproducible from the sources, and a tool
+  that needs a definition should parse again rather than trust a stale copy. `texteda ir` regenerates
+  it with the shards and prunes it like any other file it owns.
+
+The parser already carries the record locations D2 describes; no IR or language change was
+needed. The index is assembled in `packages/cli/src/identity.ts` and consumed by the review model
+in `packages/cli/src/review.ts`. The viewer turns a selected `instance:` or `net:` key into the
+definition menu and opens a location with the editor's `vscode://file/...` URI.

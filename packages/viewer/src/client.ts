@@ -6,12 +6,14 @@
 // adjusted it would become a second source of truth (ADR-0021, AGENTS.md §2 invariant 3).
 //
 // The model is injected as `window.__TEXTEDA_REVIEW__` (see `packages/cli/src/review.ts`).
+import { definitionLocations, editorUri } from "./definitions.ts";
 import type {
   ReviewBoard,
   ReviewDiagnostic,
   ReviewInstance,
   ReviewModel,
   ReviewPage,
+  ReviewSourceLocation,
 } from "./types.ts";
 
 interface Highlight {
@@ -44,6 +46,8 @@ const state = {
   panX: 0,
   panY: 0,
   selected: null as Highlight | null,
+  /** The definition menu is open for the current selection (F34 source jump). */
+  definitionsOpen: false,
   /** Set once the reviewer pans or zooms: a window resize must not undo their framing. */
   adjusted: false,
 };
@@ -142,6 +146,7 @@ function renderBoards(): void {
         }
         item.addEventListener("click", () => {
           state.selected = { kind: "symbol", id: instance.id };
+          state.definitionsOpen = false;
           renderBoards();
           renderInspector();
         });
@@ -257,6 +262,7 @@ function renderStage(): void {
   const current = page();
   canvas.textContent = "";
   state.selected = null;
+  state.definitionsOpen = false;
   status.classList.remove("error");
   if (current === undefined) {
     const note = board()?.note ?? "this board has no print page";
@@ -459,9 +465,70 @@ stage.addEventListener("pointerout", (event) => {
 function clearSelection(): void {
   if (state.selected === null) return;
   state.selected = null;
+  state.definitionsOpen = false;
   paintHighlights(null);
   renderBoards();
   renderInspector();
+}
+
+function locationsFor(selected: Highlight): ReviewSourceLocation[] {
+  const facts = instanceOf(selected.id);
+  const symbol = page()?.symbols.find((candidate) => candidate.id === selected.id);
+  return definitionLocations({
+    sources: model.sources,
+    board: state.board,
+    selected,
+    ...(facts === undefined ? {} : { instance: facts }),
+    pins: Object.keys(symbol?.pins ?? {}),
+  });
+}
+
+/** Open a source location in the editor the user has bound to `vscode://file/…`. */
+function openLocation(location: ReviewSourceLocation): void {
+  window.location.href = editorUri(model.project.root, location);
+  setStatus(`opening ${location.file}:${location.line}:${location.col}`);
+}
+
+function showDefinitions(): void {
+  if (state.selected === null) return;
+  state.definitionsOpen = true;
+  renderInspector();
+  inspectorBody.querySelector<HTMLButtonElement>(".definition-open")?.focus();
+}
+
+/** The definition menu: one row per place the selected identity appears. */
+function appendDefinitions(selected: Highlight): void {
+  const toggle = el(
+    "button",
+    "definitions-toggle",
+    state.definitionsOpen ? "hide definitions" : "definitions (Enter)",
+  );
+  toggle.type = "button";
+  toggle.addEventListener("click", () => {
+    state.definitionsOpen = !state.definitionsOpen;
+    renderInspector();
+  });
+  inspectorBody.append(toggle);
+  if (!state.definitionsOpen) return;
+
+  const locations = locationsFor(selected);
+  if (locations.length === 0) {
+    inspectorBody.append(el("div", "muted", "no source location recorded for this identity"));
+    return;
+  }
+  const list = el("ul", "definitions");
+  for (const location of locations) {
+    const item = el("li");
+    const open = el("button", "definition-open");
+    open.type = "button";
+    open.title = `open ${location.file}:${location.line}:${location.col}`;
+    open.append(el("span", "definition-kind", location.label));
+    open.append(el("span", "definition-where", `${location.file}:${location.line}`));
+    open.addEventListener("click", () => openLocation(location));
+    item.append(open);
+    list.append(item);
+  }
+  inspectorBody.append(list);
 }
 
 function renderInspector(): void {
@@ -490,6 +557,7 @@ function renderInspector(): void {
       list.append(item);
     }
     inspectorBody.append(el("div", "muted", `${net.members.length} pins`), list);
+    appendDefinitions(selected);
     return;
   }
 
@@ -497,10 +565,13 @@ function renderInspector(): void {
   const facts = instanceOf(selected.id);
   if (facts === undefined) {
     inspectorBody.append(el("div", "muted", "the drawing places an instance the board does not list"));
+    appendDefinitions(selected);
     return;
   }
   const definition = el("div", "definition");
   definition.append(el("span", "label", "device"), el("span", "value", facts.component));
+  if (facts.symbol !== undefined) definition.append(el("span", "label", "symbol"), el("span", "value", facts.symbol));
+  if (facts.footprint !== undefined) definition.append(el("span", "label", "footprint"), el("span", "value", facts.footprint));
   if (facts.params.length > 0) definition.append(el("span", "label", "spec"), el("span", "value", facts.params.join(" ")));
   definition.append(el("span", "label", "source"), el("span", "value", facts.file));
   inspectorBody.append(definition);
@@ -514,6 +585,7 @@ function renderInspector(): void {
     nets.append(item);
   }
   inspectorBody.append(el("h3", undefined, "nets"), nets.children.length === 0 ? el("div", "muted", "no nets") : nets);
+  appendDefinitions(selected);
 }
 
 // --- input -----------------------------------------------------------------------------------
@@ -524,6 +596,8 @@ const DRAG_SLOP = 3;
 let dragging: { x: number; y: number; panX: number; panY: number; moved: boolean } | null = null;
 /** The hotspot under the pointer at press time; a press that does not travel selects it. */
 let pressed: Highlight | null = null;
+/** The previous click, for double-click detection on our own pointer-up selection. */
+let lastPress: { kind: Highlight["kind"]; id: string; at: number } | null = null;
 
 stage.addEventListener("pointerdown", (event) => {
   if (event.button !== 0) return;
@@ -555,17 +629,30 @@ const stopDrag = (): void => {
   dragging = null;
   pressed = null;
   stage.classList.remove("dragging");
-  if (travelled) return;
+  if (travelled) {
+    lastPress = null;
+    return;
+  }
   if (selection === null) {
     // A click on the paper, not a pan: the reviewer is done with whatever was picked.
+    lastPress = null;
     clearSelection();
     return;
   }
+  const now = Date.now();
+  const double =
+    lastPress !== null &&
+    lastPress.kind === selection.kind &&
+    lastPress.id === selection.id &&
+    now - lastPress.at < 350;
+  lastPress = { kind: selection.kind, id: selection.id, at: now };
   state.selected = selection;
+  state.definitionsOpen = false;
   hover(selection);
   paintHighlights(selection);
   renderBoards();
   renderInspector();
+  if (double) showDefinitions();
 };
 stage.addEventListener("pointerup", stopDrag);
 stage.addEventListener("pointercancel", stopDrag);
@@ -605,8 +692,20 @@ window.addEventListener("keydown", (event) => {
     state.adjusted = true;
     applyTransform();
     event.preventDefault();
+  } else if (event.key === "Enter") {
+    // A focused button owns Enter: the definition row must open its own file, not reopen the menu.
+    if (event.target instanceof HTMLElement && event.target.closest("button") !== null) return;
+    if (state.selected === null) return;
+    showDefinitions();
+    event.preventDefault();
   } else if (event.key === "Escape") {
-    clearSelection();
+    if (state.definitionsOpen) {
+      state.definitionsOpen = false;
+      renderInspector();
+    } else {
+      clearSelection();
+    }
+    event.preventDefault();
   } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
     const current = board();
     if (current === undefined || current.pages.length < 2) return;

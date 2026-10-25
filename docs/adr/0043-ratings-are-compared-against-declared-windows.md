@@ -112,6 +112,10 @@ Deliberately not in this slice, each needing a stress model that names pins:
   not say which member carries it).
 - **power, saturation, temperature** — same shape, later.
 
+The terminal-pair syntax and the role-level direction that the next slice needs are decided in
+[ADR-0052](0052-a-rating-names-its-terminals.md); the checker still implements the two-terminal
+inference above until that slice lands.
+
 ### D7. A new domain: `design`
 
 Rating rules go in their own domain rather than into an existing one

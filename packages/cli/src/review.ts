@@ -123,6 +123,7 @@ function reviewPage(
 function reviewInstances(
   schematic: Schematic,
   paramTypes: (componentId: string) => ReadonlyMap<string, string>,
+  componentOf: (componentId: string) => { symbol?: string; footprint?: string } | undefined,
   file: string,
 ): ReviewInstance[] {
   return schematic.instances.map((instance) => {
@@ -132,10 +133,13 @@ function reviewInstances(
       const type = types.get(param.name);
       return type === undefined ? `${param.value}` : formatQuantity(param.value, type as QuantityKind);
     });
+    const component = componentOf(instance.component);
     const prefix = `${instance.id}.`;
     return {
       id: instance.id,
       component: instance.component,
+      ...(component?.symbol === undefined ? {} : { symbol: component.symbol }),
+      ...(component?.footprint === undefined ? {} : { footprint: component.footprint }),
       params,
       nets: schematic.nets.filter((net) => net.members.some((member) => member.startsWith(prefix))).map((net) => net.id),
       file,
@@ -163,18 +167,18 @@ export function buildReviewModel(root: string): ReviewModel {
   const { resolver, shards } = loadComponents(root);
   const modules = loadModules(root);
   const symbolLibrary = loadSymbolLibrary(root);
+  const componentOf = (componentId: string) => shards.find((shard) => shard.id === componentId)?.ir.component;
   const paramTypes = (componentId: string): ReadonlyMap<string, string> => {
-    const declared = shards.find((shard) => shard.id === componentId)?.ir.component.params ?? [];
+    const declared = componentOf(componentId)?.params ?? [];
     return new Map(declared.map((param) => [param.name, param.type]));
   };
   const pinsOf = (componentId: string) => resolver.resolve(componentId)?.pins ?? [];
   const deviceOf = (componentId: string): DeviceFacts | undefined => {
-    const component = shards.find((shard) => shard.id === componentId)?.ir.component;
+    const component = componentOf(componentId);
     if (component === undefined) return undefined;
     return { params: component.params ?? [], ...(component.mpn === undefined ? {} : { mpn: component.mpn }) };
   };
-  const symbolOf = (componentId: string) =>
-    shards.find((shard) => shard.id === componentId)?.ir.component.symbol;
+  const symbolOf = (componentId: string) => componentOf(componentId)?.symbol;
 
   const boards: ReviewBoard[] = [];
   for (const boardId of listBoards(root)) {
@@ -210,7 +214,7 @@ export function buildReviewModel(root: string): ReviewModel {
       id: boardId,
       file: loaded.file,
       pages,
-      instances: reviewInstances(schematic, paramTypes, loaded.file),
+      instances: reviewInstances(schematic, paramTypes, componentOf, loaded.file),
       nets: schematic.nets.map((net) => ({ id: net.id, members: [...net.members] })),
       ...(pages.length === 0
         ? { note: `no view file: nothing in ${dirOf(loaded.file)} draws this board (ADR-0021)` }
@@ -219,12 +223,14 @@ export function buildReviewModel(root: string): ReviewModel {
   }
 
   const diagnostics = checkProject(root).diagnostics.map(reviewDiagnostic);
-  const hash = buildIrTree(root).projectHash;
+  const tree = buildIrTree(root);
+  const hash = tree.projectHash;
   return {
     project: { name: projectName, root },
     ...(hash === undefined || hash === "" ? {} : { hash }),
     boards,
     diagnostics,
+    sources: tree.identity.identities,
   };
 }
 
@@ -369,6 +375,22 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: v
 .members li { display: flex; gap: 8px; padding: 2px 0; border-bottom: 1px solid var(--line); }
 .refdes, .net-name { font: 12px ui-monospace, monospace; color: var(--accent); }
 .pins, .component { color: var(--muted); font: 11px ui-monospace, monospace; }
+.definitions-toggle {
+  display: block; width: 100%; margin: 8px 0 0; padding: 4px 6px; text-align: left;
+  background: none; border: 1px solid var(--line); border-radius: 4px;
+  color: var(--muted); font: inherit; font-size: 11px; cursor: pointer;
+}
+.definitions-toggle:hover { color: var(--fg); background: #23262c; }
+.definitions { list-style: none; margin: 4px 0 0; padding: 0; }
+.definitions li { border-bottom: 1px solid var(--line); }
+.definition-open {
+  display: grid; grid-template-columns: 1fr auto; gap: 8px; width: 100%;
+  padding: 4px 2px; background: none; border: 0; color: var(--fg);
+  font: inherit; font-size: 11px; text-align: left; cursor: pointer;
+}
+.definition-open:hover, .definition-open:focus-visible { color: var(--accent); outline: none; }
+.definition-kind { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.definition-where { color: var(--muted); font: 10px ui-monospace, monospace; }
 `;
 
 /**

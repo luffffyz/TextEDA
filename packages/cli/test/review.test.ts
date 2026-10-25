@@ -59,6 +59,22 @@ describe("review model", () => {
     expect(instance?.params).toContain("10uF");
     expect(instance?.nets).toEqual(["GND", "SYS"]);
     expect(instance?.file).toBe("design/sch/charger-buck.teda");
+    expect(instance?.symbol).toBe("project:c");
+    expect(instance?.footprint).toBe("project:chip-1210");
+  });
+
+  test("a selection carries the source locations behind it", () => {
+    // F11 D6: the app can name the row in the board/module file, the placement on the page, and the
+    // device files without re-parsing anything in the browser.
+    const instance = model.sources["instance:charger-buck/M2.C1"] ?? [];
+    expect(instance.map((location) => location.kind)).toEqual(["instance", "pcb-place", "view-place"]);
+    expect(instance[0]).toMatchObject({ file: "design/modules/buck-5v.teda", line: 10 });
+    const net = model.sources["net:charger-buck/SYS"] ?? [];
+    expect(net.map((location) => location.kind)).toContain("net");
+    expect(net.map((location) => location.kind)).toContain("view-label");
+    expect(model.sources["component:cap-mlcc-1210"]?.[0]?.file).toBe(
+      "assets/components/passives/cap-mlcc-1210.teda",
+    );
   });
 
   test("the model carries the build it describes and the project's findings", () => {

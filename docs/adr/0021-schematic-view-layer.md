@@ -234,6 +234,10 @@ B), and the viewer merges the sidecars of the shards it shows by identity.
 Consequence: **F11 is on the critical path of the review UI**, and its deliverable must include
 the identity index the viewer consumes, not only the diagnostic positions.
 
+**Implementation note (2026-10-26).** One identity index is written for the whole project as
+`dist/ir/identity.json`, not one `.spans.json` per shard; it is advisory and not a shard. See the
+2026-10-26 appendix and [ADR-0020](0020-source-spans.md).
+
 ### 5. Three modes, one renderer
 
 | Mode | What it is |
@@ -299,9 +303,10 @@ with `--out <file>`. The decisions above are unchanged; what follows is what the
   well as off a QFP. The stand-off is 4 px **plus half the drawing's typical stroke**: the model's
   boxes are centreline boxes, and ink is painted half outside them, so a purely pixel-based gap
   looks tighter the further in the reviewer zooms.
-- **Still open.** Click-to-source needs the identity index of F11 (section 4 above), so a click
-  currently reports the facts the model already carries (instance, device, parameters, nets) and
-  nothing more; `placement` and `edit` modes are not built. F34 keeps the remaining work.
+- **Landed 2026-10-26.** Click-to-source now uses the identity index of F11 (section 4 above):
+  a click reports the facts the model carries, and `Enter`/double-click opens the definition menu
+  (2026-10-26 appendix). `placement` and `edit` modes are still not built. F34 keeps the remaining
+  work.
 
 ## Appendix (2026-10-25): the readability checks live in `core`, and they are advisory
 
@@ -424,3 +429,28 @@ page space for no gain. This appendix supersedes that sentence.
   had exactly that shape at L1 and is now routed around the foreign pin.
 - **The reference page uses the allowance.** C1.2 drops straight to the GND bus and crosses the
   VFB run; no dot, no warning, and the wire no longer needs a label-only fallback.
+
+## Appendix (2026-10-26): jump-to-source uses the advisory identity index
+
+The 2026-10-25 appendix specified the gesture; this one records the first implementation and the
+boundary that remains.
+
+- **The index is `dist/ir/identity.json`.** `texteda ir` writes it beside the shards; it is
+  advisory and never enters a hash ([ADR-0020](0020-source-spans.md), amendment 2026-10-26). The
+  review app receives it as `model.sources` and does not parse, glob or read the file system.
+- **A single click still only selects.** `Enter` or a double-click that did not pan opens the
+  inspector's definition menu. `Esc` closes the menu first, then clears the selection. This keeps
+  the selecting click usable on its own and leaves the drag/rotate gesture of the planned `layout`
+  mode free.
+- **The menu is the identity, not one record.** For an instance it lists the board/module instance
+  row, every print-page placement, the PCB placement when one exists, the component file, the
+  symbol and footprint files, and the component's pin rows for the pins the drawing shows. For a
+  net it lists the board net row and every view wire/label that names it.
+- **Opening is the editor's job.** A location becomes
+  `vscode://file/<absolute path>:<line>:<col>`. The app does not implement an editor protocol; a
+  user who wants another editor can bind that URI scheme to it. A static `--out` report embeds the
+  build machine's absolute paths, so the jump is meaningful where the project tree is present and
+  is otherwise just a display of the relative location.
+- **Still open.** `layout`, `placement` and `edit` modes, note anchors, and a stable identity for
+  nets and ports beyond their names. The jump is implemented for `instance` and `net` selections;
+  a free-text annotation has no identity key and therefore no definitions.

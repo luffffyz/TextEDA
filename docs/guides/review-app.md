@@ -31,7 +31,7 @@ server sends. That file is the static report for a pull request: no build step, 
 |---|---|
 | left | The project and its build hash, the boards and their print pages, then the findings from `texteda check` (errors, then warnings, then notes). The first five show; "show all N" opens the rest. |
 | middle | The page the renderer produced, with a status line naming the source file, the sheet size, and the symbol count. |
-| right | The facts about whatever is under the pointer or was selected: instance id, device, spec, source file, and the nets its pins land on with those pins listed. |
+| right | The facts about whatever is under the pointer or was selected: instance id, device, symbol, footprint, spec, source file, and the nets its pins land on with those pins listed. The selected identity also has a **definitions** button; `Enter` or a double-click opens it. |
 
 - **A board with no view file is listed, not drawn.** The reference project's `mcu-board` has a
   schematic and no print page; the app says so on the canvas and draws nothing (ADR-0021 decision 2).
@@ -48,8 +48,9 @@ server sends. That file is the static report for a pull request: no build step, 
 | Input | Effect |
 |---|---|
 | hover a symbol / label / port | The element is outlined in the app's layer and the facts appear at the bottom and on the right. Moving off it releases the mark and the status line goes back to describing the page. The SVG is not regenerated. Hovering one net label lights every place that net is named. |
-| click | Selects it: a slightly thicker outline and a wash, kept while the pointer moves away. |
-| click empty paper, or `Esc` | Drops the selection. |
+| click | Selects it: a slightly thicker outline and a wash, kept while the pointer moves away. It does not open a file. |
+| `Enter` or double-click the selection | Opens the definitions menu: the board/module row, print-page placement, PCB placement, component, symbol, footprint and pin rows for an instance; the board net row and every view wire/label for a net. Choosing a row opens `vscode://file/<absolute path>:<line>:<col>`. |
+| click empty paper, or `Esc` | With the definitions menu open, `Esc` closes the menu first; a second `Esc` (or a click on empty paper) drops the selection. |
 | drag | Pans. |
 | wheel | Zooms about the cursor. The sheet is re-rendered as vectors at the new size, so it never goes soft in between. |
 | `0` | Fits the page again. |
@@ -59,7 +60,13 @@ server sends. That file is the static report for a pull request: no build step, 
 These bindings are `review`'s. The planned `layout` mode reuses click to select, drag to move the
 selected symbol (not to pan), and a 90-degree rotate key; wires are not recomputed until `Apply`
 (2026-10-25 appendix). The source jump is an explicit action in both modes: double-click or press
-`Enter`; a single click only selects.
+`Enter`; a single click only selects. The definitions come from the advisory
+`dist/ir/identity.json` written by `texteda ir` ([ADR-0020](../adr/0020-source-spans.md),
+2026-10-26 amendment), so the app never re-parses a file.
+
+`vscode://file/...` is handled by whatever the user has bound to that URI scheme. A static
+`--out` report embeds the build machine's absolute paths; it is useful where that project tree
+exists and otherwise still shows the relative file and line.
 
 The mark is a screen annotation: its stand-off (4 px plus half the drawing's typical 0.25 mm stroke)
 and its stroke (1.25 px hovered, 1.75 px picked) are rewritten in sheet units on every zoom, so both
@@ -71,9 +78,6 @@ a "1.5 px" stroke then paints 1.5 mm, which reads as a slug over small parts.
 
 ## What is not built
 
-- **Source jump.** Selecting an element reports the facts the model already carries. Opening the
-  file at the line that mentions it needs the identity index of `docs/backlog.md` F11, and it is
-  an explicit action: double-click the selection or press `Enter`, not the click that selects it.
 - **`layout`, `placement` and `edit` modes** from ADR-0021 decision 5. `layout` is the S1
   placement surface: select, drag, 90-degree rotate, writes `place` only; routing is rerouted on
   `Apply`, never live (2026-10-25 appendix).

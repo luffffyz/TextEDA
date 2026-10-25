@@ -55,6 +55,7 @@ Every architecture decision record in this repository, in numeric order.
 | [ADR-0049](0049-a-file-carries-its-own-revision.md) | A File Carries Its Own Revision, and Trust Matches That Revision | Accepted | 2026-10-24 |
 | [ADR-0050](0050-renumbering-is-a-code-executed-global-rename.md) | Renumbering Is a Code-Executed Global Rename, Not an Agent Edit | Accepted | 2026-10-25 |
 | [ADR-0051](0051-instances-have-a-stable-project-local-uid.md) | Instance Identity Is a Stable Project-Local UID, Not the Refdes | Accepted | 2026-10-25 |
+| [ADR-0052](0052-a-rating-names-its-terminals.md) | A Rating Names Its Terminals, and the Role Says Which Direction Is Stress | Accepted | 2026-10-26 |
 
 ## Reserved Numbers
 

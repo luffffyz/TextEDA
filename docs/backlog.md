@@ -250,7 +250,7 @@
 
 ---
 
-## F11. 源码位置（span）机制：诊断要能指到行列（**已落地，D6 未落地**）
+## F11. 源码位置（span）机制：诊断要能指到行列（**已落地，D6 已落地**）
 
 **现状（2026-10-23）**：**第 1–5 条已落地**——`packages/parser` 的每个解析器在编译成 IR 之前保留记录来源（`SourceFile` + 逐记录的行号，`packages/parser/src/sources.ts`），编译时产出「IR 路径 → span」映射（`SourceMap`，`packages/ir/src/spans.ts`）；`DiagnosticLocation` 带 `byte` / `end`；schema 与语义诊断都通过这张表回填源位置（`packages/cli/src/locate.ts` 的 `locateWith` / `idLocator`）；稳定性与打乱行序的测试在 `packages/parser/test/spans.test.ts`。**D5 的引用点/定义点**落在：同文件重复行（`schematic` 解析器内部）、器件声明（`value.param-count-mismatch` / `value.invalid-param` 的 `related` 指向 `assets/components/**` 的 `params` 行）、板 net 行（`view.pin-net-mismatch`、`bind.net-mismatch`、`bind.unrouted` 的 `related` 指向板的 `nets` 行）；`bind.*` 的定位也修到了具体行（`/place/` · `/connect/` · `/deviation/`），聚合类发现（`bind.instance-unplaced`）仍按文件级报告，因为它没有单一行。**未落地：D6 的身份索引**（归 F34）。**同批修正了 D1 的一处违例**：IR 记录曾带 `line` 字段，打乱行序会改变分片字节；该字段已删除，契约升到 **v0.10**（见 [ADR-0020](adr/0020-source-spans.md) 2026-10-23 修正案）。
 
@@ -263,7 +263,7 @@ ADR-0020 的决策：
 | D3 | span 形状：`file`（相对工程根）+ `line`（1-based）+ `col`（1-based **Unicode 标量列**）+ `byte`（0-based 字节偏移）+ 可选 `end`（同字段，右开） |
 | D4 | 粒度是**记录级**（该记录首 token），不是 token 级 |
 | D5 | 引用类诊断带两处点：`location` = 引用点，`related[]` = 定义点 |
-| D6 | 评审 GUI 要的「身份 → 位置」索引是**另一个产物**（附注类，不进工程哈希），形状留待 F34 定；本阶段不写盘 |
+| D6 | 评审 GUI 要的「身份 → 位置」索引是**另一个产物**（附注类，不进工程哈希），现在写成 `dist/ir/identity.json`（`version: 1`），形状见 ADR-0020 的 2026-10-26 增补；它不是分片、不进 `manifest.shards`，也不进工程哈希 |
 | D7 | 位置只对**当次解析的那份文件**有效；`fmt` 之后要重新解析 |
 | D8 | schema 违规同时给源位置（`location`）与 IR 路径（`cause.instancePath`） |
 
@@ -274,6 +274,8 @@ ADR-0020 的决策：
 3. 语义检查器与 schema 校验器的诊断接上 D8：源位置 + IR 路径两条都给。
 4. 位置稳定性测试：同一份源两次解析位置一致；打乱行序后 IR 字节不变而诊断位置指向新行号。
 5. 跨文件引用的 `related` 落点（引用点 + 定义点）。
+
+**D6 已落地（2026-10-26）**：`texteda ir` 从通过契约的 `Draft` 生成 `dist/ir/identity.json`，键是 `instance:<board>/<id>`、`net:<board>/<id>`、`port:<board>/<id>`、`component:<id>`、`component-pin:<id>/<pin>`、`symbol:<lib>:<id>`、`footprint:<lib>:<id>`；值是 `{kind,label,file,line,col}`。打印页的 `place` / `wire` / `label` / `port` 与 PCB 的 `place` 追加到同一身份键下。构造在 `packages/cli/src/identity.ts`，写盘在 `packages/cli/src/ir-tree.ts`，评审模型消费在 `packages/cli/src/review.ts`；测试在 `packages/cli/test/ir-tree.test.ts` 与 `packages/cli/test/review.test.ts`。
 
 **注意**：
 
@@ -889,14 +891,14 @@ ADR-0020 的决策：
 
 ## F34. 评审 GUI（`packages/viewer`）：高亮指针、跳转源码、四种模式
 
-**现状**：**`review` 模式已落地（2026-10-24）**——`packages/viewer`（无框架的浏览器端）+ `packages/cli/src/review.ts`，`texteda review <工程目录>` 起 `node:http` 服务、`--out` 写自包含 HTML；渲染器的打印页 SVG 原样插入，hover 高亮与点击选身份都是 DOM 层（`packages/cli/test/review.test.ts`）。**没落地**：双击/`Enter` 跳源码（要 F11 的身份索引）、`layout` / `placement` / `edit` 三种模式、意见锚点。决策见 [ADR-0021](adr/0021-schematic-view-layer.md) 的 2026-10-22、2026-10-24 与 2026-10-25 附录。
+**现状**：**`review` 模式与双击/`Enter` 跳源码已落地（2026-10-24 / 2026-10-26）**——`packages/viewer`（无框架的浏览器端）+ `packages/cli/src/review.ts`，`texteda review <工程目录>` 起 `node:http` 服务、`--out` 写自包含 HTML；渲染器的打印页 SVG 原样插入，hover 高亮与点击选身份都是 DOM 层（`packages/cli/test/review.test.ts`）。`model.sources` 来自 F11 的身份索引，定义菜单按 `vscode://file/<abs>:<line>:<col>` 打开。**没落地**：`layout` / `placement` / `edit` 三种模式、意见锚点。决策见 [ADR-0021](adr/0021-schematic-view-layer.md) 的 2026-10-22、2026-10-24、2026-10-25 与 2026-10-26 附录。
 
 **要做的事**：
 
 1. **`packages/viewer`**：浏览器应用，`texteda review <工程目录>` 起本地服务（`node:http`，ADR-0021 decision 3；文件读写留在 CLI 侧，浏览器只收 JSON + SVG）。
 2. **元素 id**：渲染器给每个绘制对象发稳定 id（`instance:U1` / `net:VCC` / `label:...`），SVG 里落成 `data-ref`。这是 renderer 侧的小改动，**渲染器仍然纯**（不知道 hover 与点击）。
 3. **hover 高亮**：纯 CSS/SVG 层（描边 / 透明度 / 小浮层），**不重绘、不重排**——性能不构成压力；不做命中测试几何、不做空间索引。
-4. **双击/`Enter` 跳转**：需要**身份索引**（`identity -> [(file, line, col), ...]`），来自 **span 侧车表**（`dist/ir/<shard>.spans.json`）——**依赖 F11 / ADR-0020**。选中一个元素后，双击它或按 `Enter`，给出「这个身份定义在哪里」的短菜单（sch 的实例行 / view 的摆位 / 器件文件 / 封装文件 / net 行 / pin 行），选中即打开该文件到该行。**单次点击只选中，不跳转**；否则会与 `layout` 的拖拽/旋转抢同一个手势。`edit` 模式的 `Enter` 归文本编辑器。
+4. **双击/`Enter` 跳转**：**已落地（2026-10-26）**。身份索引是 `dist/ir/identity.json`（`identity -> [{kind,label,file,line,col}]`，附注类，F11 / ADR-0020 D6），不是 `dist/ir/<shard>.spans.json`。选中一个元素后，双击它或按 `Enter`，给出「这个身份定义在哪里」的短菜单（sch 的实例行 / view 的摆位 / PCB 摆位 / 器件文件 / 符号 / 封装 / pin 行 / net 行），选中即打开 `vscode://file/<abs>:<line>:<col>`。**单次点击只选中，不跳转**；否则会与 `layout` 的拖拽/旋转抢同一个手势。`edit` 模式的 `Enter` 归文本编辑器。
 5. **四种模式**：`review`（读图 + 高亮 + 跳转 + 写意见）、`layout`（S1 打印页摆位：选中一个符号、拖拽、90° 旋转；拖动/旋转只写 `place` 行；**不在拖动中走线**，Apply 时才写回 `place` 并重算受影响的 net，见 2026-10-25 附录）、`placement`（PCB 画布：摆位、板框、courtyard、net 高亮）、`edit`（分栏：源码文本 + 画布；点画布移动文本光标，改文本刷新画布，**编辑发生在文本里**）。切模式换 SVG 与覆盖层，不重新实现交互。
 6. **意见锚点（可选）**：note 行允许 `[instance:U3]` 这样的可选前缀，只有 viewer 解析——与 ADR-0033「工具不解析散文」的张力是 ADR-0033 的开放点。
 
@@ -914,7 +916,7 @@ ADR-0020 的决策：
 - **选中是状态，跳转是动作**：单击只选中；`layout` 的拖拽/旋转与双击/`Enter` 跳转不共享手势。
 - **GUI 不写设计**：`design/**` 一律不改；`layout` 的拖动/旋转只写 view 的 `place` 行，Apply 才写 `wire`；`edit` 改文本；没有第二个设计模型。
 - **viewer 不布线**：`layout` 只产生摆位；Apply 调用的路由在 viewer 之外（agent/CLI），不是拖动循环里的 interactive router。
-- **F11 是前置**：没有 span 侧车表就没有"跳到源码"。F11 的交付物要包含 **身份索引**（不只诊断用的 IR 路径索引）。
+- **F11 已不再是阻塞**：`dist/ir/identity.json` 已提供「身份 → 位置」索引，`review` 的跳转已用它；仍要保留的是：身份索引是**附注类**，不进工程哈希，不能变成第二个真源。
 - 别在 viewer 里做布局求解或自己的走线算法——那是渲染器与布线器的事（AGENTS §1）。
 - `placement` 模式依赖 PCB 画布（`packages/renderer` 的 PCB SVG，F21），**在那之前这个模式可以先空着**（如实报"还没有 PCB 画布"，别用 sch 画布顶替）。
 
@@ -1059,6 +1061,8 @@ ADR-0020 的决策：
 - **电压第一片已落地**：两引脚器件的 `voltage` 能力 vs 它两个 net 的声明窗口之差。`packages/core/src/design/ratings.ts`，新域 `design`（ADR-0043 D7）：`design.rating-exceeded`（error）+ `design.stress-unknown`（note，报覆盖率）。`spec/teda.md` §7.4 写清了口径；两块参考板补了 `voltage GND 0V..0V`（帧原点由设计声明，工具不假设 GND = 0V），覆盖从 0 抬到 charger-buck 11/61、mcu-board 10/21，且参考设计 0 违规。
 - **还没做**：**同一张表里的电压底线**（0402 = 50V、2010 = 200V 之类，是 F42 item 1 的封装版；它受件限制多于受封装限制，所以跟对称电压一起做）；串在窗口之间的**交流/阻尼**位置怎么声明"这个上界不适用"（现在是"没写上界"，两种状态分不开）；多引脚器件的应力模型（`Vds` / `Vgs` / `Vin` 要按构造定引脚语义——这是覆盖率的大头，也是下一个真正的一步）；`current`（网电流由谁承担语言还没说）；`power` / 磁饱和 / 温度；项目级降额政策进 `project.toml`。
 
+**2026-10-26 端子与方向已定，未实现**：`ratings` 行可以写成 `role type value from to`（pin 编号、有序对），方向由角色表决定（`symmetric` / `from` / `to` / `none`），角色表同时加 `kind`（`limit` / `characteristic` / `code`）。决策见 [ADR-0052](adr/0052-a-rating-names-its-terminals.md)。解析器、IR 契约 `rating.terminals`、`packages/core` 的端子比较仍未开始；参考工程没有可用的 datasheet 值，先用合成夹具。
+
 **2026-10-23 覆盖率审计（实测，用来定下一步做什么）**：`texteda check` 的两块参考板。
 
 | 板 | 实例 | 已比 | 跳过 | 跳过原因 |
@@ -1083,7 +1087,7 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 4. **额定值可以是区间**（IC 的工作窗口，如 MCU 的 2.7..3.6V）：**这一步要推翻 [ADR-0039](adr/0039-a-part-states-its-own-ratings.md) D4 的"额定值不是区间"**——IC 的供电窗口是件的事实，而设计声明的窗口必须**落在**它里面。要新 ADR，不能顺手改。
 5. **电流**：语言还没说"谁承担这条 net 的电流"（`current VOUT 3A` 不指成员），排最后。
 
-2 与 3 应该由**同一个 ADR** 定（都是"一条额定值说的是哪两个端子、哪个方向"），并顺带把 F43 的角色 `kind` 一起定；否则端子列会写两遍。
+2 与 3 已由**同一个 ADR** 定（[ADR-0052](adr/0052-a-rating-names-its-terminals.md)，2026-10-26）：一条 `ratings` 行说的是哪两个端子、哪个方向，角色表同时带 `kind`；实现未开始。
 
 **原记录（保留为理由）**：规范要求每个通用器件的 `instances` 行写出一份完整规格（`100nF ±10% 16V X7R`），检查器强制这些列都在（[ADR-0038](adr/0038-device-vocabulary-and-parameter-roles.md)），但没有东西拿它去比对。件级额定值的来源已由 [ADR-0039](adr/0039-a-part-states-its-own-ratings.md) 定案并落地。
 
@@ -1099,7 +1103,7 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 | **特性** | 晶体负载电容 `CL`、`Rds(on)`、`Vgs(th)`、光强 | 选料比对、生成器、BOM | 不能——它们不是"不能超过"的边界 |
 | **寿命/机械** | 连接器插拔次数 | 选料说明 | 不能 |
 
-所以词表要长的是**两类**：限值（带端子与方向）与特性（不带）。建议在词表里加一列 `kind`（`limit` / `characteristic` / `code`），只有 `limit` 才可能进应力检查——这样 `load_capacitance` 永远不会被误当成边界。**成本很低**：`rating.name` 在 IR 契约里是自由字符串（`^[a-z][a-z0-9_]*$`），加角色**不动 IR、不动 schema**，只动 `packages/core` 的角色表与 `spec/teda.md` §6.2.1 的表。
+所以词表要长的是**两类**：限值（带端子与方向）与特性（不带）。词表加一列 `kind`（`limit` / `characteristic` / `code`），只有 `limit` 才可能进应力检查——这样 `load_capacitance` 永远不会被误当成边界；这条已由 [ADR-0052](adr/0052-a-rating-names-its-terminals.md) D3 定下。**成本很低**：`rating.name` 在 IR 契约里是自由字符串（`^[a-z][a-z0-9_]*$`），加角色**不动 IR、不动 schema**，只动 `packages/core` 的角色表与 `spec/teda.md` §6.2.1 的表。
 
 **为什么重要**：角色封闭是**对的**（检查器要按角色分支判定），但封闭集必须**长得够用**，否则真实器件有一半额定值写不进去，只能落回注释——那就退回了"规格只是散文"。角色表是**版本化**的词表（加角色 = 加一个 MINOR/PATCH 的词表版本 + ADR），不是随手加字段。
 
