@@ -13,6 +13,7 @@
 import { capsule, centeredRect, circle, normalize, oval, rect, rotate, roundRect, type Point, type Polygon, type Region } from "@texteda/geom";
 import type { Footprint, Pad } from "@texteda/ir/footprint";
 import type { Pcb } from "@texteda/ir/pcb";
+import { mirrorLayer } from "../layers.ts";
 import type { FillObstacle, ObstacleFacts, PlacedFootprint, ZoneConnect } from "./types.ts";
 
 /**
@@ -40,13 +41,6 @@ export function viaLayers(pcb: Pcb, via: { from_layer?: string; to_layer?: strin
   if (from === -1 || to === -1) return [via.from_layer, via.to_layer];
   const [lo, hi] = from <= to ? [from, to] : [to, from];
   return copper.slice(lo, hi + 1);
-}
-
-/** A part on the bottom has its copper on the mirrored layer: `F.Cu` ↔ `B.Cu` (spec/footprint.md §3). */
-export function mirrorLayer(layer: string): string {
-  if (layer === "F.Cu") return "B.Cu";
-  if (layer === "B.Cu") return "F.Cu";
-  return layer;
 }
 
 function round(value: number): number {

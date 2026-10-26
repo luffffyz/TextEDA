@@ -12,11 +12,11 @@
   "exports": {
     ".": "./src/index.ts",
     "./symbol": "./src/symbol.ts",
-    "./footprint": "./src/footprint.ts",
-    "./font": "./src/font/index.ts"
+    "./footprint": "./src/footprint.ts"
   },
   "dependencies": {
-    "@texteda/ir": "workspace:*"
+    "@texteda/ir": "workspace:*",
+    "@texteda/core": "workspace:*"
   },
   "devDependencies": {
     "@texteda/parser": "workspace:*"

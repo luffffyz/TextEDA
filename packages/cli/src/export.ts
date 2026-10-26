@@ -22,6 +22,7 @@ import type { ManufacturingFile, ManufacturingStamp } from "@texteda/core/image"
 import { buildIrTree, toolVersion } from "./ir-tree.ts";
 import { loadBoard, loadComponents, loadModules, loadPcb } from "./project.ts";
 import { footprintsByInstance, loadFootprintLibrary, withPackageCodes } from "./pads.ts";
+import { instanceValueText } from "./symbols.ts";
 import { LAYOUT } from "./paths.ts";
 
 export interface ExportOptions {
@@ -123,7 +124,21 @@ export function runExport(options: ExportOptions): ExportResult {
   const tree = buildIrTree(options.root);
   const stamp: ManufacturingStamp = { tool_version: toolVersion(), source_hash: tree.projectHash };
 
-  const image = boardImage({ pcb: pcb.ir, placed: footprintsByInstance(schematic.ir, devices, library), fill: pours });
+  // Silkscreen text: a value is not a fact of the land pattern (a generic cannot hold one, a part's
+  // value is its MPN), so the schematic's instance row is the only place it can come from — the same
+  // string the print page puts on the drawing (ADR-0027).
+  const values = new Map<string, string>();
+  for (const instance of schematic.ir.instances) {
+    const text = instanceValueText(instance, devices.get(instance.component));
+    if (text !== undefined) values.set(instance.id, text);
+  }
+
+  const image = boardImage({
+    pcb: pcb.ir,
+    placed: footprintsByInstance(schematic.ir, devices, library),
+    fill: pours,
+    values,
+  });
   const files: ManufacturingFile[] = [...toGerber(image, stamp), ...toExcellon(image, stamp)];
 
   if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) return refuse(stamp);

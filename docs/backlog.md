@@ -310,7 +310,7 @@ ADR-0020 的决策：
 - 第 1 条改为**在 ADR 里写清"这个特性解决哪个具体硬件问题"**，并给一个**最小的具体片段**（不是完整用例），例如"20 路电源域里每路的 5 个器件要写 5 行 × 20 路 = 100 行"；
 - ADR 里要写"将来补语料时回到这条"。
 
-**现状**：`AGENTS.md` §10 列了十个困难用例（BGA 200 脚、双运放多单元、20 路电源域、差分对、DNP 变体、net tie、总线、层次复用、参数化分压、NC 引脚），并要求"先于实现写"；§5.2 把"至少一个用例必须用到它"作为新语法特性的准入条件。**但 `examples/` 下只有 `reference-project/`，十个用例一个都没有，期望 IR 黄金文件也没有。**
+**现状**：`AGENTS.md` §10 列了十个困难用例（BGA 200 脚、双运放多单元、20 路电源域、差分对、DNP 变体、net tie、总线、层次复用、参数化分压、NC 引脚），并要求"先于实现写"；§5.2 把"至少一个用例必须用到它"作为新语法特性的准入条件。**已落地 4 个**（见上表），另 6 个未写（障碍见上）。
 
 **为什么现在做**：这是当前**最挡路的一条**：
 
@@ -415,14 +415,14 @@ ADR-0020 的决策：
 
 ## F15. 自研 Gerber / Excellon 写出器（零依赖制造出口）
 
-**现状（2026-10-26 更新）**：**写出器的第一段已落地**——`texteda export gerbers <工程目录> <board_id> [--out <dir>] [--json]` 从 pcb IR + 封装 + 导出时重算的铜皮填充写出分层 RS-274X 与一份 Excellon（`packages/core` 的 `fill/` + `boardImage()`，`packages/exporter` 的 `gerber.ts` + `excellon.ts`；格式条款冻结在 [ADR-0054](adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md) 的 2026-10-26c 附录，入口与文件清单见 `spec/pcb.md` §8）。参考工程 `charger-buck` 出 3 个 Gerber + 1 个钻孔文件，两次导出逐字节相同（`packages/cli/test/export.test.ts`）。**仍缺**：`.kicad_pcb` 板导出器；阻焊 / 锡膏 / 丝印层；制造包（F14）。`docs/trial-run/` 里的 IR → KiCad → Gerber 是一次性历史原型，不是可调用的产品路径。**目标形态已定**（[ADR-0034](adr/0034-manufacturing-output-target-form.md)）：制造中立数据**不含铜箔图形**，所以写出器的输入只有 `pcb` IR 与层映射表，制造数据里的层叠/规则意图只是随包走的意图，不是几何来源。这要求用户安装 KiCad，与 [ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md) 的零依赖原则（不变量 20）冲突：TextEDA 的目标是"装 TextEDA 就能走完描述 → 校验 → 渲染 → 制造包"。
+**现状（2026-10-27 更新）**：**层集合已完整**——`texteda export gerbers <工程目录> <board_id> [--out <dir>] [--json]` 从 pcb IR + 封装 + 导出时重算的铜皮填充写出分层 RS-274X 与一份 Excellon（`packages/core` 的 `fill/` + `boardImage()` + `mask-paste.ts` + `silk.ts`，`packages/exporter` 的 `gerber.ts` + `excellon.ts`；格式条款冻结在 [ADR-0054](adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md) 的 2026-10-26c 与 2026-10-26d 附录，入口与文件清单见 `spec/pcb.md` §8）。参考工程 `charger-buck` 出 9 个 Gerber（2 铜层 + 两面各 Mask/Paste/SilkS + 板框）+ 1 个钻孔文件，两次导出逐字节相同（`packages/cli/test/export.test.ts`）。**仍缺**：`.kicad_pcb` 板导出器；制造包（F14）。`docs/trial-run/` 里的 IR → KiCad → Gerber 是一次性历史原型，不是可调用的产品路径。**目标形态已定**（[ADR-0034](adr/0034-manufacturing-output-target-form.md)）：制造中立数据**不含铜箔图形**，所以写出器的输入只有 `pcb` IR 与层映射表，制造数据里的层叠/规则意图只是随包走的意图，不是几何来源。这要求用户安装 KiCad，与 [ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md) 的零依赖原则（不变量 20）冲突：TextEDA 的目标是"装 TextEDA 就能走完描述 → 校验 → 渲染 → 制造包"。
 
 **为什么工作量是已知的**：RS-274X 是行式文本格式（aperture 定义 + draw / flash + 坐标），**序列化本身不需要几何内核**；本仓已有 pcb IR 的层、焊盘、走线、过孔、丝印事实，缺的是画布展开与坐标变换。**但铜皮填充需要几何内核**：`zone` 只存意图，Gerber 要实际填充区域；这个内核由 F49 提供，不是把结果放进 IR 就能消失的。对照自建符号库与封装库的实际经验（[ADR-0011](adr/0011-library-format-and-footprint-ir.md) ~ [ADR-0013](adr/0013-reference-project-self-built-libraries.md)）——"自建比想象中容易"已经被验证过一次，但填充不是那一类简单工作。
 
-**要做的事**（P3；F49 是带 `zone` 的板的前置条件，F14 只阻塞制造包、不阻塞 raw Gerber）。第 1、3、4、6 条已落地；第 2 条只做了铜层与 `Edge_Cuts`；第 5 条仍待做：
+**要做的事**（P3；F49 是带 `zone` 的板的前置条件，F14 只阻塞制造包、不阻塞 raw Gerber）。第 1–4、6 条已落地；第 5 条仍待做：
 
 1. **定写出范围**：RS-274X + Excellon 钻孔；坐标格式 4.6（与 IR 的整数纳米一致）；零填充（leading zero suppression）取哪一种要写进规范并冻结。
-2. **层映射表**：pcb IR 的层 → Gerber 文件名与层标识（`F.Cu` → `F_Cu.gbr` 等），板框、丝印、阻焊、锡膏开窗的对应关系写进 spec。
+2. ~~**层映射表**~~ **已落地**：pcb IR 的层 → Gerber 文件名与层标识（`F.Cu` → `F_Cu.gbr`），板框、丝印、阻焊、锡膏开窗的对应关系见 `spec/pcb.md` §8.2；阻焊/锡膏是开窗（不是铜），默认与逐边语义见 §4.9，丝印的职责切分见 §4.10。
 3. **铜皮展开**：Gerber 需要实际填充区域。**由导出时的受限 2D 几何内核从 `zone` 意图重算**（[ADR-0054](adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md)、F49）；填充结果**不进 IR、不进工程哈希**，缓存只能是可删除、可重算的派生物。写出器只负责序列化，不在 `packages/exporter` 里另写一套几何算法。
 4. **极性与 D-code 复用、镜像、旋转**：全部按坐标变换处理，不引入额外语义。
 5. **对照测试**（可选，不是门禁）：同一块板，自研写出器与 `kicad-cli pcb export gerbers` 的产物要比对——层集合、孔位、图形数量一致。

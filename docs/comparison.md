@@ -13,7 +13,7 @@ Comparing a language-and-validator project with a GUI editor is a category error
 | **Validation** | ERC / DRC / binding | connectivity ERC + sch↔pcb binding + device rules and ratings + procurement selection (`packages/core`), IR contract validation, frozen diagnostic codes; an agent-facing geometric DRC subset is roadmap ([ADR-0053](adr/0053-layout-and-routing-are-agent-driven.md)) | built-in ERC and DRC | DRC in both editions; netlist comparison in Pro | zod parse errors plus design-rule warnings carried inside the IR |
 | **Rendering** | the picture of the design | own reference renderer (symbol / footprint / schematic print page → SVG, each with its reverse extraction, [ADR-0021](adr/0021-schematic-view-layer.md)) plus a browser review app over the rendered pages | schematic, PCB and 3D viewer in the GUI | schematic and PCB editor in the browser and the desktop client | web viewers for PCB, schematic and 3D |
 | **Layout and routing** | placement and copper | **roadmap**: agent-driven, checker-gated; **no built-in solver** ([ADR-0053](adr/0053-layout-and-routing-are-agent-driven.md)) | built in — interactive routing, DRC | built in — routing and DRC | computed in code; `dsn-converter` bridges to freerouting |
-| **Manufacturing output** | Gerbers, drill, pick-and-place | **not implemented yet** (backlog F15); the target shape is manufacturing-neutral data ([ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md)) | built in — Gerber, Excellon, STEP, BOM, position files | built in, plus one-click JLC ordering | `circuit-json-to-gerber`, `-bom-csv`, `-pnp-csv` |
+| **Manufacturing output** | Gerbers, drill, pick-and-place | **partial**: self-built Gerber (copper / mask / paste / silk / edge) and Excellon writers, zero external tools (backlog F15); pick-and-place and the `fab` package are the target shape, manufacturing-neutral data ([ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md)) | built in — Gerber, Excellon, STEP, BOM, position files | built in, plus one-click JLC ordering | `circuit-json-to-gerber`, `-bom-csv`, `-pnp-csv` |
 | **Component library** | symbols and footprints | project-built libraries in `.teda`; a general-purpose library is deliberately out of scope | official symbol and footprint libraries | LCSC / JLCPCB parts library integrated with ordering | per-component npm packages plus `registry.tscircuit.com` |
 | **Agent interface** | how a machine drives the tool | plain text + typed IR + diagnostic codes (`domain.slug`) + a `--json` payload + structured layout tools (roadmap) | Python (`pcbnew`) and `kicad-cli`; no official agent-facing API | published extension and API SDK, an AI skill with a WebSocket bridge, a CLI client | the code is the interface — the agent writes TSX |
 | **License** | | Apache-2.0; the contract layer stays open forever ([ADR-0015](adr/0015-licensing-and-open-standard.md)) | program GPL-3.0+, libraries CC-BY-SA 4.0 | editor proprietary; SDK and extensions Apache-2.0 | MIT |
@@ -179,14 +179,15 @@ is that "open source" does not imply "text-first" or "agent-first".
   renderer with a built-in stroke font, each closed by `extract(render(ir)) == ir`; a browser review
   app with hover, selection, source jump, and a frozen diagnostic-code registry.
 - **What it is not, yet**: no implemented layout or routing (agent-driven loop is roadmap,
-  [ADR-0053](adr/0053-layout-and-routing-are-agent-driven.md)), no manufacturing output (Gerber /
-  Excellon writers and the `fab` description), no KiCad schematic export, no importer for
+  [ADR-0053](adr/0053-layout-and-routing-are-agent-driven.md)); the Gerber layer set and the drill
+  file are landed, but no pick-and-place, no `fab` description and no `.kicad_pcb` writer, no KiCad
+  schematic export, no importer for
   reverse-engineered or external netlists, no module parameters or nesting, and no rekeying of
   references to the instance UID (instances have a stable `uid`, but a refdes rename still changes
   source and hash — [ADR-0051](adr/0051-instances-have-a-stable-project-local-uid.md)). The review
   app has one mode (`review`); `layout` and `placement` are pending (backlog F34). The honest
-  summary: the description layer and the checks are landed, the rendering path is real, and the
-  physical half is designed.
+  summary: the description layer, the checks, the rendering path and the raw fabrication files are
+  landed; the physical loop and the package around the files are designed.
 - **Its bet**: the *contract* is the product. A third party can implement the language without
   using this implementation, and the corpus — not the code — is the thing that spreads.
 

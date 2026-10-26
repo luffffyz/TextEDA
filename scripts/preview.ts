@@ -21,7 +21,7 @@ import {
   validateDoc,
   type SchematicInstance,
 } from "@texteda/renderer";
-import { unsupportedChars } from "@texteda/renderer/font";
+import { unsupportedChars } from "@texteda/core/font";
 import {
   componentUsingSymbol,
   deviceFiles,

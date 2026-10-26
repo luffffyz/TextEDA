@@ -38,17 +38,100 @@ function regions(text: string): Point[][] {
 }
 
 describe("export gerbers on the reference board", () => {
-  test("writes one file per copper layer, the edge layer, and one drill file", () => {
+  test("writes the copper, mask, paste and silk layers, the edge layer, and one drill file", () => {
     const { dir, result } = exportTo();
     try {
       expect(result.exitCode).toBe(0);
+      // Copper from the stackup, then each side's mask/paste/silk (top first), then the edge; the
+      // drill file last (spec/pcb.md §8.2).
       expect(result.files.map((file) => file.name)).toEqual([
         "charger-buck-F_Cu.gbr",
         "charger-buck-B_Cu.gbr",
+        "charger-buck-F_Mask.gbr",
+        "charger-buck-F_Paste.gbr",
+        "charger-buck-F_SilkS.gbr",
+        "charger-buck-B_Mask.gbr",
+        "charger-buck-B_Paste.gbr",
+        "charger-buck-B_SilkS.gbr",
         "charger-buck-Edge_Cuts.gbr",
         "charger-buck.drl",
       ]);
       for (const file of result.files) expect(existsSync(join(dir, file.name))).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("the mask openings are the pads grown by the board's 0.05 mm expansion", () => {
+    const { dir } = exportTo();
+    try {
+      const text = readFileSync(join(dir, "charger-buck-F_Mask.gbr"), "utf8");
+      // Every pad on this board is a rectangle or a rounded rectangle, so an opening is a region and
+      // not a flash: a flash would bury the expansion inside a diameter the reader has to derive.
+      expect(text).toContain("G36*");
+      const maskRings = regions(text);
+      // The copper image holds the same pads (the pour is on B.Cu, traces are strokes), so the two
+      // counts match one for one and the areas differ by the expansion.
+      const padRings = regions(readFileSync(join(dir, "charger-buck-F_Cu.gbr"), "utf8"));
+      expect(maskRings.length).toBe(padRings.length);
+      const mm2 = (rings: Point[][]) => rings.reduce((sum, ring) => sum + area(normalize(ring)), 0) / 1_000_000_000_000;
+      // 0.05 mm on every edge of 25 small pads: tens of square millimetres more than the pads alone.
+      expect(mm2(maskRings)).toBeGreaterThan(mm2(padRings));
+      expect(mm2(maskRings) - mm2(padRings)).toBeGreaterThan(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("the stencil file carries an aperture for every SMD pad, scaled to the 0.9 area ratio", () => {
+    const { dir } = exportTo();
+    try {
+      const text = readFileSync(join(dir, "charger-buck-F_Paste.gbr"), "utf8");
+      expect(text).toContain("%LPD*%");
+      const apertures = regions(text).map((ring) => normalize(ring));
+      expect(apertures.length).toBeGreaterThan(0);
+      // 0.9 of the pad's area, less the 0.02 mm per-edge offset: strictly smaller than the pad.
+      const padArea = apertures.reduce((sum, ring) => sum + area(ring), 0);
+      const maskArea = regions(readFileSync(join(dir, "charger-buck-F_Mask.gbr"), "utf8"))
+        .map((ring) => normalize(ring))
+        .reduce((sum, ring) => sum + area(ring), 0);
+      expect(padArea).toBeLessThan(maskArea);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("the silk layer prints the reference of every placed part and hides the value", () => {
+    const { dir } = exportTo();
+    try {
+      const text = readFileSync(join(dir, "charger-buck-F_SilkS.gbr"), "utf8");
+      // Reference text at 1 mm draws wider than the 0.12–0.15 mm footprint outlines: two apertures.
+      expect(text).toContain("%ADD10C,0.100000*%");
+      expect(text).toContain("%ADD11C,0.150000*%");
+      const statements = text.split("\n").filter((line) => /^X-?\d+Y-?\d+D0[123]\*$/.test(line));
+      expect(statements.length).toBeGreaterThan(100);
+      // Nine placements, nine references, each several strokes: far more than the outlines alone.
+      expect(text).not.toContain("G36*");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("the back side of this board is bare: empty files, not missing ones", () => {
+    const { dir, result } = exportTo();
+    try {
+      for (const name of ["charger-buck-B_Mask.gbr", "charger-buck-B_Paste.gbr", "charger-buck-B_SilkS.gbr"]) {
+        const text = readFileSync(join(dir, name), "utf8");
+        // A complete file with a complete header and no statement between `%LPD*%` and `M02*`: the
+        // board house reads "nothing on this layer", where a missing file reads "not defined"
+        // (spec/pcb.md §8.2).
+        expect(text.startsWith("G04 TextEDA ")).toBe(true);
+        expect(text).toContain(`G04 source ${result.stamp.source_hash}*`);
+        expect(text).toContain("%LPD*%");
+        expect(text.endsWith("M02*\n")).toBe(true);
+        expect(text.match(/D0[123]\*/g)).toBeNull();
+        expect(text).not.toContain("%ADD");
+      }
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

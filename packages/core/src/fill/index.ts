@@ -9,7 +9,6 @@ export {
   buildObstacles,
   copperLayers,
   cutoutRings,
-  mirrorLayer,
   outlineRing,
   padLayers,
   padOutline,

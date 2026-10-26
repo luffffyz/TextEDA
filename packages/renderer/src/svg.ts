@@ -10,7 +10,7 @@
 // It also does not depend on system fonts: text is drawn as paths (Hershey single-stroke font, see `font/`) --
 // machines without fonts installed (containers, CI) still show text when opening the SVG.
 
-import { strokeWidthFor, textStrokes } from "./font/index.ts";
+import { strokeWidthFor, textStrokes } from "@texteda/core/font";
 
 export type SvgOrientation = "y-up" | "y-down";
 

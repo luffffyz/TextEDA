@@ -90,4 +90,42 @@ export {
 } from "./fill/index.ts";
 
 export { boardImage, EDGE_WIDTH_NM, type BoardImageFacts } from "./board-image.ts";
+
+export {
+  boardSides,
+  isSilkLayer,
+  mirrorLayer,
+  padMaskLayers,
+  padPasteLayers,
+  padSideLayers,
+  type BoardSide,
+  type BoardSideLayers,
+  type SideLayerFamily,
+} from "./layers.ts";
+
+export {
+  maskExpansionOf,
+  maskOpeningDiameter,
+  maskRule,
+  openingOf,
+  pasteApertureOf,
+  pasteGeometryOf,
+  pasteOpeningDiameter,
+  pasteRule,
+  MASK_RULE_DEFAULTS,
+  PASTE_RULE_DEFAULTS,
+  type MaskRule,
+  type PasteRule,
+} from "./mask-paste.ts";
+
+export {
+  silkItemsOf,
+  silkRules,
+  silkTexts,
+  SILK_RULE_DEFAULTS,
+  SILK_WIDTH_NM,
+  type SilkItemRule,
+  type SilkRules,
+  type SilkText,
+} from "./silk.ts";
 export type { BoardImage, DrawItem, DrillHit, FlashItem, ImageItem, ImageLayer, ManufacturingFile, ManufacturingStamp, RegionItem } from "./image.ts";

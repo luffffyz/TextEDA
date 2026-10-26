@@ -7,7 +7,7 @@
 // no view, no drawing.
 import type { SchematicView } from "@texteda/ir/schematic-view";
 import { pinDirection, type SvgDoc, type SvgPrimitive } from "./svg.ts";
-import { textAdvance } from "./font/index.ts";
+import { textAdvance } from "@texteda/core/font";
 import { renderSymbol, type SymbolBody, type SymbolPart } from "./symbol.ts";
 
 /** What the renderer needs to draw one placed instance: the symbol's geometry and the pin facts from `component`. */

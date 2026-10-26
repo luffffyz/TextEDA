@@ -172,6 +172,14 @@ needs the kernels and the nets sits one layer above, so "the writer does geometr
 as the amount of geometry grew. The wire contract is frozen in
 [ADR-0054](0054-copper-fill-uses-a-constrained-geometry-kernel.md)'s 2026-10-26c appendix.
 
+*Amendment (2026-10-27).* The layer set is complete: mask, paste and silkscreen joined the copper and
+the drills, so `texteda export gerbers` now emits the files a board house reads (see
+[ADR-0054](0054-copper-fill-uses-a-constrained-geometry-kernel.md)'s 2026-10-26d appendix and
+`spec/pcb.md` §8.2). D9's boundary is what made it cheap: mask and paste are openings derived from a
+pad's outline through the same kernel, silk is a library drawing plus the board's `silk` rows, and
+none of it is judged. What remains from this decision is the package (`fab`) and the `.kicad_pcb`
+board writer — the layers exist, the envelope around them does not.
+
 CAM-grade DFM judgement is not ours to build ([ADR-0018](0018-zero-dependency-and-manufacturing-target.md)
 decision 2): solder-mask openings, paste expansion, silkscreen clearance and impedance rules
 are rule engineering. The formats are ours; the judgement belongs to a professional CAM tool.

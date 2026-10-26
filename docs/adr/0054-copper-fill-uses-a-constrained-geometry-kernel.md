@@ -225,9 +225,68 @@ kernel call, no clock, no randomness (`packages/exporter/src/gerber.ts`, `excell
   tool cancels its direction.
 - A hole is a ring of pieces, so a Gerber file carries many regions where another writer would
   emit one holed contour.
-- Copper-to-edge clearance and the mask/paste/silkscreen layers are not exported yet: the current
-  output is the copper and the drill file. `fab` (ADR-0034) is the layer that adds the rest.
+- Copper-to-edge clearance is not checked: the pour meets the board outline exactly, and a
+  copper-to-edge rule has no field in `rules` (`spec/pcb.md` §7).
+- The manufacturing package (`fab`, ADR-0034) and the `.kicad_pcb` board file are still missing;
+  the six side-surface files below complete the layer set a board house reads.
 
+## Appendix (2026-10-26d): mask, paste and silkscreen
+
+The remaining manufacturing layers landed the same day, so a board's file set is now copper, mask,
+paste, silk, drills and the edge. The layer set a board house forwards a job with is complete; what
+is still missing is the package around it (`fab`) and the KiCad-side board file.
+
+**Mask and paste are openings, not copper.** A mask image states where the covering layer is
+*absent*, and a stencil states where paste is deposited. Both therefore start from the pad's own
+outline — never from its bounding box, so a `roundrect` keeps its corners:
+
+- **Mask**: the pad's outline grown (or shrunk) by the expansion. `*.Mask` opens on **both** sides,
+  because a through-hole barrel is open at both ends; an explicit `F.Mask` on a bottom-side part
+  mirrors like its copper.
+- **Paste**: the pad's outline scaled about its centre by `sqrt(area ratio)`, then offset per edge.
+  Scaling rather than resizing keeps a rotated or rounded pad's shape; the square root is what makes
+  `ratio` an area ratio, which is what a stencil specification means. Paste exists only where the
+  pad's layers name a paste family, so a through-hole pad gets none.
+- **Defaults are the identity and are documented**: absent `mask` is expansion 0 (the opening *is*
+  the pad), absent `paste` is ratio 1 offset 0 (the aperture *is* the pad). Written down in
+  `spec/pcb.md` §4.9 because these numbers decide a delivered file.
+- Openings go through the same kernel: a grown outline comes back as a cover of convex pieces, and
+  the tool disc is circumscribed, so a grown opening is never smaller than asked — the safe direction,
+  since an opening that is too small leaves covered copper. A shrunk one errs the same way by
+  construction: erosion removes a disc of at least the radius, so the remaining area is never larger
+  than asked. Collapsing to zero area emits no item rather than a degenerate polygon.
+- **Rule ownership**: these two read `pcb.rules` themselves (`mask-paste.ts`) and stay out of
+  `FillRules`, which the pour reads. A pad's own `mask=` / `paste=` override the board's rule.
+
+**Silkscreen is a library fact plus a board decision.** The footprint draws (graphics on a silk
+layer, plus where its reference and value text sit); the board says which items print, on which
+layer, at what height (`pcb.silk`, `spec/pcb.md` §4.10). Consequences frozen here:
+
+- The field's own `layer` does **not** choose the output layer — the board's row does. The field's
+  `hide` does gate: the library's assertion is not overridable by layout.
+- Text never prints upside down: the baseline direction is placement rotation plus the field's own
+  rotation, and half a turn about the centred anchor fixes the cases where it points leftwards. The
+  same rule applies on both sides, because a bottom-side string is *mirrored* (which is what makes it
+  read correctly from the bottom) and must not then also be turned.
+- Width is 10 % of the height (the single-stroke font's own weight, `packages/core/src/font/`); a
+  graphic with no `width` uses the 0.12 mm layer default (`spec/footprint.md` §5). The font covers
+  printable ASCII, so a character it cannot draw is dropped before it reaches the layer.
+- An arc has no kernel representation, so it is tessellated at the drawing (32 segments per turn);
+  both endpoints stay exact.
+- **No avoidance.** Silk is emitted as declared, including over pads. Silk clipping and mask-sliver
+  judgement are CAM rules, and ADR-0018 keeps those out of the writer.
+
+**Layer order and empty files.** Copper from the stackup, then each side's `Mask` / `Paste` / `SilkS`
+(top side first), then `Edge.Cuts`, then the drill file. An empty non-copper layer still gets a
+complete file (header + `M02*`): a missing file means "layer not defined", an empty one means
+"nothing on this layer". A single-sided board emits the top side only, decided by the stackup, not by
+a flag.
+
+**The font moved to `packages/core/src/font/`.** Assembly needs it (silk text) and the renderer needs
+it (drawing), and `core` is the lower layer: `renderer → core` is acyclic, `core → renderer` would
+invert the dependency. D4 said the *renderer* owns text layout; that was true while the only consumer
+was the drawing, and it is not true now. Layout code is unchanged; only its home and its import path
+moved.
 
 ## Hard parts recorded now
 

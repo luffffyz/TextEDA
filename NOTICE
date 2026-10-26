@@ -28,7 +28,7 @@ Third-party components included in this repository:
   reproduced below. The font binaries themselves are not vendored: build_logo.py
   fetches and pins them.
 
-- Hershey stroke font data (packages/renderer/src/font/): the Hershey fonts
+- Hershey stroke font data (packages/core/src/font/): the Hershey fonts
   themselves are in the public domain; the glyph data was obtained from the
   npm package `hersheytext` (MIT, (c) 2014 James T). See ADR-0014 decision 4.
   The upstream MIT license text is reproduced below, as that license requires.

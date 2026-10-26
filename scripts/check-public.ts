@@ -123,9 +123,9 @@ if (!existsSync(noticePath)) {
   fail("NOTICE is missing");
 } else {
   const notice = readFileSync(noticePath, "utf-8");
-  // The Hershey glyph data is vendored into packages/renderer/src/font/. MIT requires the license
+  // The Hershey glyph data is vendored into packages/core/src/font/. MIT requires the license
   // text to travel with the data.
-  if (existsSync(join(repoRoot, "packages/renderer/src/font/hershey-sans.ts"))) {
+  if (existsSync(join(repoRoot, "packages/core/src/font/hershey-sans.ts"))) {
     if (!notice.includes("Permission is hereby granted")) {
       fail("NOTICE does not reproduce the MIT license text of the vendored Hershey glyph data (MIT requires it)");
     }

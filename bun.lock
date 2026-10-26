@@ -6,6 +6,7 @@
       "name": "texteda",
       "devDependencies": {
         "@resvg/resvg-js": "^2.6.2",
+        "@texteda/core": "workspace:*",
         "@texteda/exporter": "workspace:*",
         "@texteda/ir": "workspace:*",
         "@texteda/parser": "workspace:*",
@@ -75,6 +76,7 @@
       "name": "@texteda/renderer",
       "version": "0.0.0",
       "dependencies": {
+        "@texteda/core": "workspace:*",
         "@texteda/ir": "workspace:*",
       },
       "devDependencies": {

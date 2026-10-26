@@ -86,13 +86,15 @@ pads
 | `rot` | 焊盘自身旋转（角度） |
 | `drill` | 通孔钻孔尺寸（长度）；`type=th` **必填**，缺失报错 |
 | `rratio` | `roundrect` 圆角比例，`0`…`0.5` |
-| `mask` | 阻焊开窗扩张（长度，可负） |
-| `paste` | 锡膏扩张（长度，可负） |
+| `mask` | 这颗焊盘的阻焊开窗扩张（长度，可负）；覆盖板级 `rules` 的 `mask` |
+| `paste` | 这颗焊盘的锡膏开口逐边偏移（长度，可负）；覆盖板级 `rules` 的 `paste` 偏移，**比例仍归板级** |
 | `zone` | `solid` / `thermal` / `none` |
 | `thermal_w` / `thermal_g` | 热焊盘宽度 / 缝隙（长度） |
 | `layers` | 覆盖默认层集合（逗号分隔，如 `F.Cu,F.Mask,F.Paste`） |
 
 **默认层集合**：`smd` → `F.Cu,F.Mask,F.Paste`；`th` → `*.Cu,*.Mask`。板底封装由 `packages/exporter` 决定镜像，不在源里写。
+
+**镜像规则**（底板件）：每个 `F.*` 层换成 `B.*`，反之亦然——`Cu` / `Mask` / `Paste` / `SilkS` 一体适用，封装坐标与图形一起镜像，`*.Cu` / `*.Mask` 这类通配层名不换（它们本来就覆盖两面）。内层（`In1.Cu`）不参与：它不是封装能达到的一面。
 
 **`*` 是层名的一部分**：`*.Cu` / `*.Mask` 是 KiCad 的通配层名（“每一层铜”），不是缩写——层名的字符集包含 `*`，契约的 `layer_name` 也是一样。通配层名只出现在通孔焊盘上；显式写 `layers=*.Cu,*.Mask` 与 `th` 的默认值等价。
 
@@ -117,7 +119,9 @@ graphics
 | `arc` | `x1,y1,xm,ym,x2,y2` | 圆弧（起点、中点、终点） |
 | `poly` | `x1,y1,x2,y2,…` | 闭合多边形，点数 ≥ 3 |
 
-可选尾列：`width`（线宽；缺省用层默认）、`fill`（`solid` / `none`，仅 `rect`/`circle`/`poly`）。
+可选尾列：`width`（线宽；缺省或 `0` 用层默认）、`fill`（`solid` / `none`，仅 `rect`/`circle`/`poly`）。
+
+**层默认线宽**：丝印（`F.SilkS` / `B.SilkS`）是 **0.12mm**——板厂普遍能印、封装库也普遍这么用，是绘图约定而不是设计规则，所以不进 `pcb.rules`。`fill=solid` 的图形没有线宽（它是区域）；`arc` 出图时按折线展开（一圈 32 段，`packages/core/src/silk.ts`）。
 
 单元格内不得有空格；列表用 `,` 分隔（点的列表按 x,y 交替）。
 

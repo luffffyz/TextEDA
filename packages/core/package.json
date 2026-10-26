@@ -12,7 +12,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./fill": "./src/fill/index.ts",
-    "./image": "./src/image.ts"
+    "./image": "./src/image.ts",
+    "./font": "./src/font/index.ts"
   },
   "dependencies": {
     "@texteda/geom": "workspace:*",
