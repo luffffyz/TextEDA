@@ -224,6 +224,7 @@ rules
 | `min_width` | `<value>` | 铜皮填充与走线的最小线宽 |
 
 - 规则**必须进 IR**：KiCad 把 netclass 与自定义 DRC 规则放在工程文件里，只拿 `.kicad_pcb` 的 agent 无法自查（`docs/adr/0003-agent-first-pcb-ir.md` decision 4）。
+- 规则可以由 agent 提议，但必须经 **interactive mode 由用户拍板**后写入 `rules`；只存在于 prompt / skill 里的数值不是规则，检查器不读它（[ADR-0053](../docs/adr/0053-layout-and-routing-are-agent-driven.md) D6）。
 - 导出到 KiCad 时映射为 netclass 与自定义规则（细则待定，见该 ADR 的"后续"）。
 
 ### 4.10 `silk`
@@ -322,7 +323,7 @@ pcb 里写的 net 名就是**板级** net 名，与 sch 同一命名空间（模
 13. 每个 `connect` 对必须被**铜箔兑现**：该 net 的 `trace` 线段、`via` 桶、`zone` 多边形要能连成一条同时触及两端 pad 的链（链只在 via 处换层）。不成立报 `bind.connect-unbacked`（warning）——布局是渐进过程，检查器要在中途可用（[ADR-0041](../docs/adr/0041-connect-pairs-must-be-implemented-by-copper.md) D1/D5）。几何口径：pad 取**外接圆**、走线按线宽半宽加粗、容差 1 nm（D3），所以"查不出"只会漏报、不会误报；相邻两 pad 之间的短路（跨 net）不在本条内，属 DRC（D7）。
 12. `sch` 展平后每个**实体**实例（没有 `logical_only`）都必须在 `place` 里出现。缺失时给出一条 `bind.instance-unplaced`（warning），报"已放 / 共几个"并点名缺的实例——一块板只报一条，不是每个实例一条。`dnp` 件**不豁免**：封装仍在 `place` 里占位，只是不装件（[ADR-0040](../docs/adr/0040-partial-layout-is-legal-and-reported.md) D6）。
 
-几何层面的检查（"这两个 pad 之间确实有铜箔"、"实际间距不小于 `rules`"）属**校验**而非连通性真源（`AGENTS.md` §2 第 2 条）：**兑现检查**（规则 13）是我们自己的，**间距、环宽等 DRC** 借专业工具（[ADR-0041](../docs/adr/0041-connect-pairs-must-be-implemented-by-copper.md) D7）。
+几何层面的检查（"这两个 pad 之间确实有铜箔"、"实际间距不小于 `rules`"）属**校验**而非连通性真源（`AGENTS.md` §2 第 2 条）：**兑现检查**（规则 13）是我们自己的；**agent 反馈用的几何 DRC 子集**（间距、线宽、过孔、keepout、板边、未布线）也由 `packages/core` 自己实现，零外部依赖（[ADR-0053](../docs/adr/0053-layout-and-routing-are-agent-driven.md)）；KiCad DRC 是**可选对照**，不是门禁。CAM 级 DFM 判定仍借专业工具（[ADR-0018](../docs/adr/0018-zero-dependency-and-manufacturing-target.md)）。
 
 两份描述只存在一份时，绑定校验**跳过，并在报告里给出 `bind.not-checked`（note）**——跳过不等于通过：只有 `sch` 的板在放置与连通性上未校验，只有 `pcb` 的板在逻辑归属上未校验，`pcb` 文件也不会因为对应的 `sch` 不存在而消失（`AGENTS.md` §4.4 规则 6）。
 

@@ -4,6 +4,12 @@ Status: Accepted
 Date: 2026-10-21
 Impact: `AGENTS.md` §1 / §2 (new invariant 20) / §8 / §10 / §11, `scripts/verify-libs.ts` (split into a mandatory tier and an optional tier), `package.json` (new `lib:verify:kicad`), the positioning of `docs/adr/0005-manufacturing-output.md`, `docs/backlog.md` F14 / F15
 
+**Amendment (2026-10-26, [ADR-0053](0053-layout-and-routing-are-agent-driven.md))**: the
+agent-facing layout/routing loop needs its own geometric DRC subset (clearance, width, via,
+keepout, edge, unrouted). That subset is our code and remains on the zero-dependency path.
+KiCad DRC stays an **optional cross-check/oracle**, never the gate. CAM-level DFM judgement is
+still borrowed; this amendment does not change that boundary.
+
 ## Background
 
 Three facts stack up before this ADR can exist.
@@ -62,7 +68,7 @@ The layering does not change: **Gerber is a physical image and belongs to the de
 **Costs**
 
 - The Gerber writer has to be written by us (P3, on the order of several hundred lines); until it lands, the "zero-dependency manufacturing package" is not complete — **be prepared for this, and do not claim a zero-dependency manufacturing output on the day ADR-0018 lands**.
-- On the PCB side, DRC can only borrow KiCad or be skipped for the foreseeable future. **Our own checker** (ERC, binding validation) never needed KiCad in the first place; PCB DRC is a scope question in P2 and is out of scope for this ADR.
+- On the PCB side, the **agent-facing geometric DRC subset** is now in scope as our own code (clearance, width, via, keepout, edge, unrouted; [ADR-0053](0053-layout-and-routing-are-agent-driven.md)). KiCad DRC remains an optional cross-check, not a gate. CAM-level DFM judgement is still borrowed; this ADR's boundary (formats and descriptions ours, judgement and process rules borrowed) is unchanged.
 
 **Risks**
 

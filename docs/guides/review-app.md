@@ -80,7 +80,9 @@ a "1.5 px" stroke then paints 1.5 mm, which reads as a slug over small parts.
 
 - **`layout`, `placement` and `edit` modes** from ADR-0021 decision 5. `layout` is the S1
   placement surface: select, drag, 90-degree rotate, writes `place` only; routing is rerouted on
-  `Apply`, never live (2026-10-25 appendix).
+  `Apply`, never live (2026-10-25 appendix). This is S1 drawing work, not B0 copper routing: the
+  agent-driven PCB layout/routing loop lives outside the review app
+  ([ADR-0053](../adr/0053-layout-and-routing-are-agent-driven.md)).
 - **Note anchors** (`[instance:U3]` prefixes), which are an open point of
   [ADR-0033](../adr/0033-review-records-and-attribution.md).
 

@@ -73,7 +73,7 @@
 - **S1 视图层已闭环到渲染**：`spec/schematic-view.md`、`schemas/ir/v0.3/schematic-view.schema.json`、`packages/parser` 的 `view` 解析与 canonical `fmt`（语言版本 0.7）、`packages/renderer` 的 `renderSchematic`、`preview view`、参考工程两份打印页。**下一步**：`packages/core` 的板 ↔ 打印页交叉校验（视图引用的实例 / net / port 是否存在、端点引脚是否属于该 net），再把可读性检查与 round-trip 反解补上。
 - **已知口径冲突（`view.label-not-on-net` 落地前必须定）**：`view` 坐标限制在 0.1mm 栅格（`VIEW_GRID_NM`），而符号引脚偏移是 2.54 / 3.81mm 的倍数，**不在 0.1mm 栅格上**。所以"标签必须精确落在引脚连接点上"对标准符号不可满足。参考工程的标签全部落在走线的网格折点 / 直段上（buck-5v 的 GND 走一条位总线，引脚到总线用带折点的 wire 连），没有标签落在引脚端点上。
 - 布局不自动排版：sch 的坐标来自 IR，渲染器只画。多单元器件（双运放）要按 `unit` 选对符号视图。
-- 不要顺手做自动布线或自动排版——那是 `AGENTS.md` §1「不是」里明确不做的东西。**自动排版尤其不可取**：如果渲染器自己排版，人就无法把重叠的标签挪开，"可读性检查"（文字重叠、线压引脚）也失去意义——每次渲染的图都不一样，评审无从进行。
+- 不要顺手做自动排版——S1 打印页的自动排版仍明确不做（每次渲染都变，可读性检查就失去意义）。B0 的 agent 驱动布局布线是另一条线，见 [ADR-0053](adr/0053-layout-and-routing-are-agent-driven.md) 与 F48。
 
 ---
 
@@ -915,9 +915,9 @@ ADR-0020 的决策：
 
 - **选中是状态，跳转是动作**：单击只选中；`layout` 的拖拽/旋转与双击/`Enter` 跳转不共享手势。
 - **GUI 不写设计**：`design/**` 一律不改；`layout` 的拖动/旋转只写 view 的 `place` 行，Apply 才写 `wire`；`edit` 改文本；没有第二个设计模型。
-- **viewer 不布线**：`layout` 只产生摆位；Apply 调用的路由在 viewer 之外（agent/CLI），不是拖动循环里的 interactive router。
+- **viewer 不布线**：`layout` 只产生 S1 打印页摆位；B0 布线的搜索在 sandbox 里由 agent/CLI 完成，不是拖动循环里的 interactive router（[ADR-0053](adr/0053-layout-and-routing-are-agent-driven.md)）。
 - **F11 已不再是阻塞**：`dist/ir/identity.json` 已提供「身份 → 位置」索引，`review` 的跳转已用它；仍要保留的是：身份索引是**附注类**，不进工程哈希，不能变成第二个真源。
-- 别在 viewer 里做布局求解或自己的走线算法——那是渲染器与布线器的事（AGENTS §1）。
+- 别在 viewer 里做布局求解或自己的走线算法——viewer 只显示与选中；布局布线的工具、检查与冻结在 CLI/agent 侧（[ADR-0053](adr/0053-layout-and-routing-are-agent-driven.md)）。
 - `placement` 模式依赖 PCB 画布（`packages/renderer` 的 PCB SVG，F21），**在那之前这个模式可以先空着**（如实报"还没有 PCB 画布"，别用 sch 画布顶替）。
 
 ---
@@ -1226,3 +1226,39 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 - **`uid` 保留，引用仍是名字**：重编号会改 `source_hash`；把 net 成员、view/pcb 摆位整体重键到 UID 并做身份哈希，是另一条决策，不在本条里偷做。
 - **模块的全局连续号不是机械映射**：模块内 refdes 是本地的，所有实例共享；要跨实例全局连续，先改模块模型，不要伪造。
 - **不自动跑**：加元件不会触发重编号；用户显式调用。agent 只能给 `--mapping` 或选策略，写盘由代码做。
+
+## F48. Agent 驱动的布局与布线：sandbox、结构化工具、DRC 反馈与交互式规则拍板（ADR-0053 的落地）
+
+**现状**：**只有设计，没有实现**（2026-10-26，[ADR-0053](adr/0053-layout-and-routing-are-agent-driven.md)）。`pcb` IR 已有 `place` / `trace` / `via` / `zone` / `keepout` / `rules` / `connect`，`packages/core` 已有连通性、绑定、部分布局与铜箔兑现检查；没有 sandbox、没有结构化布局工具、没有 agent 反馈用的几何 DRC、没有 `docs/skills/route-pcb.md`，也没有交互式规则拍板。
+
+**为什么现在做**：布局布线的搜索策略交给 agent，项目提供状态、动作与判定。这样既不自研 placer/router，也不把决策交给黑盒求解器；DRC 是硬约束，指标与人审补上“DRC 全绿但板很差”的缺口。
+
+**要做的事**：
+
+1. **Sandbox**：`dist/` 下的派生工作区（具体路径由实现定），gitignore、可丢弃、不是第二真源；agent 只改 sandbox，`apply` 才写 `design/pcb/<board>.teda`。
+2. **结构化工具**：`query` / `place` / `route_segment` / `add_via` / `ripup` / `check` / `render` / `diff` / `apply`。工具接受身份与几何，不接受整块板的自由文本；工具层先拒绝非法动作（低于 net 最小线宽、越界层、非法过孔、keepout）。
+3. **DRC 子集**：间距、线宽、过孔、keepout、板边、未布线；由 `packages/core` 自己实现，零外部依赖；KiCad DRC 只做可选对照。诊断带 `code + location + expected + actual + rule id`。
+4. **指标**：未布线数、总线长、过孔数、层切换、交叉数、面积、电流密度、差分 skew；预算由人审，不静默优化。
+5. **规则拍板**：agent 只能提议 `rules`；interactive mode 展示默认值、按 net 覆盖与后果，用户接受/修改后才写入 `rules`。只存在于 prompt / skill 的数值不是规则。
+6. **Skill**：`docs/skills/route-pcb.md`（英文）。只写策略：路由顺序、escape、rip-up、失败升级、停止条件；数值引用 `rules` 与诊断码，不复制。每个诊断码一条修复入口，配小夹具与陷阱板。
+7. **冻结**：接受的布局记录 `source_hash`、provider/model/version、prompt 标识、seed、工具轨迹摘要、检查报告与评审记录；重跑 agent 不得覆盖已接受布局。
+8. **文档**：`AGENTS.md` §1/§8、`spec/pcb.md` §4.9/§5.2、`docs/comparison.md` 已同步；CLI 帮助与 skill 在实现时补。
+
+**验收**：
+
+- agent 在 sandbox 里摆一个器件、布一条 net：`check` 返回结构化违规或通过；`apply` 前 `design/**` 不变，`apply` 后 `check` 仍通过。
+- 低于 net 最小线宽的 `route_segment` 被工具直接拒绝，不进入 DRC。
+- `connect` 未被铜箔兑现、跨 net 短接、keepout 穿越、板边越界、未布线各有一条诊断；`--json` 可被 agent 消费。
+- 交互式规则拍板：用户拒绝的规则不写入源；接受的规则写进 `pcb.rules` 并改工程哈希；skill 里没有硬编码数值。
+- skill 的每个诊断码有修复入口与夹具；陷阱板回归记录违规数、未布线数、过孔数、总线长、迭代次数。
+- 接受的布局有冻结记录；同一 sandbox 重跑不会静默覆盖。
+- `bun test` / `typecheck` / `fmt:teda --check` / `check:links` 全绿；不新增外部依赖。
+
+**注意**：
+
+- **不写 placer/router**：agent 是策略，工具与检查器是底座；外部 router 若要出现，只能作为工具，不是架构。
+- **连通性权威不动**：agent 不得用几何新增连接；`sch` + `connect` 仍是真源（[ADR-0035](adr/0035-connectivity-authority-and-reverse-engineering.md)）。
+- **DRC 不是目标函数**：只有硬约束会放过“合法但很差”的板；指标预算与人审必须同时存在。
+- **规则不在 skill 里**：skill 引用规则；数值只进 `pcb.rules`，否则 skill 与检查器会各说一套。
+- **不保证收敛**：密集板/高速板要允许升级给人；失败是正常结果，不是工具 bug。
+- **S1 不混进来**：打印页摆位仍归 `view`，B0 布局布线才归本项（[ADR-0021](adr/0021-schematic-view-layer.md)）。

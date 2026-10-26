@@ -5,7 +5,7 @@
 > - **方向**（§1、§3、§4、§5）——设计意图，**可被 ADR 推翻**；推翻时改本文件，不算"违反规矩"。
 > - **实现现状**——**以代码、测试、ADR、backlog 为准**，本文件只标注"已落地 / 只有设计 / 未落地"，不复制细节。细节过期不算违规，但标注错了要改。
 >
-> 状态（2026-10-26）：**工具链起步**。已落地：`packages/ir`（IR 与契约，11 份 schema；契约 **v0.14**，`instance.component` 是裸 `device_ref`、`instance.uid` 是稳定身份）、**外部库是模板**（`texteda lib import` 拷进 `assets/`、限定符重写、来源头注释、`provenance generated`，见 §4.5.1）、`packages/parser`（`footprint` / `symbol` 解析 + 对应 `fmt`；`pcb` 解析（12 段 → `pcb` IR，`texteda compile --pcb`）+ `pcb` canonical formatter（`fmt --check` 已覆盖）+ sch↔pcb 绑定校验（`packages/core`）；`schematic` 解析（实例、net、port、约束、bus；板内不再有 `page` 类型，语言 0.7 撤销，见 [ADR-0025](docs/adr/0025-flat-board-and-print-pages.md)；实例可带稳定 `uid`，见 [ADR-0051](docs/adr/0051-instances-have-a-stable-project-local-uid.md)）+ 对应 `fmt`（连通性 ERC 已移出，见 `packages/core`）；`view` 解析（S1 打印页：摆位、走线、标签、端口、注释 → `schematic-view` IR）+ 对应 `fmt`，板 ↔ 打印页交叉校验与可读性检查均已落地（`packages/core/src/view/`，见 `spec/schematic-view.md` §9）；`module` 解析（板内层次：模块文件 + 板级 `modules` 段 + 端口绑定 → 展平进板级 IR，IR 契约不变，[ADR-0026](docs/adr/0026-modules-compose-boards.md)、`spec/module.md`）+ 对应 `fmt`；`system` 解析（多板连接：板列表 + 跨板 net（成员是 `<board_id>.<port_id>`）→ `system` IR）+ 对应 `fmt` + 跨板校验（板不存在 / port 未声明 / 一个板内 net 被并进两条系统 net / 两侧电压区间不相交，`packages/core`）；`project.toml` 解析（项目元数据：名称 / 版本 / 格式 / 板列表 / 变体 / 库引用 / 合规 → `project` IR）；`component` 解析（**part / generic 两种显式种类**：`kind` + `construction` + `polarized`，引脚表是身份分界；件与通用器件同在 `assets/components/`（`kind` 只写在文件里），见 [ADR-0027](docs/adr/0027-device-parts-families-and-library-dependencies.md) 与 [ADR-0037](docs/adr/0037-device-kind-vocabulary-and-one-device-directory.md)；事实读取 `readComponentFacts`；**件用自己的 `ratings` 段写额定值**，通用件的 `params` 是设计的要求（[ADR-0039](docs/adr/0039-a-part-states-its-own-ratings.md)））、`packages/core`（纯规则：连通性 ERC，不碰 fs，解析器与 LSP 共用）、`packages/exporter`（封装/符号 → KiCad `.kicad_mod` / `.kicad_sym`；网表 = IR 的连通性投影）、`packages/renderer`（符号/封装/原理图打印页 → SVG，并支持三者的反解校验，[ADR-0014](docs/adr/0014-reference-renderer.md)）、`packages/cli`（`texteda init` / `compile` / `check` / `netlist` / `ir` / `bom` / `id` / `renumber`，[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)、[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)）、**IR 分片树**（`texteda ir` 写 `dist/ir/`：每片 canonical JSON + `manifest.json` + 每片 sha256 + **分类（规范 / 附注）** + 工程哈希 / 板哈希 / `advisory_hash`；打印页是附注类，移动标签不改构建身份，见 [ADR-0023](docs/adr/0023-ir-layer-on-disk.md) decision 4 的 2026-10-22 修订；`component` 分片还没有生产者；**采购层已落地**（`procurement` 描述类型：主料分片规范、备料分片附注，解析 + `fmt` + 契约 v0.7 + 选料检查 + `texteda bom`，见 [ADR-0030](docs/adr/0030-procurement-layer.md)、`spec/procurement.md`））、**诊断错误码注册表**（`域.slug`，[ADR-0016](docs/adr/0016-diagnostic-error-codes.md)；真源 `packages/ir/src/diagnostics/codes.ts`，文档 `docs/error-codes.md` 由 `bun run gen` 生成，双向完整性检查见 `packages/ir/test/codes.test.ts`）。**未落地**：遮蔽件的选料检查、KiCad 原理图导出、sch 规范文件（`spec/` 现只有 `symbol` / `footprint` / `pcb` / `schematic-view` / `module`）、**原理图视图层 S1**（描述类型 `view` 的规范 + IR 契约 + 解析 + `fmt` 已落地；板 ↔ 打印页交叉校验、可读性检查、sch 的 round-trip 反解）、**评审 GUI**（`review` 模式**已落地** 2026-10-24：`texteda review`，见 §1 与 ADR-0021 的 2026-10-24 附录；双击/`Enter` 跳源码已落地（F11 D6：`dist/ir/identity.json`），`layout` / `placement` / `edit` 三模式与桌面壳仍未建，见 `docs/backlog.md` F34）、层次（模块参数、模块嵌套、跨工程模块库）、`fab` 描述、conformance / binding / 十用例语料。**仓库已公开**（`luffffyz/TextEDA`，2026-10-21），**CI 已落地**（`.github/workflows/ci.yml` 必过段零外部依赖；KiCad 互操作段是独立可选 workflow）。
+> 状态（2026-10-26）：**工具链起步**。已落地：`packages/ir`（IR 与契约，11 份 schema；契约 **v0.14**，`instance.component` 是裸 `device_ref`、`instance.uid` 是稳定身份）、**外部库是模板**（`texteda lib import` 拷进 `assets/`、限定符重写、来源头注释、`provenance generated`，见 §4.5.1）、`packages/parser`（`footprint` / `symbol` 解析 + 对应 `fmt`；`pcb` 解析（12 段 → `pcb` IR，`texteda compile --pcb`）+ `pcb` canonical formatter（`fmt --check` 已覆盖）+ sch↔pcb 绑定校验（`packages/core`）；`schematic` 解析（实例、net、port、约束、bus；板内不再有 `page` 类型，语言 0.7 撤销，见 [ADR-0025](docs/adr/0025-flat-board-and-print-pages.md)；实例可带稳定 `uid`，见 [ADR-0051](docs/adr/0051-instances-have-a-stable-project-local-uid.md)）+ 对应 `fmt`（连通性 ERC 已移出，见 `packages/core`）；`view` 解析（S1 打印页：摆位、走线、标签、端口、注释 → `schematic-view` IR）+ 对应 `fmt`，板 ↔ 打印页交叉校验与可读性检查均已落地（`packages/core/src/view/`，见 `spec/schematic-view.md` §9）；`module` 解析（板内层次：模块文件 + 板级 `modules` 段 + 端口绑定 → 展平进板级 IR，IR 契约不变，[ADR-0026](docs/adr/0026-modules-compose-boards.md)、`spec/module.md`）+ 对应 `fmt`；`system` 解析（多板连接：板列表 + 跨板 net（成员是 `<board_id>.<port_id>`）→ `system` IR）+ 对应 `fmt` + 跨板校验（板不存在 / port 未声明 / 一个板内 net 被并进两条系统 net / 两侧电压区间不相交，`packages/core`）；`project.toml` 解析（项目元数据：名称 / 版本 / 格式 / 板列表 / 变体 / 库引用 / 合规 → `project` IR）；`component` 解析（**part / generic 两种显式种类**：`kind` + `construction` + `polarized`，引脚表是身份分界；件与通用器件同在 `assets/components/`（`kind` 只写在文件里），见 [ADR-0027](docs/adr/0027-device-parts-families-and-library-dependencies.md) 与 [ADR-0037](docs/adr/0037-device-kind-vocabulary-and-one-device-directory.md)；事实读取 `readComponentFacts`；**件用自己的 `ratings` 段写额定值**，通用件的 `params` 是设计的要求（[ADR-0039](docs/adr/0039-a-part-states-its-own-ratings.md)））、`packages/core`（纯规则：连通性 ERC，不碰 fs，解析器与 LSP 共用）、`packages/exporter`（封装/符号 → KiCad `.kicad_mod` / `.kicad_sym`；网表 = IR 的连通性投影）、`packages/renderer`（符号/封装/原理图打印页 → SVG，并支持三者的反解校验，[ADR-0014](docs/adr/0014-reference-renderer.md)）、`packages/cli`（`texteda init` / `compile` / `check` / `netlist` / `ir` / `bom` / `id` / `renumber`，[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)、[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)）、**IR 分片树**（`texteda ir` 写 `dist/ir/`：每片 canonical JSON + `manifest.json` + 每片 sha256 + **分类（规范 / 附注）** + 工程哈希 / 板哈希 / `advisory_hash`；打印页是附注类，移动标签不改构建身份，见 [ADR-0023](docs/adr/0023-ir-layer-on-disk.md) decision 4 的 2026-10-22 修订；`component` 分片还没有生产者；**采购层已落地**（`procurement` 描述类型：主料分片规范、备料分片附注，解析 + `fmt` + 契约 v0.7 + 选料检查 + `texteda bom`，见 [ADR-0030](docs/adr/0030-procurement-layer.md)、`spec/procurement.md`））、**诊断错误码注册表**（`域.slug`，[ADR-0016](docs/adr/0016-diagnostic-error-codes.md)；真源 `packages/ir/src/diagnostics/codes.ts`，文档 `docs/error-codes.md` 由 `bun run gen` 生成，双向完整性检查见 `packages/ir/test/codes.test.ts`）。**未落地**：遮蔽件的选料检查、KiCad 原理图导出、sch 规范文件（`spec/` 现只有 `symbol` / `footprint` / `pcb` / `schematic-view` / `module`）、**原理图视图层 S1**（描述类型 `view` 的规范 + IR 契约 + 解析 + `fmt` 已落地；板 ↔ 打印页交叉校验、可读性检查、sch 的 round-trip 反解）、**评审 GUI**（`review` 模式**已落地** 2026-10-24：`texteda review`，见 §1 与 ADR-0021 的 2026-10-24 附录；双击/`Enter` 跳源码已落地（F11 D6：`dist/ir/identity.json`），`layout` / `placement` / `edit` 三模式与桌面壳仍未建，见 `docs/backlog.md` F34）、层次（模块参数、模块嵌套、跨工程模块库）、`fab` 描述、**布局布线**（agent 驱动、检查器把关，无内建求解器，[ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md)）、conformance / binding / 十用例语料。**仓库已公开**（`luffffyz/TextEDA`，2026-10-21），**CI 已落地**（`.github/workflows/ci.yml` 必过段零外部依赖；KiCad 互操作段是独立可选 workflow）。
 > 标记约定：**已定** = 不再讨论；**提议** = 默认按此执行，可被 ADR 推翻；**待定** = 未决定，不要擅自选边。**未落地** = 只有设计，没有实现。
 
 ---
@@ -37,10 +37,10 @@
 
 **不是**：
 
-- 不是 EDA GUI，不做交互式布线，也不做自动布局。**评审 GUI 是导航器 + 批注器 + 受限摆位器**：`review` 只读画面（hover 高亮、写意见）；`layout` 的拖动/旋转只改 S1 打印页的 `place` 行（选中、拖拽、90° 旋转，不画线）；`placement` 是 PCB 摆位画布；`edit` 在文本里改。**选中只选中；双击/`Enter` 跳源码**。**走线不在拖动中实时算**：它是 `place` + 逻辑网表的派生物，在 Apply 时由 agent/生成器只重算受影响的 net，旧线标 stale；`layout` 不写 `design/**`，不碰 IR 与构建哈希。见 [ADR-0021](docs/adr/0021-schematic-view-layer.md) 的 2026-10-22、2026-10-24、2026-10-25 与 2026-10-26 附录。**现状：`review` 模式已落地**（`texteda review <工程目录>`，`packages/viewer` + `packages/cli/src/review.ts`）：渲染器出的打印页 SVG 原样插入、hover 高亮与点击选身份都是 DOM 层（不重绘），`--out` 写出同一份自包含 HTML；**跳进源码已落地（F11 D6，`dist/ir/identity.json`；`Enter`/双击打开定义菜单）**，`layout` / `placement` / `edit` 三模式未建，见 [ADR-0021](docs/adr/0021-schematic-view-layer.md) 的 2026-10-24、2026-10-25 与 2026-10-26 附录与 `docs/backlog.md` F34。
-- 不是布局布线求解器（借 freerouting / KiCad / tscircuit）。
+- 不是内建布局布线求解器的 EDA GUI。**布局与布线在路线图内，但由 agent 驱动、检查器把关**。**评审 GUI 是导航器 + 批注器 + 受限摆位器**：`review` 只读画面（hover 高亮、写意见）；`layout` 的拖动/旋转只改 S1 打印页的 `place` 行（选中、拖拽、90° 旋转，不画线）；`placement` 是 PCB 摆位画布；`edit` 在文本里改；布线在 sandbox 里通过结构化工具发生，agent 是搜索策略，连通性/DRC/指标是反馈，人审通过后才写 `design/pcb/`。**不内建自动布局器或自动布线器**（[ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md)）。**选中只选中；双击/`Enter` 跳源码**。**S1 打印页的走线不在拖动中实时算**：它是 `place` + 逻辑网表的派生物，在 Apply 时由 agent/生成器只重算受影响的 net，旧线标 stale；`layout` 不写 `design/**`，不碰 IR 与构建哈希。见 [ADR-0021](docs/adr/0021-schematic-view-layer.md) 的 2026-10-22、2026-10-24、2026-10-25 与 2026-10-26 附录。**现状：`review` 模式已落地**（`texteda review <工程目录>`，`packages/viewer` + `packages/cli/src/review.ts`）：渲染器出的打印页 SVG 原样插入、hover 高亮与点击选身份都是 DOM 层（不重绘），`--out` 写出同一份自包含 HTML；**跳进源码已落地（F11 D6，`dist/ir/identity.json`；`Enter`/双击打开定义菜单）**，`layout` / `placement` / `edit` 三模式未建，见 [ADR-0021](docs/adr/0021-schematic-view-layer.md) 的 2026-10-24、2026-10-25 与 2026-10-26 附录与 `docs/backlog.md` F34。
+- 不是布局布线求解器：**不内建 placer / router**；agent 是搜索策略，工具与检查器是底座（[ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md)）。
 - 不是器件库维护者（借 KiCad 符号库、嘉立创料号）；项目自己的封装可以自建，但那是项目产物，不是库产品。
-- 不是 KiCad 的替代品；KiCad 降级为**库 + DRC 引擎 + 制造出口**。
+- 不是 KiCad 的替代品；KiCad 降级为**可选后端**：库、DRC 对照与制造出口，不是布局布线的决策程序。
 - 不是制造工具：不自研 CAM 级 DFM 判定（那是规则工程，不是格式工程），也不做工艺规则库；**但格式层的写出器自研**——Gerber / Excellon 是派生层图像，RS-274X 是行式文本格式，工作量已知（[ADR-0018](docs/adr/0018-zero-dependency-and-manufacturing-target.md)、backlog F15）。派生层 policy（铜皮填充、阻焊与锡膏开窗规则、丝印 policy）由我们定规则、判定交给专业 CAM。路径见 `docs/adr/0005-manufacturing-output.md`（当前实现路径）与 `docs/adr/0018-zero-dependency-and-manufacturing-target.md`（目标形态与依赖边界）。**`fab` 的默认产物是制造中立的数据**（描述层：装配意图、BOM、坐标），不是 Gerber 本身，见 backlog F14。
 - 不描述固件、外壳结构、供应链流程（后续可作为引用/接口，不进入第一阶段）。
 
@@ -50,7 +50,7 @@
 |---|---|---|
 | P0 | `schematic` | 器件、引脚、net、约束、ERC；先跑通 |
 | P1 | 渲染 + 导出 | sch SVG、netlist、KiCad 原理图 |
-| P2 | `pcb` | 叠层、放置、走线、物理专属件 + 与 sch 的绑定校验 |
+| P2 | `pcb` | 叠层、放置、走线、物理专属件 + 与 sch 的绑定校验；布局布线由 agent 在 sandbox 中驱动，检查器把关（[ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md)） |
 | P3 | `fab` / BOM / 变体 | 制造出口、DNP、装配变体 |
 | P4 | 多板系统 | 板间连接器、系统级 net、共享 BOM |
 
@@ -216,6 +216,8 @@ flowchart LR
 
 段与语法见 `spec/pcb.md`；取舍与决策见 `docs/adr/0003-agent-first-pcb-ir.md`。
 
+**布局与布线**：`place` / `trace` / `via` 是 B0 事实，但生成它们的过程不由内建求解器负责；agent 在 sandbox 里通过结构化工具搜索，`check` 的连通性 / DRC / 指标是反馈，人审后写回源码并冻结（[ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md)）。
+
 **pcb 可以声明 net，但只能引用已有的 `net_id`**；不能创建新的逻辑连接。**没有 pcb-only 模式**：板必须有 sch，逆向工程与外部网表走导入器（[ADR-0035](docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D5/D6）。
 
 ### 4.4 绑定与一致性（核心）
@@ -369,6 +371,9 @@ flowchart LR
 | 导出边界 | 非网格坐标导入 KiCad 后断网 | 导出前量化/吸附，导出后跑连通性比对 |
 | 同一器件两个源 | 项目派生覆盖库的件，等于同一个器件有两份描述，BOM / ERC / 导出器都要回答"这个件到底是哪一份" | 覆盖是最后手段：首选上游修好 + 抬 pin；派生件**遮蔽**库件（项目里只留一个源，被遮蔽的库件不得再被引用），几何（symbol / footprint）不覆盖——共享几何的爆炸半径太大。决策见 [ADR-0028](docs/adr/0028-library-trust-and-derived-overrides.md) 的 2026-10-22 附录 |
 | 库缺失 | 第一颗 BGA 就卡住 | 通用库借 KiCad + 嘉立创；**项目自建库是另一条路且是一等产物**（[ADR-0010](docs/adr/0010-footprint-and-3d-model-ownership.md) / 0011 / 0012 / 0013），两者不是二选一 |
+| **agent 直接写板绕过检查** | 生成的 `pcb` 看起来能读，但连通性/DRC 没跑过，源码被污染 | agent 只改 sandbox；工具层先拒绝非法动作，`check` 通过才 `apply`，接受后冻结（[ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md)） |
+| **DRC 全绿但板很差** | 绕远路、堆过孔、回流断裂、去耦乱放；硬约束全过 | DRC 不是目标函数：线长/过孔/面积/电流密度等指标 + 人审；接受记录可追溯 |
+| **skill 与 rules 漂移** | skill 写死 0.2mm，`pcb.rules` 写 0.15mm，agent 收到矛盾指令 | 数值只进 `pcb.rules`；skill 引用规则与诊断码，不复制数值（[ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md) D6） |
 
 ---
 
@@ -382,7 +387,7 @@ flowchart LR
 | 参考渲染器 | ✅ | **符号 / 封装 / 原理图打印页 SVG 已落地**（[ADR-0014](docs/adr/0014-reference-renderer.md)、[ADR-0021](docs/adr/0021-schematic-view-layer.md)，自带 Hershey 笔画字体、不依赖 KiCad）；打印页从 `view` 描述画，板 ↔ 打印页交叉校验与可读性检查已落地（`docs/backlog.md` F3），pcb SVG 排在后面 |
 | 3D 预览与几何导入 | ❌ | 运行时只留 three.js（MIT）：STEP 离线转 glTF、KiCad `.wrl` 直读；必须实时转 STEP 时才用 `occt-import-js`（LGPL-2.1，7.3 MB，动态加载）；快照用 `kicad-cli pcb render` |
 | IDE 集成 | ✅ 薄壳 | LSP over stdio；图与 3D 走 webview，不复制语义 |
-| 布局 / 布线 | ❌ | freerouting、KiCad、tscircuit 授权器 |
+| 布局 / 布线 | **不写求解器**，写工具与检查器 | agent 是搜索策略；sandbox + 结构化工具 + 自研 DRC/连通性/指标 + 人审冻结（[ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md)）。KiCad/freerouting 若要出现，只能是可选工具，不是架构 |
 | 器件库 / 封装 / 符号 | 通用库 ❌，**项目自建库 ✅** | 通用库借 KiCad + 嘉立创，不做库产品；但**项目自带的封装库与符号库是一等产物**（我们的格式描述，导出成 `.kicad_mod` / `.kicad_sym`），几何不进语言，只引用；符号的引脚事实归 `component`。[ADR-0010](docs/adr/0010-footprint-and-3d-model-ownership.md)、0011、0012、0013 |
 | Gerber / 贴片 / BOM | 格式 ✅，**判定 ❌** | Gerber/Excellon 是物理图像，但 RS-274X 是行式文本格式，**写出器自研**（P3，F15）；"制造与装配意图"（BOM、坐标、层叠规则、装配说明）是**描述**，是本项目该做的那一层（契约层的一部分）。**不自研 CAM 级 DFM 判定**——格式自己写，判定借专业工具。[ADR-0018](docs/adr/0018-zero-dependency-and-manufacturing-target.md) |
 
@@ -400,7 +405,7 @@ texteda/
 ├── README.md / README_cn.md  # 双语入口（英文对外、中文镜像）
 ├── docs/            # 设计决策（ADR）、语言教程、评审流程
 │   ├── adr/         # 决策记录 + 索引（`README.md`）
-│   ├── skills/      # **skill：给 agent 的操作手册**（每步 = 命令 + 预期输出 + 出错看哪个诊断码；**英文**）。现有 `skills/new-project.md`（从零建工程到网表 / KiCad 库；可执行形态待做，见 `docs/backlog.md` F23）与 `skills/draw-print-page.md`（打印页的布局、连线和可读性修复，手写维护）
+│   ├── skills/      # **skill：给 agent 的操作手册**（每步 = 命令 + 预期输出 + 出错看哪个诊断码；**英文**）。现有 `skills/new-project.md`（从零建工程到网表 / KiCad 库；可执行形态待做，见 `docs/backlog.md` F23）与 `skills/draw-print-page.md`（打印页的布局、连线和可读性修复，手写维护）；`skills/route-pcb.md` 规划中（B0 布线策略，数值规则引用 `pcb.rules`，见 F48）
 │   ├── guides/      # **上手指南**（怎么写库、怎么导入外部库、怎么记评审、怎么按角色评审、怎么开评审 app、KiCad 板文件格式）：`footprint-authoring.md` / `symbol-authoring.md` / `library-import.md` / `renumbering.md` / `review-records.md` / `role-reviews.md` / `review-app.md` / `kicad-pcb-format.md`
 │   ├── reviews/     # **评审轮次**：`<target>-r<N>.md`（多角色的意见）+ `.decision.toml`（责任人的处置）；约定见 `docs/guides/review-records.md`
 │   ├── assets/      # **品牌资产**（标志、图标、生成脚本）；字体二进制不入库，见 `docs/assets/README.md`

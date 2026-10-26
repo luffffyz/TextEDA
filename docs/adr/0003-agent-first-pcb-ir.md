@@ -4,6 +4,13 @@ Status: Accepted
 Date: 2026-10-20
 Impact: `teda.md` §9, §11, §12, §13, §15, Appendix A; `AGENTS.md` §2, §4.3, §4.4, §7, §11; new `spec/pcb.md`
 
+**Amendment (2026-10-26, [ADR-0053](0053-layout-and-routing-are-agent-driven.md))**: the PCB
+description still expresses B0, and this record still does not build a placement or routing
+solver. The change is who searches: layout and routing are now in scope as an **agent-driven,
+checker-gated** workflow (sandbox + structured tools + DRC/metrics + human acceptance). The
+consequence "we do not build a placement or routing solver" is the unchanged half; the other half
+is ADR-0053 D1–D4.
+
 ## Background
 
 The schematic side has already completed its "hand-written format → agent first" turn: `.kicad_sch` stores the finished artifact (measured: 74.6% of its bytes are whitespace, indentation, structural keywords, coordinates and UUIDs), so it can only be an export target, never the IR's reference (`AGENTS.md` §13). The PCB side has to make the same turn, but the situation differs:
@@ -91,7 +98,7 @@ Export is a **lossy projection**: semantics the target format cannot hold must b
 - **The IR gets bigger**: geometry goes into the IR in full, an unavoidable consequence of B0 not being free; only strategy and noise shrink.
 - **One more rules source of truth to maintain**: once rules live in the IR, rule changes on the KiCad side no longer take effect automatically (see decision 7).
 - **Silkscreen typography is delegated to policy**: ugly silkscreen on agent-generated boards is a known cost; nudge it by hand in KiCad, but that is KiCad-side business.
-- **We do not do placement and routing ourselves**: the pcb description expresses B0, but generation still borrows KiCad / freerouting / tscircuit (`AGENTS.md` §3, §8).
+- **We do not build a placement or routing solver**: the pcb description expresses B0; generation is agent-driven and checker-gated ([ADR-0053](0053-layout-and-routing-are-agent-driven.md)). KiCad / freerouting can only be optional tools, not the decision procedure.
 - **v0.4 assumes a sch exists**: the segment set for pcb-only mode (reverse engineering, external netlist import) will be added after `AGENTS.md` §11 item 6 is decided.
 
 ## Follow-up

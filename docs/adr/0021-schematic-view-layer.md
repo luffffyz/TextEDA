@@ -11,6 +11,11 @@ one flat board schematic, not the twin of a source page: `views/<board_id>/<page
 sentence "living next to `schematic` / `page`" in decision 1 no longer holds — there is no `page`
 description type.
 
+**Amendment (2026-10-26, [ADR-0053](0053-layout-and-routing-are-agent-driven.md))**: the S1
+renderer still never places anything, and this record still excludes automatic schematic layout.
+ADR-0053 is about **B0 PCB placement and routing**, a different layer; it does not make the
+schematic renderer a layout engine.
+
 ## Background
 
 Two things came up together.

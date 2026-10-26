@@ -5,6 +5,8 @@ Date: 2026-10-23
 Related: [ADR-0003](0003-agent-first-pcb-ir.md), [ADR-0010](0010-footprint-and-3d-model-ownership.md), [ADR-0035](0035-connectivity-authority-and-reverse-engineering.md), [ADR-0040](0040-partial-layout-is-legal-and-reported.md)
 Impact: `spec/pcb.md` §5.2 gains a geometry rule; `packages/core` gains a copper-coverage check; the reference project is expected to report one contradiction.
 
+**Amendment (2026-10-26, [ADR-0053](0053-layout-and-routing-are-agent-driven.md))**: D7's "out of scope" is the scope of *this* check, not a permanent boundary. The agent-facing geometric DRC subset (clearance, width, via, keepout, edge, unrouted) is now in scope for `packages/core`; KiCad DRC remains an optional oracle. The sentence below saying "DRC is borrowed" is superseded.
+
 ## Background
 
 `connect` states which pads have continuous copper between them. `trace` / `via` / `zone` state where copper was drawn. Nothing compares the two, so the reference project can declare `M2.R1.1`—`M2.C3.1` (the divider tapping the output at the capacitor) while the only VOUT copper starts at R1 and runs 28 mm to reach the capacitors, and no tool notices (`docs/backlog.md` F44 item 1).
@@ -50,4 +52,4 @@ A chain may change layers only through a barrel. Two primitives are connected wh
   note of `charger-buck-pcb-r1`, whose verdict is `deferred`.
 - The reference project stays a passing gate: a `warning` does not change `check`'s exit code. Fixing the file (drawing the run the declaration implies, or moving the tap) is the author's call, because which side is wrong is an electrical decision, not a geometric one.
 - A `pcb` for which no copper is drawn at all now produces a report per declared pair rather than silence — the same complaint rule 4 already makes once per net, from the other direction.
-- `spec/pcb.md` §5.2's closing paragraph ("geometry-level checks are done by a geometry checker or KiCad DRC") becomes precise: coverage is ours, DRC is borrowed.
+- `spec/pcb.md` §5.2's closing paragraph ("geometry-level checks are done by a geometry checker or KiCad DRC") becomes precise: coverage is ours; the agent-facing DRC subset is now ours too ([ADR-0053](0053-layout-and-routing-are-agent-driven.md)), with KiCad DRC as an optional oracle.
