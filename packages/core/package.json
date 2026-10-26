@@ -10,9 +10,12 @@
   },
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./fill": "./src/fill/index.ts",
+    "./image": "./src/image.ts"
   },
   "dependencies": {
+    "@texteda/geom": "workspace:*",
     "@texteda/ir": "workspace:*"
   }
 }

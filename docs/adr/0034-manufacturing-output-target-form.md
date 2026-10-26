@@ -152,10 +152,25 @@ note has to be written down.
 ### D9. The writer reads the board, not the manufacturing data
 
 The Gerber and Excellon writer (P3, `docs/backlog.md` F15) reads the `pcb` IR: the layers, the
-pads, the traces, the vias, the filled zones, and the board outline. It does not read the
+pads, the traces, the vias, the zone intent, and the board outline. It does not read the
 manufacturing data, because the manufacturing data does not contain the copper artwork (D3), and
-it does not do geometry of its own: the filled zones are stored in the IR, already computed
-([ADR-0003](0003-agent-first-pcb-ir.md)).
+it does not do geometry of its own: the filled zones are computed at export by the constrained
+geometry kernel in [ADR-0054](0054-copper-fill-uses-a-constrained-geometry-kernel.md), not stored
+in the IR ([ADR-0003](0003-agent-first-pcb-ir.md)).
+
+*Amendment (2026-10-26).* The earlier wording said the filled zones "are stored in the IR, already
+computed". That contradicted `AGENTS.md` invariant 17 and `spec/pcb.md` §4.7, and it did not remove
+the geometry computation: it only moved it into a producer. [ADR-0054](0054-copper-fill-uses-a-constrained-geometry-kernel.md)
+settles the split: the IR stays intent-only, the writer calls the kernel, and no fill result enters
+the canonical IR or the project hash.
+
+*Amendment (2026-10-26b).* The first writer landed: `texteda export gerbers` writes the copper
+layers as RS-274X and the holes as one Excellon file. The projection chain is pcb IR → fill
+(`packages/core/src/fill/`) → board image (`packages/core/src/board-image.ts`) → text
+(`packages/exporter/src/gerber.ts`, `excellon.ts`). The writers serialize only; the assembly that
+needs the kernels and the nets sits one layer above, so "the writer does geometry" stays false even
+as the amount of geometry grew. The wire contract is frozen in
+[ADR-0054](0054-copper-fill-uses-a-constrained-geometry-kernel.md)'s 2026-10-26c appendix.
 
 CAM-grade DFM judgement is not ours to build ([ADR-0018](0018-zero-dependency-and-manufacturing-target.md)
 decision 2): solder-mask openings, paste expansion, silkscreen clearance and impedance rules

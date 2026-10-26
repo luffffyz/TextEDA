@@ -53,9 +53,9 @@ bun run texteda init ./my-board        # 生成空工程骨架
 
 **画。** 参考渲染器把符号、封装与原理图打印页画成 SVG，自带笔画字体，不需要装 KiCad（[ADR-0014](docs/adr/0014-reference-renderer.md)）；三者各自被 `extract(render(ir)) == ir` 闭环。`texteda review` 把打印页服务给浏览器，hover 高亮、点击选中，或者把同一份东西写成一个自包含 HTML 文件。
 
-**导出与哈希。** KiCad `.kicad_mod` / `.kicad_sym`、网表（IR 的连通性投影）、物料表。`texteda ir` 写 `dist/ir/`：每种描述一份 canonical JSON 分片、一份带每片 sha256 的 manifest、一个覆盖**规范**分片的工程哈希，以及另一个 `advisory_hash`——画（打印页）与第二货源（备料）属于附注类（[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)）。
+**导出与哈希。** KiCad `.kicad_mod` / `.kicad_sym`、网表（IR 的连通性投影）、物料表。`texteda export gerbers` 把铜层写成 RS-274X、全部孔写成一份 Excellon，**铜皮在导出时重算**——IR 与任何哈希里都没有预存的填充（[ADR-0054](docs/adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md)）。`texteda ir` 写 `dist/ir/`：每种描述一份 canonical JSON 分片、一份带每片 sha256 的 manifest、一个覆盖**规范**分片的工程哈希，以及另一个 `advisory_hash`——画（打印页）与第二货源（备料）属于附注类（[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)）。
 
-**还没落地。** agent 驱动的布局与布线循环（[ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md)，无内置求解器）、Gerber / Excellon 与 `fab` 描述（backlog F15，[ADR-0034](docs/adr/0034-manufacturing-output-target-form.md)）、KiCad 原理图导出（F16）、逆向工程与外部网表的导入器（F36）、评审 GUI 的 `layout` / `placement` / `edit` 模式（F34；点击跳源码已落地）、模块参数与嵌套（F13），以及把引用整体重键到实例 UID（实例已有稳定 `uid`，但改 refdes 仍会改源码与哈希；[ADR-0051](docs/adr/0051-instances-have-a-stable-project-local-uid.md)）。KiCad 仍是制造出口（[ADR-0005](docs/adr/0005-manufacturing-output.md)）。
+**还没落地。** agent 驱动的布局与布线循环（[ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md)，无内置求解器）、阻焊 / 锡膏 / 丝印层、`.kicad_pcb` 板写出器与 `fab` 描述（backlog F15 / F14，[ADR-0034](docs/adr/0034-manufacturing-output-target-form.md)；铜层与钻孔已落地）、KiCad 原理图导出（F16）、逆向工程与外部网表的导入器（F36）、评审 GUI 的 `layout` / `placement` / `edit` 模式（F34；点击跳源码已落地）、模块参数与嵌套（F13），以及把引用整体重键到实例 UID（实例已有稳定 `uid`，但改 refdes 仍会改源码与哈希；[ADR-0051](docs/adr/0051-instances-have-a-stable-project-local-uid.md)）。KiCad 是当前兜底，直到自研制造出口落地（[ADR-0005](docs/adr/0005-manufacturing-output.md)、[ADR-0034](docs/adr/0034-manufacturing-output-target-form.md)）。
 
 给 agent 用的两份派生物（都由 `bun run gen` 生成，不手改）：
 
@@ -79,7 +79,7 @@ TextEDA 的完整对比按三个透镜组织——商业全流程 GUI、开源/�
 | **校验** | 连通性 ERC · sch↔pcb 绑定 · 器件规则与额定值 · 选料 · IR 契约 | 内置 ERC 与 DRC | DRC | zod + 写在 IR 里的告警 |
 | **评审** | 浏览器里看渲染出的打印页：hover、选中；画法是源文件，不是重建 | 原理图与 PCB 编辑器 | 原理图与 PCB 编辑器 | web 查看器 |
 | **布局 / 布线** | agent 驱动、checker 门控、无内置求解器（[ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md)） | 内置 | 内置 | 代码里算 |
-| **制造出口** | 尚未实现（F15）；目标形态是制造中立数据 | 内置 | 内置，可一键下单 | Gerber / BOM / 坐标转换器 |
+| **制造出口** | 铜层 Gerber + Excellon 钻孔已落地；阻焊/锡膏/丝印与 `fab` 制造包未落地（F15 / F14） | 内置 | 内置，可一键下单 | Gerber / BOM / 坐标转换器 |
 | **Agent 接入方式** | 文本 + 类型化 IR + 冻结的诊断码 + 结构化布局工具（roadmap） | Python 与 `kicad-cli` | API SDK + WebSocket 桥接的 AI skill | agent 直接写程序 |
 | **许可** | Apache-2.0，契约层永久开源 | GPL-3.0+，库为 CC-BY-SA 4.0 | 编辑器闭源，SDK 为 Apache-2.0 | MIT |
 
@@ -136,7 +136,7 @@ my-board/
 | `packages/cli` | `texteda init` / `id` / `compile` / `check` / `netlist` / `ir` / `bom` / `view-metrics` / `review` / `renumber` / `lib import`（[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)、[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)） |
 | `examples/reference-project/` | 自包含的参考工程：2 块板（一块带 `pcb`，两张打印页）、23 个器件（17 个件 + 6 个通用器件）/ 15 个符号 / 16 个封装，库全部自建，另有选料文件与三轮评审记录 |
 | `examples/cases/` | 十个困难用例：每个都是完整小工程，用期望 IR 与期望诊断钉住（现 3 / 10；`bun run cases:check`） |
-| `docs/adr/` | 决策记录（ADR）：共 53 份（[完整索引](docs/adr/README.md)） |
+| `docs/adr/` | 决策记录（ADR）：共 54 份（[完整索引](docs/adr/README.md)） |
 | `docs/guides/` | 上手指南：造符号、造封装、导入外部库、记评审记录、多角色评审、开评审 app、读 KiCad 板文件、位号重编号 |
 | `docs/skills/` | 给 agent 的操作手册：每步 = 命令 + 预期输出 + 出错看哪个诊断码 |
 | `docs/trial-run/` | 历史快照：KiCad 端到端试跑，pcb 描述 → `.kicad_pcb` → DRC + Gerber（早于自建库落地） |
@@ -207,6 +207,7 @@ my-board/
 - [ADR-0018](docs/adr/0018-zero-dependency-and-manufacturing-target.md) 零依赖原则，KiCad 是可选后端
 - [ADR-0034](docs/adr/0034-manufacturing-output-target-form.md) 制造出口的目标形态
 - [ADR-0036](docs/adr/0036-process-entities-outside-the-language.md) 需求、块与分析不进语言
+- [ADR-0054](docs/adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md) 铜皮填充用自研受限几何内核；IR 仍只存意图
 
 **工具与许可**
 - [ADR-0009](docs/adr/0009-implementation-stack.md) 实现栈：TypeScript、Bun、渲染分层、IDE 接入面

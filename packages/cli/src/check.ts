@@ -31,6 +31,8 @@ import {
 import {
   checkBinding,
   checkCopperCoverage,
+  fillBoard,
+  fillBoardFacts,
   checkProcurement,
   checkRatings,
   checkReviews,
@@ -43,6 +45,13 @@ import {
 } from "@texteda/core";
 import { buildProcurementFacts } from "./procurement.ts";
 
+/** Which net each pin belongs to: what a pour needs to tell its own copper from a stranger's. */
+function pinNets(schematic: Schematic): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const net of schematic.nets) for (const member of net.members) out.set(member, net.id);
+  return out;
+}
+
 /** A parsed procurement shard, with the locator its parse produced (ADR-0020 D1). */
 type ProcurementPage = {
   ir: Procurement;
@@ -51,7 +60,7 @@ type ProcurementPage = {
 };
 import { checkDeviceUsage } from "@texteda/core";
 import { loadReviews } from "./reviews.ts";
-import { loadFootprintLibrary, padsByInstance, withPackageCodes } from "./pads.ts";
+import { footprintsByInstance, loadFootprintLibrary, padsByInstance, withPackageCodes } from "./pads.ts";
 import { loadSymbolLibrary, schematicInstances, type DeviceFacts } from "./symbols.ts";
 import { LAYOUT } from "./paths.ts";
 import { idLocator, locateWith } from "./locate.ts";
@@ -299,6 +308,21 @@ export function analyzeProject(root: string): AnalyzeResult {
               pcb: pcbResult.ir,
               pads: padsByInstance(result.ir, devices, footprints),
             }),
+          );
+          // Whether each pour can exist at all (ADR-0054 D3): the fill is derived, so the check runs
+          // it here rather than reading a stored result. Its findings are about the description — a
+          // non-copper layer, a ruled-out width, a pour that pours nothing — so they belong in
+          // `check`, before anyone tries to export.
+          boardDiagnostics.push(
+            ...fillBoard(
+              fillBoardFacts({
+                file: pcbSource.file,
+                pcb: pcbResult.ir,
+                placed: footprintsByInstance(result.ir, devices, footprints),
+                pin_net: pinNets(result.ir),
+                ...pcbLocator(pcbResult.sources),
+              }),
+            ).diagnostics,
           );
         }
       } else {

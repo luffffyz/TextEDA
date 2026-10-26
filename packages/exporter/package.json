@@ -11,11 +11,15 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./excellon": "./src/excellon.ts",
     "./footprint": "./src/footprint.ts",
-    "./symbol": "./src/symbol.ts",
-    "./netlist": "./src/netlist.ts"
+    "./gerber": "./src/gerber.ts",
+    "./netlist": "./src/netlist.ts",
+    "./symbol": "./src/symbol.ts"
   },
   "dependencies": {
+    "@texteda/core": "workspace:*",
+    "@texteda/geom": "workspace:*",
     "@texteda/ir": "workspace:*"
   },
   "devDependencies": {

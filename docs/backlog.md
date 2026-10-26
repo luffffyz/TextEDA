@@ -415,15 +415,15 @@ ADR-0020 的决策：
 
 ## F15. 自研 Gerber / Excellon 写出器（零依赖制造出口）
 
-**现状**：制造出口的当前路径是 IR → KiCad → Gerber / Excellon（[ADR-0005](adr/0005-manufacturing-output.md)）。**目标形态已定**（[ADR-0034](adr/0034-manufacturing-output-target-form.md)）：制造中立数据**不含铜箔图形**，所以写出器的输入只有 `pcb` IR 与层映射表，制造数据里的层叠/规则意图只是随包走的意图，不是几何来源。这要求用户安装 KiCad，与 [ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md) 的零依赖原则（不变量 20）冲突：TextEDA 的目标是"装 TextEDA 就能走完描述 → 校验 → 渲染 → 制造包"。
+**现状（2026-10-26 更新）**：**写出器的第一段已落地**——`texteda export gerbers <工程目录> <board_id> [--out <dir>] [--json]` 从 pcb IR + 封装 + 导出时重算的铜皮填充写出分层 RS-274X 与一份 Excellon（`packages/core` 的 `fill/` + `boardImage()`，`packages/exporter` 的 `gerber.ts` + `excellon.ts`；格式条款冻结在 [ADR-0054](adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md) 的 2026-10-26c 附录，入口与文件清单见 `spec/pcb.md` §8）。参考工程 `charger-buck` 出 3 个 Gerber + 1 个钻孔文件，两次导出逐字节相同（`packages/cli/test/export.test.ts`）。**仍缺**：`.kicad_pcb` 板导出器；阻焊 / 锡膏 / 丝印层；制造包（F14）。`docs/trial-run/` 里的 IR → KiCad → Gerber 是一次性历史原型，不是可调用的产品路径。**目标形态已定**（[ADR-0034](adr/0034-manufacturing-output-target-form.md)）：制造中立数据**不含铜箔图形**，所以写出器的输入只有 `pcb` IR 与层映射表，制造数据里的层叠/规则意图只是随包走的意图，不是几何来源。这要求用户安装 KiCad，与 [ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md) 的零依赖原则（不变量 20）冲突：TextEDA 的目标是"装 TextEDA 就能走完描述 → 校验 → 渲染 → 制造包"。
 
-**为什么工作量是已知的**：RS-274X 是行式文本格式（aperture 定义 + draw / flash + 坐标），**不需要几何内核**；本仓已有 pcb IR 的层、焊盘、走线、过孔、丝印事实，缺的是画布展开与坐标变换。对照自建符号库与封装库的实际经验（[ADR-0011](adr/0011-library-format-and-footprint-ir.md) ~ [ADR-0013](adr/0013-reference-project-self-built-libraries.md)）——"自建比想象中容易"已经被验证过一次，别再靠猜。
+**为什么工作量是已知的**：RS-274X 是行式文本格式（aperture 定义 + draw / flash + 坐标），**序列化本身不需要几何内核**；本仓已有 pcb IR 的层、焊盘、走线、过孔、丝印事实，缺的是画布展开与坐标变换。**但铜皮填充需要几何内核**：`zone` 只存意图，Gerber 要实际填充区域；这个内核由 F49 提供，不是把结果放进 IR 就能消失的。对照自建符号库与封装库的实际经验（[ADR-0011](adr/0011-library-format-and-footprint-ir.md) ~ [ADR-0013](adr/0013-reference-project-self-built-libraries.md)）——"自建比想象中容易"已经被验证过一次，但填充不是那一类简单工作。
 
-**要做的事**（P3，排在 F14 的数据形状之后）：
+**要做的事**（P3；F49 是带 `zone` 的板的前置条件，F14 只阻塞制造包、不阻塞 raw Gerber）。第 1、3、4、6 条已落地；第 2 条只做了铜层与 `Edge_Cuts`；第 5 条仍待做：
 
 1. **定写出范围**：RS-274X + Excellon 钻孔；坐标格式 4.6（与 IR 的整数纳米一致）；零填充（leading zero suppression）取哪一种要写进规范并冻结。
 2. **层映射表**：pcb IR 的层 → Gerber 文件名与层标识（`F.Cu` → `F_Cu.gbr` 等），板框、丝印、阻焊、锡膏开窗的对应关系写进 spec。
-3. **铜皮展开**：Gerber 需要实际填充区域。**优先在 IR 里存派生好的填充结果**（可丢弃、可重算，见 [ADR-0003](adr/0003-agent-first-pcb-ir.md)），**导出器不做几何运算**——否则就把几何内核引进来了。
+3. **铜皮展开**：Gerber 需要实际填充区域。**由导出时的受限 2D 几何内核从 `zone` 意图重算**（[ADR-0054](adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md)、F49）；填充结果**不进 IR、不进工程哈希**，缓存只能是可删除、可重算的派生物。写出器只负责序列化，不在 `packages/exporter` 里另写一套几何算法。
 4. **极性与 D-code 复用、镜像、旋转**：全部按坐标变换处理，不引入额外语义。
 5. **对照测试**（可选，不是门禁）：同一块板，自研写出器与 `kicad-cli pcb export gerbers` 的产物要比对——层集合、孔位、图形数量一致。
 6. **可复现**：同一 IR 两次导出**逐字节相同**（与不变量 18 的 canonical 要求一致）。
@@ -432,9 +432,9 @@ ADR-0020 的决策：
 
 **验收**：
 
-- 在**没有 KiCad 的机器上**跑通 `texteda export gerbers <board>`，产出分层 Gerber + 钻孔文件。
-- 与 KiCad 产物在层集合、孔位、图形数量上一致（对照测试）。
-- 同一 IR 两次导出逐字节相同。
+- 在**没有 KiCad 的机器上**跑通 `texteda export gerbers <board>`，产出分层 Gerber + 钻孔文件。**已完成**（必过段零外部依赖）。
+- 与 KiCad 产物在层集合、孔位、图形数量上一致（对照测试）。**未完成**——这是观测，不是门禁（不变量 20）。
+- 同一 IR 两次导出逐字节相同。**已完成**（`packages/cli/test/export.test.ts`）。
 
 **注意**：
 
@@ -1262,3 +1262,56 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 - **规则不在 skill 里**：skill 引用规则；数值只进 `pcb.rules`，否则 skill 与检查器会各说一套。
 - **不保证收敛**：密集板/高速板要允许升级给人；失败是正常结果，不是工具 bug。
 - **S1 不混进来**：打印页摆位仍归 `view`，B0 布局布线才归本项（[ADR-0021](adr/0021-schematic-view-layer.md)）。
+
+## F49. 受限 2D 几何内核：铜皮填充的 offset / boolean 基础（ADR-0054 的落地）
+
+**现状（2026-10-26 更新）**：**内核核心、填充策略层与 Gerber 写出器的第一段都已落地**（[ADR-0054](adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md) 与其 2026-10-26b / 2026-10-26c 附录）。策略层在 `packages/core/src/fill/`（net 分类、对接间距、`zone_connect`、thermal、`min_width` 开运算、keepout / cutout 裁剪、同层不同 net 重叠报 `drc.zone-overlap`），图像装配在 `packages/core/src/board-image.ts`，序列化在 `packages/exporter/src/gerber.ts` + `excellon.ts`；`texteda export gerbers` 与 `check` 都跑同一条链。F49 剩下的只有第 7 条的部分：随机对拍与更大板面的性能（参考板单块铜皮 8 ms，`min_width` 打开约 370 ms）。`pcb` 的 `zone` 只有轮廓 + net + layer，Gerber 需要实际铜箔区域；之前"把填充结果存进分片"的思路只是把计算挪走，仍然要写几何算法。零依赖（[ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md)）排除了借用 polygon/boolean 库，所以自研一个受限内核。
+
+已落地（`packages/geom`，`bun test packages/geom` 101 条）：整数 nm 的 `Point` / `Polygon` / `Region`；谓词（`cross` / `orientation` / `pointOnSegment` / `segmentsIntersect`）；规范化（去重点与共线点、逆时针、**旋转到字典序最小的起点**、`-0` 归零）、`isSimple` / `isConvex` / `convexHull`；形状构造 `rect` / `centeredRect` / `roundRect` / `oval` / `circle`（内接）/ `capsule` / `rotate`；面积与包含、点线/点多边形距离；**布尔**用垂直分解（`union` / `intersection` / `difference` / `overlaps`，按包围盒聚类），输出是**互不重叠的凸片覆盖**，孔洞 = 围成环的若干片，没有内环；**偏置**是解析的（凸片与工具圆盘做闭式 Minkowski 和；侵蚀对单个凸环用半平面裁剪，其余走"补集膨胀再取补"），工具圆盘**外接**，所以间隙只会偏大不会偏小；`convexCover` 供调用方把任意区域切凸。实测锚点写在用例里（10 mm 方形加 1 mm、8/16/32/64/256 段收敛；1 mm 铺铜减 60 个障碍物 < 5 s）。仍缺：填充策略层（`zone` / `trace` / `via` / pad / `keepout` / 板框 / `rules` 组装、热焊盘辐条、同 net 与异 net 分类）、最小线宽与孤岛、空间索引、以及 F15 的 Gerber/Excellon 写出器。
+
+**为什么现在做**：F15 的带 `zone` 板（参考工程 `charger-buck` 的 GND 铺铜）直接卡在这里；F48 的 DRC 子集也需要同一批距离/相交/offset 原语，不能各写一套。
+
+**要做的事**：
+
+1. **建包**：`packages/geom`（工作名），无 `Bun.*`、无 `process.env`、无外部运行时依赖；Node ≥ 20 与浏览器都能跑（[ADR-0009](adr/0009-implementation-stack.md)）。
+2. **图元**：point / segment / polyline / polygon / rect / roundrect / oval / circle / capsule；坐标一律整数纳米，角度整数毫度。
+3. **运算**：point-in-polygon、distance、area、contour orientation、offset、union、difference、intersection。只做封闭多边形；**结果用互不重叠的凸片覆盖表达，不引入内环**（孔洞是围成环的若干片，按 2026-10-26b 附录）。
+4. **鲁棒性**：合并重合点、处理共线边、拒绝未解决的自交；退化输入返回诊断，不返回"差不多"的形状。
+5. **确定性**：轮廓与顶点排序有固定规则；浮点只在内部使用，边界量化回纳米；同一输入两次结果逐字节相同。
+6. **填充策略层**：从 `zone` / `trace` / `via` / 封装 pad / `keepout` / `outline` / `rules` 构造障碍与热焊盘，调用内核得到填充轮廓；策略层不塞进内核。
+7. **测试**：面积守恒、`A\B + A∩B == A`、offset 往返、孔洞方向、退化边、随机小多边形对拍（与慢速参考实现或解析答案）。
+
+**不好做的，先记在这里**（不在第一版里假装解决）：
+
+| 问题 | 先怎么处理 |
+|---|---|
+| 近重合边 / 共线重叠 / 仅接触的布尔 | 输入规范化 + 精确方向判定；解决不了就报错，不静默合并 |
+| rect/roundrect/oval/capsule 的 clearance offset | 优先解析 offset；自由多边形才走通用 polygon offset |
+| 孔洞与 Gerber 轮廓朝向 | 固定外环/内环朝向，单独测；不靠 viewer 看起来对 |
+| thermal relief（辐条数量、宽度、角度、solid/thermal） | 先按 `rules.thermal` 的显式策略实现；不支持的组合报错 |
+| `rules.min_width` / 细颈 / 孤岛 | 作为独立的窄化与孤岛移除步骤；不静默删铜，必须能报告 |
+| 板边、cutout、keepout 的裁剪顺序 | 先裁板框，再减 keepout / cutout；区域被裁空要报诊断 |
+| 同层多 zone、不同 net 重叠 | 先报检查错误，不定义隐式优先级；同 net 才允许合并 |
+| 通孔 / via 的分层障碍与 annular ring | 按 pad 类型与 via span 逐层构造，不用钻孔直径代替铜环 |
+| 同 net 铜箔与不同 net 铜箔 | 先按 net 分类；同 net 连接，不同 net 清空 + 重画，绝不从填充反推连通性 |
+| 浮点到整数纳米的舍入翻转 | 边界量化规则写进文档；避免平台相关数学；用固定夹具锁住 |
+| 大板性能 | 先做 bounding-box 索引；只对实测板优化，不提前上复杂空间结构 |
+| 正确性 oracle | 先断言面积 / 孔数 / 轮廓数 / 层归属；KiCad 对照只是可选项，不是门禁 |
+| 缓存 | 默认不缓存；若加，必须可删除、可重算、按输入键控，绝不进 IR / 哈希 |
+
+**不做**：圆弧 / Bezier / 自定义 pad / HDI 微孔；通用 CAD 内核；自动布局布线；CAM 级 DFM 判定；把填充结果写进 `pcb` IR 或工程哈希。
+
+**验收**：
+
+- `bun test packages/geom` 覆盖图元、布尔、offset、孔洞、退化输入与确定性；不使用外部几何库。
+- 参考工程 `charger-buck` 的 GND zone 能算出确定轮廓；面积、孔数、轮廓数有固定期望值。**已完成**：`packages/cli/test/export.test.ts` 钉住 1672.0632 mm²、629 片、7 个内层过孔闪光，并从写出的 Gerber 反读回同一面积（写入即投影，不是重算）。
+- 两次运行结果相同；同一输入换顶点起点/顺序后，规范化结果相同。
+- 不支持的图元（圆弧、自交多边形）返回明确诊断，不产生近似铜箔。
+- `bun run typecheck`、`bun test` 全绿；`packages/geom` 无 `Bun.*` / `process.env`。
+
+**注意**：
+
+- **内核不认 net**：net、clearance、thermal 是填充策略层的事；内核只认形状。
+- **不要为了 Gerber 把内核做成 Gerber 专用**：F48 的 DRC、未来的 PCB 渲染都要复用。
+- **不要先写缓存**：先证明能算、算得对；缓存是性能决定，不是正确性决定。
+- **不要用 viewer 截图当验收**：Gerber 是图像，正确性靠面积/拓扑/层归属断言。

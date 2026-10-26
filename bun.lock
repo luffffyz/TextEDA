@@ -28,11 +28,15 @@
         "@texteda/renderer": "workspace:*",
         "@texteda/viewer": "workspace:*",
       },
+      "devDependencies": {
+        "@texteda/geom": "workspace:*",
+      },
     },
     "packages/core": {
       "name": "@texteda/core",
       "version": "0.0.0",
       "dependencies": {
+        "@texteda/geom": "workspace:*",
         "@texteda/ir": "workspace:*",
       },
     },
@@ -40,11 +44,17 @@
       "name": "@texteda/exporter",
       "version": "0.0.0",
       "dependencies": {
+        "@texteda/core": "workspace:*",
+        "@texteda/geom": "workspace:*",
         "@texteda/ir": "workspace:*",
       },
       "devDependencies": {
         "@texteda/parser": "workspace:*",
       },
+    },
+    "packages/geom": {
+      "name": "@texteda/geom",
+      "version": "0.0.0",
     },
     "packages/ir": {
       "name": "@texteda/ir",
@@ -114,6 +124,8 @@
     "@texteda/core": ["@texteda/core@workspace:packages/core"],
 
     "@texteda/exporter": ["@texteda/exporter@workspace:packages/exporter"],
+
+    "@texteda/geom": ["@texteda/geom@workspace:packages/geom"],
 
     "@texteda/ir": ["@texteda/ir@workspace:packages/ir"],
 

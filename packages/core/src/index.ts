@@ -70,3 +70,24 @@ export {
   type ReviewNote,
   type ReviewRound,
 } from "./review/checks.ts";
+
+export {
+  buildObstacles,
+  cutoutRings,
+  fillBoard,
+  fillZone,
+  fillBoardFacts,
+  outlineRing,
+  rulesFromPcb,
+  FILL_RULE_DEFAULTS,
+  type FillFacts,
+  type FillObstacle,
+  type FillOutput,
+  type FillResult,
+  type FillRules,
+  type FillZoneInput,
+  type PlacedFootprint,
+} from "./fill/index.ts";
+
+export { boardImage, EDGE_WIDTH_NM, type BoardImageFacts } from "./board-image.ts";
+export type { BoardImage, DrawItem, DrillHit, FlashItem, ImageItem, ImageLayer, ManufacturingFile, ManufacturingStamp, RegionItem } from "./image.ts";

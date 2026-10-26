@@ -27,5 +27,8 @@
     "@texteda/parser": "workspace:*",
     "@texteda/renderer": "workspace:*",
     "@texteda/viewer": "workspace:*"
+  },
+  "devDependencies": {
+    "@texteda/geom": "workspace:*"
   }
 }

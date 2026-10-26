@@ -106,3 +106,26 @@ export function padsByInstance(
   }
   return out;
 }
+
+/**
+ * Every placed instance's whole footprint, for the rules that need pad *shape* rather than a radius.
+ *
+ * The copper fill is one of them: a pour has to keep its clearance from the pad's real outline, and a
+ * circumscribed circle would carve a bigger hole than the copper (ADR-0054 D3). Placement is the
+ * caller's: a footprint that the pcb does not place contributes nothing (partial layout, ADR-0040).
+ */
+export function footprintsByInstance(
+  schematic: Schematic,
+  devices: Map<string, Device>,
+  library: Map<string, Footprint>,
+): { instance_id: string; footprint: Footprint }[] {
+  const out: { instance_id: string; footprint: Footprint }[] = [];
+  for (const instance of schematic.instances) {
+    const ref = devices.get(instance.component)?.footprint;
+    if (ref === undefined) continue;
+    const footprint = library.get(ref);
+    if (footprint === undefined) continue;
+    out.push({ instance_id: instance.id, footprint });
+  }
+  return out;
+}

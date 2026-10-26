@@ -14,6 +14,7 @@
 //   texteda bom <project dir> <board_id> [--json] [--out <file>]
 //   texteda view-metrics <project dir> <board>/<page> [--json]
 //   texteda review <project dir> [--port <n>] [--out <file>]
+//   texteda export gerbers <project dir> <board_id> [--out <dir>] [--json]
 //   texteda lib import <name> --from <dir> --rev <rev> [--only <id>,…] [--dest <lib>] [--project <dir>] [--trust <file>] [--force]
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -27,6 +28,7 @@ import { runReview } from "../src/review.ts";
 import { runId } from "../src/id.ts";
 import { runRenumber } from "../src/renumber.ts";
 import { runLibImport } from "../src/lib-import.ts";
+import { reportExport, runExport } from "../src/export.ts";
 import { formatNetlist, toNetlist } from "@texteda/exporter/netlist";
 import { writeOut } from "../src/output.ts";
 import { countByStage, diagnosticsToPayload, hintFor } from "@texteda/ir/diagnostics";
@@ -86,6 +88,7 @@ function fail(code: "cli.bad-flag" | "cli.bad-usage", message: string): never {
         "  texteda bom <project dir> <board_id> [--json] [--out <file>]",
         "  texteda view-metrics <project dir> <board>/<page> [--json]",
         "  texteda review <project dir> [--port <n>] [--out <file>]",
+        "  texteda export gerbers <project dir> <board_id> [--out <dir>] [--json]",
         "  texteda lib import <name> --from <dir> --rev <rev> [--only <id>,…] [--dest <lib>] [--project <dir>] [--trust <file>] [--force]",
       ].join("\n"),
     );
@@ -343,6 +346,24 @@ if (command === "init") {
       outDir: args.values.get("--out"),
       json: args.flags.has("--json"),
     }),
+  );
+} else if (command === "export") {
+  if (args.positional[0] !== "gerbers") {
+    fail("cli.bad-usage", "Only `texteda export gerbers` exists: RS-274X layers and the NC drill file (ADR-0054, backlog F15)");
+  }
+  const root = args.positional[1] ?? fail("cli.bad-usage", "Missing project directory");
+  const board = args.positional[2] ?? fail("cli.bad-usage", "Missing board id");
+  if (args.positional.length > 3) fail("cli.bad-usage", "Too many arguments");
+  const outDir = args.values.get("--out");
+  const options = {
+    root: resolve(root),
+    board,
+    ...(outDir === undefined ? {} : { outDir: resolve(outDir) }),
+    json: args.flags.has("--json"),
+  };
+  const result = runExport(options);
+  process.exit(
+    reportExport(result, options, resolve(outDir ?? join(options.root, "dist", "fab", board))),
   );
 } else if (command === "lib") {
   if (args.positional[0] !== "import") {

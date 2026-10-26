@@ -15,7 +15,7 @@
 1. **连通性只由逻辑模型决定**。pcb 不得隐式增删逻辑连接；偏差必须显式声明并进报告（§5.3）。
 2. **逻辑专属 / 物理专属必须显式标记**。物理实体进 `physical_only`，逻辑偏差进 `deviation`。
 3. **派生层的东西不进 IR**：绘图参数、丝印排版、铜皮填充结果、量测文本、UUID 与内部序号一律不存（`docs/adr/0003-agent-first-pcb-ir.md` decision 3）。
-4. **不自研制造出口**：制造链走 KiCad（`kicad-cli pcb export gerbers` / `export drill` / `pcb drc`）；Gerber / Excellon 写出器借现成工具链，自研的只是 IR 侧的意图参数与到 KiCad 的映射。路径见 `docs/adr/0005-manufacturing-output.md`；打样文件（BOM / 坐标）规范见 `docs/adr/0006-jlc-prototype-delivery.md`。
+4. **制造出口自研，判定借专业工具**：RS-274X / Excellon 写出器与铜皮填充用的受限 2D 几何内核由本仓实现（[ADR-0018](../docs/adr/0018-zero-dependency-and-manufacturing-target.md)、[ADR-0054](../docs/adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md)）；KiCad 的 Gerber 导出与 DRC 是**可选对照**，不是门禁；CAM 级 DFM 判定仍借专业工具。路径见 `../docs/adr/0005-manufacturing-output.md` 与 `../docs/adr/0034-manufacturing-output-target-form.md`；打样文件（BOM / 坐标）规范见 `../docs/adr/0006-jlc-prototype-delivery.md`。
 
 v0.4 **假定存在对应的 `sch`**。pcb-only 模式（逆向工程、外部网表导入）待 `AGENTS.md` §11 第 6 条决定后补充。
 
@@ -178,7 +178,9 @@ zone
 
 - 顶点构成闭合多边形；至少 3 个点。
 - 只存**意图**（轮廓 + 所属 net + 层）。填充参数（clearance、thermal、min_thickness）走 `rules` 与全局默认。
-- **填充结果不入 IR**：由轮廓 + 规则重算（`docs/adr/0003-agent-first-pcb-ir.md` decision 3）。
+- **填充结果不入 IR**：由 `zone` 轮廓 + `rules` 在导出时用受限 2D 几何内核重算（[ADR-0054](../docs/adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md)），结果不进工程哈希；缓存只能是可删除、可重算的派生物（[ADR-0003](../docs/adr/0003-agent-first-pcb-ir.md) decision 3）。
+- **同一层上不同 net 的两块 zone 不得重叠**：重叠就是短路的铜，IR 没有优先级字段，所以填充直接拒绝并报 `drc.zone-overlap`（error），两块都不出铜。同 net 的重复 zone、或同轮廓放在另一层，都不算重叠。
+- 填充的判定顺序与已知限制见 §8.1；填充结果与文件字节的关系见 §8.2。
 
 ### 4.8 `keepout`
 
@@ -323,7 +325,7 @@ pcb 里写的 net 名就是**板级** net 名，与 sch 同一命名空间（模
 13. 每个 `connect` 对必须被**铜箔兑现**：该 net 的 `trace` 线段、`via` 桶、`zone` 多边形要能连成一条同时触及两端 pad 的链（链只在 via 处换层）。不成立报 `bind.connect-unbacked`（warning）——布局是渐进过程，检查器要在中途可用（[ADR-0041](../docs/adr/0041-connect-pairs-must-be-implemented-by-copper.md) D1/D5）。几何口径：pad 取**外接圆**、走线按线宽半宽加粗、容差 1 nm（D3），所以"查不出"只会漏报、不会误报；相邻两 pad 之间的短路（跨 net）不在本条内，属 DRC（D7）。
 12. `sch` 展平后每个**实体**实例（没有 `logical_only`）都必须在 `place` 里出现。缺失时给出一条 `bind.instance-unplaced`（warning），报"已放 / 共几个"并点名缺的实例——一块板只报一条，不是每个实例一条。`dnp` 件**不豁免**：封装仍在 `place` 里占位，只是不装件（[ADR-0040](../docs/adr/0040-partial-layout-is-legal-and-reported.md) D6）。
 
-几何层面的检查（"这两个 pad 之间确实有铜箔"、"实际间距不小于 `rules`"）属**校验**而非连通性真源（`AGENTS.md` §2 第 2 条）：**兑现检查**（规则 13）是我们自己的；**agent 反馈用的几何 DRC 子集**（间距、线宽、过孔、keepout、板边、未布线）也由 `packages/core` 自己实现，零外部依赖（[ADR-0053](../docs/adr/0053-layout-and-routing-are-agent-driven.md)）；KiCad DRC 是**可选对照**，不是门禁。CAM 级 DFM 判定仍借专业工具（[ADR-0018](../docs/adr/0018-zero-dependency-and-manufacturing-target.md)）。
+几何层面的检查（"这两个 pad 之间确实有铜箔"、"实际间距不小于 `rules`"）属**校验**而非连通性真源（`AGENTS.md` §2 第 2 条）：**兑现检查**（规则 13）是我们自己的；**agent 反馈用的几何 DRC 子集**（间距、线宽、过孔、keepout、板边、未布线）也由 `packages/core` 自己实现，零外部依赖（[ADR-0053](../docs/adr/0053-layout-and-routing-are-agent-driven.md)），与铜皮填充共用 [ADR-0054](../docs/adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md) 的几何内核；KiCad DRC 是**可选对照**，不是门禁。CAM 级 DFM 判定仍借专业工具（[ADR-0018](../docs/adr/0018-zero-dependency-and-manufacturing-target.md)）。
 
 两份描述只存在一份时，绑定校验**跳过，并在报告里给出 `bind.not-checked`（note）**——跳过不等于通过：只有 `sch` 的板在放置与连通性上未校验，只有 `pcb` 的板在逻辑归属上未校验，`pcb` 文件也不会因为对应的 `sch` 不存在而消失（`AGENTS.md` §4.4 规则 6）。
 
@@ -376,7 +378,9 @@ pcb 里写的 net 名就是**板级** net 名，与 sch 同一命名空间（模
 | 圆弧板框 | 不支持 | 待定 |
 | 微孔（HDI） | 不支持 | 待定 |
 | 铣槽与异形孔 | `physical_only` 只表达圆孔与矩形开孔 | 待补（`docs/adr/0005-manufacturing-output.md` decision 7） |
-| 阻焊/锡膏/热焊盘开窗 | 只声明参数（`rules`），实际开窗由 KiCad 计算 | `docs/adr/0005-manufacturing-output.md` decision 5 |
+| 铜到板边间距 | 没有规则项可表达；铜皮贴齐板框导出 | DRC 关注项，`docs/adr/0054-…` 附录已列为已知限制 |
+| 铜皮填充缓存 | 不做：每次导出重算（参考板 8 ms / 铜皮，`min_width` 打开约 370 ms） | 真的需要时再加可删除的派生缓存 |
+| 阻焊/锡膏/热焊盘开窗 | 只声明参数（`rules`），尚未导出开窗层 | `docs/backlog.md` F15（铜层与钻孔已落地，见 §8.2） |
 | 差分对的几何表达 | 不表达，靠 `rules` 约束 | 保持 |
 | 阻抗计算的工艺栈 | 只存 `er` 与介质厚度，不做计算 | 交给 KiCad/仿真工具 |
 | pcb-only 模式 | 不支持（v0.4 假定有 `sch`） | `AGENTS.md` §11 第 6 条 |
@@ -386,7 +390,36 @@ pcb 里写的 net 名就是**板级** net 名，与 sch 同一命名空间（模
 
 ---
 
-## 8. 完整示例
+## 8. 导出与制造
+
+### 8.1 填充（导出的第一步）
+
+填充策略在 `packages/core/src/fill/`，几何内核在 `packages/geom`：内核只认形状，策略认 net / 间距 / 层（[ADR-0054](../docs/adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md) D3）。
+
+顺序：① zone 轮廓 ∩ 板框，减去板内开孔与本层 `no_pour`；② 与本 zone 不同 net 的铜（以及 `net: null` 的铜——原理图没给 net 的铜不是任何一块铜皮的 net）按间距放大后减掉；③ 同 net 的 `none` 照样减掉，`thermal` 减掉间隙环再补回四条 0°/90°/180°/270° 的桥；④ `min_width` 做开运算（先腐蚀再膨胀，再与输入求交），减掉的面积报 `drc.zone-min-width`；⑤ 量面积，空铜皮报 `drc.zone-empty`。
+
+- **对接间距取两侧较大者**：`net` 规则替换该 net 的板级默认，而间隙要同时满足两侧；焊盘自己的 `clearance_nm` 只能放大，不能缩小。
+- **`zone_connect` 决定连接方式，不由 net 决定**：通孔焊盘默认 `thermal`，贴片焊盘默认 `solid`；同 net 的 `solid` 铜不动。
+- **铜皮贴齐板框，不内缩**：`rules` 里没有"铜到板边间距"这一项，那属于 DRC 而不是填充规则；是否留边由板厂与 DRC 决定（已知限制，见 §7）。
+- 填充是**每次导出重算**的派生物：不进 IR、不进工程哈希，也不写缓存文件。
+
+### 8.2 Gerber 与钻孔文件
+
+`texteda export gerbers <工程目录> <board_id> [--out <dir>] [--json]` 把一块板写进默认的 `dist/fab/<board_id>/`：
+
+| 文件 | 内容 |
+|---|---|
+| `<board>-<layer>.gbr` | 每个铜层一份（`F.Cu` → `F_Cu`），外加 `Edge_Cuts`；空层照样出文件（只有头 + `M02*`） |
+| `<board>.drl` | 一份 Excellon：电镀孔（过孔、通孔焊盘）与非电镀孔（安装孔）；没有孔就不出文件 |
+
+- 坐标用 `%FSLAX46Y46*%` + `%MOMM*%`、省略前导零，也就是一个单位 = 1 nm，写出的整数**就是纳米数**：不缩放、不取整、负数带 `-`。
+- 每份文件带 `G04 TextEDA <tool_version>*` 与 `G04 source <source_hash>*`（Excellon 用 `;` 注释），`source_hash` 是**工程哈希**——文件能追到它描述的那个构建（`AGENTS.md` §2 第 11 条）。
+- 孔径去重、从 `D10` 升序编号、按整数算术写六位小数；语句按（区域 < 走线 < 闪光）再按几何规范文本排序，所以同一块板两次导出**逐字节相同**。
+- 连线格式的完整冻结条款（`G36`/`G37` 不重复首点、`M02*` 后恰好一个换行、`;unplated:` 为 0 时省略）见 [ADR-0054](../docs/adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md) 的 2026-10-26c 附录。
+- 导出器（`packages/exporter`）只做序列化：不读 net、不裁剪、不调内核、不读时钟；几何由 `packages/core` 的 `boardImage()` 装配好再交给它。
+- **尚未导出**：阻焊、锡膏、丝印层，以及制造包（`fab`，[ADR-0034](../docs/adr/0034-manufacturing-output-target-form.md)）。
+
+## 9. 完整示例
 
 对应的 `design/sch/demo.teda` 片段（net 成员只在 sch 里声明，pcb 只引用 `net_id`）：
 

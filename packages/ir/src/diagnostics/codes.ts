@@ -1070,6 +1070,34 @@ export const DIAGNOSTIC_CODES = {
     summary: "Silkscreen text height below 0.5mm, hard for most board houses to read",
     spec: ["spec/pcb.md §5.2"],
   },
+  "drc.zone-layer-not-copper": {
+    domain: "drc",
+    severity: "error",
+    summary: "A zone names a layer that is not a copper layer of the board's stackup",
+    hint: "name a copper layer of the `stackup` section, or add that layer to the stackup",
+    spec: ["spec/pcb.md §4.7", "docs/adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md"],
+  },
+  "drc.zone-empty": {
+    domain: "drc",
+    severity: "warning",
+    summary: "A zone declared copper but the pour covered no area",
+    hint: "check the zone outline, the keepouts on that layer, and the clearance around nearby copper",
+    spec: ["spec/pcb.md §4.7", "docs/adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md"],
+  },
+  "drc.zone-min-width": {
+    domain: "drc",
+    severity: "warning",
+    summary: "The min_width rule removed copper from a pour, so part of the zone is thinner than the rule allows",
+    hint: "widen the zone, move the copper that splits it, or lower `min_width` if the board house can etch thinner",
+    spec: ["spec/pcb.md §4.9", "docs/adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md"],
+  },
+  "drc.zone-overlap": {
+    domain: "drc",
+    severity: "error",
+    summary: "Two zones of different nets on one layer overlap, so their pours would short",
+    hint: "separate the two zone outlines, put one on another layer, or state the pour priority the design intends",
+    spec: ["spec/pcb.md §4.7", "docs/adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md"],
+  },
   // ---- design: the design against the parts it is built from (ADR-0043) ----
   "design.rating-exceeded": {
     domain: "design",
@@ -1104,6 +1132,14 @@ export const DIAGNOSTIC_CODES = {
     summary: "The project holds no description that can be compiled",
     hint: "Add a board description (sch/<board_id>.teda), a PCB description, or a library file; or point at the right project directory",
     spec: [],
+  },
+
+  "cli.export-no-board": {
+    domain: "cli",
+    severity: "error",
+    summary: "The board has no description to export",
+    hint: "A board needs both design/sch/<board_id>.teda (the pads come from its devices) and design/pcb/<board_id>.teda (the copper)",
+    spec: ["spec/pcb.md §8"],
   },
 
   // ---- view: the schematic view layer (S1) ----

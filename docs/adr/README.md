@@ -57,6 +57,7 @@ Every architecture decision record in this repository, in numeric order.
 | [ADR-0051](0051-instances-have-a-stable-project-local-uid.md) | Instance Identity Is a Stable Project-Local UID, Not the Refdes | Accepted | 2026-10-25 |
 | [ADR-0052](0052-a-rating-names-its-terminals.md) | A Rating Names Its Terminals, and the Role Says Which Direction Is Stress | Accepted | 2026-10-26 |
 | [ADR-0053](0053-layout-and-routing-are-agent-driven.md) | Layout and Routing Are Agent-Driven, Checker-Gated, and Frozen on Acceptance | Accepted | 2026-10-26 |
+| [ADR-0054](0054-copper-fill-uses-a-constrained-geometry-kernel.md) | Copper Fill Uses a Self-Built Constrained Geometry Kernel | Accepted | 2026-10-26 |
 
 ## Reserved Numbers
 
