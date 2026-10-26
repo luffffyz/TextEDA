@@ -29,7 +29,7 @@ bun run lib:verify      # library closure, **zero external dependencies**
 bun run lib:verify:kicad  # optional: adds the KiCad interoperability section
 bun run check:links      # every Markdown link and ADR cross-reference resolves
 bun run check:public     # public sweep over the whole history: no vendor PDFs, no credentials, no maintainer paths
-bun run cases:check      # the pinned ten-case corpus (2 of 10 landed so far)
+bun run cases:check      # the pinned ten-case corpus (3 of 10 landed so far)
 bun run preview symbol bq24610rger     # draw a symbol (no KiCad needed)
 bun run preview component bq24610rger  # draw a component's symbol + footprint
 bun run preview view charger-buck/buck-5v  # draw a schematic print page from its view file (no KiCad needed)
@@ -47,7 +47,7 @@ bun run texteda init ./my-board        # generate an empty project skeleton
 
 Current state, by layer:
 
-**Describe.** A project can describe boards with `schematic` (instances, nets, ports, constraints, buses — one flat file per board, [ADR-0025](docs/adr/0025-flat-board-and-print-pages.md)); compose them from `module` files with ports, flattened into the board IR so the IR stays flat ([ADR-0026](docs/adr/0026-modules-compose-boards.md)); draw them with `view` print pages, which are a description of their own and never a build input ([ADR-0021](docs/adr/0021-schematic-view-layer.md), [ADR-0032](docs/adr/0032-view-is-a-drawing-not-a-build-input.md)); lay them out with `pcb` (twelve sections of physical facts and rule intent, [ADR-0003](docs/adr/0003-agent-first-pcb-ir.md)); connect them across a `system` description over declared ports ([ADR-0001](docs/adr/0001-board-linking.md)); pick their parts with `procurement` (primary and alternatives, per board, [ADR-0030](docs/adr/0030-procurement-layer.md)); and stock their libraries from `component` — a `kind: part` carries an MPN, a `kind: generic` leaves the value to the instance row ([ADR-0027](docs/adr/0027-device-parts-families-and-library-dependencies.md), [ADR-0037](docs/adr/0037-device-kind-vocabulary-and-one-device-directory.md)) — plus `symbol` / `footprint` geometry, where the pin's electrical facts stay on the component ([ADR-0012](docs/adr/0012-symbol-description.md)). `project.toml` is the outer metadata. `fmt` writes the canonical form of every description type above except `component`. Libraries are **templates, not dependencies**: `texteda lib import` copies a component and the symbols / footprints it references into `assets/` as bare ids, writes a source-header comment, and stamps the revision each file came from ([ADR-0047](docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md), [ADR-0049](docs/adr/0049-a-file-carries-its-own-revision.md)).
+**Describe.** A project can describe boards with `schematic` (instances, nets, ports, constraints, buses — one flat file per board, [ADR-0025](docs/adr/0025-flat-board-and-print-pages.md)); compose them from `module` files with ports, flattened into the board IR so the IR stays flat ([ADR-0026](docs/adr/0026-modules-compose-boards.md)); draw them with `view` print pages, which are a description of their own and never a build input ([ADR-0021](docs/adr/0021-schematic-view-layer.md), [ADR-0032](docs/adr/0032-view-is-a-drawing-not-a-build-input.md)); describe their physical implementation with `pcb` — it holds only physical facts and rule intent (twelve sections, [ADR-0003](docs/adr/0003-agent-first-pcb-ir.md)); the agent-driven layout and routing loop is [ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md); connect them across a `system` description over declared ports ([ADR-0001](docs/adr/0001-board-linking.md)); pick their parts with `procurement` (primary and alternatives, per board, [ADR-0030](docs/adr/0030-procurement-layer.md)); and stock their libraries from `component` — a `kind: part` carries an MPN, a `kind: generic` leaves the value to the instance row ([ADR-0027](docs/adr/0027-device-parts-families-and-library-dependencies.md), [ADR-0037](docs/adr/0037-device-kind-vocabulary-and-one-device-directory.md)) — plus `symbol` / `footprint` geometry, where the pin's electrical facts stay on the component ([ADR-0012](docs/adr/0012-symbol-description.md)). `project.toml` is the outer metadata. `fmt` writes the canonical form of every description type above except `component`. Libraries are **templates, not dependencies**: `texteda lib import` copies a component and the symbols / footprints it references into `assets/` as bare ids, writes a source-header comment, and stamps the revision each file came from ([ADR-0047](docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md), [ADR-0049](docs/adr/0049-a-file-carries-its-own-revision.md)).
 
 **Check.** `texteda check` runs the parse, the IR contract, connectivity ERC, sch↔pcb binding — including whether every declared `connect` pair is actually backed by copper, and reporting a partial layout instead of silently passing it ([ADR-0041](docs/adr/0041-connect-pairs-must-be-implemented-by-copper.md), [ADR-0040](docs/adr/0040-partial-layout-is-legal-and-reported.md)) — the device vocabulary and parameter roles ([ADR-0038](docs/adr/0038-device-vocabulary-and-parameter-roles.md)), ratings against the declared windows and dissipation against declared limits ([ADR-0043](docs/adr/0043-ratings-are-compared-against-declared-windows.md), [ADR-0044](docs/adr/0044-dissipation-is-checked-against-declared-limits.md)), procurement selection, review-round closure and attribution ([ADR-0033](docs/adr/0033-review-records-and-attribution.md)), and the board ↔ print-page cross-check with readability numbers. On the reference project it reports **0 errors**; the warnings are its honest state — `mcu-board` is a bring-up board with no `pcb` and an empty procurement table.
 
@@ -55,7 +55,7 @@ Current state, by layer:
 
 **Export and hash.** KiCad `.kicad_mod` / `.kicad_sym`, a netlist as the connectivity projection of the IR, and a BOM. `texteda ir` writes `dist/ir/`: one canonical JSON shard per description, a manifest with a sha256 per shard, a project hash over the **normative** shards and a separate `advisory_hash` for the ones that are drawings or second sources ([ADR-0023](docs/adr/0023-ir-layer-on-disk.md)).
 
-**Not there yet.** Layout and routing (borrowed), Gerber / Excellon and the `fab` description (backlog F15, [ADR-0034](docs/adr/0034-manufacturing-output-target-form.md)), KiCad schematic export (F16), the importer for reverse-engineered or external netlists (F36), the review GUI's `placement` / `edit` modes and click-to-source (F11 / F34), module parameters and nesting (F13), and rekeying references to the instance UID (a refdes rename still changes source and hash; [ADR-0051](docs/adr/0051-instances-have-a-stable-project-local-uid.md)). KiCad stays the manufacturing exit ([ADR-0005](docs/adr/0005-manufacturing-output.md)).
+**Not there yet.** The agent-driven layout and routing loop (ADR-0053; no built-in solver), Gerber / Excellon and the `fab` description (backlog F15, [ADR-0034](docs/adr/0034-manufacturing-output-target-form.md)), KiCad schematic export (F16), the importer for reverse-engineered or external netlists (F36), the review GUI's `layout` / `placement` / `edit` modes (F34; click-to-source is landed), module parameters and nesting (F13), and rekeying references to the instance UID (a refdes rename still changes source and hash; [ADR-0051](docs/adr/0051-instances-have-a-stable-project-local-uid.md)). KiCad stays the manufacturing exit ([ADR-0005](docs/adr/0005-manufacturing-output.md)).
 
 Two agent-facing artifacts (both generated by `bun run gen`, never hand-edited):
 
@@ -70,18 +70,20 @@ Hand-written, for agents that have to build a project from scratch: [docs/skills
 
 TextEDA is not a GUI EDA tool, and it does not try to become one. It sits one layer above the editor: a text description language whose typed IR is the single source of truth, plus validators, a reference renderer and exporters.
 
+The full comparison is organised as three lenses — commercial full-flow GUI, open/low-cost GUI, and code/text-first — with AI-native hosted tools adjacent. This table is the short version. Representative tools: Altium, Cadence and Siemens (commercial); KiCad, EasyEDA, LibrePCB and Horizon (open/low-cost); atopile, tscircuit, SKiDL and JITX (code/text-first); heypcb and Flux (AI-native hosted).
+
 | | TextEDA | KiCad | EasyEDA | tscircuit |
 |---|---|---|---|---|
 | **What you edit** | `.teda` text — `sch` and `pcb` are independent siblings | `.kicad_sch` / `.kicad_pcb` s-expressions | JSON project source | TypeScript / TSX code |
 | **Typed IR** | JSON Schema 2020-12, canonical JSON, integer-only units | none — the file *is* the model | JSON project format | `circuit-json` (zod) |
 | **Checks** | connectivity ERC · sch↔pcb binding · device rules and ratings · procurement selection · IR contract | built-in ERC and DRC | DRC | zod plus warnings carried in the IR |
 | **Review** | rendered print pages in a browser: hover, select; the drawing is a source file, not a rebuild | schematic and PCB editors | schematic and PCB editors | web viewers |
-| **Layout / routing** | borrowed (KiCad, freerouting) | built in | built in | computed in code |
+| **Layout / routing** | agent-driven, checker-gated; no built-in solver ([ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md)) | built in | built in | computed in code |
 | **Manufacturing** | not yet (F15); target shape is manufacturing-neutral data | built in | built in, plus one-click ordering | Gerber / BOM / PnP converters |
-| **Agent path** | text + typed IR + frozen diagnostic codes | Python and `kicad-cli` | API SDK and an AI skill over a WebSocket bridge | the agent writes the program |
+| **Agent path** | text + typed IR + frozen diagnostic codes + structured layout tools (roadmap) | Python and `kicad-cli` | API SDK and an AI skill over a WebSocket bridge | the agent writes the program |
 | **License** | Apache-2.0, contract layer open forever | GPL-3.0+, libraries CC-BY-SA 4.0 | proprietary editor, Apache-2.0 SDK | MIT |
 
-The full, sourced comparison — including what TextEDA does **not** do yet — is [docs/comparison.md](docs/comparison.md).
+The full, sourced **three-lens** comparison — commercial full-flow GUI, open/low-cost GUI, code/text-first, with AI-native hosted tools adjacent — is [docs/comparison.md](docs/comparison.md).
 
 ## CI
 
@@ -91,7 +93,31 @@ The full, sourced comparison — including what TextEDA does **not** do yet — 
 
 The KiCad interoperability section is a **separate, optional workflow** (`.github/workflows/ci-kicad.yml`, scheduled and manual) because a gate must never depend on external software ([ADR-0018](docs/adr/0018-zero-dependency-and-manufacturing-target.md)).
 
-## Layout
+## Project layout
+
+```text
+my-board/
+├── project.toml              # name / version / format
+├── assets/                   # owned device assets
+│   ├── components/           # parts + generics; kind in file
+│   ├── symbols/
+│   ├── footprints/
+│   └── procurement/          # primary/ + alternatives/
+├── design/                   # circuit source
+│   ├── sch/<board>.teda
+│   ├── pcb/<board>.teda
+│   ├── modules/<module>.teda
+│   └── system/<system>.teda
+├── views/
+│   └── <board>/<page>.view.teda  # S1 print page; not a build input
+├── docs/                     # intent, reviews, evidence
+├── external/                 # vendored; cache/ local, ignored
+└── dist/                     # generated; gitignored
+```
+
+`assets/**` and `design/**` are inputs; `views/**` is hand-written and tracked but does not enter the build identity; `dist/**` is derived (`texteda ir` writes `dist/ir/`). Ownership of each directory is grouped in [ADR-0031](docs/adr/0031-project-tree-ownership-model.md).
+
+## Repository layout
 
 | Path | What it is |
 |---|---|
@@ -105,16 +131,16 @@ The KiCad interoperability section is a **separate, optional workflow** (`.githu
 | `packages/exporter` | footprint / symbol → KiCad (`.kicad_mod` / `.kicad_sym`); netlist |
 | `packages/renderer` | Reference renderer: IR → drawing commands → SVG, plus the reverse extraction that closes the round trip ([ADR-0014](docs/adr/0014-reference-renderer.md)) |
 | `packages/viewer` | The review app's browser side: page, hover highlight, identity selection; no framework, no canvas editing ([ADR-0021](docs/adr/0021-schematic-view-layer.md)) |
-| `packages/cli` | `texteda init` / `id` / `compile` / `check` / `netlist` / `ir` / `bom` / `view-metrics` / `review` / `lib import` ([ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md), [ADR-0023](docs/adr/0023-ir-layer-on-disk.md)) |
+| `packages/cli` | `texteda init` / `id` / `compile` / `check` / `netlist` / `ir` / `renumber` / `bom` / `view-metrics` / `review` / `lib import` ([ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md), [ADR-0023](docs/adr/0023-ir-layer-on-disk.md)) |
 | `examples/reference-project/` | Self-contained reference project: 2 boards (one with a `pcb`, two print pages), 23 devices (17 parts + 6 generics) / 15 symbols / 16 footprints, all libraries self-built, plus procurement files and three review rounds |
-| `examples/cases/` | The ten difficult cases: a whole project each, pinned by expected IR and diagnostics (2 of 10 landed; `bun run cases:check`) |
-| `docs/adr/` | Architecture decision records: 49 of them ([full index](docs/adr/README.md)) |
-| `docs/guides/` | How-to guides: build a symbol, build a footprint, import a library, keep review records, run a multi-role review, open the review app, read a KiCad board file |
+| `examples/cases/` | The ten difficult cases: a whole project each, pinned by expected IR and diagnostics (3 of 10 landed; `bun run cases:check`) |
+| `docs/adr/` | Architecture decision records: 53 of them ([full index](docs/adr/README.md)) |
+| `docs/guides/` | How-to guides: build a symbol, build a footprint, import a library, keep review records, run a multi-role review, open the review app, read a KiCad board file, renumber reference designators |
 | `docs/skills/` | Agent manuals: every step is a command, an expected output, and the diagnostic code to read when it fails |
 | `docs/trial-run/` | The historical KiCad end-to-end trial run: pcb description → `.kicad_pcb` → DRC + Gerbers (before the self-built libraries landed) |
 | `docs/assets/` | Brand assets (logos, icons, generator script); font binaries are not vendored |
 | `docs/backlog.md` | Open work items |
-| `docs/comparison.md` | Sourced comparison against KiCad, EasyEDA and tscircuit |
+| `docs/comparison.md` | Sourced three-lens comparison against commercial, open/low-cost GUI and code/text-first tools |
 | `docs/error-codes.md` / `docs/ir-reference.md` | Generated contract reference (never hand-edited) |
 | `scripts/` | Repo tooling: link check, public sweep, library verification, case corpus, migration, previews |
 
@@ -138,6 +164,9 @@ The KiCad interoperability section is a **separate, optional workflow** (`.githu
 - [ADR-0025](docs/adr/0025-flat-board-and-print-pages.md) one flat schematic per board; pages become print pages in the view layer
 - [ADR-0026](docs/adr/0026-modules-compose-boards.md) a board is composed of modules; the IR stays flat
 - [ADR-0035](docs/adr/0035-connectivity-authority-and-reverse-engineering.md) connectivity has one authority; reverse engineering is an import, not a mode
+
+**Layout and routing**
+- [ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md) agent-driven, checker-gated; sandbox, structured tools, DRC feedback, frozen acceptance
 
 **Drawing and review**
 - [ADR-0021](docs/adr/0021-schematic-view-layer.md) the S1 view layer: the drawing lives in its own description type

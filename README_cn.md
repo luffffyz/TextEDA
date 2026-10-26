@@ -29,7 +29,7 @@ bun run lib:verify      # 库级闭环（**零外部依赖**）
 bun run lib:verify:kicad  # 可选：追加 KiCad 互操作段（KiCad 能读能渲染、合并板 DRC 0 违规）
 bun run check:links      # 全部 Markdown 链接与 ADR 交叉引用可解析
 bun run check:public     # 公开清扫：查全历史——没有厂商 PDF、没有凭据、没有维护者路径
-bun run cases:check      # 钉住的十用例语料（现落地 2 / 10）
+bun run cases:check      # 钉住的十用例语料（现落地 3 / 10）
 bun run preview symbol bq24610rger     # 画符号（不依赖 KiCad）
 bun run preview component bq24610rger  # 画器件的符号 + 封装
 bun run preview view charger-buck/buck-5v  # 画原理图打印页（从视图文件，不依赖 KiCad）
@@ -47,7 +47,7 @@ bun run texteda init ./my-board        # 生成空工程骨架
 
 当前状态，按层看：
 
-**描述。** 工程可以写 `schematic`（实例、net、port、约束、bus——一块板一份扁平文件，[ADR-0025](docs/adr/0025-flat-board-and-print-pages.md)）；用带端口的 `module` 文件组合板，展平进板级 IR、IR 仍是平表（[ADR-0026](docs/adr/0026-modules-compose-boards.md)）；用 `view` 打印页画图，它是独立描述、永远不进构建（[ADR-0021](docs/adr/0021-schematic-view-layer.md)、[ADR-0032](docs/adr/0032-view-is-a-drawing-not-a-build-input.md)）；用 `pcb` 摆位布线（12 段物理事实与规则意图，[ADR-0003](docs/adr/0003-agent-first-pcb-ir.md)）；用 `system` 描述经声明端口的跨板连接（[ADR-0001](docs/adr/0001-board-linking.md)）；用 `procurement` 决定这块板买哪颗（主料 + 备料，[ADR-0030](docs/adr/0030-procurement-layer.md)）；用 `component` 备器件——`kind: part` 带料号，`kind: generic` 把取值留给实例行（[ADR-0027](docs/adr/0027-device-parts-families-and-library-dependencies.md)、[ADR-0037](docs/adr/0037-device-kind-vocabulary-and-one-device-directory.md)）——再用 `symbol` / `footprint` 写几何，引脚的电学事实仍归器件（[ADR-0012](docs/adr/0012-symbol-description.md)）。`project.toml` 是最外层的元数据。除 `component` 外，`fmt` 对上面每一种描述都写 canonical form。库是**模板，不是依赖**：`texteda lib import` 把一颗器件和它引用的符号 / 封装拷进 `assets/`、写成裸 id、加上来源头注释，并盖上每个文件自己的版本号（[ADR-0047](docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md)、[ADR-0049](docs/adr/0049-a-file-carries-its-own-revision.md)）。
+**描述。** 工程可以写 `schematic`（实例、net、port、约束、bus——一块板一份扁平文件，[ADR-0025](docs/adr/0025-flat-board-and-print-pages.md)）；用带端口的 `module` 文件组合板，展平进板级 IR、IR 仍是平表（[ADR-0026](docs/adr/0026-modules-compose-boards.md)）；用 `view` 打印页画图，它是独立描述、永远不进构建（[ADR-0021](docs/adr/0021-schematic-view-layer.md)、[ADR-0032](docs/adr/0032-view-is-a-drawing-not-a-build-input.md)）；用 `pcb` 描述物理事实与规则意图（12 段，[ADR-0003](docs/adr/0003-agent-first-pcb-ir.md)）；布局与布线是 agent 驱动的循环（[ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md)），不内建求解器；用 `system` 描述经声明端口的跨板连接（[ADR-0001](docs/adr/0001-board-linking.md)）；用 `procurement` 决定这块板买哪颗（主料 + 备料，[ADR-0030](docs/adr/0030-procurement-layer.md)）；用 `component` 备器件——`kind: part` 带料号，`kind: generic` 把取值留给实例行（[ADR-0027](docs/adr/0027-device-parts-families-and-library-dependencies.md)、[ADR-0037](docs/adr/0037-device-kind-vocabulary-and-one-device-directory.md)）——再用 `symbol` / `footprint` 写几何，引脚的电学事实仍归器件（[ADR-0012](docs/adr/0012-symbol-description.md)）。`project.toml` 是最外层的元数据。除 `component` 外，`fmt` 对上面每一种描述都写 canonical form。库是**模板，不是依赖**：`texteda lib import` 把一颗器件和它引用的符号 / 封装拷进 `assets/`、写成裸 id、加上来源头注释，并盖上每个文件自己的版本号（[ADR-0047](docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md)、[ADR-0049](docs/adr/0049-a-file-carries-its-own-revision.md)）。
 
 **检查。** `texteda check` 一次跑完：解析、IR 契约、连通性 ERC、sch↔pcb 绑定（包括每一对声明的 `connect` 是否真有铜箔兑现，以及把部分布局**报出来**而不是静默通过，[ADR-0041](docs/adr/0041-connect-pairs-must-be-implemented-by-copper.md)、[ADR-0040](docs/adr/0040-partial-layout-is-legal-and-reported.md)）、器件词表与参数角色（[ADR-0038](docs/adr/0038-device-vocabulary-and-parameter-roles.md)）、额定值对不对得上声明的窗口、耗散对不对得上声明的上限（[ADR-0043](docs/adr/0043-ratings-are-compared-against-declared-windows.md)、[ADR-0044](docs/adr/0044-dissipation-is-checked-against-declared-limits.md)）、选料、评审轮次是否闭环与处置人是否越权（[ADR-0033](docs/adr/0033-review-records-and-attribution.md)），以及板 ↔ 打印页交叉校验与可读性数值。参考工程上是 **0 error**；那些 warning 是它诚实的现状——`mcu-board` 是块 bring-up 板，没有 `pcb`，选料表是空的。
 
@@ -55,7 +55,7 @@ bun run texteda init ./my-board        # 生成空工程骨架
 
 **导出与哈希。** KiCad `.kicad_mod` / `.kicad_sym`、网表（IR 的连通性投影）、物料表。`texteda ir` 写 `dist/ir/`：每种描述一份 canonical JSON 分片、一份带每片 sha256 的 manifest、一个覆盖**规范**分片的工程哈希，以及另一个 `advisory_hash`——画（打印页）与第二货源（备料）属于附注类（[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)）。
 
-**还没落地。** 布局与布线（借用）、Gerber / Excellon 与 `fab` 描述（backlog F15，[ADR-0034](docs/adr/0034-manufacturing-output-target-form.md)）、KiCad 原理图导出（F16）、逆向工程与外部网表的导入器（F36）、评审 GUI 的 `placement` / `edit` 两模式与点击跳源码（F11 / F34）、模块参数与嵌套（F13），以及把引用整体重键到实例 UID（实例已有稳定 `uid`，但改 refdes 仍会改源码与哈希；[ADR-0051](docs/adr/0051-instances-have-a-stable-project-local-uid.md)）。KiCad 仍是制造出口（[ADR-0005](docs/adr/0005-manufacturing-output.md)）。
+**还没落地。** agent 驱动的布局与布线循环（[ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md)，无内置求解器）、Gerber / Excellon 与 `fab` 描述（backlog F15，[ADR-0034](docs/adr/0034-manufacturing-output-target-form.md)）、KiCad 原理图导出（F16）、逆向工程与外部网表的导入器（F36）、评审 GUI 的 `layout` / `placement` / `edit` 模式（F34；点击跳源码已落地）、模块参数与嵌套（F13），以及把引用整体重键到实例 UID（实例已有稳定 `uid`，但改 refdes 仍会改源码与哈希；[ADR-0051](docs/adr/0051-instances-have-a-stable-project-local-uid.md)）。KiCad 仍是制造出口（[ADR-0005](docs/adr/0005-manufacturing-output.md)）。
 
 给 agent 用的两份派生物（都由 `bun run gen` 生成，不手改）：
 
@@ -70,18 +70,20 @@ bun run texteda init ./my-board        # 生成空工程骨架
 
 TextEDA 不是 GUI EDA 工具，也不打算变成一个。它站在编辑器上面一层：文本描述语言 + 类型化 IR 作为唯一真源，再加校验器、参考渲染器与导出器。
 
+TextEDA 的完整对比按三个透镜组织——商业全流程 GUI、开源/低成本 GUI、代码/文本优先——另有 AI 原生托管工具作为相邻一类；这份表格是短版。代表工具：Altium、Cadence、Siemens（商业）；KiCad、EasyEDA、LibrePCB、Horizon（开源/低成本）；atopile、tscircuit、SKiDL、JITX（代码/文本优先）；heypcb、Flux（AI 原生托管）。
+
 | | TextEDA | KiCad | EasyEDA | tscircuit |
 |---|---|---|---|---|
 | **你编辑的东西** | `.teda` 文本——`sch` 与 `pcb` 是互不依赖的兄弟 | `.kicad_sch` / `.kicad_pcb` s-表达式 | JSON 工程源文件 | TypeScript / TSX 代码 |
 | **类型化 IR** | JSON Schema 2020-12、canonical JSON、只用整数单位 | 没有独立层，文件本身就是模型 | JSON 工程格式 | `circuit-json`（zod） |
 | **校验** | 连通性 ERC · sch↔pcb 绑定 · 器件规则与额定值 · 选料 · IR 契约 | 内置 ERC 与 DRC | DRC | zod + 写在 IR 里的告警 |
 | **评审** | 浏览器里看渲染出的打印页：hover、选中；画法是源文件，不是重建 | 原理图与 PCB 编辑器 | 原理图与 PCB 编辑器 | web 查看器 |
-| **布局 / 布线** | 借用（KiCad、freerouting） | 内置 | 内置 | 代码里算 |
+| **布局 / 布线** | agent 驱动、checker 门控、无内置求解器（[ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md)） | 内置 | 内置 | 代码里算 |
 | **制造出口** | 尚未实现（F15）；目标形态是制造中立数据 | 内置 | 内置，可一键下单 | Gerber / BOM / 坐标转换器 |
-| **Agent 接入方式** | 文本 + 类型化 IR + 冻结的诊断码 | Python 与 `kicad-cli` | API SDK + WebSocket 桥接的 AI skill | agent 直接写程序 |
+| **Agent 接入方式** | 文本 + 类型化 IR + 冻结的诊断码 + 结构化布局工具（roadmap） | Python 与 `kicad-cli` | API SDK + WebSocket 桥接的 AI skill | agent 直接写程序 |
 | **许可** | Apache-2.0，契约层永久开源 | GPL-3.0+，库为 CC-BY-SA 4.0 | 编辑器闭源，SDK 为 Apache-2.0 | MIT |
 
-带出处与日期的完整对比——**包括 TextEDA 还没做到的部分**——见 [docs/comparison.md](docs/comparison.md)。
+带出处与日期的完整三透镜对比——**包括 TextEDA 还没做到的部分**——见 [docs/comparison.md](docs/comparison.md)。
 
 ## CI
 
@@ -91,7 +93,33 @@ TextEDA 不是 GUI EDA 工具，也不打算变成一个。它站在编辑器上
 
 KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.yml`，定时 + 手动触发），因为门禁不得依赖外部软件（[ADR-0018](docs/adr/0018-zero-dependency-and-manufacturing-target.md)）。
 
-## 结构
+## 工程结构
+
+`texteda init` 生成的工程按**归属**分组，不按工具分组（[ADR-0031](docs/adr/0031-project-tree-ownership-model.md)）：
+
+```text
+my-board/
+├── project.toml              # 名称 / 版本 / 格式
+├── assets/                   # 工程自有的器件资产
+│   ├── components/           # 件与通用器件；kind 写在文件里
+│   ├── symbols/
+│   ├── footprints/
+│   └── procurement/          # primary/ + alternatives/
+├── design/                   # 电路源码
+│   ├── sch/<board>.teda
+│   ├── pcb/<board>.teda
+│   ├── modules/<module>.teda
+│   └── system/<system>.teda
+├── views/
+│   └── <board>/<page>.view.teda  # S1 打印页；进仓库、不进构建身份
+├── docs/                     # 意图、评审记录、证据
+├── external/                 # 外购材料；cache/ 本地且被忽略
+└── dist/                     # 生成输出；已 gitignore
+```
+
+`assets/**` 与 `design/**` 是输入；`views/**` 是手写、进仓库，但不参与构建身份；`dist/**` 是派生输出（`texteda ir` 写出 `dist/ir/`）。
+
+## 仓库结构
 
 | 路径 | 是什么 |
 |---|---|
@@ -105,16 +133,16 @@ KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.
 | `packages/exporter` | 封装 / 符号 → KiCad（`.kicad_mod` / `.kicad_sym`）；网表 |
 | `packages/renderer` | 参考渲染器：IR → 绘图指令 → SVG，以及把 round-trip 闭环的反解（[ADR-0014](docs/adr/0014-reference-renderer.md)） |
 | `packages/viewer` | 评审 app 的浏览器端：画面、hover 高亮、选身份；无框架、画布不可编辑（[ADR-0021](docs/adr/0021-schematic-view-layer.md)） |
-| `packages/cli` | `texteda init` / `id` / `compile` / `check` / `netlist` / `ir` / `bom` / `view-metrics` / `review` / `lib import`（[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)、[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)） |
+| `packages/cli` | `texteda init` / `id` / `compile` / `check` / `netlist` / `ir` / `bom` / `view-metrics` / `review` / `renumber` / `lib import`（[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)、[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)） |
 | `examples/reference-project/` | 自包含的参考工程：2 块板（一块带 `pcb`，两张打印页）、23 个器件（17 个件 + 6 个通用器件）/ 15 个符号 / 16 个封装，库全部自建，另有选料文件与三轮评审记录 |
-| `examples/cases/` | 十个困难用例：每个都是完整小工程，用期望 IR 与期望诊断钉住（现 2 / 10；`bun run cases:check`） |
-| `docs/adr/` | 决策记录（ADR）：共 49 份（[完整索引](docs/adr/README.md)） |
-| `docs/guides/` | 上手指南：造符号、造封装、导入外部库、记评审记录、多角色评审、开评审 app、读 KiCad 板文件 |
+| `examples/cases/` | 十个困难用例：每个都是完整小工程，用期望 IR 与期望诊断钉住（现 3 / 10；`bun run cases:check`） |
+| `docs/adr/` | 决策记录（ADR）：共 53 份（[完整索引](docs/adr/README.md)） |
+| `docs/guides/` | 上手指南：造符号、造封装、导入外部库、记评审记录、多角色评审、开评审 app、读 KiCad 板文件、位号重编号 |
 | `docs/skills/` | 给 agent 的操作手册：每步 = 命令 + 预期输出 + 出错看哪个诊断码 |
 | `docs/trial-run/` | 历史快照：KiCad 端到端试跑，pcb 描述 → `.kicad_pcb` → DRC + Gerber（早于自建库落地） |
 | `docs/assets/` | 品牌资产（标志、图标、生成脚本）；字体二进制不入库 |
 | `docs/backlog.md` | 待办清单 |
-| `docs/comparison.md` | 与 KiCad、EasyEDA、tscircuit 的对比（带出处） |
+| `docs/comparison.md` | 与商业全流程 GUI、开源/低成本 GUI、代码/文本优先工具的三透镜对比（带出处） |
 | `docs/error-codes.md` / `docs/ir-reference.md` | 生成的契约参考（不手改） |
 | `scripts/` | 仓库工具：链接检查、公开清扫、库校验、用例语料、迁移、预览 |
 
@@ -138,6 +166,9 @@ KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.
 - [ADR-0025](docs/adr/0025-flat-board-and-print-pages.md) 一板一份扁平原理图；页面变成视图层的打印页
 - [ADR-0026](docs/adr/0026-modules-compose-boards.md) 板由模块组成；IR 仍是平表
 - [ADR-0035](docs/adr/0035-connectivity-authority-and-reverse-engineering.md) 连通性只有一个权威；逆向工程是导入，不是模式
+
+**布局与布线**
+- [ADR-0053](docs/adr/0053-layout-and-routing-are-agent-driven.md) agent 驱动、checker 门控；沙箱、结构化工具、DRC 反馈、验收冻结
 
 **画与评审**
 - [ADR-0021](docs/adr/0021-schematic-view-layer.md) S1 视图层：画法是独立的描述类型
