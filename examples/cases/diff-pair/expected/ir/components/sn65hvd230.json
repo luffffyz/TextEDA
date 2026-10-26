@@ -1,0 +1,68 @@
+{
+  "component": {
+    "category": "interface",
+    "description": "TI SN65HVD230 3.3 V CAN transceiver, SOIC-8",
+    "footprint": "project:soic-8",
+    "id": "sn65hvd230",
+    "kind": "part",
+    "manufacturer": "Texas Instruments",
+    "mpn": "SN65HVD230DR",
+    "pins": [
+      {
+        "electrical_type": "input",
+        "name": "D",
+        "number": "1",
+        "unit": 1
+      },
+      {
+        "electrical_type": "power_in",
+        "name": "GND",
+        "number": "2",
+        "unit": 1
+      },
+      {
+        "electrical_type": "power_in",
+        "name": "VCC",
+        "number": "3",
+        "unit": 1
+      },
+      {
+        "electrical_type": "output",
+        "name": "R",
+        "number": "4",
+        "unit": 1
+      },
+      {
+        "electrical_type": "output",
+        "name": "Vref",
+        "number": "5",
+        "unit": 1
+      },
+      {
+        "electrical_type": "bidirectional",
+        "name": "CANL",
+        "number": "6",
+        "unit": 1
+      },
+      {
+        "electrical_type": "bidirectional",
+        "name": "CANH",
+        "number": "7",
+        "unit": 1
+      },
+      {
+        "electrical_type": "input",
+        "name": "RS",
+        "number": "8",
+        "unit": 1
+      }
+    ],
+    "pins_source": "inline",
+    "symbol": "project:sn65hvd230"
+  },
+  "ir_version": "0.14",
+  "source": {
+    "file": "assets/components/interface/sn65hvd230.teda",
+    "line": 1
+  }
+}

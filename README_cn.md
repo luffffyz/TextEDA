@@ -29,7 +29,7 @@ bun run lib:verify      # 库级闭环（**零外部依赖**）
 bun run lib:verify:kicad  # 可选：追加 KiCad 互操作段（KiCad 能读能渲染、合并板 DRC 0 违规）
 bun run check:links      # 全部 Markdown 链接与 ADR 交叉引用可解析
 bun run check:public     # 公开清扫：查全历史——没有厂商 PDF、没有凭据、没有维护者路径
-bun run cases:check      # 钉住的十用例语料（现落地 3 / 10）
+bun run cases:check      # 钉住的十用例语料（现落地 4 / 10）
 bun run preview symbol bq24610rger     # 画符号（不依赖 KiCad）
 bun run preview component bq24610rger  # 画器件的符号 + 封装
 bun run preview view charger-buck/buck-5v  # 画原理图打印页（从视图文件，不依赖 KiCad）
@@ -135,7 +135,7 @@ my-board/
 | `packages/viewer` | 评审 app 的浏览器端：画面、hover 高亮、选身份；无框架、画布不可编辑（[ADR-0021](docs/adr/0021-schematic-view-layer.md)） |
 | `packages/cli` | `texteda init` / `id` / `compile` / `check` / `netlist` / `ir` / `bom` / `view-metrics` / `review` / `renumber` / `lib import`（[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)、[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)） |
 | `examples/reference-project/` | 自包含的参考工程：2 块板（一块带 `pcb`，两张打印页）、23 个器件（17 个件 + 6 个通用器件）/ 15 个符号 / 16 个封装，库全部自建，另有选料文件与三轮评审记录 |
-| `examples/cases/` | 十个困难用例：每个都是完整小工程，用期望 IR 与期望诊断钉住（现 3 / 10；`bun run cases:check`） |
+| `examples/cases/` | 十个困难用例：每个都是完整小工程，用期望 IR 与期望诊断钉住（现 4 / 10；`bun run cases:check`） |
 | `docs/adr/` | 决策记录（ADR）：共 54 份（[完整索引](docs/adr/README.md)） |
 | `docs/guides/` | 上手指南：造符号、造封装、导入外部库、记评审记录、多角色评审、开评审 app、读 KiCad 板文件、位号重编号 |
 | `docs/skills/` | 给 agent 的操作手册：每步 = 命令 + 预期输出 + 出错看哪个诊断码 |

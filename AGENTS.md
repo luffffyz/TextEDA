@@ -308,7 +308,7 @@ flowchart LR
 2. 能用一段 EBNF + 一段语义说明 + 一个正例 + 一个反例说清；
 3. 有明确的错误信息文案（含行列与修复建议）。
 
-**现状：第 1 条可以问了，但答案集还小**——`examples/cases/` 已有 3 个用例（`dual-opamp-multi-unit`、`nc-pins`、`bus`，见 §10），另 7 个未写，所以"哪个用例用到这个新特性"现在能答，但"没有用例用到"还不足以下结论：7 个空位里的任何一个都可能本该用它。剩下的用例没补齐前，仍**同时**要求 ADR 写清"这个特性解决哪个具体硬件问题"并给最小片段。补语料见 `docs/backlog.md` F12。
+**现状：第 1 条可以问了，但答案集还小**——`examples/cases/` 已有 4 个用例（`dual-opamp-multi-unit`、`nc-pins`、`bus`、`diff-pair`，见 §10），另 6 个未写，所以"哪个用例用到这个新特性"现在能答，但"没有用例用到"还不足以下结论：6 个空位里的任何一个都可能本该用它。剩下的用例没补齐前，仍**同时**要求 ADR 写清"这个特性解决哪个具体硬件问题"并给最小片段。补语料见 `docs/backlog.md` F12。
 
 ### 5.3 表格的边界（提议）
 
@@ -510,7 +510,7 @@ dist/ir/
 
 ## 10. 验证与验收
 
-- **十用例语料**（先于实现写）：BGA 200 脚、双运放多单元、20 路电源域、差分对、DNP 变体、net tie、总线、层次复用、参数化分压、NC 引脚。**现状：3 / 10 已落地**（2026-10-25，`examples/cases/`，约定见该目录 `README.md`）：`dual-opamp-multi-unit`（一个件三个单元，net 成员必须写单元 `U1.2.OUT`；裸名命中两个单元报 `ref.ambiguous-pin`）、`nc-pins`（`no_connect` 引脚静默 / 有意悬空报 `net.pin-unassigned` / 已连静默，三者各有归宿）、`bus`（bus 只是命名方案：成员行展开成普通 net，不连接成员；port / constraint 可以点名成员 net；一个 bus id 只允许一个块，重复成员行才合并）。每个用例是一个完整小工程，期望 = `expected/ir/**`（逐字节）+ `expected/manifest.json`（去掉 `tool_version`）+ `expected/diagnostics.json`（`code/severity/file/line`，不钉文案）；`bun run cases:check` 比对、`--update` 重写，`bun test` 里有一条把它带上。用例必须是**无 error** 的合法设计（error 属于负例夹具）。
+- **十用例语料**（先于实现写）：BGA 200 脚、双运放多单元、20 路电源域、差分对、DNP 变体、net tie、总线、层次复用、参数化分压、NC 引脚。**现状：4 / 10 已落地**（2026-10-25 落地三个，2026-10-27 落地 `diff-pair`，`examples/cases/`，约定见该目录 `README.md`）：`dual-opamp-multi-unit`（一个件三个单元，net 成员必须写单元 `U1.2.OUT`；裸名命中两个单元报 `ref.ambiguous-pin`）、`nc-pins`（`no_connect` 引脚静默 / 有意悬空报 `net.pin-unassigned` / 已连静默，三者各有归宿）、`bus`（bus 只是命名方案：成员行展开成普通 net，不连接成员；port / constraint 可以点名成员 net；一个 bus id 只允许一个块，重复成员行才合并）、`diff-pair`（差分对是**声明**不是几何：`diff CANH CANL 120Ω ±10%` 与 `skew CANH CANL <= 5mm` 只进 IR 的 `impedance_mohm` / `tolerance_ppm` / `op` / `length_nm`，没有检查器消费它们；两个 net 仍是普通 net，按普通规则查）。每个用例是一个完整小工程，期望 = `expected/ir/**`（逐字节）+ `expected/manifest.json`（去掉 `tool_version`）+ `expected/diagnostics.json`（`code/severity/file/line`，不钉文案）+ `expected/netlist.txt`；`bun run cases:check` 比对、`--update` 重写，`bun test` 里有一条把它带上。用例必须是**无 error** 的合法设计（error 属于负例夹具）。
 - **conformance**：`source → IR → netlist` 的黄金文件；任何实现必须通过。**现状：未存在**（netlist 导出也未实现）。
 - **binding**：`sch + pcb` 一致性用例，含 5 类受控偏差的正反例。**现状：未存在**（pcb 解析未实现）。
 - **components**：id/文件名一致、pin 编号与封装一致、`params` 列解析、文件缺失报错。**现状：部分**——前两项在 `lib:verify` 里（符号引脚号集合与器件一致、封装焊盘号覆盖器件引脚）；`params` 列解析已随 sch 解析器落地（按器件 `params` 段声明的顺序取值，单位按 [ADR-0008](docs/adr/0008-ir-shard-identity-and-hash.md) decision 4 换算成整数）。

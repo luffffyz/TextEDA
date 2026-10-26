@@ -1,0 +1,7 @@
+[project]
+name = "diff-pair"
+version = "0.1.0"
+format = "0.9"
+description = "Case 4 of the ten: a differential pair is a constraint, not a geometry"
+license = "Apache-2.0"
+status = "draft"

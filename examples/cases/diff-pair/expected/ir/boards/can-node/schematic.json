@@ -1,0 +1,198 @@
+{
+  "board": "can-node",
+  "constraints": [
+    {
+      "impedance_mohm": 120000,
+      "net_a": "CANH",
+      "net_b": "CANL",
+      "tolerance_ppm": 100000,
+      "type": "diff"
+    },
+    {
+      "length_nm": 5000000,
+      "net_a": "CANH",
+      "net_b": "CANL",
+      "op": "<=",
+      "type": "skew"
+    },
+    {
+      "max_uv": 0,
+      "min_uv": 0,
+      "subject": "GND",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "V3V3",
+      "type": "voltage"
+    }
+  ],
+  "format": "0.9",
+  "instances": [
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C1",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDh8m3dn"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C2",
+      "params": [
+        {
+          "name": "value",
+          "value": 4700000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 50000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDk4t9cp"
+    },
+    {
+      "component": "hdr-1x3-254",
+      "id": "J1",
+      "uid": "IDb2v7gn"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R1",
+      "params": [
+        {
+          "name": "value",
+          "value": 60400000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDc5j3ht"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R2",
+      "params": [
+        {
+          "name": "value",
+          "value": 60400000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDm8p6cf"
+    },
+    {
+      "component": "sn65hvd230",
+      "id": "U1",
+      "uid": "IDt4v9kn"
+    }
+  ],
+  "ir_version": "0.14",
+  "nets": [
+    {
+      "id": "CANH",
+      "members": [
+        "J1.1",
+        "R1.1",
+        "U1.7"
+      ]
+    },
+    {
+      "id": "CANL",
+      "members": [
+        "J1.2",
+        "R2.1",
+        "U1.6"
+      ]
+    },
+    {
+      "id": "CAN_RX",
+      "members": [
+        "U1.4"
+      ]
+    },
+    {
+      "id": "CAN_TX",
+      "members": [
+        "U1.1"
+      ]
+    },
+    {
+      "id": "GND",
+      "members": [
+        "C1.2",
+        "C2.2",
+        "J1.3",
+        "U1.2",
+        "U1.8"
+      ]
+    },
+    {
+      "id": "SPLIT",
+      "members": [
+        "C2.1",
+        "R1.2",
+        "R2.2"
+      ]
+    },
+    {
+      "id": "V3V3",
+      "members": [
+        "C1.1",
+        "U1.3"
+      ]
+    }
+  ],
+  "ports": [
+    {
+      "id": "CAN_RX",
+      "net": "CAN_RX"
+    },
+    {
+      "id": "CAN_TX",
+      "net": "CAN_TX"
+    },
+    {
+      "id": "GND",
+      "net": "GND"
+    },
+    {
+      "id": "V3V3",
+      "net": "V3V3"
+    }
+  ],
+  "source": {
+    "file": "design/sch/can-node.teda",
+    "line": 1
+  }
+}

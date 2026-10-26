@@ -1,0 +1,23 @@
+version 0.4.1
+footprint soic-8
+
+description SOIC-8 8-pin package, generic land pattern
+tags smd soic
+attr smd
+package_code SOIC-8
+field Reference at=0,-3.4 layer=F.SilkS size=1,1 thickness=0.15 REF**
+field Value at=0,3.4 layer=F.Fab size=1,1 thickness=0.15 soic-8
+
+pads
+  1  smd  roundrect  -2.7  -1.905  1.55  0.6  rratio=0.35
+  2  smd  roundrect  -2.7  -0.635  1.55  0.6  rratio=0.35
+  3  smd  roundrect  -2.7  0.635   1.55  0.6  rratio=0.35
+  4  smd  roundrect  -2.7  1.905   1.55  0.6  rratio=0.35
+  5  smd  roundrect  2.7   1.905   1.55  0.6  rratio=0.35
+  6  smd  roundrect  2.7   0.635   1.55  0.6  rratio=0.35
+  7  smd  roundrect  2.7   -0.635  1.55  0.6  rratio=0.35
+  8  smd  roundrect  2.7   -1.905  1.55  0.6  rratio=0.35
+
+graphics
+  rect  F.CrtYd  -3.75,-2.55,3.75,2.55    width=0.05
+  rect  F.Fab    -1.975,-2.45,1.975,2.45  width=0.1

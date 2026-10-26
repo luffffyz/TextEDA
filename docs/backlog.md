@@ -284,21 +284,24 @@ ADR-0020 的决策：
 - 评审 GUI（F34）依赖的是 D6 的身份索引，不是 D2 的源映射；两者别混。
 
 
-## F12. 十用例语料（语法准入规则的闸门）——**进行中（3 / 10）**
+## F12. 十用例语料（语法准入规则的闸门）——**进行中（4 / 10）**
 
-**进度（2026-10-25）**：约定落地在 `examples/cases/README.md`（一个用例 = 一个完整小工程 + `expected/{ir/**,manifest.json,diagnostics.json}`；`bun run cases:check` 比对、`--update` 重写，`bun test` 里有一条带上它；用例必须无 error）。已写：
+**进度（2026-10-25 三个，2026-10-27 加 `diff-pair`）**：约定落地在 `examples/cases/README.md`（一个用例 = 一个完整小工程 + `expected/{ir/**,manifest.json,diagnostics.json,netlist.txt}`；`bun run cases:check` 比对、`--update` 重写，`bun test` 里有一条带上它；用例必须无 error）。已写：
 
 | 用例 | 证明什么 | 暴露的问题 |
 |---|---|---|
 | `dual-opamp-multi-unit` | 一个件三个单元；net 成员必须写单元（`U1.2.OUT`）；unit 只是引脚的事实，实例仍是一行 | 裸名 `U1.OUT` 原先**静默取第一个**（会把线接到错的单元上）→ 已改成 `ref.ambiguous-pin`，提示写单元 |
 | `nc-pins` | `no_connect` 静默 / 有意悬空告警 / 已连静默，三者分得开；port 豁免单成员告警；三爪（TH）封装 | 契约的 `layer_name` 模式拒绝 `*.Cu`——**任何 TH 封装都过不了契约**（解析器一直在产出这个名字）→ 已修模式并补正例夹具 |
 | `bus` | `bus` 只是命名方案：成员行展开成普通 net（`i2c0.scl`），不连接成员；port / constraint 可以点名成员 net；一个 bus id 只允许一个块，重复**成员行**才合并 | 成员 net 原先**不在** `scope.nets` 里，port 与 constraint 点名它会被报 `ref.unknown-net`；重复的 `bus` 块原先静默产出两个同 id 的 bus 分片 → 已补 `busNets` 解析、`ref.duplicate-bus` 与 `net.duplicate-member`，并修 `fmt` 把第二个 bus 块覆盖掉的问题 |
+| `diff-pair` | 差分对是**声明**不是几何：`diff CANH CANL 120Ω ±10%` 与 `skew CANH CANL <= 5mm` 落在 IR 的 `impedance_mohm`(120000) / `tolerance_ppm`(100000) / `op`(`<=`) / `length_nm`(5000000)；两个 net 仍是普通 net（成员、窗口、悬空引脚照常查）；split termination 用 4 个通用件围一对线；`U1.Vref` 有意悬空 → 一条 `net.pin-unassigned` warning 被钉住 | 没有。全部用现有语言写出（`diff` / `skew` 自 `spec/teda.md` §7.4 起就有语法、解析器与契约分支），用例证明的是**没有东西消费它们**——`packages/core` 里没有检查器读 `diff` / `skew`，所以这对约束只能钉 IR，钉不到诊断。**缺口是检查器，不是表面**。另外顺手抓到一个渲染器缺陷：通孔焊盘的层是通配名 `*.Cu` / `*.Mask`，`LAYER_STYLE` 没有这两个键，回退成 `fill=none stroke=none`——**整块通孔焊盘画不出来**（参考工程全是 SMD 件，三个带排针的用例都没人看一眼图）。已补样式与绘序，回归测试见 `packages/renderer/test/wildcard-layers.test.ts`；同时修了两个用例里丝印压在焊盘上的行 |
 
-**剩下的 7 个，各自的已知障碍**（写之前先读）：
+**`diff` / `skew` 的落地状态（写于 2026-10-27）**：语法（`spec/teda.md` §7.4）、解析（`packages/parser/src/schematic.ts` 的 `case "diff"` / `case "skew"`）、契约（`schematic.schema.json` 的 `constraint` 分支）都在，**没有**任何规则消费它们：`impedance` / `length` / `diff` / `skew` 目前只被「pcb 里点名的 net 必须存在」这条绑定校验顺带看到（`packages/core/src/binding/checks.ts`）。差分阻抗与等长要能判定，得先有 B0 的走线数据与 DRC 指标（F48），所以本项不重复登记。
+
+**剩下的 6 个，各自的已知障碍**（写之前先读）：
 
 - **DNP 变体**：语言**没有** `dnp` 的表面（`project.toml` 的 `[variants]` 也还没解析），IR 有 `dnp` 字段但没有来源 → 先定表面（ADR），再写用例。
 - **net tie**：受控偏差在 `pcb` 的类型里，需要 `pcb` 描述 + `connect` 段 + 铜箔，用例要带一块最小的板。
-- 其余 5 个（BGA 200 脚、20 路电源域、差分对、层次复用、参数化分压）都能用现有语言写，按难度排：差分对 → 层次复用 → BGA 200 脚 → 参数化分压 → 20 路电源域。
+- 其余 4 个（BGA 200 脚、20 路电源域、层次复用、参数化分压）都能用现有语言写，按难度排：层次复用 → BGA 200 脚 → 参数化分压 → 20 路电源域。
 - **20 路电源域**写完后要回头回答 §11 Q2（表达式程度）：如果表真的宽到不可用，那才是引入受限表达式的触发条件。
 
 
@@ -321,10 +324,10 @@ ADR-0020 的决策：
 
 **要做的事**：
 
-1. ~~定目录约定~~ **已定**（2026-10-24，实际形状见 `examples/cases/README.md`）：一个用例 = 一个完整小工程（`project.toml` + `assets/` + `design/sch/`），期望在 `expected/ir/**`（逐字节）+ `expected/manifest.json`（去掉 `tool_version`）+ `expected/diagnostics.json`（`code/severity/file/line`，不钉文案）。
+1. ~~定目录约定~~ **已定**（2026-10-24，实际形状见 `examples/cases/README.md`）：一个用例 = 一个完整小工程（`project.toml` + `assets/` + `design/sch/`），期望在 `expected/ir/**`（逐字节）+ `expected/manifest.json`（去掉 `tool_version`）+ `expected/diagnostics.json`（`code/severity/file/line`，不钉文案）+ `expected/netlist.txt`（连通性投影）。
 2. 十个用例逐个落地，每个至少含：源描述、期望 IR（canonical）、**以及这个用例触发的检查点**（哪些错误码、哪些断言）。
 3. ~~先做不依赖 sch 解析器的四个~~：sch 解析器已落地，这条按难度排取代（见上面的进度表）；`nc-pins` 已完成。
-4. 再做需要 sch 解析器的六个：BGA 200 脚、双运放多单元、20 路电源域、总线、层次复用、参数化分压。
+4. 再做需要 sch 解析器的六个：BGA 200 脚、双运放多单元、20 路电源域、总线、层次复用、参数化分压（外加差分对；`dual-opamp-multi-unit`、`bus`、`diff-pair` 已完成）。
 5. ~~每个用例配一条可跑的检查~~ **已落地**：`bun run cases:check`（`--update` 重写）+ `bun test` 里的 `packages/cli/test/cases.test.ts`。
 6. 用例写完后回头把 §5.2 的闸门接上（当前状态：能问"哪个用例用到它"，但"没有用例用到"还不足以下结论，见 `AGENTS.md` §5.2）。
 

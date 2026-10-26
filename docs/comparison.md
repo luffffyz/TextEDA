@@ -224,7 +224,7 @@ The comparison is only honest if the gaps are on the same page as the features:
 | No manufacturing output | the pipeline ends at KiCad import for now | backlog F15, target shape decided in [ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md) |
 | Agent-facing DRC is not implemented | the agent loop has no geometric feedback yet | ADR-0053; DRC subset is planned in `packages/core` |
 | Identity is the flattened name for references | an instance has a stable `uid`, but net/view/pcb references and hashes still follow display names, so renames are not diff-stable | [ADR-0051](adr/0051-instances-have-a-stable-project-local-uid.md) |
-| No third-party conformance proof | "standard" is currently a claim backed by one reference project and 3 landed cases, not by independent implementations | backlog F12 (3 of 10 cases), deliberately deferred |
+| No third-party conformance proof | "standard" is currently a claim backed by one reference project and 4 landed cases, not by independent implementations | backlog F12 (4 of 10 cases), deliberately deferred |
 | No physical sign-off | the design is checked, but no DRC-grade rule set and no manufacturing files | by design — CAM judgement is borrowed ([ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md)) |
 | Small, project-built library | real parts must be authored per project | by design — see [ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) |
 
@@ -248,7 +248,7 @@ The comparison is only honest if the gaps are on the same page as the features:
 TextEDA's claim is that the contract layer becomes the standard. That claim is ahead of the
 evidence: it needs a working agent layout/routing loop with a real DRC subset
 ([ADR-0053](adr/0053-layout-and-routing-are-agent-driven.md)), the full ten-case conformance corpus
-(F12 — 3 of 10 landed), rekeying references to stable instance UIDs
+(F12 — 4 of 10 landed), rekeying references to stable instance UIDs
 ([ADR-0051](adr/0051-instances-have-a-stable-project-local-uid.md)), a third-party implementation
 (F4), and a language version that reaches 1.0 ([ADR-0022](adr/0022-language-versioning.md)). Until
 then the honest position is: **a well-specified, machine-checkable description language with a

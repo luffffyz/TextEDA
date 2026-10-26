@@ -29,7 +29,7 @@ bun run lib:verify      # library closure, **zero external dependencies**
 bun run lib:verify:kicad  # optional: adds the KiCad interoperability section
 bun run check:links      # every Markdown link and ADR cross-reference resolves
 bun run check:public     # public sweep over the whole history: no vendor PDFs, no credentials, no maintainer paths
-bun run cases:check      # the pinned ten-case corpus (3 of 10 landed so far)
+bun run cases:check      # the pinned ten-case corpus (4 of 10 landed so far)
 bun run preview symbol bq24610rger     # draw a symbol (no KiCad needed)
 bun run preview component bq24610rger  # draw a component's symbol + footprint
 bun run preview view charger-buck/buck-5v  # draw a schematic print page from its view file (no KiCad needed)
@@ -133,7 +133,7 @@ my-board/
 | `packages/viewer` | The review app's browser side: page, hover highlight, identity selection; no framework, no canvas editing ([ADR-0021](docs/adr/0021-schematic-view-layer.md)) |
 | `packages/cli` | `texteda init` / `id` / `compile` / `check` / `netlist` / `ir` / `renumber` / `bom` / `view-metrics` / `review` / `lib import` ([ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md), [ADR-0023](docs/adr/0023-ir-layer-on-disk.md)) |
 | `examples/reference-project/` | Self-contained reference project: 2 boards (one with a `pcb`, two print pages), 23 devices (17 parts + 6 generics) / 15 symbols / 16 footprints, all libraries self-built, plus procurement files and three review rounds |
-| `examples/cases/` | The ten difficult cases: a whole project each, pinned by expected IR and diagnostics (3 of 10 landed; `bun run cases:check`) |
+| `examples/cases/` | The ten difficult cases: a whole project each, pinned by expected IR and diagnostics (4 of 10 landed; `bun run cases:check`) |
 | `docs/adr/` | Architecture decision records: 54 of them ([full index](docs/adr/README.md)) |
 | `docs/guides/` | How-to guides: build a symbol, build a footprint, import a library, keep review records, run a multi-role review, open the review app, read a KiCad board file, renumber reference designators |
 | `docs/skills/` | Agent manuals: every step is a command, an expected output, and the diagnostic code to read when it fails |

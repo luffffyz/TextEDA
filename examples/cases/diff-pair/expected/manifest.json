@@ -1,0 +1,71 @@
+{
+  "ir_version": "0.14",
+  "shards": [
+    {
+      "path": "boards/can-node/schematic.json",
+      "sha256": "21fb41e209f88aa4208aec171f2193b4b36ffc89f7913dcb78256efcf2dc42ca",
+      "normative": true
+    },
+    {
+      "path": "components/cap-mlcc-0402.json",
+      "sha256": "64072260b00929f2ab225aeb4bfa1d414f9e7fad5ade6ae2378f2eeae65695fc",
+      "normative": true
+    },
+    {
+      "path": "components/hdr-1x3-254.json",
+      "sha256": "424941f87a8415c70f96e895225b46f29d4756595de10a8385660275da360343",
+      "normative": true
+    },
+    {
+      "path": "components/res-thick-0402.json",
+      "sha256": "0b93b109a1ed241b4aafa6bc014406c351e266806767ab0c70a29ebc115bd58e",
+      "normative": true
+    },
+    {
+      "path": "components/sn65hvd230.json",
+      "sha256": "121f61d93bf22e74b3a84311dcb66aaabf699430c2c98f5018438b639ee7c601",
+      "normative": true
+    },
+    {
+      "path": "footprints/project/chip-0402.json",
+      "sha256": "ab6387326ec4506405de5725ad12a6336f7aa84032f45b0c400228e13eee4e13",
+      "normative": true
+    },
+    {
+      "path": "footprints/project/hdr-1x3-254.json",
+      "sha256": "52695ea3a6086aa8780a4b80ad00e9e470778c353a4a581408ee3d81c7ba7a04",
+      "normative": true
+    },
+    {
+      "path": "footprints/project/soic-8.json",
+      "sha256": "18ef8d695497c1e27d2169d0d3029423942f744b6432f081050879c83acbe0fb",
+      "normative": true
+    },
+    {
+      "path": "project.json",
+      "sha256": "cfa76b98f7e0d5cd88173594b7a83f297912d53c546022afad3f240ec287eaa5",
+      "normative": true
+    },
+    {
+      "path": "symbols/project/c.json",
+      "sha256": "930899f521ecc455ff8ced3d157f73fcdff265936d1a760cd34910581088a15e",
+      "normative": true
+    },
+    {
+      "path": "symbols/project/hdr-1x3.json",
+      "sha256": "df47bc5dd2a5c1e0fd33ae890bb679e102986f81824893407d7d0609c48987af",
+      "normative": true
+    },
+    {
+      "path": "symbols/project/r.json",
+      "sha256": "cf424904941cc7ece02b13e1e7c3342ee925e88010a3bb6d3e11dff0f8092dcc",
+      "normative": true
+    },
+    {
+      "path": "symbols/project/sn65hvd230.json",
+      "sha256": "79c0aa0aefbe54deb9bdb89d2af84cf81e992c151fe6c06733542a637cd5aedd",
+      "normative": true
+    }
+  ],
+  "source_hash": "ec35a26035b4e736efaebf4655afcd6a3491c2d5f7baeb956ba1ab36686f30ae"
+}

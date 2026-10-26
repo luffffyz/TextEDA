@@ -1,0 +1,40 @@
+version 0.9
+schematic can-node
+
+# Case 4 of the ten (AGENTS.md §10, docs/backlog.md F12): a differential pair is a constraint, not a geometry.
+#
+# The pair is declared, never drawn: `diff CANH CANL 120Ω ±10%` states an impedance target, `skew CANH
+# CANL <= 5mm` states a length relationship. Nothing about geometry, routing or length matching is implied;
+# each net is ordinary — members, windows, unassigned pins are checked by the ordinary rules. Split
+# termination explains the four resistors/caps around one pair (R1/R2 split the pair, C1 decouples, C2
+# splits the return).
+#
+# `U1.Vref` (pin 5) is deliberately left in no net: it emits the intended `net.pin-unassigned` warning.
+instances
+  C1  IDh8m3dn  cap-mlcc-0402   100n  10%  16V  X7R
+  C2  IDk4t9cp  cap-mlcc-0402   4.7n  10%  50V  X7R
+  J1  IDb2v7gn  hdr-1x3-254
+  R1  IDc5j3ht  res-thick-0402  60R4  ±1%
+  R2  IDm8p6cf  res-thick-0402  60R4  ±1%
+  U1  IDt4v9kn  sn65hvd230
+
+nets
+  CANH:    J1.1  R1.1  U1.CANH
+  CANL:    J1.2  R2.1  U1.CANL
+  CAN_RX:  U1.R
+  CAN_TX:  U1.D
+  GND:     C1.2  C2.2  J1.3  U1.GND  U1.RS
+  SPLIT:   C2.1  R1.2  R2.2
+  V3V3:    C1.1  U1.VCC
+
+ports
+  CAN_RX  CAN_RX
+  CAN_TX  CAN_TX
+  GND     GND
+  V3V3    V3V3
+
+constraints
+  diff     CANH  CANL            120Ω  ±10%
+  skew     CANH  CANL            <=    5mm
+  voltage  GND   0V..0V
+  voltage  V3V3  3.135V..3.465V

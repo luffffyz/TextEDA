@@ -18,7 +18,7 @@
     },
     {
       "path": "footprints/project/hdr-1x4-254.json",
-      "sha256": "ae3c8a995ecc6383bd1b23c825a43bf56fadc31aa7396ac47f55fe6de805846f",
+      "sha256": "ae5cbc434ed1356319d69c97c7a5d7dbe85d08c58bb770714f8dc1ae10f13b12",
       "normative": true
     },
     {
@@ -42,5 +42,5 @@
       "normative": true
     }
   ],
-  "source_hash": "f9fce133acfa8a5e5130c1f7de5937dbb88be4701510452002a8dbdf57e2840e"
+  "source_hash": "f9c9fbb64ee9796ad019dc0161ea387bd247d319057f773ff92c5a4786058db6"
 }

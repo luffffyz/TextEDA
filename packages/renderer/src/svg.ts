@@ -186,6 +186,11 @@ const LAYER_STYLE: Record<string, { stroke: string; fill: string }> = {
   pin: { stroke: "#b45309", fill: "#b45309" },
   "F.Cu": { stroke: "#b45309", fill: "#b45309" },
   "B.Cu": { stroke: "#92400e", fill: "#92400e" },
+  // `*.Cu` / `*.Mask` name every copper (or mask) layer at once: a through-hole pad is on both sides
+  // (spec/footprint.md §4). A preview draws that pad once, in front-copper colour, because a single
+  // image cannot show two sides; unrecognized layers would draw the pad with no fill at all.
+  "*.Cu": { stroke: "#b45309", fill: "#b45309" },
+  "*.Mask": { stroke: "#7c3aed", fill: "#7c3aed" },
   "F.SilkS": { stroke: "#9ca3af", fill: "none" },
   "B.SilkS": { stroke: "#9ca3af", fill: "none" },
   "F.Fab": { stroke: "#2563eb", fill: "none" },
@@ -235,8 +240,10 @@ function fillAttr(fill: SvgFill, style: LayerStyle): string {
 const LAYER_ORDER = [
   "F.Cu",
   "B.Cu",
+  "*.Cu",
   "F.Mask",
   "B.Mask",
+  "*.Mask",
   "F.Paste",
   "B.Paste",
   "F.SilkS",

@@ -1,0 +1,21 @@
+version 0.1.2
+component sn65hvd230
+
+kind         part
+mpn          SN65HVD230DR
+manufacturer Texas Instruments
+category     interface
+description  TI SN65HVD230 3.3 V CAN transceiver, SOIC-8
+
+symbol project:sn65hvd230
+footprint project:soic-8
+
+pins
+  1  D        input
+  2  GND     power_in
+  3  VCC     power_in
+  4  R        output
+  5  Vref    output
+  6  CANL    bidirectional
+  7  CANH    bidirectional
+  8  RS       input

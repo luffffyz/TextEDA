@@ -1,0 +1,20 @@
+version 0.1.4
+component cap-mlcc-0402
+
+kind         generic
+category     capacitor
+construction mlcc
+polarized    no
+
+symbol project:c
+footprint project:chip-0402
+
+params
+  value      capacitance required
+  tolerance  percent     required
+  voltage    voltage     required
+  dielectric string      required
+
+pins
+  1  A  passive
+  2  B  passive

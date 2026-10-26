@@ -16,4 +16,4 @@ pads
 
 graphics
   rect  F.CrtYd  -5.16,-1.35,5.16,1.35  width=0.05
-  rect  F.SilkS  -4.66,-0.85,4.66,0.85  width=0.12
+  rect  F.SilkS  -5,-1.05,5,1.05        width=0.12
