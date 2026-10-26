@@ -96,7 +96,10 @@ for (const { path, text } of files) {
   }
 
   // A path under /tmp is a generic scratch directory and says nothing about the maintainer.
-  const homeMatches = [...text.matchAll(homePathPattern)].map((m) => m[0]);
+  // A URL path is not a local path: a vendor URL whose path starts with `home/tools` says nothing
+  // about the maintainer's machine, so strip URLs before looking for a home directory.
+  const homePathText = text.replace(/https?:\/\/\S+/g, "");
+  const homeMatches = [...homePathText.matchAll(homePathPattern)].map((m) => m[0]);
   for (const match of homeMatches) fail(`${path}: absolute path from a maintainer's machine: ${match}`);
 
   const emails = [...text.matchAll(emailPattern)].map((m) => m[0]);
