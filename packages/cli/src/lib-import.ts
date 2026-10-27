@@ -17,9 +17,11 @@
 import { lstatSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import {
+  formatVersion,
   parseComponent,
   REV_RE,
   SECTIONS as FOOTPRINT_SECTIONS,
+  SUPPORTED_LANGUAGE,
   SYMBOL_SECTIONS,
 } from "@texteda/parser";
 import { readLibraryManifest, type TrustEntry } from "./library-manifest.ts";
@@ -57,8 +59,12 @@ const ASSET_DIRS = ["components", "symbols", "footprints"] as const;
 /** Sections a component file may open; a `provenance` scalar goes before the first one. */
 const COMPONENT_SECTIONS = new Set(["params", "pins", "ratings"]);
 
-/** The version line a copied component carries: the surface that has `provenance` and `rev` (teda.md §13.4). */
-const COMPONENT_VERSION = "0.1.7";
+/**
+ * The version line every copied file carries: the language has one version number, and a copy is
+ * written against the language the tool implements (ADR-0056 D1). Derived from the parser, so it
+ * cannot drift from the version the tool accepts.
+ */
+const LANGUAGE_VERSION = formatVersion(SUPPORTED_LANGUAGE);
 
 interface LibraryFile {
   /** Path relative to the template directory, e.g. `components/power/tps7a02.teda`. */
@@ -493,8 +499,10 @@ function rewrite(
     const cells = trimmed.split(/\s+/).filter(Boolean);
     if (!isComment && COMPONENT_SECTIONS.has(trimmed)) inSection = true;
     const isProvenance = isComponent && !isComment && !inSection && /^provenance\s/.test(trimmed);
-    if (!isComment && /^version\s/.test(trimmed) && isComponent) {
-      out.push(`version ${COMPONENT_VERSION}`);
+    if (!isComment && /^version\s/.test(trimmed)) {
+      // Every copied file carries the language's one version number (ADR-0056 D1): the copy is
+      // written against the language this tool implements, whichever type it is.
+      out.push(`version ${LANGUAGE_VERSION}`);
     } else if (isProvenance && reviewed !== undefined && cells[1] === "generated") {
       // The record is newer information than the transcription marker it replaces: `generated` says
       // a machine copied the file, not that nobody has looked at it since.
@@ -565,10 +573,10 @@ function fileRev(text: string, group: LibraryFile["group"]): string | undefined 
 /**
  * The copy's facts: its lines with everything an import rewrites taken out.
  *
- * The importer rewrites exactly four things — the origin header, the stamped `rev`, a component's
- * `version` (a copy always carries the surface that has `provenance`), and the provenance block it
- * derives from a record — plus the library qualifier of self-authored assets. Everything else is
- * verbatim, so what remains is the library's content.
+ * The importer rewrites exactly four things — the origin header, the stamped `rev`, the `version`
+ * (every copy carries the language's one number, ADR-0056 D1), and the provenance block it derives
+ * from a record — plus the library qualifier of self-authored assets. Everything else is verbatim, so
+ * what remains is the library's content.
  *
  * Comparing two texts this way answers "did this release touch this file" without a hash: a comment
  * edit or a pin change is a new revision, a re-stamp is not (ADR-0049 decision 5).

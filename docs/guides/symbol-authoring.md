@@ -45,7 +45,7 @@
 语法见 `spec/symbol.md`。完整示例：`examples/reference-project/assets/symbols/project/bq24610rger.teda`。
 
 ```
-version 0.5
+version 0.9.1
 symbol bq24610rger
 
 description 24V synchronous buck battery charger controller
@@ -71,7 +71,7 @@ body
 - `body` 行 2 列：`kind geometry`；`geometry` 单元格内逗号写坐标（`line`/`rect` 4 个数、`arc` 6 个、`circle` 3 个、`poly` 偶数个）。
 - **符号没有层**：`field` 不接受 `layer`（那是封装的概念）。
 - **缺省值不写**：`length=2.54`、`unit=1`、`style=line`、`units 1`、`pin_numbers show` 等一律省略（`spec/symbol.md` §8）。
-- v0.1 不支持：文字标注（极性、功能名）、图片、贝塞尔。缺口不硬塞：可以在库里放手写 `.kicad_sym` 兜底（不受 schema 管）。
+- 不支持：文字标注（极性、功能名）、图片、贝塞尔。缺口不硬塞：可以在库里放手写 `.kicad_sym` 兜底（不受 schema 管）。
 
 手写时不必纠结对齐和顺序，写完跑一次：
 

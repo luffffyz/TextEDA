@@ -1,4 +1,4 @@
-version 0.1.7
+version 0.9.1
 component opa2333
 
 # TI OPA2333 dual zero-drift op-amp, SOIC-8. One part, three units: A (pins 1-3), B (pins 5-7),

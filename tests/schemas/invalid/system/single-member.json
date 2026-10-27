@@ -1,6 +1,6 @@
 {
   "ir_version": "0.14",
-  "format": "0.2",
+  "format": "0.9.1",
   "system": "cabinet",
   "boards": [{ "id": "amp" }],
   "nets": [{ "id": "SYS", "members": ["amp.SYS_IN"] }]

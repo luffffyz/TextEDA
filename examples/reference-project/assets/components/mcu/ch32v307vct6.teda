@@ -1,4 +1,4 @@
-version 0.1.2
+version 0.9.1
 component ch32v307vct6
 
 # Pins use their primary function names; alternate functions go in the alt= column (the symbol only draws placement, without names).

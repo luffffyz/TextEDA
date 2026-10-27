@@ -865,8 +865,11 @@ export const DIAGNOSTIC_CODES = {
   "format.unsupported-version": {
     domain: "format",
     severity: "error",
-    summary: "The format version is higher than the version supported by this tool",
-    hint: "Lower the file version, or upgrade the tool",
+    summary: "The file declares a version this tool does not accept for this description type",
+    // The code covers three cases: a version above the language's, one below the description type's
+    // floor, and a different major. Only the call site's own hint can say which; this one has to be
+    // true for all three, so it names the versions the tool accepts rather than a direction to move in.
+    hint: "Give the file a version this tool accepts: the language's current version, or the version this description type was introduced at (or later)",
     spec: ["teda.md §13"],
   },
   "format.role-invalid": {

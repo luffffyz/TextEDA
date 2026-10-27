@@ -1,6 +1,6 @@
 {
   "ir_version": "0.14",
-  "format": "0.5",
+  "format": "0.9.1",
   "source": {
     "file": "pcb/demo.teda"
   },

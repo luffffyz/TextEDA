@@ -2,7 +2,7 @@
   "ir_version": "0.14",
   "project": {
     "description": "Case 7 of the ten: a bus names nets, it does not join them",
-    "format": "0.9",
+    "format": "0.9.1",
     "name": "bus",
     "status": "draft",
     "version": "0.1.0"

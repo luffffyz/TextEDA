@@ -17,7 +17,7 @@ else is added by hand when it is needed.
 
 | Table | Keys | When |
 |---|---|---|
-| `[project]` | `name` `version` `format` | **Required**; `version` is the project version, `format` is the language/file-format version |
+| `[project]` | `name` `version` `format` | **Required**; `version` is the project version, `format` is the **language version** — the one number every `.teda` file in the project declares (current value: `spec/teda.md` §13.1) |
 | `[project]` | `description` `license` `status` | Optional; `license` in SPDX form, `status` one of `draft` / `prototype` / `frozen` / `production` / `deprecated` |
 | `[project]` | `owner` | Optional, but **required once review records exist**: the project's responsible person (creator, or whoever took it over). Only the owner may dispose of review comments ([ADR-0033](../docs/adr/0033-review-records-and-attribution.md)) |
 | `[project]` | `default_variant` | With several variants; must point at a defined `[variants.<id>]` |
@@ -38,6 +38,9 @@ else is added by hand when it is needed.
 ## 2. Rules
 
 - **Unknown top-level keys are an error** (`ext` is the one exception).
+- `format` is the **language version**, not a per-description-type version: it is the number every
+  `.teda` file in the project declares. The current value is in `spec/teda.md` §13.1, the acceptance
+  rules in `spec/teda.md` §13.3.
 - No timestamps, absolute paths, random IDs, secrets, or derived data (BOM / Gerber / checksums).
 - `init` writes only `name` / `version` / `format`; everything else is added when needed.
 - The board-level structure of a project is out of scope for this repository: this repository

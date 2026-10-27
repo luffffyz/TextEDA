@@ -14,7 +14,7 @@
       "type": "voltage"
     }
   ],
-  "format": "0.9",
+  "format": "0.9.1",
   "instances": [
     {
       "component": "res-22k1-0402",

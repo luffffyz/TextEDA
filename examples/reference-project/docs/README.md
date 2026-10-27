@@ -50,9 +50,9 @@ instances
 
 The package is not written in the `instances` row; it is determined by `assets/components/passives/r-0402.teda`.
 
-`mcu-board.teda` is a single-file board (`version 0.2`, `ports` only): CH32V307VCT6 minimal system + TPS7A2033PDBVR 3.3V LDO, 5V in, 3V3 out, SWD via board-level ports. Component selection and calculations are in `mcu-board-components.md`.
+`mcu-board.teda` is a single-file board (it declares `ports`, no pages): CH32V307VCT6 minimal system + TPS7A2033PDBVR 3.3V LDO, 5V in, 3V3 out, SWD via board-level ports. Component selection and calculations are in `mcu-board-components.md`.
 
-`charger-buck.teda` (`version 0.7`) is a single-file board: `BQ24610 charging/power path + TPS5430 5V buck`, **one physical board** sharing one BOM and one PCB. `refdes` and net names are unique inside the board, and the two circuits are told apart by numbering and by net prefix:
+`charger-buck.teda` is a single-file board: `BQ24610 charging/power path + TPS5430 5V buck`, **one physical board** sharing one BOM and one PCB. `refdes` and net names are unique inside the board, and the two circuits are told apart by numbering and by net prefix:
 
 - The power path is `C1`..`C18`, `D1`..`D4`, `L1`, `NTC1`, `Q1`..`Q5`, `R1`..`R22`, `U1`; its nets are `AC_*`, `ADAPTER_*`, `BAT*`, `PH`, `SYS`, `TS*`, `VBAT`, `VCC`, `VFB`, `VREF`, …
 - The buck continues the board's numbering: `C19`..`C22`, `D5`, `L2`, `R23`, `R24`, `U2`; its nets carry a `BUCK_` prefix (`BOOT`, `BUCK_PH`, `BUCK_VFB`) and it shares the board's `GND`, `SYS` and `VOUT` rails.
@@ -69,7 +69,7 @@ Decision records are in the repository's `docs/adr/0025-flat-board-and-print-pag
 
 ## pcb/
 
-`design/pcb/charger-buck.teda` (`version 0.7`) is a **trial-run fixture for the KiCad export chain**, not the production PCB of the `charger-buck` board:
+`design/pcb/charger-buck.teda` is a **trial-run fixture for the KiCad export chain**, not the production PCB of the `charger-buck` board:
 
 - Only the 9 components of the buck are placed; the components of the power path are not placed and are treated as variant status (not populated) per `spec/pcb.md` §5.2 rule 1. A production PCB must place all instances.
 - Instance ids and net names are the board's own: `U2`, `C19`, … and `GND` / `SYS` / `VOUT` / `BOOT` / `BUCK_PH` / `BUCK_VFB`.
@@ -82,7 +82,7 @@ Decision records are in the repository's `docs/adr/0025-flat-board-and-print-pag
 - All description files share the `.teda` extension; the first line distinguishes `component` / `schematic` / `pcb` / `system` / `view`.
 - `design/sch/`, `design/pcb/`, and `design/system/` are split by **description type**, not by board; the same board uses the same file name in `design/sch/` and `design/pcb/` (`charger-buck.teda`), distinguished by directory. A board's print pages are the exception and live in `views/<board_id>/<page_id>.view.teda`.
 - One board = one file, one BOM, one PCB. Do not split a board into several schematic files; partition the drawing instead.
-- File-header versions are declared per file: files using the flat board model are `version 0.7`, files using `ports` are `0.2`, the rest stay at `0.1`; `[project].format` records the highest version used by the project.
+- Every description file carries the same number: the language has one version, not one per description type (see [ADR-0056](../../../docs/adr/0056-one-language-version-number.md)). A file's number is the language generation it was written against; `[project].format` carries the same number.
 - `design/pcb/` may be empty; when the PCB description is missing, sch↔pcb binding verification is skipped and the report marks it "not verified".
 - Component references in `variants` use the stable `component_id`, not refdes.
 - Design documents and simulation evidence go in `docs/`; conclusions are bound to the design version they verified.

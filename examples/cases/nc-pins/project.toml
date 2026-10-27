@@ -1,7 +1,7 @@
 [project]
 name = "nc-pins"
 version = "0.1.0"
-format = "0.9"
+format = "0.9.1"
 description = "Case 10 of the ten: the three ways a pin can be unconnected"
 license = "Apache-2.0"
 status = "draft"

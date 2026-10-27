@@ -13,6 +13,11 @@
 // it, and the patch number is ignored when a file is accepted. The patch component is optional; when
 // it is zero it is left out, so `0.6` and `0.6.0` are the same version and the IR stores one spelling.
 //
+// The language has ONE version number (ADR-0056): every `.teda` file declares the language version it
+// was written against, and the number is the same for all description types. The only per-type fact
+// left is the version a type was **born** at — a type that did not exist yet cannot have a file from
+// before it. The ceiling is the language's current version for every type.
+//
 // `1.0` is a milestone, not a number that runs out: it is reached by an explicit decision (the
 // language surface is frozen and only patch releases follow), not as a side effect of counting.
 import type { DiagnosticCodeId } from "./diagnostics.ts";
@@ -54,18 +59,21 @@ export function formatVersion(version: LanguageVersion): string {
 export interface VersionRange {
   /** The version that introduced the type: a file below it cannot use the type at all. */
   required: LanguageVersion;
-  /** The newest language version this tool understands. */
+  /** The newest language version this tool understands — the same ceiling for every type. */
   supported: LanguageVersion;
 }
 
 /**
- * The newest language version this implementation understands (teda.md §13).
+ * The language version this implementation understands (teda.md §13).
  *
- * It is the `0.x` line the whole language moves on while the surface is still open (ADR-0022's
- * appendix): `0.9` is the last global number, and `1.0` is a milestone reached by a decision, not a
- * counter. It is **not** the upper bound of a description type — that is the type's own line below.
+ * The language has one version number (ADR-0056): every `.teda` file declares the version of the
+ * language it was written against, and it is the same for all description types. It is the `0.x`
+ * line the whole language moves on while the surface is still open (ADR-0022's appendix): `0.9` is
+ * the last global MINOR, and `1.0` is a milestone reached by a decision, not a counter.
+ *
+ * It is also the upper bound every description type accepts — there is no per-type ceiling.
  */
-export const SUPPORTED_LANGUAGE: LanguageVersion = { major: 0, minor: 9, patch: 0 };
+export const SUPPORTED_LANGUAGE: LanguageVersion = { major: 0, minor: 9, patch: 1 };
 
 /** Every description type this implementation reads. */
 export type DescriptionType =
@@ -80,41 +88,41 @@ export type DescriptionType =
   | "view";
 
 /**
- * One type's version line (`teda.md` §13.3 rule 4).
+ * The language version each description type was born at (`teda.md` §13.3 rule 3).
  *
- * `born` is the version that introduced the type (or changed its surface so much that an older file
- * cannot be read): a file below it is rejected. `current` is the newest surface of that type: a file
- * above it is rejected, because no construct of that type means anything there yet.
+ * A type that did not exist yet cannot have a file from before it: a `symbol` file claiming `0.4` is
+ * nonsense and is refused. The floor is a fact about the type's existence, not about the file's age,
+ * so it survives the merge of the version lines (ADR-0056 D2).
  *
- * While the language is `0.x`, a type only moves by PATCH (ADR-0022 appendix), so `current` equals
- * the surface the type last gained — the numbers differ per type on purpose: a `symbol` file says
- * `0.5`, a `view` file `0.7`, a `procurement` file `0.9`, and all three are current.
+ * The upper bound is **not** here: it is the language's current version for every type (ADR-0056 D2).
  */
-const TYPE_LINES: Record<DescriptionType, { born: number; current: number }> = {
-  component: { born: 1, current: 1 },
-  footprint: { born: 4, current: 4 },
-  // 0.9 adds the stable instance UID column (ADR-0051).
-  module: { born: 8, current: 9 },
-  pcb: { born: 7, current: 7 },
-  procurement: { born: 9, current: 9 },
-  // A board file may still be `0.2` (a plain flat board); `0.8` added the `modules` section;
-  // `0.9` adds the optional UID column (ADR-0051).
-  schematic: { born: 1, current: 9 },
-  symbol: { born: 5, current: 5 },
-  system: { born: 2, current: 2 },
-  view: { born: 7, current: 7 },
+const TYPE_BIRTH: Record<DescriptionType, number> = {
+  component: 1,
+  footprint: 4,
+  // 0.8 introduces the `module` type.
+  module: 8,
+  // `pcb` arrived at 0.4, but the flat-board change (0.7) rewrote its shape, so 0.4 files are not
+  // read (ADR-0056 D2).
+  pcb: 7,
+  // 0.9 introduces the `procurement` type.
+  procurement: 9,
+  // A board file may still be `0.2` (a plain flat board).
+  schematic: 1,
+  symbol: 5,
+  system: 2,
+  // `view` arrived at 0.6, and 0.7 rewrote it the same way it rewrote `pcb`.
+  view: 7,
 };
 
 /**
- * The versions a description type accepts: from the version that introduced the type up to that
- * type's own current version. The upper bound is **not** shared: a type that has not changed since
- * `0.5` rejects a `0.9` file, because nothing in it is newer (teda.md §13.3).
+ * The versions a description type accepts: from the version that introduced the type up to the
+ * language's current version. The upper bound is **shared** — a `symbol` file at `0.9` is a file
+ * this tool understands, symbols included (teda.md §13.3, ADR-0056 D2).
  */
 export function typeRange(type: DescriptionType): VersionRange {
-  const line = TYPE_LINES[type];
   return {
-    required: { major: SUPPORTED_LANGUAGE.major, minor: line.born, patch: 0 },
-    supported: { major: SUPPORTED_LANGUAGE.major, minor: line.current, patch: 0 },
+    required: { major: SUPPORTED_LANGUAGE.major, minor: TYPE_BIRTH[type], patch: 0 },
+    supported: { ...SUPPORTED_LANGUAGE },
   };
 }
 
@@ -124,6 +132,10 @@ export type VersionVerdict =
 
 /**
  * Decide whether a file's version line is acceptable for a description type.
+ *
+ * The language has one version number (ADR-0056): the ceiling is the language's current version for
+ * every description type, and the only per-type fact is the version the type was born at — a file
+ * from before its type existed is refused.
  *
  * The patch number never decides: a patch release does not change the accepted file set, so any patch
  * of an accepted minor is accepted.
@@ -145,15 +157,16 @@ export function checkVersion(text: string, range: VersionRange, typeName: string
     return {
       ok: false,
       code: "format.unsupported-version",
-      message: `the ${typeName} type requires version ${formatVersion(range.required)} (current: ${text})`,
+      message: `the ${typeName} type was introduced in version ${formatVersion(range.required)}: ${text} is older`,
+      hint: `write version ${formatVersion(range.required)} or later — the ${typeName} type did not exist before that`,
     };
   }
   if (version.minor > range.supported.minor) {
     return {
       ok: false,
       code: "format.unsupported-version",
-      message: `the ${typeName} type is at version ${formatVersion(range.supported)}: ${text} is newer`,
-      hint: `write ${formatVersion(range.supported)}, or upgrade the tool — each description type has its own version line (teda.md §13.3)`,
+      message: `the language is at version ${formatVersion(range.supported)}: ${text} is newer`,
+      hint: `write ${formatVersion(range.supported)}, or upgrade the tool — the language has one version number for every description type (teda.md §13.3)`,
     };
   }
   return { ok: true, version, text: formatVersion(version) };

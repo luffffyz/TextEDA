@@ -1,4 +1,4 @@
-version 0.7
+version 0.9.1
 view charger-power
 
 # BQ24610 power path, placement study. The parts sit on a review grid; the wire runs are

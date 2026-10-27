@@ -804,27 +804,30 @@ ADR-0020 的决策：
 
 ---
 
-## F31. 每种描述类型一条版本线，`0.x` 阶段只走 PATCH（ADR-0022 附录的落地）
+## F31. 语言版本号：从每类型一条线合并成一个语言版本号（ADR-0022 附录与 ADR-0056 的落地）
 
-**现状**：**已落地**（2026-10-23）。`packages/parser/src/version.ts` 有一张冻结的类型线表（`TYPE_LINES`：每种描述类型的诞生号与当前号），`typeRange(type)` 按类型取窗口，接受上界是**该类型**的当前号。`SUPPORTED_LANGUAGE`（全语言的 `0.x` 线）只剩两个用途：`MAJOR` 比较，以及 `texteda init` 写进 `project.toml` 的 `format`（那不是某条类型线）。表里的号（诞生 = 当前，除 `schematic` 外都是类型诞生后没再移动过）：`component 0.1`、`footprint 0.4`、`module 0.8`、`pcb 0.7`、`procurement 0.9`、`schematic 0.1..0.8`、`symbol 0.5`、`system 0.2`、`view 0.7`。
+**现状**：**已落地**（2026-10-27）。九条类型版本线合并成一个语言版本号（决策见 [ADR-0056](adr/0056-one-language-version-number.md)），当前号 **0.9.1**。`packages/parser/src/version.ts` 里 `SUPPORTED_LANGUAGE` 是唯一的上界；`TYPE_BIRTH` 表只留**下界**（类型诞生号：`schematic 0.1`、`module 0.8`、`procurement 0.9`、`view 0.7`、`pcb 0.7`、`footprint 0.4`、`symbol 0.5`、`system 0.2`、`component 0.1`），`typeRange(type)` 按下界取窗口。`0.x` 阶段只走 PATCH 位（`0.9.1` → `0.9.2`），抬 MINOR 要一份决策记录。
+
+**合并前的形态**（历史，2026-10-23 至 2026-10-27）：每种描述类型一条自己的版本线，接受上界是**该类型**的当前号（`TYPE_LINES` 表）；决策见 [ADR-0022](adr/0022-language-versioning.md) 的 2026-10-22b 附录。**合并只放宽接受范围**——今天能读的文件没有一份变成不能读。
 
 **要做的事**：
 
-1. ~~**接受规则按类型**：上界改成**该描述类型当前支持的版本**（不再是全语言版本）；MAJOR 的比较也按类型；下界（类型诞生版本）不变；PATCH 仍不参与判定~~ **已落地**（2026-10-23；`TYPE_LINES` 表在 `packages/parser/src/version.ts`，九个解析器传自己的类型名）。**表里的号是冻结的**（`schematic 0.8`、`view 0.7`、`symbol 0.5`、`component 0.1`、`pcb 0.4`、`footprint 0.4`、`system 0.2`、`module 0.8`、`procurement 0.9`），新类型加一行 `0.9`。
-2. **`0.x` 阶段只走 PATCH 位**：加段、加字段不再抬 MINOR；`teda.md` §13.1 / §13.3 / §13.4 已改（见 ADR-0022 的 2026-10-22 附录）。
-3. **收敛计划**：项目接近完成时，所有类型一次性合并为 `1.0`（一份 ADR 记录），之后全语言一个号、表面冻结、只出 PATCH。触发条件：所有类型无待做的表面变更 + 十个困难用例语料存在（F12）。
-4. **文档**：`AGENTS.md` §2 不变量 10、`teda.md` §13 同步（已改）；`docs/skills/new-project.md` 若提到版本号，同步。
+1. ~~**接受规则按类型**：上界改成**该描述类型当前支持的版本**（不再是全语言版本）~~ **已落地**（2026-10-23），2026-10-27 合并成一个上界 + 按类型的下界（[ADR-0056](adr/0056-one-language-version-number.md) D2、D3）。
+2. **`0.x` 阶段只走 PATCH 位**：加段、加字段不再抬 MINOR；`teda.md` §13.1 / §13.3 / §13.4 已改（见 ADR-0022 的 2026-10-22 附录与 ADR-0056 D4）。
+3. **收敛计划**：`1.0` 是**保留号**（语言表面冻结），不会由计数走到；触发条件：没有待做的表面变更 + 十个困难用例语料存在（F12）。合并本身不是冻结——十用例还差六个。
+4. **文档**：下界表在 `teda.md` §13.1，由 `packages/parser/test/version-spec.test.ts` 与 `packages/parser/src/version.ts` 钉在一起；`AGENTS.md` 不复述版本号（ADR-0055 D1）。
 
 **验收**：
 
-- `view` 文件写 `version 0.8`（高于 view 自己的当前号 0.7）→ 报 `format.unsupported-version`，而不是接受。
-- `symbol` 文件写 `version 0.5`（等于自己当前号）→ 接受。
-- 同一工程里四种类型各写各的当前号 → `texteda check` 全绿。
+- `view` 文件写 `version 0.10`（高于语言当前号）→ 报 `format.unsupported-version`（`the language is at version 0.9.1: 0.10 is newer`）。
+- `symbol` 文件写 `version 0.4`（低于 symbol 的下界 0.5）→ 报 `format.unsupported-version`（`the symbol type was introduced in version 0.5: 0.4 is older`）。
+- 同一工程里四种类型都写 `0.9.1` → `texteda check` 全绿。
+- `teda.md` §13.1 的下界表与 `TYPE_BIRTH` 逐项一致（`bun test packages/parser`）。
 
 **注意**：
 
 - **安全依据是"未知构造默认报错"**（`AGENTS.md` §2 不变量 7）：`0.x` 阶段版本号不再精确标注"这个文件可能用了哪些新构造"，工具遇到不认识的构造会报错停下，不会误读。别因为"版本号不再细"就去实现"忽略不认识的段"——那是把兼容性的担子从诊断挪到了静默里。
-- IR 的 `format_version` 仍存文件声明的版本（canonical 写法）；IR 契约版本 `ir_version` 依旧独立（[ADR-0008](adr/0008-ir-shard-identity-and-hash.md) decision 1）。
+- IR 的 `format` 仍存文件声明的版本（canonical 写法）；IR 契约版本 `ir_version` 依旧独立（[ADR-0008](adr/0008-ir-shard-identity-and-hash.md) decision 1、[ADR-0056](adr/0056-one-language-version-number.md) D7）。
 
 ---
 
@@ -1330,7 +1333,7 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 1. **10 条记录的附录超过 40%**（`check:links` 的 R4 门禁，**永不失败**——这是"味道"不是缺陷，只能靠重写收口）：`0021` 72%（346/481）、`0054` 66%、`0028` 53%、`0022` 51%、`0038` 47%、`0010` 47%、`0006` 45%、`0013` 45%、`0029` 43%、`0035` 40%。其中 `0013`、`0035` 是 2026-10-27 这轮修正跨过门槛的（`0013` 从 34/85 到 41/92，`0035` 从 100/284 到 121/300），其余早已如此。收口规则：状态块 ≤10 行，一条新规则新开记录，整体取代走退休形式。**先做 `0021`**：它的 10 个附录块多数在陈述"某模式已落地/未建"，把这类内容一次性收进 3–4 行状态块，剩下的实现细节留在 `packages/viewer` 与 backlog F34。
 2. **版本号类陈述不该重复**：ADR-0022 的 A1/A4 表、ADR-0042 的契约版本、ADR-0015 的 `package.json` 计数都是"某个时刻的世界"，每次加包、加类型、抬契约都要回来改。**活文档侧已处理（2026-10-27）**：`AGENTS.md` 的状态块、仓库结构段、器件数、用例数、契约路径都改成了指针（现行值看 `spec/teda.md` §13.1 与 `schemas/ir/`），两个 README 的计数与两个 guide 的器件数同理。**决策记录侧仍待办**：下次重写那三条记录时把它们改成指针，只留决定本身。
 3. **12 条失效的章节指针**（2026-10-27 由 `bun run check:links` 新落地的章节引用门禁报出，全部在历史记录里所以只是 warning）：`spec/teda.md` 的 7.7 被引 7 次（`0025` / `0007` / `0008` / `0024` / `0002` / 试跑记录两处）——`spec/teda.md` 从来没有 7.7 这一节，展平与命名在 `spec/teda.md` §7.6；`spec/teda.md` 的 5.1 / 5.3 3 次（`0017`）——那两条规则其实在 `AGENTS.md` §5.1 / `AGENTS.md` §5.3，`spec/teda.md` 的 5 是文件头；`AGENTS.md` 的 2.7 / 2.8 2 次（`0016`）——`AGENTS.md` 的 2 是"不可协商的不变量"，小节号不存在，那两处指第 7、8 条不变量。**按"历史记录不追改"的规则，这 12 条不修**；它们会在下次重写这些记录时随附录一起收掉。活文档里同类的 4 条已修（`codes.ts` 的 `spec:` 字段两处、`nc-pins` README 两处）。
-4. **规范与代码都要说同一件事时，用测试把两份钉在一起**（2026-10-27）：语言版本表原来在 `spec/teda.md` 的 13.1 节是一句散文，在 `packages/parser/src/version.ts` 是另一份数据，两边可以各说各话。`spec/teda.md` 的 13.1 节现在是**表格**（每种描述类型一行：当前版本、诞生于、接受范围），`packages/parser/test/version-spec.test.ts` 读那张表并与解析器的接受范围逐项比对——抬一个类型的版本号会让测试红，而不是让规范悄悄过期。决策见 [ADR-0055](adr/0055-documentation-has-one-authority-per-fact.md) 的 2026-10-27 附录。
+4. **规范与代码都要说同一件事时，用测试把两份钉在一起**（2026-10-27）：语言版本表原来在 `spec/teda.md` 的 13.1 节是一句散文，在 `packages/parser/src/version.ts` 是另一份数据，两边可以各说各话。`spec/teda.md` 的 13.1 节现在是**表格**（每种描述类型一行：下界 + 说明；上界对所有类型是同一个语言版本号），`packages/parser/test/version-spec.test.ts` 读那张表并与解析器的接受范围逐项比对——抬一个类型的下界会让测试红，而不是让规范悄悄过期。决策见 [ADR-0055](adr/0055-documentation-has-one-authority-per-fact.md) 的 2026-10-27 附录。
 
 **验收**：
 - `bun run check:links` 的 warning 数下降，且 R1–R3 仍然零失败。现 66 条 = 10 条 R4 + 12 条失效指针 + 44 条历史记录里的跨文件裸引用（裸编号指向别的文件，按 D3 是写作规则不是门禁规则，ADR / 试跑记录里不追改）。**活文档与本 backlog 的跨文件裸引用已清零**（2026-10-27）。

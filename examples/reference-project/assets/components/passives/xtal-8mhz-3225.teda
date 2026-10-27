@@ -1,4 +1,4 @@
-version 0.1.5
+version 0.9.1
 component xtal-8mhz-3225
 
 # 8.000MHz fundamental crystal, 3225 four-pin (3.2×2.5×0.7mm), load capacitance CL=12pF, ±10ppm at 25±3℃.

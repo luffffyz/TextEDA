@@ -34,7 +34,7 @@ describe("single-file board (mcu-board)", () => {
   test("instances and nets are unique sets of the board", () => {
     const ir = result.ir!;
     expect(ir.board).toBe("mcu-board");
-    expect(ir.format).toBe("0.9");
+    expect(ir.format).toBe("0.9.1");
     expect(ir.instances.length).toBe(21);
     expect(ir.nets.length).toBe(10);
   });

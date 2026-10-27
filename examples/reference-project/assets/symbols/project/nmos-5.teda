@@ -1,4 +1,4 @@
-version 0.5
+version 0.9.1
 symbol nmos-5
 
 description N-channel MOSFET, 5-pin generic view

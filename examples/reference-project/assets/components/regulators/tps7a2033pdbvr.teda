@@ -1,4 +1,4 @@
-version 0.1.5
+version 0.9.1
 component tps7a2033pdbvr
 
 # 3.3V/300mA LDO, SOT-23-5 (DBV). Per TI SBVS348H (TPS7A20) section 4 Pin Functions:

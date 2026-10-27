@@ -1,4 +1,4 @@
-version 0.1.5
+version 0.9.1
 component rc0402fr-0710kl
 
 # 10kΩ ±1% 0402 thick-film resistor, 1/16W. The primary source for the `res-thick-0402 10k ±1%`

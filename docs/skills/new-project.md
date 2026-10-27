@@ -93,7 +93,7 @@ mkdir -p /tmp/demo/assets/symbols/project /tmp/demo/assets/footprints/project
 `assets/symbols/project/c.teda` (the symbol of a two-pin capacitor):
 
 ```
-version 0.5
+version 0.9.1
 symbol c
 
 description Non-polarized capacitor, 2-pin generic view
@@ -113,7 +113,7 @@ body
 `assets/footprints/project/chip-0402.teda`:
 
 ```
-version 0.4.1
+version 0.9.1
 footprint chip-0402
 
 description 0402 (1005 metric) chip, generic land pattern
@@ -152,7 +152,7 @@ A generic also declares its construction and whether it is polarised
 `assets/components/passives/cap-mlcc-0402.teda`:
 
 ```
-version 0.1.3
+version 0.9.1
 component cap-mlcc-0402
 
 kind         generic
@@ -207,7 +207,7 @@ to pick up a newer template, import again from the new revision and diff.
 One board file `design/sch/demo.teda` (a board is one schematic file; see `teda.md` §7):
 
 ```
-version 0.9
+version 0.9.1
 schematic demo
 
 instances
@@ -277,7 +277,7 @@ identity.
 `assets/procurement/primary/demo.teda`:
 
 ```
-version 0.9
+version 0.9.1
 procurement demo
 role primary
 
@@ -362,7 +362,7 @@ ones you actually hit:
 | the kind value `family` was renamed in 0.1.3 | `syntax.removed-construct` | Write `kind generic`; the part that fills it is chosen in the procurement layer |
 | `component res-thick-0402 has 1 required parameters, but the row gives only 0` | `value.param-count-mismatch` | Supply as many values as the `params` section declares, in its order |
 | `pin R1.2 belongs to both net MID and VCC2` | `net.pin-in-two-nets` | A pin belongs to one net; drop the extra member |
-| `version 0.9 is newer than the 0.7 supported by this tool` | `format.unsupported-version` | Lower the file version, or upgrade the tool. **The version rules are in `teda.md` §13** |
+| `the language is at version 0.9.1: 0.10 is newer` | `format.unsupported-version` | Write the language's current version, or upgrade the tool. **The version rules are in `teda.md` §13** |
 | `not a valid version number: 0.06` | `format.invalid-version` | A version is `MAJOR.MINOR[.PATCH]`, no leading zeros |
 | `an instances row needs at least 2 columns: refdes component_id` | `syntax.row-too-short` | Fill in the missing columns |
 | `invalid refdes: VCC` | `syntax.invalid-identifier` | A refdes looks like `R1` / `U12`; a net name is not a refdes |

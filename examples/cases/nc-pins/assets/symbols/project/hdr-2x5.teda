@@ -1,4 +1,4 @@
-version 0.5
+version 0.9.1
 symbol hdr-2x5
 
 # Odd pins on the left, even on the right, 2.54 apart for readability (the real pitch is 1.27; the

@@ -1,10 +1,10 @@
-# `view` 描述规范（v0.2，草案）
+# `view` 描述规范（草案）
 
 状态：草案。决策与取舍见 `docs/adr/0021-schematic-view-layer.md`（视图层）与 `docs/adr/0025-flat-board-and-print-pages.md`（板只有一份原理图文件，绘制划分是打印页）；跨描述通用的词法、单位、版本、canonical 规则见 `teda.md` §3–§5、§10、§12。
 
 本文件是 `teda.md` 的分描述补充：`.teda` 语言的共用规则在 `teda.md`，`view` 这一类描述的具体段定义在这里。
 
-**语言版本**：`view` 描述类型随语言版本 **0.6** 引入（`teda.md` §13）。**自 0.7 起，视图文件写 `version 0.7`**：视图里的 id 从"页内局部名"改为"板级名"（`docs/adr/0025-flat-board-and-print-pages.md` decision 4），0.6 的视图文件不再被接受（接受规则见 `teda.md` §13.3）。
+**语言版本**：所有 `.teda` 文件写的是**同一个语言版本号**（当前 `0.9.1`，见 `teda.md` §13.1）。`view` 的下界是 `0.7`：0.6 引入打印页，0.7 起视图里的 id 从"页内局部名"改为"板级名"（`docs/adr/0025-flat-board-and-print-pages.md` decision 4），所以 0.6 的视图文件不再被接受（接受规则见 `teda.md` §13.3）。
 
 ---
 
@@ -52,7 +52,7 @@
 ## 1. 文件头
 
 ```
-version 0.7
+version 0.9.1
 view main
 ```
 
@@ -316,7 +316,7 @@ text
 ### 10.1 正例
 
 ```
-version 0.7
+version 0.9.1
 view main
 
 sheet 297 210
@@ -339,7 +339,7 @@ label
 ### 10.2 反例
 
 ```
-version 0.7
+version 0.9.1
 view main
 
 wire

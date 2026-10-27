@@ -1,6 +1,6 @@
 {
   "ir_version": "0.14",
-  "format": "0.1",
+  "format": "0.9.1",
   "board": "charger-buck",
   "page": "buck-5v",
   "sheet": { "width_nm": 297000000, "height_nm": 210000000 },

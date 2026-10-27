@@ -74,7 +74,7 @@ C1 = C2 = 10pF → C1·C2/(C1+C2) = 5pF → CL_eff = 5 + 7 = 12pF = crystal CL �
 
 ## Schematic
 
-`sch/mcu-board.teda` (`version 0.2`, single-page board: if it fits on one page, do not split it).
+`sch/mcu-board.teda` (single-file board: if it fits on one page, do not split it).
 
 - **Power**: `VIN_5V` (board-level port `DC_IN`) → U2.IN and U2.EN (EN tied directly to IN, always on; the datasheet says EN has an internal 500kΩ pull-down, so it is off by default) → U2.OUT = `V3V3`; C9 sits at IN, C10 at OUT, C8 provides bulk for the 3V3 rail.
 - **MCU power**: `V3V3` feeds VDD_2/VDD_4/VDD_5/VIO_1/VIO_3/VDDA/VBAT/VREF+, each with one 100nF (C1–C7); VSSA and each VSS go to ground, VREF- to ground.

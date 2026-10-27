@@ -61,7 +61,7 @@ texteda lib import vendor --from /path/to/library --rev v2.1.0
 ### What the copy looks like
 
 ```text
-version 0.1.7
+version 0.9.1
 component tps7a02
 # imported from vendor@v2.1.0 on 2026-10-24: verify before manufacturing, the template was not human-reviewed
 rev v2.1.0

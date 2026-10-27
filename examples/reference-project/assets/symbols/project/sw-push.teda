@@ -1,4 +1,4 @@
-version 0.5
+version 0.9.1
 symbol sw-push
 
 description Tactile push switch, 4-pin generic view

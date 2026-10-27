@@ -24,7 +24,7 @@ A board may have many modules (tens is normal); each module has its own `refdes`
 ## 1. File
 
 ```
-version 0.8
+version 0.9.1
 module buck-5v
 ```
 
@@ -41,7 +41,7 @@ module buck-5v
 ## 2. Sections
 
 ```
-version 0.8
+version 0.9.1
 module buck-5v
 
 instances
@@ -112,7 +112,7 @@ A port **creates no connection** (same meaning as the board-level `ports` sectio
 The board file (`design/sch/<board_id>.teda`) gains a `modules` section:
 
 ```
-version 0.8
+version 0.9.1
 schematic charger-buck
 
 modules
@@ -205,7 +205,7 @@ Print pages do **not** affect the IR: they are only a drawing. Delete every prin
 
 ```
 # modules/buck-5v.teda
-version 0.8
+version 0.9.1
 module buck-5v
 instances
   U1  tps5430ddar
@@ -215,7 +215,7 @@ ports
   VOUT  VOUT
 
 # sch/charger-buck.teda
-version 0.8
+version 0.9.1
 schematic charger-buck
 modules
   M1  buck-5v
@@ -231,7 +231,7 @@ After flattening: instance `M1.U1`; net `VOUT` has member `M1.U1.VOUT` (the modu
 
 ```
 # A module port is referenced by no board net and does not say no_connect
-version 0.8
+version 0.9.1
 module buck-5v
 instances
   U1  tps5430ddar
@@ -245,7 +245,7 @@ ports
 
 ```
 # A board refdes takes the module instance shape
-version 0.8
+version 0.9.1
 schematic charger-buck
 instances
   M2  led-green

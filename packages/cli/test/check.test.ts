@@ -40,7 +40,7 @@ nets
 const PROJECT = `[project]
 name = "demo"
 version = "0.1.0"
-format = "0.9"
+format = "0.9.1"
 `;
 
 /** Build a project in a temp directory. */
@@ -512,7 +512,7 @@ function makeSystemProject(system: string, boardB: string = BOARD_B): string {
     `[project]
 name = "demo"
 version = "0.1.0"
-format = "0.9"
+format = "0.9.1"
 
 [boards.a]
 [boards.b]
@@ -630,7 +630,7 @@ describe("review rounds (ADR-0033 F33)", () => {
   /** Add `[project].owner` and an optional decision to a project built by `makeProject`. */
   function withReviews(root: string, owner: string | null, decision: string | null): void {
     if (owner !== null) {
-      writeFileSync(join(root, "project.toml"), `${PROJECT.replace('format = "0.9"', `format = "0.9"\nowner = "${owner}"`)}`);
+      writeFileSync(join(root, "project.toml"), `${PROJECT.replace('format = "0.9.1"', `format = "0.9.1"\nowner = "${owner}"`)}`);
     }
     mkdirSync(join(root, "docs/reviews"), { recursive: true });
     writeFileSync(join(root, "docs/reviews", "b-sch-r1.md"), ROUND);

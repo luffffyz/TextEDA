@@ -13,7 +13,7 @@ import { runLibImport } from "../src/lib-import.ts";
 const LIBRARY_PROJECT = `[project]
 name = "demo"
 version = "0.1.0"
-format = "0.9"
+format = "0.9.1"
 `;
 
 const TEMPLATE_DEVICE = `version 0.1.5
@@ -75,8 +75,8 @@ describe("texteda lib import", () => {
       expect(device).toContain("# imported from vendor@v2.1.0 on ");
       expect(device).toContain("symbol       vendor:tps7a02");
       expect(device).toContain("provenance generated");
-      // the copy carries the surface that has `provenance` (teda.md §13.4)
-      expect(device.startsWith("version 0.1.7\ncomponent tps7a02\n# imported from vendor@v2.1.0 on ")).toBe(true);
+      // the copy carries the language's one version number (ADR-0056 D1)
+      expect(device.startsWith("version 0.9.1\ncomponent tps7a02\n# imported from vendor@v2.1.0 on ")).toBe(true);
       expect(device).toContain("\nrev v2.1.0\n");
 
       expect(existsSync(join(root, "assets/symbols/vendor/tps7a02.teda"))).toBe(true);

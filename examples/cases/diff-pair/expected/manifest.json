@@ -3,7 +3,7 @@
   "shards": [
     {
       "path": "boards/can-node/schematic.json",
-      "sha256": "21fb41e209f88aa4208aec171f2193b4b36ffc89f7913dcb78256efcf2dc42ca",
+      "sha256": "6059c1d2e5c9aa5e53d62d71ff956e7bb0873a59ffc549931a8954611506dcb2",
       "normative": true
     },
     {
@@ -43,7 +43,7 @@
     },
     {
       "path": "project.json",
-      "sha256": "cfa76b98f7e0d5cd88173594b7a83f297912d53c546022afad3f240ec287eaa5",
+      "sha256": "39cbf090f6b1df9af4c0053032a55e6a382f62c92f06e663bb8d896f2ace28cb",
       "normative": true
     },
     {
@@ -67,5 +67,5 @@
       "normative": true
     }
   ],
-  "source_hash": "ec35a26035b4e736efaebf4655afcd6a3491c2d5f7baeb956ba1ab36686f30ae"
+  "source_hash": "c4283c56bac0c1a0a95c4294b9ce613754a3eb18e4520da74978bab728d268c8"
 }

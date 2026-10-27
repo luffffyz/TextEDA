@@ -53,7 +53,7 @@
 语法见 `spec/footprint.md`。完整示例：`examples/reference-project/assets/footprints/project/sot-23-5.teda`。
 
 ```
-version 0.4.1
+version 0.9.1
 footprint sot-23-5
 
 description SOT-23-5 body 2.9x1.6mm pitch 0.95mm
@@ -84,7 +84,7 @@ graphics
 - 比例（`rratio`）在 IR 里是整数百万分比（`250000`），不是浮点。
 - 焊盘行固定 7 列，后面接 `key=value` 尾列（`rot` `drill` `rratio` `mask` `paste` `zone` `thermal_w` `thermal_g` `layers`）。
 - 图形行 3 列：`kind layer geometry`；`geometry` 单元格内用逗号写坐标（`line`/`rect` 4 个数、`arc` 6 个、`circle` 3 个、`poly` 偶数个）。
-- v0.1 不支持：自定义焊盘形状、挖空/开槽、多个 3D 模型、层叠封装。缺口不硬塞：可以在库里放手写 `.kicad_mod` 兜底（不受 schema 管）。
+- 不支持：自定义焊盘形状、挖空/开槽、多个 3D 模型、层叠封装。缺口不硬塞：可以在库里放手写 `.kicad_mod` 兜底（不受 schema 管）。
 
 手写时不必纠结对齐和顺序，写完跑一次：
 

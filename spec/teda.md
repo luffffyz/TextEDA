@@ -1,4 +1,4 @@
-# `.teda` 格式规范（v0.9，草案）
+# `.teda` 格式规范（v0.9.1，草案）
 
 状态：草案。`AGENTS.md` 记录设计决策与边界，本文件定义具体格式。两者冲突时，以 `AGENTS.md` 的不变量为准，并修本文件。
 
@@ -11,7 +11,7 @@
 `.teda` 是**一行一事实**的文本格式：文件头声明类型，段（section）放表，表行的列由该段的 schema 解释。
 
 ```
-version 0.1
+version 0.9.1
 schematic main
 
 instances
@@ -146,12 +146,12 @@ description USB hub with 2 downstream ports
 ## 5. 文件头与版本
 
 ```
-version 0.1.2
+version 0.9.1
 component tps7a02
 ```
 
 - 版本行必须是第一条有效行；类型行必须是第二条。
-- 版本号的形式与各位的含义见 §13；接受规则见 §13.3。PATCH 位不参与判定。遇到更高版本默认报错；`--allow-unknown` 可放宽。
+- 版本行写的是**语言版本**：全语言一个号，每个 `.teda` 文件都写同一个（当前号见 §13.1）。版本号的形式与各位的含义见 §13；接受规则见 §13.3。PATCH 位不参与判定。遇到更高版本默认报错；放宽要显式开关（见 [ADR-0004](../docs/adr/0004-ir-representation.md) 的前向兼容约定）。
 - 类型行与目录必须一致。
 - 头部 id 与文件名必须一致。
 
@@ -445,7 +445,7 @@ constraints
 
 `power` 约束的**主语必须是引脚**（`R1.1`、`M1.R1.1`）：耗散属于器件实例，不属于 net；写 net 的 `power` 约束当前不参与任何比较，也不报错（net 的功率预算还没有语义）。
 
-### 7.5 `ports` 段（可选，v0.2）
+### 7.5 `ports` 段（可选，v0.2 引入）
 
 `port` 是**板的 `net` 的对外名字**。系统级描述消费板级端口（§8）。
 
@@ -465,7 +465,7 @@ ports
 
 ---
 
-### 7.6 一块板 = 一份原理图文件 + 若干模块（v0.8）
+### 7.6 一块板 = 一份原理图文件 + 若干模块（v0.8 引入）
 
 一块板 = 一份 `design/sch/<board_id>.teda` + 若干个模块文件。板内**没有**第二套绘制划分：没有 `pages` 段，没有 `page` 描述类型。板内**有**一层逻辑层次：**模块**——带端口、持有电气事实，语法见 `spec/module.md`，决策见 `docs/adr/0026-modules-compose-boards.md`。
 
@@ -481,12 +481,12 @@ ports
 
 ---
 
-## 8. `system` 文件（多板连接，v0.2）
+## 8. `system` 文件（多板连接，v0.2 引入）
 
 一块板一个 `sch`；板与板之间怎么连，由独立的 `system` 描述表达。决策与理由见 `docs/adr/0001-board-linking.md`。
 
 ```
-version 0.2
+version 0.9.1
 system cabinet
 
 boards
@@ -646,21 +646,25 @@ nets
 
 `version` 为 `MAJOR.MINOR[.PATCH]`，三位各自无前导零。**PATCH 位可省略，省略即 0**：`0.6` 与 `0.6.0` 是同一个版本，IR 里只存一种写法（`0.6`）。
 
-`version` 是**该描述类型自己的**版本线，不是全语言共享的一个版本号。下表是各描述类型**今天在飞的号**——它是语言版本线的权威；`packages/parser/src/version.ts` 的 `TYPE_LINES` 实现的是同一张表的**接受范围**（只到 MINOR，因为 PATCH 不决定接受），两者由 `packages/parser/test/version.test.ts` 钉在一起。
+**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0056](../docs/adr/0056-one-language-version-number.md) D1）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.9.1**。
 
-| 描述类型 | 当前版本 | 诞生于 | 接受范围 |
-|---|---|---|---|
-| `schematic` | `0.9` | `0.1` | `0.1` – `0.9` |
-| `module` | `0.9` | `0.8` | `0.8` – `0.9` |
-| `procurement` | `0.9` | `0.9` | `0.9` |
-| `view` | `0.7` | `0.7` | `0.7` |
-| `pcb` | `0.7` | `0.7` | `0.7` |
-| `footprint` | `0.4.2` | `0.4` | `0.4` |
-| `symbol` | `0.5.1` | `0.5` | `0.5` |
-| `system` | `0.2` | `0.2` | `0.2` |
-| `component` | `0.1.7` | `0.1` | `0.1` |
+各描述类型之间剩下的唯一差别是**下界**：一种描述类型在它被引入之前不存在，所以工具不读比那更早的它的文件。上界对所有描述类型都是同一个——语言当前版本。
 
-在 `0.x` 阶段**每种描述类型默认只走 PATCH 位**（`0.8` → `0.8.1`）：加段、加字段一般也不抬 MINOR；0.9 的 UID 是最后一个全局号上的表面新增。抬 MINOR 的时机留给最后的合并（见 §13.2）。决策见 `docs/adr/0022-language-versioning.md` 的 2026-10-22 附录。
+| 描述类型 | 下界 | 说明 |
+|---|---|---|
+| `schematic` | `0.1` | 0.1 引入的板文件（板级原理图描述） |
+| `module` | `0.8` | 0.8 引入的模块描述 |
+| `procurement` | `0.9` | 0.9 引入的采购选料描述 |
+| `view` | `0.7` | 0.6 引入的打印页；0.7 起引用板级 id，所以下界是 0.7 |
+| `pcb` | `0.7` | 0.4 引入；0.7 的板扁平化改写了它的形状，所以下界是 0.7 |
+| `footprint` | `0.4` | 0.4 引入的封装几何 |
+| `symbol` | `0.5` | 0.5 引入的符号视图 |
+| `system` | `0.2` | 0.2 引入的板间连接描述 |
+| `component` | `0.1` | 0.1 引入的器件描述 |
+
+下界表由 `packages/parser/src/version.ts` 的 `TYPE_BIRTH` 实现，两者由 `packages/parser/test/version-spec.test.ts` 钉在一起：抬一个类型的下界会让测试红，而不是让规范悄悄过期。
+
+在 `0.x` 阶段**语言版本只走 PATCH 位**（`0.9.1` → `0.9.2`）：加段、加字段一般也不抬 MINOR；抬 MINOR 需要一份决策记录（[ADR-0056](../docs/adr/0056-one-language-version-number.md) D4）。
 
 | 位 | 什么时候动 | 动它意味着 |
 |---|---|---|
@@ -668,7 +672,7 @@ nets
 | MINOR | 加描述类型、加段、加字段——老文件继续合法 | 增量变更，老文件不用改 |
 | PATCH | **不改变"哪些文件合法"**的改动：加诊断码、改诊断文案、澄清规则、收紧本来就非法的检查 | 行为变更，兼容性不变 |
 
-**0.x 阶段的号码是固定的**：全局号停在 `0.9`（`procurement` 诞生的那一代），**新描述类型也诞生在 `0.9`**，计数器不再往上走；每种类型自己的版本线只走 PATCH。**`1.0` 是保留号**，只能由收敛决策（所有类型没有待做的表面变更 + 十用例语料存在）产生，不会被“计数”走到。号码**按类型独立、彼此不可比**（`symbol 0.5` 与 `procurement 0.9` 不表示谁更老）。决策见 `docs/adr/0022-language-versioning.md` 的 2026-10-22b 附录。
+**`1.0` 是保留号**：它表示语言表面冻结（见 §13.2），只能由收敛决策产生，不会被“计数”走到。`1.0` 之前的一切版本号都在 `0.x` 线里，彼此可比。决策见 `docs/adr/0022-language-versioning.md` 的 2026-10-22b 附录与 `docs/adr/0056-one-language-version-number.md`。
 
 一条硬规则：**PATCH 永远不破坏兼容性**。所以实现了 `MAJOR.MINOR` 的工具接受它的**任意** PATCH（判定时忽略 PATCH 位），`0.6.1` 的文件能被只懂 `0.6` 的工具正常读。
 
@@ -676,9 +680,9 @@ nets
 
 `1.0` 是**里程碑，不是用完的计数**：达到 1.0 需要一次显式决策（一份 ADR），表示"语言表面冻结"——之后只出 PATCH 版本（`1.0.1`、`1.0.2`…），不再加描述类型、段与字段。
 
-**在 `0.x` 阶段结束时，各描述类型的版本号会一次性合并成一个 `1.0`**，之后全语言只维护这一个号。合并的触发条件建议是：所有描述类型都没有待做的破坏性或增量表面变更，且十个困难用例语料已经存在（`docs/backlog.md` F12）——用例还在动，就说明表面还没定。
+**版本线的合并已经发生**（2026-10-28，决策见 [ADR-0056](../docs/adr/0056-one-language-version-number.md)）：九条类型版本线合成一个语言版本号，语言走到 `0.9.1`。合并不是冻结——表面还在动，十用例语料还没齐（`docs/backlog.md` F12）——所以 `1.0` 仍然是保留号，触发条件还是那份决策要写的东西：没有待做的破坏性或增量表面变更，且十个困难用例语料已经存在。
 
-所以版本号涨得快不意味着快到 1.0：日常的澄清与诊断改进走 PATCH 位，只有真正的语言增量才动 MINOR。
+所以版本号涨得快不意味着快到 1.0：日常的澄清与诊断改进走 PATCH 位，只有真正的语言增量才动 MINOR，而 MINOR 步在 `0.x` 阶段需要一份决策记录。
 
 **`1.0` 之后如果确实要改表面，那是新的 MAJOR（`2.0`）**，带迁移说明与迁移脚本——`1.x` 线因此只有 `1.0`、`1.0.1`、`1.0.2`……，不会有 `1.1`–`1.9`（`docs/adr/0022-language-versioning.md` 的 2026-10-22b 附录 A5）。
 
@@ -688,68 +692,114 @@ nets
 
 1. 版本号是合法的 `MAJOR.MINOR[.PATCH]`（否则 `format.invalid-version`）；
 2. MAJOR 与工具支持的 MAJOR 相同（否则 `format.unsupported-version`）；
-3. MINOR **不低于该描述类型诞生的版本**——`view` 文件不能写 `0.5`；
-4. MINOR **不高于该描述类型当前支持的版本**——上界是**这一种描述类型**的当前版本，不是全语言的一个版本：`view` 文件今天写 `0.7`，`symbol` 文件写 `0.5`，各写各的当前号。
+3. MINOR **不低于该描述类型的下界**（§13.1 的表）——`view` 文件不能写 `0.5`，`procurement` 文件不能写 `0.8`；
+4. MINOR **不高于语言当前的 MINOR**——上界对所有描述类型都是同一个：今天 `symbol` 文件与 `view` 文件的上界一样，都是语言当前版本。
 
-`project.toml` 的 `format` **不是**某条类型线，它是全语言版本（`teda.md` §13.1 的当前号）；`texteda init` 写的就是它。各类型的当前号是冻结表，只按 ADR 决定移动（[ADR-0022](../docs/adr/0022-language-versioning.md) 附录）。
+上界只有一个，所以"这个文件写的是不是我这行自己的号"这个问题不再存在。下界仍然是类型的事实——一种描述类型在被引入之前不存在，比它更早的号没有意义。
+
+`project.toml` 的 `format` 是**语言版本**（§13.1 的当前号），`texteda init` 写的就是它；IR 的 `format` 字段记的是源文件自己声明的版本（canonical 写法）。IR 契约版本 `ir_version` 是另一条线，不随语言版本动（[ADR-0056](../docs/adr/0056-one-language-version-number.md) D7）。
 
 PATCH 位不参与判定（见 §13.1 的硬规则）。
 
 ### 13.4 版本沿革
 
-- `0.2` 新增：`sch` 的 `ports` 段、`system` 描述类型（决策见 `docs/adr/0001-board-linking.md`）。未使用新构造的文件保持 `0.1`。
-- `0.3` 新增：`page` 描述类型、`sch` 的 `pages` 段、板内展平与 BOM 计数规则（决策见 `docs/adr/0002-board-pages-and-bom.md`）。**这两项在 `0.7` 被删除**（见下）。用到页面或 `pages` 段的板根与页面文件写 `version 0.3`。
-- `0.4` 新增：`pcb` 描述的完整段集（决策见 `docs/adr/0003-agent-first-pcb-ir.md`，语法见 `spec/pcb.md`）；`component` 的 `lcsc` 标量（决策见 `docs/adr/0006-jlc-prototype-delivery.md`）；`footprint` 描述类型（决策见 `docs/adr/0011-library-format-and-footprint-ir.md`，语法见 `spec/footprint.md`）。用到 `pcb` 段、`lcsc` 或 `footprint` 的文件写 `version 0.4`。
-- `0.5` 新增：`symbol` 描述类型（决策见 `docs/adr/0012-symbol-description.md`，语法见 `spec/symbol.md`）。用到 `symbol` 的文件写 `version 0.5`。
-- `0.6` 新增：`view` 描述类型——原理图的 S1 视图层，页面文件的孪生文件（决策见 `docs/adr/0021-schematic-view-layer.md`，语法见 `spec/schematic-view.md`）。用到 `view` 的文件写 `version 0.6`。
-- `0.7` **删除**：`page` 描述类型、`sch` 的 `pages` 段、页内命名空间与展平。一块板只有一份 `schematic` 文件；绘制划分移到视图层，成为**打印页**（决策见 `docs/adr/0025-flat-board-and-print-pages.md`）。`view` 文件的 `place` / `wire` / `label` / `port` 改为引用**板级** id（决策同前）。用到新表面的 `schematic` 与 `view` 文件写 `version 0.7`。
-  - **迁移 0.6 → 0.7**（`bun run migrate:0.7 <project dir>` 做机械部分）：
-    1. 把每个页面文件的 `instances`、`nets`、`constraints` 并进板文件；页面的 `ports` 行删掉，板根里引用页面端口的 net 行改成板级 net 本身。
-    2. 板内撞名的 `refdes` 与 `net` 由作者改名（工具不替你决定，报错并列出冲突）。
-    3. `view` 文件里的页内 id 改成板级 id，页端口改成板端口；文件名保持 `<page_id>.view.teda`。
-    4. `pcb` 文件里的实例 id 与 net 名去掉页面前缀。
-    5. 仍带 `page` 头或 `pages` 段的文件，诊断指向本条迁移说明。
-- `0.8` 新增：`module` 描述类型、`sch` 的 `modules` 段、模块端口与板级 net 的绑定、板内展平（决策见 `docs/adr/0026-modules-compose-boards.md`，语法见 `spec/module.md`）。板内重新有了**一层逻辑层次**：模块持有电气事实，带端口；绘制划分仍在视图层的打印页里。**IR 契约不变**（仍是 0.2）：板级 IR 是展平结果，不含模块结构。用到 `module` 或 `modules` 段的文件写 `version 0.8`；只含板级内容的文件仍可写 `0.7`。
-- `0.9` 新增（**`0.x` 的最后一个全局号**）：`procurement` 描述类型——一块板的采购选料（决策见 `docs/adr/0030-procurement-layer.md`，语法见 `spec/procurement.md`）。选料是**决定**不是事实：主料进工程哈希与板哈希，备料只进 advisory 哈希。`procurement` 文件写 `version 0.9`。**已落地**（2026-10-23）：解析器与 canonical fmt（`packages/parser`）、IR 契约 **v0.6** 的 `procurement` 分片（规范的主料分片 + 附注的备料分片）、`texteda compile --procurement` 与 `texteda check` 的接线。**未落地**：选料与件额定值的比对检查、BOM 输出（`docs/backlog.md` F35）。
-- `0.9` 同时新增：`schematic` 与 `module` 的实例行可带稳定 UID（`refdes IDxxxxxx …`、`M1 IDxxxxxx module_id`；决策见 [ADR-0051](../docs/adr/0051-instances-have-a-stable-project-local-uid.md)）。IR 契约到 **v0.14**，`instance` 多一个可选 `uid`；展平后的模块实例 UID 形如 `IDmodule/IDlocal`。这不是引用重写：`nets` 成员、`view` 摆位、`pcb` 摆位仍按显示名引用。
-- `component` 描述类型：`0.1` → `0.1.1`（PATCH）。新增 `kind` / `construction` / `polarized` 三个标量，并把 `kind` 变成必填、`kind: family` 的 `params` 变成必填（决策见 [ADR-0027](../docs/adr/0027-device-parts-families-and-library-dependencies.md)）。**这是破坏性变更**（老文件不再合法），按 §13.1 的 `0.x` 规则走 PATCH 位，改法见下：
+语言的每次版本变化在这里留一条，最新的在前。每条写明改了什么，并指向决定它的那份记录。
+
+#### 0.9.1 — 九条类型版本线合并为一个语言版本号（2026-10-27）
+
+- **语言只有一个版本号**（决策见 [ADR-0056](../docs/adr/0056-one-language-version-number.md) D1）：每个 `.teda` 文件声明的是语言版本，与它是哪一种描述无关；`project.toml` 的 `format` 是同一个号。
+- **下界仍按类型，上界统一**（决策同前 D2）：每种描述类型的下界是它被引入的那一版（`pcb` 例外——0.7 的板扁平化改写了它的形状，下界因此是 `0.7`）；上界是语言当前版本，对所有描述类型相同。
+- **合并只放宽接受范围**（决策同前 D3）：今天能读的文件没有一份变成不能读。
+- **版本号从此只走 PATCH 位**（决策同前 D4）：下一个是 `0.9.2`；`0.x` 阶段抬 MINOR 需要一份决策记录。
+- **`1.0` 仍然是保留号**（决策同前 D5）：合并不是冻结——十用例语料还差六个（`docs/backlog.md` F12）。
+- **IR 契约版本是另一条线，不一起合并**（决策同前 D7）：`ir_version` 记的是 IR 契约自己的版本，给的是实现 IR 契约的人，不是读 `.teda` 的人。
+- **本仓库的文件全部搬到这个号**（决策同前 D8）：`examples/` 下的 `.teda` 文件与 `project.toml` 的 `format` 变成 `0.9.1`；分片的 `format` 字段跟着变，哈希与用例金样重新生成。机械部分由 `bun run migrate:0.9 <project dir>` 做——它只改版本行，不改别的。
+
+#### 0.9 — 采购层与实例 UID（2026-10-22）
+
+- 新增 `procurement` 描述类型——一块板的采购选料（决策见 [ADR-0030](../docs/adr/0030-procurement-layer.md)，语法见 `spec/procurement.md`）。选料是**决定**不是事实：主料进工程哈希与板哈希，备料只进 advisory 哈希。**已落地**（2026-10-23）：解析器与 canonical fmt（`packages/parser`）、IR 契约 **v0.6** 的 `procurement` 分片（规范的主料分片 + 附注的备料分片）、`texteda compile --procurement` 与 `texteda check` 的接线。**未落地**：选料与件额定值的比对检查、BOM 输出（`docs/backlog.md` F35）。
+- 同一次改动里，`schematic` 与 `module` 的实例行可带稳定 UID（`refdes IDxxxxxx …`、`M1 IDxxxxxx module_id`；决策见 [ADR-0051](../docs/adr/0051-instances-have-a-stable-project-local-uid.md)，2026-10-25）。IR 契约到 **v0.14**，`instance` 多一个可选 `uid`；展平后的模块实例 UID 形如 `IDmodule/IDlocal`。这不是引用重写：`nets` 成员、`view` 摆位、`pcb` 摆位仍按显示名引用。
+
+#### 0.8 — 模块（2026-10-22）
+
+- 新增 `module` 描述类型、`sch` 的 `modules` 段、模块端口与板级 net 的绑定、板内展平（决策见 [ADR-0026](../docs/adr/0026-modules-compose-boards.md)，语法见 `spec/module.md`）。板内重新有了**一层逻辑层次**：模块持有电气事实，带端口；绘制划分仍在视图层的打印页里。**IR 契约不变**（仍是 0.2）：板级 IR 是展平结果，不含模块结构。
+
+#### 0.7 — 一块板一份原理图，页面变打印页（2026-10-21）
+
+- **删除**：`page` 描述类型、`sch` 的 `pages` 段、页内命名空间与展平。一块板只有一份 `schematic` 文件；绘制划分移到视图层，成为**打印页**（决策见 [ADR-0025](../docs/adr/0025-flat-board-and-print-pages.md)）。`view` 文件的 `place` / `wire` / `label` / `port` 改为引用**板级** id（决策同前）。
+- **迁移 0.6 → 0.7**（`bun run migrate:0.7 <project dir>` 做机械部分）：
+  1. 把每个页面文件的 `instances`、`nets`、`constraints` 并进板文件；页面的 `ports` 行删掉，板根里引用页面端口的 net 行改成板级 net 本身。
+  2. 板内撞名的 `refdes` 与 `net` 由作者改名（工具不替你决定，报错并列出冲突）。
+  3. `view` 文件里的页内 id 改成板级 id，页端口改成板端口；文件名保持 `<page_id>.view.teda`。
+  4. `pcb` 文件里的实例 id 与 net 名去掉页面前缀。
+  5. 仍带 `page` 头或 `pages` 段的文件，诊断指向本条迁移说明。
+
+#### 0.6 — 视图层（2026-10-21）
+
+- 新增 `view` 描述类型——原理图的 S1 视图层，页面文件的孪生文件（决策见 [ADR-0021](../docs/adr/0021-schematic-view-layer.md)，语法见 `spec/schematic-view.md`）。
+
+#### 0.5 — 符号（2026-10-20）
+
+- 新增 `symbol` 描述类型（决策见 [ADR-0012](../docs/adr/0012-symbol-description.md)，语法见 `spec/symbol.md`）。
+
+#### 0.4 — pcb 与封装（2026-10-20）
+
+- 新增 `pcb` 描述的完整段集（决策见 [ADR-0003](../docs/adr/0003-agent-first-pcb-ir.md)，语法见 `spec/pcb.md`）；`component` 的 `lcsc` 标量（决策见 [ADR-0006](../docs/adr/0006-jlc-prototype-delivery.md)）；`footprint` 描述类型（决策见 [ADR-0011](../docs/adr/0011-library-format-and-footprint-ir.md)，语法见 `spec/footprint.md`）。
+
+#### 0.3 — 页（2026-10-20）
+
+- 新增 `page` 描述类型、`sch` 的 `pages` 段、板内展平与 BOM 计数规则（决策见 [ADR-0002](../docs/adr/0002-board-pages-and-bom.md)）。**这两项在 `0.7` 被删除**（见上）。
+
+#### 0.2 — 端口与 system（2026-10-20）
+
+- 新增 `sch` 的 `ports` 段、`system` 描述类型（决策见 [ADR-0001](../docs/adr/0001-board-linking.md)）。未使用新构造的文件保持旧号。
+
+#### 0.1 — 语言的起点（2026-10-20）
+
+- 语言的第一个版本：那时只有 `component` 与 `schematic` 两种描述类型（后来每加一种描述类型或一段就走一次 MINOR，见 [ADR-0022](../docs/adr/0022-language-versioning.md) 的背景）。
+
+#### 合并之前：每种描述类型各有一条版本线
+
+2026-10-22 起，语言曾经同时维护九条**类型版本线**（每种描述类型一条，条与条之间不可比），2026-10-27 合并为一个语言版本号。下面这些条目记的是那段时间里**某一种描述类型自己**的版本号，不是语言的版本号——它们已经随合并退役，但改动本身（以及改法）仍然是记录。合并的决策见 [ADR-0056](../docs/adr/0056-one-language-version-number.md)，类型版本线的来历见 [ADR-0022](../docs/adr/0022-language-versioning.md) 的 2026-10-22 附录。
+
+- `component` 描述类型：`0.1` → `0.1.1`（PATCH，2026-10-22）。新增 `kind` / `construction` / `polarized` 三个标量，并把 `kind` 变成必填、`kind: family` 的 `params` 变成必填（决策见 [ADR-0027](../docs/adr/0027-device-parts-families-and-library-dependencies.md)）。**这是破坏性变更**（老文件不再合法），按合并前的规矩走 PATCH 位（类型版本线只增 PATCH），改法见下：
   - **改法**（本项目尚无外部使用者，没有需要迁移的旧文件；下面是改动的机械部分）：
     1. 有 `mpn` 的文件加 `kind part`，没有 `mpn` 的文件加 `kind family`；两者都不写 `construction` / `polarized`。
     2. `kind: family` 的文件补 `construction` 与 `polarized`（按文件名与符号能推出来的就推，推不出来的由作者填）。
     3. 族文件移到 `assets/families/`；件的 id 不带值的改名由作者决定（工具不替人命名）。
     4. `instances` 行里的器件 id 跟着改名。
   - *（`0.1.3` 撤销了这条里的两件事：`family` 改名为 `generic`，器件目录也合并回 `assets/components/`——见下。）*
-- `component` 描述类型：`0.1.1` → `0.1.2`（PATCH）。**删除** `package` 标量：封装代号改由封装文件自己写（`package_code`），器件只保留 `footprint` 引用（决策见 [ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) decision 1）。**这是破坏性变更**（老文件不再合法），按 §13.1 的 `0.x` 规则走 PATCH 位，改法见下：
+- `component` 描述类型：`0.1.1` → `0.1.2`（PATCH，2026-10-22）。**删除** `package` 标量：封装代号改由封装文件自己写（`package_code`），器件只保留 `footprint` 引用（决策见 [ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) decision 1）。**这是破坏性变更**（老文件不再合法），按合并前的规矩走 PATCH 位（类型版本线只增 PATCH），改法见下：
   - **改法**（同上没有需要迁移的旧文件）：
     1. 删掉器件文件里的 `package` 行。
     2. 把封装代号搬到对应的封装文件：写 `package_code <代号>`，封装文件的版本行改成 `0.4.1`。同一焊盘图案上出现两个不同代号时由作者决定留哪个。
-- `component` 描述类型：`0.1.2` → `0.1.3`（PATCH）。**改名与合目录**：`kind` 的第二个取值 `family` 改名为 `generic`（"族"是厂商的词：STM32F4 族、LM35 族说的都是厂商的产品线；我们这里说的是"没有厂商的器件类别"，行业里叫 generic），两种器件**合并到同一个目录** `assets/components/**`，`kind` 只写在文件里、不再从目录推断（决策见 [ADR-0037](../docs/adr/0037-device-kind-vocabulary-and-one-device-directory.md)）。**这是破坏性变更**（`kind family` 的老文件不再合法），按 §13.1 的 `0.x` 规则走 PATCH 位，改法见下：
+- `component` 描述类型：`0.1.2` → `0.1.3`（PATCH，2026-10-23）。**改名与合目录**：`kind` 的第二个取值 `family` 改名为 `generic`（"族"是厂商的词：STM32F4 族、LM35 族说的都是厂商的产品线；我们这里说的是"没有厂商的器件类别"，行业里叫 generic），两种器件**合并到同一个目录** `assets/components/**`，`kind` 只写在文件里、不再从目录推断（决策见 [ADR-0037](../docs/adr/0037-device-kind-vocabulary-and-one-device-directory.md)）。**这是破坏性变更**（`kind family` 的老文件不再合法），按合并前的规矩走 PATCH 位（类型版本线只增 PATCH），改法见下：
   - **改法**（本项目尚无外部使用者，没有需要迁移的旧文件；下面是改动的机械部分）：
     1. 器件文件里的 `kind family` 改成 `kind generic`；id、`construction`、`polarized`、`params` 一律不动。
     2. `assets/families/**` 下的文件移到 `assets/components/**`（按类别放进对应子目录）。
-    3. 通用器件文件的版本行改成 `0.1.3`；`kind: part` 的文件内容没变，版本行保持 `0.1.2`（§13.4 的规矩：没用新构造的文件保持旧号）。
+    3. 通用器件文件的版本行改成 `0.1.3`；`kind: part` 的文件内容没变，版本行保持 `0.1.2`（合并前的规矩：没用新构造的文件保持旧号；今天的接受规则见 §13.3）。
     4. 库里的器件同理；`lib:id` 的限定名规则不变。
-- `component` 描述类型：`0.1.3` → `0.1.4`（PATCH）。**词表封闭 + 必填列按构造收紧**：`construction` 变成封闭取值集（§6.1.1）；`params` 的角色名与量纲分工写进 §6.2；必填列按 `construction` 收紧（§6.2.2）；`dielectric` 的取值变成封闭集合（§6.2.1）。**这是破坏性变更**（`construction` 拼错、介质拼错、以及缺必填列的老文件不再合法），按 §13.1 的 `0.x` 规则走 PATCH 位（决策见 [ADR-0038](../docs/adr/0038-device-vocabulary-and-parameter-roles.md)）。**改法**：
+- `component` 描述类型：`0.1.3` → `0.1.4`（PATCH，2026-10-23）。**词表封闭 + 必填列按构造收紧**：`construction` 变成封闭取值集（§6.1.1）；`params` 的角色名与量纲分工写进 §6.2；必填列按 `construction` 收紧（§6.2.2）；`dielectric` 的取值变成封闭集合（§6.2.1）。**这是破坏性变更**（`construction` 拼错、介质拼错、以及缺必填列的老文件不再合法），按合并前的规矩走 PATCH 位（类型版本线只增 PATCH），决策见 [ADR-0038](../docs/adr/0038-device-vocabulary-and-parameter-roles.md)。**改法**：
   1. `construction` 改成封闭取值集里的写法（`mlcc` / `film` / `tantalum` / `electrolytic` / `thick` / `thin` / `shielded` / `molded`）。
   2. 按 §6.2.2 给每种 `construction` 补齐必填列（例：`mlcc` 补 `dielectric`，`tantalum` 把 `voltage` 提为必填）。
   3. `dielectric` 的取值改成 IEC 60068-4 的码（`X7R` / `X5R` / `C0G` …），不归一化、不收别名。
-  4. 通用器件文件的版本行改成 `0.1.4`；`kind: part` 的文件内容没变，版本行保持原号（§13.4 的规矩：没用新构造的文件保持旧号）。
+  4. 通用器件文件的版本行改成 `0.1.4`；`kind: part` 的文件内容没变，版本行保持原号（合并前的规矩：没用新构造的文件保持旧号；今天的接受规则见 §13.3）。
   - **已落地**：上表的规则表在 `packages/core`（`devices/rules.ts`），由 `texteda check` 执行（决策见 [ADR-0038](../docs/adr/0038-device-vocabulary-and-parameter-roles.md) D7）。
-- `footprint` 描述类型：`0.4` → `0.4.1`（PATCH）。新增 `package_code` 标量：这块焊盘图案的封装代号（`0402`、`SOT-23-5`、`LQFP-100`），供厂商与评审读（决策见 [ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) decision 1）。加字段在 `0.x` 阶段也走 PATCH 位；没写 `package_code` 的文件仍然合法（代号通常已经在封装 id 里），但库级检查（`bun run lib:verify`）要求每个封装都写明自己的代号。
-- `component` 描述类型：`0.1.4` → `0.1.5`（PATCH）。新增 `ratings` 段：`kind: part` 的件在这里写自己的额定值（`role type value`），`kind: generic` 不得写、`kind: part` 仍不得写 `params`（决策见 [ADR-0039](../docs/adr/0039-a-part-states-its-own-ratings.md)）。**IR 契约随之到 0.4**（`component` 分片多了 `ratings`）。用到 `ratings` 的件文件写 `version 0.1.5`；没写的件文件版本行不变（§13.4 的规矩：没用新构造的文件保持旧号）。
-- `component` 描述类型：`0.1.5` → `0.1.6`（PATCH）。新增 `provenance` 标量与 `verified_by` / `verified_on`：器件自己声明事实的来源与核对状态（决策见 [ADR-0047](../docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md) decision 5，取代 [ADR-0028](../docs/adr/0028-library-trust-and-derived-overrides.md) 的派生件）。**IR 契约随之到 v0.12**（`component` 分片多了 `provenance`）。**改法**：不写这三个标量的文件保持原号；`texteda lib import` 写出的文件是 `0.1.6` + `provenance generated`。
-- `component` / `symbol` / `footprint` 三种描述：各新增一个可选标量 `rev`——**该文件的事实最后确立的那个发布名**（不是格式 `version`，不是库整体版本），信任记录按它逐字匹配（决策见 [ADR-0049](../docs/adr/0049-a-file-carries-its-own-revision.md)）。版本线：`component 0.1.6` → `0.1.7`、`symbol 0.5` → `0.5.1`、`footprint 0.4.1` → `0.4.2`（PATCH；**IR 契约随之到 v0.13**）。**改法**：不写 `rev` 的文件保持原号——`rev` 是可选的，没有信任记录时它什么也不影响；`texteda lib import` 写出的器件是 `0.1.7`，并在没有 `rev` 的文件里盖上一个（几何文件保持它自己的版本行：patch 位不决定接受与否）。**同批改动**：`library.toml` 的 `[library] rev` 与 `[[trust]]` 的行级 `rev` 删除，条目的写法变成 `<id>@<rev>`（`docs/guides/library-import.md` §3）。
-- **契约更正**（`v0.13` 原地修，不抬契约号）：`common.schema.json` 的 `layer_name` 模式原先拒绝 `*`，而同一个 schema 的说明、`spec/footprint.md` §3 与解析器都写着“通孔焊盘用 `*.Cu` / `*.Mask`”——于是**任何通孔封装都过不了契约**（`syntax` 过了，`contract.schema-violation` 挡在门口）。模式改为允许 `*`，解析器的 `LAYER_RE` 同步，并补了通孔正例夹具（`tests/schemas/valid/footprint/th-header.json`）。**为什么原地修**：字段、类型、语义都没变，改的是与自身说明矛盾的一条正则；抬一个契约号会让“v0.13 的 IR 到底能不能有通孔封装”变成两个答案。触发用例：`examples/cases/nc-pins`。
-- **撤销**：`project.toml` 的 `[libs]` 表（连同 `content_hash` 与 `bun run lib:hash`）。工程不引用外部库；自建资产就在 `assets/`，作为规范分片进构建身份。旧文件里的 `[libs.*]` 现在报 `syntax.unknown-field`，消息直说改法；`init` 也不再建 `external/libs/`（决策见 [ADR-0047](../docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md) decision 7）。
-- **撤销**：`libref` 描述类型（`external/libs/<name>.toml`）与器件引用的 `<lib>:<id>` 限定形式。工程不再消费 `external/libs/**` 里的树；外部库是模板，用 `texteda lib import` 拷进 `assets/`（决策见 [ADR-0047](../docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md)）。旧工程里的 `external/libs/<name>.toml` 与限定 id 现在分别报 `ref.library-in-tree` 与 `ref.library-qualified-id`；改法：删掉锚点与树，重新 `lib import` 你要用的器件。
-- **收严**（`schematic`，PATCH 位不动）：**引脚引用命中多个引脚就是歧义**。`U1.OUT` 在双运放上同时命中单元 1 与单元 2 的 `OUT`，以前静默取第一个，现在报 `ref.ambiguous-pin` 并提示写 `U1.1.OUT`；同一单元内重名的引脚（两个 `GND`）同样报歧义，提示改用编号（§4.5）。**改法**：多单元器件的 net 成员写成 `<refdes>.<unit>.<pin>`；重名引脚改用编号。**为什么算 PATCH**：它不新增构造，只把一条一直写在规范里、实现却没执行的规则（"名称不唯一时改用编号"）接上——而它咬到的正是**已经在做错事**的文件（把线接到错误的单元上），与 §13.4 里"对本来就该报错的文件收严"同类。触发用例：`examples/cases/dual-opamp-multi-unit`（`docs/backlog.md` F12）。
-- `pcb` 描述类型：`0.7` → `0.7.1`（PATCH）。`physical_only` 的实体**有位置**了：行是 `<id> <type> <x> <y> [args…]`（`spec/pcb.md` §4.11），`cutout` 的参考点是矩形左下角，其余是圆心。同时**删除** `test_point` 形态——测试点是 `sch` 里的单引脚器件，不是 `pcb` 的实体（决策见 [ADR-0035](../docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D8/D9/D11，`docs/backlog.md` F38）。**这是破坏性变更**（老的 `physical_only` 行与 `test_point` 行不再合法），按 §13.1 的 `0.x` 规则走 PATCH 位。**IR 契约随之到 0.9**（`pcb` 分片：`mounting` / `fiducial` / `stitching` 多了 `x_nm` / `y_nm`，`test_point` 变体删除）。**改法**：
+- `footprint` 描述类型：`0.4` → `0.4.1`（PATCH，2026-10-22）。新增 `package_code` 标量：这块焊盘图案的封装代号（`0402`、`SOT-23-5`、`LQFP-100`），供厂商与评审读（决策见 [ADR-0029](../docs/adr/0029-package-code-footprint-and-3d-model-ownership.md) decision 1）。加字段在 `0.x` 阶段也走 PATCH 位；没写 `package_code` 的文件仍然合法（代号通常已经在封装 id 里），但库级检查（`bun run lib:verify`）要求每个封装都写明自己的代号。
+- `component` 描述类型：`0.1.4` → `0.1.5`（PATCH，2026-10-23）。新增 `ratings` 段：`kind: part` 的件在这里写自己的额定值（`role type value`），`kind: generic` 不得写、`kind: part` 仍不得写 `params`（决策见 [ADR-0039](../docs/adr/0039-a-part-states-its-own-ratings.md)）。**IR 契约随之到 0.4**（`component` 分片多了 `ratings`）。用到 `ratings` 的件文件写 `version 0.1.5`；没写的件文件版本行不变（合并前的规矩：没用新构造的文件保持旧号；今天的接受规则见 §13.3）。
+- `component` 描述类型：`0.1.5` → `0.1.6`（PATCH，2026-10-24）。新增 `provenance` 标量与 `verified_by` / `verified_on`：器件自己声明事实的来源与核对状态（决策见 [ADR-0047](../docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md) decision 5，取代 [ADR-0028](../docs/adr/0028-library-trust-and-derived-overrides.md) 的派生件）。**IR 契约随之到 v0.12**（`component` 分片多了 `provenance`）。**改法**：不写这三个标量的文件保持原号；`texteda lib import` 写出的文件是 `0.1.6` + `provenance generated`。
+- `component` / `symbol` / `footprint` 三种描述（2026-10-24）：各新增一个可选标量 `rev`——**该文件的事实最后确立的那个发布名**（不是格式 `version`，不是库整体版本），信任记录按它逐字匹配（决策见 [ADR-0049](../docs/adr/0049-a-file-carries-its-own-revision.md)）。版本线：`component 0.1.6` → `0.1.7`、`symbol 0.5` → `0.5.1`、`footprint 0.4.1` → `0.4.2`（PATCH；**IR 契约随之到 v0.13**）。**改法**：不写 `rev` 的文件保持原号——`rev` 是可选的，没有信任记录时它什么也不影响；`texteda lib import` 写出的器件是 `0.1.7`，并在没有 `rev` 的文件里盖上一个（几何文件保持它自己的版本行：patch 位不决定接受与否）。**同批改动**：`library.toml` 的 `[library] rev` 与 `[[trust]]` 的行级 `rev` 删除，条目的写法变成 `<id>@<rev>`（`docs/guides/library-import.md` §3）。
+- **契约更正**（2026-10-24，`v0.13` 原地修，不抬契约号）：`common.schema.json` 的 `layer_name` 模式原先拒绝 `*`，而同一个 schema 的说明、`spec/footprint.md` §3 与解析器都写着“通孔焊盘用 `*.Cu` / `*.Mask`”——于是**任何通孔封装都过不了契约**（`syntax` 过了，`contract.schema-violation` 挡在门口）。模式改为允许 `*`，解析器的 `LAYER_RE` 同步，并补了通孔正例夹具（`tests/schemas/valid/footprint/th-header.json`）。**为什么原地修**：字段、类型、语义都没变，改的是与自身说明矛盾的一条正则；抬一个契约号会让“v0.13 的 IR 到底能不能有通孔封装”变成两个答案。触发用例：`examples/cases/nc-pins`。
+- **撤销**（2026-10-24）：`project.toml` 的 `[libs]` 表（连同 `content_hash` 与 `bun run lib:hash`）。工程不引用外部库；自建资产就在 `assets/`，作为规范分片进构建身份。旧文件里的 `[libs.*]` 现在报 `syntax.unknown-field`，消息直说改法；`init` 也不再建 `external/libs/`（决策见 [ADR-0047](../docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md) decision 7）。
+- **撤销**（2026-10-24）：`libref` 描述类型（`external/libs/<name>.toml`）与器件引用的 `<lib>:<id>` 限定形式。工程不再消费 `external/libs/**` 里的树；外部库是模板，用 `texteda lib import` 拷进 `assets/`（决策见 [ADR-0047](../docs/adr/0047-an-external-library-is-a-template-not-a-dependency.md)）。旧工程里的 `external/libs/<name>.toml` 与限定 id 现在分别报 `ref.library-in-tree` 与 `ref.library-qualified-id`；改法：删掉锚点与树，重新 `lib import` 你要用的器件。
+- **收严**（2026-10-24，`schematic`，PATCH 位不动）：**引脚引用命中多个引脚就是歧义**。`U1.OUT` 在双运放上同时命中单元 1 与单元 2 的 `OUT`，以前静默取第一个，现在报 `ref.ambiguous-pin` 并提示写 `U1.1.OUT`；同一单元内重名的引脚（两个 `GND`）同样报歧义，提示改用编号（§4.5）。**改法**：多单元器件的 net 成员写成 `<refdes>.<unit>.<pin>`；重名引脚改用编号。**为什么算 PATCH**：它不新增构造，只把一条一直写在规范里、实现却没执行的规则（"名称不唯一时改用编号"）接上——而它咬到的正是**已经在做错事**的文件（把线接到错误的单元上），与 §13.1 里 PATCH 位那条规则（"对本来就该报错的文件收严"）同类。触发用例：`examples/cases/dual-opamp-multi-unit`（`docs/backlog.md` F12）。
+- `pcb` 描述类型：`0.7` → `0.7.1`（PATCH，2026-10-22）。`physical_only` 的实体**有位置**了：行是 `<id> <type> <x> <y> [args…]`（`spec/pcb.md` §4.11），`cutout` 的参考点是矩形左下角，其余是圆心。同时**删除** `test_point` 形态——测试点是 `sch` 里的单引脚器件，不是 `pcb` 的实体（决策见 [ADR-0035](../docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D8/D9/D11，`docs/backlog.md` F38）。**这是破坏性变更**（老的 `physical_only` 行与 `test_point` 行不再合法），按合并前的规矩走 PATCH 位（类型版本线只增 PATCH）。**IR 契约随之到 0.9**（`pcb` 分片：`mounting` / `fiducial` / `stitching` 多了 `x_nm` / `y_nm`，`test_point` 变体删除）。**改法**：
   1. 每个 `physical_only` 行在类型后面插两个坐标（mm，默认单位），写在板框里给它定的位置。
   2. `test_point` 行改成 `sch` 里的单引脚器件（不采购的写 `kind generic`），走普通 net 成员规则；`pcb` 里只保留它的封装放置。
   3. 用到位置的 `pcb` 文件写 `version 0.7.1`；没写 `physical_only` 的 `pcb` 文件版本行不变。
-- `0.x` 阶段各描述类型的版本线各自维护、只走 PATCH 位；项目接近完成时一次性合并为 `1.0`，之后全语言一个号（见 §13.1 / §13.2）。
-- 未知构造默认报错；`--allow-unknown` 仅用于前向兼容检查，不用于生产。**这是 `0.x` 阶段版本号只走 PATCH 位的安全依据**：不懂新构造的工具会报错停下，不会误读文件。
-- 所有破坏性变更必须写明改了什么、怎么改（见本节）；`fmt` 不自动跨 MAJOR 迁移。本项目尚无外部使用者，所以**没有迁移脚本**：破坏性变更直接改文件，工具不替人改名、不替人决定事实。
+- 类型版本线已随 2026-10-28 的合并退役：一个语言版本号，PATCH 位只增不减（见 §13.1 / §13.2，决策见 [ADR-0056](../docs/adr/0056-one-language-version-number.md)）。
+- 未知构造默认报错；放宽要显式开关（见 ADR-0004 的前向兼容约定）。**这是 `0.x` 阶段版本号只走 PATCH 位的安全依据**：不懂新构造的工具会报错停下，不会误读文件。
+- 所有破坏性变更必须写明改了什么、怎么改（见本节）；`fmt` 不自动跨 MAJOR 迁移。破坏性变更的机械部分由迁移脚本做（`bun run migrate:0.7`、`bun run migrate:0.9`），其余由作者决定：工具不替人改名、不替人决定事实。
 
 ---
 
@@ -758,7 +808,7 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
 `assets/components/regulators/tps7a02.teda`（一个 `part`）：
 
 ```
-version 0.1.2
+version 0.9.1
 component tps7a02
 
 kind         part
@@ -780,7 +830,7 @@ pins
 `assets/components/passives/cap-tantalum-7343.teda`（一个 `generic`）：
 
 ```
-version 0.1.3
+version 0.9.1
 component cap-tantalum-7343
 
 kind         generic
@@ -805,7 +855,7 @@ pins
 `design/sch/main.teda`：
 
 ```
-version 0.2
+version 0.9.1
 schematic main
 
 instances
@@ -825,7 +875,7 @@ ports
 `design/sch/aux.teda`：
 
 ```
-version 0.2
+version 0.9.1
 schematic aux
 
 instances
@@ -844,7 +894,7 @@ ports
 `design/sch/power.teda`（一块板 = 一份文件，两个电路写在同一份里）：
 
 ```
-version 0.7
+version 0.9.1
 schematic power
 
 instances
@@ -869,7 +919,7 @@ constraints
 `design/sch/power/charger.view.teda`（同一个板的第一个打印页，画给评审看）：
 
 ```
-version 0.7
+version 0.9.1
 view charger
 
 place
@@ -885,7 +935,7 @@ wire
 `design/system/main-stack.teda`：
 
 ```
-version 0.2
+version 0.9.1
 system main-stack
 
 boards
@@ -899,7 +949,7 @@ nets
 
 ---
 
-## 15. 尚未定义（v0.7 之外）
+## 15. 尚未定义
 
 以下未定或明确不支持：
 
@@ -915,7 +965,7 @@ nets
 
 ---
 
-## 附录 A：EBNF（v0.5）
+## 附录 A：EBNF
 
 形状语法；词法细节以 §4 为准。
 

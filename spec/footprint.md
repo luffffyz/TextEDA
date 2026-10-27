@@ -1,4 +1,4 @@
-# `footprint` 描述规范（v0.4，草案）
+# `footprint` 描述规范（草案）
 
 状态：草案。决策与取舍见 `docs/adr/0011-library-format-and-footprint-ir.md`；跨描述通用的词法、单位、版本、canonical 规则见 `teda.md` §3–§5、§10、§12。
 
@@ -23,11 +23,11 @@
 ## 1. 文件头
 
 ```
-version 0.4.1
+version 0.9.1
 footprint sot-23-5
 ```
 
-- 版本行、类型行规则同 `teda.md` §5。`footprint` 类型要求 `version 0.4` 或更高（该类型由 0.4 引入；`package_code` 标量由 0.4.1 引入；接受规则见 `teda.md` §13.3）。
+- 版本行、类型行规则同 `teda.md` §5。版本行写的是**语言版本**（全语言一个号），不是 `footprint` 这一类描述自己的号。`footprint` 的版本下界是 `0.4`（该类型由 0.4 引入；`package_code` 标量由 0.4.1 引入）；上界是语言当前版本。接受规则见 `teda.md` §13.3。
 - 文件名必须等于类型行里的 id：`assets/footprints/<lib>/<footprint_id>.teda` ↔ `footprint sot-23-5`。
 - `footprint_id` 允许 `[A-Za-z0-9_.+-]+`（比 `component_id` 宽：库里的封装名常带大写与下划线，如 `R_0402_1005Metric`）。
 
@@ -176,7 +176,7 @@ graphics
 `examples/reference-project/footprints/project/sot-23-5.teda`（即 canonical form；`bun run fmt:teda --check examples/reference-project/footprints` 退出 0）：
 
 ```
-version 0.4.1
+version 0.9.1
 footprint sot-23-5
 
 description SOT-23-5 body 2.9x1.6mm pitch 0.95mm (generic land pattern)

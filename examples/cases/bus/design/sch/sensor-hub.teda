@@ -1,4 +1,4 @@
-version 0.9
+version 0.9.1
 schematic sensor-hub
 
 # Case 7 of the ten (AGENTS.md §10, docs/backlog.md F12): a bus names nets, it does not join them.

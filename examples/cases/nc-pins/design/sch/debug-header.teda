@@ -1,4 +1,4 @@
-version 0.9
+version 0.9.1
 schematic debug-header
 
 # Case 10 of the ten (AGENTS.md §10, docs/backlog.md F12): the three ways a pin can be unconnected.

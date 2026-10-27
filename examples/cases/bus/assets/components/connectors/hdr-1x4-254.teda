@@ -1,4 +1,4 @@
-version 0.1.7
+version 0.9.1
 component hdr-1x4-254
 
 # 2.54 mm 1x4 header: the hub's own uplink, in the same pin order as the ten downstream ports.

@@ -1,4 +1,4 @@
-# `pcb` 描述规范（v0.4，草案）
+# `pcb` 描述规范（草案）
 
 状态：草案。决策与取舍见 `docs/adr/0003-agent-first-pcb-ir.md`；跨描述通用的词法、单位、版本、canonical 规则见 `teda.md` §3–§6、§10、§12。
 
@@ -17,18 +17,18 @@
 3. **派生层的东西不进 IR**：绘图参数、丝印排版、铜皮填充结果、量测文本、UUID 与内部序号一律不存（`docs/adr/0003-agent-first-pcb-ir.md` decision 3）。
 4. **制造出口自研，判定借专业工具**：RS-274X / Excellon 写出器与铜皮填充用的受限 2D 几何内核由本仓实现（[ADR-0018](../docs/adr/0018-zero-dependency-and-manufacturing-target.md)、[ADR-0054](../docs/adr/0054-copper-fill-uses-a-constrained-geometry-kernel.md)）；KiCad 的 Gerber 导出与 DRC 是**可选对照**，不是门禁；CAM 级 DFM 判定仍借专业工具。路径见 `../docs/adr/0005-manufacturing-output.md` 与 `../docs/adr/0034-manufacturing-output-target-form.md`；打样文件（BOM / 坐标）规范见 `../docs/adr/0006-jlc-prototype-delivery.md`。
 
-v0.4 **假定存在对应的 `sch`**。pcb-only 模式（逆向工程、外部网表导入）待 `AGENTS.md` §11 第 6 条决定后补充。
+**假定存在对应的 `sch`**：`pcb-only` 模式不存在（逆向工程、外部网表导入走导入器，见 `AGENTS.md` §11 第 6 条与 [ADR-0035](../docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D5/D6）。
 
 ---
 
 ## 1. 文件头
 
 ```
-version 0.4
+version 0.9.1
 pcb main
 ```
 
-- 版本行、类型行规则同 `teda.md` §5。`pcb` 类型要求 `version 0.4` 或更高（该类型由 0.4 引入；接受规则见 `teda.md` §13.3）。
+- 版本行、类型行规则同 `teda.md` §5：版本行写的是**语言版本**，全语言一个号，每种描述类型都写同一个（现行号见 `teda.md` §13.1）。`pcb` 的下界是 `0.7`（该类型由 0.4 引入，0.7 的板扁平化改写了它的形状），上界是语言的当前版本；接受规则见 `teda.md` §13.3。
 - **段头独占一行**（整行只有一个单元格）。缩进不表达层级（`AGENTS.md` §2 第 6 条），所以 `via` 这类既是段名又是 `rules` 行首列的词，只能靠列数消歧：规则行至少有 2 列。
 - **同一段可以重复出现**，行按出现顺序拼接（与 `teda.md` 里同名 `net` 行合并同一先例）。`stackup` 的顺序即叠层顺序，重复段就接在后面，不做排序。
 - 文件名必须等于类型行里的 id：`design/pcb/<board_id>.teda` ↔ `pcb main`。
@@ -107,7 +107,7 @@ outline
 ```
 
 - 至少 3 个顶点；不得自交。
-- 只支持折线，**不支持圆弧**（v0.4 限制，见 §7）。
+- 只支持折线，**不支持圆弧**（限制，见 §7）。
 - 板内开孔与安装孔进 `physical_only`（`cutout` / `mounting`）。
 
 ### 4.3 `place`
@@ -290,7 +290,7 @@ physical_only
 
 `cutout` 的参考点与其余三类不同（角 vs 圆心），因为矩形用它自己的形状说话；圆形的"左下角"没有意义，所以统一取圆心。**位置是坐标，不是几何**：实体只有简单图元（圆孔、圆点、矩形开槽），要自定义形状就写成器件（`AGENTS.md` §4.4 第 7 条）。
 
-**测试点不是本段的形态（2026-10-22b 退役，语言 `pcb` 线 0.7.1 删除）**：测试点是某个 net 上的一个**焊盘**，按 [ADR-0035](../docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D8/D9 它是 `sch` 里的**单引脚器件**（不采购的是 generic，采购的是 part）：有位号、有封装（形状任意）、走普通 net 成员规则。分界线是"它是不是某个 net 上的焊盘"：是 → 器件；不是 → 本段的实体（过孔、安装孔、基准点、挖槽）。白名单因此是四类（`net_tie` / `split_ground` / `stitching` / `fiducial`），`stitching` 与 `fiducial` 是物理实体放本段，前两类改逻辑连通性放 `deviation`。
+**测试点不是本段的形态（2026-10-22b 退役；那次删除记在 `teda.md` §13.4 合并之前的版本线里）**：测试点是某个 net 上的一个**焊盘**，按 [ADR-0035](../docs/adr/0035-connectivity-authority-and-reverse-engineering.md) D8/D9 它是 `sch` 里的**单引脚器件**（不采购的是 generic，采购的是 part）：有位号、有封装（形状任意）、走普通 net 成员规则。分界线是"它是不是某个 net 上的焊盘"：是 → 器件；不是 → 本段的实体（过孔、安装孔、基准点、挖槽）。白名单因此是四类（`net_tie` / `split_ground` / `stitching` / `fiducial`），`stitching` 与 `fiducial` 是物理实体放本段，前两类改逻辑连通性放 `deviation`。
 
 ### 4.12 `deviation`
 
@@ -392,7 +392,7 @@ pcb 里写的 net 名就是**板级** net 名，与 sch 同一命名空间（模
 
 ## 7. 不支持与已知限制
 
-| 限制 | v0.4 行为 | 后续 |
+| 限制 | 现在的行为 | 后续 |
 |---|---|---|
 | 圆弧走线 | 不支持；导入时按折线近似并报告偏差 | 待定 |
 | 丝印圆弧 | pcb 描述不画丝印图形（那是封装库的事，§4.10）；封装图形里的 `arc` 在出图时按 32 段折线展开（一圈），起止点保持精确 | 保持 |
@@ -406,9 +406,9 @@ pcb 里写的 net 名就是**板级** net 名，与 sch 同一命名空间（模
 | 丝印避让 | **不裁剪**：丝印按声明原样出图，压到焊盘上也算（CAM 判定，不是格式层） | 不做（[ADR-0018](../docs/adr/0018-zero-dependency-and-manufacturing-target.md) decision 2） |
 | 差分对的几何表达 | 不表达，靠 `rules` 约束 | 保持 |
 | 阻抗计算的工艺栈 | 只存 `er` 与介质厚度，不做计算 | 交给 KiCad/仿真工具 |
-| pcb-only 模式 | 不支持（v0.4 假定有 `sch`） | `AGENTS.md` §11 第 6 条 |
+| pcb-only 模式 | 不支持（pcb 假定有 `sch`） | `AGENTS.md` §11 第 6 条 |
 | 封装 pad 几何来源 | 引用 `assets/components/` 的 `footprint`；IR 内 pad 几何是引用还是内联待定 | 见 [ADR-0003](../docs/adr/0003-agent-first-pcb-ir.md)"后续" |
-| 布局约束（区域、邻接、禁布） | v0.4 不表达 | 待定 |
+| 布局约束（区域、邻接、禁布） | 不表达 | 待定 |
 | 3D 模型与装配图 | 不在 pcb 描述内（属封装库与 fab 层） | — |
 
 ---
@@ -463,7 +463,7 @@ nets
 对应的 `design/pcb/demo.teda`：
 
 ```
-version 0.4
+version 0.9.1
 pcb demo
 
 board_thickness 1.6mm

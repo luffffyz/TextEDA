@@ -1,4 +1,4 @@
-version 0.1.4
+version 0.9.1
 component cap-tantalum-7343
 
 # A polarised tantalum capacitor. The polarity is a fact of the generic, not a hint in the file

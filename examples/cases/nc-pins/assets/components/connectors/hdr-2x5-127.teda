@@ -1,4 +1,4 @@
-version 0.1.7
+version 0.9.1
 component hdr-2x5-127
 
 # Cortex 10-pin debug header, 2x5 at 1.27 mm. The pinout is the ARM CMSIS-DAP one; pin 7 is the

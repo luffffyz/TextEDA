@@ -196,7 +196,7 @@ when semantics change, emit a new code and mark the old one `[DEPRECATED → new
 | Code | Severity | Meaning | How to fix | Spec |
 |---|---|---|---|---|
 | `format.invalid-version` | error | Invalid version number format | — | teda.md §5 |
-| `format.unsupported-version` | error | The format version is higher than the version supported by this tool | Lower the file version, or upgrade the tool | teda.md §13 |
+| `format.unsupported-version` | error | The file declares a version this tool does not accept for this description type | Give the file a version this tool accepts: the language's current version, or the version this description type was introduced at (or later) | teda.md §13 |
 | `format.role-invalid` | error | Invalid role: the role is not one this position allows, or it disagrees with the directory | primary goes in assets/procurement/primary/, alternatives in assets/procurement/alternatives/ | spec/procurement.md §1 |
 | `format.toml-invalid` | error | The project file is not valid TOML, or uses a construct outside the accepted subset | The project file uses tables, arrays of tables, strings, numbers, booleans and arrays; inline tables, dates and dotted keys are not accepted | AGENTS.md §9 |
 

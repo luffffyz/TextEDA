@@ -1,4 +1,4 @@
-version 0.9
+version 0.9.1
 module buck-5v
 
 # The TPS5430 5V/3A buck (datasheet SLVS632 Figure 7-1): 12V in, 5V out, 3A.

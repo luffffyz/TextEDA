@@ -1,4 +1,4 @@
-version 0.9
+version 0.9.1
 schematic charger-buck
 
 # One physical board: BQ24610 charge/power path + TPS5430 5V buck, sharing one BOM and one PCB.

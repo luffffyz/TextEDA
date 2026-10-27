@@ -1,4 +1,4 @@
-version 0.1.7
+version 0.9.1
 component hdr-1x3-254
 
 # Case fixture: a 2.54 mm 1x3 header is a part, so it carries a part number. This is a test fixture, not

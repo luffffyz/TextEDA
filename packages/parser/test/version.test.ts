@@ -1,12 +1,35 @@
-// Unit tests for the language version module (teda.md §13, ADR-0022).
+// Unit tests for the language version module (teda.md §13, ADR-0056).
 //
 // The rules under test: the grammar is MAJOR.MINOR[.PATCH]; the patch component is optional and
-// means zero when omitted; a patch never changes the acceptance decision; 1.0 is a milestone.
+// means zero when omitted; a patch never changes the acceptance decision; the language has ONE
+// version number and every description type shares its ceiling, while the floor stays per type;
+// 1.0 is a milestone.
 import { describe, expect, test } from "bun:test";
-import { checkVersion, compareVersions, formatVersion, parseVersion, typeRange } from "../src/version.ts";
+import {
+  checkVersion,
+  compareVersions,
+  formatVersion,
+  parseVersion,
+  SUPPORTED_LANGUAGE,
+  typeRange,
+  type DescriptionType,
+} from "../src/version.ts";
 import { parseView } from "../src/view.ts";
 import { parseSchematicDocument } from "../src/schematic.ts";
 import { readComponentFacts } from "../src/component-facts.ts";
+
+/** Every description type the parser reads. */
+const ALL_TYPES: DescriptionType[] = [
+  "component",
+  "footprint",
+  "module",
+  "pcb",
+  "procurement",
+  "schematic",
+  "symbol",
+  "system",
+  "view",
+];
 
 describe("version parsing", () => {
   test("accepts MAJOR.MINOR and MAJOR.MINOR.PATCH", () => {
@@ -57,23 +80,75 @@ describe("version acceptance", () => {
     expect(verdict.ok === false && verdict.code).toBe("format.unsupported-version");
   });
 
-  test("each type has its own upper bound: the type's current version, not the language's", () => {
-    // teda.md §13.3 rule 4: a symbol file is at 0.5, a view file at 0.7, a procurement file at 0.9.
-    // Nothing in a symbol file means anything past 0.5, so 0.9 there is not "newer syntax", it is a
-    // file this tool cannot claim to understand.
-    const symbol = typeRange("symbol");
-    expect(checkVersion("0.5", symbol, "symbol").ok).toBe(true);
-    expect(checkVersion("0.5.4", symbol, "symbol").ok).toBe(true);
-    expect(checkVersion("0.9", symbol, "symbol").ok).toBe(false);
-    expect(checkVersion("0.4", symbol, "symbol").ok).toBe(false);
+  test("every description type accepts the current language version and any patch of it", () => {
+    // ADR-0056 D1: the language has ONE version number. Every type declares the same number, and the
+    // patch bit never decides (a patch does not change the accepted file set).
+    for (const type of ALL_TYPES) {
+      const range = typeRange(type);
+      for (const text of ["0.9.1", "0.9", "0.9.0", "0.9.99"]) {
+        expect({ type, text, ok: checkVersion(text, range, type).ok }).toEqual({ type, text, ok: true });
+      }
+    }
+  });
 
-    const view = typeRange("view");
-    expect(checkVersion("0.7", view, "view").ok).toBe(true);
-    expect(checkVersion("0.8", view, "view").ok).toBe(false);
-    expect(checkVersion("0.6", view, "view").ok).toBe(false);
+  test("every description type refuses a version the language has not reached", () => {
+    // 0.10 is beyond the language's current MINOR, and 1.0 is the frozen-surface milestone — neither
+    // is implemented, for any type.
+    for (const type of ALL_TYPES) {
+      const range = typeRange(type);
+      for (const text of ["0.10", "1.0"]) {
+        const verdict = checkVersion(text, range, type);
+        expect({ type, text, ok: verdict.ok }).toEqual({ type, text, ok: false });
+        expect(verdict.ok === false && verdict.code).toBe("format.unsupported-version");
+      }
+    }
+  });
 
-    const procurement = typeRange("procurement");
-    expect(checkVersion("0.9", procurement, "procurement").ok).toBe(true);
+  test("every description type refuses a version below the one it was born at", () => {
+    // The floor stays per type (ADR-0056 D2): a type that did not exist yet cannot have a file from
+    // before it.
+    const tooOld: Array<[string, string]> = [
+      ["symbol", "0.4"],
+      ["view", "0.6"],
+      ["procurement", "0.8"],
+    ];
+    for (const [type, text] of tooOld) {
+      const verdict = checkVersion(text, typeRange(type as DescriptionType), type);
+      expect({ type, text, ok: verdict.ok }).toEqual({ type, text, ok: false });
+      expect(verdict.ok === false && verdict.code).toBe("format.unsupported-version");
+    }
+  });
+
+  test("the ceiling is the same for every type: the language's current version", () => {
+    // The one-number invariant. A per-type ceiling comes back, this fails.
+    for (const type of ALL_TYPES) {
+      const range = typeRange(type);
+      expect({ type, supported: range.supported.minor, language: SUPPORTED_LANGUAGE.minor }).toEqual({
+        type,
+        supported: SUPPORTED_LANGUAGE.minor,
+        language: SUPPORTED_LANGUAGE.minor,
+      });
+    }
+  });
+
+  test("the floor is still per type", () => {
+    const born: Record<string, number> = {
+      component: 1,
+      footprint: 4,
+      module: 8,
+      pcb: 7,
+      procurement: 9,
+      schematic: 1,
+      symbol: 5,
+      system: 2,
+      view: 7,
+    };
+    for (const type of ALL_TYPES) {
+      expect({ type, required: typeRange(type).required.minor }).toEqual({ type, required: born[type]! });
+    }
+    // The floors are not all the same: the merge retired the per-type *ceiling*, not the floor.
+    const floors = new Set(ALL_TYPES.map((type) => typeRange(type).required.minor));
+    expect(floors.size).toBeGreaterThan(1);
   });
 
   test("a board file keeps the whole 0.1..0.9 window", () => {
@@ -115,8 +190,8 @@ describe("parsers accept a patch version", () => {
 
   test("a schematic file may declare the current language version", () => {
     // The upper bound is the language version the tool supports, not the version that introduced
-    // the type: a board written today declares 0.7, not 0.3.
-    const result = parseSchematicDocument("version 0.7\nschematic b\n", { file: "b.teda" });
+    // the type: a board written today declares the language's number, not 0.3.
+    const result = parseSchematicDocument("version 0.9.1\nschematic b\n", { file: "b.teda" });
     expect(result.ok).toBe(true);
   });
 

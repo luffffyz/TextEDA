@@ -1,4 +1,4 @@
-version 0.1.7
+version 0.9.1
 component jst-sh-4
 
 # JST SH 4-pin in the Qwiic / STEMMA QT pin order (GND, 3V3, SDA, SCL). The hub board carries ten of
