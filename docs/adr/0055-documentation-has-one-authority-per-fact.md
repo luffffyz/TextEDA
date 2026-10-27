@@ -143,3 +143,26 @@ accepts. Raising a type's version now fails a test instead of quietly making the
 The same move is available wherever a document has to be self-contained and a program has to agree
 with it. The gate for that is a test, not a link check: a link check proves the pointer resolves,
 not that the two ends say the same thing.
+
+## Addendum (2026-10-27b): the index was not finished, and the current values are now pinned out of it
+
+D1 was applied to `AGENTS.md` a second time, harder. The semantic model (§4 of that file, 32 264
+bytes of a 106 871-byte file) had been restating what the contract layer already owns; it became a
+map from topic to owner, and the file went down to roughly 45 000 bytes. The rule did not change —
+the file had not finished being cut.
+
+Two things are now pinned by a test rather than by care, both in
+`packages/parser/test/version-spec.test.ts`:
+
+- **The current values are not in the index.** The current language version and the current IR
+  contract version must not appear in `AGENTS.md` outside a code span. They are the facts that move,
+  and a copy of a moving fact in the index is a copy that will be wrong. The version table in
+  `spec/teda.md` §13.1 and the directory name under `schemas/ir/` own them.
+- **The changelog's newest entry is the current version.** The language's changelog lives in
+  `spec/teda.md` §13.4, one entry per version, newest first. A version that is not in the changelog
+  cannot be the current one, which is what makes "record a changelog entry" a rule with teeth
+  instead of a habit.
+
+The disease D1 names was already visible in the corpus while this addendum was written: both READMEs
+said the repository held "54" decision records, and it held 56. The counts are gone; the index link
+is there instead.

@@ -1,5 +1,3 @@
-# TextEDA
-
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/svg/texteda-logo-dark.svg">
@@ -124,7 +122,7 @@ my-board/
 | `AGENTS.md` | **Primary doc**: what the project is, the non-negotiable invariants, acceptance criteria |
 | `LICENSE` / `NOTICE` | Apache-2.0 and attribution |
 | `spec/` | The specs: `teda.md` (the language-wide spec) plus per-description ones — `symbol` / `footprint` / `pcb` / `schematic-view` / `module` / `procurement` |
-| `schemas/ir/v0.14/` | IR contract (JSON Schema 2020-12, the only contract): 11 schemas |
+| `schemas/ir/` | IR contract (JSON Schema 2020-12, the only contract); the contract version is the directory name |
 | `packages/ir` | IR types, contract validation, and the diagnostic code registry |
 | `packages/parser` | `.teda` → IR for every description type, plus `fmt` (canonical form); `module` files flatten into the board IR |
 | `packages/core` | Pure rules, no fs: connectivity ERC, sch↔pcb binding, device vocabulary and ratings, procurement selection, review rounds, board ↔ view checks and readability |
@@ -134,7 +132,7 @@ my-board/
 | `packages/cli` | `texteda init` / `id` / `compile` / `check` / `netlist` / `ir` / `renumber` / `bom` / `view-metrics` / `review` / `lib import` ([ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md), [ADR-0023](docs/adr/0023-ir-layer-on-disk.md)) |
 | `examples/reference-project/` | Self-contained reference project: two boards (one with a `pcb`, two print pages), every device / symbol / footprint self-built, plus procurement files and review rounds |
 | `examples/cases/` | The ten difficult cases: a whole project each, pinned by expected IR and diagnostics (which are written so far: the directory listing; `bun run cases:check`) |
-| `docs/adr/` | Architecture decision records: 54 of them ([full index](docs/adr/README.md)) |
+| `docs/adr/` | Architecture decision records ([full index](docs/adr/README.md)) |
 | `docs/guides/` | How-to guides: build a symbol, build a footprint, import a library, keep review records, run a multi-role review, open the review app, read a KiCad board file, renumber reference designators |
 | `docs/skills/` | Agent manuals: every step is a command, an expected output, and the diagnostic code to read when it fails |
 | `docs/trial-run/` | The historical KiCad end-to-end trial run: pcb description → `.kicad_pcb` → DRC + Gerbers (before the self-built libraries landed) |
@@ -154,6 +152,7 @@ my-board/
 - [ADR-0020](docs/adr/0020-source-spans.md) source spans: diagnostics point at the file, the IR stays clean
 - [ADR-0022](docs/adr/0022-language-versioning.md) language versioning: `MAJOR.MINOR[.PATCH]`, `1.0` is the freeze
 - [ADR-0023](docs/adr/0023-ir-layer-on-disk.md) the IR layer on disk: shard tree, manifest, normative and advisory hashes
+- [ADR-0056](docs/adr/0056-one-language-version-number.md) one version number for the whole language; PATCH-only from there
 
 **Boards and connectivity**
 - [ADR-0001](docs/adr/0001-board-linking.md) how boards are linked together

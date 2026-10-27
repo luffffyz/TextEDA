@@ -532,3 +532,14 @@ plus its declared parameters, in the generic's declared order.
 Nothing else moves. The selection is still a project-local decision, the land pattern is still
 a hard constraint, a part is still its own answer, and the component file still carries no
 `mpn` for a generic — that is what a generic is.
+
+## Addendum (2026-10-28): the version line is the language's, not the type's
+
+The sentence above — "The type exists since language **0.9** and has its own version line, as every
+description type does" — described the world until 2026-10-27. [ADR-0056](0056-one-language-version-number.md)
+merged the nine description-type version lines into one language version number: every `.teda` file
+declares the language version (`0.9.1`), and the only per-type fact left is the floor — the
+`procurement` type exists since language `0.9`, so a file below `0.9` is refused.
+
+Nothing else in this record moves: the primary / alternatives split, the hash standing of the two
+shards, and the selection syntax are unchanged.

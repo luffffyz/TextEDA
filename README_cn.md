@@ -1,5 +1,3 @@
-# TextEDA
-
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/svg/texteda-logo-dark.svg">
@@ -126,7 +124,7 @@ my-board/
 | `AGENTS.md` | **主文档**：项目是什么、不可协商的不变量、验证与验收口径 |
 | `LICENSE` / `NOTICE` | Apache-2.0 与归属声明 |
 | `spec/` | 规范：`teda.md`（语言总规范）+ 分描述规范 `symbol` / `footprint` / `pcb` / `schematic-view` / `module` / `procurement` |
-| `schemas/ir/v0.14/` | IR 契约（JSON Schema 2020-12，唯一契约）：11 份 schema |
+| `schemas/ir/` | IR 契约（JSON Schema 2020-12，唯一契约）；契约版本就是目录名 |
 | `packages/ir` | IR 类型、契约校验，与诊断码注册表 |
 | `packages/parser` | 每种描述的 `.teda` → IR，含 `fmt`（canonical form）；`module` 文件展平进板级 IR |
 | `packages/core` | 纯规则，不碰 fs：连通性 ERC、sch↔pcb 绑定、器件词表与额定值、选料、评审轮次、板 ↔ 视图校验与可读性 |
@@ -136,7 +134,7 @@ my-board/
 | `packages/cli` | `texteda init` / `id` / `compile` / `check` / `netlist` / `ir` / `bom` / `view-metrics` / `review` / `renumber` / `lib import`（[ADR-0019](docs/adr/0019-agent-contract-reference-and-check-entry.md)、[ADR-0023](docs/adr/0023-ir-layer-on-disk.md)） |
 | `examples/reference-project/` | 自包含的参考工程：两块板（一块带 `pcb`，两张打印页）、器件与符号封装全部自建，库全部自建，另有选料文件与三轮评审记录 |
 | `examples/cases/` | 十个困难用例：每个都是完整小工程，用期望 IR 与期望诊断钉住（已写了哪些看目录；`bun run cases:check`） |
-| `docs/adr/` | 决策记录（ADR）：共 54 份（[完整索引](docs/adr/README.md)） |
+| `docs/adr/` | 决策记录（ADR）（[完整索引](docs/adr/README.md)） |
 | `docs/guides/` | 上手指南：造符号、造封装、导入外部库、记评审记录、多角色评审、开评审 app、读 KiCad 板文件、位号重编号 |
 | `docs/skills/` | 给 agent 的操作手册：每步 = 命令 + 预期输出 + 出错看哪个诊断码 |
 | `docs/trial-run/` | 历史快照：KiCad 端到端试跑，pcb 描述 → `.kicad_pcb` → DRC + Gerber（早于自建库落地） |
@@ -156,6 +154,7 @@ my-board/
 - [ADR-0020](docs/adr/0020-source-spans.md) 源码位置：诊断指到文件，IR 保持干净
 - [ADR-0022](docs/adr/0022-language-versioning.md) 语言版本：`MAJOR.MINOR[.PATCH]`，`1.0` 是冻结点
 - [ADR-0023](docs/adr/0023-ir-layer-on-disk.md) 落盘的 IR 层：分片树、manifest、规范与附注双哈希
+- [ADR-0056](docs/adr/0056-one-language-version-number.md) 全语言一个版本号；此后只走 PATCH
 
 **板与连通性**
 - [ADR-0001](docs/adr/0001-board-linking.md) 板之间如何连接

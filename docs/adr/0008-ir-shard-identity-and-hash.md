@@ -144,3 +144,14 @@ that a reader does not take them for today's state.
 
 The mechanism by which those numbers moved is recorded in
 [ADR-0022](0022-language-versioning.md) and its own 2026-10-27 addendum.
+
+## Addendum (2026-10-28): the per-type version lines are gone
+
+The line above — "one version line per description type, `format` recording that type's line" — was
+true until 2026-10-27 and is not true now. [ADR-0056](0056-one-language-version-number.md) merged
+the nine lines into one language version number (`0.9.1`); the only per-type fact left is the floor,
+the version a type was born at. `format` records the language version, and the live table is
+`spec/teda.md` §13.1.
+
+Nothing in this record's own decisions moves: the shard identity, the hash granularity and the
+`source.file` mapping are untouched by the merge.

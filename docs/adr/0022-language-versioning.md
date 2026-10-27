@@ -272,7 +272,7 @@ that the rule and the practice are not read as consistent when they are not.
   `module 0.8`, `pcb 0.4`, `component 0.1`, `symbol 0.5`, `footprint 0.4`, `view 0.7`,
   `system 0.2`. Today: **`schematic 0.9`, `module 0.9`, `pcb 0.7` (and `0.7.1`), `component 0.1.7`,
   `symbol 0.5.1`, `footprint 0.4.2`, `view 0.7`, `system 0.2`, plus `procurement 0.9`**. The live
-  table is `spec/teda.md` §13.1; the chronology of each move is §13.4.
+  table is `spec/teda.md` §13.1; the chronology of each move is `teda.md` §13.4.
 - **The MINOR step.** `schematic` and `module` moved `0.8` → `0.9` when the `uid` column landed
   ([ADR-0051](0051-instances-have-a-stable-project-local-uid.md)). Under A2 that should have been a
   PATCH (`0.8.1`); the move was recorded in `spec/teda.md` §13.4 and in ADR-0051, and neither record
@@ -290,3 +290,22 @@ that the rule and the practice are not read as consistent when they are not.
   Reverting `schematic`/`module` to `0.8.1` would invalidate every source file written since. The
   next surface change on those two types should therefore either take a PATCH or carry an explicit
   pointer here; silently repeating the MINOR step is what this addendum is meant to prevent.
+
+## Addendum (2026-10-27b): the per-type lines are retired — one number for the whole language
+
+[ADR-0056](0056-one-language-version-number.md) supersedes A1, A2, A3 and A4. The language has one
+version number, every description type declares it, and it moves in PATCH steps only.
+
+- **What survives.** Decision 1 (the form `MAJOR.MINOR[.PATCH]`, PATCH omittable), decision 2 (a PATCH
+  never breaks compatibility, and the acceptance rule ignores the PATCH bit), decision 4 (`1.0` is a
+  milestone, not a counter), decision 5 (one version module) and decision 6 (before `1.0` a MINOR may
+  remove a construct, with a migration note and a script) all stand as written.
+- **What is superseded.** A1 (one line per description type), A2 (a type's version moves in PATCH
+  steps — now it is the language's version), A3 (the convergence happens once, at `1.0` — it happened
+  now) and A4 (the `0.x` counter stops at `0.9` and the per-type numbers in flight are frozen — the
+  per-type numbers are gone).
+- **The renumbering A6 allowed happened.** The language is at `0.9.1`; every `.teda` file says
+  `0.9.1`; the accepted range of a type is from the version it was born at to the language's current
+  version. The mechanical part is `bun run migrate:0.9 <project dir>`.
+- **The addendum of 2026-10-27 is now history.** Its subject was a MINOR step on two of nine lines.
+  There is one line now, and it moves in PATCH steps.

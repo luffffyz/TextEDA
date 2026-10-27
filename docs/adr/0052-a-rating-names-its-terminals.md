@@ -209,3 +209,14 @@ Three version lines are easy to conflate, so stated once: the language as a whol
 (`project.toml` `format`), the `component` type line is at **`0.1.7`** (`spec/teda.md` §13.1),
 and `packages/parser/src/version.ts` lists only MINORs (`component: { born: 1, current: 1 }`)
 because acceptance ignores the PATCH digit.
+
+## Addendum (2026-10-28): one version number, not three
+
+The paragraph above — "Three version lines are easy to conflate" — was true until 2026-10-27.
+[ADR-0056](0056-one-language-version-number.md) merged the per-description-type lines into one
+language version number, so there is no `component` type line any more: the language is at
+**`0.9.1`** (`spec/teda.md` §13.1, §13.4), and `packages/parser/src/version.ts` holds one ceiling
+plus one floor per type — `component` was born at `0.1`.
+
+The decision this record carries is unaffected: the `terminals` column is still additive, and it
+still rides the PATCH digit of the language version.
