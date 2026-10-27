@@ -281,3 +281,19 @@ Unchanged: a short between two nets with no `net_tie` is an error, and a differe
 on the whitelist is an error rather than a warning (decision 2). The severities above apply to
 the **declared** case only — declaring a deviation is how you say "this is intended", not how you
 make an error go away.
+
+## Addendum (2026-10-27): the fabrication writer now carries `physical_only`
+
+The 2026-10-23 amendment to D11 ends: "what is still missing is a renderer that draws it and a
+fabrication writer that carries it (`docs/backlog.md` F15)". The writer half has since landed.
+`boardImage()` projects every `physical_only` row into the manufacturing layers
+(`packages/core/src/board-image.ts`): `mounting` → a non-plated drill, `stitching` → a copper flash
+on every copper layer plus a plated drill, `fiducial` → a copper flash. `toGerber()` and
+`toExcellon()` serialise them ([ADR-0054](0054-copper-fill-uses-a-constrained-geometry-kernel.md),
+`docs/backlog.md` F15). So a declared `physical_only` item is visible in the fabricated output.
+
+The renderer half of that sentence still holds: `packages/renderer/src` draws no board view, so
+there is still no SVG of a `physical_only` item. The paragraph's point — "in the IR" is not the same
+as "on the drawing" — stays true for the drawing and is now false for the fabrication set.
+
+The rest of D11 is unaffected.

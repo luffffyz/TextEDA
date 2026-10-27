@@ -30,9 +30,9 @@
 )
 ```
 
-参考工程**全部自建**：`examples/reference-project/` 下不出现任何外部前缀，22 个器件的 `symbol` / `footprint` 都指向 `project:`，源文件在 `assets/symbols/project/` 与 `assets/footprints/project/`。
+参考工程**全部自建**：`examples/reference-project/` 下不出现任何外部前缀，23 个器件的 `symbol` / `footprint` 都指向 `project:`（历史写法，今天写作裸 id），源文件在 `assets/symbols/project/` 与 `assets/footprints/project/`。
 
-要借 KiCad 官方库也可以：把它的 `.pretty` 目录照上式登记，前缀仍写 `<lib>:`，`component.footprint = "kicad:Capacitor_SMD:C_0603_1608Metric"`。两种库的引用形式一致，只有前缀不同。
+要拿 KiCad 官方库的封装，不登记、不写前缀：用 `texteda lib import` 把需要的封装（连同它们的 symbol 与 component）拷进 `assets/footprints/`，之后它就是本工程的封装，引用只写裸 id。`<lib>:` 限定符与 `external/libs/**` 都已被撤销（[ADR-0047](../adr/0047-an-external-library-is-a-template-not-a-dependency.md)），做法见 [library-import.md](library-import.md)。
 
 ## 造封装的流程
 

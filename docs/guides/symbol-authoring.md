@@ -23,7 +23,7 @@
   dist/symbols/project.kicad_sym      # 导出产物（KiCad 可见）
 ```
 
-符号可以借（KiCad 官方库，`kicad:Regulator_Linear:TPS7A02`），也可以自建；引用形式一样，只有 `lib:` 前缀不同。**参考工程 `examples/reference-project/` 全部自建**：`assets/symbols/project/` 下的符号覆盖 22 个器件，`r` / `c` / `l` / `nmos-5` / `ldo-sot23-5` 都是多个器件共享同一视图。
+符号可以自建，也可以从外部库拿来——但外部库是**模板**：用 `texteda lib import` 拷进 `assets/`，之后它就是本工程的资产，引用只写裸 id（`<lib>:<id>` 限定符已撤销，见 [library-import.md](library-import.md)），所以本工程内不再区分"借的"和"自己的"。**参考工程 `examples/reference-project/` 全部自建**：`assets/symbols/project/` 下的符号覆盖 23 个器件，`r` / `c` / `l` / `nmos-5` / `ldo-sot23-5` 都是多个器件共享同一视图。
 
 ## 造符号的流程
 

@@ -41,3 +41,16 @@ Those two facts only became load-bearing when the `component` shard got a produc
   values yet.
 - `pins_source` becomes visible in the shard (`inline` today). When the third-party symbol path lands, this is where the second source will show up, and no version bump will be needed to say so.
 - Descriptions are prose in the contract, so they are written in English like every other source string (`AGENTS.md` §12).
+
+## Addendum (2026-10-27): the contract is at `0.14`, and the reference project has 23 devices
+
+The consequences section states the state of the world at decision time: "the IR contract is at
+`0.8`. Every shard carries `ir_version: "0.8"`", and "the entire reference project (24 devices)
+compiles into `assets/components/<id>.json`".
+
+- The contract is **`v0.14`** today; `schemas/ir/v0.14/common.schema.json` pins
+  `"const": "0.14"`. Five later records moved it (0.9 → 0.14), each recorded in its own ADR.
+- The reference project holds **23** device files, not 24 — 17 `kind: part` and 6 `kind: generic`.
+
+The decision is unaffected: the component shard is normative, a changed device changes build
+identity, and hashes computed before it are still not comparable with those computed after.

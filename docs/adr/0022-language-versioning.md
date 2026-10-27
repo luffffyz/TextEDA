@@ -260,3 +260,33 @@ Nothing has to be renumbered: the `0.9` generation is the current one, and `proc
 in it. What changes is the rule that would have carried the counter past `0.9`, and the two holes
 this addendum closes — how the language is supposed to change its surface after `1.0`, and what
 happens to the numbers before `1.0` if they stop being convenient.
+
+## Addendum (2026-10-27): A2 and A4 were not followed — two lines took a MINOR step
+
+A2 says that during `0.x` a type's own version "moves in PATCH steps only", and A4 freezes the
+numbers then in flight at those values. Both statements were overtaken within days by records that
+did not cite this one, and neither statement has a pointer to what replaced it. Recording it here so
+that the rule and the practice are not read as consistent when they are not.
+
+- **A1's table (lines 155-159) and A4's list (lines 213-215) are stale.** They name `schematic 0.8`,
+  `module 0.8`, `pcb 0.4`, `component 0.1`, `symbol 0.5`, `footprint 0.4`, `view 0.7`,
+  `system 0.2`. Today: **`schematic 0.9`, `module 0.9`, `pcb 0.7` (and `0.7.1`), `component 0.1.7`,
+  `symbol 0.5.1`, `footprint 0.4.2`, `view 0.7`, `system 0.2`, plus `procurement 0.9`**. The live
+  table is `spec/teda.md` §13.1; the chronology of each move is §13.4.
+- **The MINOR step.** `schematic` and `module` moved `0.8` → `0.9` when the `uid` column landed
+  ([ADR-0051](0051-instances-have-a-stable-project-local-uid.md)). Under A2 that should have been a
+  PATCH (`0.8.1`); the move was recorded in `spec/teda.md` §13.4 and in ADR-0051, and neither record
+  nor this one carried a pointer between the two. The `pcb` line also moved `0.7` → `0.7.1`
+  ([ADR-0035](0035-connectivity-authority-and-reverse-engineering.md) amendment of 2026-10-23),
+  which is a PATCH and consistent with A2.
+- **What is actually true today.** Each type still has its own line, the global counter still stops
+  at `0.9`, `1.0` is still reserved, and a tool accepts a file whose MINOR is between the type's
+  birth version and the type's current version (`packages/parser/src/version.ts`). The PATCH-only
+  rule of A2 held for `footprint`, `symbol` and `component`; it did not hold for `schematic` and
+  `module`.
+- **Why this is recorded rather than reverted.** A2 is a convention about discipline, not a
+  compatibility guarantee — no reader of a file can tell whether its type got there by PATCH or by
+  MINOR, because the acceptance rule (decision 3, as amended) reads the file's own declared number.
+  Reverting `schematic`/`module` to `0.8.1` would invalidate every source file written since. The
+  next surface change on those two types should therefore either take a PATCH or carry an explicit
+  pointer here; silently repeating the MINOR step is what this addendum is meant to prevent.

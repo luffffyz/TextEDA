@@ -123,3 +123,12 @@ code.
 - **Is `category` still needed next to `construction`?** A generic always has a category; a part
   often has one. The field only classifies today, and after the split it may carry nothing that
   `kind` plus `construction` does not already say. Not decided.
+
+## Addendum (2026-10-27): 23 devices, 17 parts and 6 generics
+
+Line 112 says "the reference project's device tree is one tree: 22 devices, 16 parts and 6
+generics". It is **23 devices: 17 parts and 6 generics** — the generic count is right, the part
+count and the total are one low. The six generic ids are `cap-mlcc-0402`, `cap-mlcc-0603`,
+`cap-mlcc-1210`, `cap-tantalum-7343`, `res-thick-0402`, `res-thick-2010`.
+
+The decision is unaffected: one tree, `kind` written in the file, no directory inference.

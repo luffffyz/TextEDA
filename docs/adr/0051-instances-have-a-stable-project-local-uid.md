@@ -169,3 +169,13 @@ Negative:
 - It did not implement `texteda renumber`; that landed separately as F47 (2026-10-26), under
   [ADR-0050](0050-renumbering-is-a-code-executed-global-rename.md), with the identity premise
   amended by this record.
+
+## Addendum (2026-10-27): this record moved two version lines by MINOR, against ADR-0022 A2
+
+This record moved `schematic` and `module` from `0.8` to `0.9`. [ADR-0022](0022-language-versioning.md)
+addendum A2 says that during `0.x` a type's own line "moves in PATCH steps only", which would have
+made this a `0.8.1`. Neither record named the other at the time. ADR-0022's 2026-10-27 addendum
+records the divergence; this pointer closes the loop in the other direction.
+
+The decision is unaffected. The `uid` column is additive, old files stay valid, and the live table
+of numbers is `spec/teda.md` §13.1.

@@ -122,3 +122,25 @@ instance row, not a mapping layer.
 - Whether the geometry of `place`/`connect`/`trace` in the `pcb` shard should be **quantized to a fixed grid** (the "export boundary" pitfall in `AGENTS.md` §7) — whether quantization is an exporter strategy or an IR invariant is decided in the next round.
 - Whether the language layer gets an explicit `id` column (rename without changing identity); once it does, `ir_version` rises by MINOR and old shards remain readable. **Partly answered 2026-10-25**: the column exists ([ADR-0051](0051-instances-have-a-stable-project-local-uid.md)); rekeying references and making the hash rename-neutral remains open.
 - Whether `manifest.json` should also record the `format` and the schema `$id` of each shard, so that tools can self-check in projects with mixed versions.
+
+## Addendum (2026-10-27): current values of the claims this record left standing
+
+Four statements in the decision body and its addenda described the world at the time of writing and
+have since moved. The rules they state are unchanged; only the numbers are stale. Restated here so
+that a reader does not take them for today's state.
+
+- **D7 (line 100), "the implementation language is undecided".** Decided 2026-10-20 by
+  [ADR-0009](0009-implementation-stack.md): TypeScript (strict, ESM) with Bun as the toolchain; no
+  zod, types generated from JSON Schema. That is exactly the branch this decision anticipated
+  ("if it lands on TS later, the types are generated from the JSON Schema"). The schema directory
+  cited there is now `schemas/ir/v0.14/`. Neither record named the other in `Related:`; ADR-0009 is
+  the deciding record and cites `AGENTS.md` §11 rule 13, which is now closed.
+- **The `format` range at line 34** says the coexisting per-type lines are `0.1`–`0.4`. They now run
+  `0.1` → `0.9` (`component 0.1.7` … `module 0.9`), per [ADR-0022] addenda A1/A2. The rule — one
+  version line per description type, `format` recording that type's line — is unaffected.
+- **The language question in the "open points" is closed.** `id` columns landed on 2026-10-25 as
+  `uid` ([ADR-0051](0051-instances-have-a-stable-project-local-uid.md)): the column exists, the
+  rename-neutral hash does not. `spec/teda.md` §13.1 is the live table of numbers.
+
+The mechanism by which those numbers moved is recorded in
+[ADR-0022](0022-language-versioning.md) and its own 2026-10-27 addendum.

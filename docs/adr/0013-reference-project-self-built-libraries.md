@@ -82,3 +82,10 @@ it builds everything itself.
   project owns *and* for every asset of a vendored library, and `lib:verify` checks both. A
   vendored library is verified against the `content_hash` its `libref` declares, so "the library
   was edited without moving the anchor" is an error, not a silent drift.
+
+## Addendum (2026-10-27): 23 devices, not 22
+
+Lines 9, 21 and 50 say "22 components". The reference project holds **23** device files today — 17
+`kind: part` and 6 `kind: generic` — because [ADR-0037](0037-device-kind-vocabulary-and-one-device-directory.md)
+split the tree afterwards. Symbols 15 and footprints 16 still match, and the decision is unaffected:
+no external library is referenced, and `bun run lib:verify` is still the gate.

@@ -191,3 +191,21 @@ batch; no existing reference project data changes.
   mechanics.
 - Whether a future `current` role uses `from` / `to` as a conventional flow direction is deferred
   with the current check (D6).
+
+## Addendum (2026-10-27): the PATCH this record reserves is taken; the next free one is `0.1.8`
+
+D7 says the language line moves `component 0.1.5` → `0.1.6` when the `terminals` column ships. That
+number was already spent by the time this record was written: `0.1.5` → `0.1.6` belongs to
+`provenance`/`verified_by`/`verified_on` ([ADR-0047](0047-an-external-library-is-a-template-not-a-dependency.md)),
+and `0.1.6` → `0.1.7` to the per-file `rev`
+([ADR-0049](0049-a-file-carries-its-own-revision.md)). The live line is **`0.1.7`**
+(`spec/teda.md` §13.1, §13.4), so the next free PATCH is **`0.1.8`**.
+
+The decision is unaffected: the `terminals` column is still additive, still a PATCH under
+[ADR-0022](0022-language-versioning.md), and the contract still goes to `v0.15` when the schema
+ships (`schemas/ir/v0.14/` is the current directory). Nothing here is implemented yet.
+
+Three version lines are easy to conflate, so stated once: the language as a whole is at **`0.9`**
+(`project.toml` `format`), the `component` type line is at **`0.1.7`** (`spec/teda.md` §13.1),
+and `packages/parser/src/version.ts` lists only MINORs (`component: { born: 1, current: 1 }`)
+because acceptance ignores the PATCH digit.

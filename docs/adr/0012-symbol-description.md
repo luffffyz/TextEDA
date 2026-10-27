@@ -48,3 +48,22 @@ Another practical constraint: **symbol libraries are almost always borrowed**. T
 - An **import** path for the KiCad official symbol libraries (reading `.kicad_sym` into our IR, to check whether the pin numbers of a borrowed library match `component`).
 - Text annotations for symbols (polarity, function names) and images.
 - Joint validation of symbols and footprints: the symbol pin numbers ⊇ the component pin numbers, the component pin numbers ⊆ the footprint pad numbers (the library-level check of [ADR-0010](0010-footprint-and-3d-model-ownership.md) decision 3 is done in the toolchain).
+
+## Addendum (2026-10-27): the borrowed-library half is withdrawn, and the component parser landed
+
+- **D3 (line 28) "borrowed symbol libraries are consumed as before … behind a library-provider
+  abstraction"**, and **line 37 "a content hash"**: both were withdrawn by
+  [ADR-0047](0047-an-external-library-is-a-template-not-a-dependency.md) decision 7, which named
+  three affected records but not this one. The build reads no external library: an official, a
+  company-internal and a third-party library are all used the same way — copied into `assets/` once
+  by `texteda lib import` and owned by the project afterwards — so `scripts/verify-libs.ts` requires
+  every component's `symbol` / `footprint` to resolve inside the project, and a qualified
+  `<lib>:<id>` reference is an error (`ref.library-qualified-id`).
+- **"It is not the parser for `component`" (line 43) and the follow-up (line 47)**: a full parser
+  exists today — `packages/parser/src/component.ts` carries `PARAM_TYPES` (`value.unknown-param-type`),
+  the `mpn` / `category` branches, and the part/generic identity rules of
+  [ADR-0027](0027-device-parts-families-and-library-dependencies.md) /
+  [ADR-0037](0037-device-kind-vocabulary-and-one-device-directory.md).
+  `component-facts.ts` is now a projection over it, not a placeholder. The `lcsc` shape check
+  (`^C[0-9]+$`) lives in the IR contract rather than the parser, so that one sub-claim was never a
+  parser feature.

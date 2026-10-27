@@ -217,3 +217,15 @@ holds only final values). That ordering is what keeps the trust honest: the clai
 lives in the same file as the facts, so a copy edited after import cannot sit behind a review of
 what it used to be — the thing a project-level "this library is trusted" flag would have produced,
 and the reason this record is not one.
+
+## Addendum (2026-10-27): the withdrawn key reports `syntax.unknown-field`
+
+Decision 7 says a `[libs]` table in `project.toml` is an error named `value.project-unknown-key`.
+That code does not exist in the registry. The parser reports the withdrawn table (and any other
+unknown top-level table) as **`syntax.unknown-field`**, with a message that states the fix
+(`packages/parser/src/project.ts`); the only surviving `[libs]`-related row is
+`value.project-lib-invalid`, marked `[DEPRECATED]` in
+`packages/ir/src/diagnostics/codes.ts`. `spec/teda.md` §13.4 describes the actual behaviour.
+
+The rule is unaffected — `[libs]` is still an error, and `init` still does not create
+`external/libs/`. Only the code name in this sentence was wrong.

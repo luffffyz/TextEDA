@@ -88,3 +88,15 @@ Two things follow from this:
   What is still missing at board level is layout and routing authorship (agent-driven, see
   [ADR-0053](0053-layout-and-routing-are-agent-driven.md)) and the manufacturing package around the
   files ([ADR-0034](0034-manufacturing-output-target-form.md)).
+
+## Addendum (2026-10-27): nine `package.json` files, not seven
+
+The addendum of 2026-10-21 counts **seven** `package.json` files (root + `ir` / `parser` /
+`exporter` / `renderer` / `core` / `cli`), and line 75 repeats "the seven packages". There are
+**nine** today: two packages were added afterwards — `geom` (the constrained 2D geometry kernel,
+[ADR-0054](0054-copper-fill-uses-a-constrained-geometry-kernel.md)) and `viewer` (the review GUI,
+[ADR-0021](0021-schematic-view-layer.md)).
+
+The rule did not change and is still enforced: every `package.json` in the repository, present or
+future, carries `"license": "Apache-2.0"` and `"private": true`, and `bun run check:public` checks
+each one.

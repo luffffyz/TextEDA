@@ -48,3 +48,26 @@ So the library format is **our own choice**, not something KiCad dictates. Since
 - Whether **symbols** should be handled the same way (a self-built symbol library described in `.teda`, exporting `.kicad_sym`) — undecided, see `AGENTS.md` §11 question 3.
 - Custom pad shapes, cutouts, multiple 3D models, stacked footprints.
 - `packages/exporter` currently only handles footprints; the sch/pcb writers are not in the repository yet (the exporter of the first trial run was a one-off script).
+
+## Addendum (2026-10-27): the library model was replaced by the template model
+
+[ADR-0047](0047-an-external-library-is-a-template-not-a-dependency.md) decision 7 withdrew the
+library-dependency layer this record's decisions 3 and 4 describe. It named three affected records
+(0008, 0023, 0027) and not this one, so the subtraction is recorded here.
+
+- **D3 (line 29) "a self-built library is our JSON directory, locked by `content_hash`"** and
+  **line 38 "a content hash"**: there is no `content_hash` and no `bun run lib:hash`. A project's
+  own assets enter the build identity as normative shards; library content is `.teda` sources under
+  `assets/`. The `[libs]` table and `libref` were withdrawn with it (`spec/teda.md` §13.4).
+- **Line 40 "two kinds of library coexist … isolate them behind a library-provider abstraction"**:
+  an external library is today a **template**, copied in once by `texteda lib import` and then owned
+  by the project. This is how every external library is used, whatever its origin — an official one,
+  a company-internal one, a third party's: none is a build-time dependency, so `external/libs/**` is
+  not read and a qualified `<lib>:<id>` device reference is an error
+  (`ref.library-qualified-id`). There is no provider abstraction to build.
+- **The "symbols should be handled the same way — undecided" open point** was decided the same day
+  by [ADR-0012](0012-symbol-description.md): self-built symbol libraries in `.teda`, `.kicad_sym` as
+  the export artifact. `AGENTS.md` §11 question 3 is closed.
+- **Line 50 "the exporter currently only handles footprints"**: `packages/exporter` now also writes
+  symbols (`.kicad_sym`) and, past this record's scope, netlists, Gerber and Excellon. The second
+  half still holds — there is no `.kicad_sch` / `.kicad_pcb` writer (`docs/backlog.md` F15/F16).
