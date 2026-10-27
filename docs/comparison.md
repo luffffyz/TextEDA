@@ -243,6 +243,26 @@ The comparison is only honest if the gaps are on the same page as the features:
   TextEDA, with KiCad as the backend and agent-driven layout/routing on the roadmap.
 - **You want an agent to drive an existing editor with natural language**: heypcb or Flux.
 
+## Why KiCad files are not the IR (measured)
+
+The reason TextEDA does not adopt `.kicad_sch` as its source of truth is measurable rather than
+aesthetic. Measured on one small KiCad schematic (KiCad 10.0.7): a single resistor plus two labels
+serializes to 3746 B, of which the semantic content is roughly 25 B (0.7%).
+
+| Content | Share |
+|---|---|
+| Whitespace and indentation | 35.4% |
+| Structural keywords | 25.1% |
+| Coordinates | 10.1% |
+| UUIDs | 8.1% |
+| Style keywords | 1.3% |
+
+`lib_symbols` alone is 47.5% of the file (pin definitions 528 B, graphics 186 B, property boilerplate
+852 B) — the full symbol drawing is inlined into every schematic that uses it.
+
+**Conclusion**: the KiCad format stores a *finished drawing*, not a design. It is an export target,
+not a reference model for the IR.
+
 ## What would change this comparison
 
 TextEDA's claim is that the contract layer becomes the standard. That claim is ahead of the
