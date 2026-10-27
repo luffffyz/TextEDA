@@ -132,8 +132,9 @@ graphics
   rect  F.Fab    -0.5,-0.25,0.5,0.25  width=0.1
 ```
 
-The full rules for writing library files are in `docs/symbol-authoring.md` and
-`docs/footprint-authoring.md`; **the symbol's pin number set must match the component's** (§4).
+The full rules for writing library files are in `docs/guides/symbol-authoring.md` and
+`docs/guides/footprint-authoring.md`; **the symbol's pin number set must match the component's**
+([ADR-0012](../adr/0012-symbol-description.md), "the two pin number sets must be aligned").
 
 ## 4. Step 2: the devices
 

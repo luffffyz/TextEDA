@@ -891,14 +891,14 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     summary: "The IR does not satisfy the schema contract",
     hint: "Fix per the IR contract: a field, type or value is invalid",
-    spec: ["AGENTS.md §2.7"],
+    spec: ["AGENTS.md §2, invariant 7 (unknown constructs are errors)"],
   },
   "contract.unknown-field": {
     domain: "contract",
     severity: "error",
     summary: "The IR contains a field the schema does not recognize",
     hint: "A field outside the contract appears in the IR",
-    spec: ["AGENTS.md §2.7"],
+    spec: ["AGENTS.md §2, invariant 7 (unknown constructs are errors)"],
   },
 
   // ---- cli: invocation layer (not in the --json diagnostics array; goes to stderr + exit code) ----

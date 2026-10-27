@@ -189,6 +189,158 @@ describe("scripts/check-links.ts", () => {
     }
   });
 
+  // Section references are the form that drifts silently: a `§N` keeps looking fine after the
+  // subsection it named is renumbered or deleted. The binding rule is what keeps the check honest —
+  // `teda.md §7, §7.5` binds both numbers to teda.md, while a section number that follows an
+  // unrelated sentence must not steal that file.
+  test("resolves a qualified section reference", () => {
+    const root = makeTree({
+      "spec/a.md": "# A\n\n## 4. Section\n\n### 4.9 Detail\n",
+      "prose.md": "# Prose\n\nSee `spec/a.md` §4.9 for detail.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("reports a section the named file does not declare", () => {
+    const root = makeTree({
+      "spec/a.md": "# A\n\n## 4. Section\n",
+      "prose.md": "# Prose\n\nSee `spec/a.md` §4.7.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems.some((p) => p.includes("spec/a.md §4.7"))).toBe(true);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("binds every number of a section list to the named file", () => {
+    const root = makeTree({
+      "spec/a.md": "# A\n\n## 7. Top\n\n### 7.5 Five\n\n### 7.7 Seven\n",
+      // 7.6 is declared by nothing; the list form is how a real drift (7.7 missing) is written.
+      "prose.md": "# Prose\n\nSee `spec/a.md` §7, §7.5, §7.6.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toContain("spec/a.md §7.6");
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("does not bind a section number across a sentence break", () => {
+    const root = makeTree({
+      "spec/a.md": "# A\n\n## 4. Section\n",
+      "spec/b.md": "# B\n\n## 13. Other\n\n### 13.4 Detail\n",
+      // `§13.4` belongs to b.md (stated earlier in the sentence), not to the a.md named just before it.
+      "prose.md": "# Prose\n\nPer `spec/b.md`, §13.4 applies; see also `spec/a.md`.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  // A decision record is a statement about the past: a pointer that has since rotted is worth
+  // reporting, but rewriting the record to chase it would destroy the attribution it exists for.
+  test("downgrades a dead pointer in a decision record to a warning", () => {
+    const root = makeTree({
+      "spec/a.md": "# A\n\n## 4. Section\n",
+      "docs/adr/0006-past.md": `# ADR-0006: Past\nStatus: Accepted\nDate: 2026-10-20\n\nImpact: \`spec/a.md\` §9\n`,
+      "docs/adr/README.md": `${minimalIndex}\n${indexRow("0006", "0006-past.md", "Past", "Accepted", "2026-10-20")}\n`,
+    });
+    try {
+      const { problems, warnings } = checkRepo(root);
+      expect(problems).toHaveLength(0);
+      expect(warnings.some((w) => w.includes("spec/a.md §9"))).toBe(true);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("accepts a bare section number that some document declares", () => {
+    const root = makeTree({
+      "spec/a.md": "# A\n\n## 11. Rules\n",
+      "prose.md": "# Prose\n\nAs stated in §11.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("reports a section number no document declares", () => {
+    const root = makeTree({
+      "spec/a.md": "# A\n\n## 11. Rules\n",
+      "prose.md": "# Prose\n\nAs stated in §99.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems.some((p) => p.includes("§99"))).toBe(true);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  // Backlog numbers are cited from every document, and a done item leaves the list entirely.
+  test("accepts an open backlog item and one recorded as closed", () => {
+    const root = makeTree({
+      "docs/backlog.md": "# Backlog\n\n**F2（old work）已关闭** → `docs/adr/README.md`\n\n## F12. Open item\n",
+      "prose.md": "# Prose\n\nSee F12 and F2.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("reports a backlog item that is neither open nor closed", () => {
+    const root = makeTree({
+      "docs/backlog.md": "# Backlog\n\n## F12. Open item\n",
+      "prose.md": "# Prose\n\nSee F41.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems.some((p) => p.includes("F41"))).toBe(true);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  // ADR-0016's retired numeric diagnostic codes (`F200`, `F100`) look exactly like backlog items.
+  test("ignores a backlog-shaped token inside inline code", () => {
+    const root = makeTree({
+      "docs/backlog.md": "# Backlog\n\n## F12. Open item\n",
+      "prose.md": "# Prose\n\nThe old numeric codes (`F200` / `S113`) are retired.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
   // The skip list and the status vocabulary are `Set`s, not object literals: a plain object answers
   // `d["constructor"] !== undefined`, so a directory or status word named after a prototype member
   // would be silently skipped or silently accepted.
@@ -204,6 +356,25 @@ describe("scripts/check-links.ts", () => {
       expect(problems.some((p) => p.includes("link target does not exist"))).toBe(true);
       // `toString` is not in the closed status vocabulary, so it is rejected.
       expect(problems.some((p) => p.includes("unknown status word"))).toBe(true);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  // The section check memoizes the numbered headings it has read. A second run over the same tree
+  // must not answer from the first run's cache: the file may have been edited in between.
+  test("sees an edited section list on a second run over the same tree", () => {
+    const root = makeTree({
+      "spec/a.md": "# A\n\n## 4.7 Something\n",
+      "prose.md": "# Prose\n\nSee a.md §4.7 for the rule.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      expect(checkRepo(root).problems).toHaveLength(0);
+      // Rename the section: the same reference now points at nothing.
+      writeFileSync(join(root, "spec", "a.md"), "# A\n\n## 4.8 Something\n", "utf-8");
+      const second = checkRepo(root);
+      expect(second.problems.some((p) => p.includes("has no such section"))).toBe(true);
     } finally {
       removeTree(root);
     }

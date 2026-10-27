@@ -75,6 +75,16 @@ const placeholderTargetPattern = /^(?:…|XXXX-.*)$/;
 
 const adrPattern = /\bADR-(\d{4})\b/g;
 
+// Section references. The filename may sit inside an inline code span (`spec/pcb.md` §4.9), so the
+// section checks run on the line with the backtick characters removed: blanking a code span instead
+// would erase the very filename the reference needs.
+const qualifiedSectionPattern = /([A-Za-z0-9_./-]+\.md)\s*§\s*([0-9]+(?:\.[0-9]+)*)/g;
+const bareSectionPattern = /§\s*([0-9]+(?:\.[0-9]+)*)/g;
+
+// Backlog item references (F12, F49). Checked on the line with inline code blanked, because
+// ADR-0016's retired numeric diagnostic codes (`F200`, `F100`) also look like item numbers.
+const backlogItemPattern = /(?<![A-Za-z0-9_])F(\d{1,3})(?![A-Za-z0-9_])/g;
+
 const amendmentHeadingPattern = /^#{2,3} /;
 const amendmentWordPattern = /Appendix|Addendum|Amendment/;
 const datedHeadingPattern = /\d{4}-\d{2}-\d{2}/;
@@ -266,15 +276,168 @@ function adrRecordRules(
   }
 }
 
+// ---------------------------------------------------------------- section and item references
+
+/** The numbered headings a file declares (`## 4. Foo` -> "4", `### 4.9 Bar` -> "4.9"). */
+const headingCache = new Map<string, Set<string>>();
+function headingNumbers(full: string): Set<string> {
+  const cached = headingCache.get(full);
+  if (cached) return cached;
+  const out = new Set<string>();
+  for (const line of readFileSync(full, "utf-8").split("\n")) {
+    const match = /^#{1,6}\s+([0-9]+(?:\.[0-9]+)*)\.?(?:\s|$)/.exec(line);
+    if (match) out.add(match[1]);
+  }
+  headingCache.set(full, out);
+  return out;
+}
+
+/**
+ * Where a `foo.md` reference is looked up, in order: the referring file's own directory, the
+ * repository root, `spec/`, then `docs/`. The last two exist because the prose has always shortened
+ * `spec/teda.md` to `teda.md` inside `spec/` and next to the decision records; a bare file name
+ * that resolves in none of the four is reported rather than guessed.
+ */
+function resolveReference(root: string, fromDir: string, name: string): string | null {
+  for (const base of [fromDir, root, join(root, "spec"), join(root, "docs")]) {
+    const candidate = resolve(base, name);
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+/** A decision record or a trial-run log is a record of the past: its dead pointers are advisory. */
+function isHistoricalDoc(where: string): boolean {
+  return where.startsWith("docs/adr/") || where.startsWith("docs/trial-run/");
+}
+
+/** Backlog items that are done are removed from the list and recorded as closed in the preamble. */
+function backlogItems(root: string): { open: Set<string>; closed: Set<string> } {
+  const path = join(root, "docs", "backlog.md");
+  const open = new Set<string>();
+  const closed = new Set<string>();
+  if (!existsSync(path)) return { open, closed };
+  for (const line of readFileSync(path, "utf-8").split("\n")) {
+    const heading = /^##\s+(F\d+)\./.exec(line);
+    if (heading) open.add(heading[1]);
+    // `**F2（…）已关闭**` — the closure list in the preamble is what makes a removed number a valid reference.
+    for (const mention of line.matchAll(/\*\*(F\d+)[（(][^*]{0,120}?已关闭\*\*/g)) closed.add(mention[1]);
+  }
+  for (const item of open) closed.delete(item);
+  return { open, closed };
+}
+
+/** Every numbered heading in the tree, so a bare `§N` can at least be known to exist somewhere. */
+function allHeadingNumbers(root: string): Set<string> {
+  const out = new Set<string>();
+  for (const full of listMarkdownFiles(root)) for (const number of headingNumbers(full)) out.add(number);
+  return out;
+}
+
+/**
+ * Check the prose references that are not links: `file.md §N`, a bare `§N`, and a backlog item `F12`.
+ *
+ * A `file.md` binds only to the `§N` that follows it with nothing but separators in between, so a
+ * list such as `teda.md §7, §7.5` binds both numbers while `spec/pcb.md … （§13.4` does not steal a
+ * section number that belongs to another file. A bound reference is resolved against the named file;
+ * a bare one is accepted if any file in the tree declares that number.
+ *
+ * `docs/adr/` and `docs/trial-run/` are records of what was true when they were written, so a dead
+ * pointer there is a warning. Everywhere else it is an error: a live document that points at a
+ * section nobody has is the drift this check exists to catch.
+ */
+function referenceRules(
+  problems: string[],
+  warnings: string[],
+  root: string,
+  full: string,
+  where: string,
+  lineNumber: number,
+  line: string,
+  declared: Set<string>,
+  backlog: { open: Set<string>; closed: Set<string> },
+): void {
+  const report = isHistoricalDoc(where) ? warnings : problems;
+  const at = `${where}:${lineNumber}`;
+
+  // A link target is not a reference to a section of this text; blank it so `[x](foo.md)` cannot bind
+  // to the `§N` that follows it, then drop backticks so `` `spec/pcb.md` §4.9 `` still reads as one.
+  const text = line.replace(/\]\([^)\s]*\)/g, "]").replace(/`/g, "");
+
+  // A qualified reference already carries its section number, so the bare scan skips the spans it covers.
+  type Event = { start: number; end: number; file: string | null; section: string };
+  const events: Event[] = [];
+  const covered: { start: number; end: number }[] = [];
+  for (const match of text.matchAll(qualifiedSectionPattern)) {
+    const start = match.index ?? 0;
+    events.push({ start, end: start + match[0].length, file: match[1], section: match[2] });
+    covered.push({ start, end: start + match[0].length });
+  }
+  for (const match of text.matchAll(bareSectionPattern)) {
+    const start = match.index ?? 0;
+    if (covered.some((span) => start >= span.start && start < span.end)) continue;
+    events.push({ start, end: start + match[0].length, file: null, section: match[1] });
+  }
+  events.sort((a, b) => a.start - b.start);
+
+  const own = headingNumbers(full);
+  let cursor = 0;
+  let pending: string | null = null; // the file the following section numbers belong to
+
+  // Resolve one `file.md §N`. The reference may have meant this file rather than the one named before
+  // it, so a missing section is only an error when this file does not declare it either.
+  const checkBound = (file: string, section: string): void => {
+    const target = resolveReference(root, dirname(full), file);
+    if (target === null) {
+      report.push(`${at}: ${file} §${section} — there is no such file`);
+      return;
+    }
+    if (!headingNumbers(target).has(section) && !own.has(section)) {
+      report.push(`${at}: ${file} §${section} — ${relative(root, target)} has no such section`);
+    }
+  };
+
+  for (const event of events) {
+    const gap = text.slice(cursor, event.start);
+    cursor = event.end;
+    // A list keeps its file for the following numbers; anything but a separator ends the binding.
+    if (!/^[\s,:;，、。]*$/.test(gap)) pending = null;
+
+    if (event.file !== null) {
+      pending = event.file;
+      checkBound(event.file, event.section);
+      continue;
+    }
+    if (pending !== null) {
+      checkBound(pending, event.section);
+      continue;
+    }
+    if (!own.has(event.section) && !declared.has(event.section)) {
+      report.push(`${at}: §${event.section} is declared by no document in the tree`);
+    }
+  }
+
+  // Backlog items: an item still in the list has a heading; a closed one is named in the preamble.
+  const codeBlanked = line.replace(/`[^`\n]*`/g, (span) => " ".repeat(span.length));
+  for (const match of codeBlanked.matchAll(backlogItemPattern)) {
+    const item = `F${match[1]}`;
+    if (backlog.open.has(item) || backlog.closed.has(item)) continue;
+    report.push(`${at}: ${item} is neither an open backlog item nor recorded as closed`);
+  }
+}
+
 // ---------------------------------------------------------------- prose checks
 
 function proseRules(
   problems: string[],
+  warnings: string[],
   root: string,
   adrDir: string,
   adrFiles: Map<string, string>,
   reserved: Map<string, string>,
 ): void {
+  const declared = allHeadingNumbers(root);
+  const backlog = backlogItems(root);
   for (const full of listMarkdownFiles(root)) {
     const where = relative(root, full);
     const lines = readFileSync(full, "utf-8").split("\n");
@@ -333,6 +496,8 @@ function proseRules(
           );
         }
       }
+
+      referenceRules(problems, warnings, root, full, where, lineNumber, line, declared, backlog);
     });
   }
 }
@@ -348,6 +513,9 @@ export type CheckResult = {
 export function checkRepo(root: string): CheckResult {
   const problems: string[] = [];
   const warnings: string[] = [];
+  // A tree may be checked twice in one process (a test, or a caller that re-runs after an edit);
+  // the heading cache is keyed by path, so it has to be dropped rather than reused across runs.
+  headingCache.clear();
 
   const adrDirPath = adrDir(root);
   const indexPath = adrIndexPath(root);
@@ -401,7 +569,7 @@ export function checkRepo(root: string): CheckResult {
   };
 
   adrRecordRules(problems, warnings, root, adrDirPath, adrFiles, adrHeaderMap);
-  proseRules(problems, root, adrDirPath, adrFiles, index.reserved);
+  proseRules(problems, warnings, root, adrDirPath, adrFiles, index.reserved);
 
   return { problems, warnings, counts };
 }

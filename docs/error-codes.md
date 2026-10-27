@@ -137,8 +137,8 @@ when semantics change, emit a new code and mark the old one `[DEPRECATED → new
 
 | Code | Severity | Meaning | How to fix | Spec |
 |---|---|---|---|---|
-| `contract.schema-violation` | error | The IR does not satisfy the schema contract | Fix per the IR contract: a field, type or value is invalid | AGENTS.md §2.7 |
-| `contract.unknown-field` | error | The IR contains a field the schema does not recognize | A field outside the contract appears in the IR | AGENTS.md §2.7 |
+| `contract.schema-violation` | error | The IR does not satisfy the schema contract | Fix per the IR contract: a field, type or value is invalid | AGENTS.md §2, invariant 7 (unknown constructs are errors) |
+| `contract.unknown-field` | error | The IR contains a field the schema does not recognize | A field outside the contract appears in the IR | AGENTS.md §2, invariant 7 (unknown constructs are errors) |
 
 ## `net`
 
