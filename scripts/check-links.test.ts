@@ -379,4 +379,109 @@ describe("scripts/check-links.ts", () => {
       removeTree(root);
     }
   });
+
+  // A list that continues after the first number keeps the file it names: `a.md §3–§5, §10` says
+  // three things about one file, and the second and third are not bare numbers.
+  test("binds a continued list to the file it names", () => {
+    const root = makeTree({
+      "spec/a.md": "# A\n\n## 3 Rows\n\n## 5 Lexicon\n\n## 10 Units\n",
+      "prose.md": "# Prose\n\nSee a.md §3–§5, §10 for the rules.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      expect(checkRepo(root).problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  // The same list written with a slash between the numbers, the way the specs write it.
+  test("binds a slash-separated list to the file it names", () => {
+    const root = makeTree({
+      "spec/a.md": "# A\n\n## 4.9 Openings\n\n## 4.10 Silks\n",
+      "prose.md": "# Prose\n\nSee a.md §4.9 / §4.10 for the rules.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      expect(checkRepo(root).problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  // The file name may live in the link target: `[a.md](a.md) §9.2` names the file as clearly as
+  // `a.md §9.2` does, so the section number binds to it rather than becoming a bare one.
+  test("binds a section number to the file named by the enclosing link", () => {
+    const root = makeTree({
+      "spec/a.md": "# A\n\n## 9.2 Rules\n",
+      "prose.md": "# Prose\n\nSee [a.md](spec/a.md) §9.2 for the rules.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      expect(checkRepo(root).problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  // A bare number that belongs to another file is ambiguous: the reader has to guess which file it
+  // means, and the check cannot help them because the reference carries no file name. The writing
+  // rule asks for the qualified form, so this is a warning rather than a failure.
+  test("warns about a bare section number that only another file declares", () => {
+    const root = makeTree({
+      "spec/a.md": "# A\n\n## 9.2 Rules\n",
+      "prose.md": "# Prose\n\nSee §9.2 for the rules.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      const { problems, warnings } = checkRepo(root);
+      expect(problems.some((p) => p.includes("§9.2"))).toBe(false);
+      expect(warnings.some((p) => p.includes("§9.2"))).toBe(true);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  // A section number that belongs to a datasheet is not a reference into this repository: the name
+  // in front of it is not a file here, so there is nothing to resolve and nothing to report.
+  test("does not treat a datasheet section as a repository reference", () => {
+    const root = makeTree({
+      "prose.md": "# Prose\n\nThe datasheet SBVS348H §4 lists the pin functions.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      expect(checkRepo(root).problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  // The second number in `SBVS348H §4 pin functions, §5.3 operating conditions` is the same
+  // datasheet, so it is as much outside the tree as the first one.
+  test("does not treat a continued datasheet section as a repository reference", () => {
+    const root = makeTree({
+      "prose.md": "# Prose\n\nSBVS348H §4 pin functions, §5.3 recommended operating conditions.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      expect(checkRepo(root).problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  // A reference written inside one code span is a sample of the notation, not a pointer: the rule
+  // that says "write `a.md §4.7`, not `§4.7`" must be able to show both forms without the check
+  // resolving the samples it quotes.
+  test("does not resolve a reference written as a quoted sample", () => {
+    const root = makeTree({
+      "prose.md": "# Prose\n\nWrite `a.md §9.9`, not a bare number.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      expect(checkRepo(root).problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
 });

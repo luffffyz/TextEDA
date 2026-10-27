@@ -327,11 +327,44 @@ function backlogItems(root: string): { open: Set<string>; closed: Set<string> } 
   return { open, closed };
 }
 
-/** Every numbered heading in the tree, so a bare `§N` can at least be known to exist somewhere. */
-function allHeadingNumbers(root: string): Set<string> {
-  const out = new Set<string>();
-  for (const full of listMarkdownFiles(root)) for (const number of headingNumbers(full)) out.add(number);
+/**
+ * Which files declare which numbered heading, so a bare `§N` can be told apart from one that no
+ * document owns. The key is the section number; the value is the files that declare it.
+ */
+function allHeadingNumbers(root: string): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const full of listMarkdownFiles(root)) {
+    for (const number of headingNumbers(full)) {
+      const owners = out.get(number);
+      if (owners) owners.push(relative(root, full));
+      else out.set(number, [relative(root, full)]);
+    }
+  }
   return out;
+}
+
+/**
+ * Where a document that lives outside this repository is named, so the section numbers that follow
+ * it can be left alone: `SBVS348H §4 pin functions, §5.3 recommended operating conditions` cites
+ * one datasheet twice, and neither number is a pointer into this tree.
+ *
+ * The name is a part number (letters and digits, like `SBVS348H`) or a phrase that names the kind
+ * of document (`datasheet`, `approval sheet`). A `.md` file is not one of those: it is a document
+ * that does live here, and its sections are checked.
+ */
+function externalDocumentAt(text: string, at: number): { start: number; end: number } | null {
+  const before = text.slice(Math.max(0, at - 60), at);
+  const part = /(?<![A-Za-z0-9_.])(\d*[A-Z]{2,}[A-Z0-9-]*\d+[A-Z0-9-]*)\s*$/.exec(before);
+  if (part) {
+    const start = Math.max(0, at - 60) + part.index;
+    return { start, end: start + part[1].length };
+  }
+  const named = /\b(datasheet|data sheet|approval sheet|spec sheet|user manual|application note)\s*$/i.exec(before);
+  if (named) {
+    const start = Math.max(0, at - 60) + named.index;
+    return { start, end: start + named[1].length };
+  }
+  return null;
 }
 
 /**
@@ -354,15 +387,37 @@ function referenceRules(
   where: string,
   lineNumber: number,
   line: string,
-  declared: Set<string>,
+  declared: Map<string, string[]>,
   backlog: { open: Set<string>; closed: Set<string> },
 ): void {
   const report = isHistoricalDoc(where) ? warnings : problems;
   const at = `${where}:${lineNumber}`;
 
-  // A link target is not a reference to a section of this text; blank it so `[x](foo.md)` cannot bind
-  // to the `§N` that follows it, then drop backticks so `` `spec/pcb.md` §4.9 `` still reads as one.
-  const text = line.replace(/\]\([^)\s]*\)/g, "]").replace(/`/g, "");
+  // A link target names the file as clearly as a plain file name does, so `[a.md](spec/a.md) §9.2`
+  // binds §9.2 to that file. The target text is kept for binding; the parentheses are replaced by
+  // spaces so that every offset in this string matches the one in the original line.
+  const withTargets = line.replace(/\]\(([^)\s]*)\)/g, (whole, target: string) =>
+    `]${target.padEnd(whole.length - 1 - target.length)}`,
+  );
+
+  // A reference written inside one code span is a sample of the notation rather than a pointer: the
+  // rule that says "write `a.md §4.7`, not `§4.7`" has to be able to quote both forms without the
+  // check resolving the samples. A file name in its own span followed by a number outside it is a
+  // real reference, so only a span holding the whole thing is a sample.
+  const samples: { start: number; end: number }[] = [];
+  for (const match of withTargets.matchAll(/`[^`\n]*`/g)) {
+    const start = match.index ?? 0;
+    const inner = match[0].slice(1, -1);
+    if (qualifiedSectionPattern.test(inner)) {
+      samples.push({ start: start + 1, end: start + match[0].length - 1 });
+    }
+    qualifiedSectionPattern.lastIndex = 0;
+  }
+
+  // The backticks go next, so `` `spec/pcb.md` §4.9 `` reads as one reference. Removing them
+  // shifts the offsets, so the samples are matched on the same string the events are found in:
+  // the backticks are replaced by spaces instead of being deleted.
+  const text = withTargets.replace(/`/g, " ");
 
   // A qualified reference already carries its section number, so the bare scan skips the spans it covers.
   type Event = { start: number; end: number; file: string | null; section: string };
@@ -383,6 +438,7 @@ function referenceRules(
   const own = headingNumbers(full);
   let cursor = 0;
   let pending: string | null = null; // the file the following section numbers belong to
+  let pendingExternal = false; // the numbers that follow belong to a document outside the tree
 
   // Resolve one `file.md §N`. The reference may have meant this file rather than the one named before
   // it, so a missing section is only an error when this file does not declare it either.
@@ -400,20 +456,49 @@ function referenceRules(
   for (const event of events) {
     const gap = text.slice(cursor, event.start);
     cursor = event.end;
-    // A list keeps its file for the following numbers; anything but a separator ends the binding.
-    if (!/^[\s,:;，、。]*$/.test(gap)) pending = null;
+    // A quoted sample shows the notation; it is not a pointer.
+    if (samples.some((span) => event.start >= span.start && event.end <= span.end)) continue;
+    // A list keeps its file for the following numbers. The separators are the ones a list is written
+    // with: a comma, a Chinese enumeration comma, a colon, a slash, a dash of either width, or the
+    // word "and". Anything else ends the binding.
+    if (!/^[\s,:;/、。–—-]*(?:and\s+)?$/i.test(gap)) {
+      pending = null;
+      // A document outside the tree keeps the numbers that follow it for the rest of the sentence:
+      // `SBVS348H §4 pin functions, §5.3 recommended operating conditions` is one datasheet.
+      if (!/^[^.。;；|]*$/.test(gap)) pendingExternal = false;
+    }
 
     if (event.file !== null) {
       pending = event.file;
       checkBound(event.file, event.section);
       continue;
     }
+    // A number introduced by a document that is not in this repository — a datasheet, an approval
+    // sheet — points outside the tree, so there is nothing here to resolve. The name binds the
+    // numbers that follow it, the way a file name does: `SBVS348H §4 …, §5.3 …` is one document.
+    const external = externalDocumentAt(text, event.start);
+    if (external !== null) {
+      pendingExternal = true;
+      continue;
+    }
+    if (pendingExternal) continue;
     if (pending !== null) {
       checkBound(pending, event.section);
       continue;
     }
-    if (!own.has(event.section) && !declared.has(event.section)) {
+    if (own.has(event.section)) continue; // a self-reference: the file says it
+    const owners = declared.get(event.section);
+    if (!owners) {
       report.push(`${at}: §${event.section} is declared by no document in the tree`);
+      continue;
+    }
+    // The number exists, but not here, and the reader has no way to tell which file it means. The
+    // writing rule asks for the qualified form; the number of existing occurrences is too large to
+    // make this a failure on the day the check lands, so it is reported as a warning.
+    if (owners.length === 1) {
+      warnings.push(`${at}: §${event.section} is declared by ${owners[0]}, not by this file`);
+    } else {
+      warnings.push(`${at}: §${event.section} is declared by ${owners.length} files, not by this one`);
     }
   }
 
