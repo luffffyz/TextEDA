@@ -58,6 +58,7 @@ Every architecture decision record in this repository, in numeric order.
 | [ADR-0052](0052-a-rating-names-its-terminals.md) | A Rating Names Its Terminals, and the Role Says Which Direction Is Stress | Accepted | 2026-10-26 |
 | [ADR-0053](0053-layout-and-routing-are-agent-driven.md) | Layout and Routing Are Agent-Driven, Checker-Gated, and Frozen on Acceptance | Accepted | 2026-10-26 |
 | [ADR-0054](0054-copper-fill-uses-a-constrained-geometry-kernel.md) | Copper Fill Uses a Self-Built Constrained Geometry Kernel | Accepted | 2026-10-26 |
+| [ADR-0055](0055-documentation-has-one-authority-per-fact.md) | Documentation Has One Authority per Fact, and the Rest Is a Pointer | Accepted | 2026-10-27 |
 
 ## Reserved Numbers
 
