@@ -12,9 +12,13 @@
 //   3. the ADR number in the link text matches the decision record the link points at;
 //   4. docs/adr/README.md lists every decision record on disk exactly once, with matching title, status and date,
 //      and reserves only numbers that have no file;
-//   5. every decision record file name matches its H1 number, and carries exactly one Status and one Date header.
+//   5. every decision record file name matches its H1 number, and carries exactly one Status and one Date header;
+//   6. (R1) every appendix/addendum/amendment heading is dated;
+//   7. (R2) a retired decision record keeps no body heading;
+//   8. (R3) a retired decision record's Status line names its superseding record;
+//   9. (R4) no appendix/addendum/amendment block exceeds 40% of the record (a warning);
 //
-// Exit code 1 if there is any error.
+// Exit code 1 if there is any error. R4 warnings never change the exit code.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
@@ -24,12 +28,17 @@ const adrIndexPath = join(adrDir, "README.md");
 
 const skipDirs = new Set([".git", "node_modules", "dist", ".cache"]);
 const problems: string[] = [];
+const warnings: string[] = [];
 
 /** The closed status vocabulary of a decision record (see AGENTS.md §12). */
 const statusWords = new Set(["Accepted", "Proposed"]);
 
 function fail(where: string, message: string): void {
   problems.push(`${where}: ${message}`);
+}
+
+function warn(where: string, message: string): void {
+  warnings.push(`${where}: ${message}`);
 }
 
 function listMarkdownFiles(dir: string): string[] {
@@ -70,6 +79,11 @@ function blankInlineCode(line: string): string {
 }
 
 const linkPattern = /\[([^\]\n]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+// Placeholder targets used by the policy docs' contract examples (a retired-pointer
+// `XXXX-*.md` and a bare `…` citation) are not real links; they are forms to show, not
+// links to resolve.
+const placeholderTargetPattern = /^(?:…|XXXX-.*)$/;
+
 const adrPattern = /\bADR-(\d{4})\b/g;
 
 const adrFiles = new Map<string, string>(); // number -> file name
@@ -165,6 +179,83 @@ for (const [number, entry] of reserved) {
   }
 }
 
+// ---------------------------------------------------------------- ADR records
+// Decision-record shape checks for the SHARED CONTRACT (R1-R4). R1, R2 and R3 are hard problems;
+// R4 is advisory: it is a warning that never changes the exit code.
+
+const amendmentHeadingPattern = /^#{2,3} /;
+const amendmentWordPattern = /Appendix|Addendum|Amendment/;
+const datedHeadingPattern = /\d{4}-\d{2}-\d{2}/;
+const retiredLinePattern = /^> \*\*Retired \d{4}-\d{2}-\d{2}/;
+const retiredHeadingPattern = /^#{2,3} /;
+const retiredSupersessionPattern = /superseded by ADR-\d{4}|withdrawn/;
+const statusNamePattern = /ADR-(\d{4})/g;
+
+for (const [number, file] of adrFiles) {
+  const full = join(adrDir, file);
+  const where = relative(repoRoot, full);
+  const lines = readFileSync(full, "utf-8").split("\n");
+
+  // R1: every appendix/addendum/amendment heading carries a date.
+  for (const line of lines) {
+    if (!amendmentHeadingPattern.exec(line) || !amendmentWordPattern.test(line)) continue;
+    if (!datedHeadingPattern.test(line)) {
+      fail(where, `amendment heading "${line.trim()}" is missing a date; add a YYYY-MM-DD date to it`);
+    }
+  }
+
+  // R2 + R3: a retired record keeps no body heading, and names its superseding record.
+  let retiredFrom = -1;
+  for (let index = 0; index < lines.length; index++) {
+    if (retiredLinePattern.test(lines[index])) {
+      retiredFrom = index;
+      break;
+    }
+  }
+  if (retiredFrom >= 0) {
+    // R2: no heading-level heading may appear after the retired line.
+    for (let index = retiredFrom + 1; index < lines.length; index++) {
+      if (retiredHeadingPattern.test(lines[index])) {
+        fail(where, "a retired record keeps no body; the decision text belongs in git history");
+        break;
+      }
+    }
+    // R3: the Status line must name the supersession, and any named ADR must exist.
+    const status = adrHeader.get(number)!.status;
+    if (!retiredSupersessionPattern.test(status)) {
+      fail(where, 'a retired record\'s Status line must contain "superseded by ADR-NNNN" or "withdrawn"');
+    }
+    const statusNames = status.matchAll(statusNamePattern).map((match) => match[1]);
+    for (const name of statusNames) {
+      if (!adrFiles.has(name)) {
+        fail(where, `a retired record's Status line names ADR-${name}, which is not a decision record`);
+      }
+    }
+  }
+
+  // R4: an appendix/addendum/amendment block may not exceed 40% of the record (advisory — a warning).
+  let firstAmendmentHeading = -1;
+  for (let index = 0; index < lines.length; index++) {
+    if (amendmentHeadingPattern.test(lines[index]) && amendmentWordPattern.test(lines[index])) {
+      firstAmendmentHeading = index;
+      break;
+    }
+  }
+  if (firstAmendmentHeading >= 0) {
+    const total = lines.length;
+    const blockLines = total - firstAmendmentHeading; // lines from the amendment heading to EOF, heading line excluded
+    const share = blockLines / total;
+    if (share > 0.4) {
+      warn(
+        where,
+        `${(share * 100).toFixed(1)}% of ${total} lines (${blockLines} lines from the amendment heading to EOF): ` +
+          "consolidate on the next rewrite: a status block is ≤10 lines, a new rule is a new record, a wholesale supersession is a retirement",
+      );
+    }
+  }
+}
+
+
 // ---------------------------------------------------------------- prose
 
 for (const full of listMarkdownFiles(repoRoot)) {
@@ -180,7 +271,7 @@ for (const full of listMarkdownFiles(repoRoot)) {
 
     // link targets
     const linkSpans: { start: number; end: number; text: string; target: string }[] = [];
-    for (const match of line.matchAll(linkPattern)) {
+    for (const match of prose.matchAll(linkPattern)) {
       const start = match.index ?? 0;
       const end = start + match[0].length;
       const [, text, target] = match;
@@ -190,6 +281,7 @@ for (const full of listMarkdownFiles(repoRoot)) {
       const [path] = target.split("#");
       if (!path) continue;
       if (path.startsWith("/")) continue; // root-relative link, not resolvable from the file
+      if (placeholderTargetPattern.test(path)) continue; // a contract-example placeholder, not a real link
       if (!existsSync(resolve(dirname(full), path))) {
         fail(`${where}:${lineNumber}`, `link target does not exist: ${target}`);
       }
@@ -232,7 +324,11 @@ if (problems.length > 0) {
   process.exit(1);
 }
 
-console.log(
+// Advisory warnings (R4) go to stderr before the ok line; they never change the exit code.
+for (const entry of warnings) console.warn(`warning: ${entry}`);
+
+let okSummary =
   `check:links ok — ${adrFiles.size} decision records, ${indexRows.size} indexed, ${reserved.size} reserved, ` +
-    `${listMarkdownFiles(repoRoot).length} Markdown files`,
-);
+    `${listMarkdownFiles(repoRoot).length} Markdown files`;
+if (warnings.length > 0) okSummary += `, ${warnings.length} warning(s)`;
+console.log(okSummary);

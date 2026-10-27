@@ -161,7 +161,7 @@ my-board/
 - [ADR-0001](docs/adr/0001-board-linking.md) 板之间如何连接
 - [ADR-0002](docs/adr/0002-board-pages-and-bom.md) 板内分页、展平与 BOM 计数
 - [ADR-0003](docs/adr/0003-agent-first-pcb-ir.md) agent-first 的 PCB 描述：段集与取舍
-- [ADR-0007](docs/adr/0007-page-internal-net-naming.md) 展平后的 net 集合与命名
+- [ADR-0007](docs/adr/0007-page-internal-net-naming.md) 展平后的 net 集合与命名（已撤销；页面改为打印页，见 [ADR-0025](docs/adr/0025-flat-board-and-print-pages.md)）
 - [ADR-0024](docs/adr/0024-level-tags-in-flattened-names.md) 展平名字里的层级标记（`M1.R1`）
 - [ADR-0025](docs/adr/0025-flat-board-and-print-pages.md) 一板一份扁平原理图；页面变成视图层的打印页
 - [ADR-0026](docs/adr/0026-modules-compose-boards.md) 板由模块组成；IR 仍是平表

@@ -76,3 +76,49 @@ No number is reserved at the moment.
   settled decision — say so when you rely on it.
 - **Every ADR carries the same header**: a `# ADR-NNNN: Title` heading, then `Status:`, `Date:`, optionally
   `Related:`, then `Impact:`. The header is machine-checked by `bun run check:links`.
+
+### Keeping a record current
+
+A record is a decision plus its date. A status line that stops describing the code is corrected in place by a
+dated block, never by rewriting the decision itself. But those blocks accumulate: one record
+([ADR-0021](0021-schematic-view-layer.md)) is now 72% appendix. So there are three tiers, and a tier is chosen by
+what the new text says, not by how long it is.
+
+1. **Status amendment — the world moved, the decision stands.** Correct the record with an italic paragraph or a
+   dated `## Appendix` / `## Addendum` / `## Amendment` block of **at most 10 lines** that names the artifact
+   proving the correction (a code symbol, a spec section) and does not narrate history.
+2. **New record — the text states something the record did not.** If the new text introduces a `must`, a `may`, an
+   enum value or a rule that the original record did not state, it is a new ADR; the old record gets one pointer
+   line. It is never smuggled into an appendix, because a reader who follows `ADR-NNNN decision N` must land on the
+   rule itself.
+3. **Retirement — the decision is no longer true and nobody will come back to it.** See `Retirement` below.
+
+### Retirement
+
+Retirement is for "this is no longer true and nobody will come back to it", not for "I disagree with it now" — a
+disagreement is a new record that supersedes this one.
+
+A retired record ends with the pointer form, and the body is dropped:
+
+> **Retired YYYY-MM-DD by [ADR-XXXX](XXXX-*.md).** One to three sentences: what this record decided, and why
+> nothing in it applies. The decision text is in this file's history.
+
+The file name and the header stay, and that is what makes a retirement safe: the name is the external anchor, and
+`scripts/check-links.ts` resolves every inbound link to it; the status word stays in the closed vocabulary and only
+the parenthetical changes (ADR-0046 reads `Accepted (superseded by ADR-0047)`, ADR-0007 reads
+`Accepted (superseded by ADR-0025)`); and the decision text stays in git history, so nothing is lost by dropping it
+from the working tree.
+
+A record may be retired only when all three criteria hold: it is superseded wholesale rather than amended in parts;
+no live `decision N` citation to it remains anywhere in `spec/`, `packages/`, `examples/` or `docs/`; and every
+document and code comment still citing it is updated in the same change.
+
+### What the checker enforces
+
+`scripts/check-links.ts` enforces four rules. R1–R3 fail the build; R4 is a warning that never changes the exit code.
+
+- **R1 — every appendix / addendum / amendment heading carries a date.** An undated block is not a valid amendment.
+- **R2 — the `> **Retired …**` line ends the file.** No heading may follow it; anything more belongs in a new record.
+- **R3 — a retired record's `Status:` parenthetical names the superseding record or `withdrawn`.**
+- **R4 — a record whose appendix blocks exceed 40% of its lines is warned about, not failed.** A ratio is a smell,
+  not a defect: the fix is consolidation on the next rewrite, not deletion.

@@ -159,7 +159,7 @@ my-board/
 - [ADR-0001](docs/adr/0001-board-linking.md) how boards are linked together
 - [ADR-0002](docs/adr/0002-board-pages-and-bom.md) intra-board pages, flattening and BOM counting
 - [ADR-0003](docs/adr/0003-agent-first-pcb-ir.md) agent-first PCB description: segment set and trade-offs
-- [ADR-0007](docs/adr/0007-page-internal-net-naming.md) the net set and its names after flattening
+- [ADR-0007](docs/adr/0007-page-internal-net-naming.md) the net set and its names after flattening (withdrawn; pages became print pages in [ADR-0025](docs/adr/0025-flat-board-and-print-pages.md))
 - [ADR-0024](docs/adr/0024-level-tags-in-flattened-names.md) level tags in flattened names (`M1.R1`)
 - [ADR-0025](docs/adr/0025-flat-board-and-print-pages.md) one flat schematic per board; pages become print pages in the view layer
 - [ADR-0026](docs/adr/0026-modules-compose-boards.md) a board is composed of modules; the IR stays flat
