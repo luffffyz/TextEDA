@@ -22,30 +22,19 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
-const repoRoot = resolve(import.meta.dir, "..");
-const adrDir = join(repoRoot, "docs", "adr");
-const adrIndexPath = join(adrDir, "README.md");
-
-const skipDirs = new Set([".git", "node_modules", "dist", ".cache"]);
-const problems: string[] = [];
-const warnings: string[] = [];
-
 /** The closed status vocabulary of a decision record (see AGENTS.md §12). */
 const statusWords = new Set(["Accepted", "Proposed"]);
 
-function fail(where: string, message: string): void {
-  problems.push(`${where}: ${message}`);
-}
+const skipDirs = new Set([".git", "node_modules", "dist", ".cache"]);
 
-function warn(where: string, message: string): void {
-  warnings.push(`${where}: ${message}`);
-}
+// ---------------------------------------------------------------- pure helpers (all take `root`; every path is derived from it)
 
-function listMarkdownFiles(dir: string): string[] {
+/** Recursively list Markdown files under `root` (skipping the directory skip list). */
+function listMarkdownFiles(root: string): string[] {
   const out: string[] = [];
-  for (const entry of readdirSync(dir)) {
+  for (const entry of readdirSync(root)) {
     if (skipDirs.has(entry)) continue;
-    const full = join(dir, entry);
+    const full = join(root, entry);
     if (statSync(full).isDirectory()) out.push(...listMarkdownFiles(full));
     else if (entry.endsWith(".md")) out.push(full);
   }
@@ -86,103 +75,6 @@ const placeholderTargetPattern = /^(?:…|XXXX-.*)$/;
 
 const adrPattern = /\bADR-(\d{4})\b/g;
 
-const adrFiles = new Map<string, string>(); // number -> file name
-for (const entry of readdirSync(adrDir)) {
-  const match = /^(\d{4})-.+\.md$/.exec(entry);
-  if (match) adrFiles.set(match[1], entry);
-}
-
-// ---------------------------------------------------------------- index parsing
-
-const indexText = existsSync(adrIndexPath) ? readFileSync(adrIndexPath, "utf-8") : "";
-if (!indexText) fail(relative(repoRoot, adrIndexPath), "the ADR index is missing");
-
-const indexRows = new Map<string, { title: string; status: string; date: string; target: string }>();
-const reserved = new Map<string, { file: string; item: string }>();
-
-for (const line of indexText.split("\n")) {
-  const row = /^\|\s*\[ADR-(\d{4})\]\(([^)]+)\)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*$/.exec(line);
-  if (row) {
-    const [, number, target, title, status, date] = row;
-    if (indexRows.has(number)) fail(relative(repoRoot, adrIndexPath), `ADR-${number} is listed twice`);
-    indexRows.set(number, { title, status, date, target });
-    continue;
-  }
-  const reservedRow = /^\|\s*ADR-(\d{4})\s*\|\s*`([^`]+)`\s*\|\s*(\S+)\s*\|\s*$/.exec(line);
-  if (reservedRow) {
-    const [, number, file, item] = reservedRow;
-    if (reserved.has(number)) fail(relative(repoRoot, adrIndexPath), `ADR-${number} is reserved twice`);
-    reserved.set(number, { file, item });
-  }
-}
-
-// ---------------------------------------------------------------- ADR headers
-
-const adrHeader = new Map<string, { title: string; status: string; date: string }>();
-
-for (const [number, file] of adrFiles) {
-  const full = join(adrDir, file);
-  const lines = readFileSync(full, "utf-8").split("\n");
-  const where = relative(repoRoot, full);
-
-  const h1 = /^#\s+ADR-(\d{4}):\s*(.+?)\s*$/.exec(lines[0] ?? "");
-  if (!h1) fail(where, "the first line must be `# ADR-NNNN: Title`");
-  else if (h1[1] !== number) fail(where, `the H1 says ADR-${h1[1]} but the file name says ADR-${number}`);
-
-  const statusLines = lines.filter((line) => /^Status:/.test(line));
-  const dateLines = lines.filter((line) => /^Date:/.test(line));
-  if (statusLines.length !== 1) fail(where, `expected exactly one "Status:" header line, found ${statusLines.length}`);
-  if (dateLines.length !== 1) fail(where, `expected exactly one "Date:" header line, found ${dateLines.length}`);
-
-  const status = (statusLines[0] ?? "").replace(/^Status:\s*/, "").trim();
-  const date = (dateLines[0] ?? "").replace(/^Date:\s*/, "").trim();
-
-  // The status vocabulary is closed: the word before any parenthetical revision note.
-  const statusWord = status.split(/[\s(]/)[0];
-  if (status && !statusWords.has(statusWord)) {
-    fail(where, `unknown status word "${statusWord}"; use one of ${[...statusWords].join(", ")}`);
-  }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) fail(where, `the date must be YYYY-MM-DD, found "${date}"`);
-
-  adrHeader.set(number, { title: h1 ? h1[2].trim() : "", status, date });
-}
-
-// ---------------------------------------------------------------- index <-> disk
-
-for (const [number, file] of adrFiles) {
-  if (!indexRows.has(number)) fail(relative(repoRoot, adrIndexPath), `ADR-${number} (${file}) is not listed`);
-}
-for (const [number, row] of indexRows) {
-  if (!adrFiles.has(number)) {
-    fail(relative(repoRoot, adrIndexPath), `ADR-${number} is listed but has no file in docs/adr/`);
-    continue;
-  }
-  const expected = adrFiles.get(number)!;
-  if (row.target !== expected) {
-    fail(relative(repoRoot, adrIndexPath), `ADR-${number} points at ${row.target}, the file is ${expected}`);
-  }
-  const header = adrHeader.get(number)!;
-  if (row.title !== header.title) {
-    fail(relative(repoRoot, adrIndexPath), `ADR-${number} title differs from the file: "${row.title}" vs "${header.title}"`);
-  }
-  const statusWord = header.status.split(/[\s(]/)[0];
-  if (row.status !== statusWord) {
-    fail(relative(repoRoot, adrIndexPath), `ADR-${number} status differs from the file: "${row.status}" vs "${statusWord}"`);
-  }
-  if (row.date !== header.date) {
-    fail(relative(repoRoot, adrIndexPath), `ADR-${number} date differs from the file: "${row.date}" vs "${header.date}"`);
-  }
-}
-for (const [number, entry] of reserved) {
-  if (adrFiles.has(number)) {
-    fail(relative(repoRoot, adrIndexPath), `ADR-${number} is reserved but the file docs/adr/${entry.file} exists`);
-  }
-}
-
-// ---------------------------------------------------------------- ADR records
-// Decision-record shape checks for the SHARED CONTRACT (R1-R4). R1, R2 and R3 are hard problems;
-// R4 is advisory: it is a warning that never changes the exit code.
-
 const amendmentHeadingPattern = /^#{2,3} /;
 const amendmentWordPattern = /Appendix|Addendum|Amendment/;
 const datedHeadingPattern = /\d{4}-\d{2}-\d{2}/;
@@ -191,144 +83,346 @@ const retiredHeadingPattern = /^#{2,3} /;
 const retiredSupersessionPattern = /superseded by ADR-\d{4}|withdrawn/;
 const statusNamePattern = /ADR-(\d{4})/g;
 
-for (const [number, file] of adrFiles) {
-  const full = join(adrDir, file);
-  const where = relative(repoRoot, full);
-  const lines = readFileSync(full, "utf-8").split("\n");
+// ---------------------------------------------------------------- ADR on disk
 
-  // R1: every appendix/addendum/amendment heading carries a date.
-  for (const line of lines) {
-    if (!amendmentHeadingPattern.exec(line) || !amendmentWordPattern.test(line)) continue;
-    if (!datedHeadingPattern.test(line)) {
-      fail(where, `amendment heading "${line.trim()}" is missing a date; add a YYYY-MM-DD date to it`);
+function adrDir(root: string): string {
+  return join(root, "docs", "adr");
+}
+
+function adrIndexPath(root: string): string {
+  return join(adrDir(root), "README.md");
+}
+
+/** Scan docs/adr for decision-record files, mapping number -> file name. */
+function scanAdrFiles(root: string): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const entry of readdirSync(adrDir(root))) {
+    const match = /^(\d{4})-.+\.md$/.exec(entry);
+    if (match) out.set(match[1], entry);
+  }
+  return out;
+}
+
+type IndexRow = { title: string; status: string; date: string; target: string };
+
+type IndexResult = {
+  text: string;
+  missing: boolean;
+  rows: Map<string, IndexRow>;
+  reserved: Map<string, { file: string; item: string }>;
+};
+
+/** Parse the ADR index. `problems` collects duplicate-index problems (passed in for ordering). */
+function parseIndex(root: string, problems: string[]): IndexResult {
+  const indexPath = adrIndexPath(root);
+  const indexText = existsSync(indexPath) ? readFileSync(indexPath, "utf-8") : "";
+  const result: IndexResult = {
+    text: indexText,
+    missing: !indexText,
+    rows: new Map(),
+    reserved: new Map(),
+  };
+  if (!indexText) return result;
+  for (const line of indexText.split("\n")) {
+    const row = /^\|\s*\[ADR-(\d{4})\]\(([^)]+)\)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*$/.exec(line);
+    if (row) {
+      const [, number, target, title, status, date] = row;
+      if (result.rows.has(number)) {
+        problems.push(`${relative(root, indexPath)}: ADR-${number} is listed twice`);
+      }
+      result.rows.set(number, { title, status, date, target });
+      continue;
+    }
+    const reservedRow = /^\|\s*ADR-(\d{4})\s*\|\s*`([^`]+)`\s*\|\s*(\S+)\s*\|\s*$/.exec(line);
+    if (reservedRow) {
+      const [, number, file, item] = reservedRow;
+      if (result.reserved.has(number)) {
+        problems.push(`${relative(root, indexPath)}: ADR-${number} is reserved twice`);
+      }
+      result.reserved.set(number, { file, item });
     }
   }
+  return result;
+}
 
-  // R2 + R3: a retired record keeps no body heading, and names its superseding record.
-  let retiredFrom = -1;
-  for (let index = 0; index < lines.length; index++) {
-    if (retiredLinePattern.test(lines[index])) {
-      retiredFrom = index;
-      break;
+/** Read and validate the header of every decision-record file on disk (number -> header). */
+function adrHeader(
+  root: string,
+  adrDir: string,
+  adrFiles: Map<string, string>,
+  problems: string[],
+): Map<string, { title: string; status: string; date: string }> {
+  const out = new Map<string, { title: string; status: string; date: string }>();
+  for (const [number, file] of adrFiles) {
+    const full = join(adrDir, file);
+    const lines = readFileSync(full, "utf-8").split("\n");
+    const where = relative(root, full);
+
+    const h1 = /^#\s+ADR-(\d{4}):\s*(.+?)\s*$/.exec(lines[0] ?? "");
+    if (!h1) fail(problems, where, "the first line must be `# ADR-NNNN: Title`");
+    else if (h1[1] !== number) fail(problems, where, `the H1 says ADR-${h1[1]} but the file name says ADR-${number}`);
+
+    const statusLines = lines.filter((line) => /^Status:/.test(line));
+    const dateLines = lines.filter((line) => /^Date:/.test(line));
+    if (statusLines.length !== 1) fail(problems, where, `expected exactly one "Status:" header line, found ${statusLines.length}`);
+    if (dateLines.length !== 1) fail(problems, where, `expected exactly one "Date:" header line, found ${dateLines.length}`);
+
+    const status = (statusLines[0] ?? "").replace(/^Status:\s*/, "").trim();
+    const date = (dateLines[0] ?? "").replace(/^Date:\s*/, "").trim();
+
+    // The status vocabulary is closed: the word before any parenthetical revision note.
+    const statusWord = status.split(/[\s(]/)[0];
+    if (status && !statusWords.has(statusWord)) {
+      fail(problems, where, `unknown status word "${statusWord}"; use one of ${[...statusWords].join(", ")}`);
     }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) fail(problems, where, `the date must be YYYY-MM-DD, found "${date}"`);
+
+    out.set(number, { title: h1 ? h1[2].trim() : "", status, date });
   }
-  if (retiredFrom >= 0) {
-    // R2: no heading-level heading may appear after the retired line.
-    for (let index = retiredFrom + 1; index < lines.length; index++) {
-      if (retiredHeadingPattern.test(lines[index])) {
-        fail(where, "a retired record keeps no body; the decision text belongs in git history");
+  return out;
+}
+
+function fail(problems: string[], where: string, message: string): void {
+  problems.push(`${where}: ${message}`);
+}
+
+function warn(warnings: string[], where: string, message: string): void {
+  warnings.push(`${where}: ${message}`);
+}
+
+// ---------------------------------------------------------------- ADR record shape rules (R1-R4)
+
+function adrRecordRules(
+  problems: string[],
+  warnings: string[],
+  root: string,
+  adrDir: string,
+  adrFiles: Map<string, string>,
+  adrHeader: Map<string, { title: string; status: string; date: string }>,
+): void {
+  for (const [number, file] of adrFiles) {
+    const full = join(adrDir, file);
+    const where = relative(root, full);
+    const lines = readFileSync(full, "utf-8").split("\n");
+
+    // R1: every appendix/addendum/amendment heading carries a date.
+    for (const line of lines) {
+      if (!amendmentHeadingPattern.exec(line) || !amendmentWordPattern.test(line)) continue;
+      if (!datedHeadingPattern.test(line)) {
+        fail(problems, where, `amendment heading "${line.trim()}" is missing a date; add a YYYY-MM-DD date to it`);
+      }
+    }
+
+    // R2 + R3: a retired record keeps no body heading, and names its superseding record.
+    let retiredFrom = -1;
+    for (let index = 0; index < lines.length; index++) {
+      if (retiredLinePattern.test(lines[index])) {
+        retiredFrom = index;
         break;
       }
     }
-    // R3: the Status line must name the supersession, and any named ADR must exist.
-    const status = adrHeader.get(number)!.status;
-    if (!retiredSupersessionPattern.test(status)) {
-      fail(where, 'a retired record\'s Status line must contain "superseded by ADR-NNNN" or "withdrawn"');
-    }
-    const statusNames = status.matchAll(statusNamePattern).map((match) => match[1]);
-    for (const name of statusNames) {
-      if (!adrFiles.has(name)) {
-        fail(where, `a retired record's Status line names ADR-${name}, which is not a decision record`);
-      }
-    }
-  }
-
-  // R4: an appendix/addendum/amendment block may not exceed 40% of the record (advisory — a warning).
-  let firstAmendmentHeading = -1;
-  for (let index = 0; index < lines.length; index++) {
-    if (amendmentHeadingPattern.test(lines[index]) && amendmentWordPattern.test(lines[index])) {
-      firstAmendmentHeading = index;
-      break;
-    }
-  }
-  if (firstAmendmentHeading >= 0) {
-    const total = lines.length;
-    const blockLines = total - firstAmendmentHeading; // lines from the amendment heading to EOF, heading line excluded
-    const share = blockLines / total;
-    if (share > 0.4) {
-      warn(
-        where,
-        `${(share * 100).toFixed(1)}% of ${total} lines (${blockLines} lines from the amendment heading to EOF): ` +
-          "consolidate on the next rewrite: a status block is ≤10 lines, a new rule is a new record, a wholesale supersession is a retirement",
-      );
-    }
-  }
-}
-
-
-// ---------------------------------------------------------------- prose
-
-for (const full of listMarkdownFiles(repoRoot)) {
-  const where = relative(repoRoot, full);
-  const lines = readFileSync(full, "utf-8").split("\n");
-  const regions = splitCodeRegions(lines);
-
-  regions.forEach((region, index) => {
-    if (region.code) return;
-    const lineNumber = index + 1;
-    const line = region.text;
-    const prose = blankInlineCode(line);
-
-    // link targets
-    const linkSpans: { start: number; end: number; text: string; target: string }[] = [];
-    for (const match of prose.matchAll(linkPattern)) {
-      const start = match.index ?? 0;
-      const end = start + match[0].length;
-      const [, text, target] = match;
-      linkSpans.push({ start, end, text, target });
-
-      if (/^(?:[a-z][a-z0-9+.-]*:|#)/i.test(target)) continue; // external, mailto, anchor
-      const [path] = target.split("#");
-      if (!path) continue;
-      if (path.startsWith("/")) continue; // root-relative link, not resolvable from the file
-      if (placeholderTargetPattern.test(path)) continue; // a contract-example placeholder, not a real link
-      if (!existsSync(resolve(dirname(full), path))) {
-        fail(`${where}:${lineNumber}`, `link target does not exist: ${target}`);
-      }
-    }
-
-    // ADR numbers
-    for (const match of prose.matchAll(adrPattern)) {
-      const number = match[1];
-      const start = match.index ?? 0;
-      const end = start + match[0].length;
-      const inLink = linkSpans.find((span) => start >= span.start && end <= span.end);
-
-      if (inLink) {
-        const target = inLink.target.split("#")[0];
-        if (!adrFiles.has(number)) {
-          fail(`${where}:${lineNumber}`, `ADR-${number} is linked but there is no docs/adr/${number}-*.md`);
-          continue;
+    if (retiredFrom >= 0) {
+      // R2: no heading-level heading may appear after the retired line.
+      for (let index = retiredFrom + 1; index < lines.length; index++) {
+        if (retiredHeadingPattern.test(lines[index])) {
+          fail(problems, where, "a retired record keeps no body; the decision text belongs in git history");
+          break;
         }
-        const expected = adrFiles.get(number)!;
-        const resolved = resolve(dirname(full), target);
-        if (resolved !== join(adrDir, expected)) {
-          fail(`${where}:${lineNumber}`, `ADR-${number} links to ${target}, the decision record is ${expected}`);
-        }
-        continue;
       }
+      // R3: the Status line must name the supersession, and any named ADR must exist.
+      const status = adrHeader.get(number)!.status;
+      if (!retiredSupersessionPattern.test(status)) {
+        fail(problems, where, 'a retired record\'s Status line must contain "superseded by ADR-NNNN" or "withdrawn"');
+      }
+      const statusNames = status.matchAll(statusNamePattern).map((match) => match[1]);
+      for (const name of statusNames) {
+        if (!adrFiles.has(name)) {
+          fail(problems, where, `a retired record's Status line names ADR-${name}, which is not a decision record`);
+        }
+      }
+    }
 
-      if (!adrFiles.has(number) && !reserved.has(number)) {
-        fail(
-          `${where}:${lineNumber}`,
-          `ADR-${number} is mentioned but there is no decision record for it and it is not reserved in docs/adr/README.md`,
+    // R4: an appendix/addendum/amendment block may not exceed 40% of the record (advisory — a warning).
+    let firstAmendmentHeading = -1;
+    for (let index = 0; index < lines.length; index++) {
+      if (amendmentHeadingPattern.test(lines[index]) && amendmentWordPattern.test(lines[index])) {
+        firstAmendmentHeading = index;
+        break;
+      }
+    }
+    if (firstAmendmentHeading >= 0) {
+      const total = lines.length;
+      const blockLines = total - firstAmendmentHeading; // lines from the amendment heading to EOF, heading line excluded
+      const share = blockLines / total;
+      if (share > 0.4) {
+        warn(
+          warnings,
+          where,
+          `${(share * 100).toFixed(1)}% of ${total} lines (${blockLines} lines from the amendment heading to EOF): ` +
+            "consolidate on the next rewrite: a status block is ≤10 lines, a new rule is a new record, a wholesale supersession is a retirement",
         );
       }
     }
-  });
+  }
 }
 
-if (problems.length > 0) {
-  for (const problem of problems) console.error(problem);
-  console.error(`\n${problems.length} cross-reference problem(s)`);
-  process.exit(1);
+// ---------------------------------------------------------------- prose checks
+
+function proseRules(
+  problems: string[],
+  root: string,
+  adrDir: string,
+  adrFiles: Map<string, string>,
+  reserved: Map<string, string>,
+): void {
+  for (const full of listMarkdownFiles(root)) {
+    const where = relative(root, full);
+    const lines = readFileSync(full, "utf-8").split("\n");
+    const regions = splitCodeRegions(lines);
+
+    regions.forEach((region, index) => {
+      if (region.code) return;
+      const lineNumber = index + 1;
+      const line = region.text;
+      const prose = blankInlineCode(line);
+
+      // link targets
+      const linkSpans: { start: number; end: number; text: string; target: string }[] = [];
+      for (const match of prose.matchAll(linkPattern)) {
+        const start = match.index ?? 0;
+        const end = start + match[0].length;
+        const [, text, target] = match;
+        linkSpans.push({ start, end, text, target });
+
+        if (/^(?:[a-z][a-z0-9+.-]*:|#)/i.test(target)) continue; // external, mailto, anchor
+        const [path] = target.split("#");
+        if (!path) continue;
+        if (path.startsWith("/")) continue; // root-relative link, not resolvable from the file
+        if (placeholderTargetPattern.test(path)) continue; // a contract-example placeholder, not a real link
+        if (!existsSync(resolve(dirname(full), path))) {
+          fail(problems, `${where}:${lineNumber}`, `link target does not exist: ${target}`);
+        }
+      }
+
+      // ADR numbers
+      for (const match of prose.matchAll(adrPattern)) {
+        const number = match[1];
+        const start = match.index ?? 0;
+        const end = start + match[0].length;
+        const inLink = linkSpans.find((span) => start >= span.start && end <= span.end);
+
+        if (inLink) {
+          const target = inLink.target.split("#")[0];
+          if (!adrFiles.has(number)) {
+            fail(problems, `${where}:${lineNumber}`, `ADR-${number} is linked but there is no docs/adr/${number}-*.md`);
+            continue;
+          }
+          const expected = adrFiles.get(number)!;
+          const resolved = resolve(dirname(full), target);
+          if (resolved !== join(adrDir, expected)) {
+            fail(problems, `${where}:${lineNumber}`, `ADR-${number} links to ${target}, the decision record is ${expected}`);
+          }
+          continue;
+        }
+
+        if (!adrFiles.has(number) && !reserved.has(number)) {
+          fail(
+            problems,
+            `${where}:${lineNumber}`,
+            `ADR-${number} is mentioned but there is no decision record for it and it is not reserved in docs/adr/README.md`,
+          );
+        }
+      }
+    });
+  }
 }
 
-// Advisory warnings (R4) go to stderr before the ok line; they never change the exit code.
-for (const entry of warnings) console.warn(`warning: ${entry}`);
+/** What `checkRepo` saw, so the CLI tail can print the ok summary without rescanning the tree. */
+export type CheckResult = {
+  problems: string[];
+  warnings: string[];
+  counts: { records: number; indexed: number; reserved: number; markdownFiles: number };
+};
 
-let okSummary =
-  `check:links ok — ${adrFiles.size} decision records, ${indexRows.size} indexed, ${reserved.size} reserved, ` +
-    `${listMarkdownFiles(repoRoot).length} Markdown files`;
-if (warnings.length > 0) okSummary += `, ${warnings.length} warning(s)`;
-console.log(okSummary);
+/** Run every check under `root` and return the collected problems, advisory warnings and counts. */
+export function checkRepo(root: string): CheckResult {
+  const problems: string[] = [];
+  const warnings: string[] = [];
+
+  const adrDirPath = adrDir(root);
+  const indexPath = adrIndexPath(root);
+
+  const adrFiles = scanAdrFiles(root);
+  const index = parseIndex(root, problems);
+  if (index.missing) {
+    fail(problems, relative(root, indexPath), "the ADR index is missing");
+  }
+  const adrHeaderMap = adrHeader(root, adrDirPath, adrFiles, problems);
+
+  // index <-> disk
+  for (const [number, file] of adrFiles) {
+    if (!index.rows.has(number)) {
+      fail(problems, relative(root, indexPath), `ADR-${number} (${file}) is not listed`);
+    }
+  }
+  for (const [number, row] of index.rows) {
+    if (!adrFiles.has(number)) {
+      fail(problems, relative(root, indexPath), `ADR-${number} is listed but has no file in docs/adr/`);
+      continue;
+    }
+    const expected = adrFiles.get(number)!;
+    if (row.target !== expected) {
+      fail(problems, relative(root, indexPath), `ADR-${number} points at ${row.target}, the file is ${expected}`);
+    }
+    const header = adrHeaderMap.get(number)!;
+    if (row.title !== header.title) {
+      fail(problems, relative(root, indexPath), `ADR-${number} title differs from the file: "${row.title}" vs "${header.title}"`);
+    }
+    const statusWord = header.status.split(/[\s(]/)[0];
+    if (row.status !== statusWord) {
+      fail(problems, relative(root, indexPath), `ADR-${number} status differs from the file: "${row.status}" vs "${statusWord}"`);
+    }
+    if (row.date !== header.date) {
+      fail(problems, relative(root, indexPath), `ADR-${number} date differs from the file: "${row.date}" vs "${header.date}"`);
+    }
+  }
+  for (const [number, entry] of index.reserved) {
+    if (adrFiles.has(number)) {
+      fail(problems, relative(root, indexPath), `ADR-${number} is reserved but the file docs/adr/${entry.file} exists`);
+    }
+  }
+
+  // Counts come from the structures already built above; recomputing them would rescan the tree.
+  const counts = {
+    records: adrFiles.size,
+    indexed: index.rows.size,
+    reserved: index.reserved.size,
+    markdownFiles: listMarkdownFiles(root).length,
+  };
+
+  adrRecordRules(problems, warnings, root, adrDirPath, adrFiles, adrHeaderMap);
+  proseRules(problems, root, adrDirPath, adrFiles, index.reserved);
+
+  return { problems, warnings, counts };
+}
+
+// ---------------------------------------------------------------- CLI tail (only runs when the file is executed, not imported)
+
+if (import.meta.main) {
+  const root = resolve(import.meta.dir, "..");
+  const { problems, warnings, counts } = checkRepo(root);
+
+  if (problems.length > 0) {
+    for (const problem of problems) console.error(problem);
+    console.error(`\n${problems.length} cross-reference problem(s)`);
+    process.exit(1);
+  }
+
+  for (const warning of warnings) console.warn(`warning: ${warning}`);
+
+  let okSummary =
+    `check:links ok — ${counts.records} decision records, ${counts.indexed} indexed, ${counts.reserved} reserved, ` +
+    `${counts.markdownFiles} Markdown files`;
+  if (warnings.length > 0) okSummary += `, ${warnings.length} warning(s)`;
+  console.log(okSummary);
+}
