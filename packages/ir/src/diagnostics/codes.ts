@@ -1192,7 +1192,7 @@ export const DIAGNOSTIC_CODES = {
     domain: "view",
     severity: "warning",
     summary: "[DEPRECATED] Wires of two different nets cross on a print page",
-    hint: "Nothing to fix: a crossing carries no junction dot, so it is not a connection (spec §5.1); kept so old reports still parse",
+    hint: "Nothing to fix: a crossing carries no junction dot, so it is not a connection (spec/schematic-view.md §5.1); kept so old reports still parse",
     spec: ["spec/schematic-view.md §5.1"],
   },
   "view.wire-crosses-pin": {

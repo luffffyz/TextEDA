@@ -23,7 +23,7 @@ plain `nets` row (`spec/teda.md` §7.3).
 Fifteen instances of two connector parts, four nets, four ports, two constraints. H1 is the uplink;
 J1–J14 are the downstream Qwiic ports. Every row in the two `bus` blocks is longer than 80 columns,
 so the canonical form carries the tail on continuation rows with a bare `:` — a layout fact, not a
-semantic one: the same members written on one line compile to byte-identical IR (§10).
+semantic one: the same members written on one line compile to byte-identical IR (`AGENTS.md` §10).
 
 `pwr` is a bus whose members are supply nets. A bus member is still a net: `pwr.gnd` gets the
 `0V..0V` window like any ground, and `PWR_VDD` exposes `pwr.vdd` to the board above.

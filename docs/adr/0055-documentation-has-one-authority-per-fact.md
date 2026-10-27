@@ -24,7 +24,7 @@ The third is **positional drift**. This reference was cited from seven places:
 teda.md §7.7
 ```
 
-`spec/teda.md` has never had a 7.7 — the flattening rule it means is in §7.6. The pointer was already
+`spec/teda.md` has never had a 7.7 — the flattening rule it means is in `spec/teda.md` §7.6. The pointer was already
 wrong when it was written and stayed wrong because nothing resolved it. Four more of the same kind
 existed in live documents: a section number meaning "the seventh invariant" in a chapter with no
 subsections, a rule number written as a section number, and three in the shape above where the rule
@@ -69,7 +69,7 @@ Three forms are checked by `bun run check:links`:
 **D3. Write the qualified form outside the file that owns the section.**
 
 A bare `§N` is legal inside the file that declares it. Everywhere else, write `spec/pcb.md §4.9`.
-A reader who has to guess which file a `§4.9` belongs to is the same reader who will later guess
+A reader who has to guess which file a bare section number belongs to is the same reader who will later guess
 wrong, and the gate cannot help them: it is not that the check is lenient, it is that the reference
 carries no information to check.
 
@@ -122,3 +122,24 @@ disabled rather than satisfied.
 **Rewrite the twelve dead pointers in the records.** Rejected as D4: it destroys the distinction
 between "this was believed then" and "this is what we say now", which is the only thing a decision
 record has that a wiki page does not.
+
+## Addendum (2026-10-27): a fact that must live twice is pinned by a test, not by care
+
+D1 says a fact lives in one place. Two places are not a rule change — they are a fact that cannot
+be stated once, and such a pair has to be pinned rather than trusted.
+
+The language version table is the case. `spec/teda.md` §13.1 has to list it, because the contract
+layer has to be readable on its own by a third-party implementer who will never open this
+repository. `packages/parser/src/version.ts` has to hold it, because the parser decides what it
+accepts. The two are not the same statement either: the spec carries the patch component of the
+current surface (`component 0.1.7`), and the parser deliberately tracks only the minor, because a
+patch never changes the acceptance decision.
+
+So the spec table is now a table (a row per description type, with the current version, the version
+the type was born at, and the accepted range) rather than a sentence in prose, and
+`packages/parser/test/version-spec.test.ts` reads that table and compares it with what the parser
+accepts. Raising a type's version now fails a test instead of quietly making the spec wrong.
+
+The same move is available wherever a document has to be self-contained and a program has to agree
+with it. The gate for that is a test, not a link check: a link check proves the pointer resolves,
+not that the two ends say the same thing.

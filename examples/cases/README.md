@@ -25,7 +25,7 @@ examples/cases/<case_id>/
 expectation. Both are one test in `bun test`, so a case that changes silently fails CI.
 
 What is pinned and what is not: the shard bytes, the netlist and the project hash are pinned, because that is
-what "the IR only depends on meaning" means (§10); the diagnostic **wording** is not, because
+what "the IR only depends on meaning" means (`AGENTS.md` §10); the diagnostic **wording** is not, because
 reworded prose is not a different design. A case with an `error` diagnostic is not a case — the
 corpus is the shape of valid designs, and an error belongs in a negative fixture where the
 expectation is the error code alone.

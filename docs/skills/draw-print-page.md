@@ -245,7 +245,7 @@ Errors first; warnings are triage, not a gate.
 | `view.text-on-wire` | A wire runs through text (including a symbol's Reference/Value) | Move the text or reroute the wire |
 
 Definitions and data fields: [`spec/schematic-view.md`](../../spec/schematic-view.md) §9.2 and
-§9.2.1. Do not copy them into this file.
+[`spec/schematic-view.md`](../../spec/schematic-view.md) §9.2.1. Do not copy them into this file.
 
 ## 5. Acceptance checklist
 
@@ -283,8 +283,9 @@ bun test packages/cli/test/view-roundtrip.test.ts packages/cli/test/view-metrics
 
 ## 7. References
 
-- [`spec/schematic-view.md`](../../spec/schematic-view.md) §5 (wire), §9.2 (warnings), §9.5
-  (round-trip).
+- [`spec/schematic-view.md`](../../spec/schematic-view.md) §5 (wire),
+  [`spec/schematic-view.md`](../../spec/schematic-view.md) §9.2 (warnings),
+  [`spec/schematic-view.md`](../../spec/schematic-view.md) §9.5 (round-trip).
 - [ADR-0021](../adr/0021-schematic-view-layer.md): the view is an independent description; the
   renderer draws but never places.
 - [ADR-0032](../adr/0032-view-is-a-drawing-not-a-build-input.md): a view is kept, advisory and not
