@@ -7,7 +7,16 @@ Impact: `teda.md` §2, §11, §12, §13.4; `spec/procurement.md` (new); `schemas
 
 **The format is settled; the implementation is not.** The decisions below are closed — the open points at the end of the first draft were argued and answered on
 2026-10-22, and the format is written up in `spec/procurement.md`. What does not exist yet is the parser, the IR contract entry and the BOM output; those
-are tracked in `docs/backlog.md` F34.
+are tracked in `docs/backlog.md` F35.
+
+*Amendment (2026-10-27).* The sentence above records the state of 2026-10-22. All three pieces it
+names have since landed (2026-10-23, `docs/backlog.md` F35): the parser and canonical formatter are
+`packages/parser/src/procurement.ts` and `fmt-procurement.ts`, the contract entry is the
+`procurement` shard, and the BOM is `texteda bom <project> <board>` (`packages/cli/src/bom.ts`).
+The selection checks are `packages/core/src/procurement/rules.ts`, run by `texteda check`. The
+statement that stays true is about scope, not about code: a selected part is checked against the
+line it fills, while the two gaps named in F35 remain open -- selection checks for shadowed
+(overridden) devices, and the order-format BOM of [ADR-0006](0006-jlc-prototype-delivery.md).
 
 ## Background
 

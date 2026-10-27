@@ -39,6 +39,20 @@ Impact: `AGENTS.md` §1, §8, §9 (open question 4); `spec/pcb.md` (`rules` segm
 8. **Trial-run gate**: run the minimum board through `kicad-cli pcb export gerbers` + `pcb export drill` + `pcb drc` and check item by item: copper layers, solder mask openings, paste openings, silkscreen, round holes and slots, plated/non-plated separate files, X2 net names and device attributes, board outline and layer alignment, usability of the DRC report. Missing items are recorded as losses or gaps.
 9. **Losses must be reported**: both levels, IR → KiCad and KiCad → Gerber, must report the semantics that got dropped (constraints, `deviation`, assembly and 3D, unmapped `rules`), reusing the controlled-deviation mechanism from `AGENTS.md` §4.4.
 
+*Amendment (2026-10-27).* Decisions 1, 3 and 5 above are superseded in one respect: the writer is
+built here. `texteda export gerbers` emits nine Gerber files (copper, mask and paste on both sides,
+silkscreen on both sides, the edge) and one Excellon drill file, from `packages/exporter/src/gerber.ts`
+and `excellon.ts`, with the geometry assembled by `packages/core`'s `boardImage()` and the copper
+pour recomputed at export by the kernel of [ADR-0054](0054-copper-fill-uses-a-constrained-geometry-kernel.md).
+KiCad keeps the role [ADR-0018](0018-zero-dependency-and-manufacturing-target.md) gave it: an
+optional cross-check, not a gate. What still holds from decisions 1 and 5 is the division of
+labour -- intent in the IR, derived geometry recomputed and never stored, derived policy in `spec/`
+-- and the fill entering no hash: the reference board's project hash did not move when the layer
+set landed. The semantics of the three new layers are fixed in the 2026-10-26d appendix of
+ADR-0054 and `spec/pcb.md` sections 4.9 and 4.10. The same reading applies to the Consequences
+below: "the manufacturing path depends on KiCad" now describes which *boards* KiCad can be asked
+to read, not which files this repository can write.
+
 ## Consequences
 
 - Manufacturing and verification close the loop in one chain: a single KiCad project yields Gerber / Excellon / IPC-2581 / STEP / BOM, and provides DRC.

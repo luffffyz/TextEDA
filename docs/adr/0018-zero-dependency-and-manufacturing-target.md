@@ -70,6 +70,12 @@ The layering does not change: **Gerber is a physical image and belongs to the de
 **Costs**
 
 - The Gerber writer has to be written by us (P3, on the order of several hundred lines); until it lands, the "zero-dependency manufacturing package" is not complete — **be prepared for this, and do not claim a zero-dependency manufacturing output on the day ADR-0018 lands**.
+  *Amendment (2026-10-27).* The condition above is met for the layers themselves: copper, mask,
+  paste, silkscreen and the edge are written by this repository's code, and the drill file with
+  them. The half that stays borrowed is the one the same bullet protects -- a Gerber that exists is
+  not a judgement that it can be made: silk is not retracted around pads, mask slivers are not
+  flagged, paste volume is not computed. The claim this ADR permits today is therefore "the file
+  set is self-built", not "the manufacturing output is validated".
 - On the PCB side, the **agent-facing geometric DRC subset** is now in scope as our own code (clearance, width, via, keepout, edge, unrouted; [ADR-0053](0053-layout-and-routing-are-agent-driven.md)). KiCad DRC remains an optional cross-check, not a gate. CAM-level DFM judgement is still borrowed; this ADR's boundary (formats and descriptions ours, judgement and process rules borrowed) is unchanged.
 
 **Risks**

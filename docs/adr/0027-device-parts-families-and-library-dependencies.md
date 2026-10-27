@@ -175,7 +175,9 @@ directories, and they are addressed by bare id.
 
 ### 7. A library is a dependency, not a directory
 
-Amended by [ADR-0031](0031-project-tree-ownership-model.md) decisions 5 and 6. The dependency is
+Amended by [ADR-0031](0031-project-tree-ownership-model.md) decisions 5 and 6, and superseded by the
+2026-10-27 addendum at the end of this record ([ADR-0047](0047-an-external-library-is-a-template-not-a-dependency.md)):
+an external library is a template, not a dependency. The dependency is
 still a dependency and not a directory — but the declaration moves out of `project.toml` into its
 own description type, and the library is **vendored** rather than cached:
 
@@ -217,6 +219,10 @@ explicit qualifier for them. The `lib:name` form is the one already used by `sym
 Resolution order for a bare id ([ADR-0031](0031-project-tree-ownership-model.md) decision 7): the
 project's own assets first, then the vendored libraries in the order they are declared. A bare
 id that resolves to more than one library is an error.
+
+Superseded by the 2026-10-27 addendum at the end of this record: `lib:id` is rejected
+(`ref.library-qualified-id`), the `<lib>:` prefix survives only as an **asset directory name** under
+`assets/symbols/` and `assets/footprints/`, and there is no library to order.
 
 The colon inside an `instances` cell does not collide with the colon of the `nets` section:
 that colon is a section-leading token, this one is inside a space-separated cell.
@@ -433,3 +439,23 @@ Two changes, both recorded in
 The rest of this record is unchanged: the pin table is still the identity boundary, one part
 per package still carries its complete pin table, a library is still a dependency rather than a
 directory, and the procurement layer is still project-local.
+
+Superseded in one clause by the 2026-10-27 addendum below: a library is a template, not a
+dependency. The pin table, the complete pin table per package and the project-local procurement
+layer all stand.
+
+## Addendum (2026-10-27): a library is a template, not a dependency
+
+Decision 7 and decision 8, and the closing sentence of the 2026-10-23 addendum, described the
+library as a dependency: a `libref` declaration with a pinned revision, a `content_hash` to verify,
+a vendored tree under `external/libs/`, and `lib:id` qualified references. That model is gone.
+[ADR-0047](0047-an-external-library-is-a-template-not-a-dependency.md) replaced it on 2026-10-24:
+`texteda lib import` copies a library's files into `assets/` once, they become the project's own
+devices addressed by **bare id**, and the project reads no library tree at build time. The
+`libref` description type, the `[libs]` table, `scripts/libhash.ts` and `spec/libref.md` were
+removed with it, and `ref.library-qualified-id` rejects the old form.
+
+What survives from decisions 7 and 8 is the reason they existed: an id is resolved once, at import,
+instead of at every build. A collision is refused rather than merged — `lib import` will not write
+a second file under an id the project already uses, and `ref.library-in-tree` rejects a library tree
+that a build was never supposed to read.

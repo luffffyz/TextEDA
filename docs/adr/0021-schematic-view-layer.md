@@ -130,6 +130,8 @@ This was the **opening** vocabulary, not a closed list: `view.text-on-wire`, `vi
 - **The review UI is disposable.** Being a web bundle means it can be rewritten without touching the contract, which is the same property AGENTS.md §3 gives the view layer itself.
 - **The desktop shell question stays open on purpose.** Deferring it keeps the only irreversible choice (a build toolchain) out of the critical path.
 - **Implementation status (2026-10-21).** Decisions 1, 2 and 5 are landed: the `view` spec, schema, parser and canonical formatter, plus `renderSchematic(view, instances)` in `packages/renderer` and `bun run preview view <board>/<page>`. The reference project draws `charger-buck/buck-5v` fully wired and `charger-buck/charger-power` as a placement study. Decision 4's step 3 is partial: the page cross-check, readability checks, sch round-trip extraction and the one-off KiCad `.kicad_sch` comparison are open (`docs/backlog.md` F3).
+  Amended by the 2026-10-27 appendix below: the page cross-check, the readability checks and the sch
+  round-trip landed on 2026-10-23; only the one-off KiCad comparison is still open.
 
 ## Addendum (2026-10-22): the review UI writes canonical view files
 
@@ -174,7 +176,8 @@ Amended by [ADR-0032](0032-view-is-a-drawing-not-a-build-input.md).
   `source_hash`.
 - **Still an error to disagree.** A page that references an instance, pin or net the board does
   not have is a defect, not a difference in content. The cross-check of this record is
-  unchanged and still unimplemented (`docs/backlog.md` F3).
+  unchanged and still unimplemented (`docs/backlog.md` F3). Superseded by the 2026-10-27 appendix
+  below: the cross-check is `checkViews` (`packages/core/src/view/checks.ts`).
 
 ## Addendum (2026-10-22): the canvas navigates, it does not edit
 
@@ -459,3 +462,19 @@ boundary that remains.
 - **Still open.** `layout`, `placement` and `edit` modes, note anchors, and a stable identity for
   nets and ports beyond their names. The jump is implemented for `instance` and `net` selections;
   a free-text annotation has no identity key and therefore no definitions.
+
+## Appendix (2026-10-27): the print-page checks landed on 2026-10-23
+
+The 2026-10-21 implementation note and the 2026-10-22 hash appendix both said the page cross-check
+was unimplemented. It is implemented, together with the checks that travelled with it:
+
+- The board-to-page cross-check is `checkViews` in `packages/core/src/view/checks.ts`, run by
+  `texteda check`. Decision 4's rule holds as written: a page naming an instance, pin or net the
+  board does not have is an error, and the coverage gap is a warning.
+- The readability checks are `checkReadability` in `packages/core/src/view/readability.ts`.
+- The round-trip is `schematicProjection` / `extractSchematic` in
+  `packages/renderer/src/schematic-extract.ts`, comparing the same drawing from two independent
+  transforms (the criterion is `spec/schematic-view.md` section 9.5).
+
+The one item of that note still open is the one-off comparison against a KiCad `.kicad_sch`
+render, which is manual and outside CI (`docs/backlog.md` F3, item 5).

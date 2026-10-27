@@ -70,3 +70,16 @@ Adding a `page` field to nets in the IR would make the level machine-readable fo
 
 - When the hierarchy lands (`docs/backlog.md` F13), it must use the `MOD` tag and must document how a module instance and a page instance may coexist in one board's namespace.
 - At the `1.0` milestone, decide whether the tag becomes a checked rule (a diagnostic that a page instance id does not start with `P`).
+
+## Addendum (2026-10-27): the hierarchy landed, and the tag is `M`
+
+The 2026-10-21 amendment reserved the tag for a level that did not exist yet, and the Follow-up
+above still says the hierarchy will use `MOD`. It landed on 2026-10-22 as the module layer
+(`spec/module.md`, [ADR-0026](0026-modules-compose-boards.md)) and the tag is **`M`**, as that
+amendment's table already said: a module instance is `M1`, its contents are `M1.R1` and `M1.VCC`.
+`MOD` is not in use and will not be.
+
+The follow-up's second half is settled too, in the direction the amendment predicted. The tag is
+now a checked rule for module instances — `packages/parser` rejects a `modules` row whose instance
+id is not `M` followed by digits — and board-level refdes may not take that shape at all. A page
+level no longer exists, so nothing is left to disambiguate against.

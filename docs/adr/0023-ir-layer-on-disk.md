@@ -53,8 +53,8 @@ dist/ir/
 - `boards/<board_id>/view/<page_id>.json` extends [ADR-0008](0008-ir-shard-identity-and-hash.md) decision 1: a page's drawing is its own description ([ADR-0021](0021-schematic-view-layer.md)), so it is its own shard. It is **not** merged into the schematic shard — the schematic shard is the flattened logic, the view shard is a picture of one page, and the two have different readers. It is **advisory** ([ADR-0032](0032-view-is-a-drawing-not-a-build-input.md) decision 3).
 - The library kinds keep one shard per library file; the library name is the directory the file lives in. A library vendored under `external/libs/<name>/` and the project's own assets under `assets/` are distinguished by the library name in the shard path and by `source.file`, not by the shard path alone.
 - `components/<component_id>.json`, `project.json` and `systems/<system_id>.json` ([ADR-0008](0008-ir-shard-identity-and-hash.md) decision 1) had no producer when this record was written; **all three have one now** (2026-10-23, `docs/backlog.md` F24): the device shard was the last to land, and it needed the IR to rise to `0.8` so that a device's `description` could be carried instead of dropped ([ADR-0042](0042-a-device-description-enters-the-ir.md)). A kind without a producer must not appear as an empty directory — an empty directory is not a shard.
-- The procurement shards follow the same rule and are likewise not written yet: `boards/<board_id>/procurement.json` (normative — the primary selections) and `boards/<board_id>/procurement-alternatives.json` (advisory — the second sources), matching the source directories `assets/procurement/primary/<board_id>.teda` and `assets/procurement/alternatives/<board_id>.teda` ([ADR-0030](0030-procurement-layer.md) decisions 1 and 10). A selection is scoped to a board, so its shard is a **board** shard: the primary takes part in the board hash, and changing the part a board is built from invalidates that board's review.
-- `librefs/<name>.json` is the reference to a vendored library ([ADR-0031](0031-project-tree-ownership-model.md) decision 5). It is **normative**: the pinned revision is part of the build.
+- The procurement shards follow the same rule: `boards/<board_id>/procurement.json` (normative — the primary selections) and `boards/<board_id>/procurement-alternatives.json` (advisory — the second sources), matching the source directories `assets/procurement/primary/<board_id>.teda` and `assets/procurement/alternatives/<board_id>.teda` ([ADR-0030](0030-procurement-layer.md) decisions 1 and 10). A selection is scoped to a board, so its shard is a **board** shard: the primary takes part in the board hash, and changing the part a board is built from invalidates that board's review. Amended 2026-10-27: both are written (`packages/cli/src/ir-tree.ts`, 2026-10-23).
+- `librefs/<name>.json` is the reference to a vendored library ([ADR-0031](0031-project-tree-ownership-model.md) decision 5). It is **normative**: the pinned revision is part of the build. Withdrawn 2026-10-27: the vendored-library model went with [ADR-0047](0047-an-external-library-is-a-template-not-a-dependency.md), so this shard does not exist.
 - **The shard set is the project's content, not a reachability closure.** Every description file with a producer gets a shard, whether or not the build uses it: a device file no board and no procurement file references is still a shard, exactly as a symbol no component references would be. Because such a file is content, it must not be silent: `library.device-unused` (a warning) names every device nothing places and nothing selects, which is how a library stays curated once more than one author writes into it. The project hash therefore answers "which project is this", including its own library — not "which parts did this build use". A tree restricted to what is reachable is a different artifact (a build tree) and must not be mixed into this one, because then the same source file would be present or absent depending on a check that can fail, and a shard that disappears changes a hash for a reason that is not an edit.
 - Because the layout is by kind, moving a source file between directories does not move a shard and does not change the project hash.
 
@@ -106,7 +106,27 @@ Its decisions are settled and now have an implementation: the flattening of deci
 ## Follow-up
 
 - The remaining shard kinds: `project.json`, `assets/components/<component_id>.json`, `systems/<system_id>.json` — they need producers (`project.toml` parsing, the component IR, the `system` description), not a layout decision (`docs/backlog.md` F24).
+  **Done** (2026-10-23): all three are written by `packages/cli/src/ir-tree.ts`; see the 2026-10-27
+  addendum at the end of this record, which also retires the `families/` and `librefs/` lines of
+  the tree above.
 - Incremental rebuild: change one source file, rewrite one shard, keep the rest of the tree byte-identical.
 - Whether the manifest should also record the language `format` and the schema `$id` per shard, so that a tool can self-check a tree that mixes versions (the last follow-up of [ADR-0008](0008-ir-shard-identity-and-hash.md)).
 - Whether downstream commands should read `dist/ir` instead of compiling in memory (`texteda netlist` currently compiles in memory).
 - The `new-project` skill (`docs/skills/new-project.md`) should grow a step that materializes the IR tree, once its verification script exists (`docs/backlog.md` F23).
+
+## Addendum (2026-10-27): every shard kind in the tree has a producer, and two lines left it
+
+- The three shards the Follow-up listed as producer-less are written: `project.json`,
+  `components/<component_id>.json` and `systems/<system_id>.json` are emitted by
+  `packages/cli/src/ir-tree.ts` (2026-10-23).
+- The procurement shards are written too, and keep the classification decision 3 gives them:
+  `boards/<board_id>/procurement.json` is normative (the primary selections take part in the board
+  hash) and `procurement-alternatives.json` is advisory, both emitted from the same loop in
+  `ir-tree.ts` ([ADR-0030](0030-procurement-layer.md) decisions 1 and 10).
+- Two lines of the tree in decision 2 no longer exist and must not be read as current: the
+  `families/<family_id>.json` line was withdrawn when a device became one kind with `kind` written
+  in the file ([ADR-0031](0031-project-tree-ownership-model.md), whose note says so), and the
+  `librefs/<name>.json` line went with the vendored-library model that
+  [ADR-0047](0047-an-external-library-is-a-template-not-a-dependency.md) removed. The layout rule
+  of decision 2 is unchanged -- laid out by kind, mapped back by `source.file` -- so the surviving
+  paths are the ones a tree actually contains.

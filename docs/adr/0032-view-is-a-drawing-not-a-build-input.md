@@ -137,7 +137,8 @@ that references a nonexistent instance asserts something false, and that is an e
 that is merely laid out differently asserts nothing about the build, and that is a difference in
 content, not a defect.
 
-This check is not implemented yet (`docs/backlog.md` F3).
+This check is not implemented yet (`docs/backlog.md` F3) — see the 2026-10-27 addendum below, which
+records it as landed on 2026-10-23 (`checkViews`, `packages/core/src/view/checks.ts`).
 
 ### 5. The view still speaks the board's identity language
 
@@ -207,9 +208,10 @@ borrows it. Moving the file to `views/` changes nothing about what it may refere
 
 - **The cross-check is not implemented** (`docs/backlog.md` F3): a page that references a
   nonexistent instance is not yet reported. Decision 4 makes it mandatory; the work is
-  outstanding.
+  outstanding. Landed on 2026-10-23; see the 2026-10-27 addendum below.
 - **The round-trip of the view layer** — `extract(render(view)) == view` — is not implemented.
-  It is listed in `AGENTS.md` §10 as outstanding for the print-page renderer.
+  It is listed in `AGENTS.md` §10 as outstanding for the print-page renderer. Landed on 2026-10-23;
+  see the 2026-10-27 addendum below.
 - ~~**Whether a view may be dropped from a project without loss**~~ — decided in the
   2026-10-22 addendum below: no. A view is kept; damage is repaired by hand.
 
@@ -243,3 +245,18 @@ manual adjustments — and for a view file the "adjustment" is the entire file.
 Decision 2 and decision 3 keep the view out of the build identity: moving a label does not
 change the project's hash. This addendum says more — the view is not a *cache* either. It is not
 something that may be regenerated, dropped, or recomputed on demand. It is part of the project.
+
+## Addendum (2026-10-27): decision 4 is implemented
+
+Decision 4's cross-check landed on 2026-10-23, and with it the round-trip. The Open Points above
+are answered by code, not by a change of decision:
+
+- The cross-check is `checkViews` in `packages/core/src/view/checks.ts`; an assertion about an
+  instance, pin or net the board does not have is an error, exactly as decision 4 requires.
+- The round-trip is `schematicProjection` / `extractSchematic` in
+  `packages/renderer/src/schematic-extract.ts`, with the comparison criterion in
+  `spec/schematic-view.md` section 9.5.
+
+The distinction decision 3 draws is therefore enforced today: a page laid out differently changes
+neither the project hash nor the board hash (the shard is advisory), while a page asserting
+something false is reported.
