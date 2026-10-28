@@ -17,6 +17,7 @@
 //   7. (R2) a retired decision record keeps no body heading;
 //   8. (R3) a retired decision record's Status line names its superseding record;
 //   9. (R4) no appendix/addendum/amendment block exceeds 40% of the record (a warning);
+//  10. (R5) a number is never reused: no record may carry a number the index lists as retired;
 //
 // Exit code 1 if there is any error. R4 warnings never change the exit code.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -133,6 +134,8 @@ type IndexResult = {
   missing: boolean;
   rows: Map<string, IndexRow>;
   reserved: Map<string, { file: string; item: string }>;
+  /** Number ranges the index declares as retired: a number in one of them is never handed out again. */
+  retiredRanges: { from: number; to: number }[];
 };
 
 /** Parse the ADR index. `problems` collects duplicate-index problems (passed in for ordering). */
@@ -144,6 +147,7 @@ function parseIndex(root: string, problems: string[]): IndexResult {
     missing: !indexText,
     rows: new Map(),
     reserved: new Map(),
+    retiredRanges: [],
   };
   if (!indexText) return result;
   for (const line of indexText.split("\n")) {
@@ -163,6 +167,16 @@ function parseIndex(root: string, problems: string[]): IndexResult {
         problems.push(`${relative(root, indexPath)}: ADR-${number} is reserved twice`);
       }
       result.reserved.set(number, { file, item });
+      continue;
+    }
+    // A retired range: `| Retired | 0001-0056 | the first corpus, replaced by the topic folders |`.
+    // The numbers in it were written once and are gone; handing one out again would make a stale
+    // citation point at a different decision.
+    const retiredRow = /^\|\s*Retired\s*\|\s*(\d{4})-(\d{4})\s*\|\s*(.*?)\s*\|\s*$/.exec(line);
+    if (retiredRow) {
+      const [, from, to, note] = retiredRow;
+      result.retiredRanges.push({ from: Number(from), to: Number(to) });
+      void note;
     }
   }
   return result;
@@ -672,6 +686,30 @@ export function checkRepo(root: string): CheckResult {
   for (const [number, entry] of index.reserved) {
     if (adrFiles.has(number)) {
       fail(problems, relative(root, indexPath), `ADR-${number} is reserved but the file docs/adr/${entry.file} exists`);
+    }
+  }
+  // R5: a number is never reused. A retired range is one the corpus has already spent; a record
+  // carrying a number from it would silently take over the meaning of a decision that is gone.
+  for (const { from, to } of index.retiredRanges) {
+    for (const number of adrFiles.keys()) {
+      const value = Number(number);
+      if (value >= from && value <= to) {
+        fail(
+          problems,
+          relative(root, indexPath),
+          `ADR-${number} is inside the retired range ${from}-${to}; a retired number is never handed out again`,
+        );
+      }
+    }
+    for (const number of index.reserved.keys()) {
+      const value = Number(number);
+      if (value >= from && value <= to) {
+        fail(
+          problems,
+          relative(root, indexPath),
+          `ADR-${number} is reserved but it is inside the retired range ${from}-${to}`,
+        );
+      }
     }
   }
 

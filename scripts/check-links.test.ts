@@ -253,6 +253,44 @@ describe("scripts/check-links.ts", () => {
     }
   });
 
+  test("rejects a record that reuses a retired number", () => {
+    const root = makeTree({
+      "docs/adr/0008-reused.md": adrFile("0008", "Reused", "Accepted", "2026-10-20"),
+      "docs/adr/README.md": `${minimalIndex}\n${indexRow("0008", "0008-reused.md", "Reused", "Accepted", "2026-10-20")}\n| Retired | 0001-0010 | the first corpus |\n`,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems.some((p) => p.includes("ADR-0008") && p.includes("retired range 1-10"))).toBe(true);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("rejects a reserved number inside a retired range", () => {
+    const root = makeTree({
+      "docs/adr/README.md": `${minimalIndex}\n| ADR-0004 | \`future.md\` | planned |\n| Retired | 0001-0010 | the first corpus |\n`,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems.some((p) => p.includes("ADR-0004") && p.includes("retired range 1-10"))).toBe(true);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("accepts a record whose number is outside the retired range", () => {
+    const root = makeTree({
+      "docs/adr/0100-fresh.md": adrFile("0100", "Fresh", "Accepted", "2026-10-28"),
+      "docs/adr/README.md": `${minimalIndex}\n${indexRow("0100", "0100-fresh.md", "Fresh", "Accepted", "2026-10-28")}\n| Retired | 0001-0056 | the first corpus |\n`,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
+
   test("warns on an appendix block above 40% of a record", () => {
     const root = makeTree({
       "docs/adr/0006-large-amend.md": `# ADR-0006: Large\nStatus: Accepted\nDate: 2026-10-20\n\n## Appendix (2026-10-27)\n\nline\nline\nline\nline\nline\nline\n`,
