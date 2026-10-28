@@ -30,7 +30,7 @@ Third-party components included in this repository:
 
 - Hershey stroke font data (packages/core/src/font/): the Hershey fonts
   themselves are in the public domain; the glyph data was obtained from the
-  npm package `hersheytext` (MIT, (c) 2014 James T). See ADR-0014 decision 4.
+  npm package `hersheytext` (MIT, (c) 2014 James T). See ADR-0135 decision 4.
   The upstream MIT license text is reproduced below, as that license requires.
 
   The MIT License (MIT)
@@ -69,7 +69,7 @@ External tools referenced but not included:
 
 - KiCad is a separate project (GPL-3.0-or-later), used only as an external
   tool for manufacturing output and DRC cross-checks. No KiCad source code
-  is vendored in this repository. See ADR-0005 and ADR-0014 decision 7.
+  is vendored in this repository. See ADR-0120 and ADR-0135 decision 7.
 
 Third-party documents not included:
 
@@ -77,7 +77,7 @@ Third-party documents not included:
   distributed with this repository: they are third-party copyrighted
   documents. Obtain them from the manufacturer. The local directory
   examples/reference-project/docs/datasheets/ is git-ignored for that
-  reason. See ADR-0015 decision 1 and docs/backlog.md F6.
+  reason. See ADR-0138 decision 1 and docs/backlog.md F6.
 
 Copyright (c) 2019 - Present, Microsoft Corporation,
 with Reserved Font Name Cascadia Code.

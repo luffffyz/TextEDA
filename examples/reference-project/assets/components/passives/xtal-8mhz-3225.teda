@@ -12,7 +12,7 @@ datasheet    https://www.lcsc.com/datasheet/C5181478.pdf
 symbol project:crystal-4
 footprint project:crystal-3225-4
 
-# The part's own ratings (ADR-0039). The load capacitance has no role in the vocabulary yet
+# The part's own ratings (ADR-0125). The load capacitance has no role in the vocabulary yet
 # (docs/backlog.md F43), so it stays in the comment above.
 ratings
   value  frequency  8MHz

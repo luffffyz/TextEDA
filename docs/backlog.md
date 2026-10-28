@@ -1326,3 +1326,28 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 - **不要为了 Gerber 把内核做成 Gerber 专用**：F48 的 DRC、未来的 PCB 渲染都要复用。
 - **不要先写缓存**：先证明能算、算得对；缓存是性能决定，不是正确性决定。
 - **不要用 viewer 截图当验收**：Gerber 是图像，正确性靠面积/拓扑/层归属断言。
+
+---
+
+## F51. `check:links` 只扫 Markdown，代码与契约里的 `ADR-NNNN` 引用没有门禁（2026-10-28）
+
+**现状**：`bun run check:links` 的取数入口是 `listMarkdownFiles`，所以它只管 `.md`。语料换号（`0001`–`0056` → `0100`–`0140`）之后，带引用的非 Markdown 文件全靠一次性的 `grep` 扫尾：本轮扫出 **8 处**写着退役号的引用，全部手工修掉——`examples/reference-project/project.toml` 两处（`ADR-0056`、`ADR-0033 D5`）、6 个 `.teda` 文件的注释（`ADR-0030`、`ADR-0039`、`ADR-0044`）、`.github/workflows/*.yml` 两处（`ADR-0018`）、`.gitignore`（`ADR-0031`）、`NOTICE` 三处（`ADR-0005`、`ADR-0014`、`ADR-0015`）。**没有任何门禁会在下次换号时抓到它们**。
+
+**要做的事**：把"一个号要么存在、要么落在索引声明的预留表里"这条规则（门禁第 2 条）扩展到代码与契约。取数面是现成的：`git ls-files` 里的 `*.ts` / `*.json` / `*.toml` / `*.yml` / `*.teda` 以及 `NOTICE`，实测 189 个文件、约 2.1k 处 `ADR-NNNN`。范围要先定死再写代码：
+
+1. **只查存在性**，不查决策号。`ADR-NNNN D7` 的 `D7` 在代码注释里没有稳定含义（记录会被合并、决策会被重编号），按标题匹配又只能做一次；存在性已经能挡住"指向已退役号"这一类。
+2. **跳过 `scripts/check-links.test.ts`**：那里的 `ADR-NNNN` 是夹具（`0006`、`0099` 之类本来就不存在）。
+3. **跳过 `docs/adr/**` 与 `docs/trial-run/**` 里的非 Markdown 文件**（目前没有），理由同历史记录不追改。
+4. 报错文案与 Markdown 侧一致：`<file>:<line>: ADR-NNNN does not exist`。
+
+**涉及文件**：`scripts/check-links.ts`（新增一个非 Markdown 取数函数 + 一条规则）、`scripts/check-links.test.ts`（正反例：代码注释里的退役号要报错、预留号通过、夹具文件不报）。
+
+**验收**：
+- 在 `NOTICE` 里塞回 `ADR-0005`，`bun run check:links` 非零退出；改回 `ADR-0120` 即通过。
+- 在 `packages/parser/src/version.ts` 的注释里写 `ADR-0099`（未预留），非零退出；写 `ADR-0141` 并且索引预留表声明了它，通过。
+- 全仓 `git ls-files` 的 `.ts` / `.json` / `.toml` / `.yml` / `.teda` / `NOTICE` 扫描后零报错（现状已干净，门禁应当保持干净）。
+
+**注意**：
+- **不要顺手查决策号**：`D<n>` 在代码里没有稳定锚点，做了也会立刻过时（理由同上第 1 条）。
+- **不要把 `docs/trial-run/**` 拉进来**：那是历史记录，过期指针由门禁报 warning、不修。
+- 这条门禁一旦上线，"换号后靠 grep 扫尾"就不再是流程的一部分——**换号脚本自己也该跑它**。

@@ -2,7 +2,7 @@ name: CI
 
 # Zero-dependency gate. Every check here runs without KiCad or any other
 # external tool: a gate must never depend on software the contributor may
-# not have (AGENTS.md invariant 20, ADR-0018).
+# not have (AGENTS.md invariant 20, ADR-0120).
 #
 # The KiCad interoperability section of `lib:verify` is deliberately NOT
 # a gate - it needs a KiCad install, so it is a separate, opt-in workflow
