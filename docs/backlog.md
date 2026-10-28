@@ -218,7 +218,7 @@
 
 **ADR-0017 的决策**：D1 值是终值字面量（带单位），D2 事实层无控制流，D3 生成器在语言之外、产物是表；D4 划清边界（组合层与值层不受限），D5 给出可检查判据（每个 token 都要能回答"它描述了哪个硬件事实"），D6 写死修订条件，D7 不引入链式。
 
-**剩下的**：只有一条——**修订条件是否被触发**。触发器是 `spec/teda.md` §10 十用例里的"20 路电源域"（语料见 F12，**已决定延后**）。在语料跑完之前，`AGENTS.md` §11 Q2 保持待定（ADR-0017 明说不关它）。真要修订时：另起 ADR + 迁移说明 + 迁移脚本，0.x 期间是该类型版本线上的一个 PATCH（[ADR-0022](adr/0022-language-versioning.md) 附录 A2）。
+**剩下的**：只有一条——**修订条件是否被触发**。触发器是 `spec/teda.md` §10 十用例里的"20 路电源域"（语料见 F12，**已决定延后**）。在语料跑完之前，`AGENTS.md` §11 Q2 保持待定（ADR-0017 明说不关它）。真要修订时：另起 ADR + 迁移说明 + 迁移脚本，0.x 期间是**语言版本**上的一个 PATCH（[ADR-0056](adr/0056-one-language-version-number.md) D4；合并前是"该类型版本线上的一个 PATCH"，见 [ADR-0022](adr/0022-language-versioning.md) 附录 A2）。
 
 
 ## F10. 库包规范与分发（registry 前置）
@@ -634,7 +634,7 @@ ADR-0020 的决策：
 
 **要做的事**：
 
-1. **语言层（已落地）**：`component` 增加必填 `kind`（`part` / `generic`）；`part` 要求 `mpn`、`generic` 禁止 `mpn` 且 `params` 至少有一列参与身份（`value`）；新增 `construction`（开放词表）与 `polarized`（`yes`/`no`）两个标量字段；`spec/teda.md` §6 改写（`spec/teda.md` §6.1.1 两种器件、`spec/teda.md` §6.2 `params`、`spec/teda.md` §10.1 新增 `polarized` 电气类型）。**版本走的是 `component` 自己的版本线 `0.1` → `0.1.1` → `0.1.2` → `0.1.3`**（每种描述类型一条线，0.x 阶段只走 PATCH 位，见 [ADR-0022](adr/0022-language-versioning.md) 附录），不是全局 0.9。
+1. **语言层（已落地）**：`component` 增加必填 `kind`（`part` / `generic`）；`part` 要求 `mpn`、`generic` 禁止 `mpn` 且 `params` 至少有一列参与身份（`value`）；新增 `construction`（开放词表）与 `polarized`（`yes`/`no`）两个标量字段；`spec/teda.md` §6 改写（`spec/teda.md` §6.1.1 两种器件、`spec/teda.md` §6.2 `params`、`spec/teda.md` §10.1 新增 `polarized` 电气类型）。**版本走的是 `component` 自己的版本线 `0.1` → `0.1.1` → `0.1.2` → `0.1.3`**（每种描述类型一条线，0.x 阶段只走 PATCH 位，见 [ADR-0022](adr/0022-language-versioning.md) 附录）——这是合并前（2026-10-23）的记法：类型版本线已随 2026-10-27 的合并退役，合并后是**语言版本**（见 [ADR-0056](adr/0056-one-language-version-number.md)）。
    - **引脚表是身份分界**（[ADR-0027](adr/0027-device-parts-families-and-library-dependencies.md) decision 3）：引脚表变了就是另一个器件；只有不改引脚表、不改引脚行为的属性才允许进 `params`（value / tolerance / 耐压 / ESR / 温度档）。`package` 与 `footprint` 是 part / generic 的固定属性，**不是** `params`。
    - **一封装一 part**（decision 4）：同一 die 的多个封装 = 多个 part 文件，各自写**完整**引脚表；不做引脚表合成、不做多封装 part。
 2. **目录迁移（已落地）**：`assets/components/passives/c-0402.teda` → `cap-mlcc-0402.teda`（通用器件 id 不带值、带构造）、`c-220u.teda` → `cap-tantalum-7343.teda`（`construction tantalum` + `polarized yes`）、`r-0402.teda` → `res-thick-0402.teda`；有真 MPN 的（`xtal-8mhz-3225`、`l-6r8` → `ihlp2525czer6r8m01` 等）留在 `assets/components/*` 并标 `kind: part`；`assets/symbols/`、`assets/footprints/` 归到 `assets/` 下（**库目录仍带库名**：`assets/symbols/project/`、`assets/footprints/project/`，见 `spec/teda.md` §2 的 `<lib>/` 布局）；`project.toml` 的 `[libs.project]` 还在，`libref` 替代它属 F29 的**未落地**部分。**2026-10-23**：通用器件不再单独放 `assets/families/`，与件同在 `assets/components/**`（按类别进子目录），`kind` 只写在文件里（[ADR-0037](adr/0037-device-kind-vocabulary-and-one-device-directory.md)）。
@@ -1000,7 +1000,7 @@ ADR-0020 的决策：
 **要做的事**：
 
 1. `spec/footprint.md` §4：`pads` 段加非电气标记（尾列 `key=value` 形式，与现有 `zone` / `thermal_w` 等一致），语义写死：非电气焊盘不参与 `lib:verify` 的"焊盘号覆盖器件引脚"检查。
-2. `packages/parser/src/footprint.ts` + `schemas/ir/v0.3/footprint.schema.json` 同步（**规范与实现同一次提交**）；封装类型版本线走 PATCH（[ADR-0022](adr/0022-language-versioning.md) 附录 A2）。
+2. `packages/parser/src/footprint.ts` + `schemas/ir/v0.3/footprint.schema.json` 同步（**规范与实现同一次提交**）；封装类型版本线走 PATCH（[ADR-0022](adr/0022-language-versioning.md) 附录 A2）——这是合并前的记法，类型版本线已随 2026-10-27 的合并退役，合并后是语言版本（见 [ADR-0056](adr/0056-one-language-version-number.md)）。
 3. 绑定校验（`packages/core`）按新口径：非电气焊盘挂 net → error。
 4. `lib:verify` 相应放宽。
 
