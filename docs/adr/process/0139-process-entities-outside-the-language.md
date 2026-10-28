@@ -9,8 +9,9 @@ Impact: `spec/teda.md` §11; `docs/guides/design-flow.md`
 ## Background
 
 `AGENTS.md` §4.1 lists three "flow-related entities" as proposals: `Requirement`, `Block` and
-`Analysis`. §1.2's flow puts them before the schematic — requirements, architecture, interfaces,
-selection, analysis, then the schematic. §12 already states a rule the language cannot keep:
+`Analysis`. `AGENTS.md` §1.2's flow puts them before the schematic — requirements, architecture, interfaces,
+selection, analysis, then the schematic. `AGENTS.md` §12 already states a rule the language cannot
+keep:
 "a simulation conclusion must not be written only as a comment or prose; as `Analysis` evidence it
 binds a `source_hash` and the assumptions, otherwise it counts as unverified."
 
@@ -75,7 +76,7 @@ corner: <process / temperature / model>
 ```
 
 The body carries the prose: the assumptions, the conclusion, the artifact path. The header
-carries only what a tool can judge. This keeps §12's rule satisfiable — the assumptions sit next
+carries only what a tool can judge. This keeps `AGENTS.md` §12's rule satisfiable — the assumptions sit next
 to the hash they were made under — without giving the language a text field.
 
 ### D4. The checker reports a stale analysis

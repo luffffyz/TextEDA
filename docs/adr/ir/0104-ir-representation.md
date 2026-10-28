@@ -10,15 +10,17 @@ Impact: `schemas/ir/**`; `packages/ir/src/**`; `spec/teda.md` §12
 
 `AGENTS.md` §2 item 1 says only "the IR is the single source of truth"; it does not specify what the IR looks like, how it is exchanged, or how it is hashed. Three hard requirements around it already point at the same question:
 
-1. **Renderers and exporters are separate programs**. The renderer only reads the IR (§2 item 3), and must be independently implementable by third parties (§10 conformance). This requires a stable, cross-language, cross-process representation, otherwise "let others implement your renderer" is just a slogan.
+1. **Renderers and exporters are separate programs**. The renderer only reads the IR (`AGENTS.md` §2 item 3), and must be independently implementable by
+third parties (`AGENTS.md` §10 conformance). This requires a stable, cross-language, cross-process representation, otherwise "let others implement your renderer" is just a slogan.
 2. **Artifacts must be traceable** (§2 item 11): exported Gerber/images/netlists carry `source_hash + tool_version`. `source_hash` must be computable **byte-reproducibly** for the same design, otherwise traceability is meaningless.
-3. **Conformance golden files** (§10): the golden files for `source → IR → netlist` must be human-readable, diffable, and generatable and comparable by implementations in different languages.
+3. **Conformance golden files** (`AGENTS.md` §10): the golden files for `source → IR → netlist` must be human-readable, diffable, and generatable and comparable by implementations in different languages.
 
 At the same time, three constraints narrow the options:
 
-- **A parser with zero runtime dependencies by default is the goal** (§12) — a self-made binary format is immediately out.
+- **A parser with zero runtime dependencies by default is the goal** (`AGENTS.md` §12) — a self-made
+  binary format is immediately out.
 - **Invariant 5: every element has a stable ID**, which diffing and incremental updates depend on — serialization must carry stable IDs.
-- **Scale** (§7 known pitfall): the IR grows with the component count, and the agent cannot work from the whole IR. So the IR's representation is meant **for the toolchain**, not for the agent to read directly.
+- **Scale** (`AGENTS.md` §7 known pitfall): the IR grows with the component count, and the agent cannot work from the whole IR. So the IR's representation is meant **for the toolchain**, not for the agent to read directly.
 
 `AGENTS.md` §9 already writes `schemas/  # IR's JSON Schema / zod definitions (machine-readable)` into the target structure, which settles the direction as the JSON family; but "who owns the contract", "whether serialization must be canonical" and "which units numbers use" are still undecided.
 

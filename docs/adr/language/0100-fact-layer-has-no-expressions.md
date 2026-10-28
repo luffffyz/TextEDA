@@ -13,10 +13,10 @@ literal with a unit (`3.3V`, `100nF`, `±1%`), the fact layer has no control flo
 repeats itself is written out in full. What was missing is a document that says so, says *why*,
 and says what would have to be true for the rule to change.
 
-The rule was scattered across three places: `teda.md` §5.1 ("one fact per line", "no structure
-that needs cross-line reading"), §5.3 ("generators and loops are not supported in v0.1; a later
-generation layer produces tables"), and §15 ("expression languages: undefined"). A reader could
-find the rule but not the reason, and a proposer of a new feature could find neither.
+The rule was scattered across three places: `AGENTS.md` §5.1 ("one fact per line", "no structure
+that needs cross-line reading"), `AGENTS.md` §5.3 ("generators and loops are not supported"), and
+`spec/teda.md` §15 ("expression languages: undefined"). A reader could find the rule but not the
+reason, and a proposer of a new feature could find neither.
 
 The reason is not aesthetic. **A human review cannot be skipped**, and the reviewer is a hardware
 engineer. So the language's reader model decides its syntax. A line in the fact layer must be
@@ -59,7 +59,7 @@ Repetition is handled by a tool that writes the file, not by the language that r
 generator's product is an ordinary source file: tables, literals, the same surface a human would
 write. The review object stays the table — never "the generator plus the table".
 
-This is the same boundary `teda.md` §5.3 draws between the three kinds of content: tables carry
+This is the same boundary `AGENTS.md` §5.3 draws between the three kinds of content: tables carry
 **facts**, blocks with ports carry **composition**, and rules belong to the checker. Composition
 is not programming: a module definition and its instantiation are structure, not control flow.
 
@@ -91,7 +91,7 @@ the feature is unfamiliar.
 The rule may be revised, and only when the conformance corpus shows the fact layer's form is
 unusable for a case it has to cover. The trigger is the "20 power domains" case of the
 ten-case corpus (`docs/backlog.md` F12): if that case shows the table form cannot be used
-without becoming unreadable — after the 80-column wrapping rule of `teda.md` §5.3 has been
+without becoming unreadable — after the 80-column wrapping rule of `spec/teda.md` §12 rule 8 has been
 applied — then a **limited expression** may be introduced.
 
 The escape hatch, if it is ever opened, is narrow on purpose:

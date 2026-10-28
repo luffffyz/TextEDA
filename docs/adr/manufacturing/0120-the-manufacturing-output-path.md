@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-22
 Scope: Decides: what the manufacturing output is, what it is derived from, what it must not contain, and which part of the chain is borrowed. Does not decide: the format of the delivered package — see ADR-0122; nor the BOM and coordinate format for a prototype order — see ADR-0121.
 Related: [ADR-0117](../pcb/0117-copper-fill-uses-a-geometry-kernel.md), [ADR-0121](0121-jlc-prototype-delivery.md), [ADR-0122](0122-the-output-package-carries-its-provenance.md), [ADR-0128](../devices/0128-the-procurement-layer.md)
-Impact: `spec/pcb.md`; `packages/exporter`; `packages/core`; `packages/cli`; `AGENTS.md` §1, §3 (the M0 layer), §11 (question 17)
+Impact: `spec/pcb.md`; `packages/exporter`; `packages/core`; `packages/cli`; `AGENTS.md` §1, `AGENTS.md` §3 (the M0 layer), `AGENTS.md` §11 (question 17)
 
 ## Background
 

@@ -70,7 +70,7 @@ Two things follow from this:
 
 - At this stage there is a single maintainer, which matches the early stage of most open standards; we do not pretend to have a community governance process.
 - The contribution entry point follows `AGENTS.md` §12: **the spec and the conformance cases go in the same commit** — submitting only the implementation is not the rule, and neither is submitting only cases without the spec. Breaking changes go through an ADR.
-- The merge bar for external PRs is the same as internally: pass `bun test`, `bun run typecheck`, `bun run gen:check`, `bun run fmt:teda --check`, plus the implementability check from §4.3.
+- The merge bar for external PRs is the same as internally: pass `bun test`, `bun run typecheck`, `bun run gen:check`, `bun run fmt:teda --check`, plus the implementability check from decision 4 item 3.
 
 ### 7. Deferred (recorded in `docs/backlog.md`)
 

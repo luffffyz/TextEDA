@@ -22,7 +22,7 @@ Those two facts only became load-bearing when the `component` shard got a produc
 1. `component.description` is an optional string on the shard body: one line of human prose ("RISC-V microcontroller, 144 MHz, 256 KB flash").
 2. **It never participates in a check and never changes identity.** The id is still the file name ([ADR-0105](0105-ir-shards-and-hashes.md) decision 3); changing a description changes the shard bytes and therefore the project hash, exactly as changing a comment does not — the description *is* content, not a comment.
 3. **The IR contract version rises** because the shard's shape changed. [ADR-0105](0105-ir-shards-and-hashes.md) decision 3 rule 7 is explicit that `ir_version` rises when the IR shape changes, and the contract directory follows the version. This is the same move as [ADR-0125](../devices/0125-a-part-states-its-own-ratings.md) made when `ratings` arrived. The version number itself is recorded in `schemas/ir/` and is not pinned here.
-4. The spec lists the field (§6.1) with the same boundary: prose only, no check, no identity.
+4. The spec lists the field (`spec/teda.md` §6.1) with the same boundary: prose only, no check, no identity.
 
 ## Alternatives
 

@@ -1,10 +1,13 @@
-# The Shape of the Decision-Record Corpus — Proposal
+# The Shape of the Decision-Record Corpus — the 2026-10-27 Restructuring
 
-**Status: proposal, for review. Not adopted.** Nothing in the repository has moved yet. When the
-corpus is rebuilt, this file is deleted and the facts it states live in the folder READMEs and in
-the index.
+**Status: adopted and carried out.** The 56 flat records under `docs/adr/` became the 41 records
+in topic folders, in the commit "docs: file the decision corpus in topic folders". §1–§7 describe
+the reasoning and the resulting shape; §8 is the old-to-new map, kept because a retired number is
+never handed out again and the map is the only way to follow a citation written before the swap.
+The rules themselves live where they are enforced: the record shape in `AGENTS.md` §12, the
+numbering and retired range in `docs/adr/README.md`, each folder's scope in its own `README.md`.
 
-## 1. What is wrong with the corpus today
+## 1. What was wrong with the corpus before the swap
 
 The corpus was written in eight days (2026-10-20 → 2026-10-27) and grew to 56 records in one flat
 directory. Measured facts:
@@ -312,18 +315,20 @@ subdirectory resolves; a link to the right number but the wrong directory fails;
 without a folder segment fails; a retired record naming a record that does not exist fails; a
 record carrying a number inside a retired range fails; a record outside it passes.
 
-## 10. Migration, once the design is approved
+## 10. How the swap was carried out
 
-The corpus swap is one commit, because the tree must never contain a state the gate rejects:
+The corpus swap went in as one commit, because the tree must never contain a state the gate
+rejects:
 
-1. Learn the new layout in the gate (still green on the old corpus).
-2. Write the 41 records, folding the addendum corrections into the bodies, each with a `Scope:`.
-3. Delete the 56 old files, write the index and the 10 folder READMEs.
-4. Rewrite every citation and link target in the repository by script, from a mapping table.
-5. Update the prose that describes the corpus's own shape (`AGENTS.md` §12, the guides, the
+1. The gate learned the new layout first, and stayed green on the old corpus.
+2. The 41 records were written, with the dated corrections folded into the bodies and a `Scope:`
+   on each.
+3. The 56 old files were deleted, and the index and the 10 folder READMEs written.
+4. Every citation and link target in the repository was rewritten by script, from a mapping table.
+5. The prose that describes the corpus's own shape was updated (`AGENTS.md` §12, the guides, the
    READMEs).
 
-The proof of completeness is mechanical: every old number appears in the mapping exactly once,
+The proof of completeness was mechanical: every old number appears in the mapping exactly once,
 every old number is absent from the tree afterwards, and the link gate reports zero errors.
 
 ### 10.1 Adding a record afterwards
@@ -342,19 +347,22 @@ No other number moves, so no citation anywhere in the repository has to change. 
 belongs in a folder that does not exist yet, create the folder with its `README.md`; the numbering
 is unaffected.
 
-## 11. Open questions for the review
+## 11. The open questions, and how the corpus answers them
 
-1. ~~**Numbering blocks.**~~ **Answered:** one flat counter, no per-folder blocks — see §4. A
-   per-folder block ties a record's identity to its folder, so re-filing forces a renumbering
-   that breaks prose citations in code and in the published contract.
-2. **`0122` is a new record, not a recombination.** Its content (provenance on the output package)
-   currently lives in a spec and in the exporters, not in a record. Should the new corpus contain
-   records that have no predecessor, or should the corpus only ever hold recombinations of what
-   exists?
-3. **Scope sentence length.** One sentence, possibly long, or a `Decides:` / `Does not decide:`
-   pair of lines? The gate can only check presence, not quality.
-4. **Retiring the retired.** `0007` and `0046` are dropped rather than kept as retired stubs.
-   The corpus keeps the retired-stub mechanism for future use, but nothing in the new series uses
-   it on day one. Acceptable?
-5. **Adding a new folder later.** A folder is created when a topic has no home. Should creating a
-   folder require a decision record of its own?
+1. **Numbering blocks.** One flat counter, no per-folder blocks — see §4. A per-folder block ties a
+   record's identity to its folder, so re-filing would force a renumbering that breaks prose
+   citations in code and in the published contract.
+2. **A record with no predecessor.** `0122` is one: it states provenance on the output package,
+   which lived in a spec and in the exporters but in no record. The corpus holds it. A record's
+   predecessor is a convenience of the swap, not a requirement — a decision that was never written
+   down is exactly the kind of fact a corpus exists to fix.
+3. **Scope shape.** The `Decides:` / `Does not decide:` pair was folded into `Scope:` as one
+   sentence carrying both halves, so a record has one header line for it and the gate can check
+   that both halves are present. The gate checks presence, never quality; that limit is accepted.
+4. **Retiring the retired.** `0007` and `0046` were dropped rather than kept as retired stubs,
+   because each was already superseded by a record that survives (`0111` and `0133`). The
+   retired-stub mechanism stays, for a record that has to be retired from now on.
+5. **Adding a new folder.** Creating a folder is not a claim about the project, so it takes no
+   record: the folder is created with its `README.md` when a topic has no home, and §10.1's
+   numbering rule is unaffected. A change that alters what a record *claims* is a different
+   question, and that one takes a record.

@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-20
 Scope: Decides: that footprint geometry and 3D models do not enter the language, and that a self-built footprint library uses our own format with the KiCad format as an export artifact. Does not decide: the symbol format — see ADR-0130.
 Related: [ADR-0127](../devices/0127-package-code-and-3d-models.md), [ADR-0130](0130-symbol-format.md), [ADR-0131](0131-the-reference-project-is-self-built.md), [ADR-0133](0133-trust-in-a-library-you-do-not-own.md)
-Impact: `spec/footprint.md`; `spec/teda.md` §6.5; `packages/exporter/**`; `packages/parser` (the `footprint` description type); `docs/guides/footprint-authoring.md`
+Impact: `spec/footprint.md`; `packages/exporter/**`; `packages/parser` (the `footprint` description type); `docs/guides/footprint-authoring.md`
 
 ## Background
 

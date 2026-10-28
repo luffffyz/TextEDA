@@ -96,8 +96,9 @@ language version was rejected.
 
 ### D5. The Version Moves in PATCH Steps Only
 
-The version is currently `0.9.1`, and the next change is `0.9.2`. A MINOR step inside the `0.x`
-line is a decision that needs a record.
+Inside the `0.x` line the version moves in PATCH steps: the next change after any release is the
+next patch of it, never a MINOR. A MINOR step is a decision that needs a record. The version the
+language is at right now lives in `spec/teda.md` §13.1, not here.
 
 A removal needs a mechanism too, and the PATCH bit is it: inside the `0.x` phase a removal rides
 the PATCH bit with a migration note and a script. A removal before `1.0` is allowed and announced;
@@ -145,9 +146,10 @@ corpus is still incomplete.
 
 ### D11. The Repository's Own Files Carry the Single Number
 
-The `.teda` files under `examples/` and the `format` key of the `project.toml` files carry `0.9.1`.
-The shards change with them (the `format` field), so the hashes change and the case goldens are
-regenerated. Because the contract layer is public, the mechanical part also gets a script:
+The `.teda` files under `examples/` and the `format` key of the `project.toml` files moved to
+`0.9.1` together; from here they carry whatever number `spec/teda.md` §13.1 gives, and a release
+moves all of them at once. The shards change with them (the `format` field), so the hashes change
+and the case goldens are regenerated. Because the contract layer is public, the mechanical part also gets a script:
 `bun run migrate:0.9 <project dir>` rewrites the version line of every `.teda` file and the
 `format` key of `project.toml`; it renames nothing else, because a renumbering is a renumbering.
 
