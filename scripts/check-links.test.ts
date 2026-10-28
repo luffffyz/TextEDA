@@ -33,6 +33,11 @@ function adrFile(number: string, title: string, status: string, date: string): s
   return `# ADR-${number}: ${title}\nStatus: ${status}\nDate: ${date}\n`;
 }
 
+/** A decision record that lives in a topic folder, so it must carry a scope line. */
+function scopedAdrFile(number: string, title: string, status: string, date: string): string {
+  return `# ADR-${number}: ${title}\nStatus: ${status}\nDate: ${date}\nScope: Decides: one thing. Does not decide: the other, see the spec.\n`;
+}
+
 describe("scripts/check-links.ts", () => {
   test("exempts root-relative links", () => {
     const root = makeTree({
@@ -116,6 +121,66 @@ describe("scripts/check-links.ts", () => {
     }
   });
 
+  // The corpus is topic-foldered: a record lives at `docs/adr/<topic>/NNNN-slug.md`, the index row
+  // carries the folder segment, and the record declares its scope. The four cases below pin each
+  // of those rules, so a later edit cannot drop one and leave the corpus half-migrated.
+  test("resolves a decision record that lives in a topic folder", () => {
+    const root = makeTree({
+      "docs/adr/language/0100-fact.md": scopedAdrFile("0100", "Fact", "Accepted", "2026-10-20"),
+      "docs/adr/README.md": `${minimalIndex}\n${indexRow("0100", "language/0100-fact.md", "Fact", "Accepted", "2026-10-20")}\n`,
+      "prose.md": "[ADR-0100](docs/adr/language/0100-fact.md)\n",
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("rejects an index row that omits the topic folder", () => {
+    const root = makeTree({
+      "docs/adr/language/0100-fact.md": scopedAdrFile("0100", "Fact", "Accepted", "2026-10-20"),
+      "docs/adr/README.md": `${minimalIndex}\n${indexRow("0100", "0100-fact.md", "Fact", "Accepted", "2026-10-20")}\n`,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems.some((p) => p.includes("ADR-0100 points at 0100-fact.md"))).toBe(true);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("rejects a link to a record in the wrong topic folder", () => {
+    const root = makeTree({
+      "docs/adr/language/0100-fact.md": scopedAdrFile("0100", "Fact", "Accepted", "2026-10-20"),
+      "docs/adr/ir/0101-other.md": scopedAdrFile("0101", "Other", "Accepted", "2026-10-20"),
+      "docs/adr/README.md": `${minimalIndex}\n${indexRow("0100", "language/0100-fact.md", "Fact", "Accepted", "2026-10-20")}\n${indexRow("0101", "ir/0101-other.md", "Other", "Accepted", "2026-10-20")}\n`,
+      "prose.md": "[ADR-0100](docs/adr/ir/0101-other.md)\n",
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems.some((p) => p.includes("links to docs/adr/ir/0101-other.md"))).toBe(true);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("requires a topic-foldered record to declare its scope", () => {
+    const root = makeTree({
+      "docs/adr/language/0100-noScope.md": adrFile("0100", "NoScope", "Accepted", "2026-10-20"),
+      "docs/adr/language/0101-halfScope.md": "# ADR-0101: Half\nStatus: Accepted\nDate: 2026-10-20\nScope: Decides: one thing.\n",
+      "docs/adr/README.md": `${minimalIndex}\n${indexRow("0100", "language/0100-noScope.md", "NoScope", "Accepted", "2026-10-20")}\n${indexRow("0101", "language/0101-halfScope.md", "Half", "Accepted", "2026-10-20")}\n`,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems.some((p) => p.includes('expected exactly one "Scope:" header line, found 0'))).toBe(true);
+      expect(problems.some((p) => p.includes('must say what the record does not decide'))).toBe(true);
+    } finally {
+      removeTree(root);
+    }
+  });
+
   test("validates the decision-record header shape", () => {
     const root = makeTree({
       "docs/adr/0006-noStatus.md": "# ADR-0006: No Status\nDate: 2026-10-20\n",
@@ -170,6 +235,19 @@ describe("scripts/check-links.ts", () => {
       const { problems } = checkRepo(root);
       expect(problems.some((p) => p.includes("0008-retired3.md") && p.includes('must contain "superseded by ADR-NNNN"'))).toBe(true);
       expect(problems.some((p) => p.includes("0006-retired2.md"))).toBe(false);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("requires a retired record to name a record that exists", () => {
+    const root = makeTree({
+      "docs/adr/0006-retired4.md": `# ADR-0006: Retired4\nStatus: Accepted (superseded by ADR-0097)\nDate: 2026-10-20\n\n> **Retired 2026-10-20**\n`,
+      "docs/adr/README.md": `${minimalIndex}\n${indexRow("0006", "0006-retired4.md", "Retired4", "Accepted", "2026-10-20")}\n`,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems.some((p) => p.includes("0006-retired4.md") && p.includes("names ADR-0097"))).toBe(true);
     } finally {
       removeTree(root);
     }

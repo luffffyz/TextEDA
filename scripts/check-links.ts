@@ -103,13 +103,26 @@ function adrIndexPath(root: string): string {
   return join(adrDir(root), "README.md");
 }
 
-/** Scan docs/adr for decision-record files, mapping number -> file name. */
+/**
+ * Scan docs/adr for decision-record files, mapping number -> path relative to the corpus root.
+ * The corpus is topic-foldered, so a record lives at `<topic>/NNNN-slug.md`; the map keeps the
+ * relative path (POSIX separators) because the index and the link checks compare that string.
+ */
 function scanAdrFiles(root: string): Map<string, string> {
   const out = new Map<string, string>();
-  for (const entry of readdirSync(adrDir(root))) {
-    const match = /^(\d{4})-.+\.md$/.exec(entry);
-    if (match) out.set(match[1], entry);
-  }
+  const walk = (dir: string, prefix: string): void => {
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      const rel = prefix ? `${prefix}/${entry}` : entry;
+      if (statSync(full).isDirectory()) {
+        walk(full, rel);
+        continue;
+      }
+      const match = /^(\d{4})-.+\.md$/.exec(entry);
+      if (match) out.set(match[1], rel);
+    }
+  };
+  walk(adrDir(root), "");
   return out;
 }
 
@@ -179,6 +192,23 @@ function adrHeader(
 
     const status = (statusLines[0] ?? "").replace(/^Status:\s*/, "").trim();
     const date = (dateLines[0] ?? "").replace(/^Date:\s*/, "").trim();
+
+    // A record in a topic folder declares its scope: what it decides and what it does not. A record
+    // that lives at the corpus root predates the topic folders and carries no scope line.
+    if (file.includes("/")) {
+      const scopeLines = lines.filter((line) => /^Scope:/.test(line));
+      if (scopeLines.length !== 1) {
+        fail(problems, where, `expected exactly one "Scope:" header line, found ${scopeLines.length}`);
+      } else {
+        const scope = scopeLines[0].replace(/^Scope:\s*/, "");
+        if (!scope.includes("Decides:")) {
+          fail(problems, where, 'the "Scope:" line must say what the record decides ("Decides:")');
+        }
+        if (!scope.includes("Does not decide:")) {
+          fail(problems, where, 'the "Scope:" line must say what the record does not decide ("Does not decide:")');
+        }
+      }
+    }
 
     // The status vocabulary is closed: the word before any parenthetical revision note.
     const statusWord = status.split(/[\s(]/)[0];
@@ -562,7 +592,7 @@ function proseRules(
         if (inLink) {
           const target = inLink.target.split("#")[0];
           if (!adrFiles.has(number)) {
-            fail(problems, `${where}:${lineNumber}`, `ADR-${number} is linked but there is no docs/adr/${number}-*.md`);
+            fail(problems, `${where}:${lineNumber}`, `ADR-${number} is linked but there is no docs/adr/**/${number}-*.md`);
             continue;
           }
           const expected = adrFiles.get(number)!;
