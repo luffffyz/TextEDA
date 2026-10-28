@@ -1,7 +1,7 @@
 // `footprint` description parsing: `.teda` source → IR fragment (spec/footprint.md).
 //
 // Surface parsing and unit conversion only; contract validation is delegated to @texteda/ir schema validation (closed-set schema);
-// library-level checks (pin number comparison, DRC) do not live at this layer (ADR-0010 decision 3).
+// library-level checks (pin number comparison, DRC) do not live at this layer (ADR-0129 decision 7).
 import { irVersion } from "@texteda/ir";
 import type { Footprint } from "@texteda/ir/footprint";
 import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
@@ -53,7 +53,7 @@ export interface ParseResult {
   ok: boolean;
   ir?: Footprint;
   diagnostics: Diagnostic[];
-  /** IR path → span of the record that produced it (ADR-0020 D2). Never persisted. */
+  /** IR path → span of the record that produced it (ADR-0103 D2). Never persisted. */
   sources?: SourceMap;
 }
 
@@ -456,7 +456,7 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
   const pads: Pad[] = [];
   const graphics: Graphic[] = [];
   const fields: Field[] = [];
-  // Span of each record, by object identity: the IR sorts these arrays (ADR-0020 D2/D4).
+  // Span of each record, by object identity: the IR sorts these arrays (ADR-0103 D2/D4).
   const at = new Map<object, Span>();
   const src = new SourceFile(file, lex(text));
   const put = <T extends object>(list: T[], item: T, line: Line): void => {
@@ -496,7 +496,7 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
       const trailing = (from: number): string => rest.slice(from).map((c) => c.text).join(" ");
       switch (key) {
         case "rev": {
-          // The release of *this file's* facts (ADR-0049 D1), not the format version.
+          // The release of *this file's* facts (ADR-0133 D6), not the format version.
           const value = trailing(0);
           if (!REV_RE.test(value)) {
             collector.error(file, line.number, line.cells[1]?.col ?? line.cells[0]!.col, "value.rev-invalid", `rev must be a release name without whitespace: "${value}"`);

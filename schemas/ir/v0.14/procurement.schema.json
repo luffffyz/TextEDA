@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:texteda:ir:0.14:procurement",
   "title": "TextEDA IR v0.14 — procurement shard",
-  "description": "Which parts a board is bought with. The primary shard is normative (the build is made of these parts); the alternatives shard is advisory (a second source does not change the build). See spec/procurement.md and ADR-0030.",
+  "description": "Which parts a board is bought with. The primary shard is normative (the build is made of these parts); the alternatives shard is advisory (a second source does not change the build). See spec/procurement.md and ADR-0128.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -34,7 +34,7 @@
       "properties": {
         "board": {
           "$ref": "urn:texteda:ir:0.14:common#/$defs/slug",
-          "description": "The board these selections belong to. A selection always belongs to a board, because a BOM is a board's (ADR-0002)."
+          "description": "The board these selections belong to. A selection always belongs to a board, because a BOM is a board's (ADR-0114)."
         },
         "role": {
           "enum": [

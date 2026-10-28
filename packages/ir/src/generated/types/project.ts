@@ -7,7 +7,7 @@
  */
 export type Slug = string;
 /**
- * Device id, bare: every device the project reads lives in assets/components/ under its own id. A qualified `<lib>:<id>` is rejected — an external library is a template that was copied in (ADR-0047), not a namespace that is resolved.
+ * Device id, bare: every device the project reads lives in assets/components/ under its own id. A qualified `<lib>:<id>` is rejected — an external library is a template that was copied in (ADR-0133), not a namespace that is resolved.
  *
  * This interface was referenced by `Project`'s JSON-Schema
  * via the `definition` "device_ref".
@@ -21,7 +21,7 @@ export type DeviceRef = string;
  */
 export type FormatVersion = string;
 /**
- * Instance id of the board's flat list: U1. An instance of a module carries the module's prefix: <module_instance_id>.<refdes> (M1.U1). This is the identity key; see ADR-0008 decision 3 and ADR-0026 decision 2.
+ * Instance id of the board's flat list: U1. An instance of a module carries the module's prefix: <module_instance_id>.<refdes> (M1.U1). This is the identity key; see ADR-0105 decision 6 and ADR-0112 decision 2.
  *
  * This interface was referenced by `Project`'s JSON-Schema
  * via the `definition` "instance_id".
@@ -35,7 +35,7 @@ export type InstanceId = string;
  */
 export type IrVersion = "0.14";
 /**
- * Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0011).
+ * Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0129).
  *
  * This interface was referenced by `Project`'s JSON-Schema
  * via the `definition` "layer_name".
@@ -63,7 +63,7 @@ export type LibraryRef = string;
  */
 export type NetId = string;
 /**
- * Free text; canonical JSON has no comments, this is the substitute (ADR-0004 rule 8).
+ * Free text; canonical JSON has no comments, this is the substitute (ADR-0104 rule 8).
  *
  * This interface was referenced by `Project`'s JSON-Schema
  * via the `definition` "note".
@@ -87,7 +87,7 @@ export type ParamValue =
        */
       name: string;
       /**
-       * The unit is determined by the type declared in the component's params section (resistance→µΩ etc.; see ADR-0008 decision 4).
+       * The unit is determined by the type declared in the component's params section (resistance→µΩ etc.; see ADR-0105 decision 7).
        */
       value: number;
     }
@@ -131,7 +131,7 @@ export type Refdes = string;
 export type Sha256 = string;
 
 /**
- * IR projection of project.toml: human-written metadata plus the board, variant and compliance lists. Contains no circuit semantics. See ADR-0008 decision 6.
+ * IR projection of project.toml: human-written metadata plus the board, variant and compliance lists. Contains no circuit semantics. See ADR-0105 decision 10.
  */
 export interface Project {
   /**
@@ -325,7 +325,7 @@ export interface Compliance {
   };
 }
 /**
- * Where a device's facts came from and whether a human checked them (ADR-0047 decision 5). Omitted means the file makes no claim.
+ * Where a device's facts came from and whether a human checked them (ADR-0133 decision 5). Omitted means the file makes no claim.
  *
  * This interface was referenced by `Project`'s JSON-Schema
  * via the `definition` "provenance".

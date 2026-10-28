@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:texteda:ir:0.14:system",
   "title": "TextEDA IR v0.14 — system shard",
-  "description": "Multi-board connections: system-level nets between boards. Members only reference board ports, never pins, and never rewrite any board's internal connectivity. See ADR-0001.",
+  "description": "Multi-board connections: system-level nets between boards. Members only reference board ports, never pins, and never rewrite any board's internal connectivity. See ADR-0108.",
   "type": "object",
   "additionalProperties": false,
   "required": ["ir_version", "format", "system", "boards", "nets"],

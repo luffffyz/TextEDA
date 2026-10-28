@@ -1,6 +1,6 @@
 # `symbol` 描述规范（草案）
 
-状态：草案。决策与取舍见 `docs/adr/0012-symbol-description.md`；跨描述通用的词法、单位、版本、canonical 规则见 `teda.md` §3–§5、§10、§12。
+状态：草案。决策与取舍见 `docs/adr/libraries/0130-symbol-format.md`；跨描述通用的词法、单位、版本、canonical 规则见 `teda.md` §3–§5、§10、§12。
 
 本文件是 `teda.md` 的分描述补充：`.teda` 语言的共用规则在 `teda.md`，`symbol` 这一类描述的具体段定义在这里。
 
@@ -10,7 +10,7 @@
 
 `symbol` 描述表达**一个符号的视图**：引脚摆位、外形、单元分组、显示开关。
 
-一条底线（[ADR-0012](../docs/adr/0012-symbol-description.md) decision 2）：
+一条底线（[ADR-0130](../docs/adr/libraries/0130-symbol-format.md) decision 2）：
 
 > **引脚的电学事实只有一个所有者：`component`。** `symbol` 不写引脚名、不写引脚号的含义、不写电气类型——它只写这些引脚**画在哪、怎么画**。
 
@@ -43,7 +43,7 @@ symbol bq24610rger
 
 | 键 | 必填 | 说明 |
 |---|---|---|
-| `rev` | 否 | 该文件的事实最后确立的那个发布名（[ADR-0049](../docs/adr/0049-a-file-carries-its-own-revision.md)）。不写也能用：只有信任记录需要它 |
+| `rev` | 否 | 该文件的事实最后确立的那个发布名（[ADR-0133](../docs/adr/libraries/0133-trust-in-a-library-you-do-not-own.md)）。不写也能用：只有信任记录需要它 |
 | `description` | 否 | 自由文本。进 IR 的 `description`，导出为 `Description` 属性。 |
 | `tags` | 否 | 空格分隔的标签列表。 |
 | `units` | 否 | 单元数，正整数，缺省 `1`。多单元器件（双运放等）写 `2`。 |
@@ -141,7 +141,7 @@ v0.1 不支持：文字标注（极性 `+`/`−`、功能名）、图片、贝�
 2. `body` 的 `geometry` 点数与 `kind` 匹配；`poly` 点数 ≥ 3；`fill` 只适用于 `rect` / `circle` / `poly`。
 3. `field` 的 `Name` 唯一；`field` 不接受 `layer`。
 4. 编译产物必须通过 `schemas/ir/v0.3/symbol.schema.json`（closed schema）。
-5. 库级检查（与 `component` 的引脚号集合比对、与 `footprint` 的引脚号比对、ERC）不属于本描述，属工具链（[ADR-0010](../docs/adr/0010-footprint-and-3d-model-ownership.md) decision 3）。
+5. 库级检查（与 `component` 的引脚号集合比对、与 `footprint` 的引脚号比对、ERC）不属于本描述，属工具链（[ADR-0129](../docs/adr/libraries/0129-footprint-format-and-geometry.md) decision 7）。
 6. 编译产物的顺序只依赖语义：`pins` 按 (`unit`, `number` 自然序)、`body` 按 (`kind`, 坐标) 排；`fields` 按 `Name`、`tags` 按字节序。
 
 诊断格式：`file:line:col: <severity> <code>: <message>`。

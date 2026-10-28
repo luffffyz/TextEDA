@@ -85,7 +85,7 @@ Procedure:
 ### 2.2 Mode B: human-owned placement, agent wiring (the finish)
 
 This is the finish, not a seed: the renderer never places anything
-([ADR-0021](../adr/0021-schematic-view-layer.md) decision 2). The human owns the final positions
+([ADR-0134](../adr/view/0134-the-view-layer-is-a-drawing.md) decision 6). The human owns the final positions
 (however they were seeded), the agent writes the wires, and the human reviews the wired page.
 The initial placement can come from a reference, an agent proposal, or the human.
 
@@ -149,7 +149,7 @@ symbol; only the absolute bends can go stale (and then `view.wire-diagonal` or a
 collision appears; a crossing is not stale by itself).
 The agent re-routes the affected nets; the human is not asked to hand-fix the wires. When the human
 does edit a wire by hand, that edit is source: do not run a wholesale regenerator over it
-([ADR-0032](../adr/0032-view-is-a-drawing-not-a-build-input.md)). Re-route only on an explicit
+([ADR-0134](../adr/view/0134-the-view-layer-is-a-drawing.md)). Re-route only on an explicit
 request and show the diff.
 
 The planned `layout` mode is the one place a human moves a symbol from the canvas: select one
@@ -162,7 +162,7 @@ the old wires stay with stale bends, and `view.wire-diagonal` / `view.wire-cross
 signal. Do not run a router on every drag frame. Placement snaps to
 1.27 mm (or the symbol's pin pitch); the view's 0.01 mm grid is storage precision. The first form
 selects one symbol. `layout` is not built yet; this is its contract
-([ADR-0021](../adr/0021-schematic-view-layer.md) 2026-10-25 appendix).
+([ADR-0134](../adr/view/0134-the-view-layer-is-a-drawing.md) D4).
 
 ## 3. The command loop
 
@@ -276,7 +276,7 @@ bun test packages/cli/test/view-roundtrip.test.ts packages/cli/test/view-metrics
 - Do not add a hop, a curve or a diagonal to dodge a crossing: a crossing with no dot is already
   "not connected". Do not use a crossing where a dot is required, either; a join is a dot.
 - Do not write a junction record; the dot is derived.
-- Do not overwrite a reviewed view with a regenerated one (ADR-0032).
+- Do not overwrite a reviewed view with a regenerated one (ADR-0134).
 - Do not commit vendor datasheet PDFs or screenshots.
 - Do not treat a `view.*` warning as a circuit error, and do not silence one by deleting the
   record that proves it.
@@ -286,11 +286,11 @@ bun test packages/cli/test/view-roundtrip.test.ts packages/cli/test/view-metrics
 - [`spec/schematic-view.md`](../../spec/schematic-view.md) §5 (wire),
   [`spec/schematic-view.md`](../../spec/schematic-view.md) §9.2 (warnings),
   [`spec/schematic-view.md`](../../spec/schematic-view.md) §9.5 (round-trip).
-- [ADR-0021](../adr/0021-schematic-view-layer.md): the view is an independent description; the
+- [ADR-0134](../adr/view/0134-the-view-layer-is-a-drawing.md) D1: the view is an independent description; the
   renderer draws but never places.
-- [ADR-0032](../adr/0032-view-is-a-drawing-not-a-build-input.md): a view is kept, advisory and not
+- [ADR-0134](../adr/view/0134-the-view-layer-is-a-drawing.md) D4、D5: a view is kept, advisory and not
   a build input.
-- [ADR-0035](../adr/0035-connectivity-authority-and-reverse-engineering.md): the schematic decides
+- [ADR-0113](../adr/schematic/0113-connectivity-has-one-authority.md): the schematic decides
   connectivity; geometry never does.
 - [`docs/skills/new-project.md`](new-project.md): the other end of the toolchain (project →
   netlist).

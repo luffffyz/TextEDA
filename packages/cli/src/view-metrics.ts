@@ -5,7 +5,7 @@
 // wires pile up. Same geometry as the checks (`packages/renderer`'s `schematicGeometry`), so the
 // metric and the warning can never disagree about where something is.
 //
-// Integer nanometres and ppm ratios only (ADR-0004): two runs, two machines, one table.
+// Integer nanometres and ppm ratios only (ADR-0104): two runs, two machines, one table.
 import { parseSchematic, parseView } from "@texteda/parser";
 import type { Schematic } from "@texteda/ir/schematic";
 import { schematicGeometry } from "@texteda/renderer";

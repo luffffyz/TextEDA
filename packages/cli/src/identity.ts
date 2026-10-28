@@ -1,4 +1,4 @@
-// The advisory identity index (ADR-0020 D6): where an identity is defined or used.
+// The advisory identity index (ADR-0103 D6): where an identity is defined or used.
 //
 // A source map is IR-path keyed and exists only for the duration of a parse. The review app needs
 // the other direction: a click on `U1` or `VCC` has to name every place that identity appears —
@@ -6,7 +6,7 @@
 // module turns the same parse into that index.
 //
 // It is advisory: derived from the sources, never part of a shard, the manifest, the project hash or
-// any build input. The shape is fixed here (ADR-0020, amendment 2026-10-26): `identity.json` carries
+// any build input. The shape is fixed here (ADR-0103 D6): `identity.json` carries
 // a version and a map from a namespaced identity key to locations.
 import { spanOf, type SchemaKind, type SourceMap } from "@texteda/ir";
 import type { Component } from "@texteda/ir/component";

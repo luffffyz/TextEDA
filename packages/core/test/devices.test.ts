@@ -1,4 +1,4 @@
-// The device rule table (ADR-0038): pure functions over facts, no text parsing, no filesystem.
+// The device rule table (ADR-0124): pure functions over facts, no text parsing, no filesystem.
 //
 // The table is the tool-side half of the closed device vocabulary: the constructions, the roles
 // each construction accepts, and the closed value sets. These tests pin the behaviour that a

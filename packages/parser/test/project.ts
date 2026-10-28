@@ -2,7 +2,7 @@
 //
 // The device id is the file name (AGENTS.md §4.5); the facts come from the component parser,
 // which is all the schematic parser needs to resolve pins and parameter columns. The parts and
-// the generics live in one tree, `assets/components/` (ADR-0027, ADR-0037); they share one id
+// the generics live in one tree, `assets/components/` (ADR-0123, ADR-0123); they share one id
 // namespace.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";

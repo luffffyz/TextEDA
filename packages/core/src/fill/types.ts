@@ -1,4 +1,4 @@
-// The fill policy's vocabulary (ADR-0054 D3). The kernel knows shapes; this layer knows nets,
+// The fill policy's vocabulary (ADR-0117 D3). The kernel knows shapes; this layer knows nets,
 // clearance, thermal settings and layers, and nothing here reaches into the kernel's algorithms.
 //
 // Coordinates are board nanometres, already transformed by `place`. Every shape in this file is
@@ -16,12 +16,12 @@ import type { Polygon, Region } from "@texteda/geom";
  * roundrect, an oval or a circle.
  */
 export interface PlacedFootprint {
-  /** Board-flat instance id: `U1`, `M2.U1` (ADR-0026 decision 2). */
+  /** Board-flat instance id: `U1`, `M2.U1` (ADR-0112 decision 2). */
   instance_id: string;
   footprint: Footprint;
 }
 
-/** How a copper obstacle meets a pour of its own net (ADR-0054's hard table, "Same-net copper"). */
+/** How a copper obstacle meets a pour of its own net (ADR-0117's hard table, "Same-net copper"). */
 export type ZoneConnect = "solid" | "thermal" | "none";
 
 /**
@@ -62,7 +62,7 @@ export interface FillZoneInput {
   net: string;
   layer: string;
   shape: Polygon;
-  /** Source line of the `zone` row, for diagnostics; the shard carries no per-record line (ADR-0020). */
+  /** Source line of the `zone` row, for diagnostics; the shard carries no per-record line (ADR-0103). */
   line?: number;
 }
 
@@ -98,7 +98,7 @@ export const FILL_RULE_DEFAULTS: Readonly<FillRules> = {
 export interface FillOutput {
   net: string;
   layer: string;
-  /** A disjoint cover of convex pieces, never a holed contour (ADR-0054 2026-10-26b). */
+  /** A disjoint cover of convex pieces, never a holed contour (ADR-0117 2026-10-26b). */
   region: Region;
   area_nm2: number;
 }

@@ -1,4 +1,4 @@
-// `system` description parsing: `.teda` source → the system IR (spec/teda.md §8, ADR-0001).
+// `system` description parsing: `.teda` source → the system IR (spec/teda.md §8, ADR-0108).
 //
 // A system says how boards are connected to each other. It is **not** a parent of the boards: it
 // references their ports and stops there. Nothing in this file rewrites a board's own
@@ -45,7 +45,7 @@ export interface SystemParseResult {
   ok: boolean;
   ir?: System;
   diagnostics: Diagnostic[];
-  /** IR path → span of the record that produced it (ADR-0020 D2). Never persisted. */
+  /** IR path → span of the record that produced it (ADR-0103 D2). Never persisted. */
   sources?: SourceMap;
 }
 
@@ -113,7 +113,7 @@ export function parseSystem(text: string, options: SystemParseOptions): SystemPa
   }
 
   const boards: string[] = [];
-  /** Line of each `boards` row, parallel to `boards` (spans; ADR-0020). */
+  /** Line of each `boards` row, parallel to `boards` (spans; ADR-0103). */
   const boardLines: number[] = [];
   const nets: { id: string; members: string[]; line: number }[] = [];
   let section: SystemSection | null = null;
@@ -304,7 +304,7 @@ export function parseSystem(text: string, options: SystemParseOptions): SystemPa
     }[],
   };
   // IR path → span. Boards and nets are built from rows that keep their line; the IR wraps them in
-  // new objects, so the pointer is filled from the rows (ADR-0020 D2/D4).
+  // new objects, so the pointer is filled from the rows (ADR-0103 D2/D4).
   const src = new SourceFile(file, lex(text));
   const sources: SourceMap = new Map();
   ir.boards.forEach((_, index) => sources.set(`/boards/${index}`, src.span(boardLines[index] ?? 1)));

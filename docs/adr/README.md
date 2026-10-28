@@ -1,126 +1,123 @@
-# ADR Index
+# Decision records
 
-Every architecture decision record in this repository, in numeric order.
+Every decision this project has made, in one index. The corpus is filed in ten topic
+folders; each folder has its own README that says what the folder decides and where
+the neighbouring questions are answered.
 
-| ADR | Title | Status | Date |
+## Numbering
+
+One flat counter, handed out in the order the records are written. A number names one
+record and nothing else: what a record is about is said by its folder, not by its
+number. A number is **never changed and never reused** — a link to `ADR-0105` names
+the same decision forever — so a new record takes the next free number and disturbs
+nothing that already exists. The sequence is not contiguous; gaps are normal.
+
+## Retired
+
+| Retired | Range | Note |
+|---|---|---|
+| Retired | 0001-0056 | the first corpus |
+
+The numbers `0001`–`0056` were the first corpus, before the corpus was filed in topic
+folders. They are **retired, not renamed**: a new record never takes a retired number,
+because a missed reference rewrite would then point at a *different* decision
+silently. The history of those records is in the git history.
+
+## Reserved
+
+Numbers declared but not yet written. A reserved number may be taken by the record
+that was meant for it, and by nothing else.
+
+| Number | Reserved for |
+|---|---|
+
+## Language
+
+| Record | Title | Status | Date |
 |---|---|---|---|
-| [ADR-0001](0001-board-linking.md) | How Boards Are Linked Together | Accepted | 2026-10-20 |
-| [ADR-0002](0002-board-pages-and-bom.md) | Intra-Board Pages (Sheet Partitioning), Flattening and BOM Counting | Accepted | 2026-10-20 |
-| [ADR-0003](0003-agent-first-pcb-ir.md) | Agent-First PCB Description (Segment Set and Trade-offs) | Accepted | 2026-10-20 |
-| [ADR-0004](0004-ir-representation.md) | IR Representation (Semantic Model / Contract / Serialization) | Accepted | 2026-10-20 |
-| [ADR-0005](0005-manufacturing-output.md) | Manufacturing Output Path (IR → KiCad → Gerber/Excellon) | Accepted | 2026-10-20 |
-| [ADR-0006](0006-jlc-prototype-delivery.md) | JLC Prototype Delivery (BOM / Coordinates / Part Number) | Accepted | 2026-10-21 |
-| [ADR-0007](0007-page-internal-net-naming.md) | The Net Set and Its Names After Flattening (What Happens to In-Page Nets) | Accepted | 2026-10-20 |
-| [ADR-0008](0008-ir-shard-identity-and-hash.md) | IR Sharding, Identity Keys, Units, and Hash Granularity | Accepted | 2026-10-20 |
-| [ADR-0009](0009-implementation-stack.md) | Implementation Stack (TypeScript + Bun), Render Layering, and the IDE Integration Surface | Accepted | 2026-10-20 |
-| [ADR-0010](0010-footprint-and-3d-model-ownership.md) | Footprint Geometry and 3D Models Do Not Enter the Language; the Project's Self-Built Footprint Library Is a First-Class Artifact | Accepted | 2026-10-20 |
-| [ADR-0011](0011-library-format-and-footprint-ir.md) | Self-Built Footprint Libraries Use Our Own Format; the KiCad Format Is an Export Artifact | Accepted | 2026-10-20 |
-| [ADR-0012](0012-symbol-description.md) | Self-Built Symbol Libraries Use Our Own Format; the Electrical Facts of Pins Belong to `component` | Accepted | 2026-10-20 |
-| [ADR-0013](0013-reference-project-self-built-libraries.md) | The Reference Project Is Entirely Self-Built — Symbol and Footprint Libraries Live in the Project, and Library-Level Checks Close the Loop | Accepted | 2026-10-20 |
-| [ADR-0014](0014-reference-renderer.md) | Our Own Reference Renderer — IR → Drawing Commands → SVG, with a Preview That Does Not Depend on KiCad | Accepted | 2026-10-20 |
-| [ADR-0015](0015-licensing-and-open-standard.md) | Licensing and Openness Policy — The Contract Layer Is Open Source Forever, the Project Is a Pure Open Technical Specification | Accepted | 2026-10-21 |
-| [ADR-0016](0016-diagnostic-error-codes.md) | Diagnostic Error Code Registry (`domain.slug`) | Accepted | 2026-10-21 |
-| [ADR-0017](0017-fact-layer-no-expressions.md) | The Fact Layer Has No Expressions; Generators Live Outside the Language | Accepted | 2026-10-22 |
-| [ADR-0018](0018-zero-dependency-and-manufacturing-target.md) | Zero-Dependency Principle and the Target Form of the Manufacturing Output | Accepted | 2026-10-21 |
-| [ADR-0019](0019-agent-contract-reference-and-check-entry.md) | Contract Reference and Check Entry Point for Agents | Accepted | 2026-10-21 |
-| [ADR-0020](0020-source-spans.md) | Source Spans — Diagnostics Point at the File, the IR Stays Clean | Accepted | 2026-10-22 |
-| [ADR-0021](0021-schematic-view-layer.md) | The Schematic View Layer (S1) Is an Independent Description; the Review UI Is Browser-First | Accepted | 2026-10-21 |
-| [ADR-0022](0022-language-versioning.md) | Language Versioning — MAJOR.MINOR.PATCH, and 1.0 as a Milestone | Accepted | 2026-10-21 |
-| [ADR-0023](0023-ir-layer-on-disk.md) | The IR Layer on Disk (Shard Tree, Manifest, Hashes) | Accepted | 2026-10-21 |
-| [ADR-0024](0024-level-tags-in-flattened-names.md) | Level Tags in Flattened Names — `P` for Pages, `MOD` for Modules | Accepted | 2026-10-21 |
-| [ADR-0025](0025-flat-board-and-print-pages.md) | One Flat Schematic per Board, Pages Become Print Pages in the View Layer | Accepted | 2026-10-21 |
-| [ADR-0026](0026-modules-compose-boards.md) | A Board Is Composed of Modules; the IR Stays Flat | Accepted | 2026-10-22 |
-| [ADR-0027](0027-device-parts-families-and-library-dependencies.md) | Device Semantics Split into Parts and Families; Project Layout by Asset Kind; Libraries Are Dependencies | Accepted | 2026-10-22 |
-| [ADR-0028](0028-library-trust-and-derived-overrides.md) | Libraries Are Unverified Facts; Provenance, Disclaimers, and Derived Overrides | Accepted | 2026-10-22 |
-| [ADR-0029](0029-package-code-footprint-and-3d-model-ownership.md) | The Package Code Lives in the Footprint; 3D Models Belong to Parts; Assembly Constraints Are Out of Scope | Accepted | 2026-10-22 |
-| [ADR-0030](0030-procurement-layer.md) | The Procurement Layer — Which Part to Buy Is a Project-Local Decision | Accepted | 2026-10-22 |
-| [ADR-0031](0031-project-tree-ownership-model.md) | The Project Tree Has Owners — Own Assets, Referenced Material, and Derivations | Accepted | 2026-10-22 |
-| [ADR-0032](0032-view-is-a-drawing-not-a-build-input.md) | The View Is a Drawing, Not a Build Input | Accepted | 2026-10-22 |
-| [ADR-0033](0033-review-records-and-attribution.md) | Review Is Not a Description Type — Notes, Decisions, and the One Accountable Person | Accepted | 2026-10-22 |
-| [ADR-0034](0034-manufacturing-output-target-form.md) | The Target Form of the Manufacturing Output — Derived Manufacturing Data, a Self-Describing Package, and a Gate That Is a Process | Accepted | 2026-10-22 |
-| [ADR-0035](0035-connectivity-authority-and-reverse-engineering.md) | Connectivity Has One Authority; Reverse Engineering Is an Import, Not a Mode | Accepted | 2026-10-22 |
-| [ADR-0036](0036-process-entities-outside-the-language.md) | Process Entities Stay Outside the Language — Requirements, Blocks, and Analyses | Accepted | 2026-10-22 |
-| [ADR-0037](0037-device-kind-vocabulary-and-one-device-directory.md) | The Device Kind Is `part` or `generic`, and the Devices Live in One Directory | Accepted | 2026-10-23 |
-| [ADR-0038](0038-device-vocabulary-and-parameter-roles.md) | The Device Vocabulary Is Closed and Checked; a Parameter Is a Role and a Quantity | Accepted | 2026-10-23 |
-| [ADR-0039](0039-a-part-states-its-own-ratings.md) | A Part States Its Own Ratings, and the Requirements Stay in the Instance Row | Accepted | 2026-10-23 |
-| [ADR-0040](0040-partial-layout-is-legal-and-reported.md) | A Partial Layout Is Legal, and It Is Reported | Accepted | 2026-10-23 |
-| [ADR-0041](0041-connect-pairs-must-be-implemented-by-copper.md) | A Declared `connect` Pair Must Be Implemented by Copper (What "Implemented" Means) | Accepted | 2026-10-23 |
-| [ADR-0042](0042-a-device-description-enters-the-ir.md) | A Device's Description Is a Fact, So It Enters the IR | Accepted | 2026-10-23 |
-| [ADR-0043](0043-ratings-are-compared-against-declared-windows.md) | Ratings Are Compared Against Declared Windows | Accepted | 2026-10-23 |
-| [ADR-0044](0044-dissipation-is-checked-against-declared-limits.md) | Dissipation Is Checked Against Declared Limits | Accepted | 2026-10-23 |
-| [ADR-0045](0045-the-package-gives-a-resistor-its-floor.md) | The Package Gives a Chip Resistor Its Floor | Accepted | 2026-10-23 |
-| [ADR-0046](0046-vendored-libraries-are-verified-by-their-hash.md) | A Vendored Library Is Verified by Its Hash | Accepted | 2026-10-24 |
-| [ADR-0047](0047-an-external-library-is-a-template-not-a-dependency.md) | An External Library Is a Template, Not a Dependency | Accepted | 2026-10-24 |
-| [ADR-0048](0048-trust-in-a-library-you-do-not-own.md) | Trust in a Library You Do Not Own Is a Consumer Record | Accepted | 2026-10-24 |
-| [ADR-0049](0049-a-file-carries-its-own-revision.md) | A File Carries Its Own Revision, and Trust Matches That Revision | Accepted | 2026-10-24 |
-| [ADR-0050](0050-renumbering-is-a-code-executed-global-rename.md) | Renumbering Is a Code-Executed Global Rename, Not an Agent Edit | Accepted | 2026-10-25 |
-| [ADR-0051](0051-instances-have-a-stable-project-local-uid.md) | Instance Identity Is a Stable Project-Local UID, Not the Refdes | Accepted | 2026-10-25 |
-| [ADR-0052](0052-a-rating-names-its-terminals.md) | A Rating Names Its Terminals, and the Role Says Which Direction Is Stress | Accepted | 2026-10-26 |
-| [ADR-0053](0053-layout-and-routing-are-agent-driven.md) | Layout and Routing Are Agent-Driven, Checker-Gated, and Frozen on Acceptance | Accepted | 2026-10-26 |
-| [ADR-0054](0054-copper-fill-uses-a-constrained-geometry-kernel.md) | Copper Fill Uses a Self-Built Constrained Geometry Kernel | Accepted | 2026-10-26 |
-| [ADR-0055](0055-documentation-has-one-authority-per-fact.md) | Documentation Has One Authority per Fact, and the Rest Is a Pointer | Accepted | 2026-10-27 |
-| [ADR-0056](0056-one-language-version-number.md) | One Language Version Number | Accepted | 2026-10-27 |
+| [ADR-0100](language/0100-fact-layer-has-no-expressions.md) | The Fact Layer Has No Expressions; Generators Live Outside the Language | Accepted | 2026-10-22 |
+| [ADR-0101](language/0101-one-language-version-number.md) | One Language Version Number | Accepted | 2026-10-27 |
+| [ADR-0102](language/0102-diagnostic-error-codes.md) | Diagnostic Error Code Registry (`domain.slug`) | Accepted | 2026-10-21 |
+| [ADR-0103](language/0103-source-spans.md) | Source Spans — Diagnostics Point at the File, the IR Stays Clean | Accepted | 2026-10-22 |
 
-## Reserved Numbers
+## IR
 
-A number is reserved when the decision is agreed but the record is not written yet. A document may cite a reserved
-number; the number itself is never reused, and the file name is fixed when the record is written.
+| Record | Title | Status | Date |
+|---|---|---|---|
+| [ADR-0104](ir/0104-ir-representation.md) | IR Representation (Semantic Model / Contract / Serialization) | Accepted | 2026-10-20 |
+| [ADR-0105](ir/0105-ir-shards-and-hashes.md) | IR Sharding, Identity Keys, and Hashes | Accepted | 2026-10-21 |
+| [ADR-0106](ir/0106-device-description-enters-the-ir.md) | A Device's Description Is a Fact, So It Enters the IR | Accepted | 2026-10-23 |
 
-No number is reserved at the moment.
+## Project
 
-## Rules
+| Record | Title | Status | Date |
+|---|---|---|---|
+| [ADR-0107](project/0107-project-tree-has-owners.md) | The Project Tree Has Owners | Accepted | 2026-10-22 |
+| [ADR-0108](project/0108-board-linking.md) | How Boards Are Linked Together | Accepted | 2026-10-20 |
+| [ADR-0109](project/0109-instance-identity-is-a-uid.md) | Instance Identity Is a Stable Project-Local UID, Not the Refdes | Accepted | 2026-10-25 |
+| [ADR-0110](project/0110-renumbering-is-a-code-executed-rename.md) | Renumbering Is a Code-Executed Global Rename, Not an Agent Edit | Accepted | 2026-10-25 |
 
-- **Cite by number.** A document that refers to a decision writes `ADR-NNNN`, never the title. The number is stable;
-  the title may be reworded.
-- **The file name is the external anchor.** `docs/adr/NNNN-<slug>.md` never changes once written, so a link to it
-  keeps working. The slug after the number may differ from the title.
-- **Status vocabulary** is closed: `Accepted` or `Proposed`. A `Proposed` record may be cited, but it is not a
-  settled decision — say so when you rely on it.
-- **Every ADR carries the same header**: a `# ADR-NNNN: Title` heading, then `Status:`, `Date:`, optionally
-  `Related:`, then `Impact:`. The header is machine-checked by `bun run check:links`.
+## Schematic
 
-### Keeping a record current
+| Record | Title | Status | Date |
+|---|---|---|---|
+| [ADR-0111](schematic/0111-one-flat-schematic-per-board.md) | One Flat Schematic per Board; the Partition Moves to the View Layer | Accepted | 2026-10-21 |
+| [ADR-0112](schematic/0112-modules-compose-boards.md) | A Board Is Composed of Modules; the IR Stays Flat | Accepted | 2026-10-22 |
+| [ADR-0113](schematic/0113-connectivity-has-one-authority.md) | Connectivity Has One Authority; Reverse Engineering Is an Import, Not a Mode | Accepted | 2026-10-22 |
+| [ADR-0114](schematic/0114-flattening-and-the-net-set.md) | Flattening and the Net Set | Accepted | 2026-10-20 |
 
-A record is a decision plus its date. A status line that stops describing the code is corrected in place by a
-dated block, never by rewriting the decision itself. But those blocks accumulate: one record
-([ADR-0021](0021-schematic-view-layer.md)) is now 72% appendix. So there are three tiers, and a tier is chosen by
-what the new text says, not by how long it is.
+## PCB
 
-1. **Status amendment — the world moved, the decision stands.** Correct the record with an italic paragraph or a
-   dated `## Appendix` / `## Addendum` / `## Amendment` block of **at most 10 lines** that names the artifact
-   proving the correction (a code symbol, a spec section) and does not narrate history.
-2. **New record — the text states something the record did not.** If the new text introduces a `must`, a `may`, an
-   enum value or a rule that the original record did not state, it is a new ADR; the old record gets one pointer
-   line. It is never smuggled into an appendix, because a reader who follows `ADR-NNNN decision N` must land on the
-   rule itself.
-3. **Retirement — the decision is no longer true and nobody will come back to it.** See `Retirement` below.
+| Record | Title | Status | Date |
+|---|---|---|---|
+| [ADR-0115](pcb/0115-agent-first-pcb-description.md) | Agent-First PCB Description (Segment Set and Trade-offs) | Accepted | 2026-10-20 |
+| [ADR-0116](pcb/0116-layout-and-routing-are-agent-driven.md) | Layout and Routing Are Agent-Driven, Checker-Gated, and Frozen on Acceptance | Accepted | 2026-10-26 |
+| [ADR-0117](pcb/0117-copper-fill-uses-a-geometry-kernel.md) | Copper Fill Uses a Self-Built Constrained Geometry Kernel | Accepted | 2026-10-26 |
+| [ADR-0118](pcb/0118-a-partial-layout-is-legal.md) | A Partial Layout Is Legal, and It Is Reported | Accepted | 2026-10-23 |
+| [ADR-0119](pcb/0119-connect-pairs-need-copper.md) | A Declared `connect` Pair Must Be Implemented by Copper | Accepted | 2026-10-23 |
 
-### Retirement
+## Manufacturing
 
-Retirement is for "this is no longer true and nobody will come back to it", not for "I disagree with it now" — a
-disagreement is a new record that supersedes this one.
+| Record | Title | Status | Date |
+|---|---|---|---|
+| [ADR-0120](manufacturing/0120-the-manufacturing-output-path.md) | The Manufacturing Output Path and Its Target Form | Accepted | 2026-10-22 |
+| [ADR-0121](manufacturing/0121-jlc-prototype-delivery.md) | JLC Prototype Delivery (BOM / Coordinates / Part Number) | Accepted | 2026-10-21 |
+| [ADR-0122](manufacturing/0122-the-output-package-carries-its-provenance.md) | The Output Package Carries Its Own Provenance | Accepted | 2026-10-28 |
 
-A retired record ends with the pointer form, and the body is dropped:
+## Devices
 
-> **Retired YYYY-MM-DD by [ADR-XXXX](XXXX-*.md).** One to three sentences: what this record decided, and why
-> nothing in it applies. The decision text is in this file's history.
+| Record | Title | Status | Date |
+|---|---|---|---|
+| [ADR-0123](devices/0123-the-device-kind-is-part-or-generic.md) | The Device Kind Is `part` or `generic`, and the Devices Live in One Directory | Accepted | 2026-10-23 |
+| [ADR-0124](devices/0124-device-vocabulary-and-parameter-roles.md) | The Device Vocabulary Is Closed and Checked; a Parameter Is a Role and a Quantity | Accepted | 2026-10-23 |
+| [ADR-0125](devices/0125-a-part-states-its-own-ratings.md) | A Part States Its Own Ratings, and They Are Checked Against Declared Windows | Accepted | 2026-10-26 |
+| [ADR-0126](devices/0126-the-package-gives-a-chip-resistor-its-floor.md) | The Package Gives a Chip Resistor Its Floor | Accepted | 2026-10-23 |
+| [ADR-0127](devices/0127-package-code-and-3d-models.md) | The Package Code Lives in the Footprint; 3D Models Belong to Parts | Accepted | 2026-10-22 |
+| [ADR-0128](devices/0128-the-procurement-layer.md) | The Procurement Layer — Which Part to Buy Is a Project-Local Decision | Accepted | 2026-10-22 |
 
-The file name and the header stay, and that is what makes a retirement safe: the name is the external anchor, and
-`scripts/check-links.ts` resolves every inbound link to it; the status word stays in the closed vocabulary and only
-the parenthetical changes (ADR-0046 reads `Accepted (superseded by ADR-0047)`, ADR-0007 reads
-`Accepted (superseded by ADR-0025)`); and the decision text stays in git history, so nothing is lost by dropping it
-from the working tree.
+## Libraries
 
-A record may be retired only when all three criteria hold: it is superseded wholesale rather than amended in parts;
-no live `decision N` citation to it remains anywhere in `spec/`, `packages/`, `examples/` or `docs/`; and every
-document and code comment still citing it is updated in the same change.
+| Record | Title | Status | Date |
+|---|---|---|---|
+| [ADR-0129](libraries/0129-footprint-format-and-geometry.md) | Footprint Geometry and 3D Models Do Not Enter the Language; Our Own Footprint Format Is the Source | Accepted | 2026-10-20 |
+| [ADR-0130](libraries/0130-symbol-format.md) | Self-Built Symbol Libraries Use Our Own Format | Accepted | 2026-10-20 |
+| [ADR-0131](libraries/0131-the-reference-project-is-self-built.md) | The Reference Project Is Entirely Self-Built | Accepted | 2026-10-20 |
+| [ADR-0132](libraries/0132-libraries-are-unverified-facts.md) | Libraries Are Unverified Facts; Provenance, Disclaimers, and Corrections | Accepted | 2026-10-22 |
+| [ADR-0133](libraries/0133-trust-in-a-library-you-do-not-own.md) | Trust in a Library You Do Not Own | Accepted | 2026-10-24 |
 
-### What the checker enforces
+## View
 
-`scripts/check-links.ts` enforces four rules. R1–R3 fail the build; R4 is a warning that never changes the exit code.
+| Record | Title | Status | Date |
+|---|---|---|---|
+| [ADR-0134](view/0134-the-view-layer-is-a-drawing.md) | The View Layer Is an Independent Description, and the View Is a Drawing, Not a Build Input | Accepted | 2026-10-22 |
+| [ADR-0135](view/0135-our-own-reference-renderer.md) | Our Own Reference Renderer — IR → Drawing Commands → SVG | Accepted | 2026-10-20 |
+| [ADR-0136](view/0136-review-records-and-attribution.md) | Review Is Not a Description Type — Notes, Decisions, and the One Accountable Person | Accepted | 2026-10-22 |
 
-- **R1 — every appendix / addendum / amendment heading carries a date.** An undated block is not a valid amendment.
-- **R2 — the `> **Retired …**` line ends the file.** No heading may follow it; anything more belongs in a new record.
-- **R3 — a retired record's `Status:` parenthetical names the superseding record or `withdrawn`.**
-- **R4 — a record whose appendix blocks exceed 40% of its lines is warned about, not failed.** A ratio is a smell,
-  not a defect: the fix is consolidation on the next rewrite, not deletion.
+## Process
+
+| Record | Title | Status | Date |
+|---|---|---|---|
+| [ADR-0137](process/0137-implementation-stack-and-agent-entry.md) | Implementation Stack and the Agent's Entry Point | Accepted | 2026-10-21 |
+| [ADR-0138](process/0138-licensing-and-open-standard.md) | Licensing and Openness Policy | Accepted | 2026-10-21 |
+| [ADR-0139](process/0139-process-entities-outside-the-language.md) | Process Entities Stay Outside the Language | Accepted | 2026-10-22 |
+| [ADR-0140](process/0140-documentation-has-one-authority-per-fact.md) | Documentation Has One Authority per Fact, and the Rest Is a Pointer | Accepted | 2026-10-27 |

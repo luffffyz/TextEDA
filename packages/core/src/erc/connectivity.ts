@@ -1,4 +1,4 @@
-// Connectivity ERC (ADR-0019 / backlog F19).
+// Connectivity ERC (ADR-0137 / backlog F19).
 //
 // The rules only consume "facts": flattened nets, each instance's pins, which nets carry
 // board-level ports.

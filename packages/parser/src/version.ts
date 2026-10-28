@@ -13,7 +13,7 @@
 // it, and the patch number is ignored when a file is accepted. The patch component is optional; when
 // it is zero it is left out, so `0.6` and `0.6.0` are the same version and the IR stores one spelling.
 //
-// The language has ONE version number (ADR-0056): every `.teda` file declares the language version it
+// The language has ONE version number (ADR-0101): every `.teda` file declares the language version it
 // was written against, and the number is the same for all description types. The only per-type fact
 // left is the version a type was **born** at — a type that did not exist yet cannot have a file from
 // before it. The ceiling is the language's current version for every type.
@@ -66,9 +66,9 @@ export interface VersionRange {
 /**
  * The language version this implementation understands (teda.md §13).
  *
- * The language has one version number (ADR-0056): every `.teda` file declares the version of the
+ * The language has one version number (ADR-0101): every `.teda` file declares the version of the
  * language it was written against, and it is the same for all description types. It is the `0.x`
- * line the whole language moves on while the surface is still open (ADR-0022's appendix): `0.9` is
+ * line the whole language moves on while the surface is still open (ADR-0101 D2): `0.9` is
  * the last global MINOR, and `1.0` is a milestone reached by a decision, not a counter.
  *
  * It is also the upper bound every description type accepts — there is no per-type ceiling.
@@ -92,9 +92,9 @@ export type DescriptionType =
  *
  * A type that did not exist yet cannot have a file from before it: a `symbol` file claiming `0.4` is
  * nonsense and is refused. The floor is a fact about the type's existence, not about the file's age,
- * so it survives the merge of the version lines (ADR-0056 D2).
+ * so it survives the merge of the version lines (ADR-0101 D4).
  *
- * The upper bound is **not** here: it is the language's current version for every type (ADR-0056 D2).
+ * The upper bound is **not** here: it is the language's current version for every type (ADR-0101 D4).
  */
 const TYPE_BIRTH: Record<DescriptionType, number> = {
   component: 1,
@@ -102,7 +102,7 @@ const TYPE_BIRTH: Record<DescriptionType, number> = {
   // 0.8 introduces the `module` type.
   module: 8,
   // `pcb` arrived at 0.4, but the flat-board change (0.7) rewrote its shape, so 0.4 files are not
-  // read (ADR-0056 D2).
+  // read (ADR-0101 D4).
   pcb: 7,
   // 0.9 introduces the `procurement` type.
   procurement: 9,
@@ -117,7 +117,7 @@ const TYPE_BIRTH: Record<DescriptionType, number> = {
 /**
  * The versions a description type accepts: from the version that introduced the type up to the
  * language's current version. The upper bound is **shared** — a `symbol` file at `0.9` is a file
- * this tool understands, symbols included (teda.md §13.3, ADR-0056 D2).
+ * this tool understands, symbols included (teda.md §13.3, ADR-0101 D4).
  */
 export function typeRange(type: DescriptionType): VersionRange {
   return {
@@ -133,7 +133,7 @@ export type VersionVerdict =
 /**
  * Decide whether a file's version line is acceptable for a description type.
  *
- * The language has one version number (ADR-0056): the ceiling is the language's current version for
+ * The language has one version number (ADR-0101): the ceiling is the language's current version for
  * every description type, and the only per-type fact is the version the type was born at — a file
  * from before its type existed is refused.
  *

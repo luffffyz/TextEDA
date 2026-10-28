@@ -2,7 +2,7 @@
 
 `texteda review` serves the review app: the project's print pages, drawn by the renderer, with
 hover and click so a reviewer can ask "what is this, and what is it on" without leaving the drawing.
-Decision: [ADR-0021](../adr/0021-schematic-view-layer.md) (the 2026-10-24 appendix records the form
+Decision: [ADR-0134](../adr/view/0134-the-view-layer-is-a-drawing.md) (D7 records the form
 this first version takes; the 2026-10-25 appendix records the planned `layout` mode).
 
 ## Run it
@@ -34,12 +34,12 @@ server sends. That file is the static report for a pull request: no build step, 
 | right | The facts about whatever is under the pointer or was selected: instance id, device, symbol, footprint, spec, source file, and the nets its pins land on with those pins listed. The selected identity also has a **definitions** button; `Enter` or a double-click opens it. |
 
 - **A board with no view file is listed, not drawn.** The reference project's `mcu-board` has a
-  schematic and no print page; the app says so on the canvas and draws nothing (ADR-0021 decision 2).
+  schematic and no print page; the app says so on the canvas and draws nothing (ADR-0134 decision 6).
   It does not invent a layout. What it does show is the board's instances as chips: the logic is
   there even when the drawing is not, and clicking a chip reports that instance's facts.
 - **A page that cannot be drawn says why** and is marked in the board list.
 - **`review` writes nothing back.** The app adds behaviour to the SVG it is given; the drawing is
-  not regenerated, and there is no way to move a symbol from the `review` canvas (ADR-0021,
+  not regenerated, and there is no way to move a symbol from the `review` canvas (ADR-0134,
   AGENTS.md §2 invariant 3). The planned `layout` mode is the one exception: it writes `place`
   rows, never `design/**` (2026-10-25 appendix).
 
@@ -61,7 +61,7 @@ These bindings are `review`'s. The planned `layout` mode reuses click to select,
 selected symbol (not to pan), and a 90-degree rotate key; wires are not recomputed until `Apply`
 (2026-10-25 appendix). The source jump is an explicit action in both modes: double-click or press
 `Enter`; a single click only selects. The definitions come from the advisory
-`dist/ir/identity.json` written by `texteda ir` ([ADR-0020](../adr/0020-source-spans.md),
+`dist/ir/identity.json` written by `texteda ir` ([ADR-0103](../adr/language/0103-source-spans.md),
 2026-10-26 amendment), so the app never re-parses a file.
 
 `vscode://file/...` is handled by whatever the user has bound to that URI scheme. A static
@@ -78,13 +78,13 @@ a "1.5 px" stroke then paints 1.5 mm, which reads as a slug over small parts.
 
 ## What is not built
 
-- **`layout`, `placement` and `edit` modes** from ADR-0021 decision 5. `layout` is the S1
+- **`layout`, `placement` and `edit` modes** from ADR-0134 decision 9. `layout` is the S1
   placement surface: select, drag, 90-degree rotate, writes `place` only; routing is rerouted on
   `Apply`, never live (2026-10-25 appendix). This is S1 drawing work, not B0 copper routing: the
   agent-driven PCB layout/routing loop lives outside the review app
-  ([ADR-0053](../adr/0053-layout-and-routing-are-agent-driven.md)).
+  ([ADR-0116](../adr/pcb/0116-layout-and-routing-are-agent-driven.md)).
 - **Note anchors** (`[instance:U3]` prefixes), which are an open point of
-  [ADR-0033](../adr/0033-review-records-and-attribution.md).
+  [ADR-0136](../adr/view/0136-review-records-and-attribution.md).
 
 ## When it looks wrong
 

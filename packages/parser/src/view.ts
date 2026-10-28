@@ -1,4 +1,4 @@
-// `view` description parsing: `.teda` source → the S1 view IR (spec/schematic-view.md, ADR-0021, ADR-0025).
+// `view` description parsing: `.teda` source → the S1 view IR (spec/schematic-view.md, ADR-0134, ADR-0111).
 //
 // The view is the drawing layer: it says where the symbols sit and how the wires run, and it
 // references the board's instances / nets / ports by their board-level names. It restates no electrical
@@ -35,7 +35,7 @@ const NET_ID_RE = /^[A-Za-z0-9_+-]+(\.[A-Za-z0-9_+-]+)*$/;
 const PIN_REF_RE = /^([A-Z]+[0-9]+\.)?[A-Z]+[0-9]+\.[A-Za-z0-9_+-]+$/;
 /**
  * `view` was introduced in language version 0.6 (teda.md §13); since 0.7 it names board-level ids
- * (ADR-0025), so a 0.6 view file is no longer accepted.
+ * (ADR-0111), so a 0.6 view file is no longer accepted.
  */
 const VERSION_RANGE = typeRange("view");
 /** A4 landscape, in nanometers. */
@@ -64,7 +64,7 @@ export interface ViewParseResult {
   ok: boolean;
   ir?: SchematicView;
   diagnostics: Diagnostic[];
-  /** IR path → span of the record that produced it (ADR-0020 D2). Never persisted. */
+  /** IR path → span of the record that produced it (ADR-0103 D2). Never persisted. */
   sources?: SourceMap;
 }
 
@@ -142,7 +142,7 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
   const lines = lexed;
   /**
    * Line of each record, by object identity. A line number is a function of the line order, so it
-   * cannot enter the IR (ADR-0020 D1); it is kept beside it for this parse only.
+   * cannot enter the IR (ADR-0103 D1); it is kept beside it for this parse only.
    */
   const at = new Map<object, number>();
 
@@ -442,7 +442,7 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
     ...(texts.length > 0 ? { text: texts } : {}),
   };
   // IR path → span, read off the sorted arrays: the pointer names a position in the shard, and the
-  // record at that position is the one whose span goes there (ADR-0020 D2/D4).
+  // record at that position is the one whose span goes there (ADR-0103 D2/D4).
   const sources: SourceMap = new Map();
   const note = (base: string, items: readonly object[]): void => {
     items.forEach((item, index) => sources.set(`${base}/${index}`, src.span(at.get(item) ?? 1)));

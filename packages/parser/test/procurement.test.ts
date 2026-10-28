@@ -75,7 +75,7 @@ describe("procurement parsing", () => {
 
   test("a line that needs nothing bought carries the reserved target", () => {
     // `not-required` is not a device id: it says there is nothing to order for the line, which is
-    // different from "nobody has ordered it yet" (ADR-0030, 2026-10-22b appendix).
+    // different from "nobody has ordered it yet" (ADR-0128 D4).
     const text = SOURCE.replace("-> rc0402fr-0710kl", "-> not-required");
     const result = parseProcurement(text, {
       file,
@@ -103,7 +103,7 @@ describe("procurement parsing", () => {
     expect(selection.params?.map((p) => p.name)).toEqual(["value", "tolerance"]);
   });
 
-  test("a library-qualified part id is rejected (ADR-0047: nothing resolves through a library)", () => {
+  test("a library-qualified part id is rejected (ADR-0133: nothing resolves through a library)", () => {
     const result = parseProcurement(
       `version 0.9
 procurement charger-buck
@@ -227,7 +227,7 @@ selections
     expect(result.diagnostics[0]!.code).toBe("value.param-count-mismatch");
   });
 
-  test("a row that fails against a generic names the generic's declaration (ADR-0020 D5)", () => {
+  test("a row that fails against a generic names the generic's declaration (ADR-0103 D5)", () => {
     const result = parseProcurement(
       `version 0.9
 procurement charger-buck

@@ -1,4 +1,4 @@
-// The drill file is a byte contract too (ADR-0054 appendix "PCB wire contract"): one file, tools
+// The drill file is a byte contract too (ADR-0117 D9): one file, tools
 // ascending from T1, coordinates exact and sorted, and M30 last.
 import { describe, expect, test } from "bun:test";
 import type { BoardImage, DrillHit, ManufacturingStamp } from "@texteda/core/image";

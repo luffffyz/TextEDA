@@ -1,5 +1,5 @@
 // Round-trip of the print page: `extract(render(ir)) == ir` in the sense of the semantic projection
-// (ADR-0014 decision 5). Both ends compute the projection; neither calls the other's transform.
+// (ADR-0135 decision 5). Both ends compute the projection; neither calls the other's transform.
 import { describe, expect, test } from "bun:test";
 import { irVersion } from "@texteda/ir";
 import type { SchematicView } from "@texteda/ir/schematic-view";

@@ -2,7 +2,7 @@
 //
 // Usage:
 //   texteda compile <project dir> <board_id>              print canonical JSON
-//   texteda compile <project dir> <board_id> --json       print only the diagnostic payload (ADR-0016)
+//   texteda compile <project dir> <board_id> --json       print only the diagnostic payload (ADR-0102)
 //   texteda compile <project dir> <board_id> --out <file>  write the IR to a file
 import { existsSync, readFileSync } from "node:fs";
 import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
@@ -53,7 +53,7 @@ export function runCompile(options: CompileOptions): number {
   }
 
   if (json) {
-    // Payload shape per ADR-0016: code / severity / location / data are the machine contract.
+    // Payload shape per ADR-0102: code / severity / location / data are the machine contract.
     console.log(JSON.stringify(diagnosticsToPayload(result.diagnostics), null, 2));
   } else {
     for (const diagnostic of result.diagnostics) {

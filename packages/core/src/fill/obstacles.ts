@@ -1,4 +1,4 @@
-// Copper obstacles for a pour (ADR-0054 D3): every piece of copper the fill must treat as already
+// Copper obstacles for a pour (ADR-0117 D3): every piece of copper the fill must treat as already
 // present, in board coordinates and with its real outline.
 //
 // Three rules decide the shape here, and all three are about not guessing:

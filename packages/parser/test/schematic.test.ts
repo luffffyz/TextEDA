@@ -1,4 +1,4 @@
-// Unit tests for `schematic` parsing (one flat file per board, ADR-0025).
+// Unit tests for `schematic` parsing (one flat file per board, ADR-0111).
 //
 // Positive cases use real descriptions from the reference project (mcu-board, charger-buck);
 // negative cases use minimal inline sources -- each negative case breaks exactly one thing, and the diagnostic code must line up.
@@ -179,7 +179,7 @@ describe("composed board (charger-buck)", () => {
 });
 
 
-describe("stable instance UIDs (ADR-0051)", () => {
+describe("stable instance UIDs (ADR-0109)", () => {
   const board = (rows: string) => [
     "version 0.9",
     "schematic b",
@@ -363,7 +363,7 @@ describe("constraint types", () => {
 
 describe("row order", () => {
   // The IR depends on the semantics only: where a row was written is not part of it, and neither
-  // is the order of the rows (spec/teda.md §12; ADR-0020 D1 removed the last field that leaked it).
+  // is the order of the rows (spec/teda.md §12; ADR-0103 D1 removed the last field that leaked it).
   const source = [
     "version 0.3",
     "schematic b",
@@ -417,7 +417,7 @@ describe("negative cases", () => {
     expect(codes(text)).toContain("ref.unknown-component");
   });
 
-  test("diagnostics carry machine-usable data (ADR-0016)", () => {
+  test("diagnostics carry machine-usable data (ADR-0102)", () => {
     const result = parseSchematic(board.replace("res-thick-0402", "no-such-part"), {
       file: "sch/b.teda",
       board: "b",
@@ -437,7 +437,7 @@ describe("negative cases", () => {
     expect(codes(text)).toContain("value.param-count-mismatch");
   });
 
-  test("a row that fails against a declaration names the declaration (ADR-0020 D5)", () => {
+  test("a row that fails against a declaration names the declaration (ADR-0103 D5)", () => {
     const text = board.replace("10k", "10k 1% 2W 3X");
     const result = parseSchematic(text, {
       file: "sch/b.teda",
@@ -458,7 +458,7 @@ describe("negative cases", () => {
     expect(codes(text)).toContain("value.invalid-param");
   });
 
-  test("a code-valued parameter outside its closed value set is an error (ADR-0038)", () => {
+  test("a code-valued parameter outside its closed value set is an error (ADR-0124)", () => {
     // The dielectric is a code, not a quantity: the spelling is exact, because two spellings of
     // one code would be two BOM lines.
     const text = [

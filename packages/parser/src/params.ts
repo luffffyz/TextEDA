@@ -25,7 +25,7 @@ export interface ParamDiagnostics {
       actual?: string;
       hint?: string;
       data?: Record<string, string | number | boolean>;
-      /** The declaration site of the parameter, when the device file's map has one (ADR-0020 D5). */
+      /** The declaration site of the parameter, when the device file's map has one (ADR-0103 D5). */
       related?: DiagnosticLocation[];
     },
   ): void;
@@ -41,7 +41,7 @@ export interface ParamContext {
   file: string;
   line: number;
   col: number;
-  /** Where the device file declares parameter `index`, when that is known (ADR-0020 D5). */
+  /** Where the device file declares parameter `index`, when that is known (ADR-0103 D5). */
   locateParam?: (index: number) => DiagnosticLocation | undefined;
 }
 
@@ -95,7 +95,7 @@ export function resolveParamColumns(
     const decl = decls[i]!;
     const text = cells[i]!;
     if (decl.type === "string") {
-      // A code-valued role has a closed value set (ADR-0038 D5): the spelling is exact, because
+      // A code-valued role has a closed value set (ADR-0124 D5): the spelling is exact, because
       // two spellings of one code would be two BOM lines.
       diagnostics.items.push(
         ...checkDeviceParamValue(decl.name, text, { file, line, col }),

@@ -5,7 +5,7 @@
 // that is what tells it whether the next move helps. A screenshot cannot answer that (pixels do not
 // compare across renders, and a vision model cannot measure 0.2mm), while these numbers can.
 //
-// Everything is an integer in nanometres or a ppm ratio (ADR-0004), so two runs on two machines
+// Everything is an integer in nanometres or a ppm ratio (ADR-0104), so two runs on two machines
 // produce the same table.
 import type { Schematic } from "@texteda/ir/schematic";
 import type { SchematicView } from "@texteda/ir/schematic-view";

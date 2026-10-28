@@ -11,7 +11,7 @@
 //
 // The marker never goes into the part number cell: the exported BOM is consumed by an ordering
 // system, and a part number that reads `unsourced` would be ordered as if it were a part
-// (ADR-0006).
+// (ADR-0121).
 import { formatQuantity, parseProcurement, parseSchematic, type QuantityKind } from "@texteda/parser";
 import type { Procurement } from "@texteda/ir/procurement";
 import { buildBomLines } from "@texteda/core";
@@ -100,7 +100,7 @@ export function runBom(options: BomOptions): number {
     if (parsed.ir) procurements.push({ ir: parsed.ir, file: source.file });
   }
 
-  // The package floor (ADR-0045) is keyed by the land pattern's package code, so the devices are
+  // The package floor (ADR-0126) is keyed by the land pattern's package code, so the devices are
   // decorated the same way `check` does it: the BOM and the check must not disagree on a selection.
   const devices = withPackageCodes(loadedDevices, loadFootprintLibrary(root));
   const facts = buildProcurementFacts({ schematic: schematic.ir, procurements, devices });

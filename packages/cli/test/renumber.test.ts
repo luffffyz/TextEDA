@@ -1,4 +1,4 @@
-// `texteda renumber`: one mapping, every reference, an atomic apply (ADR-0050).
+// `texteda renumber`: one mapping, every reference, an atomic apply (ADR-0110).
 //
 // The command is exercised through the CLI because flags, dry-run/apply and output are part of its
 // contract. Small pure checks cover the formatter boundary and the `project.toml` variant scanner.

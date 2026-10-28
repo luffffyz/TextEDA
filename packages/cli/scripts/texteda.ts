@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // `texteda` command-line entry point.
 //
-// The file system appears only at this layer: the CLI does not enter core/ir/parser (ADR-0009 decision 1).
+// The file system appears only at this layer: the CLI does not enter core/ir/parser (ADR-0137 decision 1).
 //
 // Usage:
 //   texteda init <dir> [--force] [--name <project name>]
@@ -33,7 +33,7 @@ import { formatNetlist, toNetlist } from "@texteda/exporter/netlist";
 import { writeOut } from "../src/output.ts";
 import { countByStage, diagnosticsToPayload, hintFor } from "@texteda/ir/diagnostics";
 
-/** Known flags. Failures in the cli domain do not go into the --json diagnostics array; they go to stderr plus an exit code (ADR-0016). */
+/** Known flags. Failures in the cli domain do not go into the --json diagnostics array; they go to stderr plus an exit code (ADR-0102). */
 const KNOWN_FLAGS = new Set([
   "--force",
   "--name",
@@ -178,7 +178,7 @@ function runCheck(args: ParsedArgs): void {
       console.error(`${where}${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}`);
       const hint = diagnostic.hint ?? hintFor(diagnostic.code);
       if (hint) console.error(`    How to fix: ${hint}`);
-      // A reference has two ends (ADR-0020 D5): the line to fix, and where the thing is defined.
+      // A reference has two ends (ADR-0103 D5): the line to fix, and where the thing is defined.
       for (const related of diagnostic.related ?? []) {
         console.error(`    See also: ${related.file}:${related.line}:${related.col}`);
       }
@@ -349,7 +349,7 @@ if (command === "init") {
   );
 } else if (command === "export") {
   if (args.positional[0] !== "gerbers") {
-    fail("cli.bad-usage", "Only `texteda export gerbers` exists: RS-274X layers and the NC drill file (ADR-0054, backlog F15)");
+    fail("cli.bad-usage", "Only `texteda export gerbers` exists: RS-274X layers and the NC drill file (ADR-0117, backlog F15)");
   }
   const root = args.positional[1] ?? fail("cli.bad-usage", "Missing project directory");
   const board = args.positional[2] ?? fail("cli.bad-usage", "Missing board id");
@@ -369,7 +369,7 @@ if (command === "init") {
   if (args.positional[0] !== "import") {
     fail(
       "cli.bad-usage",
-      "Only `texteda lib import` exists: it copies a library's devices into assets/ (an external library is a template, ADR-0047)",
+      "Only `texteda lib import` exists: it copies a library's devices into assets/ (an external library is a template, ADR-0133)",
     );
   }
   const name = args.positional[1] ?? fail("cli.bad-usage", "Missing library name");

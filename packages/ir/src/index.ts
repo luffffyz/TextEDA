@@ -59,12 +59,12 @@ export function validate(kind: SchemaKind, data: unknown): { ok: boolean; errors
 }
 
 /**
- * Map schema-validation errors onto unified diagnostics (ADR-0016).
+ * Map schema-validation errors onto unified diagnostics (ADR-0102).
  *
  * Third-party implementations using Ajv directly can also map to `contract.*` codes without
  * inventing their own scheme — the raw `cause` is preserved alongside.
  *
- * `locate` turns an IR path into the source location of the record that produced it (ADR-0020 D8):
+ * `locate` turns an IR path into the source location of the record that produced it (ADR-0103 D8):
  * schema errors otherwise name a JSON pointer, which its reader — who holds a `.teda` file — cannot
  * act on. Both points are kept when a locator is supplied: the location is what gets fixed, the
  * pointer says what the contract objects to.

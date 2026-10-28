@@ -1,6 +1,6 @@
 // Footprint IR → drawing commands.
 //
-// A footprint is pure geometry (ADR-0010): pads, silkscreen/assembly/courtyard graphics, field text.
+// A footprint is pure geometry (ADR-0129): pads, silkscreen/assembly/courtyard graphics, field text.
 // Coordinates: +x right, +y down (PCB convention), so no flip is needed when converting to SVG.
 import type { Footprint } from "@texteda/ir/footprint";
 import type { SvgDoc, SvgFill, SvgPrimitive } from "./svg.ts";

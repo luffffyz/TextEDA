@@ -1,5 +1,5 @@
 // `texteda ir`: write the project's IR shard tree — canonical JSON per description, a manifest
-// with one SHA-256 per shard, and the project hash (ADR-0008 decisions 1 and 5, ADR-0023).
+// with one SHA-256 per shard, and the project hash (ADR-0105 decisions 2 8, ADR-0105).
 //
 // Usage:
 //   texteda ir <project dir> [--out <dir>] [--json]

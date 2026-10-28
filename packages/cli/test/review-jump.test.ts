@@ -1,5 +1,5 @@
 // The review app's definition menu is mostly data selection, not DOM: these tests keep the
-// F34 jump honest without a browser (ADR-0021, 2026-10-26 appendix).
+// F34 jump honest without a browser (ADR-0134 D6).
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";

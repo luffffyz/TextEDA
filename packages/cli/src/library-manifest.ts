@@ -4,11 +4,11 @@
 // sources and says which of them they looked at. That statement belongs beside the library. The
 // record is read at **import time only** (`lib import` turns it into the per-file claim a project can
 // check); nothing at build time reads it, so a copy that is edited later cannot hide behind it
-// (ADR-0047, 2026-10-24 addendum).
+// (ADR-0133 D8).
 //
 // There is no tree-level revision: a library whose files change independently has no single
 // revision that is true, and every consumer of one would misread the files a release did not touch
-// (ADR-0049 decision 2). Each item names the revision it was checked at, so `by` / `on` are written
+// (ADR-0133 decision 7). Each item names the revision it was checked at, so `by` / `on` are written
 // once per act rather than once per revision.
 //
 // The file is optional: a library that makes no claim has no manifest. The TOML subset is the one
@@ -31,7 +31,7 @@ export interface LibraryManifest {
   name?: string;
   /**
    * Where the tree itself lives (its repository). For a library the organisation owns this answers
-   * "whose tree is this" — the question a reader of a copy actually has (ADR-0049 decision 2).
+   * "whose tree is this" — the question a reader of a copy actually has (ADR-0133 decision 7).
    */
   source?: string;
   trust: readonly TrustEntry[];
@@ -67,7 +67,7 @@ export function readLibraryManifest(text: string, file: string): LibraryManifest
       if (key === "name" || key === "source") continue;
       if (key === "rev") {
         errors.push(
-          `${at(`library.${key}`)}: \`[library] rev\` was removed: a tree-level revision cannot be true for files that change independently (ADR-0049)`,
+          `${at(`library.${key}`)}: \`[library] rev\` was removed: a tree-level revision cannot be true for files that change independently (ADR-0133)`,
         );
         continue;
       }
@@ -96,7 +96,7 @@ export function readLibraryManifest(text: string, file: string): LibraryManifest
         if (TRUST_ROW_KEYS[key] === true) continue;
         if (key === "rev") {
           errors.push(
-            `${path(key)}: a [[trust]] row has no \`rev\`: every item names its revision (\`id@rev\`), so one row is one act (ADR-0049)`,
+            `${path(key)}: a [[trust]] row has no \`rev\`: every item names its revision (\`id@rev\`), so one row is one act (ADR-0133)`,
           );
           continue;
         }

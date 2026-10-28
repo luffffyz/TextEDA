@@ -27,7 +27,7 @@ describe("example footprint", () => {
     expect(pad1.layers).toEqual(["F.Cu", "F.Mask", "F.Paste"]);
   });
 
-  test("the land pattern states its package code (ADR-0029 decision 1)", () => {
+  test("the land pattern states its package code (ADR-0127 decision 1)", () => {
     expect(result.ir!.footprint.package_code).toBe("SOT-23-5");
   });
 
@@ -40,7 +40,7 @@ describe("example footprint", () => {
     expect(fp.model3d).toBeUndefined();
   });
 
-  test("IR contains no floating point (ADR-0004 decision 3)", () => {
+  test("IR contains no floating point (ADR-0104 decision 3)", () => {
     // canonicalJson throws as soon as it meets a non-integer; this is where "no floats in the IR" is enforced.
     expect(() => canonicalJson(result.ir)).not.toThrow();
   });

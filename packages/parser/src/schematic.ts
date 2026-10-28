@@ -1,10 +1,10 @@
-// `schematic` description parsing: source text → board-level IR (teda.md §7, ADR-0025).
+// `schematic` description parsing: source text → board-level IR (teda.md §7, ADR-0111).
 //
 // One board = one file: `sch/<board_id>.teda` holds the board's instances, nets, ports and constraints.
-// There is no page level, no second namespace and no flattening (ADR-0025 decision 1-3).
+// There is no page level, no second namespace and no flattening (ADR-0111 decision 1-3).
 //
 // The parser never touches the filesystem: component contents are supplied by the caller (`ComponentResolver`),
-// so the `parser` package still runs in the browser (ADR-0009 decision 1).
+// so the `parser` package still runs in the browser (ADR-0137 decision 1).
 import { irVersion } from "@texteda/ir";
 import { DEVICE_ID_RE, QUALIFIED_REF_RE } from "./ids.ts";
 import type { ComponentParamDecl } from "./component.ts";
@@ -39,15 +39,15 @@ const REFDES_RE = /^[A-Z]+[0-9]+$/;
 const SLUG_RE = /^[a-z][a-z0-9-]*$/;
 const NET_ID_RE = /^[A-Za-z0-9_+-]+$/;
 const PORT_ID_RE = /^[A-Za-z0-9_+-]+$/;
-/** A module instance id: the `M` tag plus digits (ADR-0024, ADR-0026 decision 5). */
+/** A module instance id: the `M` tag plus digits (ADR-0111, ADR-0112 decision 5). */
 const MODULE_INSTANCE_RE = /^M[0-9]+$/;
 /**
- * Stable instance UID (ADR-0051): `ID` plus six lowercase Crockford Base32 characters. The fixed width and
+ * Stable instance UID (ADR-0109): `ID` plus six lowercase Crockford Base32 characters. The fixed width and
  * the reserved prefix make it visually distinct from a refdes; the suffix uses the Crockford
  * alphabet (no letters i/l/o/u; 0 and 1 are ordinary digits).
  */
 export const INSTANCE_UID_RE = /^ID[0-9a-hjkmnp-tv-z]{6}$/;
-/** The language version that introduced the UID column (ADR-0051). */
+/** The language version that introduced the UID column (ADR-0109). */
 const UID_VERSION = { major: 0, minor: 9, patch: 0 } as const;
 /** The value a module's `ports` row uses for a port that is intentionally not connected. */
 const NO_CONNECT = "no_connect";
@@ -72,7 +72,7 @@ export interface ComponentFactsLite {
   pins: ComponentPinFactLite[];
   /**
    * Where the device file declares a record (`/component/params/0`), as the parse's source map
-   * maps it. A row that fails against a declaration names the declaration too (ADR-0020 D5).
+   * maps it. A row that fails against a declaration names the declaration too (ADR-0103 D5).
    */
   locate?: (irPath: string) => DiagnosticLocation | undefined;
 }
@@ -156,7 +156,7 @@ export interface SchematicParseOptions {
   board: string;
   /** Component resolver; if omitted, every `instances` row reports "component not found". */
   components?: ComponentResolver;
-  /** The module files the board's `modules` section may reference (ADR-0026). */
+  /** The module files the board's `modules` section may reference (ADR-0112). */
   modules?: ModuleSource[];
 }
 
@@ -164,11 +164,11 @@ export interface SchematicParseResult {
   ok: boolean;
   ir?: Schematic;
   diagnostics: Diagnostic[];
-  /** IR path → span of the record that produced it (ADR-0020 D2). Never persisted. */
+  /** IR path → span of the record that produced it (ADR-0103 D2). Never persisted. */
   sources?: SourceMap;
   /**
    * Project-scoped UIDs declared directly in the board file: board-level instances and module
-   * instances (ADR-0051). Module-local UIDs are not global (the same local UID may appear in every
+   * instances (ADR-0109). Module-local UIDs are not global (the same local UID may appear in every
    * instance of a module), so they are not listed here; their flattened form is in the IR.
    */
   sourceUids?: { uid: string; kind: "instance" | "module"; id: string; line: number; col: number }[];
@@ -178,7 +178,7 @@ export interface SchematicParseResult {
 
 interface RawInstance {
   refdes: string;
-  /** Stable instance identity (ADR-0051); absent in pre-0.9 files and legacy fixtures. */
+  /** Stable instance identity (ADR-0109); absent in pre-0.9 files and legacy fixtures. */
   uid?: string;
   componentId: string;
   paramCells: string[];
@@ -223,7 +223,7 @@ interface RawBus {
 interface RawModule {
   /** Module instance id (`M1`). */
   instanceId: string;
-  /** Stable module-instance identity (ADR-0051). */
+  /** Stable module-instance identity (ADR-0109). */
   uid?: string;
   /** Module definition id (`buck-5v`): the file name without `.teda`. */
   moduleId: string;
@@ -248,7 +248,7 @@ export interface Document {
   id: string;
   version: string;
   file: string;
-  /** The file's lines as lexed, for spans (ADR-0020); never part of the IR. */
+  /** The file's lines as lexed, for spans (ADR-0103); never part of the IR. */
   source: SourceFile;
   instances: RawInstance[];
   nets: RawNet[];
@@ -285,9 +285,9 @@ class Diagnostics {
       expected?: string;
       actual?: string;
       hint?: string;
-      /** Machine-usable structured fields: field names are stable, agents branch on them (ADR-0016). */
+      /** Machine-usable structured fields: field names are stable, agents branch on them (ADR-0102). */
       data?: Record<string, string | number | boolean>;
-      /** The definition site of a reference, when it has one (ADR-0020 D5). */
+      /** The definition site of a reference, when it has one (ADR-0103 D5). */
       related?: { file: string; line: number; col: number }[];
     },
   ): void {
@@ -362,7 +362,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
   }
   // The canonical spelling of the version: `0.3` and `0.3.0` are the same version, so the IR stores one of them.
   const versionText = verdict.text;
-  /** The UID column was introduced in language 0.9 (ADR-0051); older files keep name identity. */
+  /** The UID column was introduced in language 0.9 (ADR-0109); older files keep name identity. */
   const uidAllowed = compareVersions(verdict.version, UID_VERSION) >= 0;
   /** A source UID already seen in this document, for the one-document duplicate check. */
   const uidRows = new Map<string, { line: number; col: number }>();
@@ -370,7 +370,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
   const typeLine = lines[1];
   const expectedType = kind;
   if (!typeLine || typeLine.cells.length !== 2 || typeLine.cells[0]!.text !== expectedType) {
-    // The `page` description type was removed in language 0.7 (ADR-0025): say so instead of "unknown type".
+    // The `page` description type was removed in language 0.7 (ADR-0111): say so instead of "unknown type".
     if (typeLine?.cells[0]?.text === "page") {
       diagnostics.add(
         "error",
@@ -380,7 +380,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
         typeLine.number,
         typeLine.cells[0]!.col,
         {
-          hint: "merge this file's instances, nets and constraints into sch/<board_id>.teda and delete the pages section; see teda.md §13.4 and docs/adr/0025-flat-board-and-print-pages.md",
+          hint: "merge this file's instances, nets and constraints into sch/<board_id>.teda and delete the pages section; see teda.md §13.4 and docs/adr/schematic/0111-one-flat-schematic-per-board.md",
         },
       );
     } else {
@@ -433,7 +433,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
     }
 
     if (head === "pages") {
-      // The `pages` section was removed in language 0.7 (ADR-0025): say so instead of "unknown section".
+      // The `pages` section was removed in language 0.7 (ADR-0111): say so instead of "unknown section".
       diagnostics.add(
         "error",
         "syntax.removed-construct",
@@ -442,7 +442,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
         line.number,
         cells[0]!.col,
         {
-          hint: "merge the page files' instances, nets and constraints into this file and delete the pages section; see teda.md §13.4 and docs/adr/0025-flat-board-and-print-pages.md",
+          hint: "merge the page files' instances, nets and constraints into this file and delete the pages section; see teda.md §13.4 and docs/adr/schematic/0111-one-flat-schematic-per-board.md",
         },
       );
       continue;
@@ -540,7 +540,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
             file,
             line.number,
             cells[0]!.col,
-            { hint: "add a uid as the second column (ADR-0051)" },
+            { hint: "add a uid as the second column (ADR-0109)" },
           );
         }
         const componentId = cells[hasUidCell ? 2 : 1]!.text;
@@ -548,7 +548,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
           diagnostics.add("error", "syntax.invalid-identifier", `invalid refdes: ${refdes}`, file, line.number, cells[0]!.col);
         } else if (kind === "schematic" && MODULE_INSTANCE_RE.test(refdes)) {
           // The M-plus-digits form belongs to module instance ids, so that `M2.VOUT` in a net row
-          // can only mean "module M2's port VOUT" (ADR-0026 decision 5).
+          // can only mean "module M2's port VOUT" (ADR-0112 decision 5).
           diagnostics.add(
             "error",
             "syntax.invalid-identifier",
@@ -569,7 +569,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
             {
               expected: "a bare device id",
               actual: componentId,
-              hint: "import the device into assets/components/ (`texteda lib import`), then write its bare id (ADR-0047)",
+              hint: "import the device into assets/components/ (`texteda lib import`), then write its bare id (ADR-0133)",
             },
           );
         } else if (!DEVICE_ID_RE.test(componentId)) {
@@ -755,7 +755,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
             file,
             line.number,
             cells[0]!.col,
-            { hint: "add a uid as the second column (ADR-0051)" },
+            { hint: "add a uid as the second column (ADR-0109)" },
           );
         }
         const moduleId = cells[hasUidCell ? 2 : 1]!.text;
@@ -917,7 +917,7 @@ interface Scope {
 interface ModuleScope {
   /** Module instance id (`M1`). */
   instanceId: string;
-  /** Stable module-instance identity (ADR-0051); absent in pre-0.9 sources. */
+  /** Stable module-instance identity (ADR-0109); absent in pre-0.9 sources. */
   uid?: string;
   /** Module definition id (`buck-5v`). */
   moduleId: string;
@@ -959,7 +959,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
 
   /* -------- module scopes -------- */
 
-  // A board composes modules (ADR-0026): each module instance brings its own instances, nets and
+  // A board composes modules (ADR-0112): each module instance brings its own instances, nets and
   // ports. The board reaches a module only through its ports.
   const moduleSources = new Map<string, ModuleSource>();
   for (const source of options.modules ?? []) moduleSources.set(source.moduleId, source);
@@ -1311,7 +1311,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
   for (const net of nets) net.members.sort(pinRefCompare);
   nets.sort((a, b) => byteCompare(a.id, b.id));
 
-  // Connectivity rules live in `@texteda/core` (ADR-0019 / backlog F19): this file only lays out the facts—
+  // Connectivity rules live in `@texteda/core` (ADR-0137 / backlog F19): this file only lays out the facts—
   // the board's nets, each instance's pins, which nets carry board ports, and the locations.
   const pins: ConnectivityPin[] = [];
   for (const instance of instances) {
@@ -1413,7 +1413,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
     ...(constraints.length > 0 ? { constraints } : {}),
   };
 
-  // IR path → span (ADR-0020 D2). Built after the canonical ordering, so the index in the pointer is
+  // IR path → span (ADR-0103 D2). Built after the canonical ordering, so the index in the pointer is
   // the index in the shard, not the index in the source file.
   const sources: SourceMap = new Map();
   recordAll(sources, "/instances", instances, (instance) => instanceOrigin.get(instance.id));
@@ -1562,7 +1562,7 @@ function resolvePinRef(
         hint: units.length > 1
           ? `name the unit: ${refdes}.${units[0]}.${needle}`
           : "use the pin number instead",
-        // `data` values are scalars (ADR-0016), so the units are one comma-separated string.
+        // `data` values are scalars (ADR-0102), so the units are one comma-separated string.
         data: { component_id: inst.componentId, pin: needle, units: units.join(",") },
       },
     );

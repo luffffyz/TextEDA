@@ -1,12 +1,12 @@
 // IR → drawing commands → SVG: the foundation of the reference renderer (the "reference renderer" of AGENTS.md §1).
 //
 // Conventions:
-//   - Coordinates are always **integer nanometers**; orientation matches the source: symbols +y up, footprints +y down (ADR-0012 decision 5);
+//   - Coordinates are always **integer nanometers**; orientation matches the source: symbols +y up, footprints +y down (ADR-0130 decision 5);
 //     when converting to SVG, flip y according to `orientation` (SVG's y points down).
 //   - Rendering the same IR twice yields **byte-identical** output: no timestamps, no random numbers, no dependence on external state.
 //   - Drawing commands are an intermediate representation (`SvgDoc`), not strings: they can be asserted on, reverse-engineered (extract), and plugged into other backends later.
 //
-// This layer does not depend on KiCad: previews belong to the design loop, KiCad only owns the manufacturing exit (ADR-0005).
+// This layer does not depend on KiCad: previews belong to the design loop, KiCad only owns the manufacturing exit (ADR-0120).
 // It also does not depend on system fonts: text is drawn as paths (Hershey single-stroke font, see `font/`) --
 // machines without fonts installed (containers, CI) still show text when opening the SVG.
 
@@ -111,7 +111,7 @@ export interface SvgText {
   unit?: number;
 }
 
-/** Symbol pin: connection point + orientation + length + style. Name and electrical type come from `component` (ADR-0012). */
+/** Symbol pin: connection point + orientation + length + style. Name and electrical type come from `component` (ADR-0130). */
 export interface SvgPin {
   kind: "pin";
   number: string;
@@ -579,7 +579,7 @@ function primitiveSvg(
 
 /**
  * Pin orientation → unit direction (symbol coordinates: +x right, +y up).
- * `rotMdeg` is in **millidegrees** (IR convention, ADR-0004 decision 3): 90° = 90000.
+ * `rotMdeg` is in **millidegrees** (IR convention, ADR-0104 decision 3): 90° = 90000.
  */
 export function pinDirection(rotMdeg: number): { x: number; y: number } {
   const r = ((rotMdeg % 360_000) + 360_000) % 360_000;

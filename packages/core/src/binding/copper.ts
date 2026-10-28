@@ -1,4 +1,4 @@
-// Copper coverage: does the drawing implement the `connect` declarations? (ADR-0041)
+// Copper coverage: does the drawing implement the `connect` declarations? (ADR-0119)
 //
 // The declaration is the truth (invariants 2 and 4): `connect` says "there is continuous copper
 // between these two pads", and this check asks whether a chain of copper in the drawing reaches
@@ -15,7 +15,7 @@
 // (inscribed shapes) would report copper that is there, and a diagnostic that cries wolf is worse
 // than one that waits for a bigger gap.
 //
-// Tolerance: 1 nm (ADR-0041 D3) — coordinates are nm integers, rotations are evaluated in
+// Tolerance: 1 nm (ADR-0119 D3) — coordinates are nm integers, rotations are evaluated in
 // floating point, and 1 nm is three orders of magnitude below any manufacturing resolution.
 import type { Diagnostic } from "@texteda/ir/diagnostics";
 import type { Pcb } from "@texteda/ir/pcb";
@@ -256,7 +256,7 @@ function touch(a: Primitive, b: Primitive): boolean {
 }
 
 /**
- * Report every `connect` pair that no chain of copper reaches (ADR-0041 D1).
+ * Report every `connect` pair that no chain of copper reaches (ADR-0119 D1).
  *
  * One diagnostic per declared pair, at `warning` severity (D5): a layout is a work in progress,
  * and a checker that fails mid-layout is a checker people turn off.
@@ -328,7 +328,7 @@ export function checkCopperCoverage(facts: CopperFacts): Diagnostic[] {
 
 /**
  * Build the coverage graph of one net: pads and drawn primitives, joined by "same copper".
- * Layers matter: copper joins across layers only through a via (ADR-0041 D2).
+ * Layers matter: copper joins across layers only through a via (ADR-0119 D2).
  */
 function copperGraph(
   pcb: Pcb,

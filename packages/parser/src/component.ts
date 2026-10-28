@@ -1,6 +1,6 @@
 // The `component` description type: parse the whole file and enforce the part/generic rules.
 //
-// Two kinds of device live in this one type (ADR-0027, ADR-0037):
+// Two kinds of device live in this one type (ADR-0123, ADR-0123):
 //
 //   kind: part     a specific purchasable device. It names a manufacturer part number, and its
 //                  identity is closed: the MPN fixes everything, so it declares no parameters.
@@ -8,14 +8,14 @@
 //                  ratings live in the `instances` row, and the generic's own facts are its
 //                  construction (the technology) and whether it is polarised.
 //
-// The pin table is the identity boundary (ADR-0027 decision 3): if the pin table changes, it is a
+// The pin table is the identity boundary (ADR-0123 decision 3): if the pin table changes, it is a
 // different device, so only attributes that do not change a pin's electrical behaviour may become
 // `params`. The `footprint` is a fixed attribute of the device, never a parameter.
 //
-// The `package` field is gone (ADR-0029 decision 1): the package code names the land pattern, so
+// The `package` field is gone (ADR-0127 decision 1): the package code names the land pattern, so
 // the footprint file states it (`package_code`) and the device does not repeat it.
 //
-// The parser is filesystem-free (ADR-0009 decision 1): the caller supplies the text.
+// The parser is filesystem-free (ADR-0137 decision 1): the caller supplies the text.
 
 import { irVersion } from "@texteda/ir";
 import type { Component, ParamDecl, Rating } from "@texteda/ir/component";
@@ -45,7 +45,7 @@ export const PIN_TYPES: Record<string, true> = {
   unspecified: true,
 };
 
-/** The two kinds of device (ADR-0027 decision 1, ADR-0037 D1). */
+/** The two kinds of device (ADR-0123 decision 1, ADR-0123 D1). */
 export type ComponentKind = "part" | "generic";
 
 export const COMPONENT_KINDS: readonly ComponentKind[] = ["part", "generic"];
@@ -85,7 +85,7 @@ export interface ComponentPin {
   alt?: string;
 }
 
-/** One rating row of a part (ADR-0039). */
+/** One rating row of a part (ADR-0125). */
 export interface ComponentRating {
   name: string;
   type: string;
@@ -99,7 +99,7 @@ export interface ComponentRating {
 export interface ComponentFile {
   /** The id in the `component <id>` header line. */
   id: string;
-  /** The release of this file's facts (ADR-0049); omitted when the file states none. */
+  /** The release of this file's facts (ADR-0133); omitted when the file states none. */
   rev?: string;
   kind: ComponentKind;
   mpn?: string;
@@ -116,10 +116,10 @@ export interface ComponentFile {
   description?: string;
   params: ComponentParamDecl[];
   pins: ComponentPin[];
-  /** The part's own ratings (`kind: part` only, ADR-0039). */
+  /** The part's own ratings (`kind: part` only, ADR-0125). */
   ratings: ComponentRating[];
   /**
-   * Where the facts came from, and whether a human checked them (ADR-0047 decision 5).
+   * Where the facts came from, and whether a human checked them (ADR-0133 decision 5).
    *
    * Omitted means the file makes no claim. `generated` is what `texteda lib import` writes;
    * `reviewed` is what a human writes after comparing the facts with the datasheet, in the same
@@ -140,7 +140,7 @@ export interface ComponentParseResult {
   /** The IR shard (`schemas/ir/component`): `component` projected onto the contract, plus its header. */
   ir?: Component;
   diagnostics: Diagnostic[];
-  /** IR path → span of the record that produced it (ADR-0020 D2). Never persisted. */
+  /** IR path → span of the record that produced it (ADR-0103 D2). Never persisted. */
   sources?: SourceMap;
 }
 
@@ -191,7 +191,7 @@ export const PARAM_TYPE_KINDS: Record<string, QuantityKind> = {
  * Scalars that used to exist, with the language version that removed them.
  *
  * A file that still writes one is an error, not an unknown key: the message must point at the
- * migration note instead of at the spelling (ADR-0029 decision 1).
+ * migration note instead of at the spelling (ADR-0127 decision 1).
  */
 const REMOVED_SCALARS: Record<string, string> = { package: "0.1.2" };
 
@@ -199,7 +199,7 @@ const REMOVED_SCALARS: Record<string, string> = { package: "0.1.2" };
  * Kind values that used to exist, with the language version that renamed them.
  *
  * A file that still writes one is an error, not an unknown value: the message must point at the
- * migration note instead of at the spelling (ADR-0037 D1).
+ * migration note instead of at the spelling (ADR-0123 D1).
  */
 const REMOVED_KIND_VALUES: Record<string, string> = { family: "0.1.3" };
 
@@ -207,7 +207,7 @@ const REMOVED_KIND_VALUES: Record<string, string> = { family: "0.1.3" };
  * Parse a component file.
  *
  * The rules enforced here are the ones a file can violate on its own: the part/generic split
- * (ADR-0027), the parameter identity rule, and the pin table's syntax. Cross-file rules — that the
+ * (ADR-0123), the parameter identity rule, and the pin table's syntax. Cross-file rules — that the
  * id matches the file name, that the symbol and footprint resolve, that the boards use the device —
  * belong to the caller.
  */
@@ -280,7 +280,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
   let verifiedOn: string | undefined;
   const params: ComponentParamDecl[] = [];
   const ratings: ComponentRating[] = [];
-  /** Line of each `pins` row, parallel to `component.pins` (spans; ADR-0020). */
+  /** Line of each `pins` row, parallel to `component.pins` (spans; ADR-0103). */
   const pinAt: { line: number; col: number }[] = [];
   let section: string | null = null;
   let sectionLine = 0;
@@ -318,7 +318,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
       scalarAt.set(key, { line: line.number, col: line.cells[0]!.col });
       switch (key) {
         case "rev": {
-          // The release of *this file's* facts (ADR-0049 D1): not the format version, not the
+          // The release of *this file's* facts (ADR-0133 D6): not the format version, not the
           // library's release, and never a branch name.
           if (!REV_RE.test(value)) {
             error(line.number, line.cells[1]?.col ?? line.cells[0]!.col, "value.rev-invalid", `rev must be a release name without whitespace: ${JSON.stringify(value)}`, {
@@ -561,7 +561,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
   component.params = params;
   component.ratings = ratings;
 
-  /* ---- the part/generic rules (ADR-0027, ADR-0037) ---- */
+  /* ---- the part/generic rules (ADR-0123, ADR-0123) ---- */
 
   const kindAt = scalarAt.get("kind");
   if (!kindAt) {
@@ -618,7 +618,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
     if (ratings.length > 0) {
       error(sectionLine || 1, 1, "value.component-rating-invalid", "a generic must not declare ratings: a class has no ratings of its own", {
         expected: "a generic declares no ratings section",
-        hint: "a generic's requirements live in the instances rows; the part chosen for them states its own ratings (ADR-0039)",
+        hint: "a generic's requirements live in the instances rows; the part chosen for them states its own ratings (ADR-0125)",
       });
     }
   }
@@ -635,7 +635,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
     }
   }
 
-  // The device rule table (ADR-0038 D4/D6): the construction is a closed vocabulary, and each
+  // The device rule table (ADR-0124 D4/D6): the construction is a closed vocabulary, and each
   // construction has a fixed set of roles with fixed quantities and requiredness. The table lives
   // in `@texteda/core` (device engineering knowledge, not language structure).
   if (component.kind === "generic") {
@@ -650,7 +650,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
       }),
     );
   } else {
-    // A part states its own ratings (ADR-0039): the roles are the vocabulary's, and each role
+    // A part states its own ratings (ADR-0125): the roles are the vocabulary's, and each role
     // has one quantity. The values were parsed above; what is left is the vocabulary's rules.
     diagnostics.push(
       ...checkDeviceRatings({
@@ -666,7 +666,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
     }
   }
 
-  /* ---- provenance (ADR-0047 decision 5): a claim that can be answered, or no claim ---- */
+  /* ---- provenance (ADR-0133 decision 5): a claim that can be answered, or no claim ---- */
 
   const provenanceAt = scalarAt.get("provenance");
   const attributionAt = scalarAt.get("verified_by") ?? scalarAt.get("verified_on");
@@ -708,7 +708,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
     error(sectionLine || 1, 1, "syntax.unknown-field", "a component file must declare its footprint");
   }
 
-  // Self-authored symbols store only views (ADR-0012): the pin facts needed to export a symbol can only come from a component.
+  // Self-authored symbols store only views (ADR-0130): the pin facts needed to export a symbol can only come from a component.
   if (component.pins.length === 0) {
     error(sectionLine || 1, 1, "library.pins-empty", "the pins section must not be empty: pin facts for a self-authored symbol can only come from a component");
   }
@@ -717,7 +717,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
 
   // The shard is a projection, not a copy: the parser's bookkeeping (line/col, the `alt` cell, the
   // pin's `type` name) is not part of the contract, so it is dropped here rather than by canonical
-  // JSON. `pins_source` is inline: a self-built symbol carries no pin facts (ADR-0012), so a file
+  // JSON. `pins_source` is inline: a self-built symbol carries no pin facts (ADR-0130), so a file
   // that omits `pins` is rejected above and there is no second source today.
   const ir: Component = {
     ir_version: irVersion,
@@ -775,7 +775,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
   };
 
   // IR path → span. The IR projects the rows one for one, in source order, so the index in the
-  // pointer is the index of the row (ADR-0020 D2/D4).
+  // pointer is the index of the row (ADR-0103 D2/D4).
   const sources: SourceMap = new Map();
   params.forEach((param, index) => sources.set(`/component/params/${index}`, src.span(param.line, param.col)));
   ratings.forEach((rating, index) => sources.set(`/component/ratings/${index}`, src.span(rating.line, rating.col)));

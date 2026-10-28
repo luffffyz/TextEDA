@@ -1,4 +1,4 @@
-// Unit conversion: the `.teda` surface uses numbers with units; the IR uses only integer nanometers / millidegrees / parts-per-million (ADR-0004 decision 3).
+// Unit conversion: the `.teda` surface uses numbers with units; the IR uses only integer nanometers / millidegrees / parts-per-million (ADR-0104 decision 3).
 //
 // Conversions are done with decimal strings + BigInt, **never through floating point**: `16.51mm` is
 // 16510000.000000002 in binary floating point, and using that to decide "is it an integer nanometer value" would misreport.
@@ -131,7 +131,7 @@ export function parseAngleMdeg(
 
 /**
  * Ratio (0…0.5) → integer parts per million. E.g. `0.25` → `250000`.
- * The IR forbids floating point (ADR-0004 decision 3), so ratios are converted to integers at the boundary.
+ * The IR forbids floating point (ADR-0104 decision 3), so ratios are converted to integers at the boundary.
  */
 export function parsePpm(
   text: string,

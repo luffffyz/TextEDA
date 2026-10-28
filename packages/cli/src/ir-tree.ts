@@ -1,10 +1,10 @@
 // The IR shard tree: compile every description that has a producer today, write the shards as
-// canonical JSON, hash them, and write the manifest (ADR-0008 decisions 1 and 5, ADR-0023).
+// canonical JSON, hash them, and write the manifest (ADR-0105 decisions 2 8, ADR-0105).
 //
-// The file system and `node:crypto` appear only here, in the CLI layer (ADR-0009 decision 1):
+// The file system and `node:crypto` appear only here, in the CLI layer (ADR-0137 decision 1):
 // `packages/ir` / `packages/parser` / `packages/core` never touch the disk.
 //
-// Shard layout (one source file -> one shard, ADR-0008 decision 1):
+// Shard layout (one source file -> one shard, ADR-0105 decision 2):
 //
 //   dist/ir/
 //   ├── manifest.json                  # shard paths + sha256 per shard + the project hash
@@ -58,7 +58,7 @@ export interface IrShard {
   /** Source file the shard was compiled from, relative to the project root. */
   source: string;
   /**
-   * Whether the build depends on this shard (ADR-0023 decision 4, amended 2026-10-22).
+   * Whether the build depends on this shard (ADR-0105 decision 9, amended 2026-10-22).
    *
    * A normative shard is part of the build identity; an advisory one is not: nothing that is
    * built depends on it, so changing it does not invalidate a signed manufacturing package. The
@@ -88,7 +88,7 @@ export interface IrTree {
   shards: IrShard[];
   /** The manifest to write as `manifest.json`. */
   manifest: IrManifest;
-  /** Project hash: the aggregation over the normative shards (ADR-0008 decision 5, ADR-0023). */
+  /** Project hash: the aggregation over the normative shards (ADR-0105 decision 8, ADR-0105). */
   projectHash: string;
   /** Advisory hash: the same aggregation over the advisory shards. Absent when there are none. */
   advisoryHash?: string | undefined;
@@ -97,7 +97,7 @@ export interface IrTree {
   /** Parse and contract diagnostics of every compiled description. */
   diagnostics: Diagnostic[];
   /**
-   * Advisory identity index (ADR-0020 D6): identity → source locations. It is written beside the
+   * Advisory identity index (ADR-0103 D6): identity → source locations. It is written beside the
    * shards as `identity.json`, but it is not a shard and never enters a hash.
    */
   identity: IdentityDocument;
@@ -121,10 +121,10 @@ interface Draft {
   path: string;
   kind: SchemaKind;
   source: string;
-  /** Whether the build depends on this shard (ADR-0023 decision 4). */
+  /** Whether the build depends on this shard (ADR-0105 decision 9). */
   normative: boolean;
   ir: unknown;
-  /** IR path → span of the record that produced it, so a contract error can name a line (ADR-0020 D8). */
+  /** IR path → span of the record that produced it, so a contract error can name a line (ADR-0103 D8). */
   sources?: SourceMap | undefined;
 }
 
@@ -135,7 +135,7 @@ export function buildIrTree(root: string): IrTree {
   const components = loadComponents(root);
   const resolver = components.resolver;
   const modules = loadModules(root);
-  /** Per-board UID declarations, checked across the project before hashes are computed (ADR-0051). */
+  /** Per-board UID declarations, checked across the project before hashes are computed (ADR-0109). */
   const uidInputs: ProjectUidInput[] = [];
 
   // The devices: one shard per file, at `components/<id>.json`. A component is a fact of the build
@@ -144,7 +144,7 @@ export function buildIrTree(root: string): IrTree {
   for (const shard of components.shards) {
     drafts.push({
       // Every device is the project's own file, so every device shard sits at `components/<id>.json`
-      // (ADR-0031 decision 9: layout by kind; ADR-0047: there is no library namespace).
+      // (ADR-0107 decision 9: layout by kind; ADR-0133: there is no library namespace).
       path: `components/${shard.id}.json`,
       kind: "component",
       source: shard.file,
@@ -200,7 +200,7 @@ export function buildIrTree(root: string): IrTree {
 
     // The procurement layer: which parts this board is built from (normative) and which parts
     // could replace them (advisory). A second source does not change the build, so only the
-    // primary enters the build identity (ADR-0030 decision 12, ADR-0023 decision 4).
+    // primary enters the build identity (ADR-0128 decision 13, ADR-0105 decision 9).
     for (const role of PROCUREMENT_ROLES) {
       const procurement = loadProcurement(root, board, role);
       if (!procurement) continue;
@@ -223,7 +223,7 @@ export function buildIrTree(root: string): IrTree {
       }
     }
 
-    // A print page's drawing is a separate description (ADR-0021); it is not part of the schematic shard.
+    // A print page's drawing is a separate description (ADR-0134); it is not part of the schematic shard.
     for (const view of loaded.views) {
       const parsed = parseView(view.text, {
         file: view.file,
@@ -236,7 +236,7 @@ export function buildIrTree(root: string): IrTree {
           kind: "schematic-view",
           source: view.file,
           // A print page is a drawing, not a build input: nothing that is built depends on where
-          // a label sits (ADR-0032 decision 3).
+          // a label sits (ADR-0134 decision 5).
           normative: false,
           ir: parsed.ir,
           sources: parsed.sources,
@@ -256,7 +256,7 @@ export function buildIrTree(root: string): IrTree {
       sources?: SourceMap;
     };
   }[] = [
-    // The source directory follows the tree; the shard path stays by kind (ADR-0031 decision 4).
+    // The source directory follows the tree; the shard path stays by kind (ADR-0107 decision 4).
     { kind: "symbol", dir: LAYOUT.symbols, shardDir: "symbols", parse: parseSymbol },
     { kind: "footprint", dir: LAYOUT.footprints, shardDir: "footprints", parse: parseFootprint },
   ];
@@ -350,7 +350,7 @@ export function buildIrTree(root: string): IrTree {
     normative: shard.normative,
   }));
   // The project hash identifies the build, so it covers the normative shards only; the advisory
-  // hash covers everything else (ADR-0023 decision 4, amended 2026-10-22).
+  // hash covers everything else (ADR-0105 decision 9, amended 2026-10-22).
   const normative = entries.filter((entry) => entry.normative);
   const advisory = entries.filter((entry) => !entry.normative);
   const projectHash = aggregateShardHash(normative);

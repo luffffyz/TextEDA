@@ -1,4 +1,4 @@
-// The system layer's rules (spec/teda.md §8, ADR-0001).
+// The system layer's rules (spec/teda.md §8, ADR-0108).
 //
 // A system says how boards are wired to each other. The rules here are the ones that need more
 // than one file: the board must exist, the port must be declared, one board's net must not be

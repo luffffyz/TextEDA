@@ -1,4 +1,4 @@
-// Build the facts the procurement rules work on (`spec/procurement.md`, ADR-0030).
+// Build the facts the procurement rules work on (`spec/procurement.md`, ADR-0128).
 //
 // The facts come from three places: the board's design (which lines exist and who uses them),
 // the procurement files (which parts are bought) and the device library (what the devices are).
@@ -35,7 +35,7 @@ export interface ProcurementFactsInput {
   }[];
   /** The devices, id → facts. */
   devices: ReadonlyMap<string, Device>;
-  /** Where an instance was written (ADR-0020 D1: the IR carries no line numbers). */
+  /** Where an instance was written (ADR-0103 D1: the IR carries no line numbers). */
   locateInstance?: (instanceId: string) => DiagnosticLocation | undefined;
 }
 
@@ -48,7 +48,7 @@ export interface ProcurementFactsInput {
  */
 export function designLines(
   schematic: Schematic,
-  /** Where an instance was written: the IR no longer carries line numbers (ADR-0020 D1). */
+  /** Where an instance was written: the IR no longer carries line numbers (ADR-0103 D1). */
   locateInstance?: (instanceId: string) => DiagnosticLocation | undefined,
 ): DesignLine[] {
   const lines = new Map<string, DesignLine>();

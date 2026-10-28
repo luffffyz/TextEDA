@@ -1,4 +1,4 @@
-// Offset invariants (ADR-0054 D1/D6): growth is an exact Minkowski sum with the tool disc, shrinkage
+// Offset invariants (ADR-0117 D1/D6): growth is an exact Minkowski sum with the tool disc, shrinkage
 // is halfplane offset, and both err in the safe direction — copper is never left closer than the
 // requested clearance. The disc is a polygon, so every assertion states its own tolerance instead of
 // pretending the result is a circle.

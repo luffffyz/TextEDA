@@ -10,7 +10,7 @@
 //   1. every component's symbol / footprint points to a project self-built library (no external prefixes like kicad:);
 //   2. referenced library files exist; symbol pin number set == component pin number set; footprint pad number set ⊇ component pin number set;
 //   3. every library file is canonical form, compiles to IR, and passes the contract;
-//   4. every footprint states its package code (ADR-0029 decision 1);
+//   4. every footprint states its package code (ADR-0127 decision 1);
 //   5. exporting .kicad_sym / .kicad_mod succeeds; render with **our own** renderer and self-check.
 //
 // Optional section (--kicad, KiCad on PATH):
@@ -19,7 +19,7 @@
 //
 // Why split them: KiCad's parsing and DRC are **cross-validation** (a third-party implementation accepts us),
 // not our definition of correctness. Making it a required item turns "a third party accepts us" into
-// "the premise of our existence", and would also make TextEDA require KiCad to be used. ADR-0018.
+// "the premise of our existence", and would also make TextEDA require KiCad to be used. ADR-0120.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { validate } from "@texteda/ir";
@@ -118,7 +118,7 @@ for (const c of components) {
     }
     if (parsed.lib !== libName) {
       // Every asset the project reads is its own: an imported library is a copy under `assets/`
-      // (ADR-0047). A reference into any other library directory is a dangling dependency, and the
+      // (ADR-0133). A reference into any other library directory is a dangling dependency, and the
       // library-level loop below catches the geometry itself.
       fail(
         `${c.id}: ${kind} points to library ${parsed.lib}, which is not a library directory of this project (imported assets keep the copy's library directory)`,
@@ -242,7 +242,7 @@ for (const file of footprintFiles) {
     continue;
   }
   const body = parsed.ir.footprint;
-  // The land pattern states its package code (ADR-0029 decision 1): the devices on it do not restate it.
+  // The land pattern states its package code (ADR-0127 decision 1): the devices on it do not restate it.
   if (!body.package_code) {
     fail(`${name}: no package_code — the land pattern must state its package code`);
     continue;
@@ -250,7 +250,7 @@ for (const file of footprintFiles) {
   writeFileSync(join(work, `${name}.json`), canonicalJson(parsed.ir));
   writeFileSync(join(work, "project.pretty", `${name}.kicad_mod`), footprintModule(body));
 
-  // Render with **our own** renderer and self-check: zero external dependencies, symbols and footprints use the same standard (ADR-0014).
+  // Render with **our own** renderer and self-check: zero external dependencies, symbols and footprints use the same standard (ADR-0135).
   const fpDoc = renderFootprint(body);
   const fpProblems = validateDoc(fpDoc);
   if (fpProblems.length > 0) fail(`${name}: graphics self-check found ${fpProblems.length} problems: ${fpProblems[0]}`);

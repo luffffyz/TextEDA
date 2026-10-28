@@ -1,5 +1,5 @@
 // Export on the reference project: the whole chain (pcb IR → fill → image → text) against a board
-// that has a real pour. The numbers here are anchors measured when the fill landed (ADR-0054); if the
+// that has a real pour. The numbers here are anchors measured when the fill landed (ADR-0117); if the
 // kernel or the policy changes, they move and the test says so instead of drifting quietly.
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";

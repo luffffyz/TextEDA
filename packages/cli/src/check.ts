@@ -5,7 +5,7 @@
 //   2. Contract layer: whether the produced IR satisfies `schemas/ir/v0.14/schematic.schema.json`.
 //
 // Output shape matches `compile`: human-readable mode prints to stderr, `--json` mode prints the diagnostic payload to stdout
-// (ADR-0016: code / severity / location / data are the machine contract).
+// (ADR-0102: code / severity / location / data are the machine contract).
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
@@ -52,7 +52,7 @@ function pinNets(schematic: Schematic): Map<string, string> {
   return out;
 }
 
-/** A parsed procurement shard, with the locator its parse produced (ADR-0020 D1). */
+/** A parsed procurement shard, with the locator its parse produced (ADR-0103 D1). */
 type ProcurementPage = {
   ir: Procurement;
   file: string;
@@ -114,7 +114,7 @@ export function analyzeProject(root: string): AnalyzeResult {
     diagnostics: componentDiagnostics,
   } = loadComponents(root);
   // Everything the device loader had to say: a file that does not compile, an id that disagrees
-  // with its name, a tree under `external/libs/` that nothing reads (ADR-0047).
+  // with its name, a tree under `external/libs/` that nothing reads (ADR-0133).
   diagnostics.push(...componentDiagnostics);
   for (const problem of problems) {
     const diagnostic: Diagnostic = {
@@ -146,7 +146,7 @@ export function analyzeProject(root: string): AnalyzeResult {
   diagnostics.push(...project.diagnostics);
 
   const analyses: BoardAnalysis[] = [];
-  /** Ids a board places or a procurement file names: the library's used half (ADR-0023). */
+  /** Ids a board places or a procurement file names: the library's used half (ADR-0105). */
   const referencedDevices = new Set<string>();
   /**
    * Whether every description that could name a device was read. If one was not, the reference
@@ -170,10 +170,10 @@ export function analyzeProject(root: string): AnalyzeResult {
     return built;
   };
   const footprints = loadFootprintLibrary(root, diagnostics);
-  /** Devices with the land pattern's package code attached: the package floor is keyed by it (ADR-0045). */
+  /** Devices with the land pattern's package code attached: the package floor is keyed by it (ADR-0126). */
   const devices = withPackageCodes(loadedDevices, footprints);
   const symbols = loadSymbolLibrary(root, diagnostics);
-  /** The device's symbol reference: the device IR is the owner of it (ADR-0012). */
+  /** The device's symbol reference: the device IR is the owner of it (ADR-0130). */
   const symbolOf = (componentId: string): string | undefined =>
     componentShards.find((shard) => shard.id === componentId)?.ir.component.symbol;
   /** What the drawing prints for an instance: its value column, or a part's MPN. */
@@ -194,9 +194,9 @@ export function analyzeProject(root: string): AnalyzeResult {
     const boardDiagnostics = [...result.diagnostics];
     /**
      * `locateInstance` for the rules that name an instance rather than a JSON path; empty when the
-     * parse carried no spans (ADR-0020 D1: line numbers live beside the IR, not in it).
+     * parse carried no spans (ADR-0103 D1: line numbers live beside the IR, not in it).
      */
-    /** A board net's row: the definition the drawing and the pcb are checked against (ADR-0020 D5). */
+    /** A board net's row: the definition the drawing and the pcb are checked against (ADR-0103 D5). */
     const netLocator = (nets: readonly { id: string }[]): { locateNet?: (netId: string) => DiagnosticLocation | undefined } => {
       const locate = idLocator(result.sources, nets, "/nets");
       return locate === undefined ? {} : { locateNet: locate };
@@ -215,7 +215,7 @@ export function analyzeProject(root: string): AnalyzeResult {
       return locate === undefined ? {} : { locateInstance: locate };
     };
 
-    // Print pages are descriptions of their own (ADR-0021): parse them here and cross-check them
+    // Print pages are descriptions of their own (ADR-0134): parse them here and cross-check them
     // against the board. Coverage needs all pages at once, so the pages are collected first.
     const pages: ViewPage[] = [];
     for (const source of loaded.views) {
@@ -242,7 +242,7 @@ export function analyzeProject(root: string): AnalyzeResult {
       const check = validate("schematic", result.ir);
       if (!check.ok)
         boardDiagnostics.push(...schemaDiagnosticsToDiagnostics(check.errors, locateWith(result.sources)));
-      // The design against the parts it is built from (ADR-0043): the device limits and the
+      // The design against the parts it is built from (ADR-0125): the device limits and the
       // declared windows come together only here, so the check runs where both are in hand.
       boardDiagnostics.push(
         ...checkRatings({
@@ -299,7 +299,7 @@ export function analyzeProject(root: string): AnalyzeResult {
               ...pcbLocator(pcbResult.sources),
             }),
           );
-          // Whether the drawing implements the declaration (ADR-0041): it needs pad geometry,
+          // Whether the drawing implements the declaration (ADR-0119): it needs pad geometry,
           // which comes from the project's footprint library, so it is loaded once per project.
           boardDiagnostics.push(
             ...checkCopperCoverage({
@@ -309,7 +309,7 @@ export function analyzeProject(root: string): AnalyzeResult {
               pads: padsByInstance(result.ir, devices, footprints),
             }),
           );
-          // Whether each pour can exist at all (ADR-0054 D3): the fill is derived, so the check runs
+          // Whether each pour can exist at all (ADR-0117 D3): the fill is derived, so the check runs
           // it here rather than reading a stored result. Its findings are about the description — a
           // non-copper layer, a ruled-out width, a pour that pours nothing — so they belong in
           // `check`, before anyone tries to export.
@@ -396,12 +396,12 @@ export function analyzeProject(root: string): AnalyzeResult {
     });
   }
 
-  // The library layer: a device file nothing places and nothing selects (ADR-0023 -- the shard
+  // The library layer: a device file nothing places and nothing selects (ADR-0105 -- the shard
   // set is the project's content, so an abandoned candidate still changes the project hash).
   if (referencesComplete) {
     diagnostics.push(
       ...checkDeviceUsage({
-        // Every device is the project's own file now (ADR-0047: an imported library is a copy), so
+        // Every device is the project's own file now (ADR-0133: an imported library is a copy), so
         // the rule applies to all of them.
         devices: componentShards.map((shard) => ({ id: shard.id, file: shard.file })),
         referenced: referencedDevices,
@@ -431,7 +431,7 @@ export function analyzeProject(root: string): AnalyzeResult {
     );
   }
 
-  // The review layer (ADR-0033): a fact about a human process, not about the design, so it
+  // The review layer (ADR-0136): a fact about a human process, not about the design, so it
   // changes no shard and no hash -- but a note nobody answered must not be invisible either.
   const reviews = loadReviews(root);
   diagnostics.push(...reviews.diagnostics);

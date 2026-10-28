@@ -1,12 +1,12 @@
-// Read a project's file layout and contents. The file system appears only at this layer (ADR-0009 decision 1):
+// Read a project's file layout and contents. The file system appears only at this layer (ADR-0137 decision 1):
 // `packages/core` / `packages/ir` / `packages/parser` never touch the disk.
 //
-// Project layout (ADR-0031, see `paths.ts`):
+// Project layout (ADR-0107, see `paths.ts`):
 //   assets/components/**/*.teda        devices (one per file, id taken from the file name)
-//   design/sch/<board>.teda            the board's schematic (one file per board, ADR-0025)
+//   design/sch/<board>.teda            the board's schematic (one file per board, ADR-0111)
 //   design/pcb/<board>.teda            the board's layout
 //   design/modules/<module>.teda       module definitions (spec/module.md)
-//   views/<board>/<page>.view.teda     a print page of the board's drawing (ADR-0021, ADR-0025, ADR-0032)
+//   views/<board>/<page>.view.teda     a print page of the board's drawing (ADR-0134, ADR-0111, ADR-0134)
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import {
@@ -29,7 +29,7 @@ import { locateWith } from "./locate.ts";
 
 /** Problem when a component file cannot be read (no exception thrown; the caller aggregates these into diagnostics). */
 export interface ComponentProblem {
-  /** Diagnostic code (a code from the ADR-0016 registry). */
+  /** Diagnostic code (a code from the ADR-0102 registry). */
   code: DiagnosticCodeId;
   /** Path relative to the project root. */
   file: string;
@@ -46,7 +46,7 @@ export interface LoadedComponents {
   resolver: ComponentResolver;
   /** Component files that could not be read. */
   problems: ComponentProblem[];
-  /** The devices, id -> the facts the procurement rules need (ADR-0030). */
+  /** The devices, id -> the facts the procurement rules need (ADR-0128). */
   devices: Map<string, Device>;
   /**
    * The IR shard of every readable component file, for the shard tree (`assets/components/<id>.json`).
@@ -60,7 +60,7 @@ export interface LoadedComponents {
   diagnostics: Diagnostic[];
   /**
    * Trees left under `external/libs/`: an external library is a template that `lib import` copies
-   * into `assets/`, so a tree there is reported and never resolved (ADR-0047).
+   * into `assets/`, so a tree there is reported and never resolved (ADR-0133).
    */
   unattachedLibraries: UnattachedLibrary[];
 }
@@ -68,7 +68,7 @@ export interface LoadedComponents {
 /**
  * Read the project's devices into a table the resolver can use.
  *
- * One directory holds device files (ADR-0027, ADR-0037): `assets/components/` holds the parts
+ * One directory holds device files (ADR-0123, ADR-0123): `assets/components/` holds the parts
  * (specific devices) and the generics (device classes) alike — the kind is a fact of the file,
  * not of the path. One id namespace: the id is the file name, so a board writes
  * `res-thick-0402` without saying where it lives.
@@ -130,7 +130,7 @@ export function loadComponents(root: string): LoadedComponents {
       continue;
     }
     if (result.ir) {
-      // The contract layer, the same one the shard tree applies (ADR-0019 decision 3): a device whose
+      // The contract layer, the same one the shard tree applies (ADR-0137 decision 7): a device whose
       // IR does not satisfy `component` blocks the build, so `check` reports it rather than passing.
       const contract = validate("component", result.ir);
       if (!contract.ok) {
@@ -162,7 +162,7 @@ export function loadComponents(root: string): LoadedComponents {
     });
   }
   // A tree under `external/libs/` that holds asset groups is the shape this project no longer reads
-  // (ADR-0047). Report it here rather than at each reference: otherwise the symptom is a pile of
+  // (ADR-0133). Report it here rather than at each reference: otherwise the symptom is a pile of
   // "unknown component" errors whose cause is a directory nobody is supposed to have.
   const unattachedLibraries = findUnattachedLibraries(root);
   for (const library of unattachedLibraries) {
@@ -170,7 +170,7 @@ export function loadComponents(root: string): LoadedComponents {
       code: "ref.library-in-tree",
       severity: "error",
       message: `external/libs/${library.name} holds library assets, but the build does not read that directory`,
-      hint: "import the devices you need (`texteda lib import <name> --from <dir> --rev <rev>`), then delete the tree: an external library is a template, not a dependency (ADR-0047)",
+      hint: "import the devices you need (`texteda lib import <name> --from <dir> --rev <rev>`), then delete the tree: an external library is a template, not a dependency (ADR-0133)",
       location: { file: `external/libs/${library.name}`, line: 1, col: 1 },
       data: { library: library.name, groups: library.groups.join(",") },
     });
@@ -197,7 +197,7 @@ export interface LoadedBoard {
   file: string;
   /** The board's schematic text. */
   text: string;
-  /** The board's print pages (the drawing layer, ADR-0021). */
+  /** The board's print pages (the drawing layer, ADR-0134). */
   views: ViewSource[];
 }
 
@@ -306,7 +306,7 @@ export function loadBoard(root: string, board: string): LoadedBoard | null {
   const views: ViewSource[] = [];
   if (existsSync(viewDir)) {
     for (const name of readdirSync(viewDir).sort()) {
-      // Only print pages live in this directory: `<page_id>.view.teda` (ADR-0021, ADR-0025).
+      // Only print pages live in this directory: `<page_id>.view.teda` (ADR-0134, ADR-0111).
       if (!name.endsWith(".view.teda")) continue;
       views.push({
         pageId: name.slice(0, name.length - ".view.teda".length),
@@ -340,7 +340,7 @@ export interface ProcurementSource {
  *
  * The primary is normative (the build is made of those parts) and the alternatives are advisory
  * (a second source does not change the build); the two are separate files, and each one produces
- * exactly one shard with exactly one classification (ADR-0023 decision 4).
+ * exactly one shard with exactly one classification (ADR-0105 decision 9).
  */
 export function loadProcurement(root: string, board: string, role: ProcurementRole): ProcurementSource | null {
   const file = join(root, LAYOUT.procurement, role, `${board}.teda`);
@@ -376,7 +376,7 @@ export function loadPcb(root: string, board: string): LoadedBoard | null {
   };
 }
 
-/** One tree under `external/libs/` that the build refuses to read (ADR-0047). */
+/** One tree under `external/libs/` that the build refuses to read (ADR-0133). */
 export interface UnattachedLibrary {
   /** Directory name; it was the qualifier when trees were consumed. */
   name: string;

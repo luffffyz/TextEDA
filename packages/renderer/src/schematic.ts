@@ -1,6 +1,6 @@
 // Schematic print page -> drawing primitives.
 //
-// The view (S1) knows only *where*: symbol placements, wire runs, labels, ports, notes (ADR-0021).
+// The view (S1) knows only *where*: symbol placements, wire runs, labels, ports, notes (ADR-0134).
 // The electrical facts -- which pin belongs to which net, what the pin is called -- live in the
 // logical IR, so the caller resolves each placed instance to its symbol and its component pin
 // facts and passes them in. The renderer never reads the file system and never places anything:

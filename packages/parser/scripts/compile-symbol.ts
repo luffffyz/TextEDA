@@ -3,7 +3,7 @@
 //
 // Usage: bun run scripts/compile-symbol.ts <file.teda> [--library <name>] [--json] [--out <file>]
 //   --library  library name (IR's symbol.library); defaults to the containing directory name.
-//   --json     output only the diagnostics payload (ADR-0016): stdout has the shape of `diagnosticsToPayload`.
+//   --json     output only the diagnostics payload (ADR-0102): stdout has the shape of `diagnosticsToPayload`.
 //   --out      output file; defaults to stdout (in --json mode the IR only goes through --out).
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { basename, dirname, relative, resolve } from "node:path";
@@ -75,7 +75,7 @@ if (parsed.ir) {
 }
 
 if (jsonMode) {
-  // Payload shape see ADR-0016: code / severity / location / data are the machine contract.
+  // Payload shape see ADR-0102: code / severity / location / data are the machine contract.
   console.log(JSON.stringify(diagnosticsToPayload(diagnostics), null, 2));
 } else {
   for (const d of diagnostics) console.error(formatDiagnostic(d));

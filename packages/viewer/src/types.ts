@@ -1,4 +1,4 @@
-// The payload of the review app: what the CLI hands the browser (ADR-0021 decision 3).
+// The payload of the review app: what the CLI hands the browser (ADR-0134 decision 7).
 //
 // Two rules shape it. **Lengths are millimetres** as numbers, already divided by 1e6 from the IR's
 // integer nanometres: the payload is a drawing, not a contract, and a consumer that wanted
@@ -7,7 +7,7 @@
 // written — the file it came from is a path, and the line is a number.
 //
 // The page's SVG is a string: the renderer produced it from the view and the symbols, and the app
-// adds behaviour around it rather than drawing again (ADR-0021: the viewer does not become a second
+// adds behaviour around it rather than drawing again (ADR-0134: the viewer does not become a second
 // renderer).
 
 /** A rectangle on the sheet, in millimetres, origin at the sheet's top-left (SVG orientation). */
@@ -83,7 +83,7 @@ export type ReviewSourceKind =
   | "view-port"
   | "pcb-place";
 
-/** One place an identity is defined or used, as a source location (ADR-0020 D6). */
+/** One place an identity is defined or used, as a source location (ADR-0103 D6). */
 export interface ReviewSourceLocation {
   kind: ReviewSourceKind;
   /** Human label for the definition menu (`sch instance row`, `view place (buck-5v)`, …). */
@@ -133,6 +133,6 @@ export interface ReviewModel {
   hash?: string;
   boards: ReviewBoard[];
   diagnostics: ReviewDiagnostic[];
-  /** Identity → source locations (ADR-0020 D6); advisory, derived from the same parse as the IR. */
+  /** Identity → source locations (ADR-0103 D6); advisory, derived from the same parse as the IR. */
   sources: ReviewSources;
 }

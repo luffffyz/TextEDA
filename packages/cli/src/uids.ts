@@ -1,4 +1,4 @@
-// Project-wide stable instance UID checks (ADR-0051).
+// Project-wide stable instance UID checks (ADR-0109).
 //
 // The parser catches duplicates inside one file. A UID is project-scoped, so an entry point that
 // sees several boards (check, the IR shard tree) must also catch a copy/paste that crossed a file.

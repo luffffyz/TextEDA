@@ -1,4 +1,4 @@
-// The library curation rule: a device file nothing uses is allowed but reported (ADR-0023).
+// The library curation rule: a device file nothing uses is allowed but reported (ADR-0105).
 import { describe, expect, test } from "bun:test";
 import { checkDeviceUsage } from "../src/devices/usage.ts";
 

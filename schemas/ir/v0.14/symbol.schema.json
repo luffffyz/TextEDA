@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:texteda:ir:0.14:symbol",
   "title": "TextEDA IR v0.14 — symbol",
-  "description": "**View** of one symbol in a self-built symbol library: pin placement, outline, unit grouping, display toggles. Pin name/number/electrical type belong to `component` (single owner, ADR-0012); this shard only describes how to draw. Lengths are always integer nanometers, angles integer millidegrees (ADR-0004 decision 3); +x right, +y up (KiCad symbol convention).",
+  "description": "**View** of one symbol in a self-built symbol library: pin placement, outline, unit grouping, display toggles. Pin name/number/electrical type belong to `component` (single owner, ADR-0130); this shard only describes how to draw. Lengths are always integer nanometers, angles integer millidegrees (ADR-0104 decision 3); +x right, +y up (KiCad symbol convention).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -38,7 +38,7 @@
           "type": "string",
           "minLength": 1,
           "pattern": "^[^\\s#]+$",
-          "description": "The release of this file's facts (ADR-0049): the tag or commit in which they were last established. A copy whose facts diverged appends `+local.N`. Not the format version."
+          "description": "The release of this file's facts (ADR-0133): the tag or commit in which they were last established. A copy whose facts diverged appends `+local.N`. Not the format version."
         },
         "library": {
           "$ref": "urn:texteda:ir:0.14:common#/$defs/lib_id",

@@ -1,5 +1,5 @@
 // The shape both trust records share: an **act** — somebody checked something, on a day — and the
-// items the act covers (ADR-0049 decision 3).
+// items the act covers (ADR-0133 decision 10).
 //
 // A row carries no revision of its own: one act covers files whose revisions differ, so every item
 // names the revision it was checked at (`id@rev`). Writing `by` / `on` once per act instead of once
@@ -7,7 +7,7 @@
 // item list grows with what was verified, which is the irreducible cost of an honest record.
 //
 // The two records are the library's own (`library.toml`, `[[trust]]`) and the consumer's
-// (`--trust`, ADR-0048). They share this module so a reader sees one vocabulary and one syntax, and
+// (`--trust`, ADR-0133). They share this module so a reader sees one vocabulary and one syntax, and
 // so the importer has one matcher.
 import { REV_RE } from "@texteda/parser";
 
@@ -97,7 +97,7 @@ export function itemsOf(
  * `(id, rev)` would claim two authors for one act (the importer refuses the same disagreement
  * between two records). A consumer table vouches for several libraries, so the library is part of
  * the item: the same `id@rev` under one library is still one act, while the same `id@rev` under
- * two different libraries is two distinct acts (ADR-0048).
+ * two different libraries is two distinct acts (ADR-0133).
  */
 export function checkDuplicates(
   rows: readonly TrustRow[],

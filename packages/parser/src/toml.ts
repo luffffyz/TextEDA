@@ -33,7 +33,7 @@ export interface TomlParseResult {
   /**
    * Where each table and key was written, keyed by its dotted path (`project.name`,
    * `[boards.hub]` → `boards.hub`, an element of `[[project.authors]]` → `project.authors#0`).
-   * The TOML reader is the only place that sees those line numbers (ADR-0020 D2).
+   * The TOML reader is the only place that sees those line numbers (ADR-0103 D2).
    */
   positions?: Map<string, { line: number; col: number; byte: number }>;
 }

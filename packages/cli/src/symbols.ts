@@ -5,7 +5,7 @@
 // footprints are (`pads.ts`). A symbol that is missing yields no geometry, and a check that cannot
 // judge a page stays silent about it rather than guessing. A symbol that does not compile, or whose
 // IR does not satisfy the contract, is reported: `ir` refuses to write that shard, and `check` must
-// not go green while the build is red (ADR-0019 decision 3).
+// not go green while the build is red (ADR-0137 decision 7).
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { QUANTITY_SPECS, formatQuantity, parseSymbol, type QuantityKind } from "@texteda/parser";
@@ -57,7 +57,7 @@ export type SchematicInstances = Map<string, SchematicInstance>;
 
 /**
  * The board's instances as the renderer needs them: the symbol's geometry plus the device's pin
- * facts (ADR-0012: the symbol draws, the device names the pins).
+ * facts (ADR-0130: the symbol draws, the device names the pins).
  *
  * An instance whose device or symbol is unavailable is left out: the schematic parse already
  * reported the unknown device, and geometry cannot be invented for it.
@@ -95,9 +95,9 @@ export interface DeviceFacts {
  * The instance's value as the page prints it (`10k`, `100nF`), or nothing.
  *
  * The symbol's `Value` field is a library placeholder, because a generic device's file cannot hold
- * a value (ADR-0027: values live on the instance row). The column is a canonical integer whose unit
+ * a value (ADR-0123: values live on the instance row). The column is a canonical integer whose unit
  * comes from the device's declaration, so it is formatted with the same formatter the language uses
- * to write a quantity (ADR-0008 decision 4); a text column is printed as written.
+ * to write a quantity (ADR-0105 decision 7); a text column is printed as written.
  *
  * The drawing's font is ASCII-only, so a unit symbol it cannot draw is left out rather than printed
  * as a missing glyph: `10kΩ` reads `10k` (the SI prefix carries the magnitude), while `100nF` and

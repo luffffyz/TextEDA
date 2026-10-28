@@ -1,7 +1,7 @@
 // Extract from a `component` description **the few facts exporting a symbol needs**: the pin table, footprint, datasheet, description.
 //
 // This is a projection over the component parser (`component.ts`), not a second reader: the file is
-// parsed once, with the part/generic rules enforced (ADR-0027, ADR-0037), and the exporter takes the fields
+// parsed once, with the part/generic rules enforced (ADR-0123, ADR-0123), and the exporter takes the fields
 // it needs. Everything the parser does not read is still validated, because an invalid component
 // file must not reach the exporter.
 import type { Diagnostic } from "./diagnostics.ts";

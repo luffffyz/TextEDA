@@ -1,5 +1,5 @@
 // Board loading: a board is one schematic file, and its drawing lives in a directory of print pages
-// (`<page>.view.teda`, ADR-0021, ADR-0025). The directory holds drawings only.
+// (`<page>.view.teda`, ADR-0134, ADR-0111). The directory holds drawings only.
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";

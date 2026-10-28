@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:texteda:ir:0.14:schematic-view",
   "title": "TextEDA IR v0.14 — schematic view shard",
-  "description": "The view (S1) of one print page of a board: where the symbols sit, how the wires run, where the labels and board ports are. This layer carries no electrical facts — it references the board's logical schematic by instance id, pin number and net id, and the two must agree. Lengths are integer nanometers, angles integer millidegrees (ADR-0008). The origin is the sheet's upper-left corner, +x right, +y down. See ADR-0021, ADR-0025.",
+  "description": "The view (S1) of one print page of a board: where the symbols sit, how the wires run, where the labels and board ports are. This layer carries no electrical facts — it references the board's logical schematic by instance id, pin number and net id, and the two must agree. Lengths are integer nanometers, angles integer millidegrees (ADR-0105). The origin is the sheet's upper-left corner, +x right, +y down. See ADR-0134, ADR-0111.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -92,7 +92,7 @@
     },
     "note": {
       "$ref": "urn:texteda:ir:0.14:common#/$defs/note",
-      "description": "Free text; canonical JSON has no comments, this is the substitute (ADR-0004 rule 8)."
+      "description": "Free text; canonical JSON has no comments, this is the substitute (ADR-0104 rule 8)."
     }
   },
   "$defs": {

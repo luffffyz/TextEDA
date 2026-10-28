@@ -31,7 +31,7 @@ live `power_in` the board does not use — the one expected warning.
   from being reported as a missing connection (`spec/teda.md` §11, rule 4).
 - **Through-hole land patterns compile.** The header is the corpus's first TH footprint: its pads
   sit on `*.Cu` / `*.Mask`, which the contract accepts and the exporter writes as `thru_hole`
-  (the wildcard is a layer name, [ADR-0011](../../../docs/adr/0011-library-format-and-footprint-ir.md)).
+  (the wildcard is a layer name, [ADR-0129](../../../docs/adr/libraries/0129-footprint-format-and-geometry.md)).
 
 ## What this case deliberately leaves out
 

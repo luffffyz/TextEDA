@@ -5,7 +5,7 @@
 // Conversion goes through decimal strings + BigInt, never through floating point (same rationale as `units.ts`): `0.1` is not an exact value in binary floating point,
 // and using it to decide "is it an integer" would misreport. If an exact integer cannot be parsed, report an error; do not round.
 //
-// Unit conventions (an application of ADR-0008 decision 4, not a new standard):
+// Unit conventions (an application of ADR-0105 decision 7, not a new standard):
 //   resistance → µΩ, capacitance → fF, inductance → pH, voltage → µV, current → nA, power → µW, impedance → mΩ,
 //   ratio → ppm, frequency → mHz, temperature → m°C.
 // Within realistic value ranges every one of these tiers stays inside exact-integer range (100nF = 1e5 fF, 1F = 1e12 fF,
@@ -14,7 +14,7 @@ import type { DiagnosticCodeId } from "./diagnostics.ts";
 import { IR_QUANTITY_SPECS, type IRQuantityKind, type IRQuantitySpec } from "@texteda/ir/units";
 
 /**
- * The supported quantities. The dimensions themselves are defined by the IR (ADR-0008 decision 4); here we only add the fields parsing needs.
+ * The supported quantities. The dimensions themselves are defined by the IR (ADR-0105 decision 7); here we only add the fields parsing needs.
  *
  * Length and angle are not listed here: they are geometric quantities, parsed separately by `units.ts` (for symbols and footprints).
  */
@@ -251,7 +251,7 @@ function pow10Big(n: number): bigint {
 /**
  * Format a canonical quantity for humans: the value with a prefix and the unit.
  *
- * The canonical integer is the value in the quantity's canonical unit (ADR-0008 decision 4), so
+ * The canonical integer is the value in the quantity's canonical unit (ADR-0105 decision 7), so
  * `10 kΩ` is `10000000000` and comes back as `10kΩ`. The result is exact: the value is scaled
  * with big integers, never with floating point, so `4.7k` stays `4.7k`.
  */

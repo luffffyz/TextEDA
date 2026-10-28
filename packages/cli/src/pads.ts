@@ -1,13 +1,13 @@
-// Pad geometry for the copper-coverage check (ADR-0041 D4): the pad's shape is the footprint's,
+// Pad geometry for the copper-coverage check (ADR-0119 D4): the pad's shape is the footprint's,
 // transformed by `place`. The description never carries pad geometry, and this module does not
 // invent one.
 //
 // Footprints are read from the project's own library (`assets/footprints/<lib>/<id>.teda`), which is
-// the only place geometry lives: an imported library is copied here (ADR-0047). A footprint that is
+// the only place geometry lives: an imported library is copied here (ADR-0133). A footprint that is
 // missing yields no pads, and a check that cannot judge a pad stays silent about it rather than
 // guessing (see `checkCopperCoverage`). A footprint that does not compile, or whose IR does not
 // satisfy the contract, is reported: `ir` refuses to write that shard, and `check` must not go green
-// while the build is red (ADR-0019 decision 3).
+// while the build is red (ADR-0137 decision 7).
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { parseFootprint } from "@texteda/parser";
@@ -55,9 +55,9 @@ export function loadFootprintLibrary(root: string, diagnostics: Diagnostic[] = [
 }
 
 /**
- * Each device with the package code of its land pattern attached (ADR-0029 decision 1).
+ * Each device with the package code of its land pattern attached (ADR-0127 decision 1).
  *
- * The package floor (ADR-0045) is keyed by `(construction, package_code)`, and neither is in the
+ * The package floor (ADR-0126) is keyed by `(construction, package_code)`, and neither is in the
  * device file: the construction is the generic's, the code is the land pattern's. This is the one
  * place that holds both, so the checks that need the floor get it from here.
  * A device whose footprint does not compile keeps no code: an unknown package is counted as
@@ -80,7 +80,7 @@ export function withPackageCodes(
  *
  * The radius is the **circumscribed** circle of the pad rect (half its diagonal): rotation
  * invariant, and never smaller than the copper — which is what makes the coverage check's
- * negative answer trustworthy (ADR-0041, `copper.ts` header).
+ * negative answer trustworthy (ADR-0119, `copper.ts` header).
  */
 export function padsByInstance(
   schematic: Schematic,
@@ -111,8 +111,8 @@ export function padsByInstance(
  * Every placed instance's whole footprint, for the rules that need pad *shape* rather than a radius.
  *
  * The copper fill is one of them: a pour has to keep its clearance from the pad's real outline, and a
- * circumscribed circle would carve a bigger hole than the copper (ADR-0054 D3). Placement is the
- * caller's: a footprint that the pcb does not place contributes nothing (partial layout, ADR-0040).
+ * circumscribed circle would carve a bigger hole than the copper (ADR-0117 D3). Placement is the
+ * caller's: a footprint that the pcb does not place contributes nothing (partial layout, ADR-0118).
  */
 export function footprintsByInstance(
   schematic: Schematic,

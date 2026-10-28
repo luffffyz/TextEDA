@@ -1,12 +1,12 @@
-// `texteda export gerbers`: the board's manufacturing layers, from the pcb description (ADR-0054,
+// `texteda export gerbers`: the board's manufacturing layers, from the pcb description (ADR-0117,
 // backlog F15).
 //
 // The chain is one direction and every step is a projection of the step above:
 //
-//   design/pcb/<board>.teda  →  pcb IR  →  fill (derived, ADR-0054 D3)  →  board image  →  text
+//   design/pcb/<board>.teda  →  pcb IR  →  fill (derived, ADR-0117 D3)  →  board image  →  text
 //
 // Nothing here writes back: the pour is recomputed on every export and never stored in the IR
-// (ADR-0054 D2), so a file can never disagree with the description it came from. The `source_hash`
+// (ADR-0117 D2), so a file can never disagree with the description it came from. The `source_hash`
 // stamped on every file is the project hash of the tree this export was projected from, which is what
 // makes a delivered packet traceable to a build (invariant 11).
 //
@@ -71,7 +71,7 @@ export function runExport(options: ExportOptions): ExportResult {
     diagnostics.push({
       code: "cli.export-no-board",
       severity: "error",
-      message: `board ${options.board} has no schematic: a board always has one (ADR-0035 D5), and the pads come from it`,
+      message: `board ${options.board} has no schematic: a board always has one (ADR-0113 D5), and the pads come from it`,
       location: { file: `${LAYOUT.pcb}/${options.board}.teda`, line: 1, col: 1 },
       data: { board: options.board, missing: LAYOUT.sch },
     });
@@ -105,7 +105,7 @@ export function runExport(options: ExportOptions): ExportResult {
 
   const library = loadFootprintLibrary(options.root, diagnostics);
   const devices = withPackageCodes(loadedDevices, library);
-  /** Which net a pin belongs to: a pour must treat same-net copper as its own (ADR-0054 D3). */
+  /** Which net a pin belongs to: a pour must treat same-net copper as its own (ADR-0117 D3). */
   const pinNet = new Map<string, string>();
   for (const net of schematic.ir.nets) for (const member of net.members) pinNet.set(member, net.id);
 
@@ -126,7 +126,7 @@ export function runExport(options: ExportOptions): ExportResult {
 
   // Silkscreen text: a value is not a fact of the land pattern (a generic cannot hold one, a part's
   // value is its MPN), so the schematic's instance row is the only place it can come from — the same
-  // string the print page puts on the drawing (ADR-0027).
+  // string the print page puts on the drawing (ADR-0123).
   const values = new Map<string, string>();
   for (const instance of schematic.ir.instances) {
     const text = instanceValueText(instance, devices.get(instance.component));

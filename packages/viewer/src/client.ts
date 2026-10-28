@@ -1,9 +1,9 @@
-// The review app: one page, no framework, no build step of its own (ADR-0021 decision 3).
+// The review app: one page, no framework, no build step of its own (ADR-0134 decision 7).
 //
 // What it is allowed to do: show the SVG the renderer produced, add behaviour to it (hover, click,
 // pan, zoom), and report what the page is made of. What it must not do: place symbols, move wires,
 // or write anything back — the drawing is a function of (logic IR, view IR), and a viewer that
-// adjusted it would become a second source of truth (ADR-0021, AGENTS.md §2 invariant 3).
+// adjusted it would become a second source of truth (ADR-0134, AGENTS.md §2 invariant 3).
 //
 // The model is injected as `window.__TEXTEDA_REVIEW__` (see `packages/cli/src/review.ts`).
 import { definitionLocations, editorUri } from "./definitions.ts";
@@ -135,7 +135,7 @@ function renderBoards(): void {
     if (candidate.pages.length === 0) {
       group.append(el("div", "page-note", candidate.note ?? "no view file: the board has no drawing"));
       // No drawing is not no design: the board's instances are still there to look at, and this is
-      // the only way to reach them from the app (ADR-0021 decision 2: report, never invent a layout).
+      // the only way to reach them from the app (ADR-0134 decision 6: report, never invent a layout).
       const list = el("div", "instance-list");
       for (const instance of candidate.instances.slice(0, INSTANCE_PREVIEW)) {
         const item = el("button", "instance-name", instance.id);

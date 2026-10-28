@@ -1,4 +1,4 @@
-// Contract tests for the IR shard tree (`texteda ir`, ADR-0008 decisions 1 and 5, ADR-0023).
+// Contract tests for the IR shard tree (`texteda ir`, ADR-0105 decisions 2 8, ADR-0105).
 //
 // The tree is the bridge between the source descriptions and everything downstream (netlist,
 // renderers, exporters): its layout, its hashes and its determinism are the contract, so they are
@@ -50,13 +50,13 @@ describe("IR shard tree layout", () => {
   });
 
   test("the description field of a component reaches the shard", () => {
-    // It is a language scalar that used to be dropped on the way to the IR (ADR-0042).
+    // It is a language scalar that used to be dropped on the way to the IR (ADR-0106).
     const shard = tree.shards.find((s) => s.path === "components/ch32v307vct6.json");
     expect(JSON.parse(shard!.bytes).component.description).toBeTruthy();
   });
 
   test("the procurement layer becomes one shard per file, with its own classification", () => {
-    // The primary selections are part of the build; the second sources are not (ADR-0030 D12).
+    // The primary selections are part of the build; the second sources are not (ADR-0128 D13).
     const primary = tree.shards.find((s) => s.path === "boards/charger-buck/procurement.json");
     const alternatives = tree.shards.find(
       (s) => s.path === "boards/charger-buck/procurement-alternatives.json",
@@ -75,7 +75,7 @@ describe("IR shard tree layout", () => {
   });
 
   test("the advisory identity index names every selectable identity", () => {
-    // ADR-0020 D6: the review app needs identity → source locations, but this index is not a
+    // ADR-0103 D6: the review app needs identity → source locations, but this index is not a
     // shard and never enters a hash.
     expect(tree.identity.identities["instance:charger-buck/M2.C1"]?.map((location) => location.kind)).toEqual([
       "instance",
@@ -162,7 +162,7 @@ describe("IR shard tree hashes", () => {
   });
 
   test("a print page is a drawing, not a build input: its shard is advisory", () => {
-    // ADR-0032 decision 3: moving a label in a print page must not change the build identity.
+    // ADR-0134 decision 5: moving a label in a print page must not change the build identity.
     const pages = tree.manifest.shards.filter((s) => s.path.includes("/view/"));
     expect(pages.length).toBeGreaterThan(0);
     for (const page of pages) expect(page.normative).toBe(false);
@@ -179,7 +179,7 @@ describe("IR shard tree hashes", () => {
   });
 
   test("moving a label in a print page moves the advisory hash only", () => {
-    // ADR-0032 decision 3: a drawing is not a build input, so a reviewer's label move must not
+    // ADR-0134 decision 5: a drawing is not a build input, so a reviewer's label move must not
     // invalidate a signed manufacturing package.
     const project = tempDir();
     try {

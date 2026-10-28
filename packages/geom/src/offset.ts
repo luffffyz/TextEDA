@@ -1,4 +1,4 @@
-// Dilation and erosion of a region by a round tool (ADR-0054 D1).
+// Dilation and erosion of a region by a round tool (ADR-0117 D1).
 //
 // The set operations are not the way to grow a shape: unioning one capsule per edge and one disc per
 // vertex turns a 130-vertex capsule into thousands of overlapping pieces, and every additional piece

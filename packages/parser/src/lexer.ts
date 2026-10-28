@@ -1,7 +1,7 @@
 // Line-level lexer: split a line into cells, remembering each cell's starting position (for diagnostic row/column positions).
 // Rules: see spec/teda.md §3–§4: whitespace separates cells, indentation is not semantic, comments occupy a whole line.
 //
-// Positions follow ADR-0020 D3: `col` counts Unicode scalars (1-based), `byte` counts UTF-8 bytes from
+// Positions follow ADR-0103 D3: `col` counts Unicode scalars (1-based), `byte` counts UTF-8 bytes from
 // the start of the file (0-based). A file may hold `Ω`, `±` or Chinese text, so counting UTF-16 units
 // would report a different column than an editor shows.
 

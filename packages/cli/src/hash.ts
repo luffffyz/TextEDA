@@ -1,6 +1,6 @@
-// Hashing rules of the IR shard tree (ADR-0008 decision 5, ADR-0023 decision 4).
+// Hashing rules of the IR shard tree (ADR-0105 decision 8, ADR-0105 decision 9).
 //
-// `node:crypto` appears only in the CLI layer (ADR-0009 decision 1); this module is that layer's
+// `node:crypto` appears only in the CLI layer (ADR-0137 decision 1); this module is that layer's
 // single hash entry point, so the aggregation rule is written once.
 import { createHash } from "node:crypto";
 
@@ -15,9 +15,9 @@ export function sha256Bytes(bytes: Uint8Array): string {
 }
 
 /**
- * The aggregation rule of ADR-0008 decision 5: SHA-256 over the `<path>:<sha256>\n` lines of the
+ * The aggregation rule of ADR-0105 decision 8: SHA-256 over the `<path>:<sha256>\n` lines of the
  * given entries, sorted by path. It aggregates the project hash over all normative shards and a
- * board hash over that board's normative subset — both governed by ADR-0023 decision 4. The rule
+ * board hash over that board's normative subset — both governed by ADR-0105 decision 9. The rule
  * is public, so a third party can recompute them.
  */
 export function aggregateShardHash(entries: readonly { path: string; sha256: string }[]): string {

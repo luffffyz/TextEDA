@@ -21,7 +21,7 @@ export interface ReadabilityText {
   readonly box: ReadabilityBox;
   /**
    * The view record's IR path (`/label/3`). The line it was written on comes from the parse's
-   * source map, keyed by that path (ADR-0020 D1: the IR carries no line numbers).
+   * source map, keyed by that path (ADR-0103 D1: the IR carries no line numbers).
    */
   readonly ir_path?: string;
   /** The net a label names, or the board port a tag shows. */

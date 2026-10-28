@@ -1,4 +1,4 @@
-// `texteda review <project dir>` — the review app (ADR-0021 decision 3).
+// `texteda review <project dir>` — the review app (ADR-0134 decision 7).
 //
 // A browser app served by the CLI on 127.0.0.1: the file system stays here, the browser receives JSON
 // and SVG only. Two things this file deliberately does not do: it does not parse or lay out anything
@@ -6,7 +6,7 @@
 // the drawing (the app does, around the SVG it is given).
 //
 // `--out <file>` writes the same document as one self-contained HTML file, which is the static review
-// report CI can attach to a pull request (ADR-0021 decision 3: one bundle, three hosts).
+// report CI can attach to a pull request (ADR-0134 decision 7: one bundle, three hosts).
 import { createServer } from "node:http";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -151,7 +151,7 @@ function reviewInstances(
  * Build the payload the page shows.
  *
  * Every board that has a schematic becomes a board; a board with no view file becomes a board with no
- * pages and a note saying so — the honest state of ADR-0021 decision 2, not an invented layout.
+ * pages and a note saying so — the honest state of ADR-0134 decision 6, not an invented layout.
  */
 export function buildReviewModel(root: string): ReviewModel {
   const projectFile = "project.toml";
@@ -217,7 +217,7 @@ export function buildReviewModel(root: string): ReviewModel {
       instances: reviewInstances(schematic, paramTypes, componentOf, loaded.file),
       nets: schematic.nets.map((net) => ({ id: net.id, members: [...net.members] })),
       ...(pages.length === 0
-        ? { note: `no view file: nothing in ${dirOf(loaded.file)} draws this board (ADR-0021)` }
+        ? { note: `no view file: nothing in ${dirOf(loaded.file)} draws this board (ADR-0134)` }
         : {}),
     });
   }

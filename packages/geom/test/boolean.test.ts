@@ -1,4 +1,4 @@
-// Boolean invariants, not pictures (ADR-0054 D6): the union and the intersection cover the operands
+// Boolean invariants, not pictures (ADR-0117 D6): the union and the intersection cover the operands
 // exactly once, the difference plus the intersection reconstructs the base, and the output of an
 // operation is a disjoint cover that is byte-identical for the same geometry.
 import { describe, expect, test } from "bun:test";

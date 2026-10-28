@@ -1,4 +1,4 @@
-// Unit tests for the module layer (spec/module.md, ADR-0026).
+// Unit tests for the module layer (spec/module.md, ADR-0112).
 //
 // A board composes modules; a module owns its refdes and net names and exposes them through ports.
 // The IR stays flat: the module's instances and nets carry the `M` prefix, and a port merges the

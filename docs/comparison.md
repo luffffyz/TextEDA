@@ -10,13 +10,13 @@ Comparing a language-and-validator project with a GUI editor is a category error
 |---|---|---|---|---|---|
 | **Source of truth** | the artifact a human edits | `.teda` text files — `sch` and `pcb` are two independent sibling descriptions | `.kicad_sch` / `.kicad_pcb` s-expression files; the schematic drives the PCB | JSON project source (Std and Pro) | TypeScript / TSX code |
 | **Typed IR** | a machine-checkable intermediate form | `schemas/ir/` (the contract version is the directory name) — JSON Schema 2020-12, canonical JSON, integer-only units, `source_hash` | no separate layer; the file *is* the model | JSON project format (partly published) | `circuit-json` — zod-defined element types |
-| **Validation** | ERC / DRC / binding | connectivity ERC + sch↔pcb binding + device rules and ratings + procurement selection (`packages/core`), IR contract validation, frozen diagnostic codes; an agent-facing geometric DRC subset is roadmap ([ADR-0053](adr/0053-layout-and-routing-are-agent-driven.md)) | built-in ERC and DRC | DRC in both editions; netlist comparison in Pro | zod parse errors plus design-rule warnings carried inside the IR |
-| **Rendering** | the picture of the design | own reference renderer (symbol / footprint / schematic print page → SVG, each with its reverse extraction, [ADR-0021](adr/0021-schematic-view-layer.md)) plus a browser review app over the rendered pages | schematic, PCB and 3D viewer in the GUI | schematic and PCB editor in the browser and the desktop client | web viewers for PCB, schematic and 3D |
-| **Layout and routing** | placement and copper | **roadmap**: agent-driven, checker-gated; **no built-in solver** ([ADR-0053](adr/0053-layout-and-routing-are-agent-driven.md)) | built in — interactive routing, DRC | built in — routing and DRC | computed in code; `dsn-converter` bridges to freerouting |
-| **Manufacturing output** | Gerbers, drill, pick-and-place | **partial**: self-built Gerber (copper / mask / paste / silk / edge) and Excellon writers, zero external tools (backlog F15); pick-and-place and the `fab` package are the target shape, manufacturing-neutral data ([ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md)) | built in — Gerber, Excellon, STEP, BOM, position files | built in, plus one-click JLC ordering | `circuit-json-to-gerber`, `-bom-csv`, `-pnp-csv` |
+| **Validation** | ERC / DRC / binding | connectivity ERC + sch↔pcb binding + device rules and ratings + procurement selection (`packages/core`), IR contract validation, frozen diagnostic codes; an agent-facing geometric DRC subset is roadmap ([ADR-0116](adr/pcb/0116-layout-and-routing-are-agent-driven.md)) | built-in ERC and DRC | DRC in both editions; netlist comparison in Pro | zod parse errors plus design-rule warnings carried inside the IR |
+| **Rendering** | the picture of the design | own reference renderer (symbol / footprint / schematic print page → SVG, each with its reverse extraction, [ADR-0134](adr/view/0134-the-view-layer-is-a-drawing.md)) plus a browser review app over the rendered pages | schematic, PCB and 3D viewer in the GUI | schematic and PCB editor in the browser and the desktop client | web viewers for PCB, schematic and 3D |
+| **Layout and routing** | placement and copper | **roadmap**: agent-driven, checker-gated; **no built-in solver** ([ADR-0116](adr/pcb/0116-layout-and-routing-are-agent-driven.md)) | built in — interactive routing, DRC | built in — routing and DRC | computed in code; `dsn-converter` bridges to freerouting |
+| **Manufacturing output** | Gerbers, drill, pick-and-place | **partial**: self-built Gerber (copper / mask / paste / silk / edge) and Excellon writers, zero external tools (backlog F15); pick-and-place and the `fab` package are the target shape, manufacturing-neutral data ([ADR-0120](adr/manufacturing/0120-the-manufacturing-output-path.md)) | built in — Gerber, Excellon, STEP, BOM, position files | built in, plus one-click JLC ordering | `circuit-json-to-gerber`, `-bom-csv`, `-pnp-csv` |
 | **Component library** | symbols and footprints | project-built libraries in `.teda`; a general-purpose library is deliberately out of scope | official symbol and footprint libraries | LCSC / JLCPCB parts library integrated with ordering | per-component npm packages plus `registry.tscircuit.com` |
 | **Agent interface** | how a machine drives the tool | plain text + typed IR + diagnostic codes (`domain.slug`) + a `--json` payload + structured layout tools (roadmap) | Python (`pcbnew`) and `kicad-cli`; no official agent-facing API | published extension and API SDK, an AI skill with a WebSocket bridge, a CLI client | the code is the interface — the agent writes TSX |
-| **License** | | Apache-2.0; the contract layer stays open forever ([ADR-0015](adr/0015-licensing-and-open-standard.md)) | program GPL-3.0+, libraries CC-BY-SA 4.0 | editor proprietary; SDK and extensions Apache-2.0 | MIT |
+| **License** | | Apache-2.0; the contract layer stays open forever ([ADR-0138](adr/process/0138-licensing-and-open-standard.md)) | program GPL-3.0+, libraries CC-BY-SA 4.0 | editor proprietary; SDK and extensions Apache-2.0 | MIT |
 
 Commercial full-flow suites (Altium, Cadence, Siemens) occupy every row of this map. They are not a
 single column because their differences matter less than the layer they own: an integrated
@@ -26,7 +26,7 @@ Two structural differences matter more than any feature row:
 
 - **In KiCad the schematic is upstream of the PCB** (the netlist flows one way). TextEDA makes
   `sch` and `pcb` two siblings that share an identity space, and a separate checker proves they
-  agree ([ADR-0003](adr/0003-agent-first-pcb-ir.md)).
+  agree ([ADR-0115](adr/pcb/0115-agent-first-pcb-description.md)).
 - **TextEDA and tscircuit are both agent-native, in opposite directions.** tscircuit asks an agent
   to *write a program* that describes hardware. TextEDA asks an agent to *edit facts* that a human
   reviews, under a checker that can reject the edit.
@@ -64,7 +64,7 @@ TextEDA does not compete with them on feature count today. The honest comparison
   and proves the two descriptions agree.
 - **They are the benchmark for what "finished" means.** A layout is not finished because it
   compiles; it is finished when the library, rules, analysis, DFM and sign-off are done. TextEDA's
-  scope deliberately stops before CAM-level judgement ([ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md)).
+  scope deliberately stops before CAM-level judgement ([ADR-0120](adr/manufacturing/0120-the-manufacturing-output-path.md)).
 - **The interesting question is interop, not replacement.** A text/IR layer that can produce a
   clean handoff to a commercial flow is useful even if it never replaces the GUI.
 
@@ -76,7 +76,7 @@ who is accountable for the physical sign-off.
 ### KiCad
 
 - **What it is**: the reference open-source GUI EDA suite — schematic, PCB, 3D viewer, ERC, DRC,
-  and a full manufacturing exit. It is the backend this project exports to ([ADR-0005](adr/0005-manufacturing-output.md)).
+  and a full manufacturing exit. It is the backend this project exports to ([ADR-0120](adr/manufacturing/0120-the-manufacturing-output-path.md) D1).
 - **Current release**: 10.0.7, October 2026 ([release notes](https://www.kicad.org/blog/2026/10/10-release-kicad-10-0-7/)).
 - **Licensing** ([licenses page](https://www.kicad.org/about/licenses/)): the program is
   GPL-3.0-or-later (plus third-party licenses inside the tree); the official libraries are
@@ -86,10 +86,10 @@ who is accountable for the physical sign-off.
   numbering, fill caches. `pcbnew` Python scripting and `kicad-cli` are the automation path; there
   is no official agent-facing API.
 - **Why it stays in the picture**: the core TextEDA path never requires KiCad to be installed
-  ([ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md)), but a gate never depends on
+  ([ADR-0120](adr/manufacturing/0120-the-manufacturing-output-path.md) D1), but a gate never depends on
   external tools either — so KiCad interoperability is an *optional* CI workflow, and the
   correctness definition is our own checker. KiCad DRC is an optional oracle, not the gate
-  ([ADR-0053](adr/0053-layout-and-routing-are-agent-driven.md)).
+  ([ADR-0116](adr/pcb/0116-layout-and-routing-are-agent-driven.md)).
 
 ### EasyEDA / LCEDA
 
@@ -113,7 +113,7 @@ who is accountable for the physical sign-off.
   agent inherits the GUI's file format as its model, with all the drift that implies.
 - **Business**: proprietary editor, paid Pro edition, and a direct commercial tie to parts ordering
   — the opposite of TextEDA's "pure open technical specification, no revenue model" position
-  ([ADR-0015](adr/0015-licensing-and-open-standard.md)).
+  ([ADR-0138](adr/process/0138-licensing-and-open-standard.md)).
 
 ### LibrePCB and Horizon EDA
 
@@ -148,12 +148,12 @@ is that "open source" does not imply "text-first" or "agent-first".
   `pcb_component`, `pcb_port`, `pcb_trace` and so on — defined with zod, and it carries the
   *warnings and errors* of the design inside the IR itself (for example `PcbTraceError`,
   `SourceMissingGroundPinWarning`). That is a real and good idea; TextEDA's diagnostic registry
-  ([ADR-0016](adr/0016-diagnostic-error-codes.md)) solves the same problem on a different axis: a
+  ([ADR-0102](adr/language/0102-diagnostic-error-codes.md)) solves the same problem on a different axis: a
   frozen `domain.slug` code table with severity and spec reference, emitted separately from the
   data.
 - **Units**: strings with units are allowed (`{ max_trace_length: "100mm" }`), and bare numbers
   mean base units (mm, ms). TextEDA takes the stricter route: units live in the literals of the
-  source language, and the IR stores integers only ([ADR-0008](adr/0008-ir-shard-identity-and-hash.md)).
+  source language, and the IR stores integers only ([ADR-0105](adr/ir/0105-ir-shards-and-hashes.md)).
 - **Ecosystem**: `circuit-json-to-gerber`, `circuit-json-to-bom-csv`, `circuit-json-to-pnp-csv`,
   `circuit-json-to-spice`, `circuit-to-svg`, `dsn-converter`, `pcb-viewer`, `schematic-viewer`,
   `3d-viewer`, `circuit-json-to-gltf`, plus a component registry at `registry.tscircuit.com` and an
@@ -162,7 +162,7 @@ is that "open source" does not imply "text-first" or "agent-first".
   review hard — nobody reads a thousand-line TSX diff to check a resistor value. TextEDA's bet is
   the opposite: one fact per line, tables for facts, canonical formatting, so a diff is a one-line
   change a human can approve. The trade is expressiveness: tscircuit can compute, TextEDA's fact
-  layer cannot ([ADR-0017](adr/0017-fact-layer-no-expressions.md)).
+  layer cannot ([ADR-0100](adr/language/0100-fact-layer-has-no-expressions.md)).
 
 ### TextEDA
 
@@ -179,12 +179,12 @@ is that "open source" does not imply "text-first" or "agent-first".
   renderer with a built-in stroke font, each closed by `extract(render(ir)) == ir`; a browser review
   app with hover, selection, source jump, and a frozen diagnostic-code registry.
 - **What it is not, yet**: no implemented layout or routing (agent-driven loop is roadmap,
-  [ADR-0053](adr/0053-layout-and-routing-are-agent-driven.md)); the Gerber layer set and the drill
+  [ADR-0116](adr/pcb/0116-layout-and-routing-are-agent-driven.md)); the Gerber layer set and the drill
   file are landed, but no pick-and-place, no `fab` description and no `.kicad_pcb` writer, no KiCad
   schematic export, no importer for
   reverse-engineered or external netlists, no module parameters or nesting, and no rekeying of
   references to the instance UID (instances have a stable `uid`, but a refdes rename still changes
-  source and hash — [ADR-0051](adr/0051-instances-have-a-stable-project-local-uid.md)). The review
+  source and hash — [ADR-0109](adr/project/0109-instance-identity-is-a-uid.md)). The review
   app has one mode (`review`); `layout` and `placement` are pending (backlog F34). The honest
   summary: the description layer, the checks, the rendering path and the raw fabrication files are
   landed; the physical loop and the package around the files are designed.
@@ -220,13 +220,13 @@ The comparison is only honest if the gaps are on the same page as the features:
 
 | Gap | Consequence | Status |
 |---|---|---|
-| No layout or routing implementation | you cannot finish a board inside TextEDA today | roadmap: agent-driven, checker-gated; no built-in solver ([ADR-0053](adr/0053-layout-and-routing-are-agent-driven.md)) |
-| No manufacturing output | the pipeline ends at KiCad import for now | backlog F15, target shape decided in [ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md) |
-| Agent-facing DRC is not implemented | the agent loop has no geometric feedback yet | ADR-0053; DRC subset is planned in `packages/core` |
-| Identity is the flattened name for references | an instance has a stable `uid`, but net/view/pcb references and hashes still follow display names, so renames are not diff-stable | [ADR-0051](adr/0051-instances-have-a-stable-project-local-uid.md) |
+| No layout or routing implementation | you cannot finish a board inside TextEDA today | roadmap: agent-driven, checker-gated; no built-in solver ([ADR-0116](adr/pcb/0116-layout-and-routing-are-agent-driven.md)) |
+| No manufacturing output | the pipeline ends at KiCad import for now | backlog F15, target shape decided in [ADR-0120](adr/manufacturing/0120-the-manufacturing-output-path.md) |
+| Agent-facing DRC is not implemented | the agent loop has no geometric feedback yet | ADR-0116; DRC subset is planned in `packages/core` |
+| Identity is the flattened name for references | an instance has a stable `uid`, but net/view/pcb references and hashes still follow display names, so renames are not diff-stable | [ADR-0109](adr/project/0109-instance-identity-is-a-uid.md) |
 | No third-party conformance proof | "standard" is currently a claim backed by one reference project and 4 landed cases, not by independent implementations | backlog F12 (4 of 10 cases), deliberately deferred |
-| No physical sign-off | the design is checked, but no DRC-grade rule set and no manufacturing files | by design — CAM judgement is borrowed ([ADR-0018](adr/0018-zero-dependency-and-manufacturing-target.md)) |
-| Small, project-built library | real parts must be authored per project | by design — see [ADR-0010](adr/0010-footprint-and-3d-model-ownership.md) |
+| No physical sign-off | the design is checked, but no DRC-grade rule set and no manufacturing files | by design — CAM judgement is borrowed ([ADR-0120](adr/manufacturing/0120-the-manufacturing-output-path.md) D2) |
+| Small, project-built library | real parts must be authored per project | by design — see [ADR-0129](adr/libraries/0129-footprint-format-and-geometry.md) |
 
 ## Which one to use
 
@@ -267,10 +267,10 @@ not a reference model for the IR.
 
 TextEDA's claim is that the contract layer becomes the standard. That claim is ahead of the
 evidence: it needs a working agent layout/routing loop with a real DRC subset
-([ADR-0053](adr/0053-layout-and-routing-are-agent-driven.md)), the full ten-case conformance corpus
+([ADR-0116](adr/pcb/0116-layout-and-routing-are-agent-driven.md)), the full ten-case conformance corpus
 (F12 — 4 of 10 landed), rekeying references to stable instance UIDs
-([ADR-0051](adr/0051-instances-have-a-stable-project-local-uid.md)), a third-party implementation
-(F4), and a language version that reaches 1.0 ([ADR-0022](adr/0022-language-versioning.md)). Until
+([ADR-0109](adr/project/0109-instance-identity-is-a-uid.md)), a third-party implementation
+(F4), and a language version that reaches 1.0 ([ADR-0101](adr/language/0101-one-language-version-number.md)). Until
 then the honest position is: **a well-specified, machine-checkable description language with a
 working toolchain, an agent-editable IR, and a standard that is not yet demonstrated.**
 

@@ -1,6 +1,6 @@
 // Writing command output to disk.
 //
-// The CLI is the only layer that touches the file system (ADR-0009 decision 1); `ir` / `parser` /
+// The CLI is the only layer that touches the file system (ADR-0137 decision 1); `ir` / `parser` /
 // `core` never do.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";

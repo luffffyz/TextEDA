@@ -1,4 +1,4 @@
-// Unit tests for the `component` description type: the part/generic rules (ADR-0027, ADR-0037).
+// Unit tests for the `component` description type: the part/generic rules (ADR-0123, ADR-0123).
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -26,7 +26,7 @@ const GENERIC_SCALARS = [
   "footprint project:f",
 ];
 const PINS = ["pins", "  1  A  passive", "  2  B  passive"];
-// A complete mlcc specification (ADR-0038): the required set of a construction is what a
+// A complete mlcc specification (ADR-0124): the required set of a construction is what a
 // purchasing document says about it.
 const VALUE_PARAM = [
   "params",
@@ -172,7 +172,7 @@ describe("component identity", () => {
   });
 });
 
-describe("the device rule table (ADR-0038)", () => {
+describe("the device rule table (ADR-0124)", () => {
   test("an unknown construction is an error that names the legal values", () => {
     const result = parseComponent(
       device(GENERIC_SCALARS.map((s) => s.replace("construction mlcc", "construction Tantalum")), VALUE_PARAM, PINS),
@@ -222,7 +222,7 @@ describe("the device rule table (ADR-0038)", () => {
   });
 });
 
-describe("a part's own ratings (ADR-0039)", () => {
+describe("a part's own ratings (ADR-0125)", () => {
   const RATINGS = [
     "ratings",
     "  value          capacitance  10uF",
@@ -237,7 +237,7 @@ describe("a part's own ratings (ADR-0039)", () => {
     expect(result.ok).toBe(true);
     const ratings = result.component!.ratings;
     expect(ratings.map((r) => r.name)).toEqual(["value", "tolerance", "voltage", "dielectric"]);
-    // The canonical unit of the type (ADR-0008 decision 4): fF, ppm, µV.
+    // The canonical unit of the type (ADR-0105 decision 7): fF, ppm, µV.
     expect(ratings[0]!.value).toBe(10_000_000_000);
     expect(ratings[1]!.value).toBe(100_000);
     expect(ratings[2]!.value).toBe(16_000_000);
@@ -329,7 +329,7 @@ describe("the reference project's devices", () => {
   }
 
   test("every part and every generic parses", () => {
-    // The parts and the generics live in one tree (ADR-0037).
+    // The parts and the generics live in one tree (ADR-0123).
     const files = tedaFiles(join(root, "assets/components"));
     expect(files.length).toBeGreaterThan(0);
     for (const path of files) {
@@ -340,7 +340,7 @@ describe("the reference project's devices", () => {
   });
 });
 
-// A file carries its own revision (ADR-0049): the release in which *its* facts were last
+// A file carries its own revision (ADR-0133): the release in which *its* facts were last
 // established. Optional — a project that never imports from a library never needs one.
 describe("the file revision", () => {
   test("`rev` is a scalar and reaches the IR", () => {

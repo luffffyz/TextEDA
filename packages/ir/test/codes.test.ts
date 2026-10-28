@@ -1,4 +1,4 @@
-// Bidirectional completeness check of the error-code registry (ADR-0016).
+// Bidirectional completeness check of the error-code registry (ADR-0102).
 //
 // Methodology copied from cohdl's `tests/error_registry.rs`:
 //   - every entry in the code table must have a real call site (guards against "documented but never implemented");
@@ -62,7 +62,7 @@ describe("diagnostic error code registry", () => {
   test("every code has a real call site", () => {
     const missing: string[] = [];
     for (const code of DIAGNOSTIC_CODE_IDS) {
-      // A deprecated code keeps its row but is no longer emitted (ADR-0016).
+      // A deprecated code keeps its row but is no longer emitted (ADR-0102).
       if (DIAGNOSTIC_CODES[code].summary.startsWith("[DEPRECATED")) continue;
       const literal = `"${code}"`;
       const hit = sources.some((s) => s.text.includes(literal));

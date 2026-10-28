@@ -1,7 +1,7 @@
 // `texteda init`: scaffold an empty project.
 //
 // Contract per AGENTS.md "init contract (settled)":
-//   - create only `project.toml`, `assets/`, `design/`, `external/`, `docs/`, `docs/README.md` (ADR-0031);
+//   - create only `project.toml`, `assets/`, `design/`, `external/`, `docs/`, `docs/README.md` (ADR-0107);
 //   - put `.gitkeep` in the empty directories to keep them;
 //   - `project.toml` has only three required entries: `name` / `version` / `format`;
 //   - no network access, no template fetching, no `dist/`;

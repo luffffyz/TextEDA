@@ -1,4 +1,4 @@
-// Contract tests for `texteda lib import` (ADR-0047: an external library is a template).
+// Contract tests for `texteda lib import` (ADR-0133: an external library is a template).
 //
 // Covers the four properties the command claims: the copy is bare-id and editable, a subset is
 // legal but closed under references, the origin travels as a header comment, and a device declares
@@ -75,7 +75,7 @@ describe("texteda lib import", () => {
       expect(device).toContain("# imported from vendor@v2.1.0 on ");
       expect(device).toContain("symbol       vendor:tps7a02");
       expect(device).toContain("provenance generated");
-      // the copy carries the language's one version number (ADR-0056 D1)
+      // the copy carries the language's one version number (ADR-0101 D2)
       expect(device.startsWith("version 0.9.1\ncomponent tps7a02\n# imported from vendor@v2.1.0 on ")).toBe(true);
       expect(device).toContain("\nrev v2.1.0\n");
 
@@ -272,7 +272,7 @@ pins
 
 // A template that was reviewed upstream arrives reviewed: the copy is verbatim, so its claim travels
 // with it, and the origin header must state what the template said rather than assume the worst
-// (ADR-0047 decision 5, 2026-10-24 addendum).
+// (ADR-0133 D5).
 describe("texteda lib import: an inherited review", () => {
   const REVIEWED = TEMPLATE_DEVICE.replace(
     "pins\n",
@@ -320,7 +320,7 @@ describe("texteda lib import: an inherited review", () => {
 
 // The trust record: one statement per library revision, listing the ids a human compared with their
 // sources. It is read at import time and becomes the copy's own per-file claim — the record is the
-// table, the copies are the (explicit) rows (ADR-0017: generators live outside the language).
+// table, the copies are the (explicit) rows (ADR-0100: generators live outside the language).
 describe("texteda lib import: the library's trust record", () => {
   const MANIFEST = `[library]
 name = "vendor"
@@ -419,7 +419,7 @@ footprints = ["sot-23-5@v2.1.0"]
   });
 });
 
-// The consumer's trust table (ADR-0048): an upstream library will not carry our manifest, so the
+// The consumer's trust table (ADR-0133): an upstream library will not carry our manifest, so the
 // statement "we looked at these ids at this revision" lives on the consuming side. It is a file the
 // importer is given; the copies carry the result, and the table itself never enters a build.
 describe("texteda lib import: the consumer's trust table", () => {
@@ -469,7 +469,7 @@ footprints = ["sot-23-5@v2.1.0"]
     const root = makeProject();
     const from = makeTemplate();
     // A row states what was verified. "I did not look, but I will ship it" is a decision about a
-    // board, not a fact about a library, so the record has no way to say it (ADR-0048 decision 2).
+    // board, not a fact about a library, so the record has no way to say it (ADR-0133 decision 9).
     const table = makeTable(
       `[[trust]]\nlibrary = "vendor"\nby = "company-reviewer"\non = "2026-10-20"\nall = true\n`,
     );
@@ -491,7 +491,7 @@ footprints = ["sot-23-5@v2.1.0"]
     );
     try {
       // The library vouches for its device, the consumer for the geometry: different items, so both
-      // apply and each copy names the record that decided for it (ADR-0048 decision 3).
+      // apply and each copy names the record that decided for it (ADR-0133 decision 11).
       writeFileSync(
         join(from, "library.toml"),
         `[[trust]]\nby = "upstream"\non = "2026-01-01"\ncomponents = ["tps7a02@v2.1.0"]\nsymbols = ["tps7a02@v2.1.0"]\n`,
@@ -515,7 +515,7 @@ footprints = ["sot-23-5@v2.1.0"]
     const table = makeTable(TABLE);
     try {
       // One act cannot have two authors: the importer refuses rather than picking one, because
-      // picking would silently discard an attribution (ADR-0048 decision 3).
+      // picking would silently discard an attribution (ADR-0133 decision 11).
       writeFileSync(
         join(from, "library.toml"),
         `[[trust]]\nby = "upstream"\non = "2026-01-01"\ncomponents = ["tps7a02@v2.1.0"]\n`,
@@ -657,7 +657,7 @@ components = ["tps7a02@v2.1.0"]
 `,
     );
     try {
-      // A table vouches for several libraries (ADR-0048): the same id at the same revision under
+      // A table vouches for several libraries (ADR-0133): the same id at the same revision under
       // two libraries is two distinct acts, so neither is a duplicate (this used to be refused).
       expect(runLibImport({ root, name: "vendor", from, rev: "v2.1.0", only: [], force: false, trust: table })).toBe(0);
       expect(existsSync(join(root, "assets/components/power/tps7a02.teda"))).toBe(true);
@@ -698,7 +698,7 @@ components = ["tps7a02@v2.1.0"]
 
 });
 
-// ADR-0049: a file carries its own revision, a trust row is one act, and every item names the
+// ADR-0133: a file carries its own revision, a trust row is one act, and every item names the
 // revision it was checked at. What these tests pin down is the consequence the shape exists for:
 // a release that touches one file does not withdraw trust from the files it did not touch.
 describe("texteda lib import: per-file revisions", () => {
@@ -847,7 +847,7 @@ components = ["tps7a02@v2"]
       expect(runLibImport({ root, name: "vendor", from, rev: "v1", only: [], force: false })).toBe(0);
       const devicePath = join(root, "assets/components/power/tps7a02.teda");
       // The guide's own workflow: the copy arrives `generated`, a human compares it with the
-      // datasheet and flips the claim inside the copy (ADR-0047 decision 5).
+      // datasheet and flips the claim inside the copy (ADR-0133 decision 5).
       writeFileSync(
         devicePath,
         readFileSync(devicePath, "utf8").replace(

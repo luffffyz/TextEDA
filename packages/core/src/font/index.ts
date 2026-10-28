@@ -4,7 +4,7 @@
 // other: the SVG renderer (`packages/renderer`) draws symbol, footprint and print-page text with it,
 // and the board image (`packages/core/src/board-image.ts`) strokes the silkscreen with it. Text that
 // reaches a manufacturing file is assembly, not drawing, so the layout sits below the renderer
-// (ADR-0054 D4); the renderer imports it from here.
+// (ADR-0117 D4); the renderer imports it from here.
 //
 // Uses the Hershey single-stroke font (`hershey-sans.ts`): glyphs are drawn as **paths**,
 // independent of system fonts -- machines without fonts installed still open the SVG

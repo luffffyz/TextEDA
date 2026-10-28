@@ -1,4 +1,4 @@
-// Boolean operations on simple polygons by vertical decomposition (ADR-0054).
+// Boolean operations on simple polygons by vertical decomposition (ADR-0117).
 //
 // The kernel does not trace a single outline. It cuts the plane at every vertex x and every edge
 // crossing, asks "which y intervals are inside?" at a sample x in each slab, and emits one
@@ -11,7 +11,7 @@
 //   nanometre, so pieces neither overlap nor leave a false gap;
 // - a cover, never a double count: the output pieces are mutually disjoint (touching only);
 // - canonical output: vertex order, piece order, and the ring's starting vertex are all fixed, so
-//   the same geometry always serializes to the same bytes (ADR-0054 D5);
+//   the same geometry always serializes to the same bytes (ADR-0117 D5);
 // - degenerate input is a `GeometryError`, never a silently "good enough" shape.
 //
 // Cost control, in the order it matters for a copper fill:

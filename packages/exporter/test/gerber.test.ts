@@ -1,4 +1,4 @@
-// The Gerber file is a byte contract (ADR-0054 appendix "PCB wire contract"): header order, integer
+// The Gerber file is a byte contract (ADR-0117 D9): header order, integer
 // coordinates, aperture integer arithmetic, statement order, and one LF at the end. These tests pin
 // the bytes rather than the shape, because a Gerber file that "looks right" is exactly the failure a
 // board house reports after fabrication.

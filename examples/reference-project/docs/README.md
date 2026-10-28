@@ -65,7 +65,7 @@ The board's drawing does not fit on one sheet, so it is partitioned in the **vie
 - `views/charger-buck/charger-power.view.teda`: placement study of the power path; the wire runs are laid out during review.
 - `views/charger-buck/buck-5v.view.teda`: the buck, every net drawn as wires.
 
-Decision records are in the repository's `docs/adr/0025-flat-board-and-print-pages.md`; syntax is in `spec/teda.md` §7 and `spec/schematic-view.md`.
+Decision records are in the repository's `docs/adr/schematic/0111-one-flat-schematic-per-board.md`; syntax is in `spec/teda.md` §7 and `spec/schematic-view.md`.
 
 ## pcb/
 
@@ -82,7 +82,7 @@ Decision records are in the repository's `docs/adr/0025-flat-board-and-print-pag
 - All description files share the `.teda` extension; the first line distinguishes `component` / `schematic` / `pcb` / `system` / `view`.
 - `design/sch/`, `design/pcb/`, and `design/system/` are split by **description type**, not by board; the same board uses the same file name in `design/sch/` and `design/pcb/` (`charger-buck.teda`), distinguished by directory. A board's print pages are the exception and live in `views/<board_id>/<page_id>.view.teda`.
 - One board = one file, one BOM, one PCB. Do not split a board into several schematic files; partition the drawing instead.
-- Every description file carries the same number: the language has one version, not one per description type (see [ADR-0056](../../../docs/adr/0056-one-language-version-number.md)). A file's number is the language generation it was written against; `[project].format` carries the same number.
+- Every description file carries the same number: the language has one version, not one per description type (see [ADR-0101](../../../docs/adr/language/0101-one-language-version-number.md)). A file's number is the language generation it was written against; `[project].format` carries the same number.
 - `design/pcb/` may be empty; when the PCB description is missing, sch↔pcb binding verification is skipped and the report marks it "not verified".
 - Component references in `variants` use the stable `component_id`, not refdes.
 - Design documents and simulation evidence go in `docs/`; conclusions are bound to the design version they verified.

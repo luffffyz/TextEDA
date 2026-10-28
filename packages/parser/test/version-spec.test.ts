@@ -1,12 +1,12 @@
 // The language version table in spec/teda.md §13.1 and the acceptance ranges in
 // packages/parser/src/version.ts state the same fact twice: the version each description type is
-// born at, and the one version number the language is at. ADR-0055 D1 allows one fact to live in one
+// born at, and the one version number the language is at. ADR-0140 D1 allows one fact to live in one
 // place, and this pair is the one place where two copies have to exist — the spec has to be
 // self-contained for third-party implementers, and the parser has to decide what it accepts. These
 // tests pin them together so neither can drift.
 //
 // The table carries the **floor** (the version a type was born at). The upper bound is the language's
-// current number, shared by every type (ADR-0056 D2): either every row states it as a range, or it
+// current number, shared by every type (ADR-0101 D4): either every row states it as a range, or it
 // is stated once in the prose of §13.1. The reader below accepts both shapes and asserts the same
 // thing about either.
 //
@@ -198,7 +198,7 @@ describe("AGENTS.md does not restate the current version", () => {
     const text = readFileSync(join(repoRoot, "AGENTS.md"), "utf-8")
       .replace(/```[\s\S]*?```/g, " ")
       .replace(/`[^`\n]*`/g, " ");
-    // The language version is `0.9.1`; the IR contract version is `v0.14` (a different line, ADR-0056
+    // The language version is `0.9.1`; the IR contract version is `v0.14` (a different line, ADR-0101
     // D7). Both live in their own homes — spec/teda.md §13.1/§13.4 and schemas/ir/ — and AGENTS.md
     // points at them instead of writing the numbers out.
     expect(text.includes("0.9.1")).toBe(false);

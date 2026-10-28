@@ -1,4 +1,4 @@
-// Contract test of the diagnostics payload (ADR-0016).
+// Contract test of the diagnostics payload (ADR-0102).
 //
 // The payload is for agent consumption: stable shape, default fields omitted (never null), counted by severity.
 import { describe, expect, test } from "bun:test";
@@ -19,7 +19,7 @@ describe("diagnostics payload", () => {
     expect(Object.keys(payload.diagnostics[0]!)).not.toContain("data");
   });
 
-  test("fix hint is filled in from the registry (ADR-0016)", () => {
+  test("fix hint is filled in from the registry (ADR-0102)", () => {
     const payload = diagnosticsToPayload([withLocation]);
     expect(payload.diagnostics[0]!.hint).toBe("A pin may belong to only one net; remove the extra member");
   });

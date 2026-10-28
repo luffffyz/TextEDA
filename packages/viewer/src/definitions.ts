@@ -1,5 +1,5 @@
 // The review app's definition menu, separated from the DOM: which source locations belong to a
-// selected identity, and how a location becomes an editor URI (ADR-0020 D6, ADR-0021 2026-10-26).
+// selected identity, and how a location becomes an editor URI (ADR-0103 D6, ADR-0134 2026-10-26).
 import type {
   ReviewInstance,
   ReviewSourceLocation,

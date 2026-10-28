@@ -1,7 +1,7 @@
 # `module`: hierarchy inside a board
 
 > Specification: the `module` description type (since language 0.8), the `modules` section of a board file, module ports and their binding to board nets, and the flattening rules.
-> Decision: `docs/adr/0026-modules-compose-boards.md`; the relation to the board-level description: `teda.md` §7.6.
+> Decision: `docs/adr/schematic/0112-modules-compose-boards.md`; the relation to the board-level description: `teda.md` §7.6.
 
 ## 0. What it is
 
@@ -34,7 +34,7 @@ module buck-5v
 - Since language **0.9**, an instance row may carry a stable UID as its second cell
   (`C1 ID7k3m9q cap-mlcc-1210 …`); the board's `modules` row likewise carries the module
   instance's UID (`M1 IDp8x2n4 charger-power`). The UID is project-scoped, immutable and
-  duplicate-checked ([ADR-0051](../docs/adr/0051-instances-have-a-stable-project-local-uid.md)).
+  duplicate-checked ([ADR-0109](../docs/adr/project/0109-instance-identity-is-a-uid.md)).
   In a 0.9 file a missing UID is reported as a warning; in a 0.8 or older file the row keeps
   name identity and no warning is emitted.
 
@@ -140,8 +140,8 @@ ports
 
 | Column | Meaning |
 |---|---|
-| `<module_instance_id>` | Module instance id, shape `^M[0-9]+$` (`M1`, `M2`, …). The level tag is `M` ([ADR-0024](../docs/adr/0024-level-tags-in-flattened-names.md)) |
-| `<uid>` | Optional stable module-instance UID since 0.9, shape `^ID[0-9a-hjkmnp-tv-z]{6}$` ([ADR-0051](../docs/adr/0051-instances-have-a-stable-project-local-uid.md)) |
+| `<module_instance_id>` | Module instance id, shape `^M[0-9]+$` (`M1`, `M2`, …). The level tag is `M` ([ADR-0111](../docs/adr/schematic/0111-one-flat-schematic-per-board.md)) |
+| `<uid>` | Optional stable module-instance UID since 0.9, shape `^ID[0-9a-hjkmnp-tv-z]{6}$` ([ADR-0109](../docs/adr/project/0109-instance-identity-is-a-uid.md)) |
 | `<module_id>` | Module definition id, matching `design/modules/<module_id>.teda` |
 
 - The same module may be instantiated several times in one board (`M1` and `M2` both point at `buck-5v`); they are electrically identical (this version has no parameters, see §10).
@@ -197,7 +197,7 @@ Rules:
 
 ## 7. Relation to print pages
 
-A print page (`view`) references **board-level** ids, so once modules are instantiated the instances in a print page are written `M1.U1`, `M2.U1` ([ADR-0021](../docs/adr/0021-schematic-view-layer.md), [ADR-0025](../docs/adr/0025-flat-board-and-print-pages.md) decision 4). One print page may draw several modules, or only part of one module.
+A print page (`view`) references **board-level** ids, so once modules are instantiated the instances in a print page are written `M1.U1`, `M2.U1` ([ADR-0134](../docs/adr/view/0134-the-view-layer-is-a-drawing.md), [ADR-0111](../docs/adr/schematic/0111-one-flat-schematic-per-board.md) decision 4). One print page may draw several modules, or only part of one module.
 
 Print pages do **not** affect the IR: they are only a drawing. Delete every print page and the board is still complete, checkable, and exportable to a netlist.
 

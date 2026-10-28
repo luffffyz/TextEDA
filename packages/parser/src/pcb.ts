@@ -38,7 +38,7 @@ export interface PcbParseResult {
   ok: boolean;
   ir?: Pcb;
   diagnostics: Diagnostic[];
-  /** IR path → span of the record that produced it (ADR-0020 D2). Never persisted. */
+  /** IR path → span of the record that produced it (ADR-0103 D2). Never persisted. */
   sources?: SourceMap;
 }
 
@@ -62,7 +62,7 @@ type Section = (typeof PCB_SECTIONS)[number];
 const SECTION_SET: ReadonlySet<string> = new Set(PCB_SECTIONS);
 /**
  * `pcb` was introduced in language version 0.4; since 0.7 its instance ids and net names are the
- * board's own (no page prefix, ADR-0025), so a 0.4 pcb file has to be re-checked.
+ * board's own (no page prefix, ADR-0111), so a 0.4 pcb file has to be re-checked.
  */
 const VERSION_RANGE = typeRange("pcb");
 
@@ -539,7 +539,7 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
   const deviation: Deviation[] = [];
 
   // Spans of the records built below, by object identity; the IR arrays get sorted at the end, and
-  // only then does an index mean something (ADR-0020 D2/D4).
+  // only then does an index mean something (ADR-0103 D2/D4).
   const at = new Map<object, Span>();
   const put = <T extends object>(list: T[], item: T, line: Line): void => {
     list.push(item);
@@ -1007,7 +1007,7 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
     ...(deviation.length > 0 ? { deviation: sortByKey(deviation, (d) => `${d.type}|${"net_a" in d ? d.net_a : d.net}`) } : {}),
   };
 
-  // IR path → span, keyed by the canonical index of each record (ADR-0020 D2).
+  // IR path → span, keyed by the canonical index of each record (ADR-0103 D2).
   const sources: SourceMap = new Map();
   recordObjects(sources, "/stackup", stackup, at);
   recordObjects(sources, "/place", ir.place, at);

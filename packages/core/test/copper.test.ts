@@ -1,4 +1,4 @@
-// Copper coverage (ADR-0041): does the drawing implement the `connect` declarations?
+// Copper coverage (ADR-0119): does the drawing implement the `connect` declarations?
 // Synthetic IRs — the check consumes geometry only, so no .teda and no library is needed.
 import { irVersion } from "@texteda/ir";
 import { describe, expect, test } from "bun:test";

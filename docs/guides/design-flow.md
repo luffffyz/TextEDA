@@ -1,6 +1,6 @@
 # The hardware design flow the language serves
 
-Status: proposal, user-side · referenced by [ADR-0036](../adr/0036-process-entities-outside-the-language.md)
+Status: proposal, user-side · referenced by [ADR-0139](../adr/process/0139-process-entities-outside-the-language.md)
 Impact: none — this describes the process the language is embedded in, not the language
 
 This is the workflow TextEDA is built for. It is **not** a specification: nothing in `spec/` or
