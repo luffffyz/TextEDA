@@ -208,7 +208,3 @@ my-board/
 - [docs/guides/role-reviews.md](docs/guides/role-reviews.md) 多角色跑一轮评审
 - [docs/guides/review-app.md](docs/guides/review-app.md) 打开评审 app
 - [docs/guides/kicad-pcb-format.md](docs/guides/kicad-pcb-format.md) 读 KiCad 板文件
-
-## 语言策略
-
-源码（`.ts`、schema、`.teda` 示例）只允许英文。**文档默认英文**——`docs/`、`spec/`（含 `spec/teda.md`）、ADR 与 `README.md` 都是英文；只有被明确要求时才写中文，若觉得某份文档用中文更合适，先问。本规则之前写下的文档保持原语言。`README_cn.md` 是本文件的中文镜像，按定义保持中文。

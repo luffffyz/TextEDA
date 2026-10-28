@@ -206,7 +206,3 @@ The complete index, with titles, status and dates, is [docs/adr/README.md](docs/
 - [docs/guides/role-reviews.md](docs/guides/role-reviews.md) run a review round from several roles
 - [docs/guides/review-app.md](docs/guides/review-app.md) open the review app
 - [docs/guides/kicad-pcb-format.md](docs/guides/kicad-pcb-format.md) read a KiCad board file
-
-## Language policy
-
-Source code (`.ts`, schemas, and `.teda` examples) is English-only. **Documentation is English by default** — `docs/`, `spec/` (including `spec/teda.md`), the ADRs and this file. Write a document in Chinese only when it is asked for; if Chinese seems like the better choice for a particular document, ask first. Documents written before this policy keep the language they were written in. `README_cn.md` is the Chinese mirror of this file and stays Chinese by definition.
