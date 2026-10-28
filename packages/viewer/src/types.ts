@@ -36,6 +36,49 @@ export interface ReviewText {
   box: ReviewBox;
 }
 
+/**
+ * The modes the app offers (ADR-0141 D1).
+ *
+ * `review` reads, `layout` moves symbols on a print page, `placement` shows the board's physical
+ * canvas, `edit` shows the page's source. They share one highlight and one jump: the mode decides
+ * what the stage shows and what a press means, not how a thing is found.
+ */
+export type ReviewMode = "review" | "layout" | "placement" | "edit";
+
+/** Where a symbol sits on a print page: the page's own millimetres and a turn in whole quadrants. */
+export interface ReviewPlace {
+  /** Instance id (`M2.C1`). */
+  instance_id: string;
+  x: number;
+  y: number;
+  /** Degrees, clockwise: 0, 90, 180 or 270. */
+  rot: number;
+}
+
+/** A part the board places, in board millimetres. */
+export interface ReviewPcbPart {
+  instance_id: string;
+  x: number;
+  y: number;
+  rot: number;
+  side: "top" | "bottom";
+  /** Footprint reference (`lib:id`), when the part's device names one. */
+  footprint?: string;
+}
+
+/** The board's physical canvas: what the placement mode shows. */
+export interface ReviewPcb {
+  /** Source file of the board description, relative to the project root. */
+  file: string;
+  /** Board size in millimetres (the outline's bounding box). */
+  sheet: { w: number; h: number };
+  /** The renderer's SVG, verbatim. Empty when the board could not be drawn. */
+  svg: string;
+  parts: ReviewPcbPart[];
+  /** Why the board has no canvas. Empty when it has one. */
+  problems: string[];
+}
+
 /** One print page, ready to show. */
 export interface ReviewPage {
   /** Print page id (`views/<board>/<page>.view.teda`). */
@@ -50,6 +93,10 @@ export interface ReviewPage {
   texts: ReviewText[];
   /** Why the page has no drawing. Empty when it has one. */
   problems: string[];
+  /** The page's source, verbatim: what the edit mode shows and edits. */
+  source?: string;
+  /** Where the page's symbols sit: what the layout mode moves. */
+  places?: ReviewPlace[];
 }
 
 /** One instance of the board: what a click on its symbol reports beyond the refdes. */
@@ -111,6 +158,8 @@ export interface ReviewBoard {
   pages: ReviewPage[];
   instances: ReviewInstance[];
   nets: ReviewNet[];
+  /** The board's physical canvas; absent when the board has no `pcb` description. */
+  pcb?: ReviewPcb;
   /** Why the board has no pages (no view file at all), or why it could not be read. */
   note?: string;
 }
@@ -129,6 +178,11 @@ export interface ReviewDiagnostic {
 /** What the page shows: the whole project, because a board is small and a fetch per page is slower. */
 export interface ReviewModel {
   project: { name: string; root: string };
+  /**
+   * Whether the app may write through the server that served this document. A static export
+   * (`texteda review --out`) has no server behind it and cannot write (ADR-0141 D9).
+   */
+  writable?: boolean;
   /** IR project hash (`texteda ir`), when the project compiles; the drawing belongs to that build. */
   hash?: string;
   boards: ReviewBoard[];

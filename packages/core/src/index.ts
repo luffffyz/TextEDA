@@ -20,6 +20,15 @@ export { packagePowerRating, chipResistorPackages } from "./devices/packages.ts"
 export { checkViews, type ViewFacts, type ViewPage } from "./view/checks.ts";
 export { viewMetrics, type NetTextMetric, type ViewMetrics } from "./view/metrics.ts";
 export {
+  nearestOnPath,
+  ON_NET_NM,
+  reanchorWire,
+  reseatOnNet,
+  type Reanchored,
+  type ReanchorInput,
+  type WireCorners,
+} from "./view/reroute.ts";
+export {
   checkReadability,
   type ReadabilityBox,
   type ReadabilityFacts,
@@ -122,6 +131,7 @@ export {
   silkItemsOf,
   silkRules,
   silkTexts,
+  uprightTurn,
   SILK_RULE_DEFAULTS,
   SILK_WIDTH_NM,
   type SilkItemRule,

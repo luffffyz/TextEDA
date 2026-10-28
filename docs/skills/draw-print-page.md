@@ -152,17 +152,17 @@ does edit a wire by hand, that edit is source: do not run a wholesale regenerato
 ([ADR-0134](../adr/view/0134-the-view-layer-is-a-drawing.md)). Re-route only on an explicit
 request and show the diff.
 
-The planned `layout` mode is the one place a human moves a symbol from the canvas: select one
-symbol, drag it, rotate it by 90 degrees. Selection does not navigate: a single click only selects;
-`Enter` or a double-click opens the definition menu (parameters, view placement, component file).
-Drag/rotate only edits the pending placement. It is not a live
-route: `Apply` writes the `place` rows and recomputes the affected nets (the moved symbols' nets,
-the nets the new geometry collides with, and their labels/ports). Until `Apply` the page is stale:
-the old wires stay with stale bends, and `view.wire-diagonal` / `view.wire-crosses-pin` are the
-signal. Do not run a router on every drag frame. Placement snaps to
-1.27 mm (or the symbol's pin pitch); the view's 0.01 mm grid is storage precision. The first form
-selects one symbol. `layout` is not built yet; this is its contract
-([ADR-0134](../adr/view/0134-the-view-layer-is-a-drawing.md) D4).
+The `layout` mode is the one place a human moves a symbol from the canvas: select one symbol, drag
+it, turn it in 90-degree steps. Selection does not navigate: a single click only selects; `Enter` or
+a double-click opens the definition menu (parameters, view placement, component file). Drag/rotate
+only edits the pending placement. It is not a live route: `Apply` writes the `place` rows and
+**re-anchors** the affected wires — same segment count, same directions, only the corners the shape
+pins down move. Until `Apply` the page is stale: the old wires stay with stale bends, and
+`view.wire-diagonal` / `view.wire-crosses-pin` are the signal. A move can therefore create a
+readability finding (a wire through a body, a label off its net); `texteda check` reports it after
+`Apply`, and the app shows it in the findings column. Do not run a router on every drag frame.
+Placement snaps to 1.27 mm; the view's 0.01 mm grid is storage precision. One symbol at a time.
+Built per [ADR-0141](../adr/view/0141-the-review-app-has-four-modes.md) D3 / D5.
 
 ## 3. The command loop
 

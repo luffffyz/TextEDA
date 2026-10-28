@@ -38,7 +38,7 @@
 
 **不是**：
 
-- 不是内建布局布线求解器的 EDA GUI。**布局与布线在路线图内，但由 agent 驱动、检查器把关**（[ADR-0116](docs/adr/pcb/0116-layout-and-routing-are-agent-driven.md)）；评审 GUI 是**导航器 + 批注器 + 受限摆位器**（`review` 已落地只读画面；`layout` / `placement` / `edit` 三模式未建，能做什么见 `docs/guides/review-app.md` 的 "What is not built"）。S1 打印页的走线不在拖动中实时算：它是 `place` + 逻辑网表的派生物，`layout` 不写 `design/**`，不碰 IR 与构建哈希（[ADR-0134](docs/adr/view/0134-the-view-layer-is-a-drawing.md) D4、D6）。
+- 不是内建布局布线求解器的 EDA GUI。**布局与布线在路线图内，但由 agent 驱动、检查器把关**（[ADR-0116](docs/adr/pcb/0116-layout-and-routing-are-agent-driven.md)）；评审 GUI 是**导航器 + 批注器 + 受限摆位器**（`review` / `layout` / `placement` / `edit` 四模式已落地，见 `docs/guides/review-app.md`；`layout` 只写视图的 `place` 与受影响的 wire，`placement` 只读，不能做的写在 "What is not built"）。S1 打印页的走线不在拖动中实时算：它是 `place` + 逻辑网表的派生物，`layout` 不写 `design/**`，不碰 IR 与构建哈希（[ADR-0134](docs/adr/view/0134-the-view-layer-is-a-drawing.md) D4、D6）。
 - 不是器件库维护者（借 KiCad 符号库、嘉立创料号）；项目自己的封装可以自建，但那是项目产物，不是库产品。
 - 不是 KiCad 的替代品。KiCad 是**可选后端**（互操作导出、DRC 对照、制造出口兜底），从不是布局布线的决策程序——核心链路与全部门禁都不依赖它（不变量 20）。
 - 不是制造工具：不自研 CAM 级 DFM 判定，也不做工艺规则库；**格式层的写出器自研**（Gerber / Excellon，已落地）。`fab` 的默认产物是**制造中立的数据**（装配意图、BOM、坐标），不是 Gerber 本身（[ADR-0120](docs/adr/manufacturing/0120-the-manufacturing-output-path.md) D3、D1、F14）。

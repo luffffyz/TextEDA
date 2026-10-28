@@ -902,7 +902,7 @@ ADR-0103 的决策：
 
 ## F34. 评审 GUI（`packages/viewer`）：高亮指针、跳转源码、四种模式
 
-**现状**：**`review` 模式与双击/`Enter` 跳源码已落地（2026-10-24 / 2026-10-26）**——`packages/viewer`（无框架的浏览器端）+ `packages/cli/src/review.ts`，`texteda review <工程目录>` 起 `node:http` 服务、`--out` 写自包含 HTML；渲染器的打印页 SVG 原样插入，hover 高亮与点击选身份都是 DOM 层（`packages/cli/test/review.test.ts`）。`model.sources` 来自 F11 的身份索引，定义菜单按 `vscode://file/<abs>:<line>:<col>` 打开。**没落地**：`layout` / `placement` / `edit` 三种模式、意见锚点。决策见 [ADR-0134](adr/view/0134-the-view-layer-is-a-drawing.md) D3、D7、D8。
+**现状**：**四种模式全部落地（2026-10-29）**——`review` 与跳源码见 2026-10-24 / 2026-10-26 那两轮；`layout` / `placement` / `edit` 按 [ADR-0141](adr/view/0141-the-review-app-has-four-modes.md) 落地：`packages/renderer/src/pcb.ts` 出 PCB 画布（`kind: "pcb"`，板框坐标系 + 每个绘制对象的 `data-ref`），`packages/core/src/view/reroute.ts` 做 `place` 改动后的**重锚**（不改形状、不搜索），`packages/cli/src/layout.ts` 是唯一写 `views/**` 的地方（`planLayout` 只算、`commitPlan` 才写、`savePageSource` 走 `fmt`），`packages/viewer/src/client.ts` 的模式栏 + 三个写入交互，CLI 侧两条写路由 `POST /api/layout` 与 `POST /api/source`。`packages/cli/test/review-layout.test.ts`（12 条）与 `packages/cli/test/review-api.test.ts`（7 条，真起服务）钉住写什么、不写什么。**没落地**：意见锚点（`[instance:U3]` 前缀）、`layout` 里的实时布线（按设计不做）。决策见 [ADR-0134](adr/view/0134-the-view-layer-is-a-drawing.md) D3、D7、D8 与 [ADR-0141](adr/view/0141-the-review-app-has-four-modes.md) D1–D9。
 
 **要做的事**：
 
@@ -910,7 +910,7 @@ ADR-0103 的决策：
 2. **元素 id**：渲染器给每个绘制对象发稳定 id（`instance:U1` / `net:VCC` / `label:...`），SVG 里落成 `data-ref`。这是 renderer 侧的小改动，**渲染器仍然纯**（不知道 hover 与点击）。
 3. **hover 高亮**：纯 CSS/SVG 层（描边 / 透明度 / 小浮层），**不重绘、不重排**——性能不构成压力；不做命中测试几何、不做空间索引。
 4. **双击/`Enter` 跳转**：**已落地（2026-10-26）**。身份索引是 `dist/ir/identity.json`（`identity -> [{kind,label,file,line,col}]`，附注类，F11 / ADR-0103 D6），不是 `dist/ir/<shard>.spans.json`。选中一个元素后，双击它或按 `Enter`，给出「这个身份定义在哪里」的短菜单（sch 的实例行 / view 的摆位 / PCB 摆位 / 器件文件 / 符号 / 封装 / pin 行 / net 行），选中即打开 `vscode://file/<abs>:<line>:<col>`。**单次点击只选中，不跳转**；否则会与 `layout` 的拖拽/旋转抢同一个手势。`edit` 模式的 `Enter` 归文本编辑器。
-5. **四种模式**：`review`（读图 + 高亮 + 跳转 + 写意见）、`layout`（S1 打印页摆位：选中一个符号、拖拽、90° 旋转；拖动/旋转只写 `place` 行；**不在拖动中走线**，Apply 时才写回 `place` 并重算受影响的 net，见 2026-10-25 附录）、`placement`（PCB 画布：摆位、板框、courtyard、net 高亮）、`edit`（分栏：源码文本 + 画布；点画布移动文本光标，改文本刷新画布，**编辑发生在文本里**）。切模式换 SVG 与覆盖层，不重新实现交互。
+5. ~~**四种模式**~~ **已落地（2026-10-29）**：`review`（读图 + 高亮 + 跳转）、`layout`（S1 打印页摆位：选中一个符号、拖拽、`r` 旋转；拖动/旋转只写 `place` 行；**不在拖动中走线**，Apply 时才写回 `place` 并重锚受影响的 wire，见 [ADR-0141](adr/view/0141-the-review-app-has-four-modes.md)）、`placement`（PCB 画布：板框、courtyard、走线、过孔、丝印；点一个对象高亮它的 net）、`edit`（分栏：源码文本 + 画布；点画布移动文本光标，改文本刷新画布，**编辑发生在文本里**）。切模式换 SVG 与覆盖层，不重新实现交互。
 6. **意见锚点（可选）**：note 行允许 `[instance:U3]` 这样的可选前缀，只有 viewer 解析——与 ADR-0136「工具不解析散文」的张力是 ADR-0136 的开放点。
 
 **验收**：
@@ -919,7 +919,7 @@ ADR-0103 的决策：
 - 双击或按 `Enter` 一个符号 → 出现「定义位置」菜单，至少含 sch 实例行与 view 摆位两项；选中后打开对应文件并定位到行。
 - 单次点击一个符号 → 只选中并显示 facts，不打开文件；在 `layout` 里按住拖动不会触发跳转。
 - `review` / `layout` / `placement` / `edit` 四个模式都能用，且共用同一套高亮与跳转代码。
-- `layout` 拖动/旋转一个符号 → 只改 `place` 行，`design/**` 不变；Apply 前不重算走线，旧线标 stale；Apply 后只重算相关 net，未受影响 net 的 wire 与手改不动；`check` 无新增 error，`view.*` warning 清零。
+- `layout` 拖动/旋转一个符号 → 只改 `place` 行，`design/**` 不变；Apply 前不重算走线，旧线标 stale；Apply 后只重锚相关 net，未受影响 net 的 wire 与手改不动；`check` 无新增 error。**"`view.*` warning 清零"按"Apply 不引入新的 `view.*`"验收**：`view.nets-not-drawn` 是页面的既有状态，一次摆位改不动它。
 - `edit` 模式改文本 → 画布更新；`edit` 的画布不做直接编辑（`layout` 才有拖动/吸附）。
 
 **注意**：

@@ -27,7 +27,22 @@ export interface SvgPoint {
   y: number;
 }
 
-export interface SvgLine {
+/**
+ * The identity of a drawn object.
+ *
+ * `ref` names the object (`instance:U1`, `net:VCC`, `pad:U1.3`) and reaches the SVG as `data-ref`;
+ * `net` names the net an object carries (`VCC`) and reaches it as `data-net`. Both are advisory: the
+ * renderer knows what it drew, not what hover and click mean (ADR-0141 D2). An object with no
+ * identity — a sheet frame, a board outline — simply has neither.
+ */
+export interface SvgIdentity {
+  /** The stable identity of the drawn object; `undefined` when it names nothing. */
+  ref?: string;
+  /** The net the object carries, when it carries one. */
+  net?: string;
+}
+
+export interface SvgLine extends SvgIdentity {
   kind: "line";
   x1: number;
   y1: number;
@@ -38,7 +53,7 @@ export interface SvgLine {
   unit?: number;
 }
 
-export interface SvgRect {
+export interface SvgRect extends SvgIdentity {
   kind: "rect";
   x1: number;
   y1: number;
@@ -50,7 +65,7 @@ export interface SvgRect {
   unit?: number;
 }
 
-export interface SvgCircle {
+export interface SvgCircle extends SvgIdentity {
   kind: "circle";
   cx: number;
   cy: number;
@@ -61,7 +76,7 @@ export interface SvgCircle {
   unit?: number;
 }
 
-export interface SvgArc {
+export interface SvgArc extends SvgIdentity {
   kind: "arc";
   x1: number;
   y1: number;
@@ -76,7 +91,7 @@ export interface SvgArc {
 }
 
 /** Polyline (open, unfilled): clock wedges for pins, zigzags for non-logical pins. */
-export interface SvgPolyline {
+export interface SvgPolyline extends SvgIdentity {
   kind: "polyline";
   points: { x: number; y: number }[];
   widthNm: number;
@@ -85,7 +100,7 @@ export interface SvgPolyline {
   unit?: number;
 }
 
-export interface SvgPoly {
+export interface SvgPoly extends SvgIdentity {
   kind: "poly";
   points: SvgPoint[];
   widthNm: number;
@@ -94,7 +109,7 @@ export interface SvgPoly {
   unit?: number;
 }
 
-export interface SvgText {
+export interface SvgText extends SvgIdentity {
   kind: "text";
   x: number;
   y: number;
@@ -112,7 +127,7 @@ export interface SvgText {
 }
 
 /** Symbol pin: connection point + orientation + length + style. Name and electrical type come from `component` (ADR-0130). */
-export interface SvgPin {
+export interface SvgPin extends SvgIdentity {
   kind: "pin";
   number: string;
   name: string;
@@ -129,7 +144,7 @@ export interface SvgPin {
  * Footprint pad. `shape` is the **drawing style** (rect / oval / circle); the IR's roundrect is
  * expressed via `rratioPpm` -- so reverse engineering can derive the IR shape from the drawing style rather than duplicating it.
  */
-export interface SvgPad {
+export interface SvgPad extends SvgIdentity {
   kind: "pad";
   number: string;
   x: number;
@@ -156,7 +171,7 @@ export type SvgPrimitive =
   | SvgPad;
 
 export interface SvgDoc {
-  kind: "symbol" | "footprint" | "schematic";
+  kind: "symbol" | "footprint" | "schematic" | "pcb";
   title: string;
   orientation: SvgOrientation;
   primitives: SvgPrimitive[];
@@ -431,9 +446,32 @@ export function toSvgText(doc: SvgDoc): string {
   for (const layer of layers) {
     const style = styleOf(layer);
     out.push(`  <g stroke="${style.stroke}" fill="${style.fill}" stroke-linecap="round" stroke-linejoin="round">`);
+    // Primitives that share an identity are wrapped in one group, so the app can address an
+    // object by `data-ref` and move it by transforming the group (ADR-0141 D2). The group key is
+    // the identity *pair*: a pad is one object (`pad:U1.3`) and also carries a net (`VCC`), and
+    // both have to be addressable. The primitives of one object are contiguous, but a repeated
+    // identity would simply open a second group: the app addresses every group it finds.
+    let openKey: string | null = null;
     for (const p of byLayer.get(layer) ?? []) {
+      const key = `${p.ref ?? ""}\u0000${p.net ?? ""}`;
+      if (key !== openKey) {
+        if (openKey !== null) out.push("    </g>");
+        const attrs = [
+          p.ref === undefined ? undefined : `data-ref="${esc(p.ref)}"`,
+          p.net === undefined ? undefined : `data-net="${esc(p.net)}"`,
+        ]
+          .filter((a): a is string => a !== undefined)
+          .join(" ");
+        if (attrs === "") {
+          openKey = null;
+        } else {
+          out.push(`    <g ${attrs}>`);
+          openKey = key;
+        }
+      }
       out.push(...primitiveSvg(p, fy, doc.orientation, style));
     }
+    if (openKey !== null) out.push("    </g>");
     out.push("  </g>");
   }
   out.push("</svg>");

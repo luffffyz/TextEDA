@@ -7,13 +7,15 @@
 //
 // `--out <file>` writes the same document as one self-contained HTML file, which is the static review
 // report CI can attach to a pull request (ADR-0134 decision 7: one bundle, three hosts).
-import { createServer } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { parseProjectToml, parseSchematic, parseView, formatQuantity, type QuantityKind } from "@texteda/parser";
+import { parsePcb, parseProjectToml, parseSchematic, parseView, formatQuantity, type QuantityKind } from "@texteda/parser";
 import type { Schematic } from "@texteda/ir/schematic";
+import type { Footprint } from "@texteda/ir/footprint";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
-import { schematicGeometry, renderSchematic, toSvgText } from "@texteda/renderer";
+import { schematicGeometry, renderSchematic, toSvgText, type SheetGeometry } from "@texteda/renderer";
+import { renderPcb } from "@texteda/renderer/pcb";
 import type {
   ReviewBox,
   ReviewBoard,
@@ -21,14 +23,31 @@ import type {
   ReviewInstance,
   ReviewModel,
   ReviewPage,
+  ReviewPcb,
+  ReviewPcbPart,
+  ReviewPlace,
   ReviewSymbol,
   ReviewText,
 } from "@texteda/viewer";
 import { clientScript } from "@texteda/viewer/build";
+import {
+  commitPlan,
+  planLayout,
+  renderPageSource,
+  savePageSource,
+  type LayoutPlace,
+} from "./layout.ts";
 import { checkProject } from "./check.ts";
 import { buildIrTree } from "./ir-tree.ts";
-import { listBoards, loadBoard, loadComponents, loadModules } from "./project.ts";
-import { loadSymbolLibrary, schematicInstances, type DeviceFacts, type SchematicInstances } from "./symbols.ts";
+import { listBoards, loadBoard, loadComponents, loadModules, loadPcb } from "./project.ts";
+import { loadFootprintLibrary } from "./pads.ts";
+import {
+  instanceValueText,
+  loadSymbolLibrary,
+  schematicInstances,
+  type DeviceFacts,
+  type SchematicInstances,
+} from "./symbols.ts";
 
 export interface ReviewOptions {
   readonly root: string;
@@ -93,20 +112,7 @@ function reviewPage(
     problems.push(error instanceof Error ? error.message : String(error));
   }
 
-  const geometry = schematicGeometry(view, instances);
-  const symbols: ReviewSymbol[] = geometry.symbols.map((symbol) => ({
-    id: symbol.instance_id,
-    box: box(symbol.box.min_x_nm, symbol.box.min_y_nm, symbol.box.max_x_nm, symbol.box.max_y_nm),
-    pins: Object.fromEntries(
-      [...symbol.pins].map(([number, point]) => [number, { x: mm(point.x_nm), y: mm(point.y_nm) }]),
-    ),
-  }));
-  const texts: ReviewText[] = geometry.texts.map((text) => ({
-    kind: text.kind,
-    text: text.text,
-    ...(text.subject === undefined ? {} : { subject: text.subject }),
-    box: box(text.box.min_x_nm, text.box.min_y_nm, text.box.max_x_nm, text.box.max_y_nm),
-  }));
+  const { symbols, texts } = reviewGeometry(schematicGeometry(view, instances));
 
   return {
     id: pageId,
@@ -116,6 +122,123 @@ function reviewPage(
     symbols,
     texts,
     problems,
+    // The source is what the edit mode shows and edits; the placements are what the layout mode
+    // moves. Both are the page's own facts, not a second drawing (ADR-0141 D3, D7).
+    source: viewText,
+    places: view.place.map((place) => ({
+      instance_id: place.instance_id,
+      x: mm(place.x_nm),
+      y: mm(place.y_nm),
+      rot: Math.round((place.rot_mdeg ?? 0) / 1000),
+    })),
+  };
+}
+
+/**
+ * The board's physical canvas, or the reason it has none.
+ *
+ * The canvas is the board description drawn by the renderer: the outline, the placed parts with
+ * their pads, the copper and the silkscreen. A board with no `pcb` description has no canvas —
+ * the app says so rather than inventing one (ADR-0141 D7).
+ */
+function reviewPcb(
+  root: string,
+  boardId: string,
+  schematic: Schematic,
+  footprintOf: (componentId: string) => string | undefined,
+  library: ReadonlyMap<string, Footprint>,
+  deviceOf: (componentId: string) => DeviceFacts | undefined,
+): ReviewPcb | undefined {
+  const loaded = loadPcb(root, boardId);
+  if (loaded === null) return undefined;
+  const parsed = parsePcb(loaded.text, { file: loaded.file, board: boardId });
+  if (!parsed.ir) {
+    return {
+      file: loaded.file,
+      sheet: { w: 0, h: 0 },
+      svg: "",
+      parts: [],
+      problems: parsed.diagnostics
+        .filter((diagnostic) => diagnostic.severity === "error")
+        .map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`),
+    };
+  }
+  const pcb = parsed.ir;
+
+  // The parts the board places, resolved through the schematic's own devices: a part whose
+  // footprint is unknown contributes no pads, and the binding check says so (ADR-0118).
+  const parts = pcb.place.flatMap((placement) => {
+    const instance = schematic.instances.find((candidate) => candidate.id === placement.instance_id);
+    if (instance === undefined) return [];
+    const ref = footprintOf(instance.component);
+    const footprint = ref === undefined ? undefined : library.get(ref);
+    if (footprint === undefined) return [];
+    // The printed value is not a fact of the land pattern, so it comes from the schematic's instance
+    // row -- the same string the print page and the manufacturing export use (ADR-0123).
+    const value = instanceValueText(instance, deviceOf(instance.component));
+    return [{ instance_id: placement.instance_id, footprint, ...(value === undefined ? {} : { value }) }];
+  });
+
+  // The net of every pad, from the schematic's nets: a member names an instance and a pin, and the
+  // pin number is the pad number (spec/pcb.md §5.1).
+  const padNets = new Map<string, string>();
+  for (const net of schematic.nets) {
+    for (const member of net.members) {
+      const dot = member.lastIndexOf(".");
+      if (dot <= 0) continue;
+      padNets.set(`${member.slice(0, dot)}.${member.slice(dot + 1)}`, net.id);
+    }
+  }
+
+  const problems: string[] = [];
+  let svg = "";
+  try {
+    svg = toSvgText(renderPcb({ pcb, parts, padNets }));
+  } catch (error) {
+    problems.push(error instanceof Error ? error.message : String(error));
+  }
+
+  const outline = pcb.outline;
+  const xs = outline.map((point) => point.x_nm);
+  const ys = outline.map((point) => point.y_nm);
+  const partList: ReviewPcbPart[] = pcb.place.map((placement) => {
+    const instance = schematic.instances.find((candidate) => candidate.id === placement.instance_id);
+    const ref = instance === undefined ? undefined : footprintOf(instance.component);
+    return {
+      instance_id: placement.instance_id,
+      x: mm(placement.x_nm),
+      y: mm(placement.y_nm),
+      rot: Math.round(placement.rot_mdeg / 1000),
+      side: placement.side,
+      ...(ref === undefined ? {} : { footprint: ref }),
+    };
+  });
+
+  return {
+    file: loaded.file,
+    sheet: { w: mm(Math.max(...xs) - Math.min(...xs)), h: mm(Math.max(...ys) - Math.min(...ys)) },
+    svg,
+    parts: partList,
+    problems,
+  };
+}
+
+/** The page's symbols and texts as the browser needs them: boxes in millimetres. */
+function reviewGeometry(geometry: SheetGeometry): { symbols: ReviewSymbol[]; texts: ReviewText[] } {
+  return {
+    symbols: geometry.symbols.map((symbol) => ({
+      id: symbol.instance_id,
+      box: box(symbol.box.min_x_nm, symbol.box.min_y_nm, symbol.box.max_x_nm, symbol.box.max_y_nm),
+      pins: Object.fromEntries(
+        [...symbol.pins].map(([number, point]) => [number, { x: mm(point.x_nm), y: mm(point.y_nm) }]),
+      ),
+    })),
+    texts: geometry.texts.map((text) => ({
+      kind: text.kind,
+      text: text.text,
+      ...(text.subject === undefined ? {} : { subject: text.subject }),
+      box: box(text.box.min_x_nm, text.box.min_y_nm, text.box.max_x_nm, text.box.max_y_nm),
+    })),
   };
 }
 
@@ -181,6 +304,8 @@ export function buildReviewModel(root: string): ReviewModel {
   const symbolOf = (componentId: string) => componentOf(componentId)?.symbol;
 
   const boards: ReviewBoard[] = [];
+  const footprintLibrary = loadFootprintLibrary(root);
+  const footprintOf = (componentId: string): string | undefined => componentOf(componentId)?.footprint;
   for (const boardId of listBoards(root)) {
     const loaded = loadBoard(root, boardId);
     if (!loaded) continue;
@@ -210,12 +335,14 @@ export function buildReviewModel(root: string): ReviewModel {
     const pages = loaded.views.map((view) =>
       reviewPage(root, boardId, schematic, view.text, view.file, view.pageId, instances),
     );
+    const pcb = reviewPcb(root, boardId, schematic, footprintOf, footprintLibrary, deviceOf);
     boards.push({
       id: boardId,
       file: loaded.file,
       pages,
       instances: reviewInstances(schematic, paramTypes, componentOf, loaded.file),
       nets: schematic.nets.map((net) => ({ id: net.id, members: [...net.members] })),
+      ...(pcb === undefined ? {} : { pcb }),
       ...(pages.length === 0
         ? { note: `no view file: nothing in ${dirOf(loaded.file)} draws this board (ADR-0134)` }
         : {}),
@@ -341,6 +468,38 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: v
 }
 .diag-toggle:hover { color: var(--fg); background: #23262c; }
 .stage-wrap { display: flex; flex-direction: column; min-width: 0; }
+.modes {
+  display: flex; align-items: center; gap: 4px; padding: 6px 10px;
+  border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap;
+}
+.mode {
+  background: none; border: 1px solid var(--line); border-radius: 4px; padding: 3px 10px;
+  color: var(--muted); font: inherit; font-size: 12px; cursor: pointer;
+}
+.mode:hover:not(:disabled) { color: var(--fg); background: #23262c; }
+.mode.active { color: var(--accent); border-color: var(--accent); }
+.mode:disabled { opacity: .45; cursor: default; }
+.mode-action {
+  background: none; border: 1px solid var(--accent); border-radius: 4px; padding: 3px 10px;
+  color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; margin-left: 4px;
+}
+.mode-action:hover:not(:disabled) { background: #6ea8fe18; }
+.mode-action:disabled { opacity: .4; cursor: default; border-color: var(--line); color: var(--muted); }
+.mode-hint {
+  color: var(--muted); font-size: 11px; margin-left: 10px;
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.panes { flex: 1; display: flex; min-height: 0; }
+.source-pane {
+  width: 42%; min-width: 240px; border-right: 1px solid var(--line); background: var(--panel);
+  display: flex; overflow: hidden;
+}
+.source-pane.hidden { display: none; }
+.source {
+  flex: 1; width: 100%; border: 0; resize: none; padding: 10px 12px;
+  background: var(--panel); color: var(--fg); font: 12px/1.5 ui-monospace, SFMono-Regular, monospace;
+  outline: none; white-space: pre; overflow: auto;
+}
 .stage {
   flex: 1; position: relative; overflow: hidden; cursor: grab;
   background: radial-gradient(circle at 50% 40%, #1a1c20, #101113 70%);
@@ -355,6 +514,8 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: v
 .sheet-svg { display: block; background: #fff; }
 /* The hit rect is invisible and exactly the object's box: no stroke, because a transparent stroke
    still counts for pointer-events and would make neighbouring 0402s steal each other's hover. */
+/* The placement mode picks the board's own objects, so the page's hotspots stand aside. */
+.picking .hotspots, .picking .marks { pointer-events: none; }
 .hotspot { fill: transparent; stroke: none; pointer-events: all; }
 /* The mark is a screen annotation, not part of the drawing: its box and stroke width are written
    per zoom in sheet units by the app, so it stays 1-2 px at any magnification. No filter glow
@@ -362,6 +523,11 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: v
 .mark { fill: none; stroke: transparent; stroke-linejoin: round; pointer-events: none; }
 .mark.hot { stroke: var(--accent); stroke-opacity: 0.9; }
 .mark.selected { stroke: var(--accent); fill: #6ea8fe12; }
+/* The net highlight on the board's canvas. The rules are per element type: a pad is a filled
+   polygon, a track is a stroked polyline, and the zone's outline is neither. */
+g.net-hot[data-ref^="pad:"] polygon { fill: var(--accent); }
+g.net-hot[data-ref^="net:"] polyline { stroke: var(--accent); stroke-width: .45; }
+g.net-hot[data-ref^="net:"] circle:first-of-type { fill: var(--accent); }
 .status {
   border-top: 1px solid var(--line); padding: 6px 10px; color: var(--muted);
   font: 11px ui-monospace, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -394,24 +560,137 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: v
 `;
 
 /**
+ * The two write routes.
+ *
+ * Both take the board and page from the request and check them against the model the server
+ * already holds: a route may only touch a print page the project actually has, so a request cannot
+ * name a path of its own. The layout route either plans (the browser draws the result and the user
+ * decides) or commits (the file is written and the model is rebuilt). The edit route saves the
+ * source it is given, in the formatter's form, and answers with the page as it is drawn.
+ */
+async function handleApi(
+  root: string,
+  url: string,
+  request: IncomingMessage,
+  response: ServerResponse,
+  rebuild: () => ReviewModel,
+): Promise<void> {
+  const send = (status: number, body: unknown): void => {
+    const text = JSON.stringify(body);
+    response.writeHead(status, {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    });
+    response.end(text);
+  };
+  try {
+    const body = JSON.parse(await readBody(request)) as Record<string, unknown>;
+    if (url === "/api/layout") {
+      const model = rebuild();
+      const board = model.boards.find((candidate) => candidate.id === body["board"]);
+      if (board === undefined) {
+        send(400, { error: `no such board: ${String(body["board"])}` });
+        return;
+      }
+      const page = board.pages.find((candidate) => candidate.id === body["page"]);
+      if (page === undefined) {
+        send(400, { error: `no such print page: ${String(body["page"])}` });
+        return;
+      }
+      const places = Array.isArray(body["places"]) ? (body["places"] as LayoutPlace[]) : [];
+      const plan = planLayout(root, { board: board.id, page: page.id, places });
+      if (body["commit"] === true) {
+        commitPlan(root, plan);
+        const after = rebuild();
+        send(200, {
+          changed: plan.changed,
+          conflicts: plan.conflicts,
+          reseated: plan.reseated,
+          svg: plan.svg,
+          model: after,
+        });
+        return;
+      }
+      send(200, {
+        changed: plan.changed,
+        conflicts: plan.conflicts,
+        reseated: plan.reseated,
+        svg: plan.svg,
+      });
+      return;
+    }
+
+    // The edit route: the source of a page the project has.
+    const model = rebuild();
+    const file = String(body["file"] ?? "");
+    const owner = model.boards.find((candidate) => candidate.pages.some((candidatePage) => candidatePage.file === file));
+    if (owner === undefined) {
+      send(400, { error: `no such print page: ${file}` });
+      return;
+    }
+    const page = owner.pages.find((candidatePage) => candidatePage.file === file)!;
+    const text = String(body["text"] ?? "");
+    if (body["save"] === true) {
+      const saved = savePageSource(root, owner.id, page.id, text);
+      if (saved.errors.length > 0) {
+        send(400, { errors: saved.errors });
+        return;
+      }
+      const after = rebuild();
+      send(200, { changed: saved.changed, model: after });
+      return;
+    }
+    const drawn = renderPageSource(root, owner.id, page.id, text);
+    send(200, { svg: drawn.svg, errors: drawn.errors, anchors: drawn.anchors });
+  } catch (error) {
+    send(400, { error: error instanceof Error ? error.message : String(error) });
+  }
+}
+
+/** The request's body, as text. */
+function readBody(request: IncomingMessage): Promise<string> {
+  const { promise, resolve, reject } = Promise.withResolvers<string>();
+  let text = "";
+  request.setEncoding("utf8");
+  request.on("data", (chunk: string) => {
+    text += chunk;
+    if (text.length > 4_000_000) reject(new Error("the request body is too large"));
+  });
+  request.on("end", () => resolve(text));
+  request.on("error", reject);
+  return promise;
+}
+
+/**
  * Serve the app on `127.0.0.1:port`, or write it to `outFile` and return.
  *
- * The server answers one route: `/`. Everything the page needs is in that one document, so there is
- * no static directory to get wrong and no path traversal to think about.
+ * The server answers the document, and two write routes: the layout Apply and the edit mode's
+ * save. Both own the file system: the browser asks, the server writes (ADR-0141 D9). The static
+ * export (`--out`) has no routes at all — it is a document, not a server — and the app says so
+ * when a write is asked of it.
  */
 export async function runReview(options: ReviewOptions): Promise<number> {
-  const model = buildReviewModel(options.root);
+  let model = { ...buildReviewModel(options.root), writable: true };
   const html = await renderReviewHtml(model);
 
   if (options.outFile !== undefined) {
     const target = resolve(options.outFile);
     mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, html);
+    // A static document has no server behind it: the app must not offer to write (ADR-0141 D9).
+    writeFileSync(target, await renderReviewHtml({ ...model, writable: false }));
     process.stdout.write(`${target}\n`);
     return 0;
   }
 
   const server = createServer((request, response) => {
+    const url = request.url ?? "/";
+    if (request.method === "POST" && (url === "/api/layout" || url === "/api/source")) {
+      void handleApi(options.root, url, request, response, () => {
+        model = { ...buildReviewModel(options.root), writable: true };
+        return model;
+      });
+      return;
+    }
     if (request.url !== "/" && request.url !== "/index.html") {
       response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
       response.end("not found\n");

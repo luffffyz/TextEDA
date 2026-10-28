@@ -272,6 +272,8 @@ export function renderSchematic(
       widthNm: WIRE_WIDTH_NM,
       fill: "none",
       layer: "wire",
+      ref: `net:${wire.net}`,
+      net: wire.net,
     });
   }
 
@@ -298,13 +300,18 @@ export function renderSchematic(
       widthNm: WIRE_WIDTH_NM,
       fill: "solid",
       layer: "junction",
+      ref: `net:${dot.net}`,
+      net: dot.net,
     });
   }
 
   // Symbols, with the drawn unit filtered out of pins, body, and pin decoration.
   for (const { place, instance } of placed.values()) {
     const unit = place.unit ?? 1;
-    primitives.push(...placeSymbol(instance, place, unit));
+    const ref = `instance:${place.instance_id}`;
+    for (const primitive of placeSymbol(instance, place, unit)) {
+      primitives.push({ ...primitive, ref });
+    }
   }
 
   for (const label of view.label ?? []) {
@@ -341,14 +348,14 @@ export function renderSchematic(
 function junctionDots(
   runs: readonly { net: string; points: Point[] }[],
   pinNets: ReadonlyMap<string, string | null>,
-): Point[] {
+): { net: string; x: number; y: number }[] {
   // A pin connection point is itself one arm: one wire ending there is a two-arm connection (wire
   // plus pin) and draws no dot, while two wires ending there make three arms and draw one. Arms are
   // **distinct directions**, not records: two wire rows that overlap along the same line make one
   // visible arm, so a pin fed by two coincident runs must not gain a dot. A pin belongs to exactly
   // one net; a run of another net that happens to pass through it is a crossing, not a junction.
   const seen = new Set<string>();
-  const dots: Point[] = [];
+  const dots: { net: string; x: number; y: number }[] = [];
   for (const run of runs) {
     for (const point of run.points) {
       const key = `${point.x},${point.y}`;
@@ -365,7 +372,7 @@ function junctionDots(
         }
         if (arms.size >= 3) break;
       }
-      if (arms.size >= 3) dots.push(point);
+      if (arms.size >= 3) dots.push({ net: run.net, x: point.x, y: point.y });
     }
   }
   return dots;
@@ -447,6 +454,8 @@ function labelPrimitive(label: Label): SvgPrimitive {
     anchor: "start",
     role: "text",
     layer: "label",
+    ref: `label:${label.net}`,
+    net: label.net,
   };
 }
 
@@ -475,6 +484,7 @@ function portPrimitives(port: Port): SvgPrimitive[] {
       widthNm: FRAME_WIDTH_NM,
       fill: "none",
       layer: "port",
+      ref: `port:${port.id}`,
     },
     {
       kind: "text",
@@ -485,6 +495,7 @@ function portPrimitives(port: Port): SvgPrimitive[] {
       anchor: "middle",
       role: "text",
       layer: "port",
+      ref: `port:${port.id}`,
     },
   ];
 }

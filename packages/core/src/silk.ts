@@ -259,7 +259,7 @@ export function silkTexts(
  * The rule is the same on both sides. A bottom-side string is drawn mirrored, which is what makes it
  * read correctly from the bottom — the mirror does not also turn it upside down.
  */
-function uprightTurn(place: Placement, rotation_mdeg: number): number {
+export function uprightTurn(place: Placement, rotation_mdeg: number): number {
   const total = (((place.rot_mdeg + rotation_mdeg) % 360_000) + 360_000) % 360_000;
   return total > 90_000 && total <= 270_000 ? 180_000 : 0;
 }
