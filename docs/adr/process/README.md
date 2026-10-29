@@ -15,7 +15,7 @@ How the project itself is run: the implementation stack and the agent's entry po
 2. [0138](0138-licensing-and-open-standard.md) — the openness policy.
 3. [0139](0139-process-entities-outside-the-language.md) — process entities stay outside the language.
 4. [0140](0140-documentation-has-one-authority-per-fact.md) — each fact has one authority, and the rest is a pointer.
-5. [0143](0143-the-agent-surface-is-a-set-of-verbs.md) — the agent's surface is a set of verbs; every host adapts the same ones (**proposed**).
+5. [0143](0143-the-agent-surface-is-a-set-of-verbs.md) — the agent's surface is a set of verbs; every host adapts the same ones.
 6. [0144](0144-the-mcp-server-is-a-slice-we-write-ourselves.md) — the MCP server is a slice we write ourselves.
 
 ## Records
@@ -26,5 +26,5 @@ How the project itself is run: the implementation stack and the agent's entry po
 | [ADR-0138](0138-licensing-and-open-standard.md) | Licensing and Openness Policy | Accepted | 2026-10-21 |
 | [ADR-0139](0139-process-entities-outside-the-language.md) | Process Entities Stay Outside the Language | Accepted | 2026-10-22 |
 | [ADR-0140](0140-documentation-has-one-authority-per-fact.md) | Documentation Has One Authority per Fact, and the Rest Is a Pointer | Accepted | 2026-10-27 |
-| [ADR-0143](0143-the-agent-surface-is-a-set-of-verbs.md) | The Agent's Surface Is a Set of Verbs; Every Host Adapts the Same Ones | Proposed | 2026-10-29 |
+| [ADR-0143](0143-the-agent-surface-is-a-set-of-verbs.md) | The Agent's Surface Is a Set of Verbs; Every Host Adapts the Same Ones | Accepted | 2026-10-29 |
 | [ADR-0144](0144-the-mcp-server-is-a-slice-we-write-ourselves.md) | The MCP Server Is a Slice We Write Ourselves | Accepted | 2026-10-29 |

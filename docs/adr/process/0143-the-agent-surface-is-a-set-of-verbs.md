@@ -1,8 +1,8 @@
 # ADR-0143: The Agent's Surface Is a Set of Verbs; Every Host Adapts the Same Ones
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-29
-Scope: Decides: that the agent reaches TextEDA through the command line's verbs and the skill that documents them; that a host's tool registry is an optional adapter over those same functions rather than a second interface; that the skill stays the floor and is never replaced by a tool; that the print page's verbs live under one noun, `texteda view`; that the catalogue's parameters are JSON Schema, which is the only format every host can be projected onto; and which verbs the catalogue holds. Does not decide: which hosts get an adapter, and whether the command line's surface gets a version line of its own — see "Open points".
+Scope: Decides: that the agent reaches TextEDA through the command line's verbs and the skill that documents them; that a host's tool registry is an optional adapter over those same functions rather than a second interface; that the skill stays the floor and is never replaced by a tool; that the print page's verbs live under one noun, `texteda view`; that the catalogue's parameters are JSON Schema, which is the only format every host can be projected onto; which verbs the catalogue holds; and which adapters get built and where they live. Does not decide: whether the command line's surface gets a version line of its own — see "Open points".
 Related: [ADR-0142](../view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md)
 Impact: `packages/cli/**`; `docs/skills/**`; `docs/plugin-hosts.md`; `docs/tool-formats.md`; `docs/backlog.md` (F55, F57, F58)
 
@@ -132,17 +132,31 @@ The catalogue is the whole of the tool surface. A verb that is not in it is not 
 and the catalogue is printed by `texteda tools --json` so that a host we never wrote an adapter for
 can build one.
 
+### D10. Three adapters, and where they live
+
+The survey narrows the field to three, and all three are built:
+
+| Adapter | Where | What it is |
+|---|---|---|
+| The MCP server | `packages/cli/src/mcp.ts`, the verb `texteda mcp` | one stdio process for the four hosts that take tools only through MCP ([ADR-0144](0144-the-mcp-server-is-a-slice-we-write-ourselves.md)) |
+| The pi extension | `plugins/pi-texteda/` | a TypeScript extension pi loads directly — no build, no new dependency |
+| The DSH bundle | `plugins/dsh-texteda/` | a cordis plugin whose host half registers the tools; the bundle carries this repository's code, because these packages are not published |
+
+The projection lives with the catalogue, not in the adapters: `packages/cli/src/tools.ts` holds
+the verbs, `packages/cli/src/pi-tools.ts` and `packages/cli/src/dsh-tools.ts` hold the two
+projections, and the adapters are the thin files that hand them to a host. A host we did not
+write an adapter for builds its own from `texteda tools --json` (D7).
+
+The MCP server speaks both eras of the protocol, so a host can move from the `initialize`
+handshake to the `server/discover` probe without the server changing.
+
 ## Open points
 
-1. **Which adapters get built first, and where they live.** The survey narrows the field to three:
-   the command line and the skill (the floor, which works everywhere), two native registry
-   adapters (DSH's `defineTool`, pi's `registerTool`), and one MCP server for the four hosts that
-   take tools only through MCP. A pi extension loads TypeScript directly and needs no build; a DSH
-   bundle is an npm package with a host half and a client half, and it has to bundle this
-   repository's code, because these packages are not published.
-2. **Whether the command line's surface gets a version line of its own.** The language has one
+1. **Whether the command line's surface gets a version line of its own.** The language has one
    version number ([ADR-0101](../language/0101-one-language-version-number.md)); the command
-   line's verbs are not covered by it.
+   line's verbs are not covered by it. The MCP server reports the language version it speaks,
+   because that is the version a client has to match a project against; whether the verbs
+   themselves carry a version is still open.
 
 ## Consequences
 
