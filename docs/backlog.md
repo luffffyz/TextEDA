@@ -1446,3 +1446,36 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 - 每个动词的 `build*` 返回值与同名 CLI 动词 `--json` 的输出**逐字段相等**（子进程对比，写在 `packages/cli/test/tools.test.ts`）。
 - `texteda tools --json` 的 dump 与内存清单一致；名字唯一、描述非空、参数是扁平的（`type` / `required` / `description`）。
 - CLI 现有输出零变化：`bun test` 全绿，`bun run cases:check` 4/4。
+
+## F57. MCP 服务器（stdio）：把同一批动词暴露成 MCP 工具（2026-10-29）
+
+**现状**：调查了六个宿主接受工具的格式（`docs/tool-formats.md`）：Claude Code、Codex、WorkBuddy、Qoder **只认 MCP**，DSH 与 pi 有自己的注册表。也就是说，对多数宿主来说 MCP 不是"给传统 app 的兼容层"，而是**唯一机器可读的工具通道**——[ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D5 已按这个事实改写。
+
+**要做的事**：在 CLI 之上加一个 stdio MCP 服务器：`initialize` / `tools/list` / `tools/call`，每个动词一个工具，`inputSchema` 用 F56 清单里的 JSON Schema，`outputSchema` + `structuredContent` 返回 `build*()` 的值。
+
+**要决定的**：
+
+1. **自己写还是用官方 SDK**：MCP 的 stdio 传输是行分隔 JSON，服务器侧只需要 `initialize` / `tools/list` / `tools/call` 三个方法，手写约 200 行、零依赖，符合不变量 20；官方 SDK（`@modelcontextprotocol/sdk`）是新增依赖，按 [ADR-0137](adr/process/0137-implementation-stack-and-agent-entry.md) 要另起 ADR。**倾向手写**（只实现我们用到的切片），但这是要写进 ADR 的决定。
+2. **放在哪**：`packages/cli/src/mcp.ts`（CLI 包内，作为 `texteda mcp` 动词），还是独立包 `packages/mcp`？倾向 CLI 包内——它只是 CLI 动词的另一种传输。
+
+**验收**：
+
+- `texteda tools --json` 的每个动词都能在 `tools/list` 里出现，`inputSchema` 与清单逐字段相同。
+- `tools/call` 返回的值与同名 CLI 动词 `--json` 的输出**逐字段相等**（同 F56 的验收）。
+- 在 Claude Code 里用 `.mcp.json` 指向 `texteda mcp`，模型能调用 `texteda_check` 并拿到诊断。
+
+## F58. 两个原生注册表适配器（DSH、pi）（2026-10-29）
+
+**现状**：DSH 用 `ctx.tools.register(defineTool({…}))`，参数是扁平 spec `{type, required, description}`；pi 用 `pi.registerTool`／工具模块，参数用 `pi.zod` / `pi.arktype` / `pi.typebox`，结果形状是 `{content: [{type:'text'}], details}`。两者都能从 F56 清单的 JSON Schema 投影出来（DSH 是扁平化，pi 是 omptype）。
+
+**要做的事**：把 F56 的清单投影成两种宿主格式，各写一个薄适配器；适配器只翻译参数与渲染结果，不重新实现动词。
+
+**涉及文件**：`plugins/dsh-texteda/`（bundle，需要打包我们的包——本仓的包未发布，见 ADR-0142 D7 与 F53）、`plugins/pi-texteda/`（TypeScript 扩展，pi 直接加载 `.ts`，零构建）。
+
+**验收**：
+
+- 每个适配器注册的工具集合与清单一致（名字、描述、参数逐字段相同）。
+- pi 侧真机冒烟：装上扩展，模型能调 `texteda_check` 并拿到诊断。
+- DSH 侧：bundle 装进宿主后，工具出现在 `/tools` 里且能跑通一个只读动词。
+
+**注意**：适配器放本仓 `plugins/` 还是拆独立仓，ADR-0143 的开放点 2 还没定；拆仓的前提是清单先在 F56 里稳定。

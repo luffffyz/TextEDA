@@ -2,9 +2,9 @@
 
 Status: Proposed
 Date: 2026-10-29
-Scope: Decides: that the agent reaches TextEDA through the command line's verbs and the skill that documents them; that a host's tool registry is an optional adapter over those same functions rather than a second interface; that the skill stays the floor and is never replaced by a tool; that the print page's verbs live under one noun, `texteda view`; and that there is no MCP layer between the agent and the core. Does not decide: which hosts get an adapter, what the catalogue contains, and whether the command line's surface gets a version line of its own — see "Open points".
+Scope: Decides: that the agent reaches TextEDA through the command line's verbs and the skill that documents them; that a host's tool registry is an optional adapter over those same functions rather than a second interface; that the skill stays the floor and is never replaced by a tool; that the print page's verbs live under one noun, `texteda view`; and that the catalogue's parameters are JSON Schema, which is the only format every host can be projected onto. Does not decide: which hosts get an adapter, what the catalogue contains, and whether the command line's surface gets a version line of its own — see "Open points".
 Related: [ADR-0142](../view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md)
-Impact: `packages/cli/**`; `docs/skills/**`; `docs/plugin-hosts.md`; `docs/backlog.md` (F55)
+Impact: `packages/cli/**`; `docs/skills/**`; `docs/plugin-hosts.md`; `docs/tool-formats.md`; `docs/backlog.md` (F55, F57, F58)
 
 ## Background
 
@@ -70,13 +70,18 @@ The middle three are the reason to build the adapter where a host offers one: a 
 never reaches the core, the result arrives as data rather than as prose, and a verb that writes
 files can be separated from a verb that only reads. The last two rows are the cost.
 
-### D5. No MCP
+### D5. MCP is a transport, not a second implementation
 
-MCP would be a third way to say the same thing. It earns its place only with consumers that can
-neither host a plugin nor run a command: traditional desktop applications, cloud services,
-editors whose agent is not ours. That is a compatibility surface for other people's tools, not a
-layer between our agent and our core, so it is not built. If it is ever built, it is an adapter
-over the same verbs — never a second implementation of them.
+MCP is how a host accepts a tool from outside its own registry. Of the six hosts surveyed in
+`docs/tool-formats.md` — Claude Code, Codex, WorkBuddy, Qoder, DSH and pi — **four take tools
+only through MCP** (Claude Code, Codex, WorkBuddy, Qoder), and two have a registry of their own
+(DSH, pi). MCP is therefore not a legacy compatibility layer for traditional applications; it is
+the ordinary route for most of the ecosystem.
+
+What that changes is the wording, not the shape: MCP is an **adapter over the same verbs**, never
+a second implementation of them. The functions behind an MCP tool are the same functions the
+command line calls, so the tool and the command cannot drift. What we do not do is maintain an
+MCP server for our own harness, or let MCP become a place where behaviour is defined twice.
 
 ### D6. The print page's verbs live under one noun
 
@@ -98,13 +103,26 @@ the schematic, `pcb` is the board. The app's scopes (`sch`, `pcb`) name the same
 parameters — so that a host we have never seen can adapt them without our code, and so that the
 catalogue cannot drift from the implementation.
 
+### D8. The catalogue's parameters are JSON Schema
+
+Every host can be projected onto JSON Schema, and most already speak it: four take an MCP
+`inputSchema` unchanged, DSH's flat `{type, required, description}` spec is a flattening of the
+same object, and pi normalises to draft-2020-12 at the provider boundary anyway (and can import a
+JSON Schema directly). So the catalogue is authored as **name + description + JSON Schema**, and
+each adapter is a projection of that — not a second schema to maintain per host.
+
+The six hosts and what each of them accepts are recorded in `docs/tool-formats.md`.
+
 ## Open points
 
 1. **What the catalogue contains.** The verbs an agent actually calls in a loop, against every
    verb the command line has.
-2. **Which hosts get an adapter, and where those adapters live.** A pi extension loads TypeScript
-   directly and needs no build; a DSH bundle is an npm package with a host half and a client half,
-   and it has to bundle this repository's code, because these packages are not published.
+2. **Which adapters get built first, and where they live.** The survey narrows the field to three:
+   the command line and the skill (the floor, which works everywhere), two native registry
+   adapters (DSH's `defineTool`, pi's `registerTool`), and one MCP server for the four hosts that
+   take tools only through MCP. A pi extension loads TypeScript directly and needs no build; a DSH
+   bundle is an npm package with a host half and a client half, and it has to bundle this
+   repository's code, because these packages are not published.
 3. **Whether the command line's surface gets a version line of its own.** The language has one
    version number ([ADR-0101](../language/0101-one-language-version-number.md)); the command
    line's verbs are not covered by it.
