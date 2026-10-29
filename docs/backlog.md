@@ -1406,6 +1406,6 @@ DSH 侧**代码已落地**：宿主合同读的是官方 cookbook（`@deepseek-a
 
 - 每个适配器注册的工具集合与清单一致（名字、描述、参数逐字段相同）。**已过**（pi 与 DSH 两侧都有测试钉住）。
 - pi 侧真机冒烟：装上扩展，模型能调 `texteda_check` 并拿到诊断。**已过**（`omp --extension plugins/pi-texteda`）。
-- DSH 侧：bundle 装进宿主后，工具出现在 `/tools` 里且能跑通一个只读动词。**待做**（本机没有 DSH 宿主，也没有 npm，宿主侧冒烟得在装了宿主的机器上跑）。
+- DSH 侧：bundle 装进宿主后，工具出现在 `/tools` 里且能跑通一个只读动词。**半过**（`bun run smoke:dsh-plugin`：bundle 构建出来、插件被 apply、注册的八条与清单一致、`texteda_check` 拿回诊断——宿主那半边用桩替了；**待做**：真宿主里工具出现在 `/tools` 里。本机没有 DSH 宿主，也没有 npm，宿主侧冒烟得在装了宿主的机器上跑）。
 
 **注意**：适配器放本仓 `plugins/` 还是拆独立仓，ADR-0143 的开放点 2 还没定；拆仓的前提是清单先在 F56 里稳定。

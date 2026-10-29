@@ -37,7 +37,8 @@
     "check": "bun run packages/cli/scripts/texteda.ts check",
     "ir": "bun run packages/cli/scripts/texteda.ts ir",
     "logo": "bun run docs/assets/build_logo.ts",
-    "build:dsh-plugin": "bun run scripts/build-dsh-plugin.ts"
+    "build:dsh-plugin": "bun run scripts/build-dsh-plugin.ts",
+    "smoke:dsh-plugin": "bun run scripts/smoke-dsh-plugin.ts"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",
