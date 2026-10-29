@@ -106,7 +106,10 @@ export function checkProject(root: string): CheckResult {
  */
 export function buildCheck(root: string): VerbResult<{ payload: DiagnosticsPayload; boards: string[] }> {
   const result = checkProject(root);
-  return { ok: true, value: { payload: diagnosticsToPayload(result.diagnostics), boards: result.boards } };
+  const payload = diagnosticsToPayload(result.diagnostics);
+  // The project has errors when the command line would exit non-zero: that is the answer the
+  // caller needs, whether it is a person or a host's tool registry.
+  return { ok: payload.errorCount === 0, value: { payload, boards: result.boards } };
 }
 
 /**

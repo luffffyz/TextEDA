@@ -18,6 +18,7 @@
 //   texteda review <project dir> [--port <n>] [--out <file>]
 //   texteda export gerbers <project dir> <board_id> [--out <dir>] [--json]
 //   texteda tools --json
+//   texteda mcp            # serve the verbs as MCP tools over stdio
 //   texteda lib import <name> --from <dir> --rev <rev> [--only <id>,…] [--dest <lib>] [--project <dir>] [--trust <file>] [--force]
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -33,6 +34,7 @@ import { runRenumber } from "../src/renumber.ts";
 import { runLibImport } from "../src/lib-import.ts";
 import { buildNetlist } from "../src/netlist.ts";
 import { toolCatalogue } from "../src/tools.ts";
+import { runMcp } from "../src/mcp.ts";
 import { reportExport, runExport } from "../src/export.ts";
 import { writeOut } from "../src/output.ts";
 
@@ -95,6 +97,7 @@ function fail(code: "cli.bad-flag" | "cli.bad-usage", message: string): never {
         "  texteda review <project dir> [--port <n>] [--out <file>]",
         "  texteda export gerbers <project dir> <board_id> [--out <dir>] [--json]",
         "  texteda tools --json",
+        "  texteda mcp",
         "  texteda lib import <name> --from <dir> --rev <rev> [--only <id>,…] [--dest <lib>] [--project <dir>] [--trust <file>] [--force]",
       ].join("\n"),
     );
@@ -376,6 +379,9 @@ if (command === "init") {
   process.exit(
     reportExport(result, options, resolve(outDir ?? join(options.root, "dist", "fab", board))),
   );
+} else if (command === "mcp") {
+  if (args.positional.length > 0) fail("cli.bad-usage", "Too many arguments");
+  process.exit(await runMcp());
 } else if (command === "tools") {
   if (args.positional.length > 0) fail("cli.bad-usage", "Too many arguments");
   if (!args.flags.has("--json")) fail("cli.bad-usage", "`texteda tools` needs --json: the catalogue is machine-readable");

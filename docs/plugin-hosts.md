@@ -166,9 +166,29 @@ What the agent-facing half *is* — the verbs, the skill, and what a host's tool
 on top — is decided in
 [ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md).
 
-Both hosts already have a native way to expose our verbs to the agent. That is the reason there is
-no MCP layer in the plan: MCP would be a second protocol for the same verbs, needed only by
-traditional applications and cloud services that cannot host a plugin at all.
+Both hosts have a native way to expose our verbs to the agent. That is not the whole picture: the
+survey in [docs/tool-formats.md](tool-formats.md) found that four of the six hosts — Claude Code,
+Codex, WorkBuddy and Qoder — take a tool **only** through MCP. So MCP is not a second protocol for
+traditional applications; it is the ordinary route into the ecosystem, and the two native
+registries are the accelerators on top of it
+([ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D5).
+
+The server is `texteda mcp` ([ADR-0144](adr/process/0144-the-mcp-server-is-a-slice-we-write-ourselves.md)):
+one stdio process that answers `initialize`, `tools/list` and `tools/call`, and hands back the
+values the command line prints with `--json`. A host that speaks MCP points at it like this:
+
+```json
+{
+  "mcpServers": {
+    "texteda": {
+      "command": "bun",
+      "args": ["run", "packages/cli/scripts/texteda.ts", "mcp"]
+    }
+  }
+}
+```
+
+The path is the repository's own; a host that installs the package would name the binary instead.
 
 ## What a plugin would reuse from this repository
 

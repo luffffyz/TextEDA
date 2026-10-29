@@ -11,6 +11,7 @@
 - **F52（命令行重锚定打印页的连线）已关闭** → [ADR-0141](adr/view/0141-the-review-app-has-four-modes.md) D6 与 `spec/schematic-view.md` §9.4.1（命令是 `texteda view rewire`；内核是 `packages/core/src/view/reroute.ts` 的 `rerouteWire`——只凭文件把走线锚回引脚，内部折点不动，内部有斜段只报冲突）。
 - **F55（打印页的动词收成 `texteda view <子命令>`）已关闭** → [ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D6（`texteda view metrics|rewire|render`；破坏性改名，`texteda view-metrics` 不再被接受并提示新名字）。
 - **F56（动词返回"值"，并把清单做成机器可读）已关闭** → [ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D2、D7、D8、D9（动词拆成 `build*(options) → 值`，打印留在脚本里；清单在 `packages/cli/src/tools.ts`，`texteda tools --json` 打印它；测试钉住"工具的值 == 同名动词 `--json` 的输出，逐字段相等"）。
+- **F57（MCP 服务器（stdio））已关闭** → [ADR-0144](adr/process/0144-the-mcp-server-is-a-slice-we-write-ourselves.md)（命令是 `texteda mcp`；自己写的那一小片协议：`initialize` / `server/discover` / `tools/list` / `tools/call`；工具就是清单里的八条，值就是 `--json` 的值；两种年代的协议都讲）。
 
 ---
 
@@ -1390,23 +1391,6 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 - 在 `edit` 模式改一行文本（不保存），切到 `layout` 拖一个符号并 Apply：改过的文本仍在文件里，符号位置也更新了。
 - 不带草稿的请求行为不变（`packages/cli/test/review-layout.test.ts` 现有用例全绿）。
 - 写回仍是规范形式：`bun run fmt:teda --check .` 通过。
-
-## F57. MCP 服务器（stdio）：把同一批动词暴露成 MCP 工具（2026-10-29）
-
-**现状**：调查了六个宿主接受工具的格式（`docs/tool-formats.md`）：Claude Code、Codex、WorkBuddy、Qoder **只认 MCP**，DSH 与 pi 有自己的注册表。也就是说，对多数宿主来说 MCP 不是"给传统 app 的兼容层"，而是**唯一机器可读的工具通道**——[ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D5 已按这个事实改写。
-
-**要做的事**：在 CLI 之上加一个 stdio MCP 服务器：`initialize` / `tools/list` / `tools/call`，每个动词一个工具，`inputSchema` 用 F56 清单里的 JSON Schema，`outputSchema` + `structuredContent` 返回 `build*()` 的值。
-
-**要决定的**：
-
-1. **自己写还是用官方 SDK**：MCP 的 stdio 传输是行分隔 JSON，服务器侧只需要 `initialize` / `tools/list` / `tools/call` 三个方法，手写约 200 行、零依赖，符合不变量 20；官方 SDK（`@modelcontextprotocol/sdk`）是新增依赖，按 [ADR-0137](adr/process/0137-implementation-stack-and-agent-entry.md) 要另起 ADR。**倾向手写**（只实现我们用到的切片），但这是要写进 ADR 的决定。
-2. **放在哪**：`packages/cli/src/mcp.ts`（CLI 包内，作为 `texteda mcp` 动词），还是独立包 `packages/mcp`？倾向 CLI 包内——它只是 CLI 动词的另一种传输。
-
-**验收**：
-
-- `texteda tools --json` 的每个动词都能在 `tools/list` 里出现，`inputSchema` 与清单逐字段相同。
-- `tools/call` 返回的值与同名 CLI 动词 `--json` 的输出**逐字段相等**（同 F56 的验收）。
-- 在 Claude Code 里用 `.mcp.json` 指向 `texteda mcp`，模型能调用 `texteda_check` 并拿到诊断。
 
 ## F58. 两个原生注册表适配器（DSH、pi）（2026-10-29）
 

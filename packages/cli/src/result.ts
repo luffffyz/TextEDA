@@ -6,9 +6,9 @@
 
 /** The outcome of a verb: the value it computed, or why it could not. */
 export interface VerbResult<T> {
-  /** Whether the verb produced its value. A value that reports errors is still a value. */
+  /** Whether the verb succeeded: the same answer as the command line's exit code. */
   readonly ok: boolean;
-  /** The computed value; present exactly when `ok` is true. */
+  /** The computed value; present when the verb computed one, even when it failed. */
   readonly value?: T;
   /** Why the verb could not do its work; present exactly when `ok` is false. */
   readonly error?: string;
