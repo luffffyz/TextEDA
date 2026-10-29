@@ -1391,3 +1391,19 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 - 在目标宿主里装上插件，agent 能调用 `texteda check` 一类的动词并拿到诊断。
 - 人能看到打印页并拖动一个符号，`place` 行被改写；连线变旧由 `texteda check` 报出来，而不是被插件悄悄改掉。
 - 插件不把任何宿主依赖带进 core（不变量 20），`packages/core` 仍然不依赖任何宿主 SDK。
+
+## F54. 拖动会丢掉未保存的文本编辑：`/api/layout` 只认磁盘上的那一版（2026-10-29）
+
+**现状**：`POST /api/layout` 的请求体只有 `{board, page, places, commit}`；`planLayout` 直接 `readFileSync` 打印页文件（`packages/cli/src/layout.ts`），所以拖动是在**磁盘上的那一版**上算的，`commitPlan` 写回的也是那一版。结果：在 `edit` 模式里改了文本但没保存，再拖一个符号并 Apply，那些文本改动被覆盖掉——这是一条数据丢失路径。
+
+**为什么现在要**：插件形态下拖动是人的主要手势（[ADR-0142](adr/view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) D3），而客户端可能同时持有草稿；这个缺陷在今天的 app 里已经存在。
+
+**要做的事**：布局路由接受当前草稿文本（`text`），`planLayout` 与 `commitPlan` 以草稿为基准；没有草稿时行为完全不变。
+
+**涉及文件**：`packages/cli/src/layout.ts`（`planLayout` / `commitPlan` 接草稿）、`packages/cli/src/review.ts`（路由读 `text`）、`packages/viewer/src/client.ts`（有草稿时带上）。
+
+**验收**：
+
+- 在 `edit` 模式改一行文本（不保存），切到 `layout` 拖一个符号并 Apply：改过的文本仍在文件里，符号位置也更新了。
+- 不带草稿的请求行为不变（`packages/cli/test/review-layout.test.ts` 现有用例全绿）。
+- 写回仍是规范形式：`bun run fmt:teda --check .` 通过。
