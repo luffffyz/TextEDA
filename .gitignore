@@ -6,7 +6,7 @@ dist/
 # 厂商 datasheet 是受版权保护的第三方文档，不随仓库分发。
 # 需要时自行从厂商官网下载到该目录（文件名见 examples/reference-project/docs/mcu-board-components.md）。
 # 位置按 ADR-0107：外部材料放 external/cache/，不入库、不进 IR。
-# 决策见 docs/adr/0015-licensing-and-open-standard.md 决策 1。
+# 决策见 docs/adr/process/0138-licensing-and-open-standard.md 决策 1。
 examples/reference-project/external/cache/
 
 # 品牌资产的字体二进制不入库：build_logo.ts 自己下载 Cascadia Code 可变字体并取两个字重的实例，

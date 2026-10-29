@@ -100,6 +100,21 @@ declared range it does not satisfy. The host half needs Node ≥ 22.19.
 - The plugin would ship no new geometry code. The renderer, the model and the checks stay in the
   core, and the plugin is a delivery form for them.
 
+### What we built for DSH
+
+`plugins/dsh-texteda/` is the host half: a cordis plugin that registers the catalogue's eight
+verbs as tools, with the catalogue's JSON Schema projected onto DSH's flat parameter spec. Each
+tool returns one canonical JSON value, and `output.render` is what the model reads
+([ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D2).
+
+```sh
+bun run scripts/build-dsh-plugin.ts     # one file, with our packages inside it
+```
+
+The bundle carries our packages because they are not published (F53); the host's own packages
+stay external, because the host provides them. The client half — the drawing surface — is the
+review app's business ([ADR-0142](adr/view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md)).
+
 ## pi (oh-my-pi / OMP)
 
 ### An extension is a module with a default-export factory

@@ -1396,16 +1396,16 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 
 **现状**：pi 侧**已落地**：`plugins/pi-texteda/` 是零构建的扩展（pi 直接加载 `.ts`），把 F56 清单的 JSON Schema 投影到 `pi.zod`，注册的工具与清单逐条一致（名字、描述、参数）；真机冒烟已过（omp 会话里模型调 `texteda_check`，拿到诊断；调用失败时工具把诊断本身交回，模型看得见）。
 
-DSH 侧**待做**：宿主合同已读（`@deepseek-ai/dsh-tools` 的 `defineTool`、`@deepseek-ai/cordis` 的 `apply(ctx)`），参数是扁平 spec `{type, required, description}`，结果是 canonical value + `output.render`。
+DSH 侧**代码已落地**：宿主合同读的是官方 cookbook（`@deepseek-ai/dsh-tools` 的 `defineTool`、`@deepseek-ai/cordis` 的 `apply(ctx)` + `inject`），参数是扁平 spec `{type, required, description}`，结果是 canonical value + `output.render`。`plugins/dsh-texteda/` 是 host 半边，`packages/cli/src/dsh-tools.ts` 是投影，`bun run scripts/build-dsh-plugin.ts` 出一个 bundle（我们的包打进去，宿主的包留在外面）。
 
-**要做的事**：DSH 的 host 半边——`ctx.tools.register(defineTool({…}))`，把 F56 清单投影成扁平 spec；工具返回 canonical value（JSON），渲染交给 `output.render`。适配器只翻译参数与渲染结果，不重新实现动词。
+**要做的事**：宿主侧冒烟——把 bundle 装进 DSH，看工具出现在 `/tools` 里，并跑通一个只读动词。
 
-**涉及文件**：`plugins/dsh-texteda/`（bundle，需要打包我们的包——本仓的包未发布，见 ADR-0142 D7 与 F53）。
+**涉及文件**：`plugins/dsh-texteda/`（bundle，需要打包我们的包——本仓的包未发布，见 ADR-0142 D7 与 F53；发布这件事本身是 F53）。
 
 **验收**：
 
-- 每个适配器注册的工具集合与清单一致（名字、描述、参数逐字段相同）。
+- 每个适配器注册的工具集合与清单一致（名字、描述、参数逐字段相同）。**已过**（pi 与 DSH 两侧都有测试钉住）。
 - pi 侧真机冒烟：装上扩展，模型能调 `texteda_check` 并拿到诊断。**已过**（`omp --extension plugins/pi-texteda`）。
-- DSH 侧：bundle 装进宿主后，工具出现在 `/tools` 里且能跑通一个只读动词。**待做**（本机没有 DSH 宿主，宿主侧冒烟得在装了宿主的机器上跑）。
+- DSH 侧：bundle 装进宿主后，工具出现在 `/tools` 里且能跑通一个只读动词。**待做**（本机没有 DSH 宿主，也没有 npm，宿主侧冒烟得在装了宿主的机器上跑）。
 
 **注意**：适配器放本仓 `plugins/` 还是拆独立仓，ADR-0143 的开放点 2 还没定；拆仓的前提是清单先在 F56 里稳定。
