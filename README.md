@@ -37,6 +37,7 @@ bun run texteda ir examples/reference-project      # write the IR shard tree (ca
 bun run texteda netlist examples/reference-project --board mcu-board  # netlist = connectivity projection of the IR
 bun run texteda bom examples/reference-project charger-buck   # bill of materials, with its procurement status
 bun run texteda view metrics examples/reference-project charger-buck/buck-5v  # print-page readability numbers
+bun run texteda tools --json           # the verbs a host can register as tools, with their JSON Schema
 bun run texteda review examples/reference-project   # serve the review app on 127.0.0.1 (--out writes one HTML file)
 bun run texteda id examples/reference-project --count 3  # generate unused project-scoped instance UIDs
 bun run texteda renumber examples/reference-project charger-buck --policy compact  # dry-run a validated refdes rename

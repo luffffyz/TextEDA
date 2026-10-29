@@ -10,7 +10,8 @@
 // Nothing is written when the project has errors: a half-written tree would carry a project hash
 // that does not describe the project.
 import { resolve } from "node:path";
-import { diagnosticsToPayload, hintFor } from "@texteda/ir/diagnostics";
+import { diagnosticsToPayload } from "@texteda/ir/diagnostics";
+import type { VerbResult } from "./result.ts";
 import { buildIrTree, writeIrTree } from "./ir-tree.ts";
 
 export interface IrOptions {
@@ -22,58 +23,84 @@ export interface IrOptions {
   json: boolean;
 }
 
+/** The machine payload of the IR tree: what `texteda ir --json` prints. */
+export interface IrPayload {
+  diagnostics: ReturnType<typeof diagnosticsToPayload>;
+  manifest: ReturnType<typeof buildIrTree>["manifest"];
+  project_hash: string;
+  advisory_hash?: string;
+  board_hashes: Record<string, string>;
+  shards: {
+    path: string;
+    kind: string;
+    source: string;
+    sha256: string;
+    normative: boolean;
+  }[];
+}
+
+/**
+ * Build the IR tree and write it.
+ *
+ * Nothing is written when the project has errors: a half-written tree would carry a project hash
+ * that does not describe the project. The payload is returned either way — it is where the errors
+ * are.
+ */
+export function buildIr(options: { root: string; outDir?: string | undefined }): VerbResult<IrPayload> {
+  const outDir = resolve(options.outDir ?? resolve(options.root, "dist", "ir"));
+  const tree = buildIrTree(options.root);
+  const errors = tree.diagnostics.filter((d) => d.severity === "error").length;
+  const warnings = tree.diagnostics.filter((d) => d.severity === "warning").length;
+
+  const payload: IrPayload = {
+    diagnostics: diagnosticsToPayload(tree.diagnostics),
+    manifest: tree.manifest,
+    project_hash: tree.projectHash,
+    ...(tree.advisoryHash === undefined ? {} : { advisory_hash: tree.advisoryHash }),
+    board_hashes: Object.fromEntries([...tree.boardHashes].sort()),
+    shards: tree.shards.map((shard) => ({
+      path: shard.path,
+      kind: shard.kind,
+      source: shard.source,
+      sha256: shard.sha256,
+      normative: shard.normative,
+    })),
+  };
+
+  if (errors > 0) {
+    return { ok: false, value: payload, error: `IR not written: ${errors} errors, ${warnings} warnings` };
+  }
+
+  writeIrTree(outDir, tree);
+  return { ok: true, value: payload };
+}
+
 /** Build and write the IR tree. Returns the process exit code: 0 success, 1 errors present. */
 export function runIr(options: IrOptions): number {
   const outDir = resolve(options.outDir ?? resolve(options.root, "dist", "ir"));
-  const tree = buildIrTree(options.root);
+  const built = buildIr({ root: options.root, ...(options.outDir === undefined ? {} : { outDir: options.outDir }) });
+  const payload = built.value;
 
-  for (const diagnostic of tree.diagnostics) {
+  for (const diagnostic of payload?.diagnostics.diagnostics ?? []) {
     const where = diagnostic.location
       ? `${diagnostic.location.file}:${diagnostic.location.line}:${diagnostic.location.col}: `
       : "";
     console.error(`${where}${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}`);
-    const hint = diagnostic.hint ?? hintFor(diagnostic.code);
-    if (hint) console.error(`    How to fix: ${hint}`);
+    if (diagnostic.hint) console.error(`    How to fix: ${diagnostic.hint}`);
   }
 
-  const errors = tree.diagnostics.filter((d) => d.severity === "error").length;
-  const warnings = tree.diagnostics.filter((d) => d.severity === "warning").length;
+  if (options.json) console.log(JSON.stringify(payload, null, 2));
 
-  if (options.json) {
-    console.log(
-      JSON.stringify(
-        {
-          diagnostics: diagnosticsToPayload(tree.diagnostics),
-          manifest: tree.manifest,
-          project_hash: tree.projectHash,
-          ...(tree.advisoryHash === undefined ? {} : { advisory_hash: tree.advisoryHash }),
-          board_hashes: Object.fromEntries([...tree.boardHashes].sort()),
-          shards: tree.shards.map((shard) => ({
-            path: shard.path,
-            kind: shard.kind,
-            source: shard.source,
-            sha256: shard.sha256,
-            normative: shard.normative,
-          })),
-        },
-        null,
-        2,
-      ),
-    );
-  }
-
-  if (errors > 0) {
-    console.error(`IR not written: ${errors} errors, ${warnings} warnings`);
+  if (!built.ok) {
+    console.error(built.error ?? "The IR tree was not written");
     return 1;
   }
 
-  writeIrTree(outDir, tree);
-
-  if (!options.json) {
-    console.log(`Wrote ${tree.shards.length} shards to ${outDir}`);
-    console.log(`Project hash: ${tree.projectHash}`);
-    if (tree.advisoryHash !== undefined) console.log(`Advisory hash: ${tree.advisoryHash}`);
-    for (const [board, hash] of [...tree.boardHashes].sort()) console.log(`  ${board}: ${hash}`);
+  if (!options.json && payload) {
+    console.log(`Wrote ${payload.shards.length} shards to ${outDir}`);
+    console.log(`Project hash: ${payload.project_hash}`);
+    if (payload.advisory_hash !== undefined) console.log(`Advisory hash: ${payload.advisory_hash}`);
+    for (const [board, hash] of Object.entries(payload.board_hashes)) console.log(`  ${board}: ${hash}`);
   }
   return 0;
 }

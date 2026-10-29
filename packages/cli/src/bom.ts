@@ -20,6 +20,7 @@ import { writeOut } from "./output.ts";
 import { loadBoard, loadComponents, loadModules, loadProcurement } from "./project.ts";
 import { buildProcurementFacts } from "./procurement.ts";
 import { loadFootprintLibrary, withPackageCodes } from "./pads.ts";
+import type { VerbResult } from "./result.ts";
 
 export interface BomOptions {
   root: string;
@@ -58,17 +59,46 @@ function renderParams(
   return parts.join(" ");
 }
 
-/** Write the board's BOM. Returns the process exit code. */
-export function runBom(options: BomOptions): number {
-  const { root, board, json, outFile } = options;
+/** One row of the machine payload: the same fields the CSV table has, minus the note column. */
+export interface BomLinePayload {
+  component_id: string;
+  mpn: string;
+  params: Readonly<Record<string, number | string>>;
+  quantity: number;
+  status: "bought" | "unsourced" | "not-required";
+  part?: string;
+  refdes: readonly string[];
+}
+
+/** The machine payload of the BOM: what `texteda bom --json` prints. */
+export interface BomPayload {
+  board: string;
+  lines: BomLinePayload[];
+}
+
+export interface BomValue {
+  /** The machine payload. */
+  readonly payload: BomPayload;
+  /** The CSV table: what the default output prints. */
+  readonly csv: string;
+}
+
+/**
+ * The board's bill of materials, as a value.
+ *
+ * The command line prints it and a host's tool registry hands it back; both call this function, so
+ * the two faces cannot drift (ADR-0143 D2).
+ */
+export function buildBom(options: { root: string; board: string }): VerbResult<BomValue> {
+  const { root, board } = options;
   const loaded = loadBoard(root, board);
   if (!loaded) {
-    console.error(`Board root file not found: ${LAYOUT.sch}/${board}.teda`);
-    return 2;
+    return { ok: false, code: "cli.bad-usage", error: `Board root file not found: ${LAYOUT.sch}/${board}.teda` };
   }
   const { resolver, problems, devices: loadedDevices } = loadComponents(root);
-  for (const problem of problems) {
-    console.error(`Component index: ${problem.file}:${problem.line}: ${problem.message}`);
+  if (problems.length > 0) {
+    const lines = problems.map((problem) => `Component index: ${problem.file}:${problem.line}: ${problem.message}`);
+    return { ok: false, error: lines.join("\n") };
   }
 
   const schematic = parseSchematic(loaded.text, {
@@ -78,13 +108,13 @@ export function runBom(options: BomOptions): number {
     modules: loadModules(root),
   });
   if (!schematic.ir) {
-    for (const diagnostic of schematic.diagnostics) {
+    const lines = schematic.diagnostics.map((diagnostic) => {
       const where = diagnostic.location
         ? `${diagnostic.location.file}:${diagnostic.location.line}:${diagnostic.location.col}: `
         : "";
-      console.error(`${where}${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}`);
-    }
-    return 1;
+      return `${where}${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}`;
+    });
+    return { ok: false, error: lines.join("\n") };
   }
 
   const procurements: { ir: Procurement; file: string }[] = [];
@@ -113,28 +143,18 @@ export function runBom(options: BomOptions): number {
     for (const param of device.params) types.set(`${device.id}.${param.name}`, param.type);
   }
 
-  if (json) {
-    const payload = {
-      board,
-      lines: lines.map((line) => ({
-        component_id: line.component,
-        mpn: line.mpn,
-        params: line.params,
-        quantity: line.quantity,
-        status: line.status,
-        ...(line.part ? { part: line.part } : {}),
-        refdes: line.instances,
-      })),
-    };
-    const text = `${JSON.stringify(payload, null, 2)}\n`;
-    if (outFile) {
-      writeOut(outFile, text);
-      console.error(`Wrote ${outFile}`);
-    } else {
-      console.log(text.trimEnd());
-    }
-    return 0;
-  }
+  const payload: BomPayload = {
+    board,
+    lines: lines.map((line) => ({
+      component_id: line.component,
+      mpn: line.mpn,
+      params: line.params,
+      quantity: line.quantity,
+      status: line.status,
+      ...(line.part ? { part: line.part } : {}),
+      refdes: line.instances,
+    })),
+  };
 
   const rows: string[] = [COLUMNS.join(",")];
   for (const line of lines) {
@@ -157,7 +177,18 @@ export function runBom(options: BomOptions): number {
         .join(","),
     );
   }
-  const text = `${rows.join("\n")}\n`;
+  return { ok: true, value: { payload, csv: `${rows.join("\n")}\n` } };
+}
+
+/** Write the board's BOM. Returns the process exit code. */
+export function runBom(options: BomOptions): number {
+  const { root, board, json, outFile } = options;
+  const built = buildBom({ root, board });
+  if (!built.ok) {
+    console.error(built.error ?? "The bill of materials could not be built");
+    return built.error?.startsWith("Board root file not found") ? 2 : 1;
+  }
+  const text = json ? `${JSON.stringify(built.value!.payload, null, 2)}\n` : built.value!.csv;
   if (outFile) {
     writeOut(outFile, text);
     console.error(`Wrote ${outFile}`);

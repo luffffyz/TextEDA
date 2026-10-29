@@ -2,7 +2,7 @@
 
 Status: Proposed
 Date: 2026-10-29
-Scope: Decides: that the agent reaches TextEDA through the command line's verbs and the skill that documents them; that a host's tool registry is an optional adapter over those same functions rather than a second interface; that the skill stays the floor and is never replaced by a tool; that the print page's verbs live under one noun, `texteda view`; and that the catalogue's parameters are JSON Schema, which is the only format every host can be projected onto. Does not decide: which hosts get an adapter, what the catalogue contains, and whether the command line's surface gets a version line of its own — see "Open points".
+Scope: Decides: that the agent reaches TextEDA through the command line's verbs and the skill that documents them; that a host's tool registry is an optional adapter over those same functions rather than a second interface; that the skill stays the floor and is never replaced by a tool; that the print page's verbs live under one noun, `texteda view`; that the catalogue's parameters are JSON Schema, which is the only format every host can be projected onto; and which verbs the catalogue holds. Does not decide: which hosts get an adapter, and whether the command line's surface gets a version line of its own — see "Open points".
 Related: [ADR-0142](../view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md)
 Impact: `packages/cli/**`; `docs/skills/**`; `docs/plugin-hosts.md`; `docs/tool-formats.md`; `docs/backlog.md` (F55, F57, F58)
 
@@ -113,17 +113,34 @@ each adapter is a projection of that — not a second schema to maintain per hos
 
 The six hosts and what each of them accepts are recorded in `docs/tool-formats.md`.
 
+### D9. The catalogue holds the verbs an agent calls in a loop
+
+Eight: `texteda_check`, `texteda_view_metrics`, `texteda_view_render`, `texteda_view_rewire`,
+`texteda_ir`, `texteda_netlist`, `texteda_bom`, `texteda_export_gerbers`.
+
+The line is drawn by what an agent does over and over: validate the project, measure the page,
+look at the drawing, put the wiring back, read the IR, read the connectivity, read the BOM, write
+the manufacturing files. The verbs that are not in it are the ones a person runs once — `init`,
+`id`, `renumber`, `compile`, `review`, `lib import` — and `compile` in particular is absent because
+`ir` hands back the same IR with the hashes attached.
+
+Each entry carries the annotations a host wants before it runs a tool: whether the tool only
+reads, whether it writes over something a person made, and whether running it twice changes
+anything. They are hints, not policy — the host decides what to ask about.
+
+The catalogue is the whole of the tool surface. A verb that is not in it is not exposed as a tool,
+and the catalogue is printed by `texteda tools --json` so that a host we never wrote an adapter for
+can build one.
+
 ## Open points
 
-1. **What the catalogue contains.** The verbs an agent actually calls in a loop, against every
-   verb the command line has.
-2. **Which adapters get built first, and where they live.** The survey narrows the field to three:
+1. **Which adapters get built first, and where they live.** The survey narrows the field to three:
    the command line and the skill (the floor, which works everywhere), two native registry
    adapters (DSH's `defineTool`, pi's `registerTool`), and one MCP server for the four hosts that
    take tools only through MCP. A pi extension loads TypeScript directly and needs no build; a DSH
    bundle is an npm package with a host half and a client half, and it has to bundle this
    repository's code, because these packages are not published.
-3. **Whether the command line's surface gets a version line of its own.** The language has one
+2. **Whether the command line's surface gets a version line of its own.** The language has one
    version number ([ADR-0101](../language/0101-one-language-version-number.md)); the command
    line's verbs are not covered by it.
 

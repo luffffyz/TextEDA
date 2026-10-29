@@ -4,3 +4,8 @@ export * from "./check.ts";
 export * from "./compile.ts";
 export * from "./view.ts";
 export * from "./result.ts";
+export * from "./bom.ts";
+export * from "./export.ts";
+export * from "./ir.ts";
+export * from "./netlist.ts";
+export * from "./tools.ts";

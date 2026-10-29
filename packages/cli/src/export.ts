@@ -15,6 +15,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { diagnosticsToPayload, type Diagnostic } from "@texteda/ir/diagnostics";
+import type { VerbResult } from "./result.ts";
 import { parsePcb, parseSchematic } from "@texteda/parser";
 import { boardImage, fillBoard, fillBoardFacts, type FillOutput } from "@texteda/core";
 import { toExcellon, toGerber } from "@texteda/exporter";
@@ -156,6 +157,39 @@ export function runExport(options: ExportOptions): ExportResult {
     files: written,
     stamp,
     pours: pours.map((pour) => ({ net: pour.net, layer: pour.layer, area_nm2: pour.area_nm2 })),
+  };
+}
+
+/** The machine payload of the export: what `texteda export gerbers --json` prints. */
+export interface ExportPayload {
+  board: string;
+  source_hash: string;
+  tool_version: string;
+  out_dir: string;
+  files: { name: string; bytes: number }[];
+  pours: { net: string; layer: string; area_nm2: number }[];
+  diagnostics: ReturnType<typeof diagnosticsToPayload>;
+}
+
+/**
+ * Write the manufacturing files and return the result as a value.
+ *
+ * The command line prints it and a host's tool registry hands it back; both call this function, so
+ * the two faces cannot drift (ADR-0143 D2).
+ */
+export function buildExport(options: ExportOptions, outDir: string): VerbResult<ExportPayload> {
+  const result = runExport(options);
+  return {
+    ok: result.exitCode === 0,
+    value: {
+      board: options.board,
+      source_hash: result.stamp.source_hash,
+      tool_version: result.stamp.tool_version,
+      out_dir: relativePath(options.root, outDir),
+      files: result.files,
+      pours: result.pours,
+      diagnostics: diagnosticsToPayload(result.diagnostics),
+    },
   };
 }
 

@@ -6,12 +6,17 @@
 
 /** The outcome of a verb: the value it computed, or why it could not. */
 export interface VerbResult<T> {
-  /** Whether the verb did its work. */
+  /** Whether the verb produced its value. A value that reports errors is still a value. */
   readonly ok: boolean;
   /** The computed value; present exactly when `ok` is true. */
   readonly value?: T;
   /** Why the verb could not do its work; present exactly when `ok` is false. */
   readonly error?: string;
+  /**
+   * The cli-domain code of the failure, when the failure is about the caller's arguments rather
+   * than about the project. The command line prints it with the usage; a tool hands it back.
+   */
+  readonly code?: "cli.bad-usage";
 }
 
 /** A verb that computed its value. */

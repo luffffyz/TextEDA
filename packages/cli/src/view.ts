@@ -83,12 +83,16 @@ export function buildViewMetrics(options: ViewMetricsOptions): VerbResult<ViewMe
   const { root, board, page } = options;
   const loaded = loadBoard(root, board);
   if (!loaded) {
-    return { ok: false, error: `Board root file not found: design/sch/${board}.teda` };
+    return { ok: false, code: "cli.bad-usage", error: `Board root file not found: design/sch/${board}.teda` };
   }
   const source = loaded.views.find((view) => view.pageId === page);
   if (!source) {
     const available = loaded.views.map((view) => view.pageId).join(", ") || "none";
-    return { ok: false, error: `Print page ${page} not found for board ${board} (available: ${available})` };
+    return {
+      ok: false,
+      code: "cli.bad-usage",
+      error: `Print page ${page} not found for board ${board} (available: ${available})`,
+    };
   }
 
   const { resolver, shards } = loadComponents(root);
@@ -173,12 +177,16 @@ export function buildViewRewire(options: ViewRewireOptions): VerbResult<ViewRewi
   const { root, board, page } = options;
   const loaded = loadBoard(root, board);
   if (!loaded) {
-    return { ok: false, error: `Board root file not found: design/sch/${board}.teda` };
+    return { ok: false, code: "cli.bad-usage", error: `Board root file not found: design/sch/${board}.teda` };
   }
   const source = loaded.views.find((view) => view.pageId === page);
   if (!source) {
     const available = loaded.views.map((view) => view.pageId).join(", ") || "none";
-    return { ok: false, error: `Print page ${page} not found for board ${board} (available: ${available})` };
+    return {
+      ok: false,
+      code: "cli.bad-usage",
+      error: `Print page ${page} not found for board ${board} (available: ${available})`,
+    };
   }
 
   const { resolver, shards } = loadComponents(root);
@@ -301,12 +309,16 @@ export function buildViewRender(options: ViewRenderOptions): VerbResult<ViewRend
   const { root, board, page } = options;
   const loaded = loadBoard(root, board);
   if (!loaded) {
-    return { ok: false, error: `Board root file not found: design/sch/${board}.teda` };
+    return { ok: false, code: "cli.bad-usage", error: `Board root file not found: design/sch/${board}.teda` };
   }
   const source = loaded.views.find((view) => view.pageId === page);
   if (!source) {
     const available = loaded.views.map((view) => view.pageId).join(", ") || "none";
-    return { ok: false, error: `Print page ${page} not found for board ${board} (available: ${available})` };
+    return {
+      ok: false,
+      code: "cli.bad-usage",
+      error: `Print page ${page} not found for board ${board} (available: ${available})`,
+    };
   }
   const text = readFileSync(`${root}/${source.file}`, "utf8");
   const drawn = renderPageSource(root, board, page, text);

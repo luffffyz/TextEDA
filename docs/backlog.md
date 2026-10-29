@@ -10,6 +10,7 @@
 - **F50（ADR 语料的附录膨胀与散文漂移）已关闭** → `docs/adr-corpus-structure.md`（语料换成主题文件夹后附录全部就地折进正文、R4 零告警；版本号类快照改成指针；新写记录里的裸 `§N` 全部补上文件名；版本表与 `TYPE_BIRTH` 由测试钉住）。
 - **F52（命令行重锚定打印页的连线）已关闭** → [ADR-0141](adr/view/0141-the-review-app-has-four-modes.md) D6 与 `spec/schematic-view.md` §9.4.1（命令是 `texteda view rewire`；内核是 `packages/core/src/view/reroute.ts` 的 `rerouteWire`——只凭文件把走线锚回引脚，内部折点不动，内部有斜段只报冲突）。
 - **F55（打印页的动词收成 `texteda view <子命令>`）已关闭** → [ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D6（`texteda view metrics|rewire|render`；破坏性改名，`texteda view-metrics` 不再被接受并提示新名字）。
+- **F56（动词返回"值"，并把清单做成机器可读）已关闭** → [ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D2、D7、D8、D9（动词拆成 `build*(options) → 值`，打印留在脚本里；清单在 `packages/cli/src/tools.ts`，`texteda tools --json` 打印它；测试钉住"工具的值 == 同名动词 `--json` 的输出，逐字段相等"）。
 
 ---
 
@@ -1389,23 +1390,6 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 - 在 `edit` 模式改一行文本（不保存），切到 `layout` 拖一个符号并 Apply：改过的文本仍在文件里，符号位置也更新了。
 - 不带草稿的请求行为不变（`packages/cli/test/review-layout.test.ts` 现有用例全绿）。
 - 写回仍是规范形式：`bun run fmt:teda --check .` 通过。
-
-## F56. 动词返回"值"，并把清单做成机器可读（ADR-0143 的落地）
-
-**现状**：`runBom` / `runCompile` / `runViewMetrics` / `runIr` 把结果**直接打印**并返回退出码，外部拿不到值；只有 `check` 是干净形态（`checkProject` / `analyzeProject` 纯函数）。因此宿主工具注册表拿不到结构化结果（[ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D2）。
-
-**要做的事**：
-
-1. 每个动词拆成 `build*(options) → 值`（`packages/cli/src/**`），打印留在 `packages/cli/scripts/texteda.ts`；CLI 的行为与输出**逐字节不变**。
-2. 新增 `texteda tools --json`：打印可作为工具暴露的动词清单（名字、描述、参数），让没写适配器的宿主也能自己接（ADR-0143 D7）。
-
-**涉及文件**：`packages/cli/src/{bom,compile,view,ir,id,renumber,export}.ts`、`packages/cli/src/tools.ts`（新，清单）、`packages/cli/scripts/texteda.ts`。
-
-**验收**：
-
-- 每个动词的 `build*` 返回值与同名 CLI 动词 `--json` 的输出**逐字段相等**（子进程对比，写在 `packages/cli/test/tools.test.ts`）。
-- `texteda tools --json` 的 dump 与内存清单一致；名字唯一、描述非空、参数是扁平的（`type` / `required` / `description`）。
-- CLI 现有输出零变化：`bun test` 全绿，`bun run cases:check` 4/4。
 
 ## F57. MCP 服务器（stdio）：把同一批动词暴露成 MCP 工具（2026-10-29）
 

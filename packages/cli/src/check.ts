@@ -13,7 +13,8 @@ import type { Schematic } from "@texteda/ir/schematic";
 import { schematicGeometry } from "@texteda/renderer";
 import type { SchematicView } from "@texteda/ir/schematic-view";
 import type { Procurement } from "@texteda/ir/procurement";
-import type { Diagnostic, DiagnosticLocation } from "@texteda/ir/diagnostics";
+import type { Diagnostic, DiagnosticLocation, DiagnosticsPayload } from "@texteda/ir/diagnostics";
+import { diagnosticsToPayload } from "@texteda/ir/diagnostics";
 import type { SourceMap } from "@texteda/ir/spans";
 import { PROCUREMENT_ROLES, parsePcb, parseProcurement, parseSchematic, parseSystem, parseView } from "@texteda/parser";
 import {
@@ -65,6 +66,7 @@ import { loadSymbolLibrary, schematicInstances, type DeviceFacts } from "./symbo
 import { LAYOUT } from "./paths.ts";
 import { idLocator, locateWith } from "./locate.ts";
 import { checkProjectInstanceUids, type ProjectUidInput } from "./uids.ts";
+import type { VerbResult } from "./result.ts";
 
 export interface BoardAnalysis {
   board: string;
@@ -94,6 +96,17 @@ export interface CheckResult {
 export function checkProject(root: string): CheckResult {
   const { boards, diagnostics } = analyzeProject(root);
   return { boards, diagnostics };
+}
+
+/**
+ * The project's diagnostics as the machine payload — the value `texteda check --json` prints.
+ *
+ * The command line and a host's tool registry call the same function, so the two faces of the
+ * verb cannot drift (ADR-0143 D2).
+ */
+export function buildCheck(root: string): VerbResult<{ payload: DiagnosticsPayload; boards: string[] }> {
+  const result = checkProject(root);
+  return { ok: true, value: { payload: diagnosticsToPayload(result.diagnostics), boards: result.boards } };
 }
 
 /**

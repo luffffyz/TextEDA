@@ -17,12 +17,13 @@
 //   texteda view render <project dir> <board>/<page> [--out <file>] [--json]
 //   texteda review <project dir> [--port <n>] [--out <file>]
 //   texteda export gerbers <project dir> <board_id> [--out <dir>] [--json]
+//   texteda tools --json
 //   texteda lib import <name> --from <dir> --rev <rev> [--only <id>,…] [--dest <lib>] [--project <dir>] [--trust <file>] [--force]
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { initTree, projectNameFromDir } from "../src/init.ts";
 import { runCompile } from "../src/compile.ts";
-import { analyzeProject, checkProject } from "../src/check.ts";
+import { buildCheck } from "../src/check.ts";
 import { runIr } from "../src/ir.ts";
 import { runBom } from "../src/bom.ts";
 import { runViewMetrics, runViewRender, runViewRewire, splitPageRef } from "../src/view.ts";
@@ -30,10 +31,10 @@ import { runReview } from "../src/review.ts";
 import { runId } from "../src/id.ts";
 import { runRenumber } from "../src/renumber.ts";
 import { runLibImport } from "../src/lib-import.ts";
+import { buildNetlist } from "../src/netlist.ts";
+import { toolCatalogue } from "../src/tools.ts";
 import { reportExport, runExport } from "../src/export.ts";
-import { formatNetlist, toNetlist } from "@texteda/exporter/netlist";
 import { writeOut } from "../src/output.ts";
-import { countByStage, diagnosticsToPayload, hintFor } from "@texteda/ir/diagnostics";
 
 /** Known flags. Failures in the cli domain do not go into the --json diagnostics array; they go to stderr plus an exit code (ADR-0102). */
 const KNOWN_FLAGS = new Set([
@@ -93,6 +94,7 @@ function fail(code: "cli.bad-flag" | "cli.bad-usage", message: string): never {
         "  texteda view render <project dir> <board>/<page> [--out <file>] [--json]",
         "  texteda review <project dir> [--port <n>] [--out <file>]",
         "  texteda export gerbers <project dir> <board_id> [--out <dir>] [--json]",
+        "  texteda tools --json",
         "  texteda lib import <name> --from <dir> --rev <rev> [--only <id>,…] [--dest <lib>] [--project <dir>] [--trust <file>] [--force]",
       ].join("\n"),
     );
@@ -171,31 +173,29 @@ function runCheck(args: ParsedArgs): void {
   const target = args.positional[0] ?? fail("cli.bad-usage", "Missing project directory");
   if (args.positional.length > 1) fail("cli.bad-usage", "Too many arguments");
 
-  const result = checkProject(resolve(target));
+  const built = buildCheck(resolve(target));
+  const { payload, boards } = built.value!;
   if (args.flags.has("--json")) {
-    console.log(JSON.stringify(diagnosticsToPayload(result.diagnostics), null, 2));
+    console.log(JSON.stringify(payload, null, 2));
   } else {
-    for (const diagnostic of result.diagnostics) {
+    for (const diagnostic of payload.diagnostics) {
       const where = diagnostic.location
         ? `${diagnostic.location.file}:${diagnostic.location.line}:${diagnostic.location.col}: `
         : "";
       console.error(`${where}${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}`);
-      const hint = diagnostic.hint ?? hintFor(diagnostic.code);
-      if (hint) console.error(`    How to fix: ${hint}`);
+      if (diagnostic.hint) console.error(`    How to fix: ${diagnostic.hint}`);
       // A reference has two ends (ADR-0103 D5): the line to fix, and where the thing is defined.
       for (const related of diagnostic.related ?? []) {
         console.error(`    See also: ${related.file}:${related.line}:${related.col}`);
       }
     }
-    const errors = result.diagnostics.filter((d) => d.severity === "error").length;
-    const warnings = result.diagnostics.filter((d) => d.severity === "warning").length;
-    const byStage = countByStage(result.diagnostics);
+    const byStage = payload.countsByStage;
     console.error(
-      `Checked ${result.boards.length} boards: ${errors} errors, ${warnings} warnings` +
+      `Checked ${boards.length} boards: ${payload.errorCount} errors, ${payload.warningCount} warnings` +
         ` (stages: parse ${byStage.parse} · contract ${byStage.contract} · design ${byStage.semantic})`,
     );
   }
-  if (result.diagnostics.some((d) => d.severity === "error")) process.exit(1);
+  if (payload.errorCount > 0) process.exit(1);
 }
 
 function runNetlist(args: ParsedArgs): void {
@@ -203,38 +203,17 @@ function runNetlist(args: ParsedArgs): void {
   if (args.positional.length > 1) fail("cli.bad-usage", "Too many arguments");
 
   const only = args.values.get("--board");
-  const result = analyzeProject(resolve(target));
-
-  // Diagnostics go to stderr first: the netlist is a projection of the **validated** design — exporting with errors would only mislead downstream.
-  for (const diagnostic of result.diagnostics) {
-    if (diagnostic.severity !== "error") continue;
-    const where = diagnostic.location
-      ? `${diagnostic.location.file}:${diagnostic.location.line}:${diagnostic.location.col}: `
-      : "";
-    console.error(`${where}${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}`);
-  }
-  const errors = result.diagnostics.filter((d) => d.severity === "error").length;
-  if (errors > 0) {
-    console.error(`Netlist not exported: ${errors} errors (run texteda check first to see how to fix them)`);
+  const built = buildNetlist({ root: resolve(target), ...(only === undefined ? {} : { board: only }) });
+  if (!built.ok) {
+    if (built.code === "cli.bad-usage") fail("cli.bad-usage", built.error ?? "Bad usage");
+    console.error(built.error ?? "The netlist could not be exported");
     process.exit(1);
   }
 
-  const chosen = result.analyses.filter(
-    (analysis) => analysis.ir !== undefined && (only === undefined || analysis.board === only),
-  );
-  if (chosen.length === 0) {
-    fail(
-      "cli.bad-usage",
-      only === undefined
-        ? "No exportable boards in the project"
-        : `Board ${only} not found (available: ${result.boards.join(", ") || "none"})`,
-    );
-  }
-
-  const netlists = chosen.map((analysis) => toNetlist(analysis.ir!));
+  const value = built.value!;
   const text = args.flags.has("--json")
-    ? `${JSON.stringify(netlists.length === 1 ? netlists[0] : netlists, null, 2)}\n`
-    : netlists.map((netlist) => formatNetlist(netlist)).join("\n");
+    ? `${JSON.stringify(value.payload, null, 2)}\n`
+    : value.text;
 
   const out = args.values.get("--out");
   if (out === undefined) {
@@ -397,6 +376,10 @@ if (command === "init") {
   process.exit(
     reportExport(result, options, resolve(outDir ?? join(options.root, "dist", "fab", board))),
   );
+} else if (command === "tools") {
+  if (args.positional.length > 0) fail("cli.bad-usage", "Too many arguments");
+  if (!args.flags.has("--json")) fail("cli.bad-usage", "`texteda tools` needs --json: the catalogue is machine-readable");
+  console.log(JSON.stringify(toolCatalogue(), null, 2));
 } else if (command === "lib") {
   if (args.positional[0] !== "import") {
     fail(
