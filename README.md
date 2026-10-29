@@ -22,7 +22,7 @@ Describe a piece of hardware as **human-written text**: the schematic (`sch`) an
 ```bash
 bun install
 bun test                # unit + contract + round-trip tests
-bun run typecheck       # all seven packages through tsc
+bun run typecheck       # every package and plugin through tsc
 bun run lib:verify      # library closure, **zero external dependencies**
 bun run lib:verify:kicad  # optional: adds the KiCad interoperability section
 bun run check:links      # every Markdown link and ADR cross-reference resolves
@@ -39,6 +39,7 @@ bun run texteda bom examples/reference-project charger-buck   # bill of material
 bun run texteda view metrics examples/reference-project charger-buck/buck-5v  # print-page readability numbers
 bun run texteda tools --json           # the verbs a host can register as tools, with their JSON Schema
 bun run texteda mcp                  # serve the same verbs as MCP tools over stdio
+bun run build:dsh-plugin             # bundle the DeepSeek Harness plugin's host half
 bun run texteda review examples/reference-project   # serve the review app on 127.0.0.1 (--out writes one HTML file)
 bun run texteda id examples/reference-project --count 3  # generate unused project-scoped instance UIDs
 bun run texteda renumber examples/reference-project charger-buck --policy compact  # dry-run a validated refdes rename
@@ -131,6 +132,7 @@ my-board/
 | `packages/exporter` | footprint / symbol → KiCad (`.kicad_mod` / `.kicad_sym`); netlist |
 | `packages/renderer` | Reference renderer: IR → drawing commands → SVG, plus the reverse extraction that closes the round trip ([ADR-0135](docs/adr/view/0135-our-own-reference-renderer.md)) |
 | `packages/viewer` | The review app's browser side: page, hover highlight, identity selection; no framework, no canvas editing ([ADR-0134](docs/adr/view/0134-the-view-layer-is-a-drawing.md)) |
+| `plugins/` | The host adapters: `pi-texteda` (a pi extension, zero build) and `dsh-texteda` (a DeepSeek Harness bundle). Both register the same tool catalogue the command line has ([ADR-0143](docs/adr/process/0143-the-agent-surface-is-a-set-of-verbs.md)) |
 | `packages/cli` | `texteda init` / `id` / `compile` / `check` / `netlist` / `ir` / `renumber` / `bom` / `view metrics` / `view rewire` / `view render` / `review` / `lib import` ([ADR-0137](docs/adr/process/0137-implementation-stack-and-agent-entry.md), [ADR-0105](docs/adr/ir/0105-ir-shards-and-hashes.md)) |
 | `examples/reference-project/` | Self-contained reference project: two boards (one with a `pcb`, two print pages), every device / symbol / footprint self-built, plus procurement files and review rounds |
 | `examples/cases/` | The ten difficult cases: a whole project each, pinned by expected IR and diagnostics (which are written so far: the directory listing; `bun run cases:check`) |

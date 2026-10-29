@@ -139,6 +139,26 @@ adapter is a projection of it.
 **What no host needs from us:** a protocol of our own, or a second implementation of the verbs.
 The verbs stay the command line's; the catalogue is a projection of them.
 
+## Pointing a host at the server
+
+One server, four configurations. The command is the repository's own; a host that installs the
+package would name the binary instead.
+
+```sh
+bun run packages/cli/scripts/texteda.ts mcp
+```
+
+| Host | Where the server is declared | What it looks like |
+|---|---|---|
+| Claude Code | `.mcp.json` in the plugin, or `mcpServers` in the settings | `{"mcpServers": {"texteda": {"command": "bun", "args": ["run", "<repo>/packages/cli/scripts/texteda.ts", "mcp"]}}}` |
+| Codex CLI | `[mcp_servers.texteda]` in `~/.codex/config.toml` | `command = "bun"` and `args = ["run", "<repo>/packages/cli/scripts/texteda.ts", "mcp"]` |
+| WorkBuddy | `mcp.json` with a top-level `mcpServers` map, at `~/.workbuddy/mcp.json` or `<project>/.workbuddy/mcp.json` | the same map, plus `"type": "stdio"` |
+| Qoder | `.mcp.json` in the plugin, `mcpServers` in `~/.qoder/settings.json`, or `qoder mcp add texteda -- bun run <repo>/packages/cli/scripts/texteda.ts mcp` | the same map |
+
+The tool names a host sees are the catalogue's own (`texteda_check`, `texteda_view_metrics`, …),
+rewritten by the host where it rewrites them — Qoder, for one, prefixes them with
+`mcp__<server>__`.
+
 ## Gaps we did not close
 
 - Neither WorkBuddy nor Qoder states a JSON Schema draft, `strict` or `additionalProperties`

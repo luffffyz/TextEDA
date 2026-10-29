@@ -57,9 +57,17 @@ MCP.
 ### D5. A tool's result is the verb's value
 
 The result carries the value in `structuredContent` and the same value serialized as text, so a
-client that understands only the older shape still reads something. A tool that could not do its
-work is a tool execution error (`isError: true`) with the reason as text — the model can read it
-and try again. An unknown tool is a protocol error, because no argument would make it work.
+client that understands only the older shape still reads something. An unknown tool is a protocol
+error, because no argument would make it work.
+
+A tool that could not do its work is a tool execution error (`isError: true`), and the reason is
+the text — the model can read it and try again with different arguments.
+
+A verb that failed but still computed something has computed the answer. A check that found
+errors has found them: the diagnostics are what the tool hands back, and the failure is the flag,
+not the payload. So the value is the text whenever there is a value, and the reason is the text
+only when there is nothing else to say. Every face — the command line, the MCP server, the
+adapters — reads that rule from one place (`toolAnswer`), so they cannot drift.
 
 The value is the same one the command line prints with `--json`, field for field, because both
 faces call the same function (ADR-0143 D2).

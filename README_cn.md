@@ -22,7 +22,7 @@
 ```bash
 bun install
 bun test                # 单元 + 契约 + round-trip 测试
-bun run typecheck       # 七个包一起过 tsc
+bun run typecheck       # 每个包与插件一起过 tsc
 bun run lib:verify      # 库级闭环（**零外部依赖**）
 bun run lib:verify:kicad  # 可选：追加 KiCad 互操作段（KiCad 能读能渲染、合并板 DRC 0 违规）
 bun run check:links      # 全部 Markdown 链接与 ADR 交叉引用可解析
@@ -39,6 +39,7 @@ bun run texteda bom examples/reference-project charger-buck   # 物料表，带�
 bun run texteda view metrics examples/reference-project charger-buck/buck-5v  # 打印页可读性数值
 bun run texteda tools --json           # 宿主可注册成工具的动词清单，带 JSON Schema
 bun run texteda mcp                  # 把同一批动词以 MCP 工具的形式通过 stdio 提供
+bun run build:dsh-plugin             # 打包 DeepSeek Harness 插件的 host 半边
 bun run texteda review examples/reference-project   # 在 127.0.0.1 上服务评审 app（--out 写一份 HTML）
 bun run texteda id examples/reference-project --count 3  # 生成工程内未使用的实例 UID
 bun run texteda renumber examples/reference-project charger-buck --policy compact  # 试跑一次经过校验的位号重编号
@@ -133,6 +134,7 @@ my-board/
 | `packages/exporter` | 封装 / 符号 → KiCad（`.kicad_mod` / `.kicad_sym`）；网表 |
 | `packages/renderer` | 参考渲染器：IR → 绘图指令 → SVG，以及把 round-trip 闭环的反解（[ADR-0135](docs/adr/view/0135-our-own-reference-renderer.md)） |
 | `packages/viewer` | 评审 app 的浏览器端：画面、hover 高亮、选身份；无框架、画布不可编辑（[ADR-0134](docs/adr/view/0134-the-view-layer-is-a-drawing.md)） |
+| `plugins/` | 宿主适配器：`pi-texteda`（pi 扩展，零构建）与 `dsh-texteda`（DeepSeek Harness bundle）。两者注册的都是命令行那一批工具清单（[ADR-0143](docs/adr/process/0143-the-agent-surface-is-a-set-of-verbs.md)） |
 | `packages/cli` | `texteda init` / `id` / `compile` / `check` / `netlist` / `ir` / `bom` / `view metrics` / `view rewire` / `view render` / `review` / `renumber` / `lib import`（[ADR-0137](docs/adr/process/0137-implementation-stack-and-agent-entry.md)、[ADR-0105](docs/adr/ir/0105-ir-shards-and-hashes.md)） |
 | `examples/reference-project/` | 自包含的参考工程：两块板（一块带 `pcb`，两张打印页）、器件与符号封装全部自建，库全部自建，另有选料文件与三轮评审记录 |
 | `examples/cases/` | 十个困难用例：每个都是完整小工程，用期望 IR 与期望诊断钉住（已写了哪些看目录；`bun run cases:check`） |
