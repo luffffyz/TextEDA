@@ -2,8 +2,8 @@
 
 Status: Proposed
 Date: 2026-10-29
-Scope: Decides: that the review app becomes a preview surface inside an agent workbench rather than an editing product; that the agent is the single writer of the design sources; that the plugin writes nothing; that the agent's surface is the skills and the CLI, with no MCP layer; and that the standalone app survives as the bridge for hosts that cannot host a plugin. Does not decide: which workbench is targeted first, whether the plugin may ever write positions, or what the standalone app keeps — see "Open points".
-Impact: `packages/viewer/**`; `packages/cli/src/review.ts`; `packages/cli/src/layout.ts`; `docs/guides/review-app.md`; `docs/backlog.md` (F34); `docs/plugin-hosts.md`
+Scope: Decides: that the review app becomes a preview surface inside an agent workbench rather than an editing product; that the agent is the single writer of the design sources, with one exception — the plugin writes the print page's positions; that the agent's surface is the skills and the CLI, with no MCP layer; and that the standalone app survives as the bridge for hosts that cannot host a plugin. Does not decide: which session is targeted first, how the wiring is redone after a drag, or what the standalone app keeps — see "Open points".
+Impact: `packages/viewer/**`; `packages/cli/src/review.ts`; `packages/cli/src/layout.ts`; `docs/guides/review-app.md`; `docs/backlog.md` (F34, F52, F53); `docs/plugin-hosts.md`
 
 ## Background
 
@@ -29,10 +29,18 @@ So the app was never the place where those three surfaces change. It is the plac
 **seen**. What is left for it, once it lives inside somebody else's window, is the picture and the
 pointing.
 
+Two of those three surfaces are not worth fighting over with a person: the agent edits the
+schematic file and runs the checks better than a form would. The third is different. **Position is
+the one fact that language carries badly.** "Move U1 a little left of the divider" asks the agent
+to guess millimetres it cannot see, and it is exactly the kind of instruction that produces a
+plausible-looking wrong answer. A person's judgement of where a part sits is worth keeping, and
+the cheap, exact channel for it is a pointer, not a sentence. That is the whole reason the plugin
+keeps a write — and the write is of positions only.
+
 The correction that shapes this record: in a plugin, the dialogue box and the source editing are
-the agent's own functions. The plugin needs to preview. The shape of the candidate hosts' plugin
-APIs — what a bundle is, what an extension may register, where each of them can show a picture —
-is in [docs/plugin-hosts.md](../../plugin-hosts.md).
+the agent's own functions. The plugin needs to preview — and to be a good place to point. The
+shape of the candidate hosts' plugin APIs — what a bundle is, what an extension may register, which
+sessions can carry a picture — is in [docs/plugin-hosts.md](../../plugin-hosts.md).
 
 This record is a draft: it is written to be argued with, and the parts that are still open are
 named as such rather than smuggled in as decisions.
@@ -46,7 +54,7 @@ that workbench's window, and it goes away when the workbench does. It is not a p
 own lifecycle, its own file formats, or its own idea of what a project is: it is a surface over
 the core, hosted by somebody else's shell.
 
-The contract with a person is therefore three verbs — look, select, ask — and nothing else.
+The contract with a person is therefore four verbs — look, select, ask, place — and nothing else.
 
 ### D2. The plugin is two halves over one core
 
@@ -57,7 +65,7 @@ runtime dependency, no `Bun.*`, no `process.env`, loadable in a browser and in N
 The plugin is a delivery form with two halves:
 
 - a **host half** that answers questions about a project — the model, the findings, the drawing —
-  and, when a write is allowed at all, writes through the core;
+  and writes the one thing a person is allowed to write, positions, through the core (D3);
 - a **client half** that renders the reference renderer's SVG and reports what the person
   selected.
 
@@ -69,21 +77,35 @@ adapts to it.
 Our code already is these two halves: the host half is `packages/cli/src/review.ts`, the client
 half is `packages/viewer/src/client.ts`. Neither knows what a plugin is, and neither has to.
 
-### D3. The plugin writes nothing
+### D3. The plugin writes positions, and nothing else
 
-The three change surfaces are the agent's. The plugin previews them and reports what the person
-pointed at; it does not edit instances, does not move parts, and does not write files.
+The plugin's one write is the print page's `place` rows: where a symbol sits and how it is
+rotated. Nothing else.
 
-The reason is an authority problem, not a capability problem. A writer that is not the agent needs
-its own canonical form, its own conflict rules and its own notion of when a file is consistent —
-and then a project has two truths and a class of bugs that only appear when both have written.
-The repository already holds the rule that keeps this honest: the agent owns the source, the human
-owns the positions, and no mode of the print-page workflow writes `design/**`
-(`docs/skills/draw-print-page.md` §2.2 and §2.3).
+Three things keep that write from becoming a second truth:
 
-What this means for [ADR-0141](0141-the-review-app-has-four-modes.md): `layout` and `edit` are
-write modes, so under this record they leave the plugin's surface. They are not deleted — the
-standalone app keeps them (D7) — and whether a plugin may write positions is an open point below.
+- **The print page is not a build input.** Its shard is advisory
+  ([ADR-0134](0134-the-view-layer-is-a-drawing.md) D5), so moving a symbol cannot change the
+  circuit, the BOM or the project hash. The plugin's write cannot make the project wrong; at worst
+  it makes the drawing wrong, and `texteda check` says so.
+- **The write is one kind of row.** `place` rows only. The plugin cannot touch instances, nets,
+  constraints, `design/**` or the PCB.
+- **The write is the core's write.** Canonical form, a temporary file and a rename (D8).
+
+What the plugin does **not** write is the wiring. A drag disturbs the wires attached to the moved
+symbol: their endpoints follow the symbol, their stored bends do not. Those wires go stale, and
+the staleness is reported rather than hidden — `view.wire-diagonal` and `view.wire-crosses-pin` say
+which wires no longer fit. Fixing them is the agent's or the command line's work.
+
+This narrows [ADR-0141](0141-the-review-app-has-four-modes.md) D3, which gave `layout` the bends of
+the disturbed nets as well: under this record the plugin writes the `place` rows and not the bends.
+The re-anchor algorithm exists (`packages/core/src/view/reroute.ts`), but it is reachable today
+only through the review app's Apply path — the command-line way to run it is open point 2.
+
+The division this produces — the person places, the agent wires — is the rule the repository
+already holds for the print page: the human owns the final positions, the agent writes the wires,
+and no mode of the print-page workflow writes `design/**`
+(`docs/skills/draw-print-page.md` §2.2 and §2.3). This record gives that rule a surface.
 
 ### D4. The agent's surface is the skills and the CLI; there is no MCP layer
 
@@ -102,15 +124,18 @@ The hosts give this for free anyway: a DSH plugin registers tools in the host pr
 extension registers them with `pi.registerTool`. Neither needs a protocol of ours
 (see [docs/plugin-hosts.md](../../plugin-hosts.md)).
 
-### D5. The person's gestures are read-only: look, select, ask
+### D5. The person's gestures are look, select, ask, place
 
-Hover highlights by identity; a click selects; a selection can become a brief that the agent
-receives. The brief is a request, not an edit. "U1 is where I pointed — move it and re-route what
-it disturbs" is work the agent does in the file, through the CLI, with the whole project in view.
+Hover highlights by identity; a click selects; a selection becomes a brief that the agent
+receives; a drag moves a symbol on the sheet and writes the `place` row (D3).
 
-This keeps the existing ownership rule intact and does not need a new one: the human owns the
-final positions, the agent writes the wires, and the drawing stays advisory so that rearranging a
-sheet never changes the build.
+The brief is a request, not an edit. "U1 is where I pointed — move it and re-route what it
+disturbs" is work the agent does in the file, through the CLI, with the whole project in view. The
+drag is the exception, and it is narrow: it says *where*, and never *what*.
+
+This keeps the existing ownership rule intact and needs no new one: the human owns the final
+positions, the agent writes the wires, and the drawing stays advisory so that rearranging a sheet
+never changes the build.
 
 ### D6. The scopes are explicit
 
@@ -135,26 +160,30 @@ adds a second potential writer to the picture.
 
 ## Open points
 
-1. **Which workbench is targeted first.** DSH has a plugin market and a browser client half, so a
-   plugin there can carry the drawing. pi has native tools but no picture surface, so a plugin
-   there is tools and commands, and the drawing stays a browser app. The two are not the same
-   deliverable.
-2. **Whether the plugin may write positions.** Spatial judgement is the one thing a person is
-   better at than an agent, and the repository's own print-page workflow gives the human the
-   positions. A drag-to-place gesture would keep that ownership inside the plugin — but it is the
-   one write this record currently denies (D3). It is open because it is the difference between a
-   viewer and an instrument.
+1. **Which session is targeted first.** A picture needs a session page (see
+   [docs/plugin-hosts.md](../../plugin-hosts.md)): DSH's `web` and `desktop` profiles have one,
+   while its `headless`, `sdk` and `acp` profiles and every pi mode do not. The agent-facing half
+   — the tools and the commands — is portable and can ship first; the picture half is where the
+   work is.
+2. **The wiring step after a drag.** The person places; somebody has to wire. The re-anchor
+   algorithm exists (`packages/core/src/view/reroute.ts`) but is reachable today only through the
+   review app's Apply path. A command-line way to run it — `texteda view-rewire`, or an agent tool
+   — is what makes the division of labour work, and it is not built yet.
 3. **What the standalone app keeps.** If the plugin takes the drawing, does the standalone app
-   keep `layout` and `edit`? Keeping both is two applications to keep in step; dropping them
-   takes away the ability to rearrange a sheet without the agent in the loop.
+   keep `layout` and `edit`? Keeping both is two applications to keep in step; dropping them takes
+   away the ability to rearrange a sheet without the agent in the loop.
 
 ## Consequences
 
 - The critical path stays the core ([ADR-0134](0134-the-view-layer-is-a-drawing.md) D8): a plugin
   is a consumer of artifacts, exactly as the app was.
+- The plugin becomes an instrument rather than a viewer: it is where a person says *where*. That
+  is the one thing language cannot carry, and it is worth a write path.
 - The app's own surface shrinks: no source editing, no chat, fewer modes. That is the point of the
   record, but it removes capability that exists today, so it needs a replacement (the brief) and a
   fair test — can a person actually get their sheet arranged this way?
+- A write path a person uses has to be as careful as any other: one kind of row, canonical output,
+  and a warning about what the write left stale instead of a silent fix.
 - The repository gains a second consumer of the core and a host shape that is not ours to
   control. The core must therefore stay loadable in a browser and in Node, which it already is.
 - Work is deferred, not cancelled: the standalone app, the bridge and the static report remain

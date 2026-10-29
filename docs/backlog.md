@@ -1351,3 +1351,43 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 - **不要顺手查决策号**：`D<n>` 在代码里没有稳定锚点，做了也会立刻过时（理由同上第 1 条）。
 - **不要把 `docs/trial-run/**` 拉进来**：那是历史记录，过期指针由门禁报 warning、不修。
 - 这条门禁一旦上线，"换号后靠 grep 扫尾"就不再是流程的一部分——**换号脚本自己也该跑它**。
+
+## F52. 命令行重锚定打印页的连线（`texteda view-rewire`）——插件只写 `place` 之后的收尾动作（2026-10-29）
+
+**现状**：`packages/core/src/view/reroute.ts` 已有 `reanchorWire` / `nearestOnPath` / `reseatOnNet`（重锚：保持段数与轴向序列，不寻路，见 [ADR-0141](adr/view/0141-the-review-app-has-four-modes.md) D5），但**只有评审 app 的 Apply 路径能调用**（`packages/cli/src/layout.ts` 的 `applyLayout` → `commitPlan`）。命令行没有对应动作：现有命令是 `init` / `id` / `renumber` / `compile` / `check` / `netlist` / `bom` / `view-metrics` / `review` / `ir` / `export` / `lib`。
+
+**为什么现在要**：插件形态下，人的拖动只写 `place` 行，连线留给 agent 或命令行（[ADR-0142](adr/view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) D3）。拖完之后的收尾动作必须有一条命令行，否则 agent 只能手改 `wire` 行。
+
+**要做的事**：新增 `texteda view-rewire <工程目录> <board>/<page>`：读当前打印页，按当前 `place` 把所有 `wire` 重锚定（形状不变），以规范形式写回，并报告改了哪几条 wire、哪些 wire 仍然不合法。
+
+**涉及文件**：`packages/cli/src/rewire.ts`（新）、`packages/cli/scripts/texteda.ts`（挂命令）、`packages/core/src/view/reroute.ts`（必要时导出批量入口）。
+
+**验收**：
+- 在 `examples/reference-project` 的 `views/charger-buck/buck-5v.view.teda` 上跑一次：`wire` 条数与每条的段数不变，形状仍轴对齐；`bun run fmt:teda --check .` 通过。
+- 先改一个 `place` 行再跑：`texteda check` 不再报 `view.wire-diagonal` / `view.wire-crosses-pin`。
+- 幂等：连跑两次，第二次文件字节不变。
+- 不碰 `design/**`：跑完工程哈希不变（打印页是 advisory，见 [ADR-0134](adr/view/0134-the-view-layer-is-a-drawing.md) D5）。
+
+**注意**：
+- **不要做成自动布线**：重锚定保持形状，绕障碍寻路不做（ADR-0141 D5）。
+- **不要顺手改 `wire` 的语义**：只改弯点坐标，端点由 pin 引用推导。
+
+## F53. 插件包：把评审 app 的两半接到 agent 工作台（ADR-0142 的落地）
+
+**现状**：评审 app 已经就是"宿主侧 + 客户端侧"——`packages/cli/src/review.ts`（进程：回答关于工程的问题、写文件）与 `packages/viewer/src/client.ts`（画参考渲染器的 SVG、高亮、按身份拾取）。但今天它是一个独立进程加一个独立页面，不是任何宿主的插件。
+
+**前提**：[ADR-0142](adr/view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) 被接受（**当前是 Proposed**）。
+
+**要做的事**：
+
+1. **宿主侧**：在宿主进程里注册工具（agent 可调）与路由（客户端可取模型与 SVG）；写入一律走 core 的规范写路径。
+2. **客户端侧**：把 `packages/viewer` 的画布挂进宿主的页面扩展点；没有页面的会话（终端 profile、ACP、pi 的任何模式）只带宿主侧。
+3. **次序**：先做 agent 侧（工具 + 命令，任何宿主都能用），再做图（只在有页面的会话里）。宿主形态见 `docs/plugin-hosts.md`。
+
+**开放问题**（做的时候要定）：插件包放本仓还是独立仓；宿主 SDK 是 peer 依赖还是只做示例；第一个宿主是谁。
+
+**验收**：
+
+- 在目标宿主里装上插件，agent 能调用 `texteda check` 一类的动词并拿到诊断。
+- 人能看到打印页并拖动一个符号，`place` 行被改写；连线变旧由 `texteda check` 报出来，而不是被插件悄悄改掉。
+- 插件不把任何宿主依赖带进 core（不变量 20），`packages/core` 仍然不依赖任何宿主 SDK。

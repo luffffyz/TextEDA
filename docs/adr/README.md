@@ -113,6 +113,7 @@ that was meant for it, and by nothing else.
 | [ADR-0135](view/0135-our-own-reference-renderer.md) | Our Own Reference Renderer — IR → Drawing Commands → SVG | Accepted | 2026-10-20 |
 | [ADR-0136](view/0136-review-records-and-attribution.md) | Review Is Not a Description Type — Notes, Decisions, and the One Accountable Person | Accepted | 2026-10-22 |
 | [ADR-0141](view/0141-the-review-app-has-four-modes.md) | The Review App Has Four Modes, and `layout` Writes Placement, Not Copper | Accepted | 2026-10-28 |
+| [ADR-0142](view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) | The Review App Is a Plugin of the Agent Workbench, and the Agent Owns the Source | Proposed | 2026-10-29 |
 
 ## Process
 

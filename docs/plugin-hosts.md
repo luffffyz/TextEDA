@@ -18,10 +18,31 @@ build.
 Two hosts are worth knowing:
 
 - **DSH (DeepSeek Harness)** — a harness with a real plugin market: bundles are npm packages, and
-  a bundle carries both a host half and a browser half. It is the closest thing to the shape we
-  want, because a bundle can carry a *drawing*.
+  a bundle carries both a host half and a browser half.
 - **pi (oh-my-pi / OMP)** — the harness this repository is developed in. Its extension surface is
   code, not pixels: tools, commands, hooks, and a small text widget.
+
+## The axis is the profile, not the vendor
+
+The first thing to get right is not *which vendor*, but *which session*. A plugin is two halves —
+a host half that runs inside the agent's process, and a client half that renders in the session's
+page — and only the second one needs a page:
+
+| Session | Host half | Client half |
+|---|---|---|
+| a browser or desktop session | yes | yes — the drawing can be shown |
+| a terminal session | yes | no — there is no page to load it into |
+
+DSH is one launcher with several profiles: `web`, `desktop`, `headless`, `sdk`, `sdk-minimal`,
+`acp`, and a `tui` profile that some installs carry. A DSH plugin therefore has a client half in
+the web and desktop profiles and **none** in `headless`, `sdk` or `acp` — the same bundle, in the
+same product, with no picture. (Our reading: an editor driving DSH over `acp` brings its own
+window, so there the surface would have to live in the editor, not in DSH.) pi's modes are `tui`,
+`rpc`, `json` and `print` — all terminal, no page anywhere.
+
+So the statement "DSH is a GUI host and pi is a CLI host" is wrong in both directions: DSH has a
+CLI, and its terminal profiles behave exactly like pi. The correct statement is: **a picture needs
+a session page**, and any host that has one can carry our drawing — whatever the vendor.
 
 ## DSH (DeepSeek Harness)
 
@@ -69,11 +90,13 @@ declared range it does not satisfy. The host half needs Node ≥ 22.19.
 
 - The **host half** is what `packages/cli/src/review.ts` already is: a process that answers
   questions about a project (`/api/model`, `/api/layout`, `/api/source`) and writes through the
-  core. It would move into the host as a cordis plugin and register the same routes.
+  core. It would move into the host as a cordis plugin and register the same routes. It works in
+  every profile, terminal ones included.
 - The **client half** is what `packages/viewer/src/client.ts` already is: a client that draws the
   reference renderer's SVG, highlights by identity, and reports what the person clicked. It would
-  become a React component mounted in a slot. (Our plan, not a DSH fact: the client half is
-  vanilla TypeScript today; wrapping it in React is a small adapter.)
+  become a React component mounted in a slot — and it only mounts where the session has a page
+  (`web`, `desktop`). (Our plan, not a DSH fact: the client half is vanilla TypeScript today;
+  wrapping it in React is a small adapter.)
 - The plugin would ship no new geometry code. The renderer, the model and the checks stay in the
   core, and the plugin is a delivery form for them.
 
@@ -115,13 +138,15 @@ Herdr, Orca, CMUX), *not* an OS window.
 
 ### What it means for TextEDA — our plan
 
-- There is **no webview and no panel extension point**. A picture cannot be shown natively; the
-  closest native surfaces are the text widget and a terminal pane.
+- There is **no webview and no panel extension point**, and no session page in any mode. A picture
+  cannot be shown natively; the closest native surfaces are the text widget and a terminal pane.
 - The agent surface is excellent and needs no protocol of our own: `pi.registerTool` exposes the
   CLI's verbs to the agent directly, and `pi.registerCommand` gives the person a `/texteda`
   entry point. `pi.sendUserMessage` can hand a selection to the agent as a message.
 - So in pi the natural plugin is a *tool and command* package, not a drawing surface. The drawing
   would have to live elsewhere: the browser, or a terminal renderer that does not exist yet.
+- pi is not special here: it is what a terminal session looks like. A DSH plugin in `headless`,
+  `sdk` or `acp` is in the same position.
 
 ## The common shape
 
@@ -129,9 +154,13 @@ Herdr, Orca, CMUX), *not* an OS window.
 |---|---|---|
 | The agent calls our verbs | a tool registered by the host half | `pi.registerTool` |
 | The person triggers a command | a slot's control | `pi.registerCommand` |
-| The person sees the board | a client half rendering our SVG | no native surface; a widget's worth of text, or a terminal pane |
+| The person sees the board | a client half rendering our SVG — where the session has a page | no native surface; a widget's worth of text, or a terminal pane |
 | The person hands a selection to the agent | the client half plus the session service | `pi.sendUserMessage` |
 | The plugin reads and writes project files | the host half, via `shell` or the file system | the agent's own tools |
+
+The split that follows: the **agent-facing half** is portable and belongs in every host; the
+**picture half** is an add-on that only exists where a session page does. A plugin package can
+carry both, and a host that has no page simply uses the first.
 
 Both hosts already have a native way to expose our verbs to the agent. That is the reason there is
 no MCP layer in the plan: MCP would be a second protocol for the same verbs, needed only by
