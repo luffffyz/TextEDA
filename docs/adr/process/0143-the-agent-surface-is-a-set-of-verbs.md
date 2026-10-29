@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-29
 Scope: Decides: that the agent reaches TextEDA through the command line's verbs and the skill that documents them; that a host's tool registry is an optional adapter over those same functions rather than a second interface; that the skill stays the floor and is never replaced by a tool; that the print page's verbs live under one noun, `texteda view`; that the catalogue's parameters are JSON Schema, which is the only format every host can be projected onto; which verbs the catalogue holds; and which adapters get built and where they live. Does not decide: whether the command line's surface gets a version line of its own — see "Open points".
-Related: [ADR-0142](../view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md)
+Related: [ADR-0142](../view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0145](0145-a-host-is-entered-once.md)
 Impact: `packages/cli/**`; `docs/skills/**`; `docs/plugin-hosts.md`; `docs/tool-formats.md`; `docs/backlog.md` (F55, F57, F58)
 
 ## Background
@@ -73,10 +73,15 @@ files can be separated from a verb that only reads. The last two rows are the co
 ### D5. MCP is a transport, not a second implementation
 
 MCP is how a host accepts a tool from outside its own registry. Of the six hosts surveyed in
-`docs/tool-formats.md` — Claude Code, Codex, WorkBuddy, Qoder, DSH and pi — **four take tools
-only through MCP** (Claude Code, Codex, WorkBuddy, Qoder), and two have a registry of their own
-(DSH, pi). MCP is therefore not a legacy compatibility layer for traditional applications; it is
+`docs/tool-formats.md` — Claude Code, Codex, WorkBuddy, Qoder, DSH and pi — **three take tools
+only through MCP** (Codex, WorkBuddy, Qoder); DSH and pi have a registry of their own, and pi is
+our own harness; and Claude Code has both an MCP server and a registry of its own, through its
+mods API. MCP is therefore not a legacy compatibility layer for traditional applications; it is
 the ordinary route for most of the ecosystem.
+
+Which route serves a host that has both is decided in
+[ADR-0145](0145-a-host-is-entered-once.md) D2: the verbs go over MCP wherever the host speaks
+it, and a host is entered once per half.
 
 What that changes is the wording, not the shape: MCP is an **adapter over the same verbs**, never
 a second implementation of them. The functions behind an MCP tool are the same functions the
@@ -106,10 +111,11 @@ catalogue cannot drift from the implementation.
 ### D8. The catalogue's parameters are JSON Schema
 
 Every host can be projected onto JSON Schema, and most already speak it: four take an MCP
-`inputSchema` unchanged, DSH's flat `{type, required, description}` spec is a flattening of the
-same object, and pi normalises to draft-2020-12 at the provider boundary anyway (and can import a
-JSON Schema directly). So the catalogue is authored as **name + description + JSON Schema**, and
-each adapter is a projection of that — not a second schema to maintain per host.
+`inputSchema` unchanged, Claude Code's own registry takes a plain JSON Schema unchanged as well,
+DSH's flat `{type, required, description}` spec is a flattening of the same object, and pi
+normalises to draft-2020-12 at the provider boundary anyway (and can import a JSON Schema
+directly). So the catalogue is authored as **name + description + JSON Schema**, and each adapter
+is a projection of that — not a second schema to maintain per host.
 
 The six hosts and what each of them accepts are recorded in `docs/tool-formats.md`.
 
@@ -138,7 +144,7 @@ The survey narrows the field to three, and all three are built:
 
 | Adapter | Where | What it is |
 |---|---|---|
-| The MCP server | `packages/cli/src/mcp.ts`, the verb `texteda mcp` | one stdio process for the four hosts that take tools only through MCP ([ADR-0144](0144-the-mcp-server-is-a-slice-we-write-ourselves.md)) |
+| The MCP server | `packages/cli/src/mcp.ts`, the verb `texteda mcp` | one stdio process for the four hosts that speak MCP — the three that take tools only through it, and Claude Code, which has both routes ([ADR-0144](0144-the-mcp-server-is-a-slice-we-write-ourselves.md), [ADR-0145](0145-a-host-is-entered-once.md) D2) |
 | The pi extension | `plugins/pi-texteda/` | a TypeScript extension pi loads directly — no build, no new dependency |
 | The DSH bundle | `plugins/dsh-texteda/` | a cordis plugin whose host half registers the tools; the bundle carries this repository's code, because these packages are not published |
 

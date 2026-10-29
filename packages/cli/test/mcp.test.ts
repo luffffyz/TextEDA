@@ -78,6 +78,14 @@ describe("the MCP server", () => {
     expect(mcpTools().length).toBe(toolCatalogue().length);
   });
 
+  test("the results that list things carry the cache fields the newer revision requires", () => {
+    for (const method of ["tools/list", "server/discover"]) {
+      const response = ask({ jsonrpc: "2.0", id: 1, method });
+      expect(field(response?.result, "ttlMs")).toBe(3_600_000);
+      expect(field(response?.result, "cacheScope")).toBe("public");
+    }
+  });
+
   test("a notification gets no answer", () => {
     expect(ask({ jsonrpc: "2.0", method: "notifications/initialized" })).toBeNull();
   });

@@ -125,3 +125,4 @@ that was meant for it, and by nothing else.
 | [ADR-0140](process/0140-documentation-has-one-authority-per-fact.md) | Documentation Has One Authority per Fact, and the Rest Is a Pointer | Accepted | 2026-10-27 |
 | [ADR-0143](process/0143-the-agent-surface-is-a-set-of-verbs.md) | The Agent's Surface Is a Set of Verbs; Every Host Adapts the Same Ones | Accepted | 2026-10-29 |
 | [ADR-0144](process/0144-the-mcp-server-is-a-slice-we-write-ourselves.md) | The MCP Server Is a Slice We Write Ourselves | Accepted | 2026-10-29 |
+| [ADR-0145](process/0145-a-host-is-entered-once.md) | A Host Is Entered Once — One Route for the Tools, One Surface for the Picture | Accepted | 2026-10-29 |

@@ -3,7 +3,7 @@
 Status: Proposed
 Date: 2026-10-29
 Scope: Decides: that the review app becomes a preview surface inside an agent workbench rather than an editing product; that the agent is the single writer of the design sources, with one exception — the plugin writes the print page's positions; and that the standalone app survives as the bridge for hosts that cannot host a plugin. Does not decide: the shape of the agent's surface — see ADR-0143; which session is targeted first, how the wiring is redone after a drag, or what the standalone app keeps — see "Open points".
-Related: [ADR-0134](0134-the-view-layer-is-a-drawing.md), [ADR-0135](0135-our-own-reference-renderer.md), [ADR-0143](../process/0143-the-agent-surface-is-a-set-of-verbs.md)
+Related: [ADR-0134](0134-the-view-layer-is-a-drawing.md), [ADR-0135](0135-our-own-reference-renderer.md), [ADR-0143](../process/0143-the-agent-surface-is-a-set-of-verbs.md), [ADR-0145](../process/0145-a-host-is-entered-once.md)
 Impact: `packages/viewer/**`; `packages/cli/src/review.ts`; `packages/cli/src/layout.ts`; `docs/guides/review-app.md`; `docs/backlog.md` (F34, F52, F53); `docs/plugin-hosts.md`
 
 ## Background
@@ -112,10 +112,11 @@ and no mode of the print-page workflow writes `design/**`
 
 The agent reaches TextEDA through the command line's verbs and the skill that documents them.
 Where a host offers a tool registry, the same verbs are registered there as tools, over the same
-functions — an adapter, not a second interface. Where a host takes tools only through MCP, the
-same verbs are served there over the same functions
+functions — an adapter, not a second interface. Where a host speaks MCP, the same verbs are served
+there over the same functions
 ([ADR-0143](../process/0143-the-agent-surface-is-a-set-of-verbs.md) D5); MCP is a transport for
-the same verbs, not a third interface.
+the same verbs, not a third interface. A host that has both routes is entered once
+([ADR-0145](../process/0145-a-host-is-entered-once.md) D1, D2).
 
 The shape of that surface — the verbs, the skill, the adapters, the naming of the print page's
 commands — is decided in [ADR-0143](../process/0143-the-agent-surface-is-a-set-of-verbs.md).
@@ -156,11 +157,12 @@ adds a second potential writer to the picture.
 
 ## Open points
 
-1. **Which session is targeted first.** A picture needs a session page (see
-   [docs/plugin-hosts.md](../../plugin-hosts.md)): DSH's `web` and `desktop` profiles have one,
-   while its `headless`, `sdk` and `acp` profiles and every pi mode do not. The agent-facing half
-   — the tools and the commands — is portable and can ship first; the picture half is where the
-   work is.
+1. **Which session is targeted first.** A picture needs a drawing surface, not a session page
+   ([ADR-0145](../process/0145-a-host-is-entered-once.md) D3; see
+   [docs/plugin-hosts.md](../../plugin-hosts.md)): DSH's `web` and `desktop` profiles have one, and
+   Claude Code has one in its mods' render sites, while its `headless`, `sdk` and `acp` profiles
+   and every pi mode have none. The agent-facing half — the tools and the commands — is portable
+   and can ship first; the picture half is where the work is.
 2. **The wiring step after a drag.** The person places; somebody has to wire. The re-anchor
    algorithm exists (`packages/core/src/view/reroute.ts`) but is reachable today only through the
    review app's Apply path. A command-line way to run it — `texteda view-rewire`, or an agent tool

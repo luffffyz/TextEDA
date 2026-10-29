@@ -5,8 +5,8 @@
 // described in the one format every host can be projected onto (ADR-0143 D7, D8).
 //
 // The parameters are JSON Schema, because that is what four of the six surveyed hosts take
-// unchanged, what DSH's flat spec is a flattening of, and what pi normalises to anyway
-// (`docs/tool-formats.md`).
+// unchanged — and what Claude Code's own registry takes unchanged too — what DSH's flat spec is a
+// flattening of, and what pi normalises to anyway (`docs/tool-formats.md`).
 //
 // The rule that keeps the two faces honest: a tool's result equals the same verb's `--json`
 // output, field for field. Both call the same function (ADR-0143 D2).

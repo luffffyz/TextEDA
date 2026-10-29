@@ -17,6 +17,10 @@ import { findTool, toolCatalogue } from "./tools.ts";
 /** The protocol revisions this server speaks, newest first. */
 export const MCP_PROTOCOL_VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"] as const;
 
+/** The newer revision's cache fields on the results that list things. */
+const CACHE_TTL_MS = 3_600_000;
+const CACHE_SCOPE = "public";
+
 /** The JSON-RPC error codes this server uses. */
 const METHOD_NOT_FOUND = -32601;
 const INVALID_PARAMS = -32602;
@@ -169,6 +173,8 @@ export function handleMcpRequest(request: unknown): JsonRpcResponse | null {
           resultType: "complete",
           supportedVersions: [...MCP_PROTOCOL_VERSIONS],
           capabilities: { tools: { listChanged: false } },
+          ttlMs: CACHE_TTL_MS,
+          cacheScope: CACHE_SCOPE,
           _meta: { "io.modelcontextprotocol/serverInfo": serverInfo() },
           instructions:
             "TextEDA's verbs: validate a project, measure a print page, draw it, repair its wiring, read the IR, the connectivity, the BOM, and write the manufacturing files. The skills in docs/skills say when each one is the right move.",
@@ -176,7 +182,16 @@ export function handleMcpRequest(request: unknown): JsonRpcResponse | null {
       };
     }
     case "tools/list": {
-      return { jsonrpc: "2.0", id, result: { resultType: "complete", tools: mcpTools() } };
+      return {
+        jsonrpc: "2.0",
+        id,
+        result: {
+          resultType: "complete",
+          tools: mcpTools(),
+          ttlMs: CACHE_TTL_MS,
+          cacheScope: CACHE_SCOPE,
+        },
+      };
     }
     case "tools/call": {
       const outcome = callTool(params.name, params.arguments);

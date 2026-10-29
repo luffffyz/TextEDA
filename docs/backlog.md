@@ -1365,8 +1365,8 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 **要做的事**：
 
 1. **宿主侧**：在宿主进程里注册工具（agent 可调）与路由（客户端可取模型与 SVG）；写入一律走 core 的规范写路径。
-2. **客户端侧**：把 `packages/viewer` 的画布挂进宿主的页面扩展点；没有页面的会话（终端 profile、ACP、pi 的任何模式）只带宿主侧。
-3. **次序**：先做 agent 侧（工具 + 命令，任何宿主都能用），再做图（只在有页面的会话里）。宿主形态见 `docs/plugin-hosts.md`。
+2. **客户端侧**：把 `packages/viewer` 的画布挂进宿主的绘图扩展点；没有绘图面的会话（DSH 的终端 profile / ACP / sdk、pi 的任何模式）只带宿主侧。绘图面不等于页面：Claude Code 的 mod 没有页面也能画（`Pane` / `AbovePrompt` 加 `Client` / `Svg` / `Image`），见 [ADR-0145](adr/process/0145-a-host-is-entered-once.md) D3 与 `docs/plugin-hosts.md`。
+3. **次序**：先做 agent 侧（工具 + 命令，任何宿主都能用），再做图（只在有绘图面的会话里）。宿主形态见 `docs/plugin-hosts.md`。
 
 **开放问题**（做的时候要定）：插件包放本仓还是独立仓；宿主 SDK 是 peer 依赖还是只做示例；第一个宿主是谁。
 

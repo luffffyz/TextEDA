@@ -17,6 +17,7 @@ How the project itself is run: the implementation stack and the agent's entry po
 4. [0140](0140-documentation-has-one-authority-per-fact.md) — each fact has one authority, and the rest is a pointer.
 5. [0143](0143-the-agent-surface-is-a-set-of-verbs.md) — the agent's surface is a set of verbs; every host adapts the same ones.
 6. [0144](0144-the-mcp-server-is-a-slice-we-write-ourselves.md) — the MCP server is a slice we write ourselves.
+7. [0145](0145-a-host-is-entered-once.md) — a host is entered once per half: one route for the tools, one surface for the picture.
 
 ## Records
 
@@ -28,3 +29,4 @@ How the project itself is run: the implementation stack and the agent's entry po
 | [ADR-0140](0140-documentation-has-one-authority-per-fact.md) | Documentation Has One Authority per Fact, and the Rest Is a Pointer | Accepted | 2026-10-27 |
 | [ADR-0143](0143-the-agent-surface-is-a-set-of-verbs.md) | The Agent's Surface Is a Set of Verbs; Every Host Adapts the Same Ones | Accepted | 2026-10-29 |
 | [ADR-0144](0144-the-mcp-server-is-a-slice-we-write-ourselves.md) | The MCP Server Is a Slice We Write Ourselves | Accepted | 2026-10-29 |
+| [ADR-0145](0145-a-host-is-entered-once.md) | A Host Is Entered Once — One Route for the Tools, One Surface for the Picture | Accepted | 2026-10-29 |

@@ -12,7 +12,7 @@ rather than guessing.
 
 | Host | Native (non-MCP) tool? | How a tool is declared | Parameter dialect | Result the model sees |
 |---|---|---|---|---|
-| **Claude Code** | no — but a plugin can put a CLI on `PATH` | `.mcp.json` at the plugin root; or `bin/` + a skill | MCP JSON Schema (`inputSchema`) | MCP `CallToolResult` content blocks |
+| **Claude Code** | **yes** — a plugin's mods register tools natively; a plugin can also put a CLI on `PATH` | `.mcp.json` at the plugin root; a mod's `$.tool.register`; or `bin/` + a skill | MCP JSON Schema (`inputSchema`); a mod's registry takes a plain JSON Schema | MCP `CallToolResult` content blocks; a mod's `tool.call` answers `{ result }` |
 | **Codex CLI** | no — plugins carry skills + MCP servers | `[mcp_servers.<name>]` in `~/.codex/config.toml`; plugin marketplaces | MCP JSON Schema | MCP `CallToolResult` |
 | **DSH** | **yes** | `ctx.tools.register(defineTool({…}))` | flat spec: `{p: {type, required, description}}` | a canonical value plus `output.render` |
 | **pi / omp** | **yes** | a tool module: `(pi) => ({name, description, parameters, execute})` | omptype (`pi.zod` / `pi.arktype` / `pi.typebox`) | `{content: [{type:'text', text}], details}` |
@@ -24,11 +24,44 @@ rather than guessing.
 ### Claude Code
 
 A plugin is a directory of components: skills, commands, subagents, hooks, monitors, output
-styles, colour themes, workflows, executables, settings, MCP servers and LSP servers. There is no
-"tool" component — **a tool reaches the model only through an MCP server**
-(<https://code.claude.com/docs/en/plugins/components>).
+styles, colour themes, workflows, executables, settings, MCP servers and LSP servers
+(<https://code.claude.com/docs/en/plugins/components>). That component list has no "tool"
+component — but a plugin can be a **mod**, and a mod registers tools natively.
 
-Two things in that list matter to us:
+#### A mod is a plugin with a `modules` key
+
+`hooks/hooks.json` may hold `"modules": ["./register.js"]` — a path relative to that file — and
+`hooks/register.js` exports `register(on, options)`. `on` takes an event name, an optional
+matcher, and the hook. A mod is code that runs inside Claude Code's own process
+(<https://code.claude.com/docs/en/plugins/mods/reference>, <https://code.claude.com/docs/en/plugins/mods/api>).
+
+#### The native tool registry
+
+```javascript
+on('session.start', async ($, e, next) => {
+  await $.tool.register({
+    name: 'ticket',
+    description: 'Look up a ticket by its id and return its title and status',
+    inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+  })
+  return next(e)
+})
+
+on('tool.call', { tool: 'mcp__my-mod__ticket' }, async ($, e) => {
+  return { result: '…' }
+})
+```
+
+- **`inputSchema` is a plain JSON Schema.** The same shape our catalogue already holds.
+- **The model sees a longer name**: `mcp__`, the plugin's name, two underscores, and the
+  registered name — `mcp__my-mod__ticket`.
+- **The call is handled in a `tool.call` hook** filtered to that full name. The hook answers
+  `next(e)`, `{ deny: reason }`, or `{ result }`; a registered tool's result is text, not a
+  structured payload.
+
+#### The MCP route, and the CLI floor
+
+Two things in the plugin's component list matter to us as well:
 
 - **`bin/` is how a plugin ships a command line tool.** "While the plugin is enabled, Claude Code
   puts this folder on the `PATH` of the shell it runs commands in, so Claude, or a skill's
@@ -37,7 +70,9 @@ Two things in that list matter to us:
   and it can also be run by the user as `/<plugin>:<name>`.
 
 So the CLI-and-skill floor works here without any protocol of ours: the plugin ships `bin/texteda`
-and a skill that says when to run it. The MCP route exists for hosts that want typed tools.
+and a skill that says when to run it. The MCP route exists for hosts that want typed tools, and
+the mods registry is a third way in. Which route we take is decided in
+[ADR-0145](adr/process/0145-a-host-is-entered-once.md) D2: the verbs go over MCP.
 
 ### Codex CLI
 
@@ -119,11 +154,12 @@ deny per tool.
 
 ## What this means for the catalogue
 
-**The pivot format is JSON Schema.** Four of the six hosts take an MCP `inputSchema` unchanged;
-DSH's flat spec is a flattening of the same object; omp normalises to draft-2020-12 anyway and can
-import a JSON Schema directly; and Claude Code's own `workflows/*.js` use plain JSON Schema for
-structured calls. So the catalogue is authored as **name + description + JSON Schema**, and each
-adapter is a projection of it.
+**The pivot format is JSON Schema.** Four of the six hosts take an MCP `inputSchema` unchanged, and
+Claude Code's own registry takes a plain JSON Schema unchanged as well; DSH's flat spec is a
+flattening of the same object; omp normalises to draft-2020-12 anyway and can import a JSON Schema
+directly; and Claude Code's own `workflows/*.js` use plain JSON Schema for structured calls. So
+the catalogue is authored as **name + description + JSON Schema**, and each adapter is a projection
+of it.
 
 **Three adapters cover the six hosts.**
 
@@ -132,9 +168,10 @@ adapter is a projection of it.
    run commands.
 2. **Two native registry adapters** — DSH (`defineTool`) and pi / omp (`pi.registerTool`). Thin:
    the catalogue's JSON Schema becomes the host's parameter spec.
-3. **One MCP server** — for the four hosts that take tools only through MCP (Claude Code, Codex,
-   WorkBuddy, Qoder). Because MCP is JSON-Schema-native, this is the cheapest adapter of the
-   three, and it also carries `outputSchema` / `structuredContent`.
+3. **One MCP server** — for the four hosts that speak MCP (Claude Code, Codex, WorkBuddy,
+   Qoder). Because MCP is JSON-Schema-native, this is the cheapest adapter of the three, and it
+   also carries `outputSchema` / `structuredContent`. Claude Code has a registry of its own as
+   well, but it is served over MCP ([ADR-0145](adr/process/0145-a-host-is-entered-once.md) D2).
 
 **What no host needs from us:** a protocol of our own, or a second implementation of the verbs.
 The verbs stay the command line's; the catalogue is a projection of them.
