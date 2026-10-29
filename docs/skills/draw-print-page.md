@@ -32,7 +32,9 @@ The commands used below:
 | Command | What it does |
 |---|---|
 | `bun run texteda check <project>` | Parse, contract validation, ERC, binding and drawing checks. Errors block; warnings do not. |
-| `bun run texteda view-metrics <project> <board>/<page>` | The drawing's numbers: sheet use, counts, label/text gaps, wire length, crossings, bodies. |
+| `bun run texteda view metrics <project> <board>/<page>` | The drawing's numbers: sheet use, counts, label/text gaps, wire length, crossings, bodies. |
+| `bun run texteda view rewire <project> <board>/<page> [--dry-run]` | Bring the wiring back onto the pins after a part moved; the interior corners keep their place. |
+| `bun run texteda view render <project> <board>/<page> [--out <file>]` | Write the page's drawing as an SVG file (same renderer as the review app). |
 | `bun run preview view <board>/<page> [--project <project>] [--out <dir>]` | Render one page to SVG and print its path. |
 | `bun run texteda review <project> [--out <file>]` | Serve `review` mode on `127.0.0.1`; `--out` writes the same self-contained HTML. |
 | `bun run fmt:teda <project>` / `bun run fmt:teda --check <project>` | Canonicalise the view; `--check` is the gate. |
@@ -79,7 +81,7 @@ Procedure:
 1. Read the reference and decide a rough arrangement.
 2. Write only the `place` rows (instance id, `x`, `y`, rotation) in the view file. This is an
    intermediate: the page handed over for review is wired (§2.4).
-3. Run `view-metrics` to check the sheet is used and parts do not collide.
+3. Run `view metrics` to check the sheet is used and parts do not collide.
 4. Route the wires from the logical netlist with Mode B. Do not trace the reference's lines.
 
 ### 2.2 Mode B: human-owned placement, agent wiring (the finish)
@@ -98,7 +100,7 @@ Procedure:
    - **Optional:** when the human explicitly wants to settle positions first, or the rearrangement
      is large, render a placement-only page with `preview view`, ask the human to move parts or
      name coordinates, and route after acceptance. A view with `place` and no `wire` section is
-     legal; `view-metrics` will report `nets undrawn`, which is expected at this stage. This page
+     legal; `view metrics` will report `nets undrawn`, which is expected at this stage. This page
      is not the review artifact.
 2. **Route from logic.** For each net with two or more members, read the member pins and their
    connection points from the symbols, then write `wire` rows:
@@ -184,7 +186,7 @@ errors. Use `--json` when a script needs the payload.
 ### 3.2 Measure the page
 
 ```sh
-bun run texteda view-metrics examples/reference-project charger-buck/buck-5v
+bun run texteda view metrics examples/reference-project charger-buck/buck-5v
 ```
 
 Expected shape (the numbers move with the page):
@@ -251,7 +253,7 @@ Definitions and data fields: [`spec/schematic-view.md`](../../spec/schematic-vie
 
 - [ ] `texteda check <project>` has **0 errors**; every `view.*` warning is fixed or explicitly
       accepted (a research page can keep `nets-not-drawn`).
-- [ ] `view-metrics` says `0 through a body` and both text gaps `> 0`; crossings are reported but
+- [ ] `view metrics` says `0 through a body` and both text gaps `> 0`; crossings are reported but
       are not a failure (no dot means not connected).
 - [ ] `fmt:teda --check <project>` passes.
 - [ ] The page is wired before it is handed to a human for review; a placement-only page is not a
@@ -264,7 +266,7 @@ Definitions and data fields: [`spec/schematic-view.md`](../../spec/schematic-vie
 For the reference project, the round-trip and metrics tests are the extra gate:
 
 ```sh
-bun test packages/cli/test/view-roundtrip.test.ts packages/cli/test/view-metrics.test.ts
+bun test packages/cli/test/view-roundtrip.test.ts packages/cli/test/view.test.ts
 ```
 
 ## 6. What not to do

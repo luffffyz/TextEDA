@@ -12,7 +12,9 @@
 //   texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]
 //   texteda ir <project dir> [--out <dir>] [--json]
 //   texteda bom <project dir> <board_id> [--json] [--out <file>]
-//   texteda view-metrics <project dir> <board>/<page> [--json]
+//   texteda view metrics <project dir> <board>/<page> [--json]
+//   texteda view rewire <project dir> <board>/<page> [--dry-run] [--json]
+//   texteda view render <project dir> <board>/<page> [--out <file>] [--json]
 //   texteda review <project dir> [--port <n>] [--out <file>]
 //   texteda export gerbers <project dir> <board_id> [--out <dir>] [--json]
 //   texteda lib import <name> --from <dir> --rev <rev> [--only <id>,…] [--dest <lib>] [--project <dir>] [--trust <file>] [--force]
@@ -23,7 +25,7 @@ import { runCompile } from "../src/compile.ts";
 import { analyzeProject, checkProject } from "../src/check.ts";
 import { runIr } from "../src/ir.ts";
 import { runBom } from "../src/bom.ts";
-import { runViewMetrics, splitPageRef } from "../src/view-metrics.ts";
+import { runViewMetrics, runViewRender, runViewRewire, splitPageRef } from "../src/view.ts";
 import { runReview } from "../src/review.ts";
 import { runId } from "../src/id.ts";
 import { runRenumber } from "../src/renumber.ts";
@@ -86,7 +88,9 @@ function fail(code: "cli.bad-flag" | "cli.bad-usage", message: string): never {
         "  texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]",
         "  texteda ir <project dir> [--out <dir>] [--json]",
         "  texteda bom <project dir> <board_id> [--json] [--out <file>]",
-        "  texteda view-metrics <project dir> <board>/<page> [--json]",
+        "  texteda view metrics <project dir> <board>/<page> [--json]",
+        "  texteda view rewire <project dir> <board>/<page> [--dry-run] [--json]",
+        "  texteda view render <project dir> <board>/<page> [--out <file>] [--json]",
         "  texteda review <project dir> [--port <n>] [--out <file>]",
         "  texteda export gerbers <project dir> <board_id> [--out <dir>] [--json]",
         "  texteda lib import <name> --from <dir> --rev <rev> [--only <id>,…] [--dest <lib>] [--project <dir>] [--trust <file>] [--force]",
@@ -311,19 +315,47 @@ if (command === "init") {
       outFile: args.values.get("--out"),
     }),
   );
-} else if (command === "view-metrics") {
-  const root = args.positional[0] ?? fail("cli.bad-usage", "Missing project directory");
-  const ref = args.positional[1] ?? fail("cli.bad-usage", "Missing board/page");
-  if (args.positional.length > 2) fail("cli.bad-usage", "Too many arguments");
+} else if (command === "view") {
+  const sub = args.positional[0] ?? fail("cli.bad-usage", "Missing view subcommand: metrics, rewire, render");
+  const root = args.positional[1] ?? fail("cli.bad-usage", "Missing project directory");
+  const ref = args.positional[2] ?? fail("cli.bad-usage", "Missing board/page");
+  if (args.positional.length > 3) fail("cli.bad-usage", "Too many arguments");
   const pageRef = splitPageRef(ref) ?? fail("cli.bad-usage", `Not a board/page reference: ${ref}`);
-  process.exit(
-    runViewMetrics({
-      root: resolve(root),
-      board: pageRef.board,
-      page: pageRef.page,
-      json: args.flags.has("--json"),
-    }),
-  );
+  if (sub === "metrics") {
+    process.exit(
+      runViewMetrics({
+        root: resolve(root),
+        board: pageRef.board,
+        page: pageRef.page,
+        json: args.flags.has("--json"),
+      }),
+    );
+  } else if (sub === "rewire") {
+    process.exit(
+      runViewRewire({
+        root: resolve(root),
+        board: pageRef.board,
+        page: pageRef.page,
+        dryRun: args.flags.has("--dry-run"),
+        json: args.flags.has("--json"),
+      }),
+    );
+  } else if (sub === "render") {
+    const outFile = args.values.get("--out");
+    process.exit(
+      runViewRender({
+        root: resolve(root),
+        board: pageRef.board,
+        page: pageRef.page,
+        json: args.flags.has("--json"),
+        ...(outFile === undefined ? {} : { outFile }),
+      }),
+    );
+  } else {
+    fail("cli.bad-usage", `Unknown view subcommand: ${sub} (metrics, rewire, render)`);
+  }
+} else if (command === "view-metrics") {
+  fail("cli.bad-usage", "`texteda view-metrics` is now `texteda view metrics <project dir> <board>/<page>`");
 } else if (command === "review") {
   const root = args.positional[0] ?? fail("cli.bad-usage", "Missing project directory");
   if (args.positional.length > 1) fail("cli.bad-usage", "Too many arguments");

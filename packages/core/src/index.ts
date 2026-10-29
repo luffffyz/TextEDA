@@ -23,9 +23,12 @@ export {
   nearestOnPath,
   ON_NET_NM,
   reanchorWire,
+  rerouteWire,
   reseatOnNet,
   type Reanchored,
   type ReanchorInput,
+  type Rerouted,
+  type RerouteInput,
   type WireCorners,
 } from "./view/reroute.ts";
 export {

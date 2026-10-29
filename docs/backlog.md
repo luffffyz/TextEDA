@@ -8,6 +8,8 @@
 - **F7（诊断错误码注册表）已关闭** → `docs/adr/language/0102-diagnostic-error-codes.md`（`域.slug` 码表 + 生成的 `docs/error-codes.md` + 双向完整性检查已落地）。
 - **F41（器件词表与参数角色的检查）已关闭** → `docs/adr/devices/0124-device-vocabulary-and-parameter-roles.md`（`packages/core` 的器件规则表 + `texteda check` 的三类检查已落地；"额定值只被写出、没有被验证"另开 F42）。
 - **F50（ADR 语料的附录膨胀与散文漂移）已关闭** → `docs/adr-corpus-structure.md`（语料换成主题文件夹后附录全部就地折进正文、R4 零告警；版本号类快照改成指针；新写记录里的裸 `§N` 全部补上文件名；版本表与 `TYPE_BIRTH` 由测试钉住）。
+- **F52（命令行重锚定打印页的连线）已关闭** → [ADR-0141](adr/view/0141-the-review-app-has-four-modes.md) D6 与 `spec/schematic-view.md` §9.4.1（命令是 `texteda view rewire`；内核是 `packages/core/src/view/reroute.ts` 的 `rerouteWire`——只凭文件把走线锚回引脚，内部折点不动，内部有斜段只报冲突）。
+- **F55（打印页的动词收成 `texteda view <子命令>`）已关闭** → [ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D6（`texteda view metrics|rewire|render`；破坏性改名，`texteda view-metrics` 不再被接受并提示新名字）。
 
 ---
 
@@ -1352,26 +1354,6 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 - **不要把 `docs/trial-run/**` 拉进来**：那是历史记录，过期指针由门禁报 warning、不修。
 - 这条门禁一旦上线，"换号后靠 grep 扫尾"就不再是流程的一部分——**换号脚本自己也该跑它**。
 
-## F52. 命令行重锚定打印页的连线（`texteda view-rewire`）——插件只写 `place` 之后的收尾动作（2026-10-29）
-
-**现状**：`packages/core/src/view/reroute.ts` 已有 `reanchorWire` / `nearestOnPath` / `reseatOnNet`（重锚：保持段数与轴向序列，不寻路，见 [ADR-0141](adr/view/0141-the-review-app-has-four-modes.md) D5），但**只有评审 app 的 Apply 路径能调用**（`packages/cli/src/layout.ts` 的 `applyLayout` → `commitPlan`）。命令行没有对应动作：现有命令是 `init` / `id` / `renumber` / `compile` / `check` / `netlist` / `bom` / `view-metrics` / `review` / `ir` / `export` / `lib`。
-
-**为什么现在要**：插件形态下，人的拖动只写 `place` 行，连线留给 agent 或命令行（[ADR-0142](adr/view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) D3）。拖完之后的收尾动作必须有一条命令行，否则 agent 只能手改 `wire` 行。
-
-**要做的事**：新增 `texteda view-rewire <工程目录> <board>/<page>`：读当前打印页，按当前 `place` 把所有 `wire` 重锚定（形状不变），以规范形式写回，并报告改了哪几条 wire、哪些 wire 仍然不合法。
-
-**涉及文件**：`packages/cli/src/rewire.ts`（新）、`packages/cli/scripts/texteda.ts`（挂命令）、`packages/core/src/view/reroute.ts`（必要时导出批量入口）。
-
-**验收**：
-- 在 `examples/reference-project` 的 `views/charger-buck/buck-5v.view.teda` 上跑一次：`wire` 条数与每条的段数不变，形状仍轴对齐；`bun run fmt:teda --check .` 通过。
-- 先改一个 `place` 行再跑：`texteda check` 不再报 `view.wire-diagonal` / `view.wire-crosses-pin`。
-- 幂等：连跑两次，第二次文件字节不变。
-- 不碰 `design/**`：跑完工程哈希不变（打印页是 advisory，见 [ADR-0134](adr/view/0134-the-view-layer-is-a-drawing.md) D5）。
-
-**注意**：
-- **不要做成自动布线**：重锚定保持形状，绕障碍寻路不做（ADR-0141 D5）。
-- **不要顺手改 `wire` 的语义**：只改弯点坐标，端点由 pin 引用推导。
-
 ## F53. 插件包：把评审 app 的两半接到 agent 工作台（ADR-0142 的落地）
 
 **现状**：评审 app 已经就是"宿主侧 + 客户端侧"——`packages/cli/src/review.ts`（进程：回答关于工程的问题、写文件）与 `packages/viewer/src/client.ts`（画参考渲染器的 SVG、高亮、按身份拾取）。但今天它是一个独立进程加一个独立页面，不是任何宿主的插件。
@@ -1408,28 +1390,6 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 - 不带草稿的请求行为不变（`packages/cli/test/review-layout.test.ts` 现有用例全绿）。
 - 写回仍是规范形式：`bun run fmt:teda --check .` 通过。
 
-## F55. 打印页的动词收成 `texteda view <子命令>`（2026-10-29）
-
-**现状**：打印页作用域的动词散在顶层：`texteda view-metrics <工程目录> <board>/<page>` 是唯一一个；接线收尾（F52 的 `view-rewire`）和"看一眼"（渲染 SVG）落地后会是另外两个。动词名用连字符、工具名用下划线，同一个东西两种拼法。
-
-**为什么现在做**：[ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D6 决定打印页的动词归到一个名词底下（`view` 是语言自己的描述类型名，见 `spec/schematic-view.md`），并且动词名要和工具名同形（`texteda view metrics` ↔ `texteda_view_metrics`）。工具清单还没落地，此刻改名只有 32 处引用；等清单定了再改，两边都要动。
-
-**要做的事**：
-
-1. `texteda view-metrics` → `texteda view metrics`（**破坏性改名**：命令行的表面没有版本号线，所以要同步改文档与 skill，并在提交说明里写明）。
-2. 新增 `texteda view rewire`（F52 的实现）与 `texteda view render <工程目录> <board>/<page> [--out <文件>]`（出 SVG，供 agent "看一眼"）。
-3. 顶层保留 `review`（app，页面 + 板）、`check`（全项目）、`ir`、`compile`；先例是 `texteda export gerbers`。
-
-**涉及文件**：`packages/cli/scripts/texteda.ts`（二级分发）、`packages/cli/src/view-metrics.ts`（改文件名与命令名）、`packages/cli/src/index.ts`（导出表）、`packages/cli/test/view-metrics.test.ts`、`spec/schematic-view.md`、`README.md`、`README_cn.md`、`docs/skills/draw-print-page.md`、`docs/guides/**`、`AGENTS.md` §10 的命令表、`docs/backlog.md`。
-
-**验收**：
-
-- `texteda view metrics ./examples/reference-project charger-buck/buck-5v` 的输出与改名前逐字节相同；`texteda view-metrics` 不再被接受（报 `cli.bad-usage` 并提示新名字）。
-- `texteda view render` 产出的 SVG 与 app 画的同一页一致（同一渲染器、同一 IR）。
-- `bun run fmt:teda --check .`、`bun run check:links`、`bun test` 全绿；全仓 `grep -rn "view-metrics"` 只剩本条与 ADR 里的历史描述。
-
-**注意**：命名纪律——`view` 是打印页（S1）、`sch` 是原理图（S0）、`pcb` 是板（B0），三个词不互相撞；app 的 scope 名 `sch` / `pcb` 指同两件事。
-
 ## F56. 动词返回"值"，并把清单做成机器可读（ADR-0143 的落地）
 
 **现状**：`runBom` / `runCompile` / `runViewMetrics` / `runIr` 把结果**直接打印**并返回退出码，外部拿不到值；只有 `check` 是干净形态（`checkProject` / `analyzeProject` 纯函数）。因此宿主工具注册表拿不到结构化结果（[ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D2）。
@@ -1439,7 +1399,7 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 1. 每个动词拆成 `build*(options) → 值`（`packages/cli/src/**`），打印留在 `packages/cli/scripts/texteda.ts`；CLI 的行为与输出**逐字节不变**。
 2. 新增 `texteda tools --json`：打印可作为工具暴露的动词清单（名字、描述、参数），让没写适配器的宿主也能自己接（ADR-0143 D7）。
 
-**涉及文件**：`packages/cli/src/{bom,compile,view-metrics,ir,id,renumber,export}.ts`、`packages/cli/src/tools.ts`（新，清单）、`packages/cli/scripts/texteda.ts`。
+**涉及文件**：`packages/cli/src/{bom,compile,view,ir,id,renumber,export}.ts`、`packages/cli/src/tools.ts`（新，清单）、`packages/cli/scripts/texteda.ts`。
 
 **验收**：
 

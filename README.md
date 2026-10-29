@@ -36,7 +36,7 @@ bun run check examples/reference-project          # parse, IR contract, ERC, bin
 bun run texteda ir examples/reference-project      # write the IR shard tree (canonical JSON + manifest + hashes)
 bun run texteda netlist examples/reference-project --board mcu-board  # netlist = connectivity projection of the IR
 bun run texteda bom examples/reference-project charger-buck   # bill of materials, with its procurement status
-bun run texteda view-metrics examples/reference-project charger-buck/buck-5v  # print-page readability numbers
+bun run texteda view metrics examples/reference-project charger-buck/buck-5v  # print-page readability numbers
 bun run texteda review examples/reference-project   # serve the review app on 127.0.0.1 (--out writes one HTML file)
 bun run texteda id examples/reference-project --count 3  # generate unused project-scoped instance UIDs
 bun run texteda renumber examples/reference-project charger-buck --policy compact  # dry-run a validated refdes rename
@@ -129,7 +129,7 @@ my-board/
 | `packages/exporter` | footprint / symbol → KiCad (`.kicad_mod` / `.kicad_sym`); netlist |
 | `packages/renderer` | Reference renderer: IR → drawing commands → SVG, plus the reverse extraction that closes the round trip ([ADR-0135](docs/adr/view/0135-our-own-reference-renderer.md)) |
 | `packages/viewer` | The review app's browser side: page, hover highlight, identity selection; no framework, no canvas editing ([ADR-0134](docs/adr/view/0134-the-view-layer-is-a-drawing.md)) |
-| `packages/cli` | `texteda init` / `id` / `compile` / `check` / `netlist` / `ir` / `renumber` / `bom` / `view-metrics` / `review` / `lib import` ([ADR-0137](docs/adr/process/0137-implementation-stack-and-agent-entry.md), [ADR-0105](docs/adr/ir/0105-ir-shards-and-hashes.md)) |
+| `packages/cli` | `texteda init` / `id` / `compile` / `check` / `netlist` / `ir` / `renumber` / `bom` / `view metrics` / `view rewire` / `view render` / `review` / `lib import` ([ADR-0137](docs/adr/process/0137-implementation-stack-and-agent-entry.md), [ADR-0105](docs/adr/ir/0105-ir-shards-and-hashes.md)) |
 | `examples/reference-project/` | Self-contained reference project: two boards (one with a `pcb`, two print pages), every device / symbol / footprint self-built, plus procurement files and review rounds |
 | `examples/cases/` | The ten difficult cases: a whole project each, pinned by expected IR and diagnostics (which are written so far: the directory listing; `bun run cases:check`) |
 | `docs/adr/` | Architecture decision records ([full index](docs/adr/README.md)) |

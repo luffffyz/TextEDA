@@ -320,6 +320,8 @@ dist/ir/
 | `bun run texteda ir <dir>` | IR 分片树与哈希 | [ADR-0105](docs/adr/ir/0105-ir-shards-and-hashes.md) |
 | `bun run texteda export gerbers <dir> <board>` | 分层 Gerber + Excellon | `spec/pcb.md` §8 |
 | `bun run texteda bom <dir> <board>` | 物料表 | `spec/procurement.md` §5 |
+| `bun run texteda view metrics <dir> <board>/<page>` | 打印页的量：图幅占用、文字间隙、走线长与交叉 | `spec/schematic-view.md` §9.4 |
+| `bun run texteda view rewire <dir> <board>/<page>` | 把走线锚回引脚（挪动器件之后的收尾） | `spec/schematic-view.md` §9.4.1 |
 | `bun run texteda renumber <dir> <board>` | 全局改名的 dry run / apply | [ADR-0110](docs/adr/project/0110-renumbering-is-a-code-executed-rename.md)；`docs/guides/renumbering.md` |
 | `bun run texteda id <dir>` | 生成未使用的实例 `uid` | [ADR-0109](docs/adr/project/0109-instance-identity-is-a-uid.md) |
 | `bun run texteda lib import <name> --from <dir> --rev <tag>` | 外部库拷成自有资产 | `docs/guides/library-import.md`；[ADR-0133](docs/adr/libraries/0133-trust-in-a-library-you-do-not-own.md) |

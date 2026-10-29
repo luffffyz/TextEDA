@@ -293,9 +293,9 @@ text
 
 实现：`packages/renderer/src/schematic-extract.ts`；测试：`packages/renderer/test/schematic-roundtrip.test.ts`（四个象限 + 走线端点落在引脚上 + 灵敏度）与 `packages/cli/test/view-roundtrip.test.ts`（参考工程的每一页）。
 
-### 9.4 度量（`texteda view-metrics`）
+### 9.4 度量（`texteda view metrics`）
 
-警告之外，一张页的**量**由 `texteda view-metrics <工程目录> <board>/<page> [--json]` 给（`packages/core/src/view/metrics.ts`）。它与可读性检查读**同一份几何**（`schematicGeometry`），所以"这条线离那个 net 多远"在两边只有一个答案。
+警告之外，一张页的**量**由 `texteda view metrics <工程目录> <board>/<page> [--json]` 给（`packages/core/src/view/metrics.ts`）。它与可读性检查读**同一份几何**（`schematicGeometry`），所以"这条线离那个 net 多远"在两边只有一个答案。
 
 | 量 | 含义 |
 |---|---|
@@ -307,7 +307,21 @@ text
 | `wires_through_bodies` | 穿过非本端点的符号本体的走线条数 |
 | `net_texts[].distance_nm` | 每个标签/端口到它所指 net 的距离；`-1` = 该 net 在本页没有任何走线或引脚 |
 
-**为什么不是截图**：像素不能跨渲染比较（抗锯齿、视口、字体），一次截图要过视觉模型、说不出"差 0.2 mm"，也进不了 CI。agent 画图的循环是 `写 → check（对不对）→ view-metrics（差多少）→ 改`，SVG 快照留给人的评审——判定要机器给，观感要人给。
+**为什么不是截图**：像素不能跨渲染比较（抗锯齿、视口、字体），一次截图要过视觉模型、说不出"差 0.2 mm"，也进不了 CI。agent 画图的循环是 `写 → check（对不对）→ view metrics（差多少）→ 改`，SVG 快照留给人的评审——判定要机器给，观感要人给。
+
+### 9.4.1 打印页的命令（`texteda view`）
+
+打印页作用域的命令归在一个名词底下（[ADR-0143](../docs/adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D6）：
+
+| 命令 | 做什么 |
+|---|---|
+| `texteda view metrics <工程目录> <board>/<page> [--json]` | §9.4 的量 |
+| `texteda view rewire <工程目录> <board>/<page> [--dry-run] [--json]` | 把走线重新锚回引脚（见下） |
+| `texteda view render <工程目录> <board>/<page> [--out <文件>] [--json]` | 把这一页画成 SVG 文件（与评审 app 同一渲染器） |
+
+**`view rewire` 做什么**：走线行的端点写的是**引脚引用**，所以符号一动端点就跟着动，而折点留在原地——走线会歪（`view.wire-diagonal`）。`view rewire` 把折点重新算出来：中间的折点坐标不动，两端按引脚现在的位置重算。方向从走线自己读出来：相邻两段不能同向（同向就是一条线），所以端段的轴向由它旁边那一段决定（`packages/core/src/view/reroute.ts` 的 `rerouteWire`）。
+
+**它不是路由器**：不搜索、不绕行、不看符号本体；内部有斜段的走线只**报冲突**（ADR-0141 D6），不重画。
 
 ---
 

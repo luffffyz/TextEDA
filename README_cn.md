@@ -36,7 +36,7 @@ bun run check examples/reference-project          # 解析、IR 契约、ERC、�
 bun run texteda ir examples/reference-project      # 写出 IR 分片树（canonical JSON + manifest + 哈希）
 bun run texteda netlist examples/reference-project --board mcu-board  # 网表 = IR 的连通性投影
 bun run texteda bom examples/reference-project charger-buck   # 物料表，带选料状态
-bun run texteda view-metrics examples/reference-project charger-buck/buck-5v  # 打印页可读性数值
+bun run texteda view metrics examples/reference-project charger-buck/buck-5v  # 打印页可读性数值
 bun run texteda review examples/reference-project   # 在 127.0.0.1 上服务评审 app（--out 写一份 HTML）
 bun run texteda id examples/reference-project --count 3  # 生成工程内未使用的实例 UID
 bun run texteda renumber examples/reference-project charger-buck --policy compact  # 试跑一次经过校验的位号重编号
@@ -131,7 +131,7 @@ my-board/
 | `packages/exporter` | 封装 / 符号 → KiCad（`.kicad_mod` / `.kicad_sym`）；网表 |
 | `packages/renderer` | 参考渲染器：IR → 绘图指令 → SVG，以及把 round-trip 闭环的反解（[ADR-0135](docs/adr/view/0135-our-own-reference-renderer.md)） |
 | `packages/viewer` | 评审 app 的浏览器端：画面、hover 高亮、选身份；无框架、画布不可编辑（[ADR-0134](docs/adr/view/0134-the-view-layer-is-a-drawing.md)） |
-| `packages/cli` | `texteda init` / `id` / `compile` / `check` / `netlist` / `ir` / `bom` / `view-metrics` / `review` / `renumber` / `lib import`（[ADR-0137](docs/adr/process/0137-implementation-stack-and-agent-entry.md)、[ADR-0105](docs/adr/ir/0105-ir-shards-and-hashes.md)） |
+| `packages/cli` | `texteda init` / `id` / `compile` / `check` / `netlist` / `ir` / `bom` / `view metrics` / `view rewire` / `view render` / `review` / `renumber` / `lib import`（[ADR-0137](docs/adr/process/0137-implementation-stack-and-agent-entry.md)、[ADR-0105](docs/adr/ir/0105-ir-shards-and-hashes.md)） |
 | `examples/reference-project/` | 自包含的参考工程：两块板（一块带 `pcb`，两张打印页）、器件与符号封装全部自建，库全部自建，另有选料文件与三轮评审记录 |
 | `examples/cases/` | 十个困难用例：每个都是完整小工程，用期望 IR 与期望诊断钉住（已写了哪些看目录；`bun run cases:check`） |
 | `docs/adr/` | 决策记录（ADR）（[完整索引](docs/adr/README.md)） |

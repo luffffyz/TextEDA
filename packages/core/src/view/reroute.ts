@@ -19,6 +19,123 @@ export interface WireCorners {
   y_nm: number;
 }
 
+/**
+ * Bring a wire back onto its pins, from the file alone.
+ *
+ * The re-anchor above needs to know where the pins were: it is the app's job, after a drag. From
+ * the command line there is no before and after — only the page as it stands. So this is the other
+ * half of the same idea: the wire keeps its corners, and the ends are put back where the pins
+ * now are.
+ *
+ * The shape is read off the wire as it is drawn. Two segments that meet at a corner cannot run the
+ * same way — two horizontal segments would be one line — so a corner's two segments differ in
+ * direction, and the direction of the end segment follows from the one next to it. That is what
+ * makes the repair possible without the before-state: the wire's own corners say which way its
+ * ends have to leave.
+ *
+ * It is still not a router. The interior corners keep their coordinates, nothing is searched, and a
+ * wire whose interior is not orthogonal is reported rather than redrawn (ADR-0141 D6).
+ */
+export interface RerouteInput {
+  readonly net: string;
+  readonly from_pin: string;
+  readonly to_pin: string;
+  /** The wire's stored corners. */
+  readonly points: readonly WireCorners[];
+  /** Where the from-pin sits now. */
+  readonly from: WireCorners;
+  /** Where the to-pin sits now. */
+  readonly to: WireCorners;
+}
+
+export interface Rerouted {
+  /** The wire's new corners. */
+  readonly points: WireCorners[];
+  /** Set when the wire could not be brought back onto its pins. */
+  readonly conflict?: "not-orthogonal";
+  /** Whether the corners changed. */
+  readonly changed: boolean;
+}
+
+/** Whether the two points are on a horizontal or a vertical line; neither when they are neither. */
+function axisOf(a: WireCorners, b: WireCorners): "horizontal" | "vertical" | "diagonal" {
+  if (a.x_nm === b.x_nm && a.y_nm === b.y_nm) return "vertical";
+  if (a.x_nm === b.x_nm) return "vertical";
+  if (a.y_nm === b.y_nm) return "horizontal";
+  return "diagonal";
+}
+
+/**
+ * The corners a wire should carry so that it reaches its pins along the axes.
+ *
+ * The end segments are re-derived from the pins' current positions; the interior corners keep their
+ * coordinates. A wire that has no corner at all gets one, because two pins that share neither
+ * coordinate cannot be joined by a single straight run.
+ *
+ * The direction of an end segment is read off the wire itself: an end that still runs along an axis
+ * says which way it leaves, and an end that a moved pin has broken takes the direction of the
+ * segment next to it — two segments that meet at a corner cannot run the same way, or they would be
+ * one line.
+ */
+export function rerouteWire(input: RerouteInput): Rerouted {
+  const corners = input.points.map((point) => ({ x_nm: point.x_nm, y_nm: point.y_nm }));
+  const path: WireCorners[] = [input.from, ...corners, input.to];
+  const axes: ("horizontal" | "vertical" | "diagonal")[] = [];
+  for (let i = 0; i + 1 < path.length; i += 1) axes.push(axisOf(path[i]!, path[i + 1]!));
+
+  if (axes.every((axis) => axis !== "diagonal")) {
+    return { points: corners, changed: false };
+  }
+  // An interior segment that is not on an axis has no shape to keep: the wire is reported.
+  if (axes.slice(1, -1).some((axis) => axis === "diagonal")) {
+    return { points: corners, conflict: "not-orthogonal", changed: false };
+  }
+
+  if (corners.length === 0) {
+    // One straight run cannot reach two pins that share neither coordinate: it gets the bend the
+    // spec asks for ("add a bend where the two ends meet", spec/schematic-view.md §5).
+    if (axisOf(input.from, input.to) !== "diagonal") return { points: corners, changed: false };
+    return { points: [{ x_nm: input.from.x_nm, y_nm: input.to.y_nm }], changed: true };
+  }
+
+  const next = corners.map((corner) => ({ ...corner }));
+  const last = next.length - 1;
+  // The direction an end segment leaves in: what the wire says, or — where a moved pin has broken
+  // it — the opposite of the segment next to it.
+  const firstAxis = axes[0] === "diagonal" ? opposite(axes[1]) : axes[0];
+  const lastAxis = axes[axes.length - 1] === "diagonal" ? opposite(axes[axes.length - 2]) : axes[axes.length - 1];
+
+  if (corners.length === 1) {
+    // The single corner joins both ends: it has to reach the first pin along one axis and the
+    // second along the other. When a moved pin has broken both, the spec's elbow is the answer.
+    const axis = axes[0] !== "diagonal" ? axes[0] : axes[1] !== "diagonal" ? opposite(axes[1]) : "vertical";
+    next[0] =
+      axis === "vertical"
+        ? { x_nm: input.from.x_nm, y_nm: input.to.y_nm }
+        : { x_nm: input.to.x_nm, y_nm: input.from.y_nm };
+    return { points: next, changed: true };
+  }
+
+  // The first end: the corner takes the pin's coordinate on the axis the end runs along.
+  next[0] =
+    firstAxis === "vertical"
+      ? { x_nm: input.from.x_nm, y_nm: next[0]!.y_nm }
+      : { x_nm: next[0]!.x_nm, y_nm: input.from.y_nm };
+  // The last end: the same rule, read from the other side.
+  next[last] =
+    lastAxis === "vertical"
+      ? { x_nm: input.to.x_nm, y_nm: next[last]!.y_nm }
+      : { x_nm: next[last]!.x_nm, y_nm: input.to.y_nm };
+  const changed = next.some((corner, index) => corner.x_nm !== corners[index]!.x_nm || corner.y_nm !== corners[index]!.y_nm);
+  return { points: next, changed };
+}
+
+/** The axis a segment runs along when it cannot be the same as the one next to it. */
+function opposite(axis: "horizontal" | "vertical" | "diagonal" | undefined): "horizontal" | "vertical" {
+  return axis === "horizontal" ? "vertical" : "horizontal";
+}
+
+
 /** One wire, as the view stores it, plus where its pins were and are. */
 export interface ReanchorInput {
   net: string;

@@ -380,7 +380,7 @@ function loadBoardFile(root: string, board: string): { file: string; text: strin
 }
 
 /** Where a pin's connection point sits on the sheet. */
-function pinPoint(
+export function pinPoint(
   geometry: SheetGeometry,
   ref: string,
 ): { x_nm: number; y_nm: number } | undefined {
@@ -404,7 +404,7 @@ interface ViewRow {
  * through the parser's source map, so a row is matched by the record it came from and not by its
  * text — two labels of the same net are two different rows. The formatter then aligns the columns.
  */
-function rewritePage(
+export function rewritePage(
   text: string,
   changed: {
     file: string;
