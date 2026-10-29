@@ -162,6 +162,10 @@ The split that follows: the **agent-facing half** is portable and belongs in eve
 **picture half** is an add-on that only exists where a session page does. A plugin package can
 carry both, and a host that has no page simply uses the first.
 
+What the agent-facing half *is* — the verbs, the skill, and what a host's tool registry may add
+on top — is decided in
+[ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md).
+
 Both hosts already have a native way to expose our verbs to the agent. That is the reason there is
 no MCP layer in the plan: MCP would be a second protocol for the same verbs, needed only by
 traditional applications and cloud services that cannot host a plugin at all.

@@ -2,7 +2,8 @@
 
 Status: Proposed
 Date: 2026-10-29
-Scope: Decides: that the review app becomes a preview surface inside an agent workbench rather than an editing product; that the agent is the single writer of the design sources, with one exception — the plugin writes the print page's positions; that the agent's surface is the skills and the CLI, with no MCP layer; and that the standalone app survives as the bridge for hosts that cannot host a plugin. Does not decide: which session is targeted first, how the wiring is redone after a drag, or what the standalone app keeps — see "Open points".
+Scope: Decides: that the review app becomes a preview surface inside an agent workbench rather than an editing product; that the agent is the single writer of the design sources, with one exception — the plugin writes the print page's positions; and that the standalone app survives as the bridge for hosts that cannot host a plugin. Does not decide: the shape of the agent's surface — see ADR-0143; which session is targeted first, how the wiring is redone after a drag, or what the standalone app keeps — see "Open points".
+Related: [ADR-0134](0134-the-view-layer-is-a-drawing.md), [ADR-0135](0135-our-own-reference-renderer.md), [ADR-0143](../process/0143-the-agent-surface-is-a-set-of-verbs.md)
 Impact: `packages/viewer/**`; `packages/cli/src/review.ts`; `packages/cli/src/layout.ts`; `docs/guides/review-app.md`; `docs/backlog.md` (F34, F52, F53); `docs/plugin-hosts.md`
 
 ## Background
@@ -107,22 +108,16 @@ already holds for the print page: the human owns the final positions, the agent 
 and no mode of the print-page workflow writes `design/**`
 (`docs/skills/draw-print-page.md` §2.2 and §2.3). This record gives that rule a surface.
 
-### D4. The agent's surface is the skills and the CLI; there is no MCP layer
+### D4. The agent's surface is a set of verbs, and the hosts adapt them
 
-The agent reaches TextEDA the way it reaches everything else: a skill that says how to use the
-command line, and the command line. A skill can state the whole workflow — which file to edit,
-which command to run, what a diagnostic means, what to re-run afterwards — and it lives in the
-repository next to the code it drives, where it is reviewed like code.
+The agent reaches TextEDA through the command line's verbs and the skill that documents them.
+Where a host offers a tool registry, the same verbs are registered there as tools, over the same
+functions — an adapter, not a second interface. There is no MCP layer between the agent and the
+core: MCP would be a third way to say the same thing, and it earns its place only with consumers
+that can neither host a plugin nor run a command.
 
-MCP would be a second protocol for the same verbs. It earns its place only with consumers that
-can neither host a plugin nor run a command: traditional desktop applications, cloud services,
-editors whose agent is not ours. That is a compatibility surface for other people's tools, not a
-layer between our agent and our core, so it is not built. If it is ever built, it is an adapter
-over the same commands — never a second implementation of them.
-
-The hosts give this for free anyway: a DSH plugin registers tools in the host process, and a pi
-extension registers them with `pi.registerTool`. Neither needs a protocol of ours
-(see [docs/plugin-hosts.md](../../plugin-hosts.md)).
+The shape of that surface — the verbs, the skill, the adapters, the naming of the print page's
+commands — is decided in [ADR-0143](../process/0143-the-agent-surface-is-a-set-of-verbs.md).
 
 ### D5. The person's gestures are look, select, ask, place
 

@@ -1407,3 +1407,42 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 - 在 `edit` 模式改一行文本（不保存），切到 `layout` 拖一个符号并 Apply：改过的文本仍在文件里，符号位置也更新了。
 - 不带草稿的请求行为不变（`packages/cli/test/review-layout.test.ts` 现有用例全绿）。
 - 写回仍是规范形式：`bun run fmt:teda --check .` 通过。
+
+## F55. 打印页的动词收成 `texteda view <子命令>`（2026-10-29）
+
+**现状**：打印页作用域的动词散在顶层：`texteda view-metrics <工程目录> <board>/<page>` 是唯一一个；接线收尾（F52 的 `view-rewire`）和"看一眼"（渲染 SVG）落地后会是另外两个。动词名用连字符、工具名用下划线，同一个东西两种拼法。
+
+**为什么现在做**：[ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D6 决定打印页的动词归到一个名词底下（`view` 是语言自己的描述类型名，见 `spec/schematic-view.md`），并且动词名要和工具名同形（`texteda view metrics` ↔ `texteda_view_metrics`）。工具清单还没落地，此刻改名只有 32 处引用；等清单定了再改，两边都要动。
+
+**要做的事**：
+
+1. `texteda view-metrics` → `texteda view metrics`（**破坏性改名**：命令行的表面没有版本号线，所以要同步改文档与 skill，并在提交说明里写明）。
+2. 新增 `texteda view rewire`（F52 的实现）与 `texteda view render <工程目录> <board>/<page> [--out <文件>]`（出 SVG，供 agent "看一眼"）。
+3. 顶层保留 `review`（app，页面 + 板）、`check`（全项目）、`ir`、`compile`；先例是 `texteda export gerbers`。
+
+**涉及文件**：`packages/cli/scripts/texteda.ts`（二级分发）、`packages/cli/src/view-metrics.ts`（改文件名与命令名）、`packages/cli/src/index.ts`（导出表）、`packages/cli/test/view-metrics.test.ts`、`spec/schematic-view.md`、`README.md`、`README_cn.md`、`docs/skills/draw-print-page.md`、`docs/guides/**`、`AGENTS.md` §10 的命令表、`docs/backlog.md`。
+
+**验收**：
+
+- `texteda view metrics ./examples/reference-project charger-buck/buck-5v` 的输出与改名前逐字节相同；`texteda view-metrics` 不再被接受（报 `cli.bad-usage` 并提示新名字）。
+- `texteda view render` 产出的 SVG 与 app 画的同一页一致（同一渲染器、同一 IR）。
+- `bun run fmt:teda --check .`、`bun run check:links`、`bun test` 全绿；全仓 `grep -rn "view-metrics"` 只剩本条与 ADR 里的历史描述。
+
+**注意**：命名纪律——`view` 是打印页（S1）、`sch` 是原理图（S0）、`pcb` 是板（B0），三个词不互相撞；app 的 scope 名 `sch` / `pcb` 指同两件事。
+
+## F56. 动词返回"值"，并把清单做成机器可读（ADR-0143 的落地）
+
+**现状**：`runBom` / `runCompile` / `runViewMetrics` / `runIr` 把结果**直接打印**并返回退出码，外部拿不到值；只有 `check` 是干净形态（`checkProject` / `analyzeProject` 纯函数）。因此宿主工具注册表拿不到结构化结果（[ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D2）。
+
+**要做的事**：
+
+1. 每个动词拆成 `build*(options) → 值`（`packages/cli/src/**`），打印留在 `packages/cli/scripts/texteda.ts`；CLI 的行为与输出**逐字节不变**。
+2. 新增 `texteda tools --json`：打印可作为工具暴露的动词清单（名字、描述、参数），让没写适配器的宿主也能自己接（ADR-0143 D7）。
+
+**涉及文件**：`packages/cli/src/{bom,compile,view-metrics,ir,id,renumber,export}.ts`、`packages/cli/src/tools.ts`（新，清单）、`packages/cli/scripts/texteda.ts`。
+
+**验收**：
+
+- 每个动词的 `build*` 返回值与同名 CLI 动词 `--json` 的输出**逐字段相等**（子进程对比，写在 `packages/cli/test/tools.test.ts`）。
+- `texteda tools --json` 的 dump 与内存清单一致；名字唯一、描述非空、参数是扁平的（`type` / `required` / `description`）。
+- CLI 现有输出零变化：`bun test` 全绿，`bun run cases:check` 4/4。

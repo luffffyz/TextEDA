@@ -123,3 +123,4 @@ that was meant for it, and by nothing else.
 | [ADR-0138](process/0138-licensing-and-open-standard.md) | Licensing and Openness Policy | Accepted | 2026-10-21 |
 | [ADR-0139](process/0139-process-entities-outside-the-language.md) | Process Entities Stay Outside the Language | Accepted | 2026-10-22 |
 | [ADR-0140](process/0140-documentation-has-one-authority-per-fact.md) | Documentation Has One Authority per Fact, and the Rest Is a Pointer | Accepted | 2026-10-27 |
+| [ADR-0143](process/0143-the-agent-surface-is-a-set-of-verbs.md) | The Agent's Surface Is a Set of Verbs; Every Host Adapts the Same Ones | Proposed | 2026-10-29 |
