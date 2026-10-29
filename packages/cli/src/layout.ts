@@ -1,13 +1,20 @@
-// Writing a print page back after a placement change (ADR-0141 D3, D5).
+// Writing a print page back after a placement change (ADR-0141 D3, D5, ADR-0142 D3).
 //
 // What this file may write: `views/<board_id>/<page_id>.view.teda`, and nothing else. Moving a
 // symbol on a drawing is a drawing change; the circuit (`design/**`) is not touched, and no IR
 // shard, no hash and no manufacturing artifact moves (ADR-0134 D5). The bytes written are the
 // formatter's (ADR-0134 D10), so a save leaves a diff that shows the design change and nothing else.
 //
-// The change itself is a re-anchor, not a route: the wires whose pins moved keep their shape and
-// get their corners back (see `packages/core/src/view/reroute.ts`). The wires of every other net,
-// and every hand-made corner, are left exactly as they were.
+// Two write paths live here, and they are not interchangeable:
+//   - `planLayout` / `applyLayout` / `commitPlan`: the standalone app's Apply. It moves symbols,
+//     re-anchors the wires that lost their pins, and reseats floating labels and ports.
+//   - `planPlaces` / `applyPlaces`: the plugin's drag (ADR-0142 D3). It rewrites the `place` rows
+//     and nothing else, so the wires whose pins moved go stale; the staleness is reported and
+//     re-anchoring stays with the command line (`texteda view rewire`, ADR-0142 D10).
+//
+// The re-anchor itself is not a route: the wires whose pins moved keep their shape and get their
+// corners back (see `packages/core/src/view/reroute.ts`). The wires of every other net, and every
+// hand-made corner, are left exactly as they were.
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { spanOf, type SourceMap } from "@texteda/ir";
@@ -57,6 +64,26 @@ export interface LayoutPlan extends LayoutOutcome {
   geometry: SheetGeometry;
 }
 
+/** The nets whose wires went stale when the symbols moved: reported, never re-anchored. */
+export interface PlacesOutcome {
+  /** The file that was (or would be) written. */
+  file: string;
+  /** Whether the file's bytes changed. */
+  changed: boolean;
+  /** The nets whose wires no longer reach their pins; their wires were not rewritten. */
+  stale: string[];
+}
+
+/** What a places-only write would do: the page's new source, and the page as it would look. */
+export interface PlacesPlan extends PlacesOutcome {
+  /** The page's new source, in the formatter's form. */
+  text: string;
+  /** The page as it would be drawn after the change: the moved symbols and the stale wires. */
+  svg: string;
+  /** Where the symbols and texts sit after the change. */
+  geometry: SheetGeometry;
+}
+
 export class LayoutError extends Error {}
 
 /** The path of a print page, relative to the project root. */
@@ -84,6 +111,47 @@ export function commitPlan(root: string, plan: LayoutPlan): void {
 }
 
 /**
+ * The page's placements after the request, and the instances whose place actually changed.
+ *
+ * Both write paths compute this the same way — millimetres rounded to whole nanometres, a rotation
+ * only when it is a right angle, and an instance the page does not place refused — so a rounding
+ * rule, a refusal or a moved instance cannot come out differently on the two paths.
+ */
+function computePlacements(
+  view: SchematicView,
+  request: LayoutRequest,
+  file: string,
+): { places: SchematicView["place"]; moved: Set<string> } {
+  const wanted = new Map(request.places.map((place) => [place.instance_id, place]));
+  const places = view.place.map((place) => {
+    const ask = wanted.get(place.instance_id);
+    if (ask === undefined) return place;
+    const rot = Math.round(ask.rot / 90) * 90;
+    if (Math.abs(ask.rot - rot) > 1e-9) {
+      throw new LayoutError(`${place.instance_id}: a rotation is a right angle (${ask.rot} is not)`);
+    }
+    return {
+      ...place,
+      x_nm: Math.round(ask.x * 1_000_000),
+      y_nm: Math.round(ask.y * 1_000_000),
+      ...(rot === 0 ? {} : { rot_mdeg: rot * 1000 }),
+    };
+  });
+  for (const ask of request.places) {
+    if (!view.place.some((place) => place.instance_id === ask.instance_id)) {
+      throw new LayoutError(`${file}: the page does not place ${ask.instance_id}`);
+    }
+  }
+  const moved = new Set<string>();
+  view.place.forEach((place) => {
+    const next = places.find((candidate) => candidate.instance_id === place.instance_id);
+    if (next !== undefined && (next.x_nm !== place.x_nm || next.y_nm !== place.y_nm || next.rot_mdeg !== place.rot_mdeg)) {
+      moved.add(place.instance_id);
+    }
+  });
+  return { places, moved };
+}
+/**
  * What a placement change would do, without doing it.
  *
  * The app draws the result before it commits it (ADR-0141 D5: Apply is the commit point), so the
@@ -103,36 +171,11 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
   }
   const view = parsed.ir;
 
-  const places = new Map(request.places.map((place) => [place.instance_id, place]));
-  const newPlaces = view.place.map((place) => {
-    const wanted = places.get(place.instance_id);
-    if (wanted === undefined) return place;
-    const rot = Math.round(wanted.rot / 90) * 90;
-    if (Math.abs(wanted.rot - rot) > 1e-9) {
-      throw new LayoutError(`${place.instance_id}: a rotation is a right angle (${wanted.rot} is not)`);
-    }
-    return {
-      ...place,
-      x_nm: Math.round(wanted.x * 1_000_000),
-      y_nm: Math.round(wanted.y * 1_000_000),
-      ...(rot === 0 ? {} : { rot_mdeg: rot * 1000 }),
-    };
-  });
-  for (const wanted of request.places) {
-    if (!view.place.some((place) => place.instance_id === wanted.instance_id)) {
-      throw new LayoutError(`${file}: the page does not place ${wanted.instance_id}`);
-    }
-  }
-
-  const moved = view.place.filter((place) => {
-    const next = newPlaces.find((candidate) => candidate.instance_id === place.instance_id);
-    return next !== undefined && (next.x_nm !== place.x_nm || next.y_nm !== place.y_nm || next.rot_mdeg !== place.rot_mdeg);
-  });
-  if (moved.length === 0) {
+  const { places: newPlaces, moved } = computePlacements(view, request, file);
+  if (moved.size === 0) {
     const drawn = drawPage(view, facts.instances);
     return { file, text, changed: false, conflicts: [], reseated: [], ...drawn };
   }
-
   const before = schematicGeometry(view, facts.instances);
   const after = schematicGeometry({ ...view, place: newPlaces }, facts.instances);
 
@@ -237,6 +280,78 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
   return { file, text: edited, changed: true, conflicts, reseated, ...drawn };
 }
 
+/**
+ * Move the symbols the app asks for and write back **only** the `place` rows (ADR-0142 D3).
+ *
+ * This is the plugin's write: a drag moves a symbol and nothing else. The wires whose pins moved
+ * keep the corners they were written with, so they go stale; the staleness is reported (`stale`)
+ * and the page is drawn as the file now says it is — moved symbols, stale wires, no re-anchor —
+ * because that is the honest picture. Re-anchoring stays with the command line (`texteda view
+ * rewire`, ADR-0142 D10). `applyLayout` is the standalone app's write: it also re-anchors and
+ * reseats.
+ */
+export function applyPlaces(root: string, request: LayoutRequest): PlacesOutcome {
+  const plan = planPlaces(root, request);
+  if (plan.changed) writeFile(root, plan.file, plan.text);
+  return { file: plan.file, changed: plan.changed, stale: plan.stale };
+}
+
+/**
+ * What a places-only write would do, without doing it.
+ *
+ * The page's new source is the formatter's output, and the page is drawn as it would be after the
+ * change — the symbols at their new places and the wires as they were written (ADR-0142 D5) — so
+ * the drawing shows the staleness instead of hiding it.
+ */
+export function planPlaces(root: string, request: LayoutRequest): PlacesPlan {
+  const file = pageFile(request.board, request.page);
+  const path = join(root, file);
+  if (!existsSync(path)) throw new LayoutError(`no such print page: ${file}`);
+  const text = readFileSync(path, "utf8");
+
+  const facts = boardFacts(root, request.board);
+  const parsed = parseView(text, { file, board: request.board });
+  if (!parsed.ir) {
+    const first = parsed.diagnostics.find((diagnostic) => diagnostic.severity === "error");
+    throw new LayoutError(`${file}: ${first ? `${first.code}: ${first.message}` : "the page does not parse"}`);
+  }
+  const view = parsed.ir;
+  const { places: newPlaces, moved } = computePlacements(view, request, file);
+  if (moved.size === 0) {
+    const drawn = drawPage(view, facts.instances);
+    return { file, changed: false, stale: [], text, ...drawn };
+  }
+
+  const stale = staleNets(view, moved);
+  const drawn = drawPage({ ...view, place: newPlaces }, facts.instances);
+  const edited = rewritePage(text, {
+    file,
+    sources: parsed.sources ?? new Map(),
+    places: newPlaces
+      .map((place, index) => ({ index, place }))
+      .filter(({ index, place }) => {
+        const before = view.place[index]!;
+        return before.x_nm !== place.x_nm || before.y_nm !== place.y_nm || before.rot_mdeg !== place.rot_mdeg;
+      }),
+    wires: [],
+    labels: [],
+    ports: [],
+  });
+  return { file, changed: edited !== text, stale, text: edited, ...drawn };
+}
+
+/**
+ * The nets whose wires name a symbol that moved: their pins no longer sit where the wire was drawn.
+ */
+function staleNets(view: SchematicView, moved: ReadonlySet<string>): string[] {
+  const stale = new Set<string>();
+  for (const wire of view.wire ?? []) {
+    for (const ref of [wire.from_pin, wire.to_pin]) {
+      if (ref !== "" && moved.has(ref.slice(0, ref.lastIndexOf(".")))) stale.add(wire.net);
+    }
+  }
+  return [...stale].sort();
+}
 /** The page as it is drawn: the renderer's SVG and the geometry it was drawn from. */
 function drawPage(
   view: SchematicView,

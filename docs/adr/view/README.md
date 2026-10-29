@@ -15,7 +15,7 @@ What a person looks at: the view as an independent description and a drawing, th
 2. [0135](0135-our-own-reference-renderer.md) — the reference renderer is ours, and its output must be verifiable.
 3. [0136](0136-review-records-and-attribution.md) — a review is a record, not a description type.
 4. [0141](0141-the-review-app-has-four-modes.md) — the review app has four modes, and `layout` writes placement, not copper.
-5. [0142](0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) — the review app becomes a plugin of the agent workbench, and the agent owns the source (**proposed**; supersedes parts of 0141 once accepted).
+5. [0142](0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) — the review app becomes a plugin of the agent workbench, and the agent owns the source (it narrows 0141's write, and the app keeps its modes for now).
 
 ## Records
 
@@ -25,4 +25,4 @@ What a person looks at: the view as an independent description and a drawing, th
 | [ADR-0135](0135-our-own-reference-renderer.md) | Our Own Reference Renderer — IR → Drawing Commands → SVG | Accepted | 2026-10-20 |
 | [ADR-0136](0136-review-records-and-attribution.md) | Review Is Not a Description Type — Notes, Decisions, and the One Accountable Person | Accepted | 2026-10-22 |
 | [ADR-0141](0141-the-review-app-has-four-modes.md) | The Review App Has Four Modes, and `layout` Writes Placement, Not Copper | Accepted | 2026-10-28 |
-| [ADR-0142](0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) | The Review App Is a Plugin of the Agent Workbench, and the Agent Owns the Source | Proposed | 2026-10-29 |
+| [ADR-0142](0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) | The Review App Is a Plugin of the Agent Workbench, and the Agent Owns the Source | Accepted | 2026-10-29 |

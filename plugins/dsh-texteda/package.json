@@ -3,14 +3,24 @@
   "version": "0.0.0",
   "private": true,
   "license": "Apache-2.0",
-  "description": "The TextEDA verbs as tools in a DeepSeek Harness session.",
+  "description": "TextEDA in a DeepSeek Harness session: the verbs as tools, and the review app as a sidebar tab.",
   "type": "module",
   "main": "./dist/host.mjs",
+  "exports": {
+    ".": "./dist/host.mjs",
+    "./client": "./lib/client.js"
+  },
   "engines": {
     "dsh": "^0.2.2"
   },
   "peerDependencies": {
     "@deepseek-ai/dsh-tools": "*"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "external": ["react", "react/jsx-runtime"]
+    }
   },
   "scripts": {
     "build": "bun run ../../scripts/build-dsh-plugin.ts"

@@ -7,7 +7,8 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildReviewModel, renderReviewHtml } from "../src/review.ts";
+import { renderReviewHtml } from "../src/review.ts";
+import { buildReviewModel } from "../src/review-model.ts";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const referenceProject = join(repoRoot, "examples", "reference-project");

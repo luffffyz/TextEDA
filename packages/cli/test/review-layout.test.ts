@@ -10,7 +10,7 @@ import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseView } from "@texteda/parser";
 import { applyLayout, LayoutError, planLayout, renderPageSource } from "../src/layout.ts";
-import { buildReviewModel } from "../src/review.ts";
+import { buildReviewModel } from "../src/review-model.ts";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const referenceProject = join(repoRoot, "examples", "reference-project");

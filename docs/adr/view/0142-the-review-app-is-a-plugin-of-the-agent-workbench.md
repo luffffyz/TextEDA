@@ -1,10 +1,10 @@
 # ADR-0142: The Review App Is a Plugin of the Agent Workbench, and the Agent Owns the Source
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-29
-Scope: Decides: that the review app becomes a preview surface inside an agent workbench rather than an editing product; that the agent is the single writer of the design sources, with one exception — the plugin writes the print page's positions; and that the standalone app survives as the bridge for hosts that cannot host a plugin. Does not decide: the shape of the agent's surface — see ADR-0143; which session is targeted first, how the wiring is redone after a drag, or what the standalone app keeps — see "Open points".
-Related: [ADR-0134](0134-the-view-layer-is-a-drawing.md), [ADR-0135](0135-our-own-reference-renderer.md), [ADR-0143](../process/0143-the-agent-surface-is-a-set-of-verbs.md), [ADR-0145](../process/0145-a-host-is-entered-once.md)
-Impact: `packages/viewer/**`; `packages/cli/src/review.ts`; `packages/cli/src/layout.ts`; `docs/guides/review-app.md`; `docs/backlog.md` (F34, F52, F53); `docs/plugin-hosts.md`
+Scope: Decides: that the review app becomes a preview surface inside an agent workbench rather than an editing product; that the agent is the single writer of the design sources, with one exception — the plugin writes the print page's positions; that the standalone app survives as the bridge for hosts that cannot host a plugin; which host the picture half targets first; where the re-anchor after a drag happens; and what the standalone app keeps meanwhile. Does not decide: the shape of the agent's surface — see ADR-0143; which route serves a host that has two — see ADR-0145; what a print page is or how it is drawn — see ADR-0134 and ADR-0135.
+Related: [ADR-0134](0134-the-view-layer-is-a-drawing.md), [ADR-0135](0135-our-own-reference-renderer.md), [ADR-0141](0141-the-review-app-has-four-modes.md), [ADR-0143](../process/0143-the-agent-surface-is-a-set-of-verbs.md), [ADR-0145](../process/0145-a-host-is-entered-once.md), [ADR-0146](../process/0146-the-picture-reaches-a-host-by-three-routes.md)
+Impact: `packages/viewer/**`; `packages/cli/src/review.ts`; `packages/cli/src/review-model.ts`; `packages/cli/src/layout.ts`; `docs/guides/review-app.md`; `docs/backlog.md` (F34, F52, F53); `docs/plugin-hosts.md`
 
 ## Background
 
@@ -43,8 +43,8 @@ the agent's own functions. The plugin needs to preview — and to be a good plac
 shape of the candidate hosts' plugin APIs — what a bundle is, what an extension may register, which
 sessions can carry a picture — is in [docs/plugin-hosts.md](../../plugin-hosts.md).
 
-This record is a draft: it is written to be argued with, and the parts that are still open are
-named as such rather than smuggled in as decisions.
+This record was a draft when it was written, and the parts that were still open in it are now
+decided in D9 to D11.
 
 ## Decision
 
@@ -100,8 +100,8 @@ which wires no longer fit. Fixing them is the agent's or the command line's work
 
 This narrows [ADR-0141](0141-the-review-app-has-four-modes.md) D3, which gave `layout` the bends of
 the disturbed nets as well: under this record the plugin writes the `place` rows and not the bends.
-The re-anchor algorithm exists (`packages/core/src/view/reroute.ts`), but it is reachable today
-only through the review app's Apply path — the command-line way to run it is open point 2.
+The re-anchor algorithm exists (`packages/core/src/view/reroute.ts`), and the command line can
+run it — `texteda view rewire`, and the agent's `texteda_view_rewire` tool (D10).
 
 The division this produces — the person places, the agent wires — is the rule the repository
 already holds for the print page: the human owns the final positions, the agent writes the wires,
@@ -155,21 +155,48 @@ the result would not be consistent. No half of a plugin edits a file directly. T
 [ADR-0141](0141-the-review-app-has-four-modes.md) D9 unchanged; it is stated here because a plugin
 adds a second potential writer to the picture.
 
-## Open points
+### D9. The picture half's first host is DSH's `web` profile
 
-1. **Which session is targeted first.** A picture needs a drawing surface, not a session page
-   ([ADR-0145](../process/0145-a-host-is-entered-once.md) D3; see
-   [docs/plugin-hosts.md](../../plugin-hosts.md)): DSH's `web` and `desktop` profiles have one, and
-   Claude Code has one in its mods' render sites, while its `headless`, `sdk` and `acp` profiles
-   and every pi mode have none. The agent-facing half — the tools and the commands — is portable
-   and can ship first; the picture half is where the work is.
-2. **The wiring step after a drag.** The person places; somebody has to wire. The re-anchor
-   algorithm exists (`packages/core/src/view/reroute.ts`) but is reachable today only through the
-   review app's Apply path. A command-line way to run it — `texteda view-rewire`, or an agent tool
-   — is what makes the division of labour work, and it is not built yet.
-3. **What the standalone app keeps.** If the plugin takes the drawing, does the standalone app
-   keep `layout` and `edit`? Keeping both is two applications to keep in step; dropping them takes
-   away the ability to rearrange a sheet without the agent in the loop.
+The picture half needs a drawing surface, not a session page
+([ADR-0145](../process/0145-a-host-is-entered-once.md) D3; see
+[docs/plugin-hosts.md](../../plugin-hosts.md)). DSH's `web` profile is where it goes first, for
+three reasons that are facts rather than preferences:
+
+- It is the only host today whose two halves have the documented shape: a host half in the host
+  process and a client half in the session page. The bundle that carries the tools already exists
+  and is exercised (`plugins/dsh-texteda/`).
+- Its client half speaks the transport the standalone app already speaks — the model and two write
+  routes — so making the app mountable serves both shells instead of forking the drawing.
+- Its write path is the core's write path (D8), so the plugin's one write is the same write the
+  app's Apply makes.
+
+The other two hosts are not first, for reasons that are also facts. pi has no drawing surface at
+all, so only its agent-facing half can ship there — and does. Claude Code's mods can draw, but
+its client file is a different shape: it posts data to the mod instead of asking for routes
+([ADR-0145](../process/0145-a-host-is-entered-once.md) D3), so it is a second client half rather
+than a second mount of the first.
+
+The agent-facing half is portable and ships to every host regardless of this decision: it is the
+tools, and the tools are the command line's ([ADR-0143](../process/0143-the-agent-surface-is-a-set-of-verbs.md)).
+
+### D10. The re-anchor after a drag is the command line's job
+
+The division of labour already exists on both sides. The plugin writes where a symbol sits (D3);
+the wiring is put back by `texteda view rewire`, which re-anchors the disturbed wires and reports
+the ones it could not fix, and the agent has the same verb as a tool (`texteda_view_rewire`). So a
+plugin's drag leaves the wires stale and says so — `view.wire-diagonal` and
+`view.wire-crosses-pin` — and never rewires them itself. The plugin's write stays one kind of row
+(D3).
+
+### D11. The standalone app keeps `layout` and `edit` for now
+
+The plugin is added, not substituted. Until a person has actually arranged a sheet through the
+plugin, the standalone app keeps its write modes: they are the only way to rearrange a sheet
+without the agent in the loop, and they are the reference implementation the plugin's write path
+is tested against. The two are not two implementations — the app and the plugin share one core and
+one write path (D8).
+
+What the app stops carrying is not decided here; it is earned by the plugin doing the job.
 
 ## Consequences
 
@@ -177,9 +204,10 @@ adds a second potential writer to the picture.
   is a consumer of artifacts, exactly as the app was.
 - The plugin becomes an instrument rather than a viewer: it is where a person says *where*. That
   is the one thing language cannot carry, and it is worth a write path.
-- The app's own surface shrinks: no source editing, no chat, fewer modes. That is the point of the
-  record, but it removes capability that exists today, so it needs a replacement (the brief) and a
-  fair test — can a person actually get their sheet arranged this way?
+- The plugin's contract with a person is four verbs, so the plugin has no source editing and no
+  chat; the standalone app keeps its modes until the plugin has actually arranged a sheet (D11).
+  That removes capability only when the replacement exists — the brief — and has passed a fair
+  test: can a person actually get their sheet arranged this way?
 - A write path a person uses has to be as careful as any other: one kind of row, canonical output,
   and a warning about what the write left stale instead of a silent fix.
 - The repository gains a second consumer of the core and a host shape that is not ours to

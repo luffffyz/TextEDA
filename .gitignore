@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# The DSH plugin's client half is built, not written by hand (scripts/build-dsh-plugin.ts).
+plugins/dsh-texteda/lib/
 *.kicad_prl
 .history/
 

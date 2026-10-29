@@ -113,7 +113,7 @@ that was meant for it, and by nothing else.
 | [ADR-0135](view/0135-our-own-reference-renderer.md) | Our Own Reference Renderer — IR → Drawing Commands → SVG | Accepted | 2026-10-20 |
 | [ADR-0136](view/0136-review-records-and-attribution.md) | Review Is Not a Description Type — Notes, Decisions, and the One Accountable Person | Accepted | 2026-10-22 |
 | [ADR-0141](view/0141-the-review-app-has-four-modes.md) | The Review App Has Four Modes, and `layout` Writes Placement, Not Copper | Accepted | 2026-10-28 |
-| [ADR-0142](view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) | The Review App Is a Plugin of the Agent Workbench, and the Agent Owns the Source | Proposed | 2026-10-29 |
+| [ADR-0142](view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) | The Review App Is a Plugin of the Agent Workbench, and the Agent Owns the Source | Accepted | 2026-10-29 |
 
 ## Process
 
@@ -126,3 +126,4 @@ that was meant for it, and by nothing else.
 | [ADR-0143](process/0143-the-agent-surface-is-a-set-of-verbs.md) | The Agent's Surface Is a Set of Verbs; Every Host Adapts the Same Ones | Accepted | 2026-10-29 |
 | [ADR-0144](process/0144-the-mcp-server-is-a-slice-we-write-ourselves.md) | The MCP Server Is a Slice We Write Ourselves | Accepted | 2026-10-29 |
 | [ADR-0145](process/0145-a-host-is-entered-once.md) | A Host Is Entered Once — One Route for the Tools, One Surface for the Picture | Accepted | 2026-10-29 |
+| [ADR-0146](process/0146-the-picture-reaches-a-host-by-three-routes.md) | The Picture Reaches a Host by Three Routes, and a Host-Native Plugin Is Written Only Where Nothing Else Reaches | Accepted | 2026-10-30 |

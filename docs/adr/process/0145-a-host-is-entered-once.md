@@ -2,9 +2,9 @@
 
 Status: Accepted
 Date: 2026-10-29
-Scope: Decides: that a host is entered once per half — the verbs reach it over one route and the picture reaches it over one surface; that the verbs go over MCP wherever the host speaks it, our own harness excepted; and that what the picture half needs is a drawing surface, not a session page. Does not decide: which host the picture half is built for first, or what a plugin package carries — see ADR-0142's open points and the backlog.
-Related: [ADR-0142](../view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0143](0143-the-agent-surface-is-a-set-of-verbs.md), [ADR-0144](0144-the-mcp-server-is-a-slice-we-write-ourselves.md)
-Impact: `docs/tool-formats.md`; `docs/plugin-hosts.md`; `packages/cli/src/mcp.ts`; `packages/cli/src/tools.ts`; `docs/backlog.md` (F53)
+Scope: Decides: that a host is entered once per half — the verbs reach it over one route and the picture reaches it over one surface; that the verbs go over MCP wherever the host speaks it, our own harness excepted; and that what the picture half needs is a drawing surface, not a session page. Does not decide: which host the picture half is built for first, or what a plugin package carries — see ADR-0142 D9 to D11 and the backlog.
+Related: [ADR-0142](../view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0143](0143-the-agent-surface-is-a-set-of-verbs.md), [ADR-0144](0144-the-mcp-server-is-a-slice-we-write-ourselves.md), [ADR-0146](0146-the-picture-reaches-a-host-by-three-routes.md)
+Impact: `docs/tool-formats.md`; `docs/plugin-hosts.md`; `packages/cli/src/mcp.ts`; `packages/cli/src/tools.ts`; `docs/backlog.md` (F53, F59)
 
 ## Background
 
@@ -57,8 +57,10 @@ So the requirement is a place where the host draws what we return. DSH has one i
 `desktop` profiles (slots in the session page). Claude Code has one in a mod's render sites. pi
 has none: no webview, no panel extension point, a widget's worth of text and a terminal pane.
 
-MCP Apps are not that route: the protocol's client matrix records Claude Code among the clients
-that do **not** render them, so a picture for Claude Code is a mod or nothing.
+MCP Apps are not that route: the extension's own *Client support* paragraph names the clients
+that render them, and Claude Code is not among them. So a picture for Claude Code is a mod or
+nothing. Which hosts take which picture route, and why the community matrix is not the authority
+for this, is [ADR-0146](0146-the-picture-reaches-a-host-by-three-routes.md).
 
 ### D4. Where the two halves meet in one host, one plugin may carry both
 
@@ -70,9 +72,9 @@ verbs are already in the model through one route (D1).
 
 - The census in [ADR-0143](0143-the-agent-surface-is-a-set-of-verbs.md) D5 changes, and so does
   the pivot-format count in D8: five of the six hosts take plain JSON Schema unchanged.
-- [ADR-0142](../view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md)'s open point 1
-  changes shape. The picture half is no longer gated on a session page, so Claude Code is a
-  candidate host and the question "which host first" is a question about effort, not about
+- [ADR-0142](../view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) D9 answers the
+  question this record opened. The picture half is no longer gated on a session page, so Claude
+  Code is a candidate host, and "which host first" is a question about effort rather than about
   whether the host can draw at all.
 - Nothing is built for Claude Code's verbs: the surface is unchanged.
 - A mod is JavaScript or TypeScript inside Claude Code's process, and its `Client` element is a

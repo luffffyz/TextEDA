@@ -1356,25 +1356,32 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 - **不要把 `docs/trial-run/**` 拉进来**：那是历史记录，过期指针由门禁报 warning、不修。
 - 这条门禁一旦上线，"换号后靠 grep 扫尾"就不再是流程的一部分——**换号脚本自己也该跑它**。
 
-## F53. 插件包：把评审 app 的两半接到 agent 工作台（ADR-0142 的落地）
+## F53. 插件包：把评审 app 的两半接到 agent 工作台（ADR-0142 的落地）（**已完成** 2026-10-30）
 
-**现状**：评审 app 已经就是"宿主侧 + 客户端侧"——`packages/cli/src/review.ts`（进程：回答关于工程的问题、写文件）与 `packages/viewer/src/client.ts`（画参考渲染器的 SVG、高亮、按身份拾取）。但今天它是一个独立进程加一个独立页面，不是任何宿主的插件。
+**现状**：两半都在 `plugins/dsh-texteda/`，第一个宿主是 DSH 的 `web` profile（[ADR-0142](adr/view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) D9）。
 
-**前提**：[ADR-0142](adr/view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) 被接受（**当前是 Proposed**）。
+**宿主侧**（`host.ts`）：注册八条动词（与清单逐字段一致，F58 已钉住），以及两条**精确路径**的路由（DSH 按整条路径匹配，没有通配段）：
 
-**要做的事**：
+|路由|方法|作用|
+|---|---|---|
+|`/api/texteda-review`|GET|把模型交给客户端半边，`?sessionId=<id>` 定工程根（会话的 `cwd`）|
+|`/api/texteda-review/places`|POST|只写 `place` 行，`commit: false` 出预览、`true` 写盘并回新模型|
 
-1. **宿主侧**：在宿主进程里注册工具（agent 可调）与路由（客户端可取模型与 SVG）；写入一律走 core 的规范写路径。
-2. **客户端侧**：把 `packages/viewer` 的画布挂进宿主的绘图扩展点；没有绘图面的会话（DSH 的终端 profile / ACP / sdk、pi 的任何模式）只带宿主侧。绘图面不等于页面：Claude Code 的 mod 没有页面也能画（`Pane` / `AbovePrompt` 加 `Client` / `Svg` / `Image`），见 [ADR-0145](adr/process/0145-a-host-is-entered-once.md) D3 与 `docs/plugin-hosts.md`。
-3. **次序**：先做 agent 侧（工具 + 命令，任何宿主都能用），再做图（只在有绘图面的会话里）。宿主形态见 `docs/plugin-hosts.md`。
+写入走 core 的 `planPlaces` / `applyPlaces`（ADR-0142 D3），没人写第二条。响应里的 `stale` 是被挪动的连线所在 net——**不重锚**，报给 `texteda view rewire`（D10）。
 
-**开放问题**（做的时候要定）：插件包放本仓还是独立仓；宿主 SDK 是 peer 依赖还是只做示例；第一个宿主是谁。
+**客户端侧**（`client.ts`）：一个 `sidebar.right.pane.tab` 类型的 tab（session 作用域，拿得到 `sessionId`），tab 体调用 `mountReview`。用右栏 tab 而不是 `tool.call.toolview`：后者画在对话行里，装不下 app 的 260/1fr/300 三栏。
 
-**验收**：
+为此落地的前置改动：`packages/viewer/src/app.ts` 由模块级脚本改成可挂载的 `mountReview(root, model, api)`（含 `destroy()`），每挂一次建一套自己的 frame（同一页面里两个 tab 不会互相抢节点）；样式表移到 `packages/viewer/src/styles.ts` 并全部收在 `.teda-review` 之下，`html`/`body` 规则留在 CLI 的文档里（宿主页面的 `body` 不是我们的）；`capability` 让插件只给 `review` + `layout`，`edit` 归 agent（D3、D6）。
 
-- 在目标宿主里装上插件，agent 能调用 `texteda check` 一类的动词并拿到诊断。
-- 人能看到打印页并拖动一个符号，`place` 行被改写；连线变旧由 `texteda check` 报出来，而不是被插件悄悄改掉。
-- 插件不把任何宿主依赖带进 core（不变量 20），`packages/core` 仍然不依赖任何宿主 SDK。
+**构建与冒烟**：`bun run build:dsh-plugin` 出两个产物——`dist/host.mjs`（node/esm）与 `lib/client.js`（browser/cjs，套在 DSH 的 `__ModuleLoader__` 框里，React 由宿主提供）；`bun run smoke:dsh-plugin` 分别用桩宿主 apply 两半，钉住工具集、两条路由的路径与方法、`inject` 清单、tab 类型与 tab 体的挂载。
+
+**仍未过**：真宿主里的冒烟（本机没有 DSH、node、npm，见 F58）。
+
+**验收**（已过）：
+
+- 两条路由在本机用桩上下文跑通：模型 200（`capability` = `review,layout` / `write: places`）、plan 200 且 `stale` 报出 `["GND","M2.VFB"]`、commit 200 且只改写一行 `place`、未知会话 404、未知板 400。
+- 独立 app 被这次重构逐像素保留：重构前后 Firefox 无头截图 md5 相同（`5bef3ccc…`）。
+- `packages/core` 仍不依赖任何宿主 SDK（不变量 20）；宿主类型是 `plugins/dsh-texteda/dsh.d.ts` 里的窄声明，本仓没有任何 `package.json` 依赖 React 或 DSH 的包。
 
 ## F54. 拖动会丢掉未保存的文本编辑：`/api/layout` 只认磁盘上的那一版（2026-10-29）
 
@@ -1398,7 +1405,7 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 
 DSH 侧**代码已落地**：宿主合同读的是官方 cookbook（`@deepseek-ai/dsh-tools` 的 `defineTool`、`@deepseek-ai/cordis` 的 `apply(ctx)` + `inject`），参数是扁平 spec `{type, required, description}`，结果是 canonical value + `output.render`。`plugins/dsh-texteda/` 是 host 半边，`packages/cli/src/dsh-tools.ts` 是投影，`bun run scripts/build-dsh-plugin.ts` 出一个 bundle（我们的包打进去，宿主的包留在外面）。
 
-**要做的事**：宿主侧冒烟——把 bundle 装进 DSH，看工具出现在 `/tools` 里，并跑通一个只读动词。
+**要做的事**：宿主侧冒烟——把 bundle 装进 DSH，看工具出现在 `/tools` 里，并跑通一个只读动词。（图那一半另见 F53：两条路由与客户端 tab 都已落地并有桩冒烟，缺的同样是真宿主。）
 
 **涉及文件**：`plugins/dsh-texteda/`（bundle，需要打包我们的包——本仓的包未发布，见 ADR-0142 D7 与 F53；发布这件事本身是 F53）。
 
@@ -1409,3 +1416,25 @@ DSH 侧**代码已落地**：宿主合同读的是官方 cookbook（`@deepseek-a
 - DSH 侧：bundle 装进宿主后，工具出现在 `/tools` 里且能跑通一个只读动词。**半过**（`bun run smoke:dsh-plugin`：bundle 构建出来、插件被 apply、注册的八条与清单一致、`texteda_check` 拿回诊断——宿主那半边用桩替了；**待做**：真宿主里工具出现在 `/tools` 里。本机没有 DSH 宿主，也没有 npm，宿主侧冒烟得在装了宿主的机器上跑）。
 
 **注意**：适配器放本仓 `plugins/` 还是拆独立仓，ADR-0143 的开放点 2 还没定；拆仓的前提是清单先在 F56 里稳定。
+
+## F59. MCP Apps 增量：把图当成一个 `ui://` 资源（2026-10-30）
+
+**现状**：图的第三条路线（[ADR-0146](adr/process/0146-the-picture-reaches-a-host-by-three-routes.md) D1）是 MCP Apps——协议级，一份实现，宿主侧零耦合。今天 `texteda mcp` 只有工具，**没有 `resources/read`**，所以发不出 `ui://` 资源，也就没有一张能在宿主里画的图。
+
+**为什么现在不做**：`docs/plugin-hosts.md` 记着的那张客户端支持表只列了 Claude web、Claude Desktop、VS Code GitHub Copilot、Microsoft 365 Copilot、Goose、Postman、MCPJam、Archestra.AI——我们六个宿主里**一个都不在上面**。先做协议是对的，但今天做出来没有任何宿主能显示它。
+
+**重开条件**（按事件不按日历）：出现一个我们确实要支持的宿主落在 MCP Apps 的客户端表里，或者某个宿主明确宣布支持。出现后这条增量才值得写。
+
+**要做的事**（写之前先读 ADR-0146 D4）：
+
+1. `packages/cli/src/mcp.ts` 加 `resources/read`（现在是手写的 MCP，没有资源面）。
+2. 一个 `ui://` 资源，内容 `text/html;profile=mcp-app`，里面挂的仍是 `mountReview`——与 DSH 的 tab、独立 app 同一份客户端半边，只是 `api.post` 走 MCP 的工具调用。
+3. 承载它的工具带 `_meta.ui.resourceUri` 指回那个资源。
+
+**涉及文件**：`packages/cli/src/mcp.ts`；`packages/viewer/src/client.ts`（多一个宿主入口）；一份新 ADR 记录 MCP Apps 的接线（ADR-0146 只定了路线，没定这个实现）。
+
+**验收**：
+
+- 一个 MCP 客户端能 `initialize` 之后 `resources/read` 拿到那个 `ui://` 资源，内容声明的 MIME 是 `text/html;profile=mcp-app`。
+- 工具列表里承载它的那条带 `_meta.ui.resourceUri`，指向同一个资源。
+- 资源里挂的 app 与独立 app 的渲染逐像素一致（同一份 `mountReview`、同一份 `APP_STYLES`），且 `bun test` 与 `bun run typecheck` 不因这个增量而变。

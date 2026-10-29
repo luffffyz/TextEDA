@@ -3,8 +3,8 @@
 Status: Accepted
 Date: 2026-10-29
 Scope: Decides: that the MCP server is written by hand, in the CLI package, over the verbs' own functions; that it speaks both eras of the protocol, the `initialize` handshake and the `server/discover` probe; and that its tools are the catalogue's entries and nothing else. Does not decide: what the catalogue holds (ADR-0143 D9), which hosts get a native adapter, or whether the command line's surface gets a version line of its own (ADR-0143).
-Related: [ADR-0143](../process/0143-the-agent-surface-is-a-set-of-verbs.md), [ADR-0145](0145-a-host-is-entered-once.md), [ADR-0137](0137-implementation-stack-and-agent-entry.md), [ADR-0120](../manufacturing/0120-the-manufacturing-output-path.md)
-Impact: `packages/cli/src/mcp.ts`; `packages/cli/scripts/texteda.ts`; `packages/cli/test/mcp.test.ts`; `docs/tool-formats.md`; `docs/backlog.md` (F57)
+Related: [ADR-0143](../process/0143-the-agent-surface-is-a-set-of-verbs.md), [ADR-0145](0145-a-host-is-entered-once.md), [ADR-0146](0146-the-picture-reaches-a-host-by-three-routes.md), [ADR-0137](0137-implementation-stack-and-agent-entry.md), [ADR-0120](../manufacturing/0120-the-manufacturing-output-path.md)
+Impact: `packages/cli/src/mcp.ts`; `packages/cli/scripts/texteda.ts`; `packages/cli/test/mcp.test.ts`; `docs/tool-formats.md`; `docs/backlog.md` (F57, F59)
 
 ## Background
 

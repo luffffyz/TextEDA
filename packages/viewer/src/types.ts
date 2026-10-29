@@ -45,6 +45,17 @@ export interface ReviewText {
  */
 export type ReviewMode = "review" | "layout" | "placement" | "edit";
 
+/** What the host behind this document allows (ADR-0142 D3, D6). */
+export interface ReviewCapability {
+  /** The modes the person may enter, in the order the mode bar shows them. */
+  modes: ReviewMode[];
+  /**
+   * What a write may touch: `places` — the page's `place` rows only, the plugin's write
+   * (ADR-0142 D3); `layout` — the whole layout, the standalone app's write (ADR-0141 D3).
+   */
+  write: "places" | "layout";
+}
+
 /** Where a symbol sits on a print page: the page's own millimetres and a turn in whole quadrants. */
 export interface ReviewPlace {
   /** Instance id (`M2.C1`). */
@@ -175,6 +186,31 @@ export interface ReviewDiagnostic {
   col?: number;
 }
 
+/**
+ * The host's answer to a write.
+ *
+ * The status is kept, not just the payload: a refusal is a status with a message in it, and the
+ * app reads the message the same way whichever host it is mounted in.
+ */
+export interface ReviewAnswer {
+  /** The host's status code. */
+  readonly status: number;
+  /** The host's JSON answer. */
+  readonly payload: Record<string, unknown>;
+}
+
+/**
+ * How the client half asks its host to write.
+ *
+ * The standalone app posts to the CLI's two routes; a plugin asks its own host half. The client
+ * half names the route and hands over the body, and knows nothing else about the host
+ * (ADR-0142 D2, D9).
+ */
+export interface ReviewApi {
+  /** Post a JSON body to one of the host's routes. */
+  post(path: string, body: unknown): Promise<ReviewAnswer>;
+}
+
 /** What the page shows: the whole project, because a board is small and a fetch per page is slower. */
 export interface ReviewModel {
   project: { name: string; root: string };
@@ -189,4 +225,9 @@ export interface ReviewModel {
   diagnostics: ReviewDiagnostic[];
   /** Identity → source locations (ADR-0103 D6); advisory, derived from the same parse as the IR. */
   sources: ReviewSources;
+  /**
+   * What the host behind this document allows. Absent means the standalone app's full set: every
+   * mode the board supports, and the whole layout as the write (ADR-0142 D3, D6).
+   */
+  capability?: ReviewCapability;
 }

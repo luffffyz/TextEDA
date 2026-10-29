@@ -242,10 +242,15 @@ Hooks run in every kind of session that loads the plugin. Drawing is narrower.
 
 ### MCP Apps are not a route here
 
-The protocol's own client matrix records Claude Code among the clients that **do not** render MCP
-Apps (<https://modelcontextprotocol.io/extensions/client-matrix>). So a picture for Claude Code is
-a mod, or nothing. Two GitHub reports about MCP rendering in the CLI (#88881, #48132) are closed
-as stale and are not policy.
+The extension's own *Client support* paragraph names the clients that render MCP Apps — Claude
+(web), Claude Desktop, VS Code GitHub Copilot, Microsoft 365 Copilot, Goose, Postman, MCPJam,
+Archestra.AI — and Claude Code is not among them
+(<https://modelcontextprotocol.io/extensions/apps/overview>). The community matrix at
+<https://modelcontextprotocol.io/extensions/client-matrix> has a column for it, but its cells render
+**empty for every client** (only the Skills column carries marks), so the matrix is not the
+authority for this — an empty cell is not a "no". So a picture for Claude Code is a mod, or
+nothing. Two GitHub reports about MCP rendering in the CLI (#88881, #48132) are closed as stale and
+are not policy.
 
 ### What it means for TextEDA — our plan
 
@@ -259,6 +264,38 @@ as stale and are not policy.
 - Our client half is `packages/viewer/src/client.ts`, a browser client. Carrying it as a `Client`
   region means giving it the shape a mod's client file has — a file that draws and posts messages
   — and that is the picture half's work, not this document's.
+
+## The picture's three routes, and which host takes which
+
+A picture reaches a host by one of three routes ([ADR-0146](adr/process/0146-the-picture-reaches-a-host-by-three-routes.md)):
+
+1. **A browser** — our own `texteda review` over HTTP, or its static export. Nothing host-specific,
+   works in every host.
+2. **MCP Apps** (`io.modelcontextprotocol/ui`) — a tool's `_meta.ui.resourceUri` and a `ui://`
+   resource on our own MCP server; the host renders the HTML in a sandboxed iframe and the app
+   talks to it in a `ui/`-prefixed JSON-RPC dialect over `postMessage`.
+3. **A host-native plugin** — DSH's slots, a Claude Code mod.
+
+All three sit behind the same `ReviewApi.post(path, body)` seam, so a route is an adapter and never
+a fork of the drawing. A host-native half is worth writing only where the host has a drawing
+surface **and** no other route reaches it:
+
+| Host | Drawing surface | Renders MCP Apps | Picture route |
+|---|---|---|---|
+| DSH | yes — slots in the `web` and `desktop` profiles | no — `ui://`, `resourceUri` and `modelcontextprotocol/ui` occur zero times in its source | host-native plugin (`plugins/dsh-texteda/`) |
+| Claude Code | yes — a mod's `Pane` / `AbovePrompt` / `Client` / `Svg` | no — absent from the client-support list | host-native plugin, when the picture half reaches it |
+| Codex CLI | none found | no | browser |
+| WorkBuddy | none found | no | browser |
+| Qoder | none found | no | browser |
+| pi / omp | none — no webview, no panel extension point | no | browser |
+
+Two host-native halves, not six. **The DSH one has landed** (`plugins/dsh-texteda/`, backlog F53
+closed): the host half registers the verbs and the two routes, the client half puts the review app
+in a `sidebar.right.pane.tab` whose project root is the session's `cwd`. Claude Code's half is not
+written.
+
+The MCP Apps increment is filed as backlog F59: no host we support is on the client-support list,
+so nothing on this box could exercise it.
 
 ## The common shape
 

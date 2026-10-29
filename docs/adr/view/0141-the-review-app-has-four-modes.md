@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-28
 Scope: Decides: that the review app has four modes — `review`, `layout`, `placement`, `edit` — that share one highlight-and-jump path, that `layout` writes only the print page's `place` rows plus the bends of the nets it disturbed, and that the app never writes `design/**`. Does not decide: what a print page is or how it is drawn — see ADR-0134 and ADR-0135; how PCB placement and copper routing are produced — see ADR-0116.
-Related: [ADR-0103](../language/0103-source-spans.md), [ADR-0116](../pcb/0116-layout-and-routing-are-agent-driven.md), [ADR-0134](0134-the-view-layer-is-a-drawing.md), [ADR-0135](0135-our-own-reference-renderer.md)
+Related: [ADR-0103](../language/0103-source-spans.md), [ADR-0116](../pcb/0116-layout-and-routing-are-agent-driven.md), [ADR-0134](0134-the-view-layer-is-a-drawing.md), [ADR-0135](0135-our-own-reference-renderer.md), [ADR-0142](0142-the-review-app-is-a-plugin-of-the-agent-workbench.md)
 Impact: `packages/viewer/**`; `packages/cli` (the `review` command); `packages/renderer`; `packages/core`; `docs/guides/review-app.md`; `docs/backlog.md` (F34)
 
 ## Background
@@ -85,6 +85,11 @@ not pretend otherwise.
 
 What the app writes is canonical (ADR-0134 D10): the file it writes is byte-identical to what `fmt`
 produces for that content, so a save leaves a diff that shows design changes and nothing else.
+
+The plugin that carries this app into a host writes **less**, not more: the `place` rows only, and
+not the bends of the disturbed nets ([ADR-0142](0142-the-review-app-is-a-plugin-of-the-agent-workbench.md)
+D3). This record governs the standalone app, which keeps its modes for now
+([ADR-0142](0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) D11).
 
 ### D4. Routing is not live; the stale signal is the warning
 

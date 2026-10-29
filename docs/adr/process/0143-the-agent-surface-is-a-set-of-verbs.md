@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-29
 Scope: Decides: that the agent reaches TextEDA through the command line's verbs and the skill that documents them; that a host's tool registry is an optional adapter over those same functions rather than a second interface; that the skill stays the floor and is never replaced by a tool; that the print page's verbs live under one noun, `texteda view`; that the catalogue's parameters are JSON Schema, which is the only format every host can be projected onto; which verbs the catalogue holds; and which adapters get built and where they live. Does not decide: whether the command line's surface gets a version line of its own — see "Open points".
-Related: [ADR-0142](../view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0145](0145-a-host-is-entered-once.md)
+Related: [ADR-0142](../view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0145](0145-a-host-is-entered-once.md), [ADR-0146](0146-the-picture-reaches-a-host-by-three-routes.md)
 Impact: `packages/cli/**`; `docs/skills/**`; `docs/plugin-hosts.md`; `docs/tool-formats.md`; `docs/backlog.md` (F55, F57, F58)
 
 ## Background

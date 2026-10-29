@@ -11,7 +11,9 @@
   "type": "module",
   "exports": {
     ".": "./src/types.ts",
+    "./app": "./src/app.ts",
     "./build": "./src/build.ts",
-    "./client": "./src/client.ts"
+    "./client": "./src/client.ts",
+    "./styles": "./src/styles.ts"
   }
 }
