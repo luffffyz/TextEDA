@@ -88,8 +88,9 @@ export const TOOLS: readonly Tool[] = [
       const dir = projectDir(args);
       if (dir === undefined) return failed("project_dir is required");
       const built = buildCheck(dir);
-      if (!built.ok || built.value === undefined) return built;
-      return { ok: true, value: built.value.payload };
+      if (built.value === undefined) return built;
+      // The findings are the answer, errors or not; `ok` says whether the project is clean.
+      return { ok: built.ok, value: built.value.payload };
     },
   },
   {

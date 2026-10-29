@@ -112,9 +112,10 @@ and no mode of the print-page workflow writes `design/**`
 
 The agent reaches TextEDA through the command line's verbs and the skill that documents them.
 Where a host offers a tool registry, the same verbs are registered there as tools, over the same
-functions — an adapter, not a second interface. There is no MCP layer between the agent and the
-core: MCP would be a third way to say the same thing, and it earns its place only with consumers
-that can neither host a plugin nor run a command.
+functions — an adapter, not a second interface. Where a host takes tools only through MCP, the
+same verbs are served there over the same functions
+([ADR-0143](../process/0143-the-agent-surface-is-a-set-of-verbs.md) D5); MCP is a transport for
+the same verbs, not a third interface.
 
 The shape of that surface — the verbs, the skill, the adapters, the naming of the print page's
 commands — is decided in [ADR-0143](../process/0143-the-agent-surface-is-a-set-of-verbs.md).

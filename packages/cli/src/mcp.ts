@@ -11,6 +11,7 @@
 // It speaks both eras of the protocol: the `initialize` handshake of the older revisions, and the
 // `server/discover` probe of the newer one (ADR-0144 D2).
 import { SUPPORTED_LANGUAGE, formatVersion } from "@texteda/parser";
+import { toolAnswer } from "./result.ts";
 import { findTool, toolCatalogue } from "./tools.ts";
 
 /** The protocol revisions this server speaks, newest first. */
@@ -100,25 +101,15 @@ function callTool(name: unknown, args: unknown): ToolOutcome {
     return { kind: "protocol-error", error: { code: INVALID_PARAMS, message: `Unknown tool: ${name}` } };
   }
   const arguments_ = args !== undefined && args !== null && typeof args === "object" ? (args as Record<string, unknown>) : {};
-  const result = tool.run(arguments_);
-  if (!result.ok) {
-    // A tool that could not do its work is a tool execution error: the model can read it and try
-    // again with different arguments.
-    return {
-      kind: "result",
-      result: {
-        content: [{ type: "text", text: result.error ?? "The tool could not do its work" }],
-        isError: true,
-      },
-    };
-  }
-  const value = result.value;
+  // A verb that failed but still computed something has computed the answer: the model is to see
+  // it, and the call is marked as the failure the command line would report (ADR-0144 D5).
+  const answer = toolAnswer(tool.run(arguments_));
   return {
     kind: "result",
     result: {
-      content: [{ type: "text", text: JSON.stringify(value, null, 2) }],
-      structuredContent: value,
-      isError: false,
+      content: [{ type: "text", text: answer.text }],
+      ...(answer.value === undefined ? {} : { structuredContent: answer.value }),
+      isError: answer.isError,
     },
   };
 }

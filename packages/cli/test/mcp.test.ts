@@ -103,6 +103,20 @@ describe("the MCP server", () => {
     expect(JSON.stringify(field(response?.result, "content"))).toContain("required");
   });
 
+  test("a check that found errors hands the diagnostics back", () => {
+    const response = ask({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: {
+        name: "texteda_check",
+        arguments: { project_dir: join(import.meta.dir, "../../..") },
+      },
+    });
+    expect(field(response?.result, "isError")).toBe(true);
+    expect(JSON.stringify(field(response?.result, "content"))).toContain("diagnostics");
+  });
+
   test("a tool's value is the same value the command line prints", async () => {
     const proc = Bun.spawn(["bun", "run", script, "view", "metrics", project, "charger-buck/buck-5v", "--json"], {
       stdout: "pipe",

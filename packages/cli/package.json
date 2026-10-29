@@ -18,7 +18,9 @@
     "./ir": "./src/ir.ts",
     "./ir-tree": "./src/ir-tree.ts",
     "./symbols": "./src/symbols.ts",
-    "./view-metrics": "./src/view-metrics.ts",
+    "./tools": "./src/tools.ts",
+    "./pi-tools": "./src/pi-tools.ts",
+    "./mcp": "./src/mcp.ts",
     "./review": "./src/review.ts"
   },
   "dependencies": {

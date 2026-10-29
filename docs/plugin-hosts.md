@@ -148,6 +148,20 @@ Herdr, Orca, CMUX), *not* an OS window.
 - pi is not special here: it is what a terminal session looks like. A DSH plugin in `headless`,
   `sdk` or `acp` is in the same position.
 
+### What we built for pi
+
+`plugins/pi-texteda/` is the adapter: an extension whose factory registers the catalogue's eight
+verbs as pi tools, with the catalogue's JSON Schema projected onto the host's `pi.zod` builder.
+The projection is the whole of it — the tools call the same verbs the command line calls, and a
+tool's answer is the value the command line prints with `--json`
+([ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D2).
+
+```sh
+omp --extension plugins/pi-texteda        # or: symlink it into ~/.omp/agent/tools/
+```
+
+pi loads TypeScript directly, so there is no build step and no new dependency.
+
 ## The common shape
 
 | Need | DSH | pi |
