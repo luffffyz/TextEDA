@@ -325,6 +325,8 @@ dist/ir/
 | `bun run texteda renumber <dir> <board>` | 全局改名的 dry run / apply | [ADR-0110](docs/adr/project/0110-renumbering-is-a-code-executed-rename.md)；`docs/guides/renumbering.md` |
 | `bun run texteda id <dir>` | 生成未使用的实例 `uid` | [ADR-0109](docs/adr/project/0109-instance-identity-is-a-uid.md) |
 | `bun run texteda lib import <name> --from <dir> --rev <tag>` | 外部库拷成自有资产 | `docs/guides/library-import.md`；[ADR-0133](docs/adr/libraries/0133-trust-in-a-library-you-do-not-own.md) |
+| `bun run texteda tools --json` | 工具清单（名字 / 描述 / JSON Schema），宿主据此适配 | [ADR-0143](docs/adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D7、D8 |
+| `bun run texteda mcp` | 把同一批动词以 MCP 工具的形式通过 stdio 提供 | [ADR-0144](docs/adr/process/0144-the-mcp-server-is-a-slice-we-write-ourselves.md) |
 
 **验收口径**（性质，不是命令）：
 
