@@ -99,10 +99,11 @@ interface AppState {
   /** The definition menu is open for the current selection (F34 source jump). */
   definitionsOpen: boolean;
   /**
-   * The tree blocks the person folded, by key (`kind/symbol`, `symbol/passives`).
+   * The kind blocks the person folded, by key (`kind/symbol`).
    *
    * The tree re-renders on every selection, and a re-render that unfolded what the person closed
-   * would make the sidebar unusable once a project has a few dozen symbols.
+   * would make the sidebar unusable. The class blocks are not in here: they are hover reveals, and
+   * their open state is the pointer's, not the app's.
    */
   folded: Set<string>;
   /** Set once the reviewer pans or zooms: a window resize must not undo their framing. */
@@ -435,17 +436,16 @@ function wireStage(): void {
 // --- navigation ------------------------------------------------------------------------------
 
 /**
- * Take a drawing out of the folds that hold it.
+ * Make sure the drawing's kind block is not folded.
  *
  * A drawing can be chosen from somewhere other than the tree — the arrow keys, a finding's show
- * button — and a row nobody can see is not selected in any useful sense. The fold is a reading aid,
- * not a filter: choosing the drawing opens what has to be open to show it.
+ * button — and a row inside a closed block is selected in no useful sense. The class blocks need no
+ * work here: they are not folds but hovers, and the block holding the selected drawing stays open by
+ * itself (`.reveal`), so its row is visible whether or not the pointer is on it.
  */
 function revealDrawing(key: string): void {
   const target = model.drawings.find((candidate) => candidate.key === key);
-  if (target === undefined) return;
-  state.folded.delete(`kind/${target.kind}`);
-  if (target.group !== undefined) state.folded.delete(`${target.kind}/${target.group}`);
+  if (target !== undefined) state.folded.delete(`kind/${target.kind}`);
 }
 
 /**
@@ -496,15 +496,40 @@ function foldingBlock(key: string, label: string, count: number, rows: HTMLEleme
 }
 
 /**
+ * A class block: the class's name, its count, and the drawings filed under it.
+ *
+ * This level is not a fold the person has to click: a project with forty passives would be forty
+ * rows under one heading, so the block stays closed and opens while the pointer is on it (ADR-0048
+ * D1). One gesture instead of two — the pointer is already there to pick a row — and nothing has to
+ * be remembered or reset. `reveal` keeps the block of the *selected* drawing open, so a drawing
+ * chosen from the arrow keys or a finding is never hidden behind a closed class.
+ *
+ * The title takes focus so the keyboard can walk into a closed class: it is not an action, and a
+ * key on it does nothing — focusing it opens the rows, which is the whole of what a hover does.
+ */
+function classBlock(label: string, count: number, rows: HTMLElement[], reveal: boolean): HTMLElement {
+  const node = el("div", "class-block");
+  if (reveal) node.classList.add("reveal");
+  const title = el("div", "group-title");
+  title.tabIndex = 0;
+  title.append(el("span", "group-name", label));
+  title.append(el("span", "group-count", String(count)));
+  const body = el("div", "class-rows");
+  body.append(...rows);
+  node.append(title, body);
+  return node;
+}
+
+/**
  * The sidebar's tree: what the project is made of, grouped by what kind of thing it is.
  *
  * The drawings come first, in kind groups — print pages, board canvases, symbols, footprints —
  * because that is what a reviewer picks from (ADR-0048 D1). Symbols and footprints are filed by
- * their classification directory (ADR-0049), so those two kinds fold one level further: a project
- * with forty passives is not a flat list of forty rows.
+ * their classification directory (ADR-0049), so those two kinds go one level further: a class
+ * block that opens on hover (see `classBlock`).
  *
- * Each block folds, and the fold is remembered per mount: re-rendering after a selection must not
- * unfold what the person closed.
+ * The kind blocks fold, and the fold is remembered per mount: re-rendering after a selection must
+ * not unfold what the person closed.
  *
  * A board with no print page comes last, with the note that says why and the instances that are
  * still there to look at.
@@ -538,11 +563,11 @@ function renderTree(): void {
       // sorted without a second ordering rule here.
       for (const [group, members] of groups) {
         rows.push(
-          foldingBlock(
-            `${kind.kind}/${group}`,
+          classBlock(
             group === "" ? "unclassified" : group,
             members.length,
             members.map(drawingRow),
+            members.some((member) => member.key === state.drawing),
           ),
         );
       }

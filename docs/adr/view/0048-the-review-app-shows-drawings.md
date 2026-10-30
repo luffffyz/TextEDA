@@ -41,11 +41,15 @@ The sidebar groups the drawings by kind — print pages, board canvases, symbols
 lists a board that has no print page on its own, with the note that says why and the instances
 that are still there to look at.
 
-Every block folds, and the two library kinds fold one level further, by the classification
+The kind blocks fold, and the two library kinds go one level further, by the classification
 directory the file sits in ([ADR-0049](../libraries/0049-assets-are-filed-by-what-they-are.md)):
 sixteen symbols under one heading is a list nobody browses, and the classes are the grouping the
-project already has. A fold is a reading aid, not a filter — choosing a drawing from the arrow keys
-or from a finding opens the blocks that hold it, so the selected row is never hidden.
+project already has. That second level is **not** a fold the reviewer clicks — it opens under the
+pointer, because the pointer is already there to pick a row, and two gestures to reach one row is
+one too many. Either way the selection is never hidden: the kind fold opens for the drawing it holds,
+and the class block holding the selected drawing stays open after the pointer leaves. What a leaf
+row looks like matters for the same reason: the rows a reviewer picks are set apart from the
+headings above them, or a list of classes and a list of drawings read as the same list.
 
 The board's own facts (its instances, its nets) stay where they were: on the board, not on the
 drawing. A drawing shows; the board says.

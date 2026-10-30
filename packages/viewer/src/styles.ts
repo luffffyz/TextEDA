@@ -46,7 +46,7 @@ export const APP_STYLES = `
 .teda-review .page-name.active { color: var(--fg); background: #262a31; }
 .teda-review .page-name.problem { color: var(--warning); }
 .teda-review .page-note { color: var(--muted); font-size: 11px; padding: 2px 6px 2px 18px; }
-/* A kind block or a class block: the summary is the readable line, the marker is drawn by us. */
+/* A kind block folds: its summary is the readable line, the marker is drawn by us. */
 .teda-review .group-title {
   color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
   padding: 8px 6px 2px;
@@ -57,12 +57,38 @@ export const APP_STYLES = `
 .teda-review .fold > summary::before { content: "\\25B8"; font-size: 9px; color: var(--muted); }
 .teda-review .fold[open] > summary::before { content: "\\25BE"; }
 .teda-review .fold > summary:hover { color: var(--fg); }
-.teda-review .fold .group-name { flex: 1 1 auto; }
-.teda-review .fold .group-count {
+.teda-review .group-name { flex: 1 1 auto; }
+.teda-review .group-count {
   color: var(--muted); font-size: 10px; text-transform: none; letter-spacing: 0;
 }
-/* A nested fold (a classification directory inside Symbols) is indented once. */
-.teda-review .fold .fold { margin-left: 10px; }
+/* A class block inside Symbols or Footprints. It is not a fold the person clicks: the rows stay
+   closed and open under the pointer, so picking a drawing is one gesture rather than click-open,
+   click-pick. The reveal class marks the block that holds the selected drawing, open whether or
+   not the pointer is on it, and :focus-within covers walking in with Tab. */
+.teda-review .class-block { position: relative; }
+.teda-review .class-block > .group-title { cursor: default; padding-left: 18px; }
+.teda-review .class-block > .group-title::before {
+  content: "\\25B8"; position: absolute; left: 6px; font-size: 9px; color: var(--muted);
+}
+.teda-review .class-block:hover > .group-title::before,
+.teda-review .class-block.reveal > .group-title::before,
+.teda-review .class-block:focus-within > .group-title::before { content: "\\25BE"; }
+.teda-review .class-block:hover > .group-title,
+.teda-review .class-block.reveal > .group-title,
+.teda-review .class-block:focus-within > .group-title { color: var(--fg); }
+.teda-review .class-rows { display: none; }
+.teda-review .class-block:hover > .class-rows,
+.teda-review .class-block.reveal > .class-rows,
+.teda-review .class-block:focus-within > .class-rows { display: block; }
+/* The leaves: what a reviewer actually picks. Their own type and a chip background separate them
+   from the headings above, so a class's rows read as items and not as more headings. */
+.teda-review .class-rows .page-name {
+  color: var(--fg); font-size: 12px; background: #202329; margin: 1px 0 1px 6px;
+  padding: 2px 6px 2px 10px;
+}
+.teda-review .class-rows .page-name:hover { background: #282c33; }
+.teda-review .class-rows .page-name.active { color: var(--accent); background: #262a31; }
+.teda-review .class-rows .page-name.problem { color: var(--warning); }
 .teda-review .page-name .row-note { float: right; color: var(--muted); font-size: 10px; }
 .teda-review .instance-list { display: flex; flex-wrap: wrap; gap: 3px; padding: 2px 6px 4px 18px; }
 .teda-review .instance-name {
