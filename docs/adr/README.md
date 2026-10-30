@@ -119,8 +119,9 @@ that was meant for it, and by nothing else.
 | [ADR-0035](view/0035-the-view-layer-is-a-drawing.md) | The View Layer Is an Independent Description, and the View Is a Drawing, Not a Build Input | Accepted | 2026-10-22 |
 | [ADR-0036](view/0036-our-own-reference-renderer.md) | Our Own Reference Renderer — IR → Drawing Commands → SVG | Accepted | 2026-10-20 |
 | [ADR-0037](view/0037-review-records-and-attribution.md) | Review Is Not a Description Type — Notes, Decisions, and the One Accountable Person | Accepted | 2026-10-22 |
-| [ADR-0042](view/0042-the-review-app-has-four-modes.md) | The Review App Has Four Modes, and `layout` Writes Placement, Not Copper | Accepted | 2026-10-28 |
+| [ADR-0042](view/0042-the-review-app-has-modes.md) | The Review App Has Modes, and `layout` Writes Placement, Not Copper | Accepted | 2026-10-28 |
 | [ADR-0043](view/0043-the-review-app-is-a-plugin-of-the-agent-workbench.md) | The Review App Is a Plugin of the Agent Workbench, and the Agent Owns the Source | Accepted | 2026-10-29 |
+| [ADR-0048](view/0048-the-review-app-shows-drawings.md) | The Review App Shows Drawings, Not Boards | Accepted | 2026-10-30 |
 
 ## Process
 

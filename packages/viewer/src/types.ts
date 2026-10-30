@@ -37,13 +37,13 @@ export interface ReviewText {
 }
 
 /**
- * The modes the app offers (ADR-0042 D1).
+ * The modes the app offers (ADR-0042 D1, as ADR-0048 amends it).
  *
- * `review` reads, `layout` moves symbols on a print page, `placement` shows the board's physical
- * canvas, `edit` shows the page's source. They share one highlight and one jump: the mode decides
- * what the stage shows and what a press means, not how a thing is found.
+ * `review` reads, `layout` moves symbols on a print page, `edit` shows the page's source. They
+ * share one highlight and one jump: the drawing decides what the canvas holds, the mode decides
+ * what a press means, not how a thing is found.
  */
-export type ReviewMode = "review" | "layout" | "placement" | "edit";
+export type ReviewMode = "review" | "layout" | "edit";
 
 /** What the host behind this document allows (ADR-0043 D3, D6). */
 export interface ReviewCapability {
@@ -77,37 +77,69 @@ export interface ReviewPcbPart {
   footprint?: string;
 }
 
-/** The board's physical canvas: what the placement mode shows. */
-export interface ReviewPcb {
-  /** Source file of the board description, relative to the project root. */
+/** What a drawing shows (ADR-0048). */
+export type ReviewDrawingKind = "sch" | "pcb" | "symbol" | "footprint";
+
+/**
+ * One drawing the app can show.
+ *
+ * The app shows drawings, not boards: a print page, a board's physical canvas, a library symbol and
+ * a library footprint are four kinds of the same thing — something drawn, with a source file behind
+ * it (ADR-0048). The fields that belong to one kind are absent on the others, and the kind says
+ * which.
+ */
+export interface ReviewDrawing {
+  kind: ReviewDrawingKind;
+  /**
+   * The drawing's key in the model: `board/<board>/page/<page>`, `board/<board>/pcb`,
+   * `symbol/<lib>/<id>`, `footprint/<lib>/<id>`.
+   */
+  key: string;
+  /** The name the sidebar shows. */
+  label: string;
+  /** The source file, relative to the project root. */
   file: string;
-  /** Board size in millimetres (the outline's bounding box). */
+  /** The sheet's size in millimetres. */
   sheet: { w: number; h: number };
-  /** The renderer's SVG, verbatim. Empty when the board could not be drawn. */
+  /** The renderer's SVG, verbatim. Empty when the drawing could not be made. */
   svg: string;
-  parts: ReviewPcbPart[];
-  /** Why the board has no canvas. Empty when it has one. */
+  /** The symbols on the sheet (a print page). */
+  symbols: ReviewSymbol[];
+  /** The texts on the sheet (a print page). */
+  texts: ReviewText[];
+  /** The page's source, verbatim: what the edit mode shows and edits (a print page). */
+  source?: string;
+  /** Where the page's symbols sit: what the layout mode moves (a print page). */
+  places?: ReviewPlace[];
+  /** The parts the board places (a board canvas). */
+  parts?: ReviewPcbPart[];
+  /** Why the drawing has no ink. Empty when it has some. */
   problems: string[];
+  /** The board this drawing belongs to; absent for a library drawing. */
+  board?: string;
+  /** The print page's id (a print page): what the layout and edit writes name. */
+  page?: string;
+  /** What the page measures (a print page): how crowded, how far, how long (ADR-0048 D6). */
+  metrics?: ReviewMetrics;
 }
 
-/** One print page, ready to show. */
-export interface ReviewPage {
-  /** Print page id (`views/<board>/<page>.view.teda`). */
-  id: string;
-  /** Source file of the view, relative to the project root. */
-  file: string;
-  /** Sheet size in millimetres. */
-  sheet: { w: number; h: number };
-  /** The renderer's SVG, verbatim. Empty when the page could not be drawn. */
-  svg: string;
-  symbols: ReviewSymbol[];
-  texts: ReviewText[];
-  /** Why the page has no drawing. Empty when it has one. */
-  problems: string[];
-  /** The page's source, verbatim: what the edit mode shows and edits. */
-  source?: string;
-  /** Where the page's symbols sit: what the layout mode moves. */
-  places?: ReviewPlace[];
+/**
+ * What a print page measures (spec/schematic-view.md §9.4).
+ *
+ * The findings are binary — a label is on its net or it is not — but a reviewer also wants to know
+ * how crowded the page is and how long the wiring is. These are the numbers the page measures.
+ */
+export interface ReviewMetrics {
+  /** The content box as a share of the sheet, in ppm. */
+  content_fill_ppm: number;
+  /** The smallest gap between two texts, in nanometres; absent with fewer than two. */
+  text_min_gap_nm?: number;
+  /** The total drawn wire length, in nanometres. */
+  wire_total_nm: number;
+  /** The segment crossings between wires of different nets. */
+  wire_crossings: number;
+  /** The wires that pass through a body they do not connect. */
+  wires_through_bodies: number;
 }
 
 /** One instance of the board: what a click on its symbol reports beyond the refdes. */
@@ -161,17 +193,14 @@ export interface ReviewNet {
   members: string[];
 }
 
-/** One board: its pages and the facts a page cannot repeat (the board has one netlist). */
+/** One board: the facts a drawing cannot repeat (the board has one netlist). */
 export interface ReviewBoard {
   id: string;
   /** Source file of the board, relative to the project root. */
   file: string;
-  pages: ReviewPage[];
   instances: ReviewInstance[];
   nets: ReviewNet[];
-  /** The board's physical canvas; absent when the board has no `pcb` description. */
-  pcb?: ReviewPcb;
-  /** Why the board has no pages (no view file at all), or why it could not be read. */
+  /** Why the board has no print page (no view file at all), or why it could not be read. */
   note?: string;
 }
 
@@ -222,6 +251,12 @@ export interface ReviewModel {
   /** IR project hash (`texteda ir`), when the project compiles; the drawing belongs to that build. */
   hash?: string;
   boards: ReviewBoard[];
+  /**
+   * Every drawing the app can show, in the order the sidebar lists them: the print pages of each
+   * board, then the boards' physical canvases, then the library's symbols and footprints
+   * (ADR-0048).
+   */
+  drawings: ReviewDrawing[];
   diagnostics: ReviewDiagnostic[];
   /** Identity → source locations (ADR-0004 D6); advisory, derived from the same parse as the IR. */
   sources: ReviewSources;

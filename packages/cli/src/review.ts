@@ -142,16 +142,19 @@ async function handleApi(
         send(400, { error: `no such board: ${String(body["board"])}` });
         return;
       }
-      const page = board.pages.find((candidate) => candidate.id === body["page"]);
+      const pageId = String(body["page"]);
+      const page = model.drawings.find(
+        (candidate) => candidate.kind === "sch" && candidate.board === board.id && candidate.page === pageId,
+      );
       if (page === undefined) {
-        send(400, { error: `no such print page: ${String(body["page"])}` });
+        send(400, { error: `no such print page: ${pageId}` });
         return;
       }
       const places = Array.isArray(body["places"]) ? (body["places"] as LayoutPlace[]) : [];
       // The editor's unsaved text, when the app holds one: the layout is computed on it and the
       // write is it with the moved rows applied, so a drag cannot discard the edit (ADR-0042 D6).
       const draft = typeof body["text"] === "string" ? { text: body["text"] } : {};
-      const plan = planLayout(root, { board: board.id, page: page.id, places, ...draft });
+      const plan = planLayout(root, { board: board.id, page: pageId, places, ...draft });
       if (body["commit"] === true) {
         commitPlan(root, plan);
         const after = rebuild();
@@ -176,15 +179,14 @@ async function handleApi(
     // The edit route: the source of a page the project has.
     const model = rebuild();
     const file = String(body["file"] ?? "");
-    const owner = model.boards.find((candidate) => candidate.pages.some((candidatePage) => candidatePage.file === file));
-    if (owner === undefined) {
+    const owner = model.drawings.find((candidate) => candidate.kind === "sch" && candidate.file === file);
+    if (owner === undefined || owner.board === undefined || owner.page === undefined) {
       send(400, { error: `no such print page: ${file}` });
       return;
     }
-    const page = owner.pages.find((candidatePage) => candidatePage.file === file)!;
     const text = String(body["text"] ?? "");
     if (body["save"] === true) {
-      const saved = savePageSource(root, owner.id, page.id, text);
+      const saved = savePageSource(root, owner.board, owner.page, text);
       if (saved.errors.length > 0) {
         send(400, { errors: saved.errors });
         return;
@@ -193,7 +195,7 @@ async function handleApi(
       send(200, { changed: saved.changed, model: after });
       return;
     }
-    const drawn = renderPageSource(root, owner.id, page.id, text);
+    const drawn = renderPageSource(root, owner.board, owner.page, text);
     send(200, { svg: drawn.svg, errors: drawn.errors, anchors: drawn.anchors });
   } catch (error) {
     send(400, { error: error instanceof Error ? error.message : String(error) });

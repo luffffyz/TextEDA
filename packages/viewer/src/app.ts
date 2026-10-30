@@ -15,12 +15,12 @@ import { refusalMessage, unsavedSource } from "./host.ts";
 import type {
   ReviewBoard,
   ReviewDiagnostic,
+  ReviewDrawing,
+  ReviewDrawingKind,
   ReviewInstance,
   ReviewMode,
   ReviewModel,
-  ReviewPage,
   ReviewApi,
-  ReviewPcb,
   ReviewPlace,
   ReviewSourceLocation,
   ReviewSymbol,
@@ -90,8 +90,8 @@ let saveButton: HTMLButtonElement | undefined;
  * What the app is showing right now. One per mount: a second mount starts fresh.
  */
 interface AppState {
-  board: string;
-  page: number;
+  /** The key of the drawing on the stage (ADR-0048). */
+  drawing: string;
   zoom: number;
   panX: number;
   panY: number;
@@ -118,8 +118,7 @@ interface AppState {
 /** The state a mount starts in: the first board, zoom 1, nothing selected, no moves pending. */
 function initialState(): AppState {
   return {
-    board: model.boards[0]?.id ?? "",
-    page: 0,
+    drawing: model.drawings[0]?.key ?? "",
     zoom: 1,
     panX: 0,
     panY: 0,
@@ -151,12 +150,21 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
-function board(): ReviewBoard | undefined {
-  return model.boards.find((candidate) => candidate.id === state.board);
+/** The drawing on the stage right now. */
+function drawing(): ReviewDrawing | undefined {
+  return model.drawings.find((candidate) => candidate.key === state.drawing);
 }
 
-function page(): ReviewPage | undefined {
-  return board()?.pages[state.page];
+/**
+ * The board the current drawing belongs to.
+ *
+ * A print page and a board canvas belong to a board; a library symbol or footprint belongs to
+ * none, and the app says so rather than inventing one (ADR-0048 D2).
+ */
+function board(): ReviewBoard | undefined {
+  const current = drawing();
+  if (current?.board === undefined) return undefined;
+  return model.boards.find((candidate) => candidate.id === current.board);
 }
 
 /** The instance behind a refdes, with the nets its pins land on. */
@@ -178,48 +186,48 @@ function resetDraft(): void {
 
 // --- the modes ------------------------------------------------------------------------------
 //
-// Four modes, one app (ADR-0042 D1). They share everything that finds a thing — the selection, the
-// hover mark, the jump to its source — and differ only in what the stage shows and what a press
-// means. A mode that the current board cannot offer is not offered: there is no page to lay out and
-// no board description to place parts on.
+// Three modes, one app (ADR-0042 D1, as ADR-0048 amends it). They share everything that finds a
+// thing — the selection, the hover mark, the jump to its source — and differ only in what the stage
+// shows and what a press means. A mode the current drawing cannot offer is not offered: only a
+// print page can be laid out or edited, and a board canvas and a library drawing are read.
 
 const MODE_LABEL: Record<ReviewMode, string> = {
   review: "Review",
   layout: "Layout",
-  placement: "Placement",
   edit: "Edit",
 };
 
 /** What each mode is for, in one line, under the buttons. */
 const MODE_HINT: Record<ReviewMode, string> = {
-  review: "Read the print page: hover, click, jump to the source.",
+  review: "Read the drawing: hover, click, jump to the source.",
   layout: "Move the symbols of this page. Apply writes the page file.",
-  placement: "The board as it is placed. Read-only.",
   edit: "The page's source, and the drawing of it.",
 };
 
-/** The modes this board and this host both allow (ADR-0043 D6). */
-function modesFor(current: ReviewBoard | undefined): ReviewMode[] {
+/** The modes this drawing and this host both allow (ADR-0043 D6). */
+function modesFor(current: ReviewDrawing | undefined): ReviewMode[] {
   return availableModes(current, model.capability);
 }
 
 /**
- * Why a mode is not offered: the board's own limits first, then the host's.
+ * Why a mode is not offered: the drawing's own limits first, then the host's.
  *
- * A board with no `pcb` description cannot show its physical canvas, and a board with no print
- * page cannot be laid out or edited; those are the project's facts. A mode the board has but the
- * host does not grant is the host's decision and says so (ADR-0043 D3).
+ * Only a print page can be laid out or edited; a board canvas and a library drawing are read, and
+ * that is the project's fact. A mode the drawing has but the host does not grant is the host's
+ * decision and says so (ADR-0043 D3).
  */
 function missingReason(mode: ReviewMode): string {
-  if (!availableModes(board(), undefined).includes(mode)) {
-    return mode === "placement" ? "this board has no pcb description" : "this board has no print page";
+  if (!availableModes(drawing(), undefined).includes(mode)) {
+    return mode === "layout" || mode === "edit"
+      ? "only a print page can be laid out or edited"
+      : "this drawing has no such mode";
   }
   return `this host does not offer ${MODE_LABEL[mode].toLowerCase()}`;
 }
 
 function renderModes(): void {
   frame.modeBar.textContent = "";
-  const available = modesFor(board());
+  const available = modesFor(drawing());
   for (const mode of REVIEW_MODE_ORDER) {
     const button = el("button", "mode", MODE_LABEL[mode]);
     button.type = "button";
@@ -301,6 +309,7 @@ interface Frame {
   projectName: HTMLElement;
   projectHash: HTMLElement;
   boardList: HTMLElement;
+  metricsBox: HTMLElement;
   diagSummary: HTMLElement;
   diagList: HTMLElement;
   stage: HTMLElement;
@@ -339,6 +348,11 @@ function buildShell(): void {
   const boardList = el("nav", "boards");
   sidebar.append(boardList);
 
+  // What the current print page measures (spec/schematic-view.md §9.4): the findings say that
+  // something is wrong, these say how much of the sheet it takes and how far it is.
+  const metricsBox = el("div", "metrics");
+  sidebar.append(metricsBox);
+
   const diagSummary = el("div", "diag-summary");
   const diagList = el("ol", "diagnostics");
   sidebar.append(el("h2", undefined, "Check"), diagSummary, diagList);
@@ -374,6 +388,7 @@ function buildShell(): void {
     projectName,
     projectHash,
     boardList,
+    metricsBox,
     diagSummary,
     diagList,
     stage,
@@ -411,63 +426,187 @@ function wireStage(): void {
 
 // --- navigation ------------------------------------------------------------------------------
 
-function renderBoards(): void {
+/**
+ * The sidebar's tree: what the project is made of, grouped by what kind of thing it is.
+ *
+ * The drawings come first, in kind groups — print pages, board canvases, library symbols, library
+ * footprints — because that is what a reviewer picks from (ADR-0048 D1). A board with no print page
+ * comes last, with the note that says why and the instances that are still there to look at.
+ */
+function renderTree(): void {
   frame.boardList.textContent = "";
-  for (const candidate of model.boards) {
-    const group = el("div", "board");
-    const button = el("button", "board-name", candidate.id);
-    button.type = "button";
-    if (candidate.id === state.board) button.classList.add("active");
-    button.addEventListener("click", () => {
-      state.board = candidate.id;
-      state.page = 0;
-      resetDraft();
-      fit();
-      renderAll();
-    });
-    group.append(button);
-    if (candidate.pages.length === 0) {
-      group.append(el("div", "page-note", candidate.note ?? "no view file: the board has no drawing"));
-      // No drawing is not no design: the board's instances are still there to look at, and this is
-      // the only way to reach them from the app (ADR-0035 decision 6: report, never invent a layout).
-      const list = el("div", "instance-list");
-      for (const instance of candidate.instances.slice(0, INSTANCE_PREVIEW)) {
-        const item = el("button", "instance-name", instance.id);
-        item.type = "button";
-        item.title = `${instance.component} ${instance.params.join(" ")}`.trim();
-        if (state.selected?.kind === "symbol" && state.selected.id === instance.id) {
-          item.classList.add("picked");
-        }
-        item.addEventListener("click", () => {
-          state.selected = { kind: "symbol", id: instance.id };
-          state.definitionsOpen = false;
-          renderBoards();
-          renderInspector();
-        });
-        list.append(item);
-      }
-      if (candidate.instances.length > INSTANCE_PREVIEW) {
-        list.append(el("div", "page-note", `… ${candidate.instances.length - INSTANCE_PREVIEW} more`));
-      }
-      group.append(list);
-    } else {
-      candidate.pages.forEach((candidatePage, index) => {
-        const pageButton = el("button", "page-name", candidatePage.id);
-        pageButton.type = "button";
-        if (candidate.id === state.board && index === state.page) pageButton.classList.add("active");
-        if (candidatePage.problems.length > 0) pageButton.classList.add("problem");
-        pageButton.addEventListener("click", () => {
-          state.board = candidate.id;
-          state.page = index;
-          resetDraft();
-          fit();
-          renderAll();
-        });
-        group.append(pageButton);
+
+  const groups: { title: string; kind: ReviewDrawingKind }[] = [
+    { title: "Schematics", kind: "sch" },
+    { title: "PCBs", kind: "pcb" },
+    { title: "Symbols", kind: "symbol" },
+    { title: "Footprints", kind: "footprint" },
+  ];
+
+  for (const group of groups) {
+    const drawings = model.drawings.filter((candidate) => candidate.kind === group.kind);
+    if (drawings.length === 0) continue;
+    const node = el("div", "board");
+    node.append(el("div", "group-title", group.title));
+    for (const candidate of drawings) {
+      const button = el("button", "page-name");
+      button.type = "button";
+      if (candidate.key === state.drawing) button.classList.add("active");
+      if (candidate.problems.length > 0) button.classList.add("problem");
+      button.title = candidate.file;
+      button.append(el("span", "row-name", candidate.label));
+      if (candidate.board !== undefined) button.append(el("span", "row-note", candidate.board));
+      button.addEventListener("click", () => {
+        state.drawing = candidate.key;
+        resetDraft();
+        fit();
+        renderAll();
       });
+      node.append(button);
     }
-    frame.boardList.append(group);
+    frame.boardList.append(node);
   }
+
+  // The boards that have no print page: no drawing is not no design, and the board's instances are
+  // still there to look at (ADR-0035 decision 6: report, never invent a layout).
+  const bare = model.boards.filter(
+    (candidate) => !model.drawings.some((entry) => entry.kind === "sch" && entry.board === candidate.id),
+  );
+  if (bare.length === 0) return;
+  const node = el("div", "board");
+  node.append(el("div", "group-title", "Boards"));
+  for (const candidate of bare) {
+    node.append(
+      el("div", "page-note", `${candidate.id}: ${candidate.note ?? "no view file: the board has no drawing"}`),
+    );
+    const list = el("div", "instance-list");
+    for (const instance of candidate.instances.slice(0, INSTANCE_PREVIEW)) {
+      const item = el("button", "instance-name", instance.id);
+      item.type = "button";
+      item.title = `${instance.component} ${instance.params.join(" ")}`.trim();
+      if (state.selected?.kind === "symbol" && state.selected.id === instance.id) {
+        item.classList.add("picked");
+      }
+      item.addEventListener("click", () => {
+        state.selected = { kind: "symbol", id: instance.id };
+        state.definitionsOpen = false;
+        renderTree();
+        renderInspector();
+      });
+      list.append(item);
+    }
+    if (candidate.instances.length > INSTANCE_PREVIEW) {
+      list.append(el("div", "page-note", `… ${candidate.instances.length - INSTANCE_PREVIEW} more`));
+    }
+    node.append(list);
+  }
+  frame.boardList.append(node);
+}
+
+/**
+ * What the current print page measures, in the words the sidebar uses.
+ *
+ * The findings are binary — a label is on its net or it is not — and these are the other half of
+ * the signal: how much of the sheet the drawing takes, how close the texts are, how much wire is
+ * drawn (spec/schematic-view.md §9.4).
+ */
+function renderMetrics(): void {
+  frame.metricsBox.textContent = "";
+  const current = drawing();
+  const metrics = current?.metrics;
+  if (current === undefined || metrics === undefined) return;
+  frame.metricsBox.append(el("h2", undefined, "Measurements"));
+  const list = el("ul", "metric-list");
+  const rows: [string, string][] = [
+    ["content", `${(metrics.content_fill_ppm / 10000).toFixed(1)}% of the sheet`],
+    [
+      "text gap",
+      metrics.text_min_gap_nm === undefined ? "one text" : `${(metrics.text_min_gap_nm / 1e6).toFixed(2)} mm`,
+    ],
+    ["wiring", `${(metrics.wire_total_nm / 1e6).toFixed(0)} mm`],
+    ["crossings", `${metrics.wire_crossings}`],
+  ];
+  for (const [name, value] of rows) {
+    const item = el("li");
+    item.append(el("span", "metric-name", name));
+    item.append(el("span", "metric-value", value));
+    list.append(item);
+  }
+  frame.metricsBox.append(list);
+}
+
+/**
+ * Where each identity sits, by place: the reverse of the model's identity index.
+ *
+ * The index is keyed by identity ("what is this?"), and a finding names a place ("where is it?").
+ * This turns the second into the first. It is built once per model and dropped when the model is
+ * replaced by a fresh one.
+ */
+let sourceIndex: Map<string, { key: string; kind: string }[]> | undefined;
+
+function placesByLocation(): Map<string, { key: string; kind: string }[]> {
+  if (sourceIndex !== undefined) return sourceIndex;
+  const index = new Map<string, { key: string; kind: string }[]>();
+  for (const [key, locations] of Object.entries(model.sources)) {
+    for (const location of locations) {
+      const at = `${location.file}:${location.line ?? 0}`;
+      const list = index.get(at) ?? [];
+      list.push({ key, kind: location.kind });
+      index.set(at, list);
+    }
+  }
+  sourceIndex = index;
+  return index;
+}
+
+/** The object an identity names, as the app selects it. */
+function highlightFor(key: string, kind: string): Highlight | undefined {
+  const colon = key.indexOf(":");
+  if (colon < 0) return undefined;
+  const namespace = key.slice(0, colon);
+  const rest = key.slice(colon + 1);
+  const slash = rest.indexOf("/");
+  const id = slash < 0 ? rest : rest.slice(slash + 1);
+  if (namespace === "instance") return { kind: "symbol", id };
+  if (namespace === "net" && kind === "view-label") return { kind: "text", id };
+  if (namespace === "port" && kind === "view-port") return { kind: "text", id };
+  return undefined;
+}
+
+/** The drawing that holds an object: the page that places the instance or draws the label. */
+function holderOf(key: string, highlight: Highlight): ReviewDrawing | undefined {
+  for (const location of model.sources[key] ?? []) {
+    const drawing = model.drawings.find(
+      (candidate) => candidate.kind === "sch" && candidate.file === location.file,
+    );
+    if (drawing === undefined) continue;
+    const holds =
+      (highlight.kind === "symbol" && drawing.symbols.some((symbol) => symbol.id === highlight.id)) ||
+      (highlight.kind === "text" && drawing.texts.some((text) => (text.subject ?? text.text) === highlight.id));
+    if (holds) return drawing;
+  }
+  return undefined;
+}
+
+/**
+ * The object a finding is about, and the drawing that holds it.
+ *
+ * A finding names a place in a file. The identity index says which object sits at that place, and
+ * the same index says where else that object appears — so a finding on a board row leads to the
+ * page that draws the instance (ADR-0048 D5).
+ */
+function findingTarget(diagnostic: ReviewDiagnostic): { drawing: string; highlight: Highlight } | undefined {
+  if (diagnostic.file === undefined) return undefined;
+  const at = placesByLocation().get(`${diagnostic.file}:${diagnostic.line ?? 0}`);
+  if (at === undefined) return undefined;
+  for (const entry of at) {
+    const highlight = highlightFor(entry.key, entry.kind);
+    if (highlight === undefined) continue;
+    const holder = holderOf(entry.key, highlight);
+    if (holder === undefined) continue;
+    return { drawing: holder.key, highlight };
+  }
+  return undefined;
 }
 
 function renderDiagnostics(): void {
@@ -489,6 +628,24 @@ function renderDiagnostics(): void {
       row.append(
         el("span", "diag-where", `${diagnostic.file}${diagnostic.line === undefined ? "" : `:${diagnostic.line}`}`),
       );
+    }
+    // A finding that names an object can be taken to: the app selects the object on the drawing
+    // that holds it, so the reviewer does not have to hunt for it on the sheet (ADR-0048 D5).
+    const target = findingTarget(diagnostic);
+    if (target !== undefined) {
+      const jump = el("button", "diag-jump", "show");
+      jump.type = "button";
+      jump.title = "select this on the drawing";
+      jump.addEventListener("click", () => {
+        state.drawing = target.drawing;
+        resetDraft();
+        fit();
+        renderAll();
+        state.selected = target.highlight;
+        paintHighlights(target.highlight);
+        renderInspector();
+      });
+      row.append(jump);
     }
     frame.diagList.append(row);
   }
@@ -521,17 +678,12 @@ function applyTransform(): void {
  * What the frame.stage shows right now: the drawing, its size, and the objects it holds.
  *
  * The mode decides which drawing it is: the page's own, the layout mode's preview of the page
- * after the pending moves, the edit mode's drawing of the draft, or the board's physical frame.canvas.
+ * after the pending moves, or the edit mode's drawing of the draft.
  */
 function stageDrawing():
   | { svg: string; sheet: { w: number; h: number }; symbols: ReviewSymbol[]; texts: ReviewText[] }
   | undefined {
-  if (state.mode === "placement") {
-    const pcb = board()?.pcb;
-    if (pcb === undefined) return undefined;
-    return { svg: pcb.svg, sheet: pcb.sheet, symbols: [], texts: [] };
-  }
-  const current = page();
+  const current = drawing();
   if (current === undefined) return undefined;
   if (state.mode === "edit") {
     return {
@@ -550,6 +702,14 @@ function stageDrawing():
     };
   }
   return { svg: current.svg, sheet: current.sheet, symbols: current.symbols, texts: current.texts };
+}
+
+/** What the drawing holds, in the words the status line uses. */
+function drawnCount(current: ReviewDrawing, shown: { symbols: ReviewSymbol[] }): string {
+  if (current.kind === "pcb") return `${current.parts?.length ?? 0} parts`;
+  if (current.kind === "symbol") return "symbol";
+  if (current.kind === "footprint") return "footprint";
+  return `${shown.symbols.length} symbols`;
 }
 
 /** Give the sheet's SVG its size on screen; its viewBox stays in millimetres. */
@@ -602,22 +762,17 @@ function renderStage(keepSelection = false): void {
   }
   frame.status.classList.remove("error");
   frame.sourcePane.classList.toggle("hidden", state.mode !== "edit");
-  // The board frame.canvas is picked by the drawing's own objects (a net's copper), so the page's
-  // hotspots — which cover the page's symbols — must not swallow the click there. The edit mode
-  // keeps them: its objects are the page's, and a hotspot resolves a 0402 as well as a QFP does.
-  frame.stage.classList.toggle("picking", state.mode === "placement");
+  const current = drawing();
+  // A board canvas is picked by the drawing's own objects (a net's copper), so the page's hotspots
+  // — which cover the page's symbols — must not swallow the click there. The edit mode keeps them:
+  // its objects are the page's, and a hotspot resolves a 0402 as well as a QFP does.
+  frame.stage.classList.toggle("picking", current?.kind === "pcb");
 
-  if (state.mode === "placement") {
-    renderPlacement();
-    return;
-  }
-
-  const current = page();
   if (current === undefined) {
-    const note = board()?.note ?? "this board has no print page";
+    const note = board()?.note ?? "this project has no drawing to show";
     frame.stage.classList.add("empty");
     // The empty frame.stage says why it is empty rather than showing a black rectangle.
-    frame.stage.dataset["empty"] = `${board()?.id ?? "this board"}\n${note}`;
+    frame.stage.dataset["empty"] = `${board()?.id ?? "this project"}\n${note}`;
     setStatus(note);
     renderInspector();
     return;
@@ -626,7 +781,7 @@ function renderStage(keepSelection = false): void {
   delete frame.stage.dataset["empty"];
 
   if (current.problems.length > 0) {
-    setStatus(`this page has no drawing: ${current.problems.join("; ")}`);
+    setStatus(`this drawing has no ink: ${current.problems.join("; ")}`);
     renderInspector();
     return;
   }
@@ -636,8 +791,8 @@ function renderStage(keepSelection = false): void {
     return;
   }
 
-  const drawing = stageDrawing();
-  if (drawing === undefined) {
+  const shown = stageDrawing();
+  if (shown === undefined) {
     setStatus("there is nothing to draw");
     return;
   }
@@ -645,23 +800,23 @@ function renderStage(keepSelection = false): void {
   // The renderer's SVG is inserted as markup and then measured: the app adds hotspots on top of it
   // rather than drawing the sheet a second time.
   const holder = el("div", "sheet");
-  holder.innerHTML = drawing.svg;
+  holder.innerHTML = shown.svg;
   frame.canvas.append(holder);
   applyTransform();
 
   const svg = holder.querySelector("svg");
   if (svg === null) {
-    setStatus("the renderer produced no SVG for this page");
+    setStatus("the renderer produced no SVG for this drawing");
     return;
   }
   pinchSheet(svg);
-  overlay(svg, drawing.symbols, drawing.texts);
+  overlay(svg, shown.symbols, shown.texts);
   if (state.mode === "layout" && state.preview === null) applyPending(svg);
   if (keepSelection) paintHighlights(state.selected);
   applyTransform();
   const pending = state.pending.size;
   setStatus(
-    `${current.file} · ${drawing.sheet.w} × ${drawing.sheet.h} mm · ${drawing.symbols.length} symbols` +
+    `${current.file} · ${shown.sheet.w} × ${shown.sheet.h} mm · ${drawnCount(current, shown)}` +
       (pending === 0 ? "" : ` · ${pending} moved, not applied`),
   );
 }
@@ -692,43 +847,12 @@ function applyPending(svg: SVGSVGElement): void {
 /** Where the page places each instance, as the page says it. */
 function placedPlaces(): Map<string, ReviewPlace> {
   const out = new Map<string, ReviewPlace>();
-  for (const place of page()?.places ?? []) out.set(place.instance_id, place);
+  for (const place of drawing()?.places ?? []) out.set(place.instance_id, place);
   return out;
 }
 
-/** The board's physical frame.canvas: read-only, and the nets are what it highlights. */
-function renderPlacement(): void {
-  const pcb = board()?.pcb;
-  if (pcb === undefined) {
-    frame.stage.classList.add("empty");
-    frame.stage.dataset["empty"] = `${board()?.id ?? "this board"}\nno board description: nothing to place`;
-    setStatus("this board has no pcb description");
-    renderInspector();
-    return;
-  }
-  frame.stage.classList.remove("empty");
-  delete frame.stage.dataset["empty"];
-  if (pcb.problems.length > 0) {
-    setStatus(`this board has no frame.canvas: ${pcb.problems.join("; ")}`);
-    renderInspector();
-    return;
-  }
-  const holder = el("div", "sheet");
-  holder.innerHTML = pcb.svg;
-  frame.canvas.append(holder);
-  applyTransform();
-  const svg = holder.querySelector("svg");
-  if (svg === null) {
-    setStatus("the renderer produced no SVG for this board");
-    return;
-  }
-  pinchSheet(svg);
-  applyTransform();
-  setStatus(`${pcb.file} · ${pcb.sheet.w} × ${pcb.sheet.h} mm · ${pcb.parts.length} parts`);
-}
-
 /** The edit mode: the page's source, and the drawing of exactly that text. */
-function renderEdit(current: ReviewPage): void {
+function renderEdit(current: ReviewDrawing): void {
   if (state.draft === null) {
     state.draft = current.source ?? "";
     frame.sourceText.value = state.draft;
@@ -938,16 +1062,16 @@ function clearSelection(): void {
   state.selected = null;
   state.definitionsOpen = false;
   paintHighlights(null);
-  renderBoards();
+  renderTree();
   renderInspector();
 }
 
 function locationsFor(selected: Highlight): ReviewSourceLocation[] {
   const facts = instanceOf(selected.id);
-  const symbol = page()?.symbols.find((candidate) => candidate.id === selected.id);
+  const symbol = drawing()?.symbols.find((candidate) => candidate.id === selected.id);
   return definitionLocations({
     sources: model.sources,
-    board: state.board,
+    board: board()?.id ?? "",
     selected,
     ...(facts === undefined ? {} : { instance: facts }),
     pins: Object.keys(symbol?.pins ?? {}),
@@ -1095,7 +1219,7 @@ function pendingPlaces(): { instance_id: string; x: number; y: number; rot: numb
  * snapshot, and sending that would write the snapshot over whatever the file says now — the very
  * thing this fixes in the other direction (ADR-0042 D6).
  */
-function unsavedDraft(current: ReviewPage): string | undefined {
+function unsavedDraft(current: ReviewDrawing): string | undefined {
   return unsavedSource(state.draft, current.source);
 }
 
@@ -1112,12 +1236,12 @@ async function requestPreview(): Promise<void> {
     setStatus("this document cannot write: run `texteda review` to serve the app");
     return;
   }
-  const current = page();
+  const current = drawing();
   if (current === undefined) return;
   try {
     const payload = await postJson("/api/layout", {
-      board: state.board,
-      page: current.id,
+      board: board()?.id ?? "",
+      page: current.page ?? "",
       places,
       commit: false,
       // The unsaved text is the base the layout is computed on, so the preview is the page that
@@ -1162,13 +1286,13 @@ async function applyPendingMoves(): Promise<void> {
     setStatus("this document cannot write: run `texteda review` to serve the app");
     return;
   }
-  const current = page();
+  const current = drawing();
   if (current === undefined) return;
   const draft = unsavedDraft(current);
   try {
     const payload = await postJson("/api/layout", {
-      board: state.board,
-      page: current.id,
+      board: board()?.id ?? "",
+      page: current.page ?? "",
       places,
       commit: true,
       // The write is the editor's text with the moved rows applied: the edit is not thrown away
@@ -1176,7 +1300,11 @@ async function applyPendingMoves(): Promise<void> {
       ...(draft === undefined ? {} : { text: draft }),
     });
     const next = payload["model"];
-    if (next !== undefined) model = next as ReviewModel;
+    if (next !== undefined) {
+      model = next as ReviewModel;
+      // The identity index changed with the model; the reverse of it must be rebuilt.
+      sourceIndex = undefined;
+    }
     state.pending.clear();
     state.preview = null;
     // The draft is on disk now, so it is no longer an unsaved edit; the editor shows what is
@@ -1185,7 +1313,7 @@ async function applyPendingMoves(): Promise<void> {
       state.draft = null;
       state.draftSvg = "";
       state.draftErrors = [];
-      const written = page();
+      const written = drawing();
       if (written !== undefined) frame.sourceText.value = written.source ?? "";
     }
     renderAll();
@@ -1236,7 +1364,7 @@ let draftTicket = 0;
 
 /** Draw the draft and learn where its rows are. */
 async function refreshDraft(): Promise<void> {
-  const current = page();
+  const current = drawing();
   if (current === undefined || state.draft === null) return;
   if (!canWrite()) {
     setStatus("this document cannot draw a draft: it was exported without a server");
@@ -1263,7 +1391,7 @@ async function refreshDraft(): Promise<void> {
 
 /** Write the draft: the page file changes, in the formatter's form. */
 async function saveDraft(): Promise<void> {
-  const current = page();
+  const current = drawing();
   if (current === undefined || state.draft === null) return;
   if (!canWrite()) {
     setStatus("this document cannot write: run `texteda review` to serve the app");
@@ -1272,7 +1400,11 @@ async function saveDraft(): Promise<void> {
   try {
     const payload = await postJson("/api/source", { file: current.file, text: state.draft, save: true });
     const next = payload["model"];
-    if (next !== undefined) model = next as ReviewModel;
+    if (next !== undefined) {
+      model = next as ReviewModel;
+      // The identity index changed with the model; the reverse of it must be rebuilt.
+      sourceIndex = undefined;
+    }
     state.draft = null;
     state.draftSvg = "";
     state.draftErrors = [];
@@ -1422,12 +1554,13 @@ const stopDrag = (event: PointerEvent): void => {
     lastPress = null;
     return;
   }
-  if (state.mode === "placement" || state.mode === "edit") {
-    // The board's frame.canvas and the edit mode work from the drawing, so the press is resolved by
-    // position: the pointer capture the frame.stage takes for panning retargets the event.
+  const current = drawing();
+  if (current?.kind === "pcb" || state.mode === "edit") {
+    // A board canvas and the edit mode work from the drawing, so the press is resolved by position:
+    // the pointer capture the frame.stage takes for panning retargets the event.
     lastPress = null;
     const group = pickedAt(event.clientX, event.clientY);
-    if (state.mode === "placement") {
+    if (current?.kind === "pcb") {
       highlightNet(group?.getAttribute("data-net") ?? null);
       return;
     }
@@ -1452,7 +1585,7 @@ const stopDrag = (event: PointerEvent): void => {
   state.definitionsOpen = false;
   hover(selection);
   paintHighlights(selection);
-  renderBoards();
+  renderTree();
   renderInspector();
   if (double) showDefinitions();
 };
@@ -1473,12 +1606,12 @@ function pickedAt(clientX: number, clientY: number): Element | null {
 /**
  * What the drawing itself was clicked on.
  *
- * The renderer gives every drawn object its identity (`data-ref`, `data-net`), so the modes that
- * are not about the page's rows can work from the drawing alone: the placement mode highlights a
- * net, the edit mode puts the cursor on the row the object came from (ADR-0042 D2).
+ * The renderer gives every drawn object its identity (`data-ref`, `data-net`), so the readings that
+ * are not about the page's rows can work from the drawing alone: a board canvas highlights a net,
+ * the edit mode puts the cursor on the row the object came from (ADR-0042 D2).
  */
 function onStageHover(event: PointerEvent): void {
-  if (state.mode !== "placement") return;
+  if (drawing()?.kind !== "pcb") return;
   const group = pickedAt(event.clientX, event.clientY);
   const net = group?.getAttribute("data-net");
   if (net === undefined || net === null) return;
@@ -1555,10 +1688,18 @@ function onKeyDown(event: KeyboardEvent): void {
     event.preventDefault();
   } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
     if (inSource) return;
-    const current = board();
-    if (current === undefined || current.pages.length < 2) return;
+    // The arrows walk the drawings of the same kind: the print pages among themselves, the library
+    // symbols among themselves (ADR-0048 D1).
+    const current = drawing();
+    if (current === undefined) return;
+    const siblings = model.drawings.filter((candidate) => candidate.kind === current.kind);
+    if (siblings.length < 2) return;
+    const at = siblings.findIndex((candidate) => candidate.key === current.key);
+    if (at < 0) return;
     const delta = event.key === "ArrowLeft" ? -1 : 1;
-    state.page = (state.page + delta + current.pages.length) % current.pages.length;
+    const next = siblings[(at + delta + siblings.length) % siblings.length];
+    if (next === undefined) return;
+    state.drawing = next.key;
     resetDraft();
     fit();
     renderAll();
@@ -1571,7 +1712,8 @@ function onResize(): void {
 }
 
 function renderAll(): void {
-  renderBoards();
+  renderTree();
+  renderMetrics();
   renderDiagnostics();
   renderModes();
   renderStage();

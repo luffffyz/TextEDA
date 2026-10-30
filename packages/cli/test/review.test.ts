@@ -22,8 +22,10 @@ describe("review model", () => {
   });
 
   test("a page is drawn from the view file, at the sheet's own size", () => {
-    const pages = board("charger-buck")?.pages ?? [];
-    expect(pages.map((page) => page.id)).toEqual(["buck-5v", "charger-power"]);
+    const pages = model.drawings.filter(
+      (candidate) => candidate.kind === "sch" && candidate.board === "charger-buck",
+    );
+    expect(pages.map((page) => page.page)).toEqual(["buck-5v", "charger-power"]);
     for (const page of pages) {
       expect(page.problems).toEqual([]);
       expect(page.svg).toContain("<svg");
@@ -33,10 +35,37 @@ describe("review model", () => {
     }
   });
 
+  test("the board's physical canvas is a drawing of its own", () => {
+    const canvases = model.drawings.filter((candidate) => candidate.kind === "pcb");
+    expect(canvases.map((canvas) => canvas.board)).toContain("charger-buck");
+    for (const canvas of canvases) {
+      expect(canvas.problems).toEqual([]);
+      expect(canvas.svg).toContain("<svg");
+      expect(canvas.parts?.length ?? 0).toBeGreaterThan(0);
+    }
+  });
+
+  test("the library's symbols and footprints are drawings too", () => {
+    const symbols = model.drawings.filter((candidate) => candidate.kind === "symbol");
+    const footprints = model.drawings.filter((candidate) => candidate.kind === "footprint");
+    expect(symbols.length).toBeGreaterThan(0);
+    expect(footprints.length).toBeGreaterThan(0);
+    for (const drawing of [...symbols, ...footprints]) {
+      expect(drawing.problems).toEqual([]);
+      expect(drawing.svg).toContain("<svg");
+      expect(drawing.sheet.w).toBeGreaterThan(0);
+      expect(drawing.sheet.h).toBeGreaterThan(0);
+      // A library drawing belongs to no board: it is the library's own file.
+      expect(drawing.board).toBeUndefined();
+      expect(drawing.file).toMatch(/^assets\/(symbols|footprints)\//);
+    }
+  });
+
   test("the drawing prints the instance's value, not the symbol's placeholder", () => {
     // The buck page places generic parts (10u / 10k) and parts (tps5430ddar). The symbol files carry
     // `c` / `r` / `dc-dc-soic8` as the Value field: those must never reach the page.
-    const svg = board("charger-buck")?.pages.find((candidate) => candidate.id === "buck-5v")?.svg ?? "";
+    const svg =
+      model.drawings.find((candidate) => candidate.kind === "sch" && candidate.page === "buck-5v")?.svg ?? "";
     const drawn = new Set([...svg.matchAll(/<title>([^<]*)<\/title>/g)].map((match) => match[1]));
     // Generic parts print their value column, parts print their MPN.
     for (const value of ["10uF", "10nF", "10k", "3.24k", "TPS5430DDAR"]) expect(drawn).toContain(value);
@@ -47,7 +76,9 @@ describe("review model", () => {
 
   test("a board with no view file says so instead of inventing a drawing", () => {
     const mcu = board("mcu-board");
-    expect(mcu?.pages).toEqual([]);
+    expect(model.drawings.some((candidate) => candidate.kind === "sch" && candidate.board === "mcu-board")).toBe(
+      false,
+    );
     expect(mcu?.note).toContain("no view file");
     // No view file does not mean no logic: the board's instances and nets are still there.
     expect(mcu?.instances.length).toBeGreaterThan(0);

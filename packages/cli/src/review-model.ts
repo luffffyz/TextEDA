@@ -8,24 +8,37 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parsePcb, parseProjectToml, parseSchematic, parseView, formatQuantity, type QuantityKind } from "@texteda/parser";
 import type { Schematic } from "@texteda/ir/schematic";
+import type { SchematicView } from "@texteda/ir/schematic-view";
+import type { Symbol } from "@texteda/ir/symbol";
 import type { Footprint } from "@texteda/ir/footprint";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
-import { schematicGeometry, renderSchematic, toSvgText, type SheetGeometry } from "@texteda/renderer";
+import {
+  bounds,
+  renderFootprint,
+  renderSchematic,
+  renderSymbol,
+  schematicGeometry,
+  toSvgText,
+  type SheetGeometry,
+  type SvgDoc,
+} from "@texteda/renderer";
 import { renderPcb } from "@texteda/renderer/pcb";
+import { viewMetrics } from "@texteda/core";
 import type {
   ReviewBox,
   ReviewBoard,
   ReviewDiagnostic,
+  ReviewDrawing,
   ReviewInstance,
+  ReviewMetrics,
   ReviewModel,
-  ReviewPage,
-  ReviewPcb,
   ReviewPcbPart,
   ReviewSymbol,
   ReviewText,
 } from "@texteda/viewer";
 import { checkProject } from "./check.ts";
 import { buildIrTree } from "./ir-tree.ts";
+import { LAYOUT } from "./paths.ts";
 import { listBoards, loadBoard, loadComponents, loadModules, loadPcb } from "./project.ts";
 import { loadFootprintLibrary } from "./pads.ts";
 import {
@@ -59,24 +72,26 @@ export function reviewDiagnostic(diagnostic: Diagnostic): ReviewDiagnostic {
 
 /** One page, drawn; or a page that says why it has no drawing. */
 function reviewPage(
-  root: string,
   boardId: string,
   schematic: Schematic,
   viewText: string,
   viewFile: string,
   pageId: string,
   instances: SchematicInstances,
-): ReviewPage {
+): ReviewDrawing {
   const parsed = parseView(viewText, { file: viewFile, board: boardId });
   if (!parsed.ir) {
     return {
-      id: pageId,
+      kind: "sch",
+      key: `board/${boardId}/page/${pageId}`,
+      label: pageId,
       file: viewFile,
       sheet: { w: 0, h: 0 },
       svg: "",
       symbols: [],
       texts: [],
       problems: parsed.diagnostics.map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`),
+      board: boardId,
     };
   }
   const view = parsed.ir;
@@ -93,14 +108,23 @@ function reviewPage(
 
   const { symbols, texts } = reviewGeometry(schematicGeometry(view, instances));
 
+  // What the page measures: how crowded it is, how long its wiring is, where the wires cross
+  // (spec/schematic-view.md §9.4). The findings say *that* something is wrong; these say how much.
+  const metrics = reviewMetrics(view, schematic, instances);
+
   return {
-    id: pageId,
+    kind: "sch",
+    key: `board/${boardId}/page/${pageId}`,
+    label: pageId,
     file: viewFile,
     sheet: { w: mm(view.sheet.width_nm), h: mm(view.sheet.height_nm) },
     svg,
     symbols,
     texts,
     problems,
+    board: boardId,
+    page: pageId,
+    ...(metrics === undefined ? {} : { metrics }),
     // The source is what the edit mode shows and edits; the placements are what the layout mode
     // moves. Both are the page's own facts, not a second drawing (ADR-0042 D3, D7).
     source: viewText,
@@ -127,19 +151,25 @@ function reviewPcb(
   footprintOf: (componentId: string) => string | undefined,
   library: ReadonlyMap<string, Footprint>,
   deviceOf: (componentId: string) => DeviceFacts | undefined,
-): ReviewPcb | undefined {
+): ReviewDrawing | undefined {
   const loaded = loadPcb(root, boardId);
   if (loaded === null) return undefined;
   const parsed = parsePcb(loaded.text, { file: loaded.file, board: boardId });
   if (!parsed.ir) {
     return {
+      kind: "pcb",
+      key: `board/${boardId}/pcb`,
+      label: boardId,
       file: loaded.file,
       sheet: { w: 0, h: 0 },
       svg: "",
+      symbols: [],
+      texts: [],
       parts: [],
       problems: parsed.diagnostics
         .filter((diagnostic) => diagnostic.severity === "error")
         .map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`),
+      board: boardId,
     };
   }
   const pcb = parsed.ir;
@@ -194,11 +224,117 @@ function reviewPcb(
   });
 
   return {
+    kind: "pcb",
+    key: `board/${boardId}/pcb`,
+    label: boardId,
     file: loaded.file,
     sheet: { w: mm(Math.max(...xs) - Math.min(...xs)), h: mm(Math.max(...ys) - Math.min(...ys)) },
     svg,
+    symbols: [],
+    texts: [],
     parts: partList,
     problems,
+    board: boardId,
+  };
+}
+
+/** The margin the renderer leaves around a drawing, in nanometres (2 mm on each side). */
+const DRAWING_MARGIN_NM = 2_000_000;
+
+/**
+ * What the page measures, in the numbers the app shows.
+ *
+ * The measurement is the core's own (spec/schematic-view.md §9.4): the app measures nothing
+ * itself, it only reports what the measurement says. A page that cannot be measured has no
+ * measurements, and the app says nothing rather than a wrong number.
+ */
+function reviewMetrics(
+  view: SchematicView,
+  schematic: Schematic,
+  instances: SchematicInstances,
+): ReviewMetrics | undefined {
+  try {
+    const measured = viewMetrics({ view, schematic, geometry: schematicGeometry(view, instances) });
+    return {
+      content_fill_ppm: measured.content_fill_ppm,
+      ...(measured.text_min_gap_nm === null ? {} : { text_min_gap_nm: measured.text_min_gap_nm }),
+      wire_total_nm: measured.wire_total_nm,
+      wire_crossings: measured.wire_crossings,
+      wires_through_bodies: measured.wires_through_bodies,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The sheet a standalone drawing gets: its own bounds plus the renderer's margin.
+ *
+ * A print page has a sheet of its own (the page says how big it is). A library symbol or footprint
+ * has none, so the sheet is what the drawing occupies — the same box the renderer's viewBox uses,
+ * so the app sizes the canvas to the ink and no more.
+ */
+function drawingSheet(doc: SvgDoc): { w: number; h: number } {
+  const b = bounds(doc);
+  return {
+    w: mm(b.maxX - b.minX + 2 * DRAWING_MARGIN_NM),
+    h: mm(b.maxY - b.minY + 2 * DRAWING_MARGIN_NM),
+  };
+}
+
+/** `lib:id` → the library and the id. */
+function splitRef(ref: string): [string, string] {
+  const dot = ref.indexOf(":");
+  if (dot < 0) return ["", ref];
+  return [ref.slice(0, dot), ref.slice(dot + 1)];
+}
+
+/**
+ * One library symbol, drawn on its own.
+ *
+ * A symbol is a view (ADR-0031): the device names the pins, the symbol draws them. The drawing
+ * takes the pins of a device that uses the symbol, so what a reviewer sees is what the board sees;
+ * a symbol no device uses is still drawn, with unnamed pins.
+ */
+function reviewSymbol(
+  ref: string,
+  symbol: Symbol,
+  pins: readonly { number: string; name: string; type: string }[],
+): ReviewDrawing {
+  const [lib, id] = splitRef(ref);
+  const doc = renderSymbol(symbol.symbol, { pins: pins.map((pin) => ({ ...pin })) });
+  return {
+    kind: "symbol",
+    key: `symbol/${ref}`,
+    label: id,
+    file: `${LAYOUT.symbols}/${lib}/${id}.teda`,
+    sheet: drawingSheet(doc),
+    svg: toSvgText(doc),
+    symbols: [],
+    texts: [],
+    problems: [],
+  };
+}
+
+/**
+ * One library footprint, drawn on its own.
+ *
+ * A footprint is pure geometry (ADR-0030): the pads, the silkscreen and the courtyard. It needs no
+ * device to be drawn.
+ */
+function reviewFootprint(ref: string, footprint: Footprint): ReviewDrawing {
+  const [lib, id] = splitRef(ref);
+  const doc = renderFootprint(footprint.footprint);
+  return {
+    kind: "footprint",
+    key: `footprint/${ref}`,
+    label: id,
+    file: `${LAYOUT.footprints}/${lib}/${id}.teda`,
+    sheet: drawingSheet(doc),
+    svg: toSvgText(doc),
+    symbols: [],
+    texts: [],
+    problems: [],
   };
 }
 
@@ -289,6 +425,7 @@ export function buildReviewModel(root: string): ReviewModel {
   const symbolOf = (componentId: string) => componentOf(componentId)?.symbol;
 
   const boards: ReviewBoard[] = [];
+  const drawings: ReviewDrawing[] = [];
   const footprintLibrary = loadFootprintLibrary(root);
   const footprintOf = (componentId: string): string | undefined => componentOf(componentId)?.footprint;
   for (const boardId of listBoards(root)) {
@@ -304,7 +441,6 @@ export function buildReviewModel(root: string): ReviewModel {
       boards.push({
         id: boardId,
         file: loaded.file,
-        pages: [],
         instances: [],
         nets: [],
         note: `the board does not compile: ${parsed.diagnostics
@@ -318,20 +454,38 @@ export function buildReviewModel(root: string): ReviewModel {
     const schematic = parsed.ir as Schematic;
     const instances = schematicInstances(schematic, pinsOf, symbolOf, symbolLibrary, deviceOf);
     const pages = loaded.views.map((view) =>
-      reviewPage(root, boardId, schematic, view.text, view.file, view.pageId, instances),
+      reviewPage(boardId, schematic, view.text, view.file, view.pageId, instances),
     );
     const pcb = reviewPcb(root, boardId, schematic, footprintOf, footprintLibrary, deviceOf);
+    drawings.push(...pages);
+    if (pcb !== undefined) drawings.push(pcb);
     boards.push({
       id: boardId,
       file: loaded.file,
-      pages,
       instances: reviewInstances(schematic, paramTypes, componentOf, loaded.file),
       nets: schematic.nets.map((net) => ({ id: net.id, members: [...net.members] })),
-      ...(pcb === undefined ? {} : { pcb }),
       ...(pages.length === 0
-        ? { note: `no view file: nothing in ${dirOf(loaded.file)} draws this board (ADR-0035)` }
+        ? { note: `no view file: this board has no print page to draw (ADR-0035)` }
         : {}),
     });
+  }
+
+  // The library's own drawings: every symbol and every footprint, drawn alone (ADR-0048 D4).
+  // A symbol takes the pins of a device that uses it — the device names the pins, the symbol draws
+  // them (ADR-0031) — so a symbol no device uses is drawn with unnamed pins.
+  const pinsOfSymbol = (ref: string): { number: string; name: string; type: string }[] => {
+    for (const shard of shards) {
+      if (shard.ir.component.symbol === ref) {
+        return pinsOf(shard.id).map((pin) => ({ number: pin.number, name: pin.name, type: pin.type }));
+      }
+    }
+    return [];
+  };
+  for (const [ref, symbol] of symbolLibrary) {
+    drawings.push(reviewSymbol(ref, symbol, pinsOfSymbol(ref)));
+  }
+  for (const [ref, footprint] of footprintLibrary) {
+    drawings.push(reviewFootprint(ref, footprint));
   }
 
   const diagnostics = checkProject(root).diagnostics.map(reviewDiagnostic);
@@ -341,12 +495,8 @@ export function buildReviewModel(root: string): ReviewModel {
     project: { name: projectName, root },
     ...(hash === undefined || hash === "" ? {} : { hash }),
     boards,
+    drawings,
     diagnostics,
     sources: tree.identity.identities,
   };
-}
-
-function dirOf(file: string): string {
-  const slash = file.lastIndexOf("/");
-  return slash === -1 ? "." : file.slice(0, slash);
 }

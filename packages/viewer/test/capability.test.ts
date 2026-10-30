@@ -1,37 +1,19 @@
-// The modes a person may enter, resolved from the board and the host's capability (ADR-0043 D3,
-// D6). These tests need no DOM: the board is built literally, and the helper is pure.
+// The modes a person may enter, resolved from the drawing and the host's capability (ADR-0043 D3,
+// D6; ADR-0048 D2). These tests need no DOM: the drawing is built literally, and the helper is
+// pure.
 import { describe, expect, test } from "bun:test";
 import { availableModes } from "../src/capability.ts";
-import type { ReviewBoard, ReviewCapability, ReviewMode, ReviewPage } from "../src/types.ts";
+import type { ReviewCapability, ReviewDrawing, ReviewDrawingKind, ReviewMode } from "../src/types.ts";
 
-/** A board with the given pages, and with a PCB description when `withPcb` is set. */
-function board(pages: ReviewPage[] = [], withPcb = false): ReviewBoard {
+/** A drawing of the given kind. The fields of the other kinds are absent on it. */
+function drawing(kind: ReviewDrawingKind): ReviewDrawing {
   return {
-    id: "b",
-    file: "board.teda",
-    pages,
-    instances: [],
-    nets: [],
-    ...(withPcb
-      ? {
-          pcb: {
-            file: "pcb.teda",
-            sheet: { w: 10, h: 10 },
-            svg: "",
-            parts: [],
-            problems: [],
-          },
-        }
-      : {}),
-  };
-}
-
-/** A page with no drawing, so the page exists without any symbol. */
-function page(id: string): ReviewPage {
-  return {
-    id,
-    file: `views/b/${id}.view.teda`,
+    kind,
+    key: `${kind}/x`,
+    label: "x",
+    file: "x.teda",
     sheet: { w: 10, h: 10 },
+    svg: "",
     symbols: [],
     texts: [],
     problems: [],
@@ -44,62 +26,53 @@ function capability(modes: ReviewMode[], write: "places" | "layout"): ReviewCapa
 }
 
 describe("availableModes with no capability", () => {
-  test("a board with pages and a PCB gets all four modes", () => {
-    expect(availableModes(board([page("v1")], true), undefined)).toEqual([
-      "review",
-      "layout",
-      "placement",
-      "edit",
-    ]);
+  test("a print page gets the three modes it can act in", () => {
+    expect(availableModes(drawing("sch"), undefined)).toEqual(["review", "layout", "edit"]);
   });
 
-  test("a board with no pages and no PCB only gets review", () => {
-    expect(availableModes(board(), undefined)).toEqual(["review"]);
+  test("a board canvas is read", () => {
+    expect(availableModes(drawing("pcb"), undefined)).toEqual(["review"]);
   });
 
-  test("a board with pages but no PCB skips placement", () => {
-    expect(availableModes(board([page("v1")]), undefined)).toEqual([
-      "review",
-      "layout",
-      "edit",
-    ]);
+  test("a library symbol is read", () => {
+    expect(availableModes(drawing("symbol"), undefined)).toEqual(["review"]);
+  });
+
+  test("a library footprint is read", () => {
+    expect(availableModes(drawing("footprint"), undefined)).toEqual(["review"]);
+  });
+
+  test("nothing to show still leaves review", () => {
+    expect(availableModes(undefined, undefined)).toEqual(["review"]);
   });
 });
 
 describe("availableModes with a capability", () => {
-  test("a capability removes what the board supports", () => {
-    expect(
-      availableModes(
-        board([page("v1")], true),
-        capability(["review", "layout"], "places"),
-      ),
-    ).toEqual(["review", "layout"]);
+  test("a capability removes what the drawing supports", () => {
+    expect(availableModes(drawing("sch"), capability(["review", "layout"], "places"))).toEqual([
+      "review",
+      "layout",
+    ]);
   });
 
-  test("a capability cannot add a mode the board does not support", () => {
-    expect(
-      availableModes(
-        board(),
-        capability(["review", "placement"], "places"),
-      ),
-    ).toEqual(["review"]);
+  test("a capability cannot add a mode the drawing does not support", () => {
+    expect(availableModes(drawing("pcb"), capability(["review", "layout", "edit"], "places"))).toEqual([
+      "review",
+    ]);
   });
 
   test("a capability whose modes are in another order does not add modes", () => {
-    expect(
-      availableModes(
-        board([page("v1")]),
-        capability(["edit", "review", "layout"], "places"),
-      ),
-    ).toEqual(["review", "layout", "edit"]);
+    expect(availableModes(drawing("sch"), capability(["edit", "review"], "places"))).toEqual([
+      "review",
+      "edit",
+    ]);
   });
 
   test("the canonical order wins when the capability orders the modes differently", () => {
-    expect(
-      availableModes(
-        board([page("v1")], true),
-        capability(["placement", "edit", "review", "layout"], "layout"),
-      ),
-    ).toEqual(["review", "layout", "placement", "edit"]);
+    expect(availableModes(drawing("sch"), capability(["edit", "review", "layout"], "layout"))).toEqual([
+      "review",
+      "layout",
+      "edit",
+    ]);
   });
 });

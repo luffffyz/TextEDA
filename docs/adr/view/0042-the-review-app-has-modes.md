@@ -1,9 +1,9 @@
-# ADR-0042: The Review App Has Four Modes, and `layout` Writes Placement, Not Copper
+# ADR-0042: The Review App Has Modes, and `layout` Writes Placement, Not Copper
 
 Status: Accepted
 Date: 2026-10-28
-Scope: Decides: that the review app has four modes — `review`, `layout`, `placement`, `edit` — that share one highlight-and-jump path, that `layout` writes only the print page's `place` rows plus the bends of the nets it disturbed, and that the app never writes `design/**`. Does not decide: what a print page is or how it is drawn — see ADR-0035 and ADR-0036; how PCB placement and copper routing are produced — see ADR-0017.
-Related: [ADR-0004](../language/0004-source-spans.md), [ADR-0017](../pcb/0017-layout-and-routing-are-agent-driven.md), [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md)
+Scope: Decides: that the review app has three modes — `review`, `layout`, `edit` — that share one highlight-and-jump path, that `layout` writes only the print page's `place` rows plus the bends of the nets it disturbed, and that the app never writes `design/**`. Does not decide: what a print page is or how it is drawn — see ADR-0035 and ADR-0036; how PCB placement and copper routing are produced — see ADR-0017.
+Related: [ADR-0004](../language/0004-source-spans.md), [ADR-0017](../pcb/0017-layout-and-routing-are-agent-driven.md), [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0048](0048-the-review-app-shows-drawings.md)
 Impact: `packages/viewer/**`; `packages/cli` (the `review` command); `packages/renderer`; `packages/core`; `docs/guides/review-app.md`; `docs/backlog.md` (F34)
 
 ## Background
@@ -23,7 +23,8 @@ sheet does not read well:
 - The sheet needs a small text change — a label, a note. The app shows the drawing, not the source,
   so the two cannot be edited side by side.
 
-These are the three missing modes of F34: `layout`, `placement`, `edit`.
+These were the three missing modes of F34: `layout`, `placement`, `edit`. The `placement` mode is
+retired now — the board's physical canvas is a drawing of its own (ADR-0048 D3).
 
 The decision this record replaces was taken on 2026-10-25 as an appendix to the schematic-view
 record. That appendix was lost in the 2026-10-28 restructuring of `docs/adr/` — the corpus was
@@ -34,16 +35,16 @@ implementation forced.
 
 ## Decision
 
-### D1. Four modes, one highlight-and-jump path
+### D1. Modes, one highlight-and-jump path
 
-The app has four modes. They differ in **what the canvas is** and **what a drag means**; they do
-not differ in how the app finds an object, highlights it, or takes the reviewer to its source.
+The app has three modes. They differ in **what the canvas is** and **what a drag means**; they do
+not differ in how the app finds an object, highlights it, or takes the reviewer to its source. The
+mode set belongs to the drawing: only a print page can be laid out or edited (ADR-0048 D2).
 
 | Mode | Canvas | What a drag does | Writes |
 |---|---|---|---|
 | `review` | the print page | pans | nothing |
 | `layout` | the print page | moves the selected symbol (pending, until Apply) | the print page |
-| `placement` | the PCB | pans | nothing |
 | `edit` | the print page, beside its source | nothing (the canvas is not editable here) | the print page |
 
 The shared path is the point. Hover, selection, the facts panel, the definitions menu and the
@@ -51,9 +52,10 @@ The shared path is the point. Hover, selection, the facts panel, the definitions
 the overlay, and nothing else. A second implementation of "highlight the thing under the pointer"
 would be a second opinion about what an object is, and the two would drift.
 
-`placement` is a **read-only** canvas. It shows the board's placement, outline, courtyard and
-copper, and it highlights nets. It does not move parts: PCB placement and copper are the agent's
-and the CLI's work under ADR-0017, and the app writes no `design/**` in any mode.
+The board's physical canvas is **read-only**. It shows the board's placement, outline, courtyard
+and copper, and it highlights nets. It does not move parts: PCB placement and copper are the
+agent's and the CLI's work under ADR-0017, and the app writes no `design/**` in any mode. It is
+reached as a drawing of its own, not as a mode (ADR-0048 D1, D3).
 
 ### D2. Rendered objects carry a stable identity
 
@@ -182,9 +184,9 @@ pretending.
 
 - **The sheet becomes editable where it is read.** A person rearranging a print page no longer has
   to leave the drawing, and cannot accidentally change the circuit while doing it (D3).
-- **The PCB becomes visible.** `placement` answers "where did the agent put the parts, and what is
-  this net" without leaving the app, and it is read-only, so it cannot become a second placement
-  editor competing with the agent-driven flow of ADR-0017.
+- **The PCB becomes visible.** The board's canvas answers "where did the agent put the parts, and
+  what is this net" without leaving the app, and it is read-only, so it cannot become a second
+  placement editor competing with the agent-driven flow of ADR-0017.
 - **The source and the drawing sit side by side.** `edit` makes the file the place where text
   changes happen, which is what it is for (D7).
 - **Wires are recomputed by formula, not by search.** The re-anchor is closed-form and

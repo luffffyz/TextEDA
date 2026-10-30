@@ -1,10 +1,12 @@
 # Reviewing a board in the browser
 
-`texteda review` serves the review app: the project's print pages, drawn by the renderer, with
+`texteda review` serves the review app: the project's drawings, drawn by the renderer, with
 hover and click so a reviewer can ask "what is this, and what is it on" without leaving the drawing.
 Decision: [ADR-0035](../adr/view/0035-the-view-layer-is-a-drawing.md) (D7 records the form
-this first version takes) and [ADR-0042](../adr/view/0042-the-review-app-has-four-modes.md)
-(the four modes, and what each may write).
+this first version takes), [ADR-0042](../adr/view/0042-the-review-app-has-modes.md)
+(the modes, and what each may write) and
+[ADR-0048](../adr/view/0048-the-review-app-shows-drawings.md) (what the app shows: drawings,
+not boards).
 
 ## Run it
 
@@ -28,32 +30,65 @@ document, so `--out` writes byte-identical bytes to what the server sends. That 
 report for a pull request: no build step, no assets beside it.
 
 A static `--out` document has no server behind it, so it has no write routes: the `Apply` and
-`Save` buttons are disabled and say "this document cannot write". Its `Review` and `Placement`
-modes are as complete as the served one; `Layout` and `Edit` show, but cannot write.
+`Save` buttons are disabled and say "this document cannot write". Its `Review` mode is as complete
+as the served one; `Layout` and `Edit` show, but cannot write.
 
-## What the page shows
+## The three columns
 
 | Column | What it is |
 |---|---|
-| left | The project and its build hash, the boards and their print pages, then the findings from `texteda check` (errors, then warnings, then notes). The first five show; "show all N" opens the rest. |
+| left | The project and its build hash, the drawings grouped by kind (print pages, board canvases, library symbols, library footprints), what the current print page measures, then the findings from `texteda check` (errors, then warnings, then notes). The first five show; "show all N" opens the rest. A finding that names an object carries a **show** button: it takes the reviewer to that object on the drawing. |
 | middle | The mode bar (see below) over the drawing the mode shows, with a status line naming the source file, the size, and what the drawing is made of. |
 | right | The facts about whatever is under the pointer or was selected: instance id, device, symbol, footprint, spec, source file, and the nets its pins land on with those pins listed. The selected identity also has a **definitions** button; `Enter` or a double-click opens it. |
 
-## The four modes
+## What the app shows
 
-The bar above the drawing switches what the canvas shows. One code path serves the drawing,
-the hover and the selection in every mode; the mode decides which drawing it is and what a click
-means ([ADR-0042](../adr/view/0042-the-review-app-has-four-modes.md) D1).
+The app shows **drawings**, and there are four kinds of them
+([ADR-0048](../adr/view/0048-the-review-app-shows-drawings.md) D1):
+
+| Kind | What it is | Where it comes from |
+|---|---|---|
+| print page | the page a reviewer reads: the symbols, the wires, the labels and the ports | `views/<board_id>/<page_id>.view.teda` |
+| board canvas | the board as it is placed: outline, pads, copper, silkscreen | `design/pcb/<board_id>.teda` |
+| symbol | one library symbol, drawn with the pins of a device that uses it (ADR-0031) | `assets/symbols/<lib>/<id>.teda` |
+| footprint | one library footprint: its pads and its graphics | `assets/footprints/<lib>/<id>.teda` |
+
+The sidebar lists them grouped by kind, in that order. The arrow keys walk the drawings of the
+same kind — the print pages among themselves, the library symbols among themselves.
+
+- **A board with no print page is listed, not drawn.** The reference project's `mcu-board` has a
+  schematic and no print page; the app says so on the canvas and draws nothing (ADR-0035 decision 6).
+  It does not invent a layout. What it does show is the board's instances as chips: the logic is
+  there even when the drawing is not, and clicking a chip reports that instance's facts.
+- **A drawing that cannot be drawn says why** and is marked in the list.
+
+### The board canvas
+
+The board's own canvas, drawn from the `pcb` description and the footprints it places — the answer
+to "where did this part land, and what copper is it on". It is read-only by design: the copper, the
+zones and the spacing belong to the agent-driven layout loop, not to a browser
+([ADR-0017](../adr/pcb/0017-layout-and-routing-are-agent-driven.md)). Clicking lights one net's
+pads, tracks and vias, and the status line names it; a part's reference and value are printed only
+where the board's `silk` section says so (spec/pcb.md §4.10), so the canvas shows what the board
+will print. Here the click is resolved from the drawing's own objects, so what is picked is what
+was drawn — a pad, a track, a via — and not an invisible box around it.
+
+## The modes
+
+The bar above the drawing says what a press means. One code path serves the drawing, the hover and
+the selection in every mode; the mode decides what a click means, and the drawing decides what the
+canvas holds ([ADR-0042](../adr/view/0042-the-review-app-has-modes.md) D1,
+[ADR-0048](../adr/view/0048-the-review-app-shows-drawings.md) D2).
 
 | Mode | Draws | A click | Can write |
 |---|---|---|---|
-| `Review` | the print page | selects a symbol, a label, a port or a net | nothing (invariant 3) |
+| `Review` | the current drawing | selects a symbol, a label, a port or a net | nothing (invariant 3) |
 | `Layout` | the print page, with the moves the user has made | drags the symbol under the pointer; `r` turns the selection; `Ctrl+Enter` applies, `Esc` drops | `views/<board_id>/<page_id>.view.teda` only |
-| `Placement` | the board's physical canvas: outline, pads, copper, silkscreen (ADR-0042 D1) | lights the copper of the net under the pointer | nothing |
 | `Edit` | the source text on the left, drawn as you type | puts the cursor on the row the clicked object came from | the same page file, in the formatter's form |
 
-A mode the board cannot show is disabled with a title saying why: `Layout` and `Edit` need a print
-page, `Placement` needs a `pcb` description.
+A mode the current drawing cannot show is disabled with a title saying why: `Layout` and `Edit`
+need a print page. Everything else — the board canvas, the library symbols and footprints — is
+read, and `Review` is the only mode it offers.
 
 ### `Layout`
 
@@ -74,22 +109,11 @@ that depend on them. `design/**`, the IR and the build hash are never touched (A
 - **An unsaved edit survives the move.** If the editor holds text that was never saved, it rides
   along with the layout request and the write is *that* text with the moved rows applied — a drag
   never silently discards what was typed. Without an edit the file on disk is the base, as before
-  ([ADR-0042](../adr/view/0042-the-review-app-has-four-modes.md) D6).
+  ([ADR-0042](../adr/view/0042-the-review-app-has-modes.md) D6).
 - **Routing is not live.** The drawing is not re-routed during the drag, and a move can introduce a
   readability finding (a wire through a symbol's body, a label off its net). `Apply` writes, the
   server re-checks, and the left column says what the move did. That report is the point: the app
   shows the consequence instead of hiding it.
-
-### `Placement`
-
-The board's own canvas, drawn from the `pcb` description and the footprints it places — the answer
-to "where did this part land, and what copper is it on". It is read-only by design: the copper, the
-zones and the spacing belong to the agent-driven layout loop, not to a browser
-([ADR-0017](../adr/pcb/0017-layout-and-routing-are-agent-driven.md)). Clicking lights one net's
-pads, tracks and vias, and the status line names it; a part's reference and value are printed only
-where the board's `silk` section says so (spec/pcb.md §4.10), so the canvas shows what the board
-will print. Here the click is resolved from the drawing's own objects, so what is picked is what
-was drawn — a pad, a track, a via — and not an invisible box around it.
 
 ### `Edit`
 
@@ -101,15 +125,10 @@ sheet. Clicking a drawn object puts the cursor on its row: that is how a reviewe
 drawing that looks wrong to the line that made it. The click is resolved from the object's box, not
 from its ink, so a 0402 body — a 0.4 mm stroke — is as easy to hit as a QFP.
 
-- **A board with no view file is listed, not drawn.** The reference project's `mcu-board` has a
-  schematic and no print page; the app says so on the canvas and draws nothing (ADR-0035 decision 6).
-  It does not invent a layout. What it does show is the board's instances as chips: the logic is
-  there even when the drawing is not, and clicking a chip reports that instance's facts.
-- **A page that cannot be drawn says why** and is marked in the board list.
 - **`review` writes nothing back.** The app adds behaviour to the SVG it is given; the drawing is
   not regenerated, and there is no way to move a symbol from the `review` canvas (ADR-0035,
   AGENTS.md §2 invariant 3). The `layout` mode is the one exception: it writes `place`
-  rows, never `design/**` ([ADR-0042](../adr/view/0042-the-review-app-has-four-modes.md) D3).
+  rows, never `design/**` ([ADR-0042](../adr/view/0042-the-review-app-has-modes.md) D3).
 
 ## Interaction
 
@@ -123,11 +142,11 @@ from its ink, so a 0402 body — a 0.4 mm stroke — is as easy to hit as a QFP.
 | wheel | Zooms about the cursor. The sheet is re-rendered as vectors at the new size, so it never goes soft in between. |
 | `0` | Fits the page again. |
 | `+` / `-` | Zooms in and out. |
-| `←` / `→` | Previous and next print page of the board. |
+| `←` / `→` | Previous and next drawing of the same kind: the print pages among themselves, the library symbols among themselves. |
 
 These bindings are the page modes'. `Layout` adds `r` (turn the selection), `Ctrl+Enter` (apply)
 and `Esc` (drop the moves), and its drag moves the symbol instead of panning
-([ADR-0042](../adr/view/0042-the-review-app-has-four-modes.md) D4). The source jump is an explicit
+([ADR-0042](../adr/view/0042-the-review-app-has-modes.md) D4). The source jump is an explicit
 action in `Review` and `Layout`: double-click or press `Enter`; a single click only selects. In
 `Edit` a single click is the jump, because the source is on screen and there is nothing to select.
 The definitions come from the advisory
@@ -146,13 +165,30 @@ from them as you zoom in, so a fixed pixel stand-off would look tighter the clos
 work here — it compensates the SVG's own viewBox, not the CSS `scale()` on the canvas around it, and
 a "1.5 px" stroke then paints 1.5 mm, which reads as a slug over small parts.
 
+## The findings and the measurements
+
+The left column carries the findings of `texteda check` and the numbers the current print page
+measures. The two belong together: a finding says *that* something is wrong, and the measurement
+says how much of the sheet it takes and how far it is from comfortable
+(spec/schematic-view.md §9.4).
+
+- **A finding can be taken to.** A finding that names an object — an instance, a label, a port —
+  carries a **show** button. Pressing it switches to the drawing that holds the object and selects
+  it there, so the reviewer does not have to hunt for it on the sheet. The way there is the identity
+  index the app already had: the finding names a place in a file, and the index says which object
+  sits at that place and where else it appears
+  ([ADR-0048](../adr/view/0048-the-review-app-shows-drawings.md) D5).
+- **The measurements are the core's own.** The app measures nothing itself: it reports what
+  `packages/core`'s measurement says, and a page that cannot be measured shows no numbers rather
+  than a wrong one.
+
 ## What is not built
 
 - **Live routing.** The `Layout` mode moves symbols and re-anchors the wires they are on; it never
   searches for a new path, and it does not route around a symbol the user moved onto a wire
   (ADR-0042 D5). A move that creates a finding is reported, not repaired.
-- **Board editing.** `Placement` is read-only: moving a part on the board, routing copper, editing
-  the stackup belong to the agent-driven layout loop
+- **Board editing.** The board canvas is read-only: moving a part on the board, routing copper,
+  editing the stackup belong to the agent-driven layout loop
   ([ADR-0017](../adr/pcb/0017-layout-and-routing-are-agent-driven.md)), not to the review app.
 - **A write from the static report.** `--out` has no server, so nothing can be applied or saved.
 - **Note anchors** (`[instance:U3]` prefixes), which are an open point of

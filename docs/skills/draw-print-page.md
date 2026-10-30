@@ -164,7 +164,7 @@ pins down move. Until `Apply` the page is stale: the old wires stay with stale b
 readability finding (a wire through a body, a label off its net); `texteda check` reports it after
 `Apply`, and the app shows it in the findings column. Do not run a router on every drag frame.
 Placement snaps to 1.27 mm; the view's 0.01 mm grid is storage precision. One symbol at a time.
-Built per [ADR-0042](../adr/view/0042-the-review-app-has-four-modes.md) D3 / D5.
+Built per [ADR-0042](../adr/view/0042-the-review-app-has-modes.md) D3 / D5.
 
 ## 3. The command loop
 

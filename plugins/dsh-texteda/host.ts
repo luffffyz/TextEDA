@@ -134,7 +134,10 @@ async function handlePlaces(ctx: Context, request: Request): Promise<Response> {
     const model = buildReviewModel(root);
     const owner = model.boards.find((candidate) => candidate.id === board);
     if (owner === undefined) return refuse(400, `no such board: ${board}`);
-    if (!owner.pages.some((candidate) => candidate.id === page)) {
+    const drawing = model.drawings.find(
+        (candidate) => candidate.kind === "sch" && candidate.board === board && candidate.page === page,
+    );
+    if (drawing === undefined) {
         return refuse(400, `no such print page: ${page}`);
     }
 

@@ -53,6 +53,11 @@ export const APP_STYLES = `
 .teda-review .page-name.active { color: var(--fg); background: #262a31; }
 .teda-review .page-name.problem { color: var(--warning); }
 .teda-review .page-note { color: var(--muted); font-size: 11px; padding: 2px 6px 2px 18px; }
+.teda-review .group-title {
+  color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+  padding: 8px 6px 2px;
+}
+.teda-review .page-name .row-note { float: right; color: var(--muted); font-size: 10px; }
 .teda-review .instance-list { display: flex; flex-wrap: wrap; gap: 3px; padding: 2px 6px 4px 18px; }
 .teda-review .instance-name {
   background: none; border: 1px solid var(--line); border-radius: 3px; padding: 1px 4px;
@@ -75,6 +80,17 @@ export const APP_STYLES = `
 .teda-review .diag-message { display: block; }
 .teda-review .diag-where { display: block; color: var(--muted); font: 10px ui-monospace, monospace; }
 .teda-review .diag-none { color: var(--muted); font-size: 11px; }
+.teda-review .diag-jump {
+  background: none; border: 0; padding: 0; color: var(--muted);
+  font: 10px ui-monospace, monospace; cursor: pointer;
+}
+.teda-review .diag-jump:hover { color: var(--accent); }
+.teda-review .metric-list { list-style: none; margin: 0; padding: 0; }
+.teda-review .metric-list li {
+  display: flex; justify-content: space-between; gap: 8px;
+  color: var(--muted); font-size: 11px; padding: 1px 6px;
+}
+.teda-review .metric-list .metric-value { color: var(--fg); font: 11px ui-monospace, monospace; }
 .teda-review .diag-toggle {
   display: block; width: 100%; margin-top: 4px; padding: 4px 6px; text-align: left;
   background: none; border: 1px solid var(--line); border-radius: 4px;

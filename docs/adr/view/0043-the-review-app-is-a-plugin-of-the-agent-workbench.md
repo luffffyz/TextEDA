@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-29
 Scope: Decides: that the review app becomes a preview surface inside an agent workbench rather than an editing product; that the agent is the single writer of the design sources, with one exception — the plugin writes the print page's positions; that the standalone app survives as the bridge for hosts that cannot host a plugin; which host the picture half targets first; where the re-anchor after a drag happens; and what the standalone app keeps meanwhile. Does not decide: the shape of the agent's surface — see ADR-0044; which route serves a host that has two — see ADR-0046; what a print page is or how it is drawn — see ADR-0035 and ADR-0036.
-Related: [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0042](0042-the-review-app-has-four-modes.md), [ADR-0044](../process/0044-the-agent-surface-is-a-set-of-verbs.md), [ADR-0046](../process/0046-a-host-is-entered-once.md), [ADR-0047](../process/0047-the-picture-reaches-a-host-by-three-routes.md)
+Related: [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0042](0042-the-review-app-has-modes.md), [ADR-0044](../process/0044-the-agent-surface-is-a-set-of-verbs.md), [ADR-0046](../process/0046-a-host-is-entered-once.md), [ADR-0047](../process/0047-the-picture-reaches-a-host-by-three-routes.md), [ADR-0048](0048-the-review-app-shows-drawings.md)
 Impact: `packages/viewer/**`; `packages/cli/src/review.ts`; `packages/cli/src/review-model.ts`; `packages/cli/src/layout.ts`; `docs/guides/review-app.md`; `docs/backlog.md` (F34, F52, F53); `docs/plugin-hosts.md`
 
 ## Background
@@ -98,7 +98,7 @@ symbol: their endpoints follow the symbol, their stored bends do not. Those wire
 the staleness is reported rather than hidden — `view.wire-diagonal` and `view.wire-crosses-pin` say
 which wires no longer fit. Fixing them is the agent's or the command line's work.
 
-This narrows [ADR-0042](0042-the-review-app-has-four-modes.md) D3, which gave `layout` the bends of
+This narrows [ADR-0042](0042-the-review-app-has-modes.md) D3, which gave `layout` the bends of
 the disturbed nets as well: under this record the plugin writes the `place` rows and not the bends.
 The re-anchor algorithm exists (`packages/core/src/view/reroute.ts`), and the command line can
 run it — `texteda view rewire`, and the agent's `texteda_view_rewire` tool (D10).
@@ -152,7 +152,7 @@ standalone app keeps its write modes for as long as they are useful; see open po
 When a write does happen — in the standalone app today, or in a plugin that is later allowed to
 write — it is the core's write: canonical form, a temporary file and a rename, and a refusal when
 the result would not be consistent. No half of a plugin edits a file directly. This restates
-[ADR-0042](0042-the-review-app-has-four-modes.md) D9 unchanged; it is stated here because a plugin
+[ADR-0042](0042-the-review-app-has-modes.md) D9 unchanged; it is stated here because a plugin
 adds a second potential writer to the picture.
 
 ### D9. The picture half's first host is DSH's `web` profile
