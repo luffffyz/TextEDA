@@ -36,12 +36,12 @@
         },
         "library": {
           "$ref": "urn:texteda:ir:0.14:common#/$defs/lib_id",
-          "description": "Owning library name (the directory under assets/footprints/ that holds the file); KiCad footprint id = <library>:<name>."
+          "description": "The footprint's package family (ADR-0049): the directory under assets/footprints/ that holds the file, e.g. chip. KiCad footprint id = <library>:<name>."
         },
         "name": {
           "type": "string",
           "pattern": "^[A-Za-z0-9_.+-]+$",
-          "description": "Footprint name, e.g. ti-sot-23-5. Unique within the library."
+          "description": "Footprint name, e.g. ti-sot-23-5. Unique within its package family."
         },
         "package_code": {
           "type": "string",

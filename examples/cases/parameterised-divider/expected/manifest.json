@@ -3,17 +3,17 @@
   "shards": [
     {
       "path": "boards/divider-network/schematic.json",
-      "sha256": "865bf4a3343dd3fcc13be11e823c6751740f71a8b356252fcda08192f9964bd6",
+      "sha256": "93115aab8531f920c454974a03d73af9fff10961ee6d5a8ae9f4b519d71a84c8",
       "normative": true
     },
     {
       "path": "components/res-thick-0402.json",
-      "sha256": "0b93b109a1ed241b4aafa6bc014406c351e266806767ab0c70a29ebc115bd58e",
+      "sha256": "2cedbefc987182da46426639d390dbcd52bc246736f8cb11dd1a2e6716116328",
       "normative": true
     },
     {
-      "path": "footprints/project/chip-0402.json",
-      "sha256": "ab6387326ec4506405de5725ad12a6336f7aa84032f45b0c400228e13eee4e13",
+      "path": "footprints/chip/chip-0402.json",
+      "sha256": "a5af80f5254dc6c21f0dca80decbda6f77400d874cdf2fc5b394e7510ee1e0ac",
       "normative": true
     },
     {
@@ -22,10 +22,10 @@
       "normative": true
     },
     {
-      "path": "symbols/project/r.json",
-      "sha256": "cf424904941cc7ece02b13e1e7c3342ee925e88010a3bb6d3e11dff0f8092dcc",
+      "path": "symbols/passives/r.json",
+      "sha256": "acd37d5163f957e7f966285c951e55eb44b4cc6c241c8ee06a99364444a3556b",
       "normative": true
     }
   ],
-  "source_hash": "da7ed7a7a9c27e247c8ec691d40d98ee2f89a2be9fdb99dd115d9c054b2d5028"
+  "source_hash": "5998ef5bd3201fe8701a3887232c4ce791e0ccdb88e616adff4cc16a15a3c49e"
 }

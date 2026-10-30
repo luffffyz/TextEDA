@@ -2,7 +2,7 @@
   "component": {
     "category": "regulator",
     "datasheet": "https://www.ti.com/lit/ds/symlink/tps7a20.pdf",
-    "footprint": "project:sot-23-5",
+    "footprint": "sot:sot-23-5",
     "id": "tps7a2033pdbvr",
     "kind": "part",
     "manufacturer": "Texas Instruments",
@@ -47,7 +47,7 @@
         "value": 300000000
       }
     ],
-    "symbol": "project:ldo-sot23-5"
+    "symbol": "regulators:ldo-sot23-5"
   },
   "ir_version": "0.14",
   "source": {

@@ -38,10 +38,12 @@ import {
 const useKicad = process.argv.includes("--kicad");
 const positional = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const projectRoot = positional[0] ?? "examples/reference-project";
-const libName = "project";
+// Classification directories (ADR-0049): one per class, and every referenced asset must sit in the
+// class its reference names. A project has no single library name any more, so the check is "the
+// named directory exists and holds the file".
 const work = "/tmp/texteda-lib-verify";
 rmSync(work, { recursive: true, force: true });
-mkdirSync(join(work, "project.pretty"), { recursive: true });
+mkdirSync(join(work, "classes"), { recursive: true });
 mkdirSync(join(work, "svg"), { recursive: true });
 mkdirSync(join(work, "symbol-svg"), { recursive: true });
 mkdirSync(join(work, "footprint-svg"), { recursive: true });
@@ -102,8 +104,25 @@ const parseRef = (ref: string): { lib: string; name: string } | null => {
   return { lib: ref.slice(0, at), name: ref.slice(at + 1) };
 };
 
-const symbolDir = join(projectRoot, "assets/symbols", libName);
-const footprintDir = join(projectRoot, "assets/footprints", libName);
+const symbolRoot = join(projectRoot, "assets/symbols");
+const footprintRoot = join(projectRoot, "assets/footprints");
+
+/** The `.teda` files under a root, one level down (the class directories, ADR-0049). */
+function classDirs(root: string): string[] {
+  if (!existsSync(root)) return [];
+  return readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => join(root, entry.name))
+    .sort();
+}
+
+/** The files of every class directory under a root. */
+function classFiles(root: string): string[] {
+  return classDirs(root).flatMap((dir) => listTeda(dir));
+}
+
+/** The class directory a file sits in: its parent's name (ADR-0049). */
+const classOfFile = (file: string): string => basename(dirname(file));
 
 console.log(`[1] ${components.length} devices (parts and generics)`);
 for (const c of components) {
@@ -116,16 +135,9 @@ for (const c of components) {
       fail(`${c.id}: ${kind} reference has a bad format: ${ref}`);
       continue;
     }
-    if (parsed.lib !== libName) {
-      // Every asset the project reads is its own: an imported library is a copy under `assets/`
-      // (ADR-0034). A reference into any other library directory is a dangling dependency, and the
-      // library-level loop below catches the geometry itself.
-      fail(
-        `${c.id}: ${kind} points to library ${parsed.lib}, which is not a library directory of this project (imported assets keep the copy's library directory)`,
-      );
-      continue;
-    }
-    const dir = kind === "symbol" ? symbolDir : footprintDir;
+    const dir = join(kind === "symbol" ? symbolRoot : footprintRoot, parsed.lib);
+    // The qualifier is the class directory (ADR-0049): the named directory must exist and hold the
+    // file. An imported library is a copy under `assets/` (ADR-0034) — its classes are too.
     if (!existsSync(join(dir, `${parsed.name}.teda`))) {
       fail(`${c.id}: ${kind} points to a nonexistent file ${join(dir, `${parsed.name}.teda`)}`);
     }
@@ -133,7 +145,7 @@ for (const c of components) {
 }
 
 // 2) symbols: canonical / contract / pin numbers / export / KiCad parsing
-const symbolFiles = listTeda(symbolDir);
+const symbolFiles = classFiles(symbolRoot);
 const symbolUsers = new Map<string, ComponentEntry[]>();
 for (const c of components) {
   const parsed = parseRef(c.symbol);
@@ -147,13 +159,13 @@ console.log(`[2] ${symbolFiles.length} symbols`);
 for (const file of symbolFiles) {
   const name = basename(file, ".teda");
   const source = readFileSync(file, "utf8");
-  const formatted = formatSymbol(source, { file, library: libName });
+  const formatted = formatSymbol(source, { file, library: classOfFile(file) });
   if (!formatted.ok || formatted.text !== source) {
     for (const d of formatted.diagnostics) console.error(`  ${formatDiagnostic(d)}`);
     fail(`${name}: not in canonical form`);
     continue;
   }
-  const parsed = parseSymbol(source, { file, library: libName });
+  const parsed = parseSymbol(source, { file, library: classOfFile(file) });
   if (!parsed.ok || !parsed.ir) {
     for (const d of parsed.diagnostics) console.error(`  ${formatDiagnostic(d)}`);
     fail(`${name}: compilation failed`);
@@ -208,7 +220,7 @@ for (const file of symbolFiles) {
 console.log(`    we rendered ${symbolFiles.length} symbols (symbol-svg/)`);
 
 // 3) footprint: canonical / contract / pad numbers / export / KiCad rendering
-const footprintFiles = listTeda(footprintDir);
+const footprintFiles = classFiles(footprintRoot);
 const footprintUsers = new Map<string, ComponentEntry[]>();
 for (const c of components) {
   const parsed = parseRef(c.footprint);
@@ -224,13 +236,13 @@ let slot = 0;
 for (const file of footprintFiles) {
   const name = basename(file, ".teda");
   const source = readFileSync(file, "utf8");
-  const formatted = formatFootprint(source, { file, library: libName });
+  const formatted = formatFootprint(source, { file, library: classOfFile(file) });
   if (!formatted.ok || formatted.text !== source) {
     for (const d of formatted.diagnostics) console.error(`  ${formatDiagnostic(d)}`);
     fail(`${name}: not in canonical form`);
     continue;
   }
-  const parsed = parseFootprint(source, { file, library: libName });
+  const parsed = parseFootprint(source, { file, library: classOfFile(file) });
   if (!parsed.ok || !parsed.ir) {
     for (const d of parsed.diagnostics) console.error(`  ${formatDiagnostic(d)}`);
     fail(`${name}: compilation failed`);
@@ -248,7 +260,7 @@ for (const file of footprintFiles) {
     continue;
   }
   writeFileSync(join(work, `${name}.json`), canonicalJson(parsed.ir));
-  writeFileSync(join(work, "project.pretty", `${name}.kicad_mod`), footprintModule(body));
+  writeFileSync(join(work, "classes", `${classOfFile(file)}-${name}.kicad_mod`), footprintModule(body));
 
   // Render with **our own** renderer and self-check: zero external dependencies, symbols and footprints use the same standard (ADR-0036).
   const fpDoc = renderFootprint(body);
@@ -279,7 +291,7 @@ for (const file of footprintFiles) {
 }
 
 if (useKicad) {
-  const svg = Bun.spawnSync(["kicad-cli", "fp", "export", "svg", "--output", join(work, "svg"), join(work, "project.pretty")], {
+  const svg = Bun.spawnSync(["kicad-cli", "fp", "export", "svg", "--output", join(work, "svg"), join(work, "classes")], {
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -325,7 +337,7 @@ const boardPath = join(work, "libs.kicad_pcb");
 writeFileSync(boardPath, board);
 writeFileSync(
   join(work, "fp-lib-table"),
-  `(fp_lib_table\n  (lib (name "${libName}")(type "KiCad")(uri "\${KIPRJMOD}/project.pretty")(options "")(descr ""))\n)\n`,
+  `(fp_lib_table\n  (lib (name "classes")(type "KiCad")(uri "\${KIPRJMOD}/classes")(options "")(descr ""))\n)\n`,
 );
 const drcPath = join(work, "drc.json");
 if (useKicad) {

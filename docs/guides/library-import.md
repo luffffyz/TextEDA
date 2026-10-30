@@ -7,18 +7,18 @@
 ## 1. The shape
 
 ```
-somebody's library            your project
-├── components/*.teda   ──▶   assets/components/**/*.teda   (bare ids)
-├── symbols/*.teda      ──▶   assets/symbols/<lib>/*.teda
-└── footprints/*.teda   ──▶   assets/footprints/<lib>/*.teda
+somebody's library                    your project
+├── components/**/*.teda      ──▶   assets/components/**/*.teda   (bare ids)
+├── symbols/**/*.teda         ──▶   assets/symbols/<class>/*.teda
+└── footprints/**/*.teda      ──▶   assets/footprints/<class>/*.teda
 ```
 
 Nothing is resolved from a template in place: `texteda init` does not even create an
 `external/libs/`, and a library tree left anywhere the loader would find it is an error
 (`ref.library-in-tree`). A qualified device reference (`vendor:tps7a02`) is an error too
-(`ref.library-qualified-id`): after the import the device id is bare. The `<lib>:` in a symbol or
-footprint reference is not a dependency — it is the directory under `assets/symbols/` (or
-`assets/footprints/`) that holds the geometry.
+(`ref.library-qualified-id`): after the import the device id is bare. The `<class>:` in a symbol or
+footprint reference is not a dependency — it is the classification directory that holds the
+geometry: a symbol's device category, a footprint's package family (ADR-0049).
 
 Why a copy instead of a pinned dependency: the full argument is in
 [ADR-0034](../adr/libraries/0034-trust-in-a-library-you-do-not-own.md). The short version
@@ -54,14 +54,16 @@ texteda lib import vendor --from /path/to/library --rev v2.1.0
   `assets/components/` is a filing choice (`spec/teda.md` §2), so an id the project already
   holds under another one stops the import as well, and `--force` does not resolve that — it
   replaces a file, it cannot merge two files of one id into one.
-- `--dest <lib>` names the symbol/footprint library directory under `assets/symbols/` and
-  `assets/footprints/` (default: the library name). The qualifier in the copied files is
-  rewritten to it.
+- `--dest <class>` overrides the classification directory for every copied symbol and footprint
+  (`assets/symbols/<class>/` and `assets/footprints/<class>/`). Without it each file keeps the
+  directory the template filed it under; a template that files its geometry flat (no directories
+  below `symbols/` / `footprints/`) lands under the library name, which is what it names itself.
+  Every qualifier the copy writes is rewritten to the class the named asset actually landed in.
 
 ### What the copy looks like
 
 ```text
-version 0.9.1
+version 0.9.2
 component tps7a02
 # imported from vendor@v2.1.0 on 2026-10-24: verify before manufacturing, the template was not human-reviewed
 rev v2.1.0

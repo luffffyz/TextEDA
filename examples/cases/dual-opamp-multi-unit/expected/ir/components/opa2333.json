@@ -3,7 +3,7 @@
     "category": "opamp",
     "datasheet": "https://www.ti.com/lit/ds/symlink/opa2333.pdf",
     "description": "Dual 350 kHz 5 uV zero-drift op-amp, 1.8-5.5 V, SOIC-8",
-    "footprint": "project:soic-8",
+    "footprint": "soic:soic-8",
     "id": "opa2333",
     "kind": "part",
     "manufacturer": "Texas Instruments",
@@ -59,7 +59,7 @@
       }
     ],
     "pins_source": "inline",
-    "symbol": "project:opa2333"
+    "symbol": "analog:opa2333"
   },
   "ir_version": "0.14",
   "source": {

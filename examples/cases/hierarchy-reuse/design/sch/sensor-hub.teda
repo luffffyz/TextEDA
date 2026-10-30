@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 schematic sensor-hub
 
 # Two sensor channels, one filter module each, and a local thermistor that belongs to no module.

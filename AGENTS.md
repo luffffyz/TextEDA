@@ -292,8 +292,8 @@ dist/ir/
 ├── boards/<board_id>/view/<page_id>.json
 ├── boards/<board_id>/procurement.json     # 主料（规范）/ procurement-alternatives.json（附注）
 ├── components/<component_id>.json         # 自有器件
-├── symbols/<lib>/<symbol_id>.json
-├── footprints/<lib>/<footprint_id>.json
+├── symbols/<category>/<symbol_id>.json
+├── footprints/<family>/<footprint_id>.json
 ├── project.json
 └── systems/<system_id>.json
 ```

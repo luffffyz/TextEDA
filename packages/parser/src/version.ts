@@ -73,7 +73,7 @@ export interface VersionRange {
  *
  * It is also the upper bound every description type accepts — there is no per-type ceiling.
  */
-export const SUPPORTED_LANGUAGE: LanguageVersion = { major: 0, minor: 9, patch: 1 };
+export const SUPPORTED_LANGUAGE: LanguageVersion = { major: 0, minor: 9, patch: 2 };
 
 /** Every description type this implementation reads. */
 export type DescriptionType =

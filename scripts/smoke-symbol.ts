@@ -4,21 +4,23 @@
 // Usage: bun run scripts/smoke-symbol.ts [example-symbol.teda] [component-description.teda]
 // Artifacts are written under /tmp/texteda-sym-smoke/.
 import { mkdirSync, readFileSync, writeFileSync, rmSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { validate } from "@texteda/ir";
 import { missingPartPins, symbolLibrary } from "@texteda/exporter";
 import { canonicalJson, formatDiagnostic, formatSymbol } from "@texteda/parser";
 import { loadComponent, loadSymbol } from "./lib/project.ts";
 
-const symbolFile = process.argv[2] ?? "examples/reference-project/assets/symbols/project/bq24610rger.teda";
+const symbolFile = process.argv[2] ?? "examples/reference-project/assets/symbols/power/bq24610rger.teda";
 const componentFile = process.argv[3] ?? "examples/reference-project/assets/components/power/bq24610rger.teda";
 const work = "/tmp/texteda-sym-smoke";
 rmSync(work, { recursive: true, force: true });
-mkdirSync(join(work, "project.pretty"), { recursive: true });
+// The classification directory (ADR-0049) is what KiCad sees as the library name.
+const klass = basename(dirname(symbolFile));
+mkdirSync(join(work, `${klass}.kicad_sym`), { recursive: true });
 
 // 0) canonical form: the source file must be a fixed point of fmt
 const source = readFileSync(symbolFile, "utf8");
-const formatted = formatSymbol(source, { file: symbolFile, library: "project" });
+const formatted = formatSymbol(source, { file: symbolFile, library: klass });
 if (!formatted.ok || formatted.text !== source) {
   for (const d of formatted.diagnostics) console.error(formatDiagnostic(d));
   console.error("source file is not in canonical form: run bun run fmt:teda " + symbolFile);
@@ -27,7 +29,7 @@ if (!formatted.ok || formatted.text !== source) {
 console.log(`[0] canonical form: ${symbolFile} is a fmt fixed point`);
 
 // 1) compile: .teda → IR (contract validation)
-const parsed = loadSymbol(symbolFile, "project");
+const parsed = loadSymbol(symbolFile, klass);
 for (const d of parsed.diagnostics) console.error(formatDiagnostic(d));
 if (!parsed.ok) {
   console.error("compilation failed");
@@ -57,7 +59,7 @@ if (missing.length > 0) {
 console.log(`[2] component ${componentFile}: pin names and electrical types in place (${component.value.pins.length} pins)`);
 
 // 3) export .kicad_sym
-const libPath = join(work, "project.pretty", "project.kicad_sym");
+const libPath = join(work, `${klass}.kicad_sym`, `${klass}.kicad_sym`);
 writeFileSync(libPath, symbolLibrary(sym, component.value));
 const pinCount = (readFileSync(libPath, "utf8").match(/\(pin /g) ?? []).length;
 if (pinCount !== sym.pins.length) {

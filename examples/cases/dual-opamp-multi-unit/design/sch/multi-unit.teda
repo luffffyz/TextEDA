@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 schematic multi-unit
 
 # Case 2 of the ten (AGENTS.md §10, docs/backlog.md F12): a dual op-amp, one part with three units.

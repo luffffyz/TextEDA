@@ -2,7 +2,7 @@
   "component": {
     "category": "connector",
     "description": "2.54 mm 1x3 header, through-hole",
-    "footprint": "project:hdr-1x3-254",
+    "footprint": "header:hdr-1x3-254",
     "id": "hdr-1x3-254",
     "kind": "part",
     "manufacturer": "Fixture",
@@ -28,7 +28,7 @@
       }
     ],
     "pins_source": "inline",
-    "symbol": "project:hdr-1x3"
+    "symbol": "connectors:hdr-1x3"
   },
   "ir_version": "0.14",
   "source": {

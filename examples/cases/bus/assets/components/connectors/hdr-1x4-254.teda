@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 component hdr-1x4-254
 
 # 2.54 mm 1x4 header: the hub's own uplink, in the same pin order as the ten downstream ports.
@@ -8,9 +8,8 @@ manufacturer Samtec
 category     connector
 description  2.54 mm 1x4 header, through-hole
 
-symbol project:hdr-1x4
-footprint project:hdr-1x4-254
-
+symbol connectors:hdr-1x4
+footprint header:hdr-1x4-254
 pins
   1  GND  power_in
   2  VDD  power_in

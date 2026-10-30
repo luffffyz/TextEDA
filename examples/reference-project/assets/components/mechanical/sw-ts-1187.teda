@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 component sw-ts-1187
 
 # 5.2×5.2mm SMD tactile switch, SPST normally open, four pins in two pairs: 1-2 and 3-4 (datasheet schematic).
@@ -10,9 +10,8 @@ manufacturer Shuofang Precision
 category     switch
 datasheet    https://uploadcdn.oneyac.com/attachments/files/brand_pdf/sofng/TS-1187.pdf
 
-symbol project:sw-push
-footprint project:switch-5x5-4
-
+symbol mechanical:sw-push
+footprint switch:switch-5x5-4
 pins
   1  A  passive
   2  A  passive

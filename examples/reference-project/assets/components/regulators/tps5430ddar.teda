@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 component tps5430ddar
 
 kind         part
@@ -7,9 +7,8 @@ manufacturer Texas Instruments
 category     regulator
 datasheet    https://www.ti.com/lit/ds/symlink/tps5430.pdf
 
-symbol project:dc-dc-soic8
-footprint project:soic-8-ep
-
+symbol regulators:dc-dc-soic8
+footprint soic:soic-8-ep
 # The part's own ratings (ADR-0026): what the device is, not what the design asks of it.
 ratings
   voltage        voltage  28V

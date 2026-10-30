@@ -137,9 +137,9 @@
 | `description` | note | no | — | Free-text description; becomes the description in the IR. |
 | `fields` | array<field> | no | — | Footprint attributes (Reference / Value / Datasheet etc.). |
 | `graphics` | array<graphic> | no | — | Silkscreen/assembly/solder-mask/courtyard and other graphics. |
-| `library` | lib_id | yes | — | Owning library name (the directory under assets/footprints/ that holds the file); KiCad footprint id = <library>:<name>. |
+| `library` | lib_id | yes | — | The footprint's package family (ADR-0049): the directory under assets/footprints/ that holds the file, e.g. chip. KiCad footprint id = <library>:<name>. |
 | `model3d` | model3d | no | — | 3D model reference: file path plus offset/scale/rotation. |
-| `name` | string | yes | — | Footprint name, e.g. ti-sot-23-5. Unique within the library. |
+| `name` | string | yes | — | Footprint name, e.g. ti-sot-23-5. Unique within its package family. |
 | `package_code` | string | no | — | The package code of this land pattern, e.g. 0402, SOT-23-5, LQFP-100 (ADR-0028 decision 1). The device does not restate it. |
 | `pads` | array<pad> | yes | — | Pad table; pad numbers in natural order; numbering must match the symbol pin numbers. |
 | `rev` | string | no | — | The release of this file's facts (ADR-0034): the tag or commit in which they were last established. A copy whose facts diverged appends `+local.N`. Not the format version. |
@@ -847,8 +847,8 @@
 | `description` | note | no | — | Free-text description; becomes the description in the IR. |
 | `fields` | array<field> | no | — | Attributes (Reference / Value / Datasheet / Description etc.). |
 | `in_bom` | boolean | yes | — | Whether it counts toward the bill of materials. |
-| `library` | lib_id | yes | — | Owning library name (the directory under assets/symbols/ that holds the file); KiCad symbol id = <library>:<name>. |
-| `name` | string | yes | — | Symbol name, unique within the library; it is a reusable view name (multiple components may share one symbol), and binding only happens at component.symbol. |
+| `library` | lib_id | yes | — | The symbol's device category (ADR-0049): the directory under assets/symbols/ that holds the file, e.g. passives. KiCad symbol id = <library>:<name>. |
+| `name` | string | yes | — | Symbol name, unique within its device category; it is a reusable view name (multiple components may share one symbol), and binding only happens at component.symbol. |
 | `on_board` | boolean | yes | — | Whether it appears at the board (PCB) level. |
 | `pin_name_offset_nm` | integer | no | nm | Offset of the pin name relative to the pin endpoint; the exporter defaults to 0.508mm. |
 | `pin_names_hidden` | boolean | yes | — | Whether pin names are hidden. |

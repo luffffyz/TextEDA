@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 component d-bat54c
 
 kind         part
@@ -6,9 +6,8 @@ mpn          BAT54C
 manufacturer onsemi
 category     diode
 
-symbol project:dual-diode
-footprint project:sot-23
-
+symbol power:dual-diode
+footprint sot:sot-23
 pins
   1  A1  passive
   2  A2  no_connect

@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 view buck-5v
 
 # TPS5430 5V/3A buck print page. Every net is drawn as wires; GND runs as a bus below the parts

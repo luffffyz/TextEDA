@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 component crc0402fr-0710kl
 
 # 10kΩ ±1% 0402 thick-film resistor, 1/16W. The second source for the `res-thick-0402 10k ±1%`
@@ -8,9 +8,8 @@ mpn          CRC0402FR-0710KL
 manufacturer Vishay
 category     resistor
 
-symbol project:r
-footprint project:chip-0402
-
+symbol passives:r
+footprint chip:chip-0402
 # The part's own ratings (ADR-0026): what the device is, not what the design asks of it.
 # The power rating is the package's (0.063W for a 0402 thick film), stated here so that a design which
 # declares a dissipation limit on a 10k line can be compared against what this part can take (ADR-0026).

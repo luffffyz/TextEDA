@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { validate } from "@texteda/ir";
 import { canonicalJson, formatDiagnostic, parseSymbol } from "../src/index.ts";
 
-const example = readFileSync("examples/reference-project/assets/symbols/project/bq24610rger.teda", "utf8");
+const example = readFileSync("examples/reference-project/assets/symbols/power/bq24610rger.teda", "utf8");
 
 function parse(text: string) {
   return parseSymbol(text, { file: "x.teda", library: "project" });

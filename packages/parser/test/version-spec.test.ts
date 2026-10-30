@@ -100,8 +100,8 @@ function specProse(): string {
 
 /** Whether the prose of §13.1 states the language's current version. */
 function proseStatesCeiling(): boolean {
-  // The canonical spelling, patch included: `0.9.1`. The MINOR alone (`0.9`) is the accepted-range
-  // bound, not the language's number, so it does not count here.
+  // The canonical spelling, patch included (`0.9.2` as of this change). The MINOR alone is the
+  // accepted-range bound, not the language's number, so it does not count here.
   return specProse().includes(formatVersion(SUPPORTED_LANGUAGE));
 }
 
@@ -198,10 +198,10 @@ describe("AGENTS.md does not restate the current version", () => {
     const text = readFileSync(join(repoRoot, "AGENTS.md"), "utf-8")
       .replace(/```[\s\S]*?```/g, " ")
       .replace(/`[^`\n]*`/g, " ");
-    // The language version is `0.9.1`; the IR contract version is `v0.14` (a different line, ADR-0002
-    // D7). Both live in their own homes — spec/teda.md §13.1/§13.4 and schemas/ir/ — and AGENTS.md
-    // points at them instead of writing the numbers out.
-    expect(text.includes("0.9.1")).toBe(false);
+    // The language version and the IR contract version are two different lines (ADR-0002 D7). Both
+    // live in their own homes — spec/teda.md §13.1/§13.4 and schemas/ir/ — and AGENTS.md points at
+    // them instead of writing the numbers out.
+    expect(text.includes(formatVersion(SUPPORTED_LANGUAGE))).toBe(false);
     expect(/(?<![\w.])v?0\.14(?![\w])/.test(text)).toBe(false);
   });
 });

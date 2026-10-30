@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 component res-thick-2010
 
 kind         generic
@@ -6,9 +6,8 @@ category     resistor
 construction thick
 polarized    no
 
-symbol project:r
-footprint project:chip-2010
-
+symbol passives:r
+footprint chip:chip-2010
 params
   value      resistance  required
   tolerance  percent     required

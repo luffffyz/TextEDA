@@ -15,24 +15,24 @@
 ```
 <项目>/
   project.toml            # metadata only: no library reference (assets/ is the library)
-  footprints/project/     # 库目录（真源）：一份封装一个 .teda
+  assets/footprints/sot/  # 封装族目录（真源）：一份封装一个 .teda
     sot-23-5.teda
     3dmodels/sot-23-5.stp           # 可选 3D 模型（项目相对路径）
-  fp-lib-table            # KiCad 库表：指向**导出的** .pretty 目录
-  dist/footprints/project.pretty/   # 导出产物：.kicad_mod（KiCad 侧可见）
+  fp-lib-table            # KiCad 库表：指向**导出的** .pretty 目录，一个分类一个库
+  dist/footprints/sot.pretty/       # 导出产物：.kicad_mod（KiCad 侧可见，目录名 = 分类目录）
 ```
 
-`fp-lib-table`（KiCad 按 `lib:name` 回查库时读它；缺了会报 `lib_footprint_issues`）：
+`fp-lib-table`（KiCad 按 `lib:name` 回查库时读它；缺了会报 `lib_footprint_issues`）。一个分类目录对应一个库，板文件里的 `<分类>:<id>` 就是这里的 `lib:name`：
 
 ```
 (fp_lib_table
-  (lib (name "project")(type "KiCad")(uri "${KIPRJMOD}/dist/footprints/project.pretty")(options "")(descr "项目自建封装库"))
+  (lib (name "sot")(type "KiCad")(uri "${KIPRJMOD}/dist/footprints/sot.pretty")(options "")(descr "项目自建封装"))
 )
 ```
 
-参考工程**全部自建**：`examples/reference-project/` 下不出现任何外部前缀，每个器件的 `symbol` / `footprint` 都指向 `project:`（历史写法，今天写作裸 id），源文件在 `assets/symbols/project/` 与 `assets/footprints/project/`。
+参考工程**全部自建**：`examples/reference-project/` 下没有一个器件指向外部库，每个器件的 `symbol` / `footprint` 都指向本工程的分类目录（如 `footprint sot:sot-23-5`），源文件在 `assets/symbols/<category>/` 与 `assets/footprints/<family>/`（[ADR-0049](../adr/libraries/0049-assets-are-filed-by-what-they-are.md)）。
 
-要拿 KiCad 官方库的封装，不登记、不写前缀：用 `texteda lib import` 把需要的封装（连同它们的 symbol 与 component）拷进 `assets/footprints/`，之后它就是本工程的封装，引用只写裸 id。`<lib>:` 限定符与 `external/libs/**` 都已被撤销（[ADR-0034](../adr/libraries/0034-trust-in-a-library-you-do-not-own.md)），做法见 [library-import.md](library-import.md)。
+要拿 KiCad 官方库的封装，不登记、不加依赖：用 `texteda lib import` 把需要的封装（连同它们的 symbol 与 component）拷进 `assets/`，之后它就是本工程的封装，引用写它落地的那个分类目录。`external/libs/**` 不是依赖（[ADR-0034](../adr/libraries/0034-trust-in-a-library-you-do-not-own.md)），做法见 [library-import.md](library-import.md)。
 
 ## 造封装的流程
 
@@ -50,10 +50,10 @@
 
 ### 2. 写 `.teda`（真源）
 
-语法见 `spec/footprint.md`。完整示例：`examples/reference-project/assets/footprints/project/sot-23-5.teda`。
+语法见 `spec/footprint.md`。完整示例：`examples/reference-project/assets/footprints/sot/sot-23-5.teda`。
 
 ```
-version 0.9.1
+version 0.9.2
 footprint sot-23-5
 
 description SOT-23-5 body 2.9x1.6mm pitch 0.95mm
@@ -89,8 +89,8 @@ graphics
 手写时不必纠结对齐和顺序，写完跑一次：
 
 ```bash
-bun run fmt:teda footprints/project/sot-23-5.teda      # 就地规范化
-bun run fmt:teda --check footprints/project             # CI：不是 canonical 就退出 1
+bun run fmt:teda assets/footprints/sot/sot-23-5.teda      # 就地规范化
+bun run fmt:teda --check assets/footprints              # CI：不是 canonical 就退出 1
 ```
 
 `fmt` 只重排表面（行/键顺序、列对齐、单位归一），不碰语义；有语义错误的文件会被拒绝格式化，报错跟编译时同一套行列诊断。传目录时递归处理其中的 `*.teda`，只处理已实现的描述类型（`footprint` / `symbol`），其他类型跳过；显式点名未实现的类型会报错。规范见 `spec/footprint.md` §8。
@@ -98,23 +98,23 @@ bun run fmt:teda --check footprints/project             # CI：不是 canonical 
 ### 3. 编译成 IR
 
 ```bash
-bun run compile:footprint footprints/project/sot-23-5.teda --library project --out dist/ir/footprints/sot-23-5.json
+bun run compile:footprint assets/footprints/sot/sot-23-5.teda --out dist/ir/footprints/sot/sot-23-5.json
 ```
 
-IR 是 `footprint` kind（契约 `schemas/ir/v0.3/footprint.schema.json`），单位全是整数纳米/毫度/百万分比。
+IR 是 `footprint` kind（契约 `schemas/ir/v0.14/footprint.schema.json`），单位全是整数纳米/毫度/百万分比。`footprint.library` 取的是文件所在的分类目录（`sot`）。
 
 ### 4. 导出成 KiCad 产物
 
 ```bash
-bun run export:footprint dist/ir/footprints/sot-23-5.json --out dist/footprints/project.pretty
+bun run export:footprint dist/ir/footprints/sot/sot-23-5.json --out dist/footprints/sot.pretty
 ```
 
 两种用途：放进 `.pretty` 目录后是 KiCad 可见的普通库；板导出时同一份几何会**内联**进 `.kicad_pcb`（KiCad 6+ 的做法），所以 DRC 与制造不再依赖库文件。
 
 ### 5. 登记与引用
 
-- `fp-lib-table` 登记 `project`（见上）。
-- `component` 里：`footprint = "project:sot-23-5"`，`symbol` 指向符号库里的对应符号。
+- `fp-lib-table` 登记分类目录（`sot`，见上）：一个分类目录对应一个 `.pretty`。
+- `component` 里：`footprint sot:sot-23-5`，`symbol` 指向对应分类目录下的符号（`symbol <category>:<id>`）。
 - `project.toml` 里**没有**库登记项：自建库就是工程的 `assets/`，没有版本锚点、没有 `content_hash`（`[libs]` 已撤销，[ADR-0034](../adr/libraries/0034-trust-in-a-library-you-do-not-own.md)）。库级的闭环由 `bun run lib:verify` 当场校验（引用可解析、引脚号与焊盘号对齐、KiCad 能读、DRC 0 违规）。
 
 ### 6. 看一眼（不用 KiCad）
@@ -133,12 +133,12 @@ bun run preview footprint sot-23-5 --scale 20 # 放大看焊盘与丝印的细�
 
 图里的属性文字是**单线笔画字体**画成的路径（Hershey Sans，自带字形数据，不依赖系统字体）。自带字体只有 ASCII，画不出来的字符命令会在 stderr 上点名。
 
-产物默认落 `/tmp/texteda-preview/<id>/`，命令会打印绝对路径。`--lib` 换库名（默认 `project`），`--project` 换项目目录。
+产物默认落 `/tmp/texteda-preview/<id>/`，命令会打印绝对路径。`--class` 指定封装族（不给就在整棵树里按 id 找，撞名时报错并列出候选），`--project` 换项目目录。
 
 ### 7. 冒烟验证
 
 ```bash
-bun run smoke:footprint            # 用 examples/reference-project/assets/footprints/project/sot-23-5.teda
+bun run smoke:footprint            # 用 examples/reference-project/assets/footprints/sot/sot-23-5.teda
 ```
 
 跑通：canonical form 检查（`fmt` 固定点）→ 编译成 IR（契约通过）→ 写 `.kicad_mod` → KiCad 能解析（`kicad-cli fp export svg`）→ 内联进板 → `kicad-cli pcb drc` 0 违规 → Gerber 出齐。改完封装跑一次，DRC 会替你抓丝印压焊盘、courtyard 越界这类问题。

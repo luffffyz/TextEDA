@@ -32,7 +32,7 @@ describe("component facts projection", () => {
     expect(facts.id).toBe("bq24610rger");
     expect(facts.pins.length).toBe(25);
     expect(facts.pins[0]).toEqual({ number: "1", name: "ACN", type: "input" });
-    expect(facts.footprint).toBe("project:vqfn-24-ep");
+    expect(facts.footprint).toBe("vqfn:vqfn-24-ep");
     expect(facts.datasheet).toContain("bq24610");
   });
 

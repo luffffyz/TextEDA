@@ -2,7 +2,7 @@
   "component": {
     "category": "capacitor",
     "construction": "mlcc",
-    "footprint": "project:chip-0402",
+    "footprint": "chip:chip-0402",
     "id": "cap-mlcc-0402",
     "kind": "generic",
     "params": [
@@ -43,7 +43,7 @@
     ],
     "pins_source": "inline",
     "polarized": false,
-    "symbol": "project:c"
+    "symbol": "passives:c"
   },
   "ir_version": "0.14",
   "source": {

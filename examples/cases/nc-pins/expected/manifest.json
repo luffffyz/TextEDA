@@ -3,27 +3,27 @@
   "shards": [
     {
       "path": "boards/debug-header/schematic.json",
-      "sha256": "7247b253bdac37076291823331e516a9901d91490795d9c35bb475e9d4a26047",
+      "sha256": "df368f1dd7f595b72072e218e464402da144378faca60b57ff1c9493dc08ede4",
       "normative": true
     },
     {
       "path": "components/hdr-2x5-127.json",
-      "sha256": "69bafadf613bbe92327e8108b4c7a2cbc5038c4ab6f74d554d8b71cb7254e2d1",
+      "sha256": "4a6c5d46328fdda15c79434d0d696e9df71f530494f4f6de90439637ae598a37",
       "normative": true
     },
     {
       "path": "components/res-10k-0402.json",
-      "sha256": "1e607de64e5a2a9681e6dac4b3991cae9efe9d7e9c9ad642e5136668b3a65cd7",
+      "sha256": "dfcec35064cca4dc65ee97a3b9fa728044381e0ee4c9d56a6255e1ea69142a5e",
       "normative": true
     },
     {
-      "path": "footprints/project/chip-0402.json",
-      "sha256": "ab6387326ec4506405de5725ad12a6336f7aa84032f45b0c400228e13eee4e13",
+      "path": "footprints/chip/chip-0402.json",
+      "sha256": "a5af80f5254dc6c21f0dca80decbda6f77400d874cdf2fc5b394e7510ee1e0ac",
       "normative": true
     },
     {
-      "path": "footprints/project/hdr-2x5-127.json",
-      "sha256": "1c145c3a230068a6923c79d037d03565542f0501c72dc77fc06e037e9310b9ba",
+      "path": "footprints/header/hdr-2x5-127.json",
+      "sha256": "09a3abbe211514820ec77a4ef5a5f86bbce504275e7d7ef5d6163ce5f3b462fd",
       "normative": true
     },
     {
@@ -32,15 +32,15 @@
       "normative": true
     },
     {
-      "path": "symbols/project/hdr-2x5.json",
-      "sha256": "925548473bb0cdc5d29816ee1abecfd01172c0e7c25b9e234ac8f4a2e630b3dc",
+      "path": "symbols/connectors/hdr-2x5.json",
+      "sha256": "6a7c7ba6b9cf75c004d7a352205a7e437c9834d94d7d72d739d6497399f6ca0a",
       "normative": true
     },
     {
-      "path": "symbols/project/r.json",
-      "sha256": "b45625e63041efb79a595537b6133668116130c7b75d9305d0dbb95f5c90b350",
+      "path": "symbols/passives/r.json",
+      "sha256": "a91a691537026c541ba1e6a72651190e426a6274756778990a6b8cbb72ce9c3e",
       "normative": true
     }
   ],
-  "source_hash": "5cbcabcc3af5afda86333d169d726b2e294563e2ad2f9d33cea44b557ccace37"
+  "source_hash": "02108bc84ea5d150b7745bfcb149a87520269bc968d5d83239f4948a4c9c3eac"
 }

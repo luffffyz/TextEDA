@@ -24,7 +24,7 @@
 ## 1. 文件头
 
 ```
-version 0.9.1
+version 0.9.2
 pcb main
 ```
 
@@ -463,7 +463,7 @@ nets
 对应的 `design/pcb/demo.teda`：
 
 ```
-version 0.9.1
+version 0.9.2
 pcb demo
 
 board_thickness 1.6mm

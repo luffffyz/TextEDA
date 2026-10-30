@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { canonicalJson, formatDiagnostic, parseFootprint } from "../src/index.ts";
 
-const example = readFileSync("examples/reference-project/assets/footprints/project/sot-23-5.teda", "utf8");
+const example = readFileSync("examples/reference-project/assets/footprints/sot/sot-23-5.teda", "utf8");
 
 function parse(text: string) {
   return parseFootprint(text, { file: "x.teda", library: "project" });

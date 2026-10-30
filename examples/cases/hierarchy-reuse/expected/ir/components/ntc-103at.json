@@ -1,7 +1,7 @@
 {
   "component": {
     "category": "thermistor",
-    "footprint": "project:chip-0603",
+    "footprint": "chip:chip-0603",
     "id": "ntc-103at",
     "kind": "part",
     "manufacturer": "Semitec",
@@ -21,7 +21,7 @@
       }
     ],
     "pins_source": "inline",
-    "symbol": "project:thermistor"
+    "symbol": "sensors:thermistor"
   },
   "ir_version": "0.14",
   "source": {

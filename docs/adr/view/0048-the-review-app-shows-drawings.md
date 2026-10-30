@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-30
 Scope: Decides: that the review app shows drawings — a print page, a board's physical canvas, a library symbol, a library footprint — as four kinds of one thing; that the modes belong to the drawing (`review` everywhere, `layout` and `edit` on a print page) and that the `placement` mode is retired; that a finding names an object the app can select on the drawing; and that the app shows what a print page measures. Does not decide: what a print page is or how it is drawn — see ADR-0035 and ADR-0036; how PCB placement and copper routing are produced — see ADR-0017; what a review record says — see ADR-0037.
-Related: [ADR-0042](0042-the-review-app-has-modes.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md)
+Related: [ADR-0042](0042-the-review-app-has-modes.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0049](../libraries/0049-assets-are-filed-by-what-they-are.md).
 Impact: `packages/viewer/**`; `packages/cli` (the `review` command and its model); `plugins/dsh-texteda`; `docs/guides/review-app.md`; `docs/backlog.md` (F34)
 
 ## Context
@@ -40,6 +40,12 @@ list, one code path: the stage draws a drawing, whatever kind it is.
 The sidebar groups the drawings by kind — print pages, board canvases, symbols, footprints — and
 lists a board that has no print page on its own, with the note that says why and the instances
 that are still there to look at.
+
+Every block folds, and the two library kinds fold one level further, by the classification
+directory the file sits in ([ADR-0049](../libraries/0049-assets-are-filed-by-what-they-are.md)):
+sixteen symbols under one heading is a list nobody browses, and the classes are the grouping the
+project already has. A fold is a reading aid, not a filter — choosing a drawing from the arrow keys
+or from a finding opens the blocks that hold it, so the selected row is never hidden.
 
 The board's own facts (its instances, its nets) stay where they were: on the board, not on the
 drawing. A drawing shows; the board says.

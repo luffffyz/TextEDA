@@ -373,7 +373,7 @@ export type Note = string;
  */
 export type DeviceRef = string;
 /**
- * Library name: the directory under assets/symbols/ or assets/footprints/ that holds the file; underscores allowed, e.g. project.
+ * Classification directory (ADR-0049): the directory under assets/symbols/ or assets/footprints/ that holds the file — a symbol's device category, a footprint's package family. The same string is the qualifier of a `symbol <class>:<id>` / `footprint <class>:<id>` reference and the KiCad library name; underscores allowed, e.g. passives, chip.
  *
  * This interface was referenced by `Pcb`'s JSON-Schema
  * via the `definition` "lib_id".

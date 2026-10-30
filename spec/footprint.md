@@ -23,7 +23,7 @@
 ## 1. 文件头
 
 ```
-version 0.9.1
+version 0.9.2
 footprint sot-23-5
 ```
 
@@ -176,7 +176,7 @@ graphics
 `examples/reference-project/footprints/project/sot-23-5.teda`（即 canonical form；`bun run fmt:teda --check examples/reference-project/footprints` 退出 0）：
 
 ```
-version 0.9.1
+version 0.9.2
 footprint sot-23-5
 
 description SOT-23-5 body 2.9x1.6mm pitch 0.95mm (generic land pattern)

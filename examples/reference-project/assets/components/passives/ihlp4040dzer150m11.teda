@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 component ihlp4040dzer150m11
 
 kind         part
@@ -6,9 +6,8 @@ mpn          IHLP4040DZER150M11
 manufacturer Vishay Dale
 category     inductor
 
-symbol project:l
-footprint project:ihlp-4040
-
+symbol passives:l
+footprint inductor:ihlp-4040
 pins
   1  A  passive
   2  B  passive

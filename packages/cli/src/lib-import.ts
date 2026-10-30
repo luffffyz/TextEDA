@@ -39,7 +39,11 @@ export interface LibImportOptions {
   rev: string;
   /** Device ids to copy; empty means every device the template provides. */
   only: readonly string[];
-  /** Destination directory under `assets/symbols/` and `assets/footprints/`; defaults to `name`. */
+  /**
+   * Override the class directory a symbol or footprint lands in (ADR-0049). Absent, each file keeps
+   * the classification directory the template filed it under; a device keeps its category directory
+   * either way.
+   */
   dest?: string;
   /**
    * The consumer's trust table (ADR-0034): what this organisation vouches for about libraries it
@@ -92,9 +96,9 @@ export function runLibImport(options: LibImportOptions): number {
 
 function importLibrary(options: LibImportOptions): number {
   const { root, name, from, force } = options;
-  const dest = options.dest ?? name;
+  const dest = options.dest;
   if (!LIB_NAME.test(name)) usage(`not a library name: ${name} (^[a-z][a-z0-9_-]*$)`);
-  if (!LIB_NAME.test(dest)) usage(`not a library directory: ${dest} (^[a-z][a-z0-9_-]*$)`);
+  if (dest !== undefined && !LIB_NAME.test(dest)) usage(`not a class directory: ${dest} (^[a-z][a-z0-9_-]*$)`);
   const revision = options.rev.trim();
   if (revision.length === 0) {
     usage("--rev must be a tag or a commit hash, not an empty string");
@@ -236,7 +240,7 @@ function importLibrary(options: LibImportOptions): number {
     (file) =>
       file.group === "components" &&
       deviceAt.get(file.id) !== undefined &&
-      deviceAt.get(file.id) !== targetPath(root, file, dest),
+      deviceAt.get(file.id) !== targetPath(root, file, name, dest),
   );
   if (elsewhere.length > 0) {
     usage(
@@ -250,7 +254,7 @@ function importLibrary(options: LibImportOptions): number {
   // (rather than later statSync, which throws) and applies with `--force` too: `--force` replaces
   // an existing regular file, it does not turn a directory or a symlink into one.
   for (const file of chosen.values()) {
-    const target = targetPath(root, file, dest);
+    const target = targetPath(root, file, name, dest);
     const stats = lstatSync(target, { throwIfNoEntry: false });
     if (stats !== undefined && !stats.isFile()) {
       usage(
@@ -260,7 +264,7 @@ function importLibrary(options: LibImportOptions): number {
     }
   }
   const collisions = [...chosen.values()]
-    .map((file) => targetPath(root, file, dest))
+    .map((file) => targetPath(root, file, name, dest))
     .filter((target) => existsSync(target));
   if (collisions.length > 0 && !force) {
     usage(
@@ -272,19 +276,27 @@ function importLibrary(options: LibImportOptions): number {
 
   const stamp = today();
   const ordered = [...chosen.values()].sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+  // Where each copied asset lands, by group and id: a device's rewritten `symbol`/`footprint` must
+  // name the class the copy actually sits in (ADR-0049), not the class the template filed it under.
+  const landedBy = new Map<string, string>();
+  for (const file of ordered) {
+    landedBy.set(`${file.group}/${file.id}`, classOf(file, name, dest));
+  }
+  const landed: Qualifiers = (group, id) => landedBy.get(`${group}/${id}`);
   // The whole selection is resolved before the first byte is written: a claim can be refused (two
   // records stating one item, one author), and a refusal after some copies had landed would leave
   // half a library in the project while the command reported a failure.
   const plan = ordered.map((file) => {
     const template = readFileSync(join(from, file.relativePath), "utf8");
-    const target = targetPath(root, file, dest);
+    const target = targetPath(root, file, name, dest);
     const previous = existsSync(target) ? readFileSync(target, "utf8") : undefined;
     // The revision a claim is matched against is the one the copy will carry (ADR-0034 decision 12):
     // the file's own `rev` when it states one; otherwise the revision the copy already carries, as
     // long as the template's facts did not move — a release that touched another file must not
     // re-stamp this one (decision 5); otherwise the revision being imported.
     const own = fileRev(template, file.group);
-    const sameFacts = previous !== undefined && factsOf(previous, name, dest) === factsOf(template, name, dest);
+    const sameFacts =
+      previous !== undefined && factsOf(previous, name, landed) === factsOf(template, name, landed);
     const previousRev = previous === undefined ? undefined : fileRev(previous, file.group);
     // A copy marked `+local.N` claims its facts diverged from the library. When they did not (the
     // edit was reverted, or the marker outlived it), the copy rejoins the base revision — the marker
@@ -321,7 +333,7 @@ function importLibrary(options: LibImportOptions): number {
       continue;
     }
     mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, rewrite(template, file, name, dest, revision, effective, stamp, claim, own === undefined));
+    writeFileSync(target, rewrite(template, file, name, landed, revision, effective, stamp, claim, own === undefined));
   }
   if (records.length > 0 && unvouched.length > 0) {
     console.log(`${unvouched.length} of ${ordered.length} file(s) are not vouched for by the record(s) in use: ${unvouched.join(", ")}`);
@@ -449,15 +461,31 @@ function splitReference(reference: string): [string, string] {
   return at < 0 ? ["", reference] : [reference.slice(0, at), reference.slice(at + 1)];
 }
 
-/** Where a template file lands in the project. Devices keep their category directory. */
-function targetPath(root: string, file: LibraryFile, dest: string): string {
+/**
+ * The classification directory a copied file lands in (ADR-0049).
+ *
+ * `--dest` overrides it for every symbol and footprint; without it each file keeps the directory the
+ * template filed it under, and a flat template lands under the library's own name — the shape such a
+ * library has always had. A device keeps its category directory either way.
+ */
+function classOf(file: LibraryFile, name: string, dest: string | undefined): string {
+  if (dest !== undefined) return dest;
   if (file.group === "components") {
     const tail = file.relativePath.slice("components/".length);
-    const directory = tail.includes("/") ? tail.slice(0, tail.lastIndexOf("/") + 1) : "";
-    return join(root, "assets", "components", directory, `${file.id}.teda`);
+    return tail.includes("/") ? tail.slice(0, tail.lastIndexOf("/")) : "";
   }
-  return join(root, "assets", file.group, dest, `${file.id}.teda`);
+  const tail = file.relativePath.slice(file.group.length + 1);
+  return tail.includes("/") ? tail.slice(0, tail.lastIndexOf("/")) : name;
 }
+
+/** Where a template file lands in the project. */
+function targetPath(root: string, file: LibraryFile, name: string, dest: string | undefined): string {
+  const directory = classOf(file, name, dest);
+  return join(root, "assets", file.group, directory, `${file.id}.teda`);
+}
+
+/** The class directory a copied asset landed in, by group and id (`rewrite`'s qualifier rewrite). */
+type Qualifiers = (group: LibraryFile["group"], id: string) => string | undefined;
 
 /**
  * The copied text: qualifiers rewritten to the destination library, the origin header added, and a
@@ -470,7 +498,7 @@ function rewrite(
   text: string,
   file: LibraryFile,
   name: string,
-  dest: string,
+  qualifier: Qualifiers,
   originRev: string,
   fileRev: string,
   stamp: string,
@@ -509,7 +537,7 @@ function rewrite(
       out.push(`provenance reviewed`, `verified_by ${reviewed.by}`, `verified_on ${reviewed.on}`);
       provenanceWritten = true;
     } else {
-      out.push(isComment ? line : line.replaceAll(`${name}:`, `${dest}:`));
+      out.push(isComment ? line : requalify(line, name, qualifier));
       if (isProvenance) provenanceWritten = true;
     }
     if (!sawType && !isComment && cells.length > 0 && !/^version\s/.test(trimmed)) {
@@ -581,16 +609,38 @@ function fileRev(text: string, group: LibraryFile["group"]): string | undefined 
  * Comparing two texts this way answers "did this release touch this file" without a hash: a comment
  * edit or a pin change is a new revision, a re-stamp is not (ADR-0034 decision 13).
  */
-function factsOf(text: string, name: string, dest: string): string {
+function factsOf(text: string, name: string, qualifier: Qualifiers): string {
   const out: string[] = [];
   for (const line of text.split("\n")) {
     const trimmed = line.trim();
     if (trimmed === "") continue;
     if (trimmed.startsWith("# imported from ")) continue;
     if (/^(?:rev|version|provenance|verified_by|verified_on)\s/.test(trimmed)) continue;
-    out.push(name === dest ? line : line.replaceAll(`${dest}:`, `${name}:`));
+    out.push(requalify(line, name, qualifier));
   }
   return out.join("\n");
+}
+
+/**
+ * A line with the template's qualifier replaced by the class the named asset landed in.
+ *
+ * Only the two scalars that name a library artifact are rewritten (`symbol`, `footprint`): every
+ * other line is content, and a template's prose is copied verbatim.
+ */
+function requalify(line: string, name: string, qualifier: Qualifiers): string {
+  const trimmed = line.trim();
+  const head = trimmed.split(/\s+|$/, 1)[0];
+  if (head !== "symbol" && head !== "footprint") return line;
+  const cells = trimmed.split(/\s+/);
+  const reference = cells[1];
+  if (reference === undefined) return line;
+  const at = reference.indexOf(":");
+  if (at <= 0 || at === reference.length - 1) return line;
+  if (reference.slice(0, at) !== name) return line; // another library's asset: not ours to rename
+  const id = reference.slice(at + 1);
+  const landed = qualifier(head === "symbol" ? "symbols" : "footprints", id);
+  if (landed === undefined) return line;
+  return line.replace(reference, `${landed}:${id}`);
 }
 
 /**

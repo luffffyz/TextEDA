@@ -2,7 +2,7 @@
   "component": {
     "category": "connector",
     "description": "1.27 mm 2x5 debug header, 10 pins, keyed",
-    "footprint": "project:hdr-2x5-127",
+    "footprint": "header:hdr-2x5-127",
     "id": "hdr-2x5-127",
     "kind": "part",
     "manufacturer": "Samtec",
@@ -70,7 +70,7 @@
       }
     ],
     "pins_source": "inline",
-    "symbol": "project:hdr-2x5"
+    "symbol": "connectors:hdr-2x5"
   },
   "ir_version": "0.14",
   "source": {

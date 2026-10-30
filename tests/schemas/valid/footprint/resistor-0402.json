@@ -1,7 +1,7 @@
 {
   "ir_version": "0.14",
   "source": {
-    "file": "footprints/project.pretty/r-0402.json"
+    "file": "footprints/chip/r-0402.json"
   },
   "footprint": {
     "rev": "2.1.0+local.1",

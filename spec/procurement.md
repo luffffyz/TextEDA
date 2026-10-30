@@ -22,7 +22,7 @@ The selection is a **project decision**: it depends on what the project can buy,
 ## 1. File
 
 ```
-version 0.9.1
+version 0.9.2
 procurement mcu-board
 role primary
 ```
@@ -35,12 +35,12 @@ role primary
 - `role` is `primary` or `alternatives`, and it must agree with the directory the file is in. The two files have the same grammar; only the role and the
   standing differ.
 - The `procurement` type exists since language **0.9**; a file below 0.9 cannot be a `procurement` file. Every `.teda` file declares the language version
-  (currently `0.9.1`); `procurement`'s floor is 0.9 and the ceiling is the language's current version (`teda.md` §13.1, §13.3).
+  (currently `0.9.2`); `procurement`'s floor is 0.9 and the ceiling is the language's current version (`teda.md` §13.1, §13.3).
 
 ## 2. Sections
 
 ```
-version 0.9.1
+version 0.9.2
 procurement mcu-board
 role primary
 
@@ -220,7 +220,7 @@ not facts about the design, and a BOM that carries them becomes a document that 
 ### 10.1 A board with one selection
 
 ```
-version 0.9.1
+version 0.9.2
 procurement mcu-board
 role primary
 
@@ -230,7 +230,7 @@ selections
 ```
 
 ```
-version 0.9.1
+version 0.9.2
 procurement mcu-board
 role alternatives
 
@@ -243,7 +243,7 @@ selections
 ### 10.2 A generic line that is not sourced yet
 
 ```
-version 0.9.1
+version 0.9.2
 procurement mcu-board
 role primary
 

@@ -1,0 +1,201 @@
+{
+  "footprint": {
+    "attr": [
+      "smd"
+    ],
+    "description": "SOT-23-5 body 2.9x1.6mm pitch 0.95mm (generic land pattern)",
+    "fields": [
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": -2000000
+        },
+        "effects": {
+          "height_nm": 1000000,
+          "thickness_nm": 150000,
+          "width_nm": 1000000
+        },
+        "layer": "F.SilkS",
+        "name": "Reference",
+        "value": "REF**"
+      },
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": 2000000
+        },
+        "effects": {
+          "height_nm": 1000000,
+          "thickness_nm": 150000,
+          "width_nm": 1000000
+        },
+        "layer": "F.Fab",
+        "name": "Value",
+        "value": "SOT-23-5"
+      }
+    ],
+    "graphics": [
+      {
+        "end": {
+          "x_nm": -1600000,
+          "y_nm": -950000
+        },
+        "kind": "line",
+        "layer": "F.SilkS",
+        "start": {
+          "x_nm": -2100000,
+          "y_nm": -950000
+        },
+        "width_nm": 120000
+      },
+      {
+        "end": {
+          "x_nm": -1600000,
+          "y_nm": 950000
+        },
+        "kind": "line",
+        "layer": "F.SilkS",
+        "start": {
+          "x_nm": -2100000,
+          "y_nm": 950000
+        },
+        "width_nm": 120000
+      },
+      {
+        "end": {
+          "x_nm": 1650000,
+          "y_nm": 1200000
+        },
+        "kind": "rect",
+        "layer": "F.CrtYd",
+        "start": {
+          "x_nm": -1650000,
+          "y_nm": -1200000
+        },
+        "width_nm": 50000
+      },
+      {
+        "end": {
+          "x_nm": 1450000,
+          "y_nm": 800000
+        },
+        "kind": "rect",
+        "layer": "F.Fab",
+        "start": {
+          "x_nm": -1450000,
+          "y_nm": -800000
+        },
+        "width_nm": 100000
+      }
+    ],
+    "library": "sot",
+    "name": "sot-23-5",
+    "package_code": "SOT-23-5",
+    "pads": [
+      {
+        "at": {
+          "x_nm": -950000,
+          "y_nm": 950000
+        },
+        "layers": [
+          "F.Cu",
+          "F.Mask",
+          "F.Paste"
+        ],
+        "number": "1",
+        "roundrect_ratio_ppm": 250000,
+        "shape": "roundrect",
+        "size": {
+          "x_nm": 1100000,
+          "y_nm": 600000
+        },
+        "type": "smd"
+      },
+      {
+        "at": {
+          "x_nm": -950000,
+          "y_nm": 0
+        },
+        "layers": [
+          "F.Cu",
+          "F.Mask",
+          "F.Paste"
+        ],
+        "number": "2",
+        "roundrect_ratio_ppm": 250000,
+        "shape": "roundrect",
+        "size": {
+          "x_nm": 1100000,
+          "y_nm": 600000
+        },
+        "type": "smd"
+      },
+      {
+        "at": {
+          "x_nm": -950000,
+          "y_nm": -950000
+        },
+        "layers": [
+          "F.Cu",
+          "F.Mask",
+          "F.Paste"
+        ],
+        "number": "3",
+        "roundrect_ratio_ppm": 250000,
+        "shape": "roundrect",
+        "size": {
+          "x_nm": 1100000,
+          "y_nm": 600000
+        },
+        "type": "smd"
+      },
+      {
+        "at": {
+          "x_nm": 950000,
+          "y_nm": -475000
+        },
+        "layers": [
+          "F.Cu",
+          "F.Mask",
+          "F.Paste"
+        ],
+        "number": "4",
+        "roundrect_ratio_ppm": 250000,
+        "shape": "roundrect",
+        "size": {
+          "x_nm": 1100000,
+          "y_nm": 600000
+        },
+        "type": "smd"
+      },
+      {
+        "at": {
+          "x_nm": 950000,
+          "y_nm": 475000
+        },
+        "layers": [
+          "F.Cu",
+          "F.Mask",
+          "F.Paste"
+        ],
+        "number": "5",
+        "roundrect_ratio_ppm": 250000,
+        "shape": "roundrect",
+        "size": {
+          "x_nm": 1100000,
+          "y_nm": 600000
+        },
+        "type": "smd"
+      }
+    ],
+    "tags": [
+      "SOT-23",
+      "SOT-23-5"
+    ]
+  },
+  "ir_version": "0.14",
+  "source": {
+    "file": "assets/footprints/sot/sot-23-5.teda",
+    "line": 1
+  }
+}

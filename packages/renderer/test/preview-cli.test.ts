@@ -44,11 +44,20 @@ describe("preview command", () => {
     expect((footprintSvg.match(/fill="#b45309" stroke="none"/g) ?? []).length).toBe(25);
   });
 
-  test("id not in library: report it clearly and exit non-zero", () => {
+  test("an id no file holds: report it clearly and exit non-zero", () => {
     const run = runPreview(["footprint", "nonexistent"]);
     expect(run.code).not.toBe(0);
     expect(run.stderr).toContain("nonexistent");
-    expect(run.stderr).toContain("not in library");
+    expect(run.stderr).toContain("not found");
+  });
+
+  test("a class directory narrows the search, and an id in two classes needs one", () => {
+    // ADR-0049: the qualifier is the classification directory, so a bare id has to be unambiguous.
+    const pinned = runPreview(["footprint", "sot-23-5", "--class", "chip"]);
+    expect(pinned.code).not.toBe(0);
+    expect(pinned.stderr).toContain("sot-23-5");
+    const found = runPreview(["footprint", "sot-23-5", "--class", "sot"]);
+    expect(found.code).toBe(0);
   });
 
   test("view: draws a page from its view file", () => {

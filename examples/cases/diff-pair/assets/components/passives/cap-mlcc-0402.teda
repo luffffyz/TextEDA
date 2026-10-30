@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 component cap-mlcc-0402
 
 kind         generic
@@ -6,9 +6,8 @@ category     capacitor
 construction mlcc
 polarized    no
 
-symbol project:c
-footprint project:chip-0402
-
+symbol passives:c
+footprint chip:chip-0402
 params
   value      capacitance required
   tolerance  percent     required

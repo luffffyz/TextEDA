@@ -4,7 +4,7 @@
 
 本文件是 `teda.md` 的分描述补充：`.teda` 语言的共用规则在 `teda.md`，`view` 这一类描述的具体段定义在这里。
 
-**语言版本**：所有 `.teda` 文件写的是**同一个语言版本号**（当前 `0.9.1`，见 `teda.md` §13.1）。`view` 的下界是 `0.7`：0.6 引入打印页，0.7 起视图里的 id 从"页内局部名"改为"板级名"（`docs/adr/schematic/0012-one-flat-schematic-per-board.md` decision 4），所以 0.6 的视图文件不再被接受（接受规则见 `teda.md` §13.3）。
+**语言版本**：所有 `.teda` 文件写的是**同一个语言版本号**（当前 `0.9.2`，见 `teda.md` §13.1）。`view` 的下界是 `0.7`：0.6 引入打印页，0.7 起视图里的 id 从"页内局部名"改为"板级名"（`docs/adr/schematic/0012-one-flat-schematic-per-board.md` decision 4），所以 0.6 的视图文件不再被接受（接受规则见 `teda.md` §13.3）。
 
 ---
 
@@ -52,7 +52,7 @@
 ## 1. 文件头
 
 ```
-version 0.9.1
+version 0.9.2
 view main
 ```
 
@@ -330,7 +330,7 @@ text
 ### 10.1 正例
 
 ```
-version 0.9.1
+version 0.9.2
 view main
 
 sheet 297 210
@@ -353,7 +353,7 @@ label
 ### 10.2 反例
 
 ```
-version 0.9.1
+version 0.9.2
 view main
 
 wire

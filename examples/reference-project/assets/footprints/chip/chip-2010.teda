@@ -1,0 +1,17 @@
+version 0.9.2
+footprint chip-2010
+
+description 2010 (5025 metric) chip, generic land pattern
+tags chip smd
+attr smd
+package_code 2010
+field Reference at=0,-2.5 layer=F.SilkS size=1,1 thickness=0.15 REF**
+field Value at=0,2.5 layer=F.Fab size=1,1 thickness=0.15 chip-2010
+
+pads
+  1  smd  roundrect  -2.3  0  1.4  2.8  rratio=0.25
+  2  smd  roundrect  2.3   0  1.4  2.8  rratio=0.25
+
+graphics
+  rect  F.CrtYd  -3.2,-1.5,3.2,1.5    width=0.05
+  rect  F.Fab    -2.5,-1.25,2.5,1.25  width=0.1

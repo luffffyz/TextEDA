@@ -97,6 +97,12 @@ export interface ReviewDrawing {
   key: string;
   /** The name the sidebar shows. */
   label: string;
+  /**
+   * What the sidebar files this drawing under, within its kind: a symbol's device category or a
+   * footprint's package family — the classification directory the file sits in (ADR-0049). Absent
+   * for a print page and a board canvas, which are filed by board.
+   */
+  group?: string;
   /** The source file, relative to the project root. */
   file: string;
   /** The sheet's size in millimetres. */

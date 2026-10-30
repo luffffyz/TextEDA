@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-24
 Scope: Decides: that an external library is a template rather than a dependency, that trust in a library you do not own is a consumer-side record, and that a file carries its own revision. Does not decide: what a device may state — see ADR-0025.
-Related: [ADR-0008](../project/0008-project-tree-has-owners.md), [ADR-0024](../devices/0024-the-device-kind-is-part-or-generic.md), [ADR-0030](0030-footprint-format-and-geometry.md), [ADR-0033](0033-libraries-are-unverified-facts.md)
+Related: [ADR-0008](../project/0008-project-tree-has-owners.md), [ADR-0024](../devices/0024-the-device-kind-is-part-or-generic.md), [ADR-0030](0030-footprint-format-and-geometry.md), [ADR-0033](0033-libraries-are-unverified-facts.md), [ADR-0049](0049-assets-are-filed-by-what-they-are.md).
 Impact: `docs/guides/library-import.md`; `packages/cli` (the `lib import` command, the trust-table reader); `spec/teda.md` §6.1; `schemas/ir/**` (the `provenance` and `rev` fields)
 
 ## Background

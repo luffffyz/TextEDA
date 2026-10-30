@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 component d-b340a
 
 kind         part
@@ -6,9 +6,8 @@ mpn          B340A
 manufacturer Diodes Incorporated
 category     diode
 
-symbol project:d
-footprint project:sma
-
+symbol power:d
+footprint sma:sma
 pins
   1  K  passive
   2  A  passive

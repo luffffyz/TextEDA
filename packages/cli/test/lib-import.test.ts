@@ -7,6 +7,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
+import { formatVersion, SUPPORTED_LANGUAGE } from "@texteda/parser";
 import { analyzeProject, checkProject } from "../src/check.ts";
 import { runLibImport } from "../src/lib-import.ts";
 
@@ -76,7 +77,11 @@ describe("texteda lib import", () => {
       expect(device).toContain("symbol       vendor:tps7a02");
       expect(device).toContain("provenance generated");
       // the copy carries the language's one version number (ADR-0002 D2)
-      expect(device.startsWith("version 0.9.1\ncomponent tps7a02\n# imported from vendor@v2.1.0 on ")).toBe(true);
+      expect(
+        device.startsWith(
+          `version ${formatVersion(SUPPORTED_LANGUAGE)}\ncomponent tps7a02\n# imported from vendor@v2.1.0 on `,
+        ),
+      ).toBe(true);
       expect(device).toContain("\nrev v2.1.0\n");
 
       expect(existsSync(join(root, "assets/symbols/vendor/tps7a02.teda"))).toBe(true);

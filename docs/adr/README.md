@@ -111,6 +111,7 @@ that was meant for it, and by nothing else.
 | [ADR-0032](libraries/0032-the-reference-project-is-self-built.md) | The Reference Project Is Entirely Self-Built | Accepted | 2026-10-20 |
 | [ADR-0033](libraries/0033-libraries-are-unverified-facts.md) | Libraries Are Unverified Facts; Provenance, Disclaimers, and Corrections | Accepted | 2026-10-22 |
 | [ADR-0034](libraries/0034-trust-in-a-library-you-do-not-own.md) | Trust in a Library You Do Not Own | Accepted | 2026-10-24 |
+| [ADR-0049](libraries/0049-assets-are-filed-by-what-they-are.md) | Assets Are Filed by What They Are, Each Kind by Its Own Axis | Accepted | 2026-10-30 |
 
 ## View
 

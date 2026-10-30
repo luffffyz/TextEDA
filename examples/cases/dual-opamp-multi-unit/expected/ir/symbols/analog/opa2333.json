@@ -1,0 +1,193 @@
+{
+  "ir_version": "0.14",
+  "source": {
+    "file": "assets/symbols/analog/opa2333.teda",
+    "line": 1
+  },
+  "symbol": {
+    "body": [
+      {
+        "kind": "poly",
+        "points": [
+          {
+            "x_nm": -2540000,
+            "y_nm": -2540000
+          },
+          {
+            "x_nm": 2540000,
+            "y_nm": 0
+          },
+          {
+            "x_nm": -2540000,
+            "y_nm": 2540000
+          },
+          {
+            "x_nm": -2540000,
+            "y_nm": -2540000
+          }
+        ],
+        "unit": 1,
+        "width_nm": 254000
+      },
+      {
+        "kind": "poly",
+        "points": [
+          {
+            "x_nm": -2540000,
+            "y_nm": -2540000
+          },
+          {
+            "x_nm": 2540000,
+            "y_nm": 0
+          },
+          {
+            "x_nm": -2540000,
+            "y_nm": 2540000
+          },
+          {
+            "x_nm": -2540000,
+            "y_nm": -2540000
+          }
+        ],
+        "unit": 2,
+        "width_nm": 254000
+      },
+      {
+        "end": {
+          "x_nm": 1270000,
+          "y_nm": 2540000
+        },
+        "kind": "rect",
+        "start": {
+          "x_nm": -1270000,
+          "y_nm": -2540000
+        },
+        "unit": 3,
+        "width_nm": 254000
+      }
+    ],
+    "description": "Dual zero-drift op-amp, three units",
+    "fields": [
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": 7620000
+        },
+        "name": "Reference",
+        "value": "U"
+      },
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": -7620000
+        },
+        "name": "Value",
+        "value": "opa2333"
+      }
+    ],
+    "in_bom": true,
+    "library": "analog",
+    "name": "opa2333",
+    "on_board": true,
+    "pin_name_offset_nm": 508000,
+    "pin_names_hidden": false,
+    "pin_numbers_hidden": false,
+    "pins": [
+      {
+        "at": {
+          "rotation_mdeg": 180000,
+          "x_nm": 5080000,
+          "y_nm": 0
+        },
+        "length_nm": 2540000,
+        "number": "1",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 0,
+          "x_nm": -5080000,
+          "y_nm": -1270000
+        },
+        "length_nm": 2540000,
+        "number": "2",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 0,
+          "x_nm": -5080000,
+          "y_nm": 1270000
+        },
+        "length_nm": 2540000,
+        "number": "3",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 0,
+          "x_nm": -5080000,
+          "y_nm": 1270000
+        },
+        "length_nm": 2540000,
+        "number": "5",
+        "style": "line",
+        "unit": 2
+      },
+      {
+        "at": {
+          "rotation_mdeg": 0,
+          "x_nm": -5080000,
+          "y_nm": -1270000
+        },
+        "length_nm": 2540000,
+        "number": "6",
+        "style": "line",
+        "unit": 2
+      },
+      {
+        "at": {
+          "rotation_mdeg": 180000,
+          "x_nm": 5080000,
+          "y_nm": 0
+        },
+        "length_nm": 2540000,
+        "number": "7",
+        "style": "line",
+        "unit": 2
+      },
+      {
+        "at": {
+          "rotation_mdeg": 90000,
+          "x_nm": 0,
+          "y_nm": -7620000
+        },
+        "length_nm": 2540000,
+        "number": "4",
+        "style": "line",
+        "unit": 3
+      },
+      {
+        "at": {
+          "rotation_mdeg": 270000,
+          "x_nm": 0,
+          "y_nm": 7620000
+        },
+        "length_nm": 2540000,
+        "number": "8",
+        "style": "line",
+        "unit": 3
+      }
+    ],
+    "power": false,
+    "tags": [
+      "analog",
+      "dual",
+      "opamp"
+    ],
+    "units": 3
+  }
+}

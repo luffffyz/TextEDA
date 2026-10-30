@@ -3,32 +3,32 @@
   "shards": [
     {
       "path": "boards/multi-unit/schematic.json",
-      "sha256": "ffac798342f2829e059ec8a4454629de4906ad189f7da1d6fb9476aace4ee839",
+      "sha256": "9fb34d6b1141cc79e42a4505f86ebdcfae9bc2c0a674820749a3fd525093cb57",
       "normative": true
     },
     {
       "path": "components/opa2333.json",
-      "sha256": "b40f8df428904a97552b8fb04a938cb803f83505e3af82041e48078afaa51be5",
+      "sha256": "437b35e30b5b8da79e821f8e2f6aecd181abb6cfed4dc0b7c555c47e8839e7d3",
       "normative": true
     },
     {
       "path": "components/res-10k-0402.json",
-      "sha256": "1e607de64e5a2a9681e6dac4b3991cae9efe9d7e9c9ad642e5136668b3a65cd7",
+      "sha256": "dfcec35064cca4dc65ee97a3b9fa728044381e0ee4c9d56a6255e1ea69142a5e",
       "normative": true
     },
     {
       "path": "components/res-22k1-0402.json",
-      "sha256": "b7a3f6e6a473669bcd99fc89efadd1d24270842b149a35adbd9f404def56993a",
+      "sha256": "0dd23aaa59ad8d5712e876f4622c60df6d7ebe2bf5acf8a537a8b3592607d86b",
       "normative": true
     },
     {
-      "path": "footprints/project/chip-0402.json",
-      "sha256": "ab6387326ec4506405de5725ad12a6336f7aa84032f45b0c400228e13eee4e13",
+      "path": "footprints/chip/chip-0402.json",
+      "sha256": "a5af80f5254dc6c21f0dca80decbda6f77400d874cdf2fc5b394e7510ee1e0ac",
       "normative": true
     },
     {
-      "path": "footprints/project/soic-8.json",
-      "sha256": "bb0cc27ece3e1ba8fb2b3f7840d7471d0c8c260ff2feb994230056a0dc456724",
+      "path": "footprints/soic/soic-8.json",
+      "sha256": "8ec3409f8b7476643446cd3c998f9085a90bd8d0cd38c609dc8c5e452a64cfb3",
       "normative": true
     },
     {
@@ -37,15 +37,15 @@
       "normative": true
     },
     {
-      "path": "symbols/project/opa2333.json",
-      "sha256": "14bc9497cb4e3e7d915612dd8010c9f92c52785303957efde81748fd2a559cd8",
+      "path": "symbols/analog/opa2333.json",
+      "sha256": "4a68dbde3ac181f325e4f7641a7216a970e32247e7891be2f96a471912a297c5",
       "normative": true
     },
     {
-      "path": "symbols/project/r.json",
-      "sha256": "b45625e63041efb79a595537b6133668116130c7b75d9305d0dbb95f5c90b350",
+      "path": "symbols/passives/r.json",
+      "sha256": "a91a691537026c541ba1e6a72651190e426a6274756778990a6b8cbb72ce9c3e",
       "normative": true
     }
   ],
-  "source_hash": "7da2e52518169adbf1c6b9f6cc5b6afedeb12a0efe1692fef9991351aee4c11a"
+  "source_hash": "4a00f8f8020e94cb5d5500c8d9c56c63f1dfa830e2277704cc87819e1be1abbc"
 }

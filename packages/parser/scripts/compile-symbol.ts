@@ -2,7 +2,7 @@
 // Compile a `symbol` description: `.teda` source -> IR shard (canonical JSON).
 //
 // Usage: bun run scripts/compile-symbol.ts <file.teda> [--library <name>] [--json] [--out <file>]
-//   --library  library name (IR's symbol.library); defaults to the containing directory name.
+//   --library  classification directory, written to IR's symbol.library (ADR-0049); defaults to the containing directory name.
 //   --json     output only the diagnostics payload (ADR-0003): stdout has the shape of `diagnosticsToPayload`.
 //   --out      output file; defaults to stdout (in --json mode the IR only goes through --out).
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";

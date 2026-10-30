@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-20
 Scope: Decides: that a self-built symbol library uses our own format, and that a pin's electrical facts live in the device rather than in the symbol. Does not decide: the device vocabulary — see ADR-0025.
-Related: [ADR-0028](../devices/0028-package-code-and-3d-models.md), [ADR-0030](0030-footprint-format-and-geometry.md), [ADR-0032](0032-the-reference-project-is-self-built.md), [ADR-0036](../view/0036-our-own-reference-renderer.md)
+Related: [ADR-0028](../devices/0028-package-code-and-3d-models.md), [ADR-0030](0030-footprint-format-and-geometry.md), [ADR-0032](0032-the-reference-project-is-self-built.md), [ADR-0036](../view/0036-our-own-reference-renderer.md), [ADR-0049](0049-assets-are-filed-by-what-they-are.md).
 Impact: `spec/symbol.md`; `packages/cli/src/lib-import.ts`
 
 ## Background

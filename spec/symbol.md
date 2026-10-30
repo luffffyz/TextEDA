@@ -27,11 +27,11 @@
 ## 1. 文件头
 
 ```
-version 0.9.1
+version 0.9.2
 symbol bq24610rger
 ```
 
-- 版本行、类型行规则同 `teda.md` §5。文件写**语言版本**（当前 `0.9.1`）；`symbol` 的下界是 `0.5`（该类型由 0.5 引入），上界是语言当前版本——接受规则见 `teda.md` §13.3。
+- 版本行、类型行规则同 `teda.md` §5。文件写**语言版本**（当前 `0.9.2`）；`symbol` 的下界是 `0.5`（该类型由 0.5 引入），上界是语言当前版本——接受规则见 `teda.md` §13.3。
 - 文件名必须等于类型行里的 id：`assets/symbols/<lib>/<symbol_id>.teda` ↔ `symbol bq24610rger`。
 - `symbol_id` 允许 `[A-Za-z0-9_.+-]+`。一个符号是**可复用的视图**：`r` / `c` / `nmos-5` 这类通用画法供多个器件共享，所以名字不必等于 `component_id`。绑定只发生在 `component.symbol`。
 
@@ -170,7 +170,7 @@ v0.1 不支持：文字标注（极性 `+`/`−`、功能名）、图片、贝�
 `examples/reference-project/symbols/project/bq24610rger.teda`（即 canonical form；`bun run fmt:teda --check examples/reference-project/symbols` 退出 0）：
 
 ```
-version 0.9.1
+version 0.9.2
 symbol bq24610rger
 
 description 24V synchronous buck battery charger controller

@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-22
 Scope: Decides: the ownership model of the project tree — own assets, referenced material, derivations — and what `texteda init` creates. Does not decide: the IR shard layout — see ADR-0006.
-Related: [ADR-0006](../ir/0006-ir-shards-and-hashes.md), [ADR-0009](0009-board-linking.md), [ADR-0013](../schematic/0013-modules-compose-boards.md), [ADR-0029](../devices/0029-the-procurement-layer.md), [ADR-0034](../libraries/0034-trust-in-a-library-you-do-not-own.md)
+Related: [ADR-0006](../ir/0006-ir-shards-and-hashes.md), [ADR-0009](0009-board-linking.md), [ADR-0013](../schematic/0013-modules-compose-boards.md), [ADR-0029](../devices/0029-the-procurement-layer.md), [ADR-0034](../libraries/0034-trust-in-a-library-you-do-not-own.md), [ADR-0049](../libraries/0049-assets-are-filed-by-what-they-are.md).
 Impact: `spec/project.md` §1, §2; `packages/cli/src/init.ts`; `AGENTS.md` §9
 
 ## Background

@@ -80,20 +80,25 @@ Two traps:
 ## 3. Step 1: the library (symbol + footprint)
 
 The library holds the **view**; the component (§4) holds the pin facts. A project's own assets are
-named by a directory, not declared in a table (ADR-0008): `assets/symbols/<lib>/` and
-`assets/footprints/<lib>/`, referenced with the `<lib>:` prefix (the convention for the project's own
-library is `project:`). A library the project does not own is a **template**: `texteda lib import
-<name> --from <dir> --rev <tag> [--only <id>,…]` copies the devices you need into `assets/` under
-bare ids; see `docs/guides/library-import.md`. There is no `external/libs/`: a template is imported from wherever the checkout is, and the copy is the project's own.
+filed by a directory, not declared in a table (ADR-0008), and the directory is a **classification**
+(ADR-0049): `assets/symbols/<category>/` (the device axis — the category the drawn part belongs to)
+and `assets/footprints/<family>/` (the package family — its own axis). A component names them with
+the same string as a prefix: `symbol passives:c`, `footprint chip:chip-0402`. Both are one level
+deep; the class is not part of the id and is not written in the file.
+
+A library the project does not own is a **template**: `texteda lib import <name> --from <dir> --rev
+<tag> [--only <id>,…]` copies the devices you need into `assets/` under bare ids, keeping the class
+directory the template filed the geometry under; see `docs/guides/library-import.md`. There is no
+`external/libs/`: a template is imported from wherever the checkout is, and the copy is the project's own.
 
 ```sh
-mkdir -p /tmp/demo/assets/symbols/project /tmp/demo/assets/footprints/project
+mkdir -p /tmp/demo/assets/symbols/passives /tmp/demo/assets/footprints/chip
 ```
 
-`assets/symbols/project/c.teda` (the symbol of a two-pin capacitor):
+`assets/symbols/passives/c.teda` (the symbol of a two-pin capacitor):
 
 ```
-version 0.9.1
+version 0.9.2
 symbol c
 
 description Non-polarized capacitor, 2-pin generic view
@@ -110,10 +115,10 @@ body
   line  -1.27,0.508,1.27,0.508    width=0.254
 ```
 
-`assets/footprints/project/chip-0402.teda`:
+`assets/footprints/chip/chip-0402.teda`:
 
 ```
-version 0.9.1
+version 0.9.2
 footprint chip-0402
 
 description 0402 (1005 metric) chip, generic land pattern
@@ -152,15 +157,15 @@ A generic also declares its construction and whether it is polarised
 `assets/components/passives/cap-mlcc-0402.teda`:
 
 ```
-version 0.9.1
+version 0.9.2
 component cap-mlcc-0402
 
 kind         generic
 category     capacitor
 construction mlcc
 polarized    no
-symbol project:c
-footprint project:chip-0402
+symbol passives:c
+footprint chip:chip-0402
 
 params
   value      capacitance required
@@ -207,7 +212,7 @@ to pick up a newer template, import again from the new revision and diff.
 One board file `design/sch/demo.teda` (a board is one schematic file; see `teda.md` §7):
 
 ```
-version 0.9.1
+version 0.9.2
 schematic demo
 
 instances
@@ -277,7 +282,7 @@ identity.
 `assets/procurement/primary/demo.teda`:
 
 ```
-version 0.9.1
+version 0.9.2
 procurement demo
 role primary
 
@@ -320,11 +325,11 @@ project directory** (§1):
 cd /tmp/demo
 
 # symbol: IR JSON + the component file (the pin facts come from the component)
-bun run $REPO/packages/parser/scripts/compile-symbol.ts symbols/project/c.teda --out dist/c.json
+bun run $REPO/packages/parser/scripts/compile-symbol.ts assets/symbols/passives/c.teda --out dist/c.json
 bun run $REPO/scripts/export-symbol.ts dist/c.json --component assets/components/passives/cap-mlcc-0402.teda --out dist/c.kicad_sym
 
 # footprint: IR JSON only
-bun run $REPO/packages/parser/scripts/compile-footprint.ts footprints/project/chip-0402.teda --out dist/fp.json
+bun run $REPO/packages/parser/scripts/compile-footprint.ts assets/footprints/chip/chip-0402.teda --out dist/fp.json
 bun run $REPO/packages/exporter/scripts/export-footprint.ts dist/fp.json --out dist/
 ```
 
@@ -362,7 +367,7 @@ ones you actually hit:
 | the kind value `family` was renamed in 0.1.3 | `syntax.removed-construct` | Write `kind generic`; the part that fills it is chosen in the procurement layer |
 | `component res-thick-0402 has 1 required parameters, but the row gives only 0` | `value.param-count-mismatch` | Supply as many values as the `params` section declares, in its order |
 | `pin R1.2 belongs to both net MID and VCC2` | `net.pin-in-two-nets` | A pin belongs to one net; drop the extra member |
-| `the language is at version 0.9.1: 0.10 is newer` | `format.unsupported-version` | Write the language's current version, or upgrade the tool. **The version rules are in `teda.md` §13** |
+| `the language is at version 0.9.2: 0.10 is newer` | `format.unsupported-version` | Write the language's current version, or upgrade the tool. **The version rules are in `teda.md` §13** |
 | `not a valid version number: 0.06` | `format.invalid-version` | A version is `MAJOR.MINOR[.PATCH]`, no leading zeros |
 | `an instances row needs at least 2 columns: refdes component_id` | `syntax.row-too-short` | Fill in the missing columns |
 | `invalid refdes: VCC` | `syntax.invalid-identifier` | A refdes looks like `R1` / `U12`; a net name is not a refdes |

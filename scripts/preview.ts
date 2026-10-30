@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 // Preview: draw symbols / footprints from the library as SVG, drawn by ourselves, without borrowing KiCad.
 //
-//   bun run preview symbol   <id> [--lib <name>] [--out <dir>] [--project <dir>] [--scale <n>]
-//   bun run preview footprint <id> [--lib <name>] [--out <dir>] [--project <dir>] [--scale <n>]
+//   bun run preview symbol   <id> [--class <class>] [--out <dir>] [--project <dir>] [--scale <n>]
+//   bun run preview footprint <id> [--class <class>] [--out <dir>] [--project <dir>] [--scale <n>]
 //   bun run preview component <id> [--out <dir>] [--project <dir>] [--scale <n>]
 //   bun run preview view      <board>/<print_page> [--out <dir>] [--project <dir>] [--scale <n>]
 //
@@ -10,7 +10,7 @@
 // these all pass green in the IR and contract validation — validation only checks self-consistency, not whether it looks right.
 // Output: the SVG path is printed to stdout; artifacts land in /tmp/texteda-preview/<id>/ (changeable with --out).
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { formatDiagnostic, parseComponent, parseSchematic, parseView } from "@texteda/parser";
 import { instanceValueText } from "../packages/cli/src/symbols.ts";
 import {
@@ -36,7 +36,8 @@ import {
 interface Options {
   kind: "symbol" | "footprint" | "component" | "view";
   id: string;
-  lib: string;
+  /** The classification directory (ADR-0049); `null` = search every one of them. */
+  klass: string | null;
   out: string | null;
   project: string;
   scale: number;
@@ -49,13 +50,13 @@ function fail(message: string): never {
 
 function parseArgs(argv: string[]): Options {
   const positional: string[] = [];
-  let lib = "project";
+  let klass: string | null = null;
   let out: string | null = null;
   let project = "examples/reference-project";
   let scale = 1;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]!;
-    if (arg === "--lib") lib = argv[++i] ?? fail("--lib must be followed by a library name");
+    if (arg === "--class") klass = argv[++i] ?? fail("--class must be followed by a class directory");
     else if (arg === "--out") out = argv[++i] ?? fail("--out must be followed by a directory");
     else if (arg === "--project") project = argv[++i] ?? fail("--project must be followed by a directory");
     else if (arg === "--scale") scale = Number(argv[++i] ?? fail("--scale must be followed by a multiplier"));
@@ -77,7 +78,7 @@ function parseArgs(argv: string[]): Options {
     fail("usage: preview view <board>/<print_page>");
   }
   if (!Number.isFinite(scale) || scale <= 0) fail("--scale must be a positive number");
-  return { kind, id, lib, out, project, scale };
+  return { kind, id, klass, out, project, scale };
 }
 
 function existsDir(dir: string): boolean {
@@ -101,11 +102,30 @@ function readRef(text: string, key: "symbol" | "footprint"): string | null {
   return m ? m[1]! : null;
 }
 
-/** `lib:name` → library name and name; if no library is given, use the default library. */
-function splitRef(ref: string, defaultLib: string): { lib: string; name: string } {
+/** `<class>:<name>` → class directory and name; a bare name keeps `undefined` for the class. */
+function splitRef(ref: string): { klass: string | undefined; name: string } {
   const i = ref.indexOf(":");
-  if (i < 0) return { lib: defaultLib, name: ref };
-  return { lib: ref.slice(0, i), name: ref.slice(i + 1) };
+  if (i < 0) return { klass: undefined, name: ref };
+  return { klass: ref.slice(0, i), name: ref.slice(i + 1) };
+}
+
+/**
+ * The file of an asset: the named class directory when one is given, otherwise the whole tree, in
+ * which case the id has to be unique. Classification directories are one level (ADR-0049).
+ */
+function findAssetFile(root: string, group: "symbols" | "footprints", klass: string | null, id: string): string | null {
+  const base = join(root, "assets", group);
+  if (klass !== null) {
+    const file = join(base, klass, `${id}.teda`);
+    return existsFile(file) ? file : null;
+  }
+  const found = tedaFiles(base).filter((file) => basename(file, ".teda") === id);
+  if (found.length > 1) {
+    fail(
+      `${id} exists in more than one class directory:\n  ${found.join("\n  ")}\n  pass --class to pick one`,
+    );
+  }
+  return found[0] ?? null;
 }
 
 /** The device file with the given id (parts and generics alike live in assets/components/). */
@@ -152,7 +172,7 @@ const written: string[] = [];
 
 if (options.kind === "symbol" || options.kind === "component") {
   let symbolId = options.id;
-  let symbolLib = options.lib;
+  let symbolClass = options.klass;
   let part: { pins: { number: string; name: string; type: string }[] } | null = null;
   if (options.kind === "component") {
     const file = findComponentFile(projectRoot, options.id);
@@ -160,16 +180,27 @@ if (options.kind === "symbol" || options.kind === "component") {
     const text = readFileSync(file, "utf8");
     const ref = readRef(text, "symbol");
     if (!ref) fail(`component ${options.id} has no symbol reference`);
-    const split = splitRef(ref, options.lib);
-    symbolLib = split.lib;
+    const split = splitRef(ref);
+    symbolClass = split.klass ?? null;
     symbolId = split.name;
     const facts = loadComponent(file);
     if (!facts.ok) fail(`component ${options.id} could not be read`);
     part = {
       pins: facts.value.pins.map((p) => ({ number: p.number, name: p.name, type: p.type })),
     };
-  } else {
-    const owner = componentUsingSymbol(projectRoot, `${options.lib}:${symbolId}`);
+  }
+  const file = findAssetFile(projectRoot, "symbols", symbolClass, symbolId);
+  if (file === null) {
+    fail(`symbol not found: ${symbolClass === null ? symbolId : `${symbolClass}:${symbolId}`} under assets/symbols/`);
+  }
+  const klass = basename(dirname(file));
+  const parsed = loadSymbol(file, klass);
+  if (!parsed.ok) {
+    console.error(parsed.diagnostics.map((d) => `  ${formatDiagnostic(d)}`).join("\n"));
+    fail(`symbol ${symbolId} failed to compile`);
+  }
+  if (!part && options.kind === "symbol") {
+    const owner = componentUsingSymbol(projectRoot, `${klass}:${symbolId}`);
     part = owner
       ? {
           pins: owner.facts.pins.map((p) => ({
@@ -180,18 +211,9 @@ if (options.kind === "symbol" || options.kind === "component") {
         }
       : null;
   }
-  const file = join(projectRoot, "assets/symbols", symbolLib, `${symbolId}.teda`);
-  if (!existsDir(join(projectRoot, "assets/symbols", symbolLib)) || !existsFile(file)) {
-    fail(`symbol not in library ${symbolLib}:${symbolId} (looked for ${file})`);
-  }
-  const parsed = loadSymbol(file, symbolLib);
-  if (!parsed.ok) {
-    console.error(parsed.diagnostics.map((d) => `  ${formatDiagnostic(d)}`).join("\n"));
-    fail(`symbol ${symbolId} failed to compile`);
-  }
   if (!part) {
     console.error(
-      `  ! no component references ${symbolLib}:${symbolId}, pin names cannot be drawn (rendered with empty names)`,
+      `  ! no component references ${klass}:${symbolId}, pin names cannot be drawn (rendered with empty names)`,
     );
   }
   const doc = renderSymbol(parsed.value.symbol, { pins: part?.pins ?? [] });
@@ -200,21 +222,23 @@ if (options.kind === "symbol" || options.kind === "component") {
 
 if (options.kind === "footprint" || options.kind === "component") {
   let footprintId = options.id;
-  let footprintLib = options.lib;
+  let footprintClass = options.klass;
   if (options.kind === "component") {
     const file = findComponentFile(projectRoot, options.id);
     if (!file) fail(`no component ${options.id} in the project`);
     const ref = readRef(readFileSync(file, "utf8"), "footprint");
     if (!ref) fail(`component ${options.id} has no footprint reference`);
-    const split = splitRef(ref, options.lib);
-    footprintLib = split.lib;
+    const split = splitRef(ref);
+    footprintClass = split.klass ?? null;
     footprintId = split.name;
   }
-  const file = join(projectRoot, "assets/footprints", footprintLib, `${footprintId}.teda`);
-  if (!existsDir(join(projectRoot, "assets/footprints", footprintLib)) || !existsFile(file)) {
-    fail(`footprint not in library ${footprintLib}:${footprintId} (looked for ${file})`);
+  const file = findAssetFile(projectRoot, "footprints", footprintClass, footprintId);
+  if (file === null) {
+    fail(
+      `footprint not found: ${footprintClass === null ? footprintId : `${footprintClass}:${footprintId}`} under assets/footprints/`,
+    );
   }
-  const parsed = loadFootprint(file, footprintLib);
+  const parsed = loadFootprint(file, basename(dirname(file)));
   if (!parsed.ok) {
     console.error(parsed.diagnostics.map((d) => `  ${formatDiagnostic(d)}`).join("\n"));
     fail(`footprint ${footprintId} failed to compile`);
@@ -271,15 +295,15 @@ if (options.kind === "view") {
     }
     const symbolRef = readRef(readFileSync(componentFile, "utf8"), "symbol");
     if (!symbolRef) fail(`component ${componentId} has no symbol reference`);
-    const split = splitRef(symbolRef, options.lib);
-    const symbolFile = join(projectRoot, "assets/symbols", split.lib, `${split.name}.teda`);
-    if (!existsFile(symbolFile)) {
-      fail(`symbol ${split.lib}:${split.name} not found (looked for ${symbolFile})`);
+    const split = splitRef(symbolRef);
+    const symbolFile = findAssetFile(projectRoot, "symbols", split.klass ?? null, split.name);
+    if (symbolFile === null) {
+      fail(`symbol ${symbolRef} of component ${componentId} not found under assets/symbols/`);
     }
-    const symbol = loadSymbol(symbolFile, split.lib);
+    const symbol = loadSymbol(symbolFile, basename(dirname(symbolFile)));
     if (!symbol.ok) {
       console.error(symbol.diagnostics.map((d) => `  ${formatDiagnostic(d)}`).join("\n"));
-      fail(`symbol ${split.lib}:${split.name} failed to compile`);
+      fail(`symbol ${symbolRef} failed to compile`);
     }
     // The symbol's Value field is a placeholder; the instance's `value` column is what a reader
     // needs (the same substitution the CLI makes).

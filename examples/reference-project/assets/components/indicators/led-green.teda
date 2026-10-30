@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 component led-green
 
 kind         part
@@ -6,9 +6,8 @@ mpn          LTST-C190GKT
 manufacturer Lite-On
 category     led
 
-symbol project:led
-footprint project:chip-0603
-
+symbol indicators:led
+footprint chip:chip-0603
 pins
   1  K  passive
   2  A  passive

@@ -38,13 +38,6 @@ export const APP_STYLES = `
 .teda-review .inspector { border-left: 1px solid var(--line); padding: 12px; }
 .teda-review .project-name { font-weight: 600; font-size: 14px; }
 .teda-review .project-hash { color: var(--muted); font: 11px ui-monospace, monospace; margin-bottom: 12px; }
-.teda-review .board { margin-bottom: 10px; }
-.teda-review .board-name {
-  display: block; width: 100%; text-align: left; background: none; border: 0;
-  color: var(--fg); font: inherit; font-weight: 600; padding: 4px 6px; border-radius: 4px; cursor: pointer;
-}
-.teda-review .board-name:hover { background: #23262c; }
-.teda-review .board-name.active { color: var(--accent); }
 .teda-review .page-name {
   display: block; width: 100%; text-align: left; background: none; border: 0;
   color: var(--muted); font: inherit; padding: 3px 6px 3px 18px; border-radius: 4px; cursor: pointer;
@@ -53,10 +46,23 @@ export const APP_STYLES = `
 .teda-review .page-name.active { color: var(--fg); background: #262a31; }
 .teda-review .page-name.problem { color: var(--warning); }
 .teda-review .page-note { color: var(--muted); font-size: 11px; padding: 2px 6px 2px 18px; }
+/* A kind block or a class block: the summary is the readable line, the marker is drawn by us. */
 .teda-review .group-title {
   color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
   padding: 8px 6px 2px;
+  display: flex; align-items: baseline; gap: 6px; cursor: pointer; list-style: none;
 }
+.teda-review .fold > summary::-webkit-details-marker { display: none; }
+/* Closed points right, open points down: the marker states whether the rows are under the line. */
+.teda-review .fold > summary::before { content: "\\25B8"; font-size: 9px; color: var(--muted); }
+.teda-review .fold[open] > summary::before { content: "\\25BE"; }
+.teda-review .fold > summary:hover { color: var(--fg); }
+.teda-review .fold .group-name { flex: 1 1 auto; }
+.teda-review .fold .group-count {
+  color: var(--muted); font-size: 10px; text-transform: none; letter-spacing: 0;
+}
+/* A nested fold (a classification directory inside Symbols) is indented once. */
+.teda-review .fold .fold { margin-left: 10px; }
 .teda-review .page-name .row-note { float: right; color: var(--muted); font-size: 10px; }
 .teda-review .instance-list { display: flex; flex-wrap: wrap; gap: 3px; padding: 2px 6px 4px 18px; }
 .teda-review .instance-name {

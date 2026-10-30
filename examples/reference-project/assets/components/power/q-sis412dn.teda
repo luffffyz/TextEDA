@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 component q-sis412dn
 
 kind         part
@@ -7,9 +7,8 @@ manufacturer Vishay Siliconix
 category     mosfet_n
 
 # KiCad official library has no SiS412DN; it borrows the SiS454DN symbol with the same package, pins are governed by the inline table.
-symbol project:nmos-5
-footprint project:powerpak-1212-8
-
+symbol power:nmos-5
+footprint inductor:powerpak-1212-8
 pins
   1  S1  passive
   2  S2  passive

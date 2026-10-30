@@ -2,7 +2,7 @@
   "component": {
     "category": "connector",
     "description": "1.0 mm 4-pin side-entry, Qwiic pin order",
-    "footprint": "project:jst-sh-4",
+    "footprint": "connector:jst-sh-4",
     "id": "jst-sh-4",
     "kind": "part",
     "manufacturer": "JST",
@@ -34,7 +34,7 @@
       }
     ],
     "pins_source": "inline",
-    "symbol": "project:jst-sh-4"
+    "symbol": "connectors:jst-sh-4"
   },
   "ir_version": "0.14",
   "source": {

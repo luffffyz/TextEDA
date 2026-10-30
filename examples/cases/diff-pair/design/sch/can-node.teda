@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 schematic can-node
 
 # Case 4 of the ten (AGENTS.md §10, docs/backlog.md F12): a differential pair is a constraint, not a geometry.

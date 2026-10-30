@@ -73,7 +73,7 @@ export type IrVersion = "0.14";
  */
 export type LayerName = string;
 /**
- * Library name: the directory under assets/symbols/ or assets/footprints/ that holds the file; underscores allowed, e.g. project.
+ * Classification directory (ADR-0049): the directory under assets/symbols/ or assets/footprints/ that holds the file — a symbol's device category, a footprint's package family. The same string is the qualifier of a `symbol <class>:<id>` / `footprint <class>:<id>` reference and the KiCad library name; underscores allowed, e.g. passives, chip.
  *
  * This interface was referenced by `Symbol`'s JSON-Schema
  * via the `definition` "lib_id".
@@ -186,11 +186,11 @@ export interface Symbol {
      */
     rev?: string;
     /**
-     * Owning library name (the directory under assets/symbols/ that holds the file); KiCad symbol id = <library>:<name>.
+     * The symbol's device category (ADR-0049): the directory under assets/symbols/ that holds the file, e.g. passives. KiCad symbol id = <library>:<name>.
      */
     library: string;
     /**
-     * Symbol name, unique within the library; it is a reusable view name (multiple components may share one symbol), and binding only happens at component.symbol.
+     * Symbol name, unique within its device category; it is a reusable view name (multiple components may share one symbol), and binding only happens at component.symbol.
      */
     name: string;
     /**

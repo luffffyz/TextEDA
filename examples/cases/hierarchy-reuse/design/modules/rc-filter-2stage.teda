@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 module rc-filter-2stage
 
 # A two-stage RC filter: one series resistor and one shunt capacitor per stage. The interstage node

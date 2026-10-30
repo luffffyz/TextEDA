@@ -6,7 +6,7 @@
 //   Default    rewrite in place (skip files whose content is unchanged).
 //   --check    check only; print files that are not canonical form and exit 1 (for CI / pre-commit).
 //   --stdout   write to stdout, leaving files untouched.
-//   --library  library name; defaults to the containing directory name.
+//   --library  classification directory (ADR-0049); defaults to the containing directory name.
 //
 // Dispatch on the file's type line: currently `footprint`, `symbol`, `schematic`, `pcb`, `view` and `procurement` are implemented; other description types are
 // skipped for now (their fmt is not implemented yet); naming one explicitly is an error, to avoid "thought it was formatted".

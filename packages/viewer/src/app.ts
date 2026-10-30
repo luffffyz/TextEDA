@@ -98,6 +98,13 @@ interface AppState {
   selected: Highlight | null;
   /** The definition menu is open for the current selection (F34 source jump). */
   definitionsOpen: boolean;
+  /**
+   * The tree blocks the person folded, by key (`kind/symbol`, `symbol/passives`).
+   *
+   * The tree re-renders on every selection, and a re-render that unfolded what the person closed
+   * would make the sidebar unusable once a project has a few dozen symbols.
+   */
+  folded: Set<string>;
   /** Set once the reviewer pans or zooms: a window resize must not undo their framing. */
   adjusted: boolean;
   /** Which of the app's four modes is showing (ADR-0042 D1). */
@@ -124,6 +131,7 @@ function initialState(): AppState {
     panY: 0,
     selected: null,
     definitionsOpen: false,
+    folded: new Set<string>(),
     adjusted: false,
     mode: "review",
     pending: new Map<string, PendingPlace>(),
@@ -427,44 +435,119 @@ function wireStage(): void {
 // --- navigation ------------------------------------------------------------------------------
 
 /**
+ * Take a drawing out of the folds that hold it.
+ *
+ * A drawing can be chosen from somewhere other than the tree — the arrow keys, a finding's show
+ * button — and a row nobody can see is not selected in any useful sense. The fold is a reading aid,
+ * not a filter: choosing the drawing opens what has to be open to show it.
+ */
+function revealDrawing(key: string): void {
+  const target = model.drawings.find((candidate) => candidate.key === key);
+  if (target === undefined) return;
+  state.folded.delete(`kind/${target.kind}`);
+  if (target.group !== undefined) state.folded.delete(`${target.kind}/${target.group}`);
+}
+
+/**
+ * One row of the tree: the drawing's name, and the board it belongs to when it has one.
+ *
+ * The row is a button whatever the drawing is — a print page, a board canvas, a symbol — so the
+ * sidebar has one thing to press and one shape to style.
+ */
+function drawingRow(candidate: ReviewDrawing): HTMLElement {
+  const button = el("button", "page-name");
+  button.type = "button";
+  if (candidate.key === state.drawing) button.classList.add("active");
+  if (candidate.problems.length > 0) button.classList.add("problem");
+  button.title = candidate.file;
+  button.append(el("span", "row-name", candidate.label));
+  if (candidate.board !== undefined) button.append(el("span", "row-note", candidate.board));
+  button.addEventListener("click", () => {
+    state.drawing = candidate.key;
+    revealDrawing(candidate.key);
+    resetDraft();
+    fit();
+    renderAll();
+  });
+  return button;
+}
+
+/**
+ * A foldable block of the tree: a summary line and the rows under it.
+ *
+ * `<details>` is the boring way to fold: the browser owns the disclosure, the keyboard and the
+ * accessibility, and the app only remembers what the person folded so a re-render does not undo it.
+ */
+function foldingBlock(key: string, label: string, count: number, rows: HTMLElement[]): HTMLElement {
+  const node = el("details", "fold");
+  node.open = !state.folded.has(key);
+  // A toggle that came from the browser is the only thing that changes the folded set; the guard
+  // against `open` being set here is that the handler states what the element says, so a stray event
+  // re-states the same answer.
+  node.addEventListener("toggle", () => {
+    if (node.open) state.folded.delete(key);
+    else state.folded.add(key);
+  });
+  const summary = el("summary", "group-title");
+  summary.append(el("span", "group-name", label));
+  summary.append(el("span", "group-count", String(count)));
+  node.append(summary, ...rows);
+  return node;
+}
+
+/**
  * The sidebar's tree: what the project is made of, grouped by what kind of thing it is.
  *
- * The drawings come first, in kind groups — print pages, board canvases, library symbols, library
- * footprints — because that is what a reviewer picks from (ADR-0048 D1). A board with no print page
- * comes last, with the note that says why and the instances that are still there to look at.
+ * The drawings come first, in kind groups — print pages, board canvases, symbols, footprints —
+ * because that is what a reviewer picks from (ADR-0048 D1). Symbols and footprints are filed by
+ * their classification directory (ADR-0049), so those two kinds fold one level further: a project
+ * with forty passives is not a flat list of forty rows.
+ *
+ * Each block folds, and the fold is remembered per mount: re-rendering after a selection must not
+ * unfold what the person closed.
+ *
+ * A board with no print page comes last, with the note that says why and the instances that are
+ * still there to look at.
  */
 function renderTree(): void {
   frame.boardList.textContent = "";
 
-  const groups: { title: string; kind: ReviewDrawingKind }[] = [
+  const kinds: { title: string; kind: ReviewDrawingKind }[] = [
     { title: "Schematics", kind: "sch" },
     { title: "PCBs", kind: "pcb" },
     { title: "Symbols", kind: "symbol" },
     { title: "Footprints", kind: "footprint" },
   ];
 
-  for (const group of groups) {
-    const drawings = model.drawings.filter((candidate) => candidate.kind === group.kind);
+  for (const kind of kinds) {
+    const drawings = model.drawings.filter((candidate) => candidate.kind === kind.kind);
     if (drawings.length === 0) continue;
-    const node = el("div", "board");
-    node.append(el("div", "group-title", group.title));
-    for (const candidate of drawings) {
-      const button = el("button", "page-name");
-      button.type = "button";
-      if (candidate.key === state.drawing) button.classList.add("active");
-      if (candidate.problems.length > 0) button.classList.add("problem");
-      button.title = candidate.file;
-      button.append(el("span", "row-name", candidate.label));
-      if (candidate.board !== undefined) button.append(el("span", "row-note", candidate.board));
-      button.addEventListener("click", () => {
-        state.drawing = candidate.key;
-        resetDraft();
-        fit();
-        renderAll();
-      });
-      node.append(button);
+    // A classification directory inside a foldable kind; absent for print pages and board canvases,
+    // which are one flat list under their board.
+    const classified = drawings.some((candidate) => candidate.group !== undefined);
+    const rows: HTMLElement[] = [];
+    if (!classified) {
+      rows.push(...drawings.map(drawingRow));
+    } else {
+      const groups = new Map<string, ReviewDrawing[]>();
+      for (const candidate of drawings) {
+        const group = candidate.group ?? "";
+        groups.set(group, [...(groups.get(group) ?? []), candidate]);
+      }
+      // The model already arrives sorted by `<class>:<id>`, so the classes and their rows come out
+      // sorted without a second ordering rule here.
+      for (const [group, members] of groups) {
+        rows.push(
+          foldingBlock(
+            `${kind.kind}/${group}`,
+            group === "" ? "unclassified" : group,
+            members.length,
+            members.map(drawingRow),
+          ),
+        );
+      }
     }
-    frame.boardList.append(node);
+    frame.boardList.append(foldingBlock(`kind/${kind.kind}`, kind.title, drawings.length, rows));
   }
 
   // The boards that have no print page: no drawing is not no design, and the board's instances are
@@ -473,10 +556,9 @@ function renderTree(): void {
     (candidate) => !model.drawings.some((entry) => entry.kind === "sch" && entry.board === candidate.id),
   );
   if (bare.length === 0) return;
-  const node = el("div", "board");
-  node.append(el("div", "group-title", "Boards"));
+  const bareRows: HTMLElement[] = [];
   for (const candidate of bare) {
-    node.append(
+    bareRows.push(
       el("div", "page-note", `${candidate.id}: ${candidate.note ?? "no view file: the board has no drawing"}`),
     );
     const list = el("div", "instance-list");
@@ -498,9 +580,9 @@ function renderTree(): void {
     if (candidate.instances.length > INSTANCE_PREVIEW) {
       list.append(el("div", "page-note", `… ${candidate.instances.length - INSTANCE_PREVIEW} more`));
     }
-    node.append(list);
+    bareRows.push(list);
   }
-  frame.boardList.append(node);
+  frame.boardList.append(foldingBlock("kind/boards", "Boards", bare.length, bareRows));
 }
 
 /**
@@ -638,6 +720,7 @@ function renderDiagnostics(): void {
       jump.title = "select this on the drawing";
       jump.addEventListener("click", () => {
         state.drawing = target.drawing;
+        revealDrawing(target.drawing);
         resetDraft();
         fit();
         renderAll();
@@ -1700,6 +1783,7 @@ function onKeyDown(event: KeyboardEvent): void {
     const next = siblings[(at + delta + siblings.length) % siblings.length];
     if (next === undefined) return;
     state.drawing = next.key;
+    revealDrawing(next.key);
     resetDraft();
     fit();
     renderAll();

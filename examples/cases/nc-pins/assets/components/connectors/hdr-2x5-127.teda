@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 component hdr-2x5-127
 
 # Cortex 10-pin debug header, 2x5 at 1.27 mm. The pinout is the ARM CMSIS-DAP one; pin 7 is the
@@ -10,9 +10,8 @@ manufacturer Samtec
 category     connector
 description  1.27 mm 2x5 debug header, 10 pins, keyed
 
-symbol project:hdr-2x5
-footprint project:hdr-2x5-127
-
+symbol connectors:hdr-2x5
+footprint header:hdr-2x5-127
 pins
   1   VTREF    power_in
   2   SWDIO     bidirectional

@@ -2,8 +2,9 @@
 // transformed by `place`. The description never carries pad geometry, and this module does not
 // invent one.
 //
-// Footprints are read from the project's own library (`assets/footprints/<lib>/<id>.teda`), which is
-// the only place geometry lives: an imported library is copied here (ADR-0034). A footprint that is
+// Footprints are read from the project's classification tree
+// (`assets/footprints/<family>/<id>.teda`, ADR-0049), the only place geometry lives: an imported
+// library is copied here (ADR-0034). A footprint that is
 // missing yields no pads, and a check that cannot judge a pad stays silent about it rather than
 // guessing (see `checkCopperCoverage`). A footprint that does not compile, or whose IR does not
 // satisfy the contract, is reported: `ir` refuses to write that shard, and `check` must not go green
@@ -20,10 +21,11 @@ import { LAYOUT } from "./paths.ts";
 import { locateWith } from "./locate.ts";
 
 /**
- * The project's footprint library, keyed `lib:name` (the reference form used by components).
+ * The project's footprints, keyed `<family>:<name>` (the reference form components use): the key of
+ * a file is the classification directory it sits in, not a library it belongs to (ADR-0049).
  *
  * `diagnostics` collects what the files had to say (parse and contract); a file that fails is left
- * out of the library, exactly as the shard tree leaves it out of the build.
+ * out of the set, exactly as the shard tree leaves it out of the build.
  */
 export function loadFootprintLibrary(root: string, diagnostics: Diagnostic[] = []): Map<string, Footprint> {
   const library = new Map<string, Footprint>();

@@ -50,11 +50,17 @@ The app shows **drawings**, and there are four kinds of them
 |---|---|---|
 | print page | the page a reviewer reads: the symbols, the wires, the labels and the ports | `views/<board_id>/<page_id>.view.teda` |
 | board canvas | the board as it is placed: outline, pads, copper, silkscreen | `design/pcb/<board_id>.teda` |
-| symbol | one library symbol, drawn with the pins of a device that uses it (ADR-0031) | `assets/symbols/<lib>/<id>.teda` |
-| footprint | one library footprint: its pads and its graphics | `assets/footprints/<lib>/<id>.teda` |
+| symbol | one symbol of the project, drawn with the pins of a device that uses it (ADR-0031) | `assets/symbols/<category>/<id>.teda` |
+| footprint | one footprint of the project: its pads and its graphics | `assets/footprints/<family>/<id>.teda` |
 
-The sidebar lists them grouped by kind, in that order. The arrow keys walk the drawings of the
-same kind — the print pages among themselves, the library symbols among themselves.
+The sidebar lists them grouped by kind, in that order, and every block folds. The two library kinds
+fold one level further, by the classification directory the file sits in — a symbol's device
+category, a footprint's package family (ADR-0049) — because a project with forty passives is not a
+flat list of forty rows. Each summary carries the block's count. A fold is a reading aid, not a
+filter: choosing a drawing from anywhere (the arrow keys, a finding's **show** button) opens the
+blocks that hold it, so the selected row is never hidden. The arrow keys walk the drawings of the
+same kind, in the order the tree shows them — the print pages among themselves, the symbols among
+themselves.
 
 - **A board with no print page is listed, not drawn.** The reference project's `mcu-board` has a
   schematic and no print page; the app says so on the canvas and draws nothing (ADR-0035 decision 6).

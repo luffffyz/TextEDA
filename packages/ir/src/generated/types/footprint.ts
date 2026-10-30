@@ -134,7 +134,7 @@ export type InstanceId = string;
  */
 export type IrVersion = "0.14";
 /**
- * Library name: the directory under assets/symbols/ or assets/footprints/ that holds the file; underscores allowed, e.g. project.
+ * Classification directory (ADR-0049): the directory under assets/symbols/ or assets/footprints/ that holds the file — a symbol's device category, a footprint's package family. The same string is the qualifier of a `symbol <class>:<id>` / `footprint <class>:<id>` reference and the KiCad library name; underscores allowed, e.g. passives, chip.
  *
  * This interface was referenced by `Footprint`'s JSON-Schema
  * via the `definition` "lib_id".
@@ -247,11 +247,11 @@ export interface Footprint {
      */
     rev?: string;
     /**
-     * Owning library name (the directory under assets/footprints/ that holds the file); KiCad footprint id = <library>:<name>.
+     * The footprint's package family (ADR-0049): the directory under assets/footprints/ that holds the file, e.g. chip. KiCad footprint id = <library>:<name>.
      */
     library: string;
     /**
-     * Footprint name, e.g. ti-sot-23-5. Unique within the library.
+     * Footprint name, e.g. ti-sot-23-5. Unique within its package family.
      */
     name: string;
     /**

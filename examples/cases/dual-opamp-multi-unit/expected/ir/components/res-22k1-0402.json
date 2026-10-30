@@ -1,7 +1,7 @@
 {
   "component": {
     "category": "resistor",
-    "footprint": "project:chip-0402",
+    "footprint": "chip:chip-0402",
     "id": "res-22k1-0402",
     "kind": "part",
     "manufacturer": "Yageo",
@@ -38,7 +38,7 @@
         "value": 62500
       }
     ],
-    "symbol": "project:r"
+    "symbol": "passives:r"
   },
   "ir_version": "0.14",
   "source": {

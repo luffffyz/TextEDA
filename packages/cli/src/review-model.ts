@@ -282,7 +282,7 @@ function drawingSheet(doc: SvgDoc): { w: number; h: number } {
   };
 }
 
-/** `lib:id` → the library and the id. */
+/** `<class>:<id>` → the classification directory and the id (ADR-0049). */
 function splitRef(ref: string): [string, string] {
   const dot = ref.indexOf(":");
   if (dot < 0) return ["", ref];
@@ -290,24 +290,26 @@ function splitRef(ref: string): [string, string] {
 }
 
 /**
- * One library symbol, drawn on its own.
+ * One symbol from the library, drawn on its own.
  *
  * A symbol is a view (ADR-0031): the device names the pins, the symbol draws them. The drawing
  * takes the pins of a device that uses the symbol, so what a reviewer sees is what the board sees;
- * a symbol no device uses is still drawn, with unnamed pins.
+ * a symbol no device uses is still drawn, with unnamed pins. `group` is its device category, the
+ * directory it is filed under (ADR-0049), and the sidebar groups by it.
  */
 function reviewSymbol(
   ref: string,
   symbol: Symbol,
   pins: readonly { number: string; name: string; type: string }[],
 ): ReviewDrawing {
-  const [lib, id] = splitRef(ref);
+  const [group, id] = splitRef(ref);
   const doc = renderSymbol(symbol.symbol, { pins: pins.map((pin) => ({ ...pin })) });
   return {
     kind: "symbol",
     key: `symbol/${ref}`,
     label: id,
-    file: `${LAYOUT.symbols}/${lib}/${id}.teda`,
+    group,
+    file: `${LAYOUT.symbols}/${group}/${id}.teda`,
     sheet: drawingSheet(doc),
     svg: toSvgText(doc),
     symbols: [],
@@ -317,19 +319,20 @@ function reviewSymbol(
 }
 
 /**
- * One library footprint, drawn on its own.
+ * One footprint from the library, drawn on its own.
  *
  * A footprint is pure geometry (ADR-0030): the pads, the silkscreen and the courtyard. It needs no
- * device to be drawn.
+ * device to be drawn. `group` is its package family, the directory it is filed under (ADR-0049).
  */
 function reviewFootprint(ref: string, footprint: Footprint): ReviewDrawing {
-  const [lib, id] = splitRef(ref);
+  const [group, id] = splitRef(ref);
   const doc = renderFootprint(footprint.footprint);
   return {
     kind: "footprint",
     key: `footprint/${ref}`,
     label: id,
-    file: `${LAYOUT.footprints}/${lib}/${id}.teda`,
+    group,
+    file: `${LAYOUT.footprints}/${group}/${id}.teda`,
     sheet: drawingSheet(doc),
     svg: toSvgText(doc),
     symbols: [],
@@ -481,10 +484,13 @@ export function buildReviewModel(root: string): ReviewModel {
     }
     return [];
   };
-  for (const [ref, symbol] of symbolLibrary) {
+  // Sorted by the classification key (`<class>:<id>`): the sidebar groups by the class and sorts the
+  // rows inside it, and the arrow keys walk the same order — one order, computed once, so what a
+  // reviewer sees and what the arrows do cannot disagree.
+  for (const [ref, symbol] of [...symbolLibrary].sort((a, b) => a[0].localeCompare(b[0]))) {
     drawings.push(reviewSymbol(ref, symbol, pinsOfSymbol(ref)));
   }
-  for (const [ref, footprint] of footprintLibrary) {
+  for (const [ref, footprint] of [...footprintLibrary].sort((a, b) => a[0].localeCompare(b[0]))) {
     drawings.push(reviewFootprint(ref, footprint));
   }
 

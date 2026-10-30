@@ -3,32 +3,32 @@
   "shards": [
     {
       "path": "boards/sensor-hub/schematic.json",
-      "sha256": "282a43bf6a0736ab948a09c2abaee825b0d1e2f2f597a5a1824f03dd3bf14c6d",
+      "sha256": "34a0362b3323fae4eb51b388df12467f9c4f10363d468e9a129cc6e46c179592",
       "normative": true
     },
     {
       "path": "components/cap-mlcc-0402.json",
-      "sha256": "64072260b00929f2ab225aeb4bfa1d414f9e7fad5ade6ae2378f2eeae65695fc",
+      "sha256": "7493d9f7b92ef156831e80daff6c6a77311ba75df2b7a604d73c4534408d579d",
       "normative": true
     },
     {
       "path": "components/ntc-103at.json",
-      "sha256": "df375e3e78b460da22fc3a6312f9db06f61c5c5f8c7002e1f2efa3bdc4c38cc0",
+      "sha256": "2ae58dc58799474f889f049bcd4ca25bc1fbcf211b4b15cc2ddb4192b4e6f6f6",
       "normative": true
     },
     {
       "path": "components/res-thick-0402.json",
-      "sha256": "0b93b109a1ed241b4aafa6bc014406c351e266806767ab0c70a29ebc115bd58e",
+      "sha256": "2cedbefc987182da46426639d390dbcd52bc246736f8cb11dd1a2e6716116328",
       "normative": true
     },
     {
-      "path": "footprints/project/chip-0402.json",
-      "sha256": "ab6387326ec4506405de5725ad12a6336f7aa84032f45b0c400228e13eee4e13",
+      "path": "footprints/chip/chip-0402.json",
+      "sha256": "a5af80f5254dc6c21f0dca80decbda6f77400d874cdf2fc5b394e7510ee1e0ac",
       "normative": true
     },
     {
-      "path": "footprints/project/chip-0603.json",
-      "sha256": "fec4d98ad92108627d8b57281aa185a0e2b9d468f8d6b357d10a6a99c1de8cba",
+      "path": "footprints/chip/chip-0603.json",
+      "sha256": "b937d9c283402142902ce4ebc3e5cc729dfc44073969ffeb5cab22cd6c0d28bd",
       "normative": true
     },
     {
@@ -37,20 +37,20 @@
       "normative": true
     },
     {
-      "path": "symbols/project/c.json",
-      "sha256": "930899f521ecc455ff8ced3d157f73fcdff265936d1a760cd34910581088a15e",
+      "path": "symbols/passives/c.json",
+      "sha256": "9c2f057998721cc7385a5374469f7494a635372a5498f3f7322fa281ba553e6f",
       "normative": true
     },
     {
-      "path": "symbols/project/r.json",
-      "sha256": "cf424904941cc7ece02b13e1e7c3342ee925e88010a3bb6d3e11dff0f8092dcc",
+      "path": "symbols/passives/r.json",
+      "sha256": "acd37d5163f957e7f966285c951e55eb44b4cc6c241c8ee06a99364444a3556b",
       "normative": true
     },
     {
-      "path": "symbols/project/thermistor.json",
-      "sha256": "566437b37d938e7b285d14280cdfad9ff115484e6c0f200c5a8f1a639820269c",
+      "path": "symbols/sensors/thermistor.json",
+      "sha256": "900549602cc9273d932423125e5a3586cc13e3731028e06ab1316dd0c23ee079",
       "normative": true
     }
   ],
-  "source_hash": "e244948f872a2daf55fcbd36d73dc59a831af2b321fb0ac81c5078b2f94d8474"
+  "source_hash": "7f97660a28408f0b206449cc9374fa99a6cf1c3003c79a4b803a69596337d15e"
 }

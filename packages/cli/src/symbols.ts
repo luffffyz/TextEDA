@@ -1,8 +1,8 @@
 // Symbol geometry for the drawing checks (spec/schematic-view.md §9.2): a wire's endpoint is a pin,
 // and a readability finding is about where text and bodies actually land on the sheet.
 //
-// Symbols are read from the project's own library (`assets/symbols/<lib>/<id>.teda`), the same way
-// footprints are (`pads.ts`). A symbol that is missing yields no geometry, and a check that cannot
+// Symbols are read from the project's classification tree (`assets/symbols/<category>/<id>.teda`,
+// ADR-0049), the same way footprints are (`pads.ts`). A symbol that is missing yields no geometry, and a check that cannot
 // judge a page stays silent about it rather than guessing. A symbol that does not compile, or whose
 // IR does not satisfy the contract, is reported: `ir` refuses to write that shard, and `check` must
 // not go green while the build is red (ADR-0038 decision 7).
@@ -18,10 +18,11 @@ import { LAYOUT } from "./paths.ts";
 import { locateWith } from "./locate.ts";
 
 /**
- * The project's symbol library, keyed `lib:name` (the reference form used by devices).
+ * The project's symbols, keyed `<category>:<name>` (the reference form devices use): the key of a
+ * file is the classification directory it sits in, not a library it belongs to (ADR-0049).
  *
  * `diagnostics` collects what the files had to say (parse and contract); a file that fails is left
- * out of the library, exactly as the shard tree leaves it out of the build.
+ * out of the set, exactly as the shard tree leaves it out of the build.
  */
 export function loadSymbolLibrary(root: string, diagnostics: Diagnostic[] = []): Map<string, Symbol> {
   const library = new Map<string, Symbol>();

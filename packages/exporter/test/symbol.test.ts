@@ -96,7 +96,7 @@ describe("Symbol library export", () => {
 });
 
 describe("Example symbol", () => {
-  const symbolText = readFileSync("examples/reference-project/assets/symbols/project/bq24610rger.teda", "utf8");
+  const symbolText = readFileSync("examples/reference-project/assets/symbols/power/bq24610rger.teda", "utf8");
   const example = parseSymbol(symbolText, { file: "x.teda", library: "project" }).ir!.symbol;
   const fullPart = {
     pins: [

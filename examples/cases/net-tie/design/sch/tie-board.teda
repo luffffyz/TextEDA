@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 schematic tie-board
 
 # A 3.3 V rail and the sense line that measures it at the far end of the board. The schematic keeps

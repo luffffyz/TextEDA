@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 pcb charger-buck
 
 # The buck module's parts on the board. The instance ids are the board's flat ids: the buck is

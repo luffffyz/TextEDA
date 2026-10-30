@@ -1,0 +1,118 @@
+{
+  "footprint": {
+    "attr": [
+      "smd"
+    ],
+    "description": "0603 (1608 metric) chip, generic land pattern",
+    "fields": [
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": -1500000
+        },
+        "effects": {
+          "height_nm": 1000000,
+          "thickness_nm": 150000,
+          "width_nm": 1000000
+        },
+        "layer": "F.SilkS",
+        "name": "Reference",
+        "value": "REF**"
+      },
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": 1500000
+        },
+        "effects": {
+          "height_nm": 1000000,
+          "thickness_nm": 150000,
+          "width_nm": 1000000
+        },
+        "layer": "F.Fab",
+        "name": "Value",
+        "value": "chip-0603"
+      }
+    ],
+    "graphics": [
+      {
+        "end": {
+          "x_nm": 1250000,
+          "y_nm": 500000
+        },
+        "kind": "rect",
+        "layer": "F.CrtYd",
+        "start": {
+          "x_nm": -1250000,
+          "y_nm": -500000
+        },
+        "width_nm": 50000
+      },
+      {
+        "end": {
+          "x_nm": 800000,
+          "y_nm": 400000
+        },
+        "kind": "rect",
+        "layer": "F.Fab",
+        "start": {
+          "x_nm": -800000,
+          "y_nm": -400000
+        },
+        "width_nm": 100000
+      }
+    ],
+    "library": "chip",
+    "name": "chip-0603",
+    "package_code": "0603",
+    "pads": [
+      {
+        "at": {
+          "x_nm": -750000,
+          "y_nm": 0
+        },
+        "layers": [
+          "F.Cu",
+          "F.Mask",
+          "F.Paste"
+        ],
+        "number": "1",
+        "roundrect_ratio_ppm": 250000,
+        "shape": "roundrect",
+        "size": {
+          "x_nm": 800000,
+          "y_nm": 900000
+        },
+        "type": "smd"
+      },
+      {
+        "at": {
+          "x_nm": 750000,
+          "y_nm": 0
+        },
+        "layers": [
+          "F.Cu",
+          "F.Mask",
+          "F.Paste"
+        ],
+        "number": "2",
+        "roundrect_ratio_ppm": 250000,
+        "shape": "roundrect",
+        "size": {
+          "x_nm": 800000,
+          "y_nm": 900000
+        },
+        "type": "smd"
+      }
+    ],
+    "tags": [
+      "chip",
+      "smd"
+    ]
+  },
+  "ir_version": "0.14",
+  "source": {
+    "file": "assets/footprints/chip/chip-0603.teda",
+    "line": 1
+  }
+}

@@ -6,7 +6,7 @@
 // Coverage uses the whole reference project library (16 footprints plus all symbols), not a few hand-picked samples.
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseFootprint, parseSymbol, readComponentFacts } from "@texteda/parser";
 import {
@@ -32,8 +32,14 @@ function tedaFiles(dir: string): string[] {
   return out;
 }
 
-const symbolFiles = tedaFiles(join(projectRoot, "assets/symbols", "project"));
-const footprintFiles = tedaFiles(join(projectRoot, "assets/footprints", "project"));
+const symbolFiles = tedaFiles(join(projectRoot, "assets/symbols"));
+const footprintFiles = tedaFiles(join(projectRoot, "assets/footprints"));
+
+/**
+ * The class a library file fills (ADR-0049): its parent directory, which is also the qualifier its
+ * reference carries and the `library` the parsers project into the IR.
+ */
+const classOf = (file: string): string => basename(dirname(file));
 // Parts and generics both own pin facts (ADR-0024): the symbols are shared between them.
 // They live in one tree (ADR-0024).
 const componentFiles = tedaFiles(join(projectRoot, "assets/components"));
@@ -57,11 +63,11 @@ describe("symbol round-trip", () => {
   test("every symbol in the reference project: rendering can be reverse-extracted into an equivalent projection", () => {
     expect(symbolFiles.length).toBeGreaterThan(0);
     for (const file of symbolFiles) {
-      const parsed = parseSymbol(readFileSync(file, "utf8"), { file, library: "project" });
+      const parsed = parseSymbol(readFileSync(file, "utf8"), { file, library: classOf(file) });
       expect(parsed.ok).toBe(true);
       if (!parsed.ok || !parsed.ir) continue;
       const sym = parsed.ir.symbol;
-      const part = partForSymbol(`project:${sym.name}`);
+      const part = partForSymbol(`${classOf(file)}:${sym.name}`);
       const doc = renderSymbol(sym, part);
       expect(extractSymbol(doc)).toEqual(symbolProjection(sym));
     }
@@ -69,7 +75,7 @@ describe("symbol round-trip", () => {
 
   test("pin names and electrical types are not baked into the symbol: rendering with a different part leaves the symbol projection unchanged", () => {
     const file = symbolFiles.find((f) => f.endsWith("bq24610rger.teda"))!;
-    const parsed = parseSymbol(readFileSync(file, "utf8"), { file, library: "project" });
+    const parsed = parseSymbol(readFileSync(file, "utf8"), { file, library: classOf(file) });
     expect(parsed.ok).toBe(true);
     if (!parsed.ok || !parsed.ir) return;
     const sym = parsed.ir.symbol;
@@ -90,7 +96,7 @@ describe("symbol round-trip", () => {
 describe("projection sensitivity", () => {
   test("moving one pad changes the reverse-extracted result (the round-trip is not a no-op)", () => {
     const file = footprintFiles.find((f) => f.endsWith("vqfn-24-ep.teda"))!;
-    const parsed = parseFootprint(readFileSync(file, "utf8"), { file, library: "project" });
+    const parsed = parseFootprint(readFileSync(file, "utf8"), { file, library: classOf(file) });
     if (!parsed.ok || !parsed.ir) throw new Error("failed to parse reference footprint");
     const before = extractFootprint(renderFootprint(parsed.ir.footprint));
     const moved = structuredClone(parsed.ir.footprint);
@@ -102,10 +108,10 @@ describe("projection sensitivity", () => {
 
   test("every symbol pin can find its name in the part (only then can it be reverse-extracted)", () => {
     for (const file of symbolFiles) {
-      const parsed = parseSymbol(readFileSync(file, "utf8"), { file, library: "project" });
+      const parsed = parseSymbol(readFileSync(file, "utf8"), { file, library: classOf(file) });
       if (!parsed.ok || !parsed.ir) continue;
       const sym = parsed.ir.symbol;
-      const part = partForSymbol(`project:${sym.name}`);
+      const part = partForSymbol(`${classOf(file)}:${sym.name}`);
       const named = new Set(part.pins.filter((p) => p.name.length > 0).map((p) => p.number));
       for (const pin of sym.pins) {
         if (sym.pin_names_hidden) continue;
@@ -119,7 +125,7 @@ describe("footprint round-trip", () => {
   test("every footprint in the reference project: rendering can be reverse-extracted into an equivalent projection", () => {
     expect(footprintFiles.length).toBeGreaterThan(0);
     for (const file of footprintFiles) {
-      const parsed = parseFootprint(readFileSync(file, "utf8"), { file, library: "project" });
+      const parsed = parseFootprint(readFileSync(file, "utf8"), { file, library: classOf(file) });
       expect(parsed.ok).toBe(true);
       if (!parsed.ok || !parsed.ir) continue;
       const fp = parsed.ir.footprint;
@@ -134,10 +140,10 @@ describe("determinism", () => {
     const symbolFile = symbolFiles[0]!;
     const parsed = parseSymbol(readFileSync(symbolFile, "utf8"), {
       file: symbolFile,
-      library: "project",
+      library: classOf(symbolFile),
     });
     if (!parsed.ok || !parsed.ir) throw new Error("failed to parse reference symbol");
-    const part = partForSymbol(`project:${parsed.ir.symbol.name}`);
+    const part = partForSymbol(`${classOf(symbolFile)}:${parsed.ir.symbol.name}`);
     const a = toSvgText(renderSymbol(parsed.ir.symbol, part));
     const b = toSvgText(renderSymbol(parsed.ir.symbol, part));
     expect(a).toBe(b);
@@ -147,7 +153,7 @@ describe("determinism", () => {
     const fpFile = footprintFiles[0]!;
     const parsed = parseFootprint(readFileSync(fpFile, "utf8"), {
       file: fpFile,
-      library: "project",
+      library: classOf(fpFile),
     });
     if (!parsed.ok || !parsed.ir) throw new Error("failed to parse reference footprint");
     const a = toSvgText(renderFootprint(parsed.ir.footprint));

@@ -2,7 +2,7 @@
   "component": {
     "category": "interface",
     "description": "TI SN65HVD230 3.3 V CAN transceiver, SOIC-8",
-    "footprint": "project:soic-8",
+    "footprint": "soic:soic-8",
     "id": "sn65hvd230",
     "kind": "part",
     "manufacturer": "Texas Instruments",
@@ -58,7 +58,7 @@
       }
     ],
     "pins_source": "inline",
-    "symbol": "project:sn65hvd230"
+    "symbol": "interface:sn65hvd230"
   },
   "ir_version": "0.14",
   "source": {

@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 component ntc-103at
 
 kind         part
@@ -6,9 +6,8 @@ mpn          103AT
 manufacturer Semitec
 category     thermistor
 
-symbol project:thermistor
-footprint project:chip-0603
-
+symbol sensors:thermistor
+footprint chip:chip-0603
 pins
   1  A  passive
   2  B  passive

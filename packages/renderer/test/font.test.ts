@@ -14,7 +14,7 @@ import { renderSymbol, toSvgText } from "../src/index.ts";
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const symbolFile = join(
   repoRoot,
-  "examples/reference-project/assets/symbols/project/ldo-sot23-5.teda",
+  "examples/reference-project/assets/symbols/regulators/ldo-sot23-5.teda",
 );
 
 describe("SVG output does not depend on system fonts", () => {

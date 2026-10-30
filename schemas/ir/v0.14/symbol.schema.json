@@ -42,12 +42,12 @@
         },
         "library": {
           "$ref": "urn:texteda:ir:0.14:common#/$defs/lib_id",
-          "description": "Owning library name (the directory under assets/symbols/ that holds the file); KiCad symbol id = <library>:<name>."
+          "description": "The symbol's device category (ADR-0049): the directory under assets/symbols/ that holds the file, e.g. passives. KiCad symbol id = <library>:<name>."
         },
         "name": {
           "type": "string",
           "pattern": "^[A-Za-z0-9_.+-]+$",
-          "description": "Symbol name, unique within the library; it is a reusable view name (multiple components may share one symbol), and binding only happens at component.symbol."
+          "description": "Symbol name, unique within its device category; it is a reusable view name (multiple components may share one symbol), and binding only happens at component.symbol."
         },
         "description": {
           "$ref": "urn:texteda:ir:0.14:common#/$defs/note",

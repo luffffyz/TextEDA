@@ -17,13 +17,13 @@
 ```
 <项目>/
   project.toml            # metadata only: no library reference (assets/ is the library)
-  symbols/project/        # 库目录（真源）：一个符号一个 .teda
+  assets/symbols/power/   # 器件类别目录（真源）：一个符号一个 .teda
     bq24610rger.teda
   assets/components/power/bq24610rger.teda   # 引脚名与电气类型在这里
-  dist/symbols/project.kicad_sym      # 导出产物（KiCad 可见）
+  dist/symbols/power.kicad_sym        # 导出产物（KiCad 可见，目录名 = 库名）
 ```
 
-符号可以自建，也可以从外部库拿来——但外部库是**模板**：用 `texteda lib import` 拷进 `assets/`，之后它就是本工程的资产，引用只写裸 id（`<lib>:<id>` 限定符已撤销，见 [library-import.md](library-import.md)），所以本工程内不再区分"借的"和"自己的"。**参考工程 `examples/reference-project/` 全部自建**：`assets/symbols/project/` 下的符号覆盖 23 个器件，`r` / `c` / `l` / `nmos-5` / `ldo-sot23-5` 都是多个器件共享同一视图。
+符号可以自建，也可以从外部库拿来——但外部库是**模板**：用 `texteda lib import` 拷进 `assets/`，之后它就是本工程的资产，引用写它落地的分类目录（`<category>:<id>`，[ADR-0049](../adr/libraries/0049-assets-are-filed-by-what-they-are.md)），所以本工程内不再区分"借的"和"自己的"。**参考工程 `examples/reference-project/` 全部自建**：`assets/symbols/<category>/` 下的 15 个符号覆盖 23 个器件，`r` / `c` / `l` / `nmos-5` / `ldo-sot23-5` 都是多个器件共享同一视图。
 
 ## 造符号的流程
 
@@ -42,10 +42,10 @@
 
 ### 2. 写 `.teda`（真源）
 
-语法见 `spec/symbol.md`。完整示例：`examples/reference-project/assets/symbols/project/bq24610rger.teda`。
+语法见 `spec/symbol.md`。完整示例：`examples/reference-project/assets/symbols/power/bq24610rger.teda`。
 
 ```
-version 0.9.1
+version 0.9.2
 symbol bq24610rger
 
 description 24V synchronous buck battery charger controller
@@ -76,8 +76,8 @@ body
 手写时不必纠结对齐和顺序，写完跑一次：
 
 ```bash
-bun run fmt:teda symbols/project/bq24610rger.teda   # 就地规范化
-bun run fmt:teda --check symbols                    # CI：不是 canonical 就退出 1
+bun run fmt:teda assets/symbols/power/bq24610rger.teda   # 就地规范化
+bun run fmt:teda --check assets/symbols             # CI：不是 canonical 就退出 1
 ```
 
 `fmt` 只重排表面（行/键顺序、列对齐、单位归一、缺省值省略），不碰语义；有语义错误的文件会被拒绝格式化，报错跟编译时同一套行列诊断。传目录时递归处理其中的 `*.teda`，只处理已实现的描述类型（`footprint` / `symbol`），其他类型跳过；显式点名未实现的类型会报错。规范见 `spec/symbol.md` §8。
@@ -100,10 +100,10 @@ pins
 ### 4. 编译成 IR
 
 ```bash
-bun run compile:symbol symbols/project/bq24610rger.teda --library project --out dist/ir/symbols/bq24610rger.json
+bun run compile:symbol assets/symbols/power/bq24610rger.teda --out dist/ir/symbols/power/bq24610rger.json
 ```
 
-IR 是 `symbol` kind（契约 `schemas/ir/v0.3/symbol.schema.json`），单位全是整数纳米/毫度。
+IR 是 `symbol` kind（契约 `schemas/ir/v0.14/symbol.schema.json`），单位全是整数纳米/毫度。`symbol.library` 取的是文件所在的分类目录（`power`），派生它不需要 `--library`；只有目录名不是分类名时才需要覆盖。
 
 ### 5. 导出成 KiCad 产物
 
@@ -111,7 +111,7 @@ IR 是 `symbol` kind（契约 `schemas/ir/v0.3/symbol.schema.json`），单位�
 bun run export:symbol dist/ir/symbols/bq24610rger.json --component assets/components/power/bq24610rger.teda --out dist/symbols
 ```
 
-导出器按**引脚号**把两边合起来：号与位置来自符号，名字与电气类型来自器件；属性（`Reference` / `Value` / `Footprint` / `Datasheet`）也一并写齐。`--out` 给目录时写 `<library>.kicad_sym`。
+导出器按**引脚号**把两边合起来：号与位置来自符号，名字与电气类型来自器件；属性（`Reference` / `Value` / `Footprint` / `Datasheet`）也一并写齐。`--out` 给目录时写 `<分类>.kicad_sym`（分类目录就是 KiCad 侧的库名，[ADR-0049](../adr/libraries/0049-assets-are-filed-by-what-they-are.md)）。
 
 ### 6. 看一眼（不用 KiCad）
 
@@ -125,12 +125,12 @@ bun run preview symbol bq24610rger --scale 8  # 放大看细节
 
 图里的字是**单线笔画字体**画成的路径（Hershey Sans，自带字形数据，不依赖系统字体——没装字体的机器打开也有字）。字高是 KiCad 的 cap height 口径，锚点是字的视觉中心；自带字体只有 ASCII，中文之类的字符画不出来，命令会在 stderr 上点名。
 
-产物默认落 `/tmp/texteda-preview/<id>/`，命令会打印绝对路径。`--lib` 换库名（默认 `project`），`--project` 换项目目录。
+产物默认落 `/tmp/texteda-preview/<id>/`，命令会打印绝对路径。`--class` 指定分类目录（不给就在整棵树里按 id 找，撞名时报错并列出候选），`--project` 换项目目录。
 
 ### 7. 冒烟验证
 
 ```bash
-bun run smoke:symbol            # 用 examples/reference-project/assets/symbols/project/bq24610rger.teda
+bun run smoke:symbol            # 用 examples/reference-project/assets/symbols/power/bq24610rger.teda
 ```
 
 跑通：canonical form 检查（`fmt` 固定点）→ 编译成 IR（契约通过）→ 与 `component` 对齐引脚号 → 写 `.kicad_sym` → **KiCad 10 能解析**（`kicad-cli sym upgrade`）→ **能渲染**（`kicad-cli sym export svg` 出图）。改完符号跑一次，出图看一眼比读十遍规范快。

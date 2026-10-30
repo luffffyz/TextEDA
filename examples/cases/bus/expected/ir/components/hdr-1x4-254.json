@@ -2,7 +2,7 @@
   "component": {
     "category": "connector",
     "description": "2.54 mm 1x4 header, through-hole",
-    "footprint": "project:hdr-1x4-254",
+    "footprint": "header:hdr-1x4-254",
     "id": "hdr-1x4-254",
     "kind": "part",
     "manufacturer": "Samtec",
@@ -34,7 +34,7 @@
       }
     ],
     "pins_source": "inline",
-    "symbol": "project:hdr-1x4"
+    "symbol": "connectors:hdr-1x4"
   },
   "ir_version": "0.14",
   "source": {

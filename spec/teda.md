@@ -1,4 +1,4 @@
-# `.teda` 格式规范（v0.9.1，草案）
+# `.teda` 格式规范（v0.9.2，草案）
 
 状态：草案。`AGENTS.md` 记录设计决策与边界，本文件定义具体格式。两者冲突时，以 `AGENTS.md` 的不变量为准，并修本文件。
 
@@ -11,7 +11,7 @@
 `.teda` 是**一行一事实**的文本格式：文件头声明类型，段（section）放表，表行的列由该段的 schema 解释。
 
 ```
-version 0.9.1
+version 0.9.2
 schematic main
 
 instances
@@ -56,13 +56,21 @@ nets
 | `schematic` | `design/sch/<board_id>.teda` | 一块板一个文件（v0.7 起：板内不再有页面文件） |
 | `pcb` | `design/pcb/<board_id>.teda` | 可后置，可为空 |
 | `system` | `design/system/<system_id>.teda` | 多板连接描述，一份系统一个文件（v0.2 新增） |
-| `footprint` | `assets/footprints/<lib>/<footprint_id>.teda` | 库产物：一个封装的规范几何（v0.4 新增） |
-| `symbol` | `assets/symbols/<lib>/<symbol_id>.teda` | 库产物：一个符号的视图（v0.5 新增） |
+| `footprint` | `assets/footprints/<family>/<footprint_id>.teda` | 库产物：一个封装的规范几何，目录是**封装族**（v0.4 新增；见本节末的分类规则） |
+| `symbol` | `assets/symbols/<category>/<symbol_id>.teda` | 库产物：一个符号的视图，目录是**器件类别**（v0.5 新增；见本节末的分类规则） |
 | `view` | `views/<board_id>/<page_id>.view.teda` | 一块板的一个"打印页"：S1 视图层（v0.6 新增，v0.7 起引用板级 id，语法见 `spec/schematic-view.md`） |
 | `module` | `design/modules/<module_id>.teda` | 板内的一个模块：带端口、持有电气事实（v0.8 新增，语法见 `spec/module.md`） |
 | `procurement` | `assets/procurement/{primary,alternatives}/<board_id>.teda` | 一块板的采购选料：通用器件 → 买哪颗（v0.9 新增，语法见 `spec/procurement.md`） |
 
-文件名必须等于头部 id；不一致报错。`assets/components/` 允许子目录，子目录只用于分类；`component_id` 取文件名（不含 `.teda`），不取相对路径，同一 id 在 `assets/components/` 树内必须唯一。顶层目录与文件类型必须一致（`assets/components/` 只放 `component`，`design/modules/` 只放 `module`，以此类推）；`design/sch/<board_id>.teda` 是板的文件（`schematic`）；打印页（`view`）是独立描述类型，放在独立根目录 `views/<board_id>/<page_id>.view.teda`，靠 `.view` 后缀与目录区分（`view <page_id>`，见 [ADR-0035](../docs/adr/view/0035-the-view-layer-is-a-drawing.md)）。`assets/footprints/` 与 `assets/symbols/` 是**库目录**而不是描述目录：它们按库分子目录（`assets/footprints/<lib>/`、`assets/symbols/<lib>/`），库名由目录决定（IR 的 `footprint.library` / `symbol.library`），不进文件内容。`assets/procurement/primary/` 与 `assets/procurement/alternatives/` 只放 `procurement` 文件，文件名是板 id，两者的区别是**哈希级别**（主料规范、备料附注），不是语法（v0.9）。工程树整体按 `docs/adr/project/0008-project-tree-has-owners.md`（本表其余行的路径待同步）。
+文件名必须等于头部 id；不一致报错。`assets/components/` 允许子目录，子目录只用于分类；`component_id` 取文件名（不含 `.teda`），不取相对路径，同一 id 在 `assets/components/` 树内必须唯一。顶层目录与文件类型必须一致（`assets/components/` 只放 `component`，`design/modules/` 只放 `module`，以此类推）；`design/sch/<board_id>.teda` 是板的文件（`schematic`）；打印页（`view`）是独立描述类型，放在独立根目录 `views/<board_id>/<page_id>.view.teda`，靠 `.view` 后缀与目录区分（`view <page_id>`，见 [ADR-0035](../docs/adr/view/0035-the-view-layer-is-a-drawing.md)）。`assets/procurement/primary/` 与 `assets/procurement/alternatives/` 只放 `procurement` 文件，文件名是板 id，两者的区别是**哈希级别**（主料规范、备料附注），不是语法（v0.9）。工程树整体按 `docs/adr/project/0008-project-tree-has-owners.md`（本表其余行的路径待同步）。
+
+**分类目录**（v0.9.2 起，[ADR-0049](../docs/adr/libraries/0049-assets-are-filed-by-what-they-are.md)）：三种资产各自按**自己那根轴**分目录，目录名一律是分类、不进 id、不进文件内容；引用写 `<分类>:<id>`，分类就是那个目录名。
+
+- 器件：`assets/components/<category>/<component_id>.teda`，类别是**这粒料是干什么的**（`passives` / `power` / `regulators` / `sensors` / `mcu` / `indicators` / `mechanical` 之类，词表开放、由作者命名）。
+- 符号：`assets/symbols/<category>/<symbol_id>.teda`，用**器件那根轴**——一个符号归到它所画器件所在的类别；同一个符号被不同类别的器件共用时，由作者选一个。
+- 封装：`assets/footprints/<family>/<footprint_id>.teda`，用**封装自己那根轴**：封装族（`chip` / `sot` / `soic` / `lqfp` / `vqfn` / `crystal` / `inductor` / `tantalum` / `sma` / `switch` 之类，词表开放）。封装是物理事实，按"它是个什么封装"分，不按它装的是什么器件分。
+
+分类目录**只分一层**（`assets/symbols/<category>/<id>.teda`，不再往下）。IR 里 `symbol.library` / `footprint.library` 存的就是这个目录名（`<category>:<id>` / `<family>:<id>`），KiCad 导出时它同时充当库名——一个分类目录对应一个 `.kicad_sym` / `.pretty` 库。缺少分类目录的文件报 `syntax.*`（与顶层目录不一致同一条规则）。
 
 ---
 
@@ -146,7 +154,7 @@ description USB hub with 2 downstream ports
 ## 5. 文件头与版本
 
 ```
-version 0.9.1
+version 0.9.2
 component tps7a02
 ```
 
@@ -486,7 +494,7 @@ ports
 一块板一个 `sch`；板与板之间怎么连，由独立的 `system` 描述表达。决策与理由见 `docs/adr/project/0009-board-linking.md`。
 
 ```
-version 0.9.1
+version 0.9.2
 system cabinet
 
 boards
@@ -646,7 +654,7 @@ nets
 
 `version` 为 `MAJOR.MINOR[.PATCH]`，三位各自无前导零。**PATCH 位可省略，省略即 0**：`0.6` 与 `0.6.0` 是同一个版本，IR 里只存一种写法（`0.6`）。
 
-**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.9.1**。
+**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.9.2**。
 
 各描述类型之间剩下的唯一差别是**下界**：一种描述类型在它被引入之前不存在，所以工具不读比那更早的它的文件。上界对所有描述类型都是同一个——语言当前版本。
 
@@ -664,7 +672,7 @@ nets
 
 下界表由 `packages/parser/src/version.ts` 的 `TYPE_BIRTH` 实现，两者由 `packages/parser/test/version-spec.test.ts` 钉在一起：抬一个类型的下界会让测试红，而不是让规范悄悄过期。
 
-在 `0.x` 阶段**语言版本只走 PATCH 位**（`0.9.1` → `0.9.2`）：加段、加字段一般也不抬 MINOR；抬 MINOR 需要一份决策记录（[ADR-0002](../docs/adr/language/0002-one-language-version-number.md) D5）。
+在 `0.x` 阶段**语言版本只走 PATCH 位**（`0.9.1` → `0.9.2` → `0.9.3`）：加段、加字段一般也不抬 MINOR；抬 MINOR 需要一份决策记录（[ADR-0002](../docs/adr/language/0002-one-language-version-number.md) D5）。
 
 | 位 | 什么时候动 | 动它意味着 |
 |---|---|---|
@@ -704,6 +712,14 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
 ### 13.4 版本沿革
 
 语言的每次版本变化在这里留一条，最新的在前。每条写明改了什么，并指向决定它的那份记录。
+
+#### 0.9.2 — 资产目录变成分类目录（2026-10-30）
+
+- **符号与封装不再按"库"分目录，改成按分类分目录**（决策见 [ADR-0049](../docs/adr/libraries/0049-assets-are-filed-by-what-they-are.md)）：`assets/symbols/<category>/<symbol_id>.teda`（类别与器件同一根轴）、`assets/footprints/<family>/<footprint_id>.teda`（封装族，封装自己的轴）。`assets/components/**` 不变（它本来就是分类目录）。
+- **引用形式变了**：`component.symbol` / `component.footprint` 写成 `<分类>:<id>`（如 `symbol passives:r`、`footprint chip:chip-0402`），不再是 `<lib>:<id>`。IR 的 `symbol.library` / `footprint.library` 存的仍是那个目录名，只是它的含义从"库"变成"分类"。
+- **为什么这是 PATCH**：接受的文件集合没变（一个文件仍然是"一个 id 一个文件、放在 `assets/<类型>/<目录>/` 下"），变的是那个目录名的含义与引用的前缀；工具读旧布局会找不到引用并报"未定义"，不会静默读错。
+- **迁移**：文件要**移动**（从 `assets/symbols/<lib>/` 到 `assets/symbols/<category>/`、从 `assets/footprints/<lib>/` 到 `assets/footprints/<family>/`），并把每个器件的 `symbol` / `footprint` 行改写成新的前缀。这两步是**作者的判断**（分类怎么分、一个符号被多类共用时归哪一类），工具不替人决定；`bun run migrate:0.9 <project dir>` 只改版本行。
+- IR 契约版本不动（分片路径的形状没变：`symbols/<目录>/<id>.json`）；KiCad 导出的库名跟着分类目录走。
 
 #### 0.9.1 — 九条类型版本线合并为一个语言版本号（2026-10-27）
 
@@ -808,7 +824,7 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
 `assets/components/regulators/tps7a02.teda`（一个 `part`）：
 
 ```
-version 0.9.1
+version 0.9.2
 component tps7a02
 
 kind         part
@@ -830,7 +846,7 @@ pins
 `assets/components/passives/cap-tantalum-7343.teda`（一个 `generic`）：
 
 ```
-version 0.9.1
+version 0.9.2
 component cap-tantalum-7343
 
 kind         generic
@@ -855,7 +871,7 @@ pins
 `design/sch/main.teda`：
 
 ```
-version 0.9.1
+version 0.9.2
 schematic main
 
 instances
@@ -875,7 +891,7 @@ ports
 `design/sch/aux.teda`：
 
 ```
-version 0.9.1
+version 0.9.2
 schematic aux
 
 instances
@@ -894,7 +910,7 @@ ports
 `design/sch/power.teda`（一块板 = 一份文件，两个电路写在同一份里）：
 
 ```
-version 0.9.1
+version 0.9.2
 schematic power
 
 instances
@@ -919,7 +935,7 @@ constraints
 `design/sch/power/charger.view.teda`（同一个板的第一个打印页，画给评审看）：
 
 ```
-version 0.9.1
+version 0.9.2
 view charger
 
 place
@@ -935,7 +951,7 @@ wire
 `design/system/main-stack.teda`：
 
 ```
-version 0.9.1
+version 0.9.2
 system main-stack
 
 boards

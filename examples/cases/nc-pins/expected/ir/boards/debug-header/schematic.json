@@ -14,7 +14,7 @@
       "type": "voltage"
     }
   ],
-  "format": "0.9.1",
+  "format": "0.9.2",
   "instances": [
     {
       "component": "hdr-2x5-127",

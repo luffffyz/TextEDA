@@ -91,8 +91,8 @@ describe("review model", () => {
     expect(instance?.params).toContain("10uF");
     expect(instance?.nets).toEqual(["GND", "SYS"]);
     expect(instance?.file).toBe("design/sch/charger-buck.teda");
-    expect(instance?.symbol).toBe("project:c");
-    expect(instance?.footprint).toBe("project:chip-1210");
+    expect(instance?.symbol).toBe("passives:c");
+    expect(instance?.footprint).toBe("chip:chip-1210");
   });
 
   test("a selection carries the source locations behind it", () => {

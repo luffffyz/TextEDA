@@ -29,8 +29,8 @@ describe("IR shard tree layout", () => {
     expect(paths).toContain("boards/charger-buck/pcb.json");
     expect(paths).toContain("boards/charger-buck/view/buck-5v.json");
     expect(paths).toContain("boards/mcu-board/schematic.json");
-    expect(paths).toContain("symbols/project/r.json");
-    expect(paths).toContain("footprints/project/chip-0402.json");
+    expect(paths).toContain("symbols/passives/r.json");
+    expect(paths).toContain("footprints/chip/chip-0402.json");
     expect(paths).toContain("components/bq24610rger.json");
     expect(paths).toContain("components/ch32v307vct6.json");
   });
@@ -86,9 +86,11 @@ describe("IR shard tree layout", () => {
     expect(tree.identity.identities["component:cap-mlcc-1210"]?.[0]?.file).toBe(
       "assets/components/passives/cap-mlcc-1210.teda",
     );
-    expect(tree.identity.identities["symbol:project:c"]?.[0]?.file).toBe("assets/symbols/project/c.teda");
-    expect(tree.identity.identities["footprint:project:chip-1210"]?.[0]?.file).toBe(
-      "assets/footprints/project/chip-1210.teda",
+    expect(tree.identity.identities["symbol:passives:c"]?.[0]?.file).toBe(
+      "assets/symbols/passives/c.teda",
+    );
+    expect(tree.identity.identities["footprint:chip:chip-1210"]?.[0]?.file).toBe(
+      "assets/footprints/chip/chip-1210.teda",
     );
     expect(tree.identity.identities["component-pin:bq24610rger/24"]?.[0]?.file).toBe(
       "assets/components/power/bq24610rger.teda",

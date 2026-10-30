@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 system power-chain
 
 # The two boards of the reference project and how they are wired to each other.

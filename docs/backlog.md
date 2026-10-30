@@ -9,8 +9,7 @@
 
 ## F1. 校准自建封装的几何（footprint 校准）
 
-**现状**：`examples/reference-project/assets/footprints/project/` 下的 16 个封装是**通用 land pattern**——焊盘尺寸与间距按 IPC 通用推荐取整，不是各料号 datasheet 的精确 land pattern（见 `docs/adr/libraries/0131
--the-reference-project-is-self-built.md` decision 5）。每个文件的 `description` 里都写了 `generic land pattern` 作为标记。
+**现状**：`examples/reference-project/assets/footprints/<family>/` 下的 16 个封装是**通用 land pattern**——焊盘尺寸与间距按 IPC 通用推荐取整，不是各料号 datasheet 的精确 land pattern（见 [ADR-0032](adr/libraries/0032-the-reference-project-is-self-built.md) decision 5）。每个文件的 `description` 里都写了 `generic land pattern` 作为标记。
 
 **为什么现在不做**：库级闭环（`bun run lib:verify`：引用可解析、canonical、契约通过、KiCad 能读能渲染、合并板 DRC 0 违规）已经成立，几何精度不影响链路验证。参考工程的价值是"可复现的样本"，不是"厂商级库"。
 

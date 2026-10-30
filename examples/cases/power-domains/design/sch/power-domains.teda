@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 schematic power-domains
 
 # Case 3 of the ten (AGENTS.md §10, docs/backlog.md F12): twenty power domains, one table.

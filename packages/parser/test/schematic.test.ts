@@ -10,6 +10,7 @@ import {
   parseSchematic,
   type ModuleSource,
 } from "../src/schematic.ts";
+import { formatVersion, SUPPORTED_LANGUAGE } from "../src/version.ts";
 import { loadResolver } from "./project.ts";
 
 const projectDir = "examples/reference-project";
@@ -34,7 +35,7 @@ describe("single-file board (mcu-board)", () => {
   test("instances and nets are unique sets of the board", () => {
     const ir = result.ir!;
     expect(ir.board).toBe("mcu-board");
-    expect(ir.format).toBe("0.9.1");
+    expect(ir.format).toBe(formatVersion(SUPPORTED_LANGUAGE));
     expect(ir.instances.length).toBe(21);
     expect(ir.nets.length).toBe(10);
   });

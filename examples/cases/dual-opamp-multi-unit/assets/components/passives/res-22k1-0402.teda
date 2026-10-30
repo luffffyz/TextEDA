@@ -1,4 +1,4 @@
-version 0.9.1
+version 0.9.2
 component res-22k1-0402
 
 # Yageo 22.1k 1% 0402 thick film: the upper leg, giving a non-inverting gain of 3.21.
@@ -7,9 +7,8 @@ mpn          RC0402FR-0722K1L
 manufacturer Yageo
 category     resistor
 
-symbol project:r
-footprint project:chip-0402
-
+symbol passives:r
+footprint chip:chip-0402
 ratings
   value      resistance  22.1k
   tolerance  percent     1%

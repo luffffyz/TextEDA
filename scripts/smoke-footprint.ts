@@ -4,17 +4,20 @@
 // Usage: bun run scripts/smoke-footprint.ts [example-footprint.teda]
 // Artifacts are written under /tmp/texteda-fp-smoke/.
 import { mkdirSync, readFileSync, writeFileSync, rmSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { validate } from "@texteda/ir";
 import type { Footprint } from "@texteda/ir/footprint";
 import { footprintModule, footprintInline, type FootprintBody } from "@texteda/exporter";
 import { canonicalJson, formatDiagnostic, formatFootprint } from "@texteda/parser";
 import { loadFootprint } from "./lib/project.ts";
 
-const example = process.argv[2] ?? "examples/reference-project/assets/footprints/project/sot-23-5.teda";
+const example = process.argv[2] ?? "examples/reference-project/assets/footprints/sot/sot-23-5.teda";
 const work = "/tmp/texteda-fp-smoke";
 rmSync(work, { recursive: true, force: true });
-mkdirSync(join(work, "project.pretty"), { recursive: true });
+// The package family (ADR-0049) is what KiCad sees as the library name.
+const klass = basename(dirname(example));
+const pretty = join(work, `${klass}.pretty`);
+mkdirSync(pretty, { recursive: true });
 mkdirSync(join(work, "gerbers"), { recursive: true });
 
 function isFootprintDoc(value: unknown): value is Footprint {
@@ -23,7 +26,7 @@ function isFootprintDoc(value: unknown): value is Footprint {
 
 // 0) canonical form: the source file must be a fixed point of fmt, otherwise what review sees is noise
 const source = readFileSync(example, "utf8");
-const formatted = formatFootprint(source, { file: example, library: "project" });
+const formatted = formatFootprint(source, { file: example, library: klass });
 if (!formatted.ok || formatted.text !== source) {
   for (const d of formatted.diagnostics) console.error(formatDiagnostic(d));
   console.error("source file is not in canonical form: run bun run fmt:teda " + example);
@@ -32,7 +35,7 @@ if (!formatted.ok || formatted.text !== source) {
 console.log(`[0] canonical form: ${example} is a fmt fixed point`);
 
 // 1) compile: .teda → IR
-const parsed = loadFootprint(example, "project");
+const parsed = loadFootprint(example, klass);
 for (const d of parsed.diagnostics) console.error(formatDiagnostic(d));
 if (!parsed.ok) {
   console.error("compilation failed");
@@ -48,7 +51,7 @@ writeFileSync(join(work, "footprint.json"), canonicalJson(parsed.value));
 console.log(`[1] compiled ${example} → IR (contract passed)`);
 
 // 2) standalone library file
-const modPath = join(work, "project.pretty", `${fp.name}.kicad_mod`);
+const modPath = join(pretty, `${fp.name}.kicad_mod`);
 writeFileSync(modPath, footprintModule(fp));
 console.log(`[2] wrote ${modPath}`);
 
@@ -62,7 +65,7 @@ const svg = Bun.spawnSync([
   "svg",
   "--output",
   svgOut,
-  join(work, "project.pretty"),
+  pretty,
 ]);
 if (svg.exitCode !== 0) {
   console.error("kicad-cli fp export svg failed:", svg.stderr.toString());
@@ -108,10 +111,12 @@ const board = [
 ].join("\n");
 const boardPath = join(work, "smoke.kicad_pcb");
 writeFileSync(boardPath, board);
-// Library table: the footprint id in the board is "project:sot-23-5"; KiCad must be able to find the library by prefix, otherwise DRC reports lib_footprint_issues.
+// Library table: the footprint id in the board is "sot:sot-23-5" (the package family is what KiCad
+// sees as the library name); KiCad must find the library by that prefix, otherwise DRC reports
+// lib_footprint_issues.
 writeFileSync(
   join(work, "fp-lib-table"),
-  `(fp_lib_table\n  (lib (name "project")(type "KiCad")(uri "\${KIPRJMOD}/project.pretty")(options "")(descr ""))\n)\n`,
+  `(fp_lib_table\n  (lib (name "${klass}")(type "KiCad")(uri "\${KIPRJMOD}/${klass}.pretty")(options "")(descr ""))\n)\n`,
 );
 console.log(`[4] wrote board file ${boardPath}`);
 
