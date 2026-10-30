@@ -46,7 +46,7 @@ dsh plugin --profile web add <package>
 ```
 
 The package has to be somewhere the host can fetch: npm, or a git URL. Publishing the plugin is
-tracked as F53; until then, install from a checkout.
+tracked as F5; until then, install from a checkout.
 
 The picture half needs `web`: a terminal profile has no drawing surface (ADR-0043 D9).
 

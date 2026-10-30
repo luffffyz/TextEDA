@@ -313,7 +313,7 @@ dist/ir/
 | `bun run gen:check` | 生成物（IR 类型、`docs/error-codes.md`、`docs/ir-reference.md`）不漂移 | `packages/ir/src/generated/`；[ADR-0038](docs/adr/process/0038-implementation-stack-and-agent-entry.md) |
 | `bun run lib:verify` | 库闭包：引用可解析、无孤儿、引脚号与焊盘号对齐 | `spec/symbol.md` §7、`spec/footprint.md` §7 |
 | `bun run check:links` | 跨引用可解析（链接、章节、ADR 编号、backlog 项、ADR 索引与头部格式） | 本文件 §12 |
-| `bun run check:public` | 公开仓库历史扫描（PDF / 凭据 / 绝对路径 / 邮箱 / license / NOTICE） | [ADR-0039](docs/adr/process/0039-licensing-and-open-standard.md) decision 1；F6 |
+| `bun run check:public` | 公开仓库历史扫描（PDF / 凭据 / 绝对路径 / 邮箱 / license / NOTICE） | [ADR-0039](docs/adr/process/0039-licensing-and-open-standard.md) decision 1 |
 | `bun run fmt:teda --check .` | canonical 格式 | `spec/teda.md` §12 |
 | `bun run cases:check` | 用例语料与期望 IR / 诊断一致 | `examples/cases/` |
 | `bun run texteda check <dir>` | 工程校验：ERC / 绑定 / 器件 / 选料 / 评审轮次 | `spec/teda.md` §11；`spec/pcb.md` §5.2 |

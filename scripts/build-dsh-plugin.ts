@@ -1,7 +1,7 @@
 // Bundle both halves of the DSH plugin.
 //
 // DSH loads a plugin's host half as one file and its client half as one browser module. Our
-// packages are not published (F53), so both bundles carry them; the host's own packages stay
+// packages are not published (F5), so both bundles carry them; the host's own packages stay
 // external, because the host provides them — and for the client half that includes React, which the
 // host serves as a platform module (DSH's `PLATFORM_MODULES`) and this repository must not depend on.
 //

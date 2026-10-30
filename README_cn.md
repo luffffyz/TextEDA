@@ -15,7 +15,7 @@
 >
 > **契约层永久开源**：`spec/`（含 `spec/teda.md`）/ `schemas/` / `examples/` / `tests/` 永远公开可实现，不改为闭源；实现层（`packages/`）可另行许可。定位是**纯开源技术规范**——没有商业计划、没有收入模型、没有付费服务。实现契约所需的一切都免费且不受限制，且不会变。目标只有一个：**被采用**（规范被引用、被实现、被别人的工具链依赖）。
 >
-> GitHub 上仓库**已公开**（[luffffyz/TextEDA](https://github.com/luffffyz/TextEDA)）。公开前的内部信息清扫已通过（`bun run check:public`：历史里没有厂商 datasheet、没有凭据、没有维护者的机器路径），并已固化为每次 push 的门禁。详见 [ADR-0039](docs/adr/process/0039-licensing-and-open-standard.md) 与 `docs/backlog.md` F6。
+> GitHub 上仓库**已公开**（[luffffyz/TextEDA](https://github.com/luffffyz/TextEDA)）。公开前的内部信息清扫已通过（`bun run check:public`：历史里没有厂商 datasheet、没有凭据、没有维护者的机器路径），并已固化为每次 push 的门禁。详见 [ADR-0039](docs/adr/process/0039-licensing-and-open-standard.md)。
 
 ## 现在能做什么
 

@@ -1093,7 +1093,7 @@ function pendingPlaces(): { instance_id: string; x: number; y: number; rot: numb
  *
  * Only a text that differs from the page the app knows is sent: an unchanged editor holds the
  * snapshot, and sending that would write the snapshot over whatever the file says now — the very
- * thing this fixes in the other direction (F54).
+ * thing this fixes in the other direction (ADR-0042 D6).
  */
 function unsavedDraft(current: ReviewPage): string | undefined {
   return unsavedSource(state.draft, current.source);
@@ -1121,7 +1121,7 @@ async function requestPreview(): Promise<void> {
       places,
       commit: false,
       // The unsaved text is the base the layout is computed on, so the preview is the page that
-      // would be written — the edit and the move together (F54).
+      // would be written — the edit and the move together (ADR-0042 D6).
       ...(unsavedDraft(current) === undefined ? {} : { text: unsavedDraft(current) }),
     });
     state.preview = {
@@ -1172,7 +1172,7 @@ async function applyPendingMoves(): Promise<void> {
       places,
       commit: true,
       // The write is the editor's text with the moved rows applied: the edit is not thrown away
-      // by the move (F54).
+      // by the move (ADR-0042 D6).
       ...(draft === undefined ? {} : { text: draft }),
     });
     const next = payload["model"];

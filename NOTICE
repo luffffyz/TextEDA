@@ -77,7 +77,7 @@ Third-party documents not included:
   distributed with this repository: they are third-party copyrighted
   documents. Obtain them from the manufacturer. The local directory
   examples/reference-project/docs/datasheets/ is git-ignored for that
-  reason. See ADR-0039 decision 1 and docs/backlog.md F6.
+  reason. See ADR-0039 decision 1.
 
 Copyright (c) 2019 - Present, Microsoft Corporation,
 with Reserved Font Name Cascadia Code.

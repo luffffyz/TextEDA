@@ -61,7 +61,7 @@ export const REVIEW_VERDICTS = ["accepted", "declined", "deferred"] as const;
 export function checkReviews(facts: ReviewFacts): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
 
-  // Rule 0 (ADR-0037 D5, F33): a project with reviews but no accountable person cannot close
+  // Rule 0 (ADR-0037 D5): a project with reviews but no accountable person cannot close
   // anything, and every decision it writes would be unauthorised. One error, not one per round.
   if (facts.projectOwner === undefined && facts.rounds.some((round) => round.notes.length > 0)) {
     diagnostics.push({

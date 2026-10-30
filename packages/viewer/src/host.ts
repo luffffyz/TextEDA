@@ -24,7 +24,7 @@ export function refusalMessage(payload: Record<string, unknown>): string {
  *
  * A draft that is the same as the page the app knows is not an edit: sending it would write the
  * app's snapshot over whatever the file says now, which is the hazard this seam exists to avoid
- * in the other direction (F54). No draft and an unchanged draft both answer "nothing to send".
+ * in the other direction (ADR-0042 D6). No draft and an unchanged draft both answer "nothing to send".
  */
 export function unsavedSource(draft: string | null, source: string | undefined): string | undefined {
   if (draft === null) return undefined;

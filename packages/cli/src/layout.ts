@@ -45,7 +45,7 @@ export interface LayoutRequest {
    * The page's source as it stands in the editor, when the editor holds one.
    *
    * The layout is computed on this text and the write is this text with the moved rows applied —
-   * not the file on disk. Without it a drag would silently discard every unsaved edit (F54).
+   * not the file on disk. Without it a drag would silently discard every unsaved edit (ADR-0042 D6).
    * Absent means "use the file", which is what the command line and a plugin's request do.
    */
   text?: string;

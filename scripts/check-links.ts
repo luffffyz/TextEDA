@@ -362,20 +362,16 @@ function isHistoricalDoc(where: string): boolean {
   return where.startsWith("docs/adr/") || where.startsWith("docs/trial-run/");
 }
 
-/** Backlog items that are done are removed from the list and recorded as closed in the preamble. */
-function backlogItems(root: string): { open: Set<string>; closed: Set<string> } {
+/** The backlog holds the work that is still open: a done item leaves the list for its record. */
+function backlogItems(root: string): Set<string> {
   const path = join(root, "docs", "backlog.md");
   const open = new Set<string>();
-  const closed = new Set<string>();
-  if (!existsSync(path)) return { open, closed };
+  if (!existsSync(path)) return open;
   for (const line of readFileSync(path, "utf-8").split("\n")) {
     const heading = /^##\s+(F\d+)\./.exec(line);
     if (heading) open.add(heading[1]);
-    // `**F2（…）已关闭**` — the closure list in the preamble is what makes a removed number a valid reference.
-    for (const mention of line.matchAll(/\*\*(F\d+)[（(][^*]{0,120}?已关闭\*\*/g)) closed.add(mention[1]);
   }
-  for (const item of open) closed.delete(item);
-  return { open, closed };
+  return open;
 }
 
 /**
@@ -439,7 +435,7 @@ function referenceRules(
   lineNumber: number,
   line: string,
   declared: Map<string, string[]>,
-  backlog: { open: Set<string>; closed: Set<string> },
+  backlog: Set<string>,
 ): void {
   const report = isHistoricalDoc(where) ? warnings : problems;
   const at = `${where}:${lineNumber}`;
@@ -553,12 +549,13 @@ function referenceRules(
     }
   }
 
-  // Backlog items: an item still in the list has a heading; a closed one is named in the preamble.
+  // Backlog items: an open item has a heading in the list. A number that has no heading is a
+  // pointer to nothing -- the item is done and its conclusion lives in a record instead.
   const codeBlanked = line.replace(/`[^`\n]*`/g, (span) => " ".repeat(span.length));
   for (const match of codeBlanked.matchAll(backlogItemPattern)) {
     const item = `F${match[1]}`;
-    if (backlog.open.has(item) || backlog.closed.has(item)) continue;
-    report.push(`${at}: ${item} is neither an open backlog item nor recorded as closed`);
+    if (backlog.has(item)) continue;
+    report.push(`${at}: ${item} is not an open backlog item`);
   }
 }
 
@@ -641,7 +638,7 @@ function proseRules(
 /**
  * The files that carry decision-record citations outside Markdown: source, contracts, project
  * files, CI workflows and the notice. A citation in any of them is a pointer to a record, and a
- * pointer to a number nobody handed out points at nothing (F51).
+ * pointer to a number nobody handed out points at nothing.
  */
 const citedExtensions = [".ts", ".json", ".toml", ".yml", ".yaml", ".teda"];
 const citedNames = new Set(["NOTICE"]);

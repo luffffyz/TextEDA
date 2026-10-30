@@ -15,7 +15,7 @@ Describe a piece of hardware as **human-written text**: the schematic (`sch`) an
 >
 > **The contract layer is open source forever**: `spec/` (including `spec/teda.md`) / `schemas/` / `examples/` / `tests/` stay public and implementable, never closed. The implementation layer (`packages/`) may be relicensed separately. The positioning is a **pure open technical specification** — no commercial plan, no revenue model, no paid services. Everything needed to implement the contract is free and unencumbered, and that will not change. The goal is adoption: the spec gets cited, implemented, and built on.
 >
-> The GitHub repo is **public** ([luffffyz/TextEDA](https://github.com/luffffyz/TextEDA)). The pre-publication sweep passed (`bun run check:public`: no vendor PDFs in the history, no credentials, no maintainer paths) and is now a machine gate on every push. See [ADR-0039](docs/adr/process/0039-licensing-and-open-standard.md) and `docs/backlog.md` F6.
+> The GitHub repo is **public** ([luffffyz/TextEDA](https://github.com/luffffyz/TextEDA)). The pre-publication sweep passed (`bun run check:public`: no vendor PDFs in the history, no credentials, no maintainer paths) and is now a machine gate on every push. See [ADR-0039](docs/adr/process/0039-licensing-and-open-standard.md).
 
 ## What works now
 

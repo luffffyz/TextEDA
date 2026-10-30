@@ -228,7 +228,7 @@ describe("the layout Apply", () => {
     expect(statSync(file).mtimeMs).toBe(before);
   });
 
-  // The data-loss path (F54): the editor holds text that was never saved, and a move writes the
+  // The data-loss path (ADR-0042 D6): the editor holds text that was never saved, and a move writes the
   // page back. Without the draft in the request, the write is the file on disk and the edit is
   // gone.
   test("a move keeps the editor's unsaved text", () => {

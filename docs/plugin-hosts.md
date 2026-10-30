@@ -122,7 +122,7 @@ tool returns one canonical JSON value, and `output.render` is what the model rea
 bun run scripts/build-dsh-plugin.ts     # one file, with our packages inside it
 ```
 
-The bundle carries our packages because they are not published (F53); the host's own packages
+The bundle carries our packages because they are not published (F5); the host's own packages
 stay external, because the host provides them. The client half — the drawing surface — is the
 review app's business ([ADR-0043](adr/view/0043-the-review-app-is-a-plugin-of-the-agent-workbench.md)).
 
@@ -289,9 +289,10 @@ surface **and** no other route reaches it:
 | Qoder | none found | no | browser |
 | pi / omp | none — no webview, no panel extension point | no | browser |
 
-Two host-native halves, not six. **The DSH one has landed** (`plugins/dsh-texteda/`, backlog F53
-closed): the host half registers the verbs and the two routes, the client half puts the review app
-in a `sidebar.right.pane.tab` whose project root is the session's `cwd`. Claude Code's half is not
+Two host-native halves, not six. **The DSH one has landed** (`plugins/dsh-texteda/`,
+[ADR-0043](adr/view/0043-the-review-app-is-a-plugin-of-the-agent-workbench.md) D9): the host half
+registers the verbs and the two routes, the client half puts the review app in a
+`sidebar.right.pane.tab` whose project root is the session's `cwd`. Claude Code's half is not
 written.
 
 The MCP Apps increment is filed as backlog F59: no host we support is on the client-support list,

@@ -415,10 +415,10 @@ describe("scripts/check-links.ts", () => {
   });
 
   // Backlog numbers are cited from every document, and a done item leaves the list entirely.
-  test("accepts an open backlog item and one recorded as closed", () => {
+  test("accepts a backlog item that is still open", () => {
     const root = makeTree({
-      "docs/backlog.md": "# Backlog\n\n**F2（old work）已关闭** → `docs/adr/README.md`\n\n## F12. Open item\n",
-      "prose.md": "# Prose\n\nSee F12 and F2.\n",
+      "docs/backlog.md": "# Backlog\n\n## F12. Open item\n",
+      "prose.md": "# Prose\n\nSee F12.\n",
       "docs/adr/README.md": minimalIndex,
     });
     try {
@@ -429,7 +429,7 @@ describe("scripts/check-links.ts", () => {
     }
   });
 
-  test("reports a backlog item that is neither open nor closed", () => {
+  test("reports a backlog item that is not open", () => {
     const root = makeTree({
       "docs/backlog.md": "# Backlog\n\n## F12. Open item\n",
       "prose.md": "# Prose\n\nSee F41.\n",
@@ -438,6 +438,22 @@ describe("scripts/check-links.ts", () => {
     try {
       const { problems } = checkRepo(root);
       expect(problems.some((p) => p.includes("F41"))).toBe(true);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  // A record or a trial-run log is history: its dead pointers are advisory, not a failure.
+  test("warns on a closed item cited in a historical document", () => {
+    const root = makeTree({
+      "docs/backlog.md": "# Backlog\n\n## F12. Open item\n",
+      "docs/trial-run/log.md": "# Log\n\nSee F41.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      const { problems, warnings } = checkRepo(root);
+      expect(problems).toHaveLength(0);
+      expect(warnings.some((w) => w.includes("F41"))).toBe(true);
     } finally {
       removeTree(root);
     }
@@ -602,7 +618,7 @@ describe("scripts/check-links.ts", () => {
   });
 
   // The citations outside Markdown: source, contracts, project files, CI and the notice. A number
-  // nobody handed out points at nothing, and nothing noticed it before (F51).
+  // nobody handed out points at nothing, and nothing noticed it before.
   test("reports a decision number cited in code that does not exist", () => {
     const root = makeTree({
       "packages/cli/src/thing.ts": "// see ADR-0005 for the licensing decision\n",

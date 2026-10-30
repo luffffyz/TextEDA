@@ -80,7 +80,6 @@ The target enum is `board:<id>`, `page:<id>` and `component:<id>`. A review whos
 |---|---|
 | The target enum has no `system:` or `project:` | cross-board rounds must be filed against a board (see above) |
 | Requirements, interface tables and analyses are outside the language ([ADR-0040](../adr/process/0040-process-entities-outside-the-language.md)) | requirement coverage can never be a `check` result; it is a reviewer's judgement with citations |
-| The round reporting described in [review-records.md](review-records.md) is not implemented (`docs/backlog.md` F33) | an open round is invisible to `check`; nothing warns that notes have no decision |
-| `owner` is an accepted `project.toml` key but is not projected into the `project` shard | nothing downstream can read who is accountable, so the reporting above cannot be built without a contract change |
+| `owner` is an accepted `project.toml` key but is deliberately outside the IR ([ADR-0037](../adr/view/0037-review-records-and-attribution.md) D5) | nothing downstream can read who is accountable from a shard; `check` reads `project.toml` directly |
 
 None of these stops a review from being useful today: the notes and the decision are files, and the evidence in them is checkable by reading the cited lines.

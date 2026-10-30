@@ -65,7 +65,7 @@ describe("review model", () => {
   });
 
   test("a selection carries the source locations behind it", () => {
-    // F11 D6: the app can name the row in the board/module file, the placement on the page, and the
+    // ADR-0004 D6: the app can name the row in the board/module file, the placement on the page, and the
     // device files without re-parsing anything in the browser.
     const instance = model.sources["instance:charger-buck/M2.C1"] ?? [];
     expect(instance.map((location) => location.kind)).toEqual(["instance", "pcb-place", "view-place"]);

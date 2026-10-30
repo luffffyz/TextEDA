@@ -149,7 +149,7 @@ async function handleApi(
       }
       const places = Array.isArray(body["places"]) ? (body["places"] as LayoutPlace[]) : [];
       // The editor's unsaved text, when the app holds one: the layout is computed on it and the
-      // write is it with the moved rows applied, so a drag cannot discard the edit (F54).
+      // write is it with the moved rows applied, so a drag cannot discard the edit (ADR-0042 D6).
       const draft = typeof body["text"] === "string" ? { text: body["text"] } : {};
       const plan = planLayout(root, { board: board.id, page: page.id, places, ...draft });
       if (body["commit"] === true) {

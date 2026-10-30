@@ -624,7 +624,7 @@ describe("a skipped binding check is reported, not assumed (AGENTS.md §4.4 rule
   });
 });
 
-describe("review rounds (ADR-0037 F33)", () => {
+describe("review rounds (ADR-0037)", () => {
   const ROUND = "# Review of b, round 1\n\nTarget `board:b`. Roles: power.\n\n- power (2026-10-23): the rail has no margin.\n";
 
   /** Add `[project].owner` and an optional decision to a project built by `makeProject`. */
