@@ -1430,8 +1430,10 @@ DSH 侧**代码已落地**：宿主合同读的是官方 cookbook（`@deepseek-a
 1. `packages/cli/src/mcp.ts` 加 `resources/read`（现在是手写的 MCP，没有资源面）。
 2. 一个 `ui://` 资源，内容 `text/html;profile=mcp-app`，里面挂的仍是 `mountReview`——与 DSH 的 tab、独立 app 同一份客户端半边，只是 `api.post` 走 MCP 的工具调用。
 3. 承载它的工具带 `_meta.ui.resourceUri` 指回那个资源。
+4. **服务器侧也要声明这个扩展**：`capabilities.extensions["io.modelcontextprotocol/ui"] = { mimeTypes: ["text/html;profile=mcp-app"] }`。扩展是**双向 opt-in**：两端都声明才生效；一端不支持，另一端要么回退到核心协议行为，要么明确拒绝（`docs/plugin-hosts.md` 之外的规矩，见 MCP 的扩展协商一节）。
+5. **MCP App 在 iframe 里只能调 MCP 工具，调不到我们的 HTTP 路由**——所以"拖动写 `place` 行"需要一条新动词。今天 MCP 侧唯一的写动词是 `texteda_view_rewire`（它写打印页文件，但写的是连线重锚，不是挪符号），挪符号没有对应的 `tools/call`。`ReviewApi.post(path, body)` 这条缝就是为这件事留的：在这条路线上它映射成一次工具调用。
 
-**涉及文件**：`packages/cli/src/mcp.ts`；`packages/viewer/src/client.ts`（多一个宿主入口）；一份新 ADR 记录 MCP Apps 的接线（ADR-0146 只定了路线，没定这个实现）。
+**涉及文件**：`packages/cli/src/mcp.ts`；`packages/cli/src/tools.ts`（新的挪符号动词）；`packages/viewer/src/client.ts`（多一个宿主入口）；一份新 ADR 记录 MCP Apps 的接线（ADR-0146 只定了路线，没定这个实现）。
 
 **验收**：
 
