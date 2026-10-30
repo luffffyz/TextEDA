@@ -1,12 +1,12 @@
-// The review app: one page, no framework, no build step of its own (ADR-0134 decision 7).
+// The review app: one page, no framework, no build step of its own (ADR-0035 decision 7).
 //
 // What it is allowed to do: show the SVG the renderer produced, add behaviour to it (hover, click,
 // pan, zoom), and report what the page is made of. What it must not do: place symbols, move wires,
 // or write anything back — the drawing is a function of (logic IR, view IR), and a viewer that
-// adjusted it would become a second source of truth (ADR-0134, AGENTS.md §2 invariant 3).
+// adjusted it would become a second source of truth (ADR-0035, AGENTS.md §2 invariant 3).
 //
 // The app is mounted, not loaded: `mountReview(root, model, api)` hands it a place to draw, a
-// model to draw, and a channel to ask its host for a write (ADR-0142 D2). The standalone page
+// model to draw, and a channel to ask its host for a write (ADR-0043 D2). The standalone page
 // (`./client.ts`) and a plugin host both call it, and neither is the app's only caller.
 import { definitionLocations, editorUri } from "./definitions.ts";
 import { APP_ROOT_CLASS, APP_STYLES } from "./styles.ts";
@@ -47,7 +47,7 @@ const DIAGNOSTIC_PREVIEW = 5;
 const INSTANCE_PREVIEW = 60;
 /**
  * The grid a placement snaps to: 1.27 mm, the 0.05 inch the pin pitch is made of. The view's own
- * grid is finer (0.01 mm); this one is the step a person can hit by eye (ADR-0141 D4).
+ * grid is finer (0.01 mm); this one is the step a person can hit by eye (ADR-0042 D4).
  */
 const SNAP_MM = 1.27;
 let expanded = false;
@@ -70,7 +70,7 @@ interface PendingPlace {
  * standalone server re-anchors the wires a move disturbs and reports what it could not keep
  * (`conflicts`) or had to put back (`reseated`); a host that may write only `place` rows writes no
  * wire at all and reports the nets whose wires went stale (`stale`), for `texteda view rewire` to
- * finish (ADR-0142 D10). The drawing is the same in every case; only the repair differs.
+ * finish (ADR-0043 D10). The drawing is the same in every case; only the repair differs.
  */
 interface Preview {
   svg: string;
@@ -100,7 +100,7 @@ interface AppState {
   definitionsOpen: boolean;
   /** Set once the reviewer pans or zooms: a window resize must not undo their framing. */
   adjusted: boolean;
-  /** Which of the app's four modes is showing (ADR-0141 D1). */
+  /** Which of the app's four modes is showing (ADR-0042 D1). */
   mode: ReviewMode;
   /** The layout mode's moves: the instance id → where the user put it. */
   pending: Map<string, PendingPlace>;
@@ -178,7 +178,7 @@ function resetDraft(): void {
 
 // --- the modes ------------------------------------------------------------------------------
 //
-// Four modes, one app (ADR-0141 D1). They share everything that finds a thing — the selection, the
+// Four modes, one app (ADR-0042 D1). They share everything that finds a thing — the selection, the
 // hover mark, the jump to its source — and differ only in what the stage shows and what a press
 // means. A mode that the current board cannot offer is not offered: there is no page to lay out and
 // no board description to place parts on.
@@ -198,7 +198,7 @@ const MODE_HINT: Record<ReviewMode, string> = {
   edit: "The page's source, and the drawing of it.",
 };
 
-/** The modes this board and this host both allow (ADR-0142 D6). */
+/** The modes this board and this host both allow (ADR-0043 D6). */
 function modesFor(current: ReviewBoard | undefined): ReviewMode[] {
   return availableModes(current, model.capability);
 }
@@ -208,7 +208,7 @@ function modesFor(current: ReviewBoard | undefined): ReviewMode[] {
  *
  * A board with no `pcb` description cannot show its physical canvas, and a board with no print
  * page cannot be laid out or edited; those are the project's facts. A mode the board has but the
- * host does not grant is the host's decision and says so (ADR-0142 D3).
+ * host does not grant is the host's decision and says so (ADR-0043 D3).
  */
 function missingReason(mode: ReviewMode): string {
   if (!availableModes(board(), undefined).includes(mode)) {
@@ -429,7 +429,7 @@ function renderBoards(): void {
     if (candidate.pages.length === 0) {
       group.append(el("div", "page-note", candidate.note ?? "no view file: the board has no drawing"));
       // No drawing is not no design: the board's instances are still there to look at, and this is
-      // the only way to reach them from the app (ADR-0134 decision 6: report, never invent a layout).
+      // the only way to reach them from the app (ADR-0035 decision 6: report, never invent a layout).
       const list = el("div", "instance-list");
       for (const instance of candidate.instances.slice(0, INSTANCE_PREVIEW)) {
         const item = el("button", "instance-name", instance.id);
@@ -670,7 +670,7 @@ function renderStage(keepSelection = false): void {
  * The layout mode's pending moves, drawn where the user put them.
  *
  * The renderer groups what belongs to one instance under `data-ref`, so a moved symbol is moved by
- * transforming its groups (ADR-0141 D2). The transform is the same one the renderer would have
+ * transforming its groups (ADR-0042 D2). The transform is the same one the renderer would have
  * applied: a turn about the old origin, then a move to the new one.
  */
 function applyPending(svg: SVGSVGElement): void {
@@ -838,7 +838,7 @@ function overlay(svg: SVGSVGElement, symbols: ReviewSymbol[], texts: ReviewText[
     rect.dataset["id"] = highlight.id;
     // The hotspot also carries the drawing's identity, so a press resolved by position (`pickedAt`)
     // finds the object from its box and not only from its ink: the edit mode jumps to a row from
-    // whatever was clicked, and a 0402's body is a 0.4 mm stroke (ADR-0141 D2, D7).
+    // whatever was clicked, and a 0402's body is a 0.4 mm stroke (ADR-0042 D2, D7).
     rect.setAttribute("data-ref", `${highlight.kind === "symbol" ? "instance" : "text"}:${highlight.id}`);
     boxOf.set(rect, box);
     rect.addEventListener("mouseenter", () => {
@@ -1061,7 +1061,7 @@ function renderInspector(): void {
 
 // --- the server ------------------------------------------------------------------------------
 //
-// The browser asks; the server writes (ADR-0141 D9). The app never touches the file system, and a
+// The browser asks; the server writes (ADR-0042 D9). The app never touches the file system, and a
 // static export — a document with no server behind it — says so instead of pretending.
 
 /** Whether this document was served by the CLI, and can therefore write. */
@@ -1103,7 +1103,7 @@ function unsavedDraft(current: ReviewPage): string | undefined {
  * Ask the server what the page would look like after the pending moves.
  *
  * The answer is the page with its wires re-anchored — not routed, re-anchored: the wires keep
- * their shape and get their corners back (ADR-0141 D5). Nothing is written.
+ * their shape and get their corners back (ADR-0042 D5). Nothing is written.
  */
 async function requestPreview(): Promise<void> {
   const places = pendingPlaces();
@@ -1135,7 +1135,7 @@ async function requestPreview(): Promise<void> {
     updateActions();
     renderStage(true);
     // A stale net is the places-only path's version of a conflict: the move happened, the wire no
-    // longer reaches its pin, and `texteda view rewire` is what puts it back (ADR-0142 D10).
+    // longer reaches its pin, and `texteda view rewire` is what puts it back (ADR-0043 D10).
     const notes = [
       ...state.preview.conflicts,
       ...state.preview.reseated.map((note) => `${note} put back`),
@@ -1192,7 +1192,7 @@ async function applyPendingMoves(): Promise<void> {
     const conflicts = (payload["conflicts"] as string[] | undefined) ?? [];
     const stale = (payload["stale"] as string[] | undefined) ?? [];
     // A net that went stale is a wire the write did not touch: this host may write only `place`
-    // rows, and the wire is `texteda view rewire`'s to put back (ADR-0142 D10).
+    // rows, and the wire is `texteda view rewire`'s to put back (ADR-0043 D10).
     const repairs = [
       ...(conflicts.length === 0 ? [] : [`${conflicts.length} wire could not keep their shape`]),
       ...(stale.length === 0 ? [] : [`${stale.length} net stale: run \`texteda view rewire\``]),
@@ -1349,7 +1349,7 @@ function onStagePointerDown(event: PointerEvent): void {
   dragging = { x: event.clientX, y: event.clientY, panX: state.panX, panY: state.panY, moved: false };
   frame.stage.setPointerCapture(event.pointerId);
   frame.stage.classList.add("dragging");
-  // In the layout mode a press on a symbol is a drag of that symbol, not a pan (ADR-0141 D4).
+  // In the layout mode a press on a symbol is a drag of that symbol, not a pan (ADR-0042 D4).
   if (state.mode !== "layout" || pressed === null || pressed.kind !== "symbol") return;
   const from = placedPlaces().get(pressed.id);
   const start = sheetPoint(event);
@@ -1413,7 +1413,7 @@ const stopDrag = (event: PointerEvent): void => {
   frame.stage.classList.remove("dragging");
   if (drag !== null && drag.moved) {
     // The symbol was moved: ask the server what the page would look like, so the wires can be
-    // re-anchored before anything is written (ADR-0141 D5).
+    // re-anchored before anything is written (ADR-0042 D5).
     lastPress = null;
     void requestPreview();
     return;
@@ -1475,7 +1475,7 @@ function pickedAt(clientX: number, clientY: number): Element | null {
  *
  * The renderer gives every drawn object its identity (`data-ref`, `data-net`), so the modes that
  * are not about the page's rows can work from the drawing alone: the placement mode highlights a
- * net, the edit mode puts the cursor on the row the object came from (ADR-0141 D2).
+ * net, the edit mode puts the cursor on the row the object came from (ADR-0042 D2).
  */
 function onStageHover(event: PointerEvent): void {
   if (state.mode !== "placement") return;
@@ -1533,7 +1533,7 @@ function onKeyDown(event: KeyboardEvent): void {
     rotateSelected();
     event.preventDefault();
   } else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-    // Apply: the page file is written (ADR-0141 D5: Apply is the commit point).
+    // Apply: the page file is written (ADR-0042 D5: Apply is the commit point).
     void applyPendingMoves();
     event.preventDefault();
   } else if (event.key === "Enter") {

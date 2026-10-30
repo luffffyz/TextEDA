@@ -1,10 +1,10 @@
 # `view` 描述规范（草案）
 
-状态：草案。决策与取舍见 `docs/adr/view/0134-the-view-layer-is-a-drawing.md`（视图层）与 `docs/adr/schematic/0111-one-flat-schematic-per-board.md`（板只有一份原理图文件，绘制划分是打印页）；跨描述通用的词法、单位、版本、canonical 规则见 `teda.md` §3–§5、§10、§12。
+状态：草案。决策与取舍见 `docs/adr/view/0035-the-view-layer-is-a-drawing.md`（视图层）与 `docs/adr/schematic/0012-one-flat-schematic-per-board.md`（板只有一份原理图文件，绘制划分是打印页）；跨描述通用的词法、单位、版本、canonical 规则见 `teda.md` §3–§5、§10、§12。
 
 本文件是 `teda.md` 的分描述补充：`.teda` 语言的共用规则在 `teda.md`，`view` 这一类描述的具体段定义在这里。
 
-**语言版本**：所有 `.teda` 文件写的是**同一个语言版本号**（当前 `0.9.1`，见 `teda.md` §13.1）。`view` 的下界是 `0.7`：0.6 引入打印页，0.7 起视图里的 id 从"页内局部名"改为"板级名"（`docs/adr/schematic/0111-one-flat-schematic-per-board.md` decision 4），所以 0.6 的视图文件不再被接受（接受规则见 `teda.md` §13.3）。
+**语言版本**：所有 `.teda` 文件写的是**同一个语言版本号**（当前 `0.9.1`，见 `teda.md` §13.1）。`view` 的下界是 `0.7`：0.6 引入打印页，0.7 起视图里的 id 从"页内局部名"改为"板级名"（`docs/adr/schematic/0012-one-flat-schematic-per-board.md` decision 4），所以 0.6 的视图文件不再被接受（接受规则见 `teda.md` §13.3）。
 
 ---
 
@@ -12,7 +12,7 @@
 
 `view` 描述表达**一块板的一个"打印页"的"画"**：符号摆在哪、走线怎么走、标签与板端口在哪。
 
-它是原理图逻辑（S0）与渲染器之间的那一层，也就是 `AGENTS.md` §3 分层表里的 **S1**。四条底线（`AGENTS.md` §2、[ADR-0134](../docs/adr/view/0134-the-view-layer-is-a-drawing.md) decision 1 6）：
+它是原理图逻辑（S0）与渲染器之间的那一层，也就是 `AGENTS.md` §3 分层表里的 **S1**。四条底线（`AGENTS.md` §2、[ADR-0035](../docs/adr/view/0035-the-view-layer-is-a-drawing.md) decision 1 6）：
 
 1. **视图不是第二个真源**。引脚电气类型、net 成员、器件身份都在板文件（`schematic`）里；`view` 只按同样的身份键（`instance_id` / `pin_number` / `net_id`）**引用**它们，不复述。视图与逻辑不一致是缺陷，要报出来。
 2. **渲染器只画不摆**。视图里没有坐标，就没有图；渲染器不会替人排版。理由：自动排版每次渲染结果都不同，人无法把重叠的标签挪开，`AGENTS.md` §6 的可读性检查（文字重叠、线压引脚、标签碰撞、越界、连线穿过符号）也就检查不出任何东西。
@@ -39,13 +39,13 @@
 
 所以视图里写 `U1.5`、`GND`，指的是**板上**的 U1 的 5 号脚、**板上**的 GND net——与板文件里的字符串逐字相同，没有第二套名字要解析。
 
-**视图用的是板的身份语言，不是它的一部分**：板级 `instance_id`、`net_id` 是什么形状，视图里就是什么形状。当前版本的视图仍按**显示名**引用实例（`U1`、`M1.U1`）；实例的稳定 `uid`（[ADR-0109](../docs/adr/project/0109-instance-identity-is-a-uid.md)）是板级记录的字段，view/pcb 的引用重键不在本版。将来模块层次落地后，模块实例的 id 是 `M1.U1`、模块内部 net 是 `M1.VCC`，视图照样直接写这些名字（引脚引用是 `M1.U1.5`）——因为视图只**引用**身份，不定义身份。视图不认识的写法（比如两个点的 `A.B.C`）在解析期就报错。
+**视图用的是板的身份语言，不是它的一部分**：板级 `instance_id`、`net_id` 是什么形状，视图里就是什么形状。当前版本的视图仍按**显示名**引用实例（`U1`、`M1.U1`）；实例的稳定 `uid`（[ADR-0010](../docs/adr/project/0010-instance-identity-is-a-uid.md)）是板级记录的字段，view/pcb 的引用重键不在本版。将来模块层次落地后，模块实例的 id 是 `M1.U1`、模块内部 net 是 `M1.VCC`，视图照样直接写这些名字（引脚引用是 `M1.U1.5`）——因为视图只**引用**身份，不定义身份。视图不认识的写法（比如两个点的 `A.B.C`）在解析期就报错。
 
 打印页是**绘制与打印的划分单元**，不是逻辑的划分单元：画不下、评审想分块看，就多写一个打印页；逻辑始终只有一份。**没有打印页是合法状态**：板仍然可校验、可导网表，只是不可画。评审界面要如实报"此板无打印页"，不能自己排一张。
 
 一个板可以有多个打印页（`charger-power`、`buck-5v`），每个打印页画板上的一部分器件；各打印页画到的 net 与端口都是**板级**的，重名不存在。
 
-决策见 `docs/adr/schematic/0111-one-flat-schematic-per-board.md`。
+决策见 `docs/adr/schematic/0012-one-flat-schematic-per-board.md`。
 
 ---
 
@@ -79,7 +79,7 @@ view main
   为什么必须细到这个量级：走线**只能走 90 度**（§5），而一条离开引脚的线必须先在**引脚自己的那一行或那一列**上，再拐弯；引脚的偏置是 1.27 mm（0.05 in）的整数倍，0.1 mm 网格表达不了 1.27（12.7 格），于是"正交出线"在看到第一根引脚时就不可能。0.01 mm 下 1.27 mm 正好是 127 格，任何引脚落点都能被折点对齐。超出网格仍报 `value.length-invalid`。
 - 原点 = **图幅的左上角**；**+x 向右，+y 向下**（与 SVG 的坐标系一致，渲染器不需要翻转）。
 - 旋转角度单位为度，**顺时针为正**，缺省 `0`。
-- IR 里长度一律是整数纳米（`_nm`）、角度是整数毫度（`_mdeg`），见 `AGENTS.md` §2 第 18 条与 `docs/adr/ir/0105-ir-shards-and-hashes.md` decision 7。
+- IR 里长度一律是整数纳米（`_nm`）、角度是整数毫度（`_mdeg`），见 `AGENTS.md` §2 第 18 条与 `docs/adr/ir/0006-ir-shards-and-hashes.md` decision 7。
 
 ---
 
@@ -213,7 +213,7 @@ text
 
 校验分两层：**文件自身能回答的**（解析器做）与**需要板才能回答的**（板交叉校验做，`packages/core`）。下表最后一列是落地状态。
 
-板交叉校验在 `texteda check` 里跑（[ADR-0137](../docs/adr/process/0137-implementation-stack-and-agent-entry.md) 是校验入口）；`texteda ir` 只把分片写出来，不做交叉校验——视图是附注分片，不参与构建身份（[ADR-0105](../docs/adr/ir/0105-ir-shards-and-hashes.md)）。
+板交叉校验在 `texteda check` 里跑（[ADR-0038](../docs/adr/process/0038-implementation-stack-and-agent-entry.md) 是校验入口）；`texteda ir` 只把分片写出来，不做交叉校验——视图是附注分片，不参与构建身份（[ADR-0006](../docs/adr/ir/0006-ir-shards-and-hashes.md)）。
 
 ### 9.1 错误（阻断）
 
@@ -231,7 +231,7 @@ text
 
 | 码 | 触发 | 状态 |
 |---|---|---|
-| `view.nets-not-drawn` | 板里**成员数 ≥ 2** 的 net 在**所有**打印页上都既没有走线也没有标签——图上看不出它连着。一块板报**一条**，带数量与前十个 net 名（画到一半是正常状态，它需要说得出来，不是被禁止——同 [ADR-0118](../docs/adr/pcb/0118-a-partial-layout-is-legal.md) D4 的分寸）。没有任何打印页的板**不报**：有逻辑、无视图是合法状态 | 已实现（板交叉校验，`packages/core/src/view/checks.ts`） |
+| `view.nets-not-drawn` | 板里**成员数 ≥ 2** 的 net 在**所有**打印页上都既没有走线也没有标签——图上看不出它连着。一块板报**一条**，带数量与前十个 net 名（画到一半是正常状态，它需要说得出来，不是被禁止——同 [ADR-0019](../docs/adr/pcb/0019-a-partial-layout-is-legal.md) D4 的分寸）。没有任何打印页的板**不报**：有逻辑、无视图是合法状态 | 已实现（板交叉校验，`packages/core/src/view/checks.ts`） |
 | `view.label-not-on-net` | 标签没落在该 net 的走线或引脚上（该 net 在本页**有画走线**时才判：整条 net 没画是 `view.nets-not-drawn` 的事，不逐标签重复） | 已实现（可读性检查，`packages/core/src/view/readability.ts`） |
 | `view.port-not-on-net` | 端口符号没落在该 net 的走线或引脚上（同一前提） | 已实现（可读性检查，同上） |
 | `view.wire-crosses-symbol` | 走线穿过某个符号的本体（`AGENTS.md` §6 的可读性检查）；本体取符号**图形**的包围盒，不含文字字段 | 已实现（可读性检查，同上） |
@@ -243,9 +243,9 @@ text
 
 > **不同 net 的走线交叉不报警**：§5.1 的读法只有一条（有点 = 连接，没点 = 不连接），所以交叉本身不是缺陷；`view.wire-crossing` 已废弃，只为旧报告保留码表行，`check` 不再发出。
 
-> 码表见 `docs/error-codes.md`（由 `packages/ir/src/diagnostics/codes.ts` 生成）。诊断码按"错误的种类"分域，不按发现阶段分（[ADR-0102](../docs/adr/language/0102-diagnostic-error-codes.md)）："引用了不存在的东西"在 `view` 里和在 `sch` 里是同一类错误，所以复用 `ref.*`；"角度不合法"复用 `value.angle-invalid`。`view` 域是本描述引入的新域，授权见 [ADR-0134](../docs/adr/view/0134-the-view-layer-is-a-drawing.md)。
+> 码表见 `docs/error-codes.md`（由 `packages/ir/src/diagnostics/codes.ts` 生成）。诊断码按"错误的种类"分域，不按发现阶段分（[ADR-0003](../docs/adr/language/0003-diagnostic-error-codes.md)）："引用了不存在的东西"在 `view` 里和在 `sch` 里是同一类错误，所以复用 `ref.*`；"角度不合法"复用 `value.angle-invalid`。`view` 域是本描述引入的新域，授权见 [ADR-0035](../docs/adr/view/0035-the-view-layer-is-a-drawing.md)。
 >
-> **注册表只登记"已发出"的码**（[ADR-0102](../docs/adr/language/0102-diagnostic-error-codes.md) decision 7：码表是唯一真源，发出即冻结）。本表全部十个码都已发出并登记。
+> **注册表只登记"已发出"的码**（[ADR-0003](../docs/adr/language/0003-diagnostic-error-codes.md) decision 7：码表是唯一真源，发出即冻结）。本表全部十个码都已发出并登记。
 >
 > **几何从渲染器来，不从检查器推**。文字宽度、符号本体范围、引脚落点都由 `packages/renderer` 的 `schematicGeometry` 按**实际画法**算出（同一套变换、同一套笔画字体度量），检查器只判断"压没压住""在不在线上"。检查器自己再算一遍就会和读者看到的东西漂移，那正是可读性检查要防的那类错误。
 >
@@ -274,7 +274,7 @@ text
 
 ### 9.5 可反解（round-trip）
 
-渲染器只读（`AGENTS.md` §2 不变量 3），所以它画的每一页都必须能反解回"这一页说了什么"——`extract(render(ir)) == ir`（不变量 4，[ADR-0135](../docs/adr/view/0135-our-own-reference-renderer.md) decision 5）。
+渲染器只读（`AGENTS.md` §2 不变量 3），所以它画的每一页都必须能反解回"这一页说了什么"——`extract(render(ir)) == ir`（不变量 4，[ADR-0036](../docs/adr/view/0036-our-own-reference-renderer.md) decision 5）。
 
 **比的是语义投影，不是 IR 本身**。一张打印页的语义是落在纸面上的东西：图幅大小、引脚连接点与朝向、符号自身的图形、走线折点、标签与注释的文字与位置、端口标签的尖点与朝向，全部在**绝对图纸坐标**里。以下故意不在投影里：
 
@@ -311,7 +311,7 @@ text
 
 ### 9.4.1 打印页的命令（`texteda view`）
 
-打印页作用域的命令归在一个名词底下（[ADR-0143](../docs/adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D6）：
+打印页作用域的命令归在一个名词底下（[ADR-0044](../docs/adr/process/0044-the-agent-surface-is-a-set-of-verbs.md) D6）：
 
 | 命令 | 做什么 |
 |---|---|
@@ -321,7 +321,7 @@ text
 
 **`view rewire` 做什么**：走线行的端点写的是**引脚引用**，所以符号一动端点就跟着动，而折点留在原地——走线会歪（`view.wire-diagonal`）。`view rewire` 把折点重新算出来：中间的折点坐标不动，两端按引脚现在的位置重算。方向从走线自己读出来：相邻两段不能同向（同向就是一条线），所以端段的轴向由它旁边那一段决定（`packages/core/src/view/reroute.ts` 的 `rerouteWire`）。
 
-**它不是路由器**：不搜索、不绕行、不看符号本体；内部有斜段的走线只**报冲突**（ADR-0141 D6），不重画。
+**它不是路由器**：不搜索、不绕行、不看符号本体；内部有斜段的走线只**报冲突**（ADR-0042 D6），不重画。
 
 ---
 

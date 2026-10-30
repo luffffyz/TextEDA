@@ -1,4 +1,4 @@
-// The copper-fill policy (ADR-0117 D3): what a pour keeps clear of and what copper it leaves.
+// The copper-fill policy (ADR-0018 D3): what a pour keeps clear of and what copper it leaves.
 // Synthetic boards — the fill consumes geometry, nets and rules only, so no .teda and no library.
 import { contains, regionArea, type Region } from "@texteda/geom";
 import { irVersion } from "@texteda/ir";

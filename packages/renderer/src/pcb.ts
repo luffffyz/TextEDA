@@ -1,8 +1,8 @@
-// The board as a drawing: the placement canvas (ADR-0141 D1).
+// The board as a drawing: the placement canvas (ADR-0042 D1).
 //
 // What the canvas shows is what the board says: the outline, the placed parts with their pads and
 // courtyards, the copper and the silkscreen. The renderer draws the IR and invents nothing. In
-// particular a copper pour's *fill* is not in the IR -- only the intent to pour is (ADR-0117 D3) --
+// particular a copper pour's *fill* is not in the IR -- only the intent to pour is (ADR-0018 D3) --
 // so the canvas draws the zone's outline and stays silent about the copper inside it.
 //
 // Board coordinates: the board frame, in which +y points **down** (the IR's "board frame", the same
@@ -17,14 +17,14 @@ import type { SvgDoc, SvgPrimitive } from "./svg.ts";
 
 /** A part the board places. */
 export interface PcbCanvasPart {
-  /** Board-flat instance id: `U1`, `M2.U1` (ADR-0112 D2). */
+  /** Board-flat instance id: `U1`, `M2.U1` (ADR-0013 D2). */
   instance_id: string;
   footprint: Footprint;
   /**
    * The value the board prints for the instance (`10k`, `100nF`, an MPN).
    *
    * A value is not a fact of the land pattern, so the canvas cannot derive it: the caller that knows
-   * the schematic supplies it, exactly like the manufacturing export does (ADR-0123).
+   * the schematic supplies it, exactly like the manufacturing export does (ADR-0024).
    */
   value?: string;
 }
@@ -34,7 +34,7 @@ export interface PcbCanvasOptions {
   /**
    * The parts the board places. A part the board places but the schematic does not know contributes
    * no pads: the canvas draws what it can resolve and leaves the rest to the binding check
-   * (ADR-0118).
+   * (ADR-0019).
    */
   parts: readonly PcbCanvasPart[];
   /** `<instance_id>.<pad_number>` -> net id: the schematic's net for a pad. */

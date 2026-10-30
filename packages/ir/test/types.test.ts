@@ -67,7 +67,7 @@ test("generated types match the contract", () => {
 
 // Every definition in `$defs` must get a named type: they are the contract surface for third-party implementations.
 // Regression point: adding a sibling `description` to a `$ref` makes json-schema-to-typescript inline the reference,
-// and the name silently disappears (the generator holds the line with `unreachableDefinitions`, see ADR-0137).
+// and the name silently disappears (the generator holds the line with `unreachableDefinitions`, see ADR-0038).
 test("every definition in the contract has a named type", async () => {
   const text = await Bun.file(
     new URL("../src/generated/types/schematic.ts", import.meta.url),

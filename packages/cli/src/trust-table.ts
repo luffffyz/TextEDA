@@ -1,5 +1,5 @@
 // A consumer trust table: what an organisation vouches for about libraries it does not own
-// (ADR-0133). A library that somebody else maintains will not carry our `library.toml`, so the
+// (ADR-0034). A library that somebody else maintains will not carry our `library.toml`, so the
 // record of "we looked at these files at these revisions" has to live on the consuming side.
 //
 // The importer is given the path (`lib import --trust <file>`); nothing discovers it. The table is
@@ -8,7 +8,7 @@
 // a build.
 //
 // Same TOML subset as `library.toml` (`packages/parser/src/toml.ts`) — tables, arrays of tables,
-// strings — plus a mandatory `library` key and the same per-item shape (ADR-0133 decision 10): a row
+// strings — plus a mandatory `library` key and the same per-item shape (ADR-0034 decision 10): a row
 // is one act, and every item names the revision it was checked at. There is no whole-library form
 // and no row-level revision: a row states what was verified, and "we ship everything unreviewed
 // anyway" is a policy about a board, not a fact about a library.
@@ -35,7 +35,7 @@ const ENTRY_KEYS: Record<string, true> = { library: true, ...TRUST_ROW_KEYS };
 /**
  * Read a consumer trust table. Every departure is an error naming its line: a record that is
  * silently misread would vouch for a revision nobody looked at, which is worse than no record at
- * all (ADR-0133 decision 5, ADR-0133 decision 9).
+ * all (ADR-0034 decision 5, ADR-0034 decision 9).
  */
 export function readTrustTable(text: string, file: string): TrustTableResult {
   const toml = parseToml(text, { file });
@@ -67,7 +67,7 @@ export function readTrustTable(text: string, file: string): TrustTableResult {
         if (ENTRY_KEYS[key] === true) continue;
         if (key === "rev") {
           errors.push(
-            `${path(key)}: a [[trust]] row has no \`rev\`: every item names its revision (\`id@rev\`), so one row is one act (ADR-0133)`,
+            `${path(key)}: a [[trust]] row has no \`rev\`: every item names its revision (\`id@rev\`), so one row is one act (ADR-0034)`,
           );
           continue;
         }

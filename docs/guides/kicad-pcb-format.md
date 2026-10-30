@@ -1,6 +1,6 @@
 # KiCad 导出目标：`.kicad_pcb` / `.kicad_pro` 的字段级映射
 
-状态：试跑基线（2026-10-20，KiCad 10.0.7）· 对应 `docs/adr/manufacturing/0120-the-manufacturing-output-path.md` decisions 10, 13
+状态：试跑基线（2026-10-20，KiCad 10.0.7）· 对应 `docs/adr/manufacturing/0021-the-manufacturing-output-path.md` decisions 10, 13
 
 本文件是**导出目标**的规格：IR 的每一段落到 KiCad 工程里的哪个位置、哪些落不下（要报告的损失）。
 它不描述 IR 语义（那在 `spec/pcb.md`），也不描述 KiCad 自己的格式细节（那是 KiCad 的文档与源码的事）。
@@ -77,4 +77,4 @@ DRC 报告就不干净。板文件里封装是内联的，但 `(footprint "LIB:N
 ## 5. 复现
 
 试跑基线与命令见 `docs/trial-run/charger-buck/README.md`（含 DRC 报告、Gerber 清单、`.kicad_pro`、库表）。
-`docs/adr/manufacturing/0120-the-manufacturing-output-path.md` decision 10 的逐项核对表，就以本文件的"状态"列作为底账。
+`docs/adr/manufacturing/0021-the-manufacturing-output-path.md` decision 10 的逐项核对表，就以本文件的"状态"列作为底账。

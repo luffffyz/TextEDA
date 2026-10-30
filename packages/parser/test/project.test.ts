@@ -168,7 +168,7 @@ name = "other"
   });
 });
 
-describe("owner (ADR-0136 D5)", () => {
+describe("owner (ADR-0037 D5)", () => {
   test("is returned beside the IR, not inside it", () => {
     const result = parse(`${MINIMAL}owner = "carol"\n`);
     expect(result.diagnostics).toEqual([]);

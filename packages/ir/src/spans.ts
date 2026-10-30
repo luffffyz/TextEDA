@@ -1,10 +1,10 @@
-// Source positions of IR records (ADR-0103).
+// Source positions of IR records (ADR-0004).
 //
 // A span is where a record of a `.teda` file starts. It never enters the IR: the IR bytes depend on
 // the semantics alone (AGENTS.md §10), and a line number is a function of the line order. The parser
 // keeps the spans beside the IR and hands them to whoever turns a diagnostic into a located one.
 //
-// Shape fixed by ADR-0103 D3: `col` counts Unicode scalars (1-based), `byte` counts UTF-8 bytes
+// Shape fixed by ADR-0004 D3: `col` counts Unicode scalars (1-based), `byte` counts UTF-8 bytes
 // (0-based), `end` is exclusive and optional.
 
 export interface SpanEnd {
@@ -25,7 +25,7 @@ export interface Span {
 /**
  * IR path (RFC 6901 JSON Pointer) → span of the source record that produced it.
  *
- * Record level only (ADR-0103 D4): `/instances/3`, not `/instances/3/params/0`. A diagnostic deep
+ * Record level only (ADR-0004 D4): `/instances/3`, not `/instances/3/params/0`. A diagnostic deep
  * inside a record resolves to the record's span by longest prefix.
  */
 export type SourceMap = Map<string, Span>;

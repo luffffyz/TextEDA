@@ -48,7 +48,7 @@ dsh plugin --profile web add <package>
 The package has to be somewhere the host can fetch: npm, or a git URL. Publishing the plugin is
 tracked as F53; until then, install from a checkout.
 
-The picture half needs `web`: a terminal profile has no drawing surface (ADR-0142 D9).
+The picture half needs `web`: a terminal profile has no drawing surface (ADR-0043 D9).
 
 ## What the model sees
 
@@ -66,7 +66,7 @@ mounts the app; the project root is the session's `cwd`, so the tab reviews the 
 is working in.
 
 The tab offers `review` and `layout` only. `edit` is not offered: the source is the agent's to
-write, and the plugin grants no route that writes it (ADR-0142 D3, D6).
+write, and the plugin grants no route that writes it (ADR-0043 D3, D6).
 
 ### The two routes
 
@@ -81,7 +81,7 @@ a query parameter rather than in the path.
 The write body is `{ board, page, places, commit }`. `commit: false` plans and draws; `commit: true`
 writes the `place` rows and answers with the rebuilt model. Both answer `stale`: the nets whose
 wires the move left behind. They are reported, never re-anchored — `texteda view rewire` is what
-puts them back (ADR-0142 D10).
+puts them back (ADR-0043 D10).
 
 ## Where the picture can live
 
@@ -89,4 +89,4 @@ Three routes, and only one of them is what this package is: a host-native plugin
 (`texteda review` or its static export) needs no host code at all, and MCP Apps would need one
 implementation for every host that renders them — but none of the hosts we support is on that
 list yet, so it is tracked as F59. The census, and why exactly two hosts need their own drawing
-code, is in `docs/plugin-hosts.md` and [ADR-0146](../../docs/adr/process/0146-the-picture-reaches-a-host-by-three-routes.md).
+code, is in `docs/plugin-hosts.md` and [ADR-0047](../../docs/adr/process/0047-the-picture-reaches-a-host-by-three-routes.md).

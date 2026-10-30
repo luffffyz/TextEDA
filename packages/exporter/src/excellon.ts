@@ -1,9 +1,9 @@
-// Excellon writer: the board image's drills as one NC drill file (ADR-0117 D4).
+// Excellon writer: the board image's drills as one NC drill file (ADR-0018 D4).
 //
 // Same contract as the Gerber writer: this file owns digits only. Hole positions and diameters are
 // already decided by the assembler, so nothing here reads a pad, a net, or the kernel.
 //
-// Format decisions, frozen (ADR-0117 D9):
+// Format decisions, frozen (ADR-0018 D9):
 //   - one file, `<board>.drl`, covering plated and unplated holes alike: a board house accepts one
 //     file, and a separate unplated file is a legacy convention this writer does not need;
 //   - `M48` header, the tool's identity as `;` comments (Excellon's comment marker, not Gerber's
@@ -12,7 +12,7 @@
 //     assumed;
 //   - coordinates are written from the exact nanometre value with trailing zeros dropped, keeping
 //     one decimal digit (`13.0`, `25.2`, `0.000001`). Never rounded to a fixed digit count: the IR's
-//     coordinates are integers and the file should say the same number (ADR-0105 decision 7);
+//     coordinates are integers and the file should say the same number (ADR-0006 decision 7);
 //   - tool diameters are millimetres with exactly 6 decimals (a tool table entry is a fixed shape);
 //   - tools are numbered from `T1` in ascending diameter order, so `T1` is always the smallest hole;
 //   - holes are grouped by tool and sorted by `(x, y)`, never by the order the image produced them;

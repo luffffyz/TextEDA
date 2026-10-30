@@ -4,7 +4,7 @@
 // description}` — rather than JSON Schema (see `docs/tool-formats.md`). The result of a tool is
 // a canonical JSON value, and `output.render` turns that value into what the model reads.
 //
-// The projection is the whole of this file's job. The verb does the work (ADR-0143 D2).
+// The projection is the whole of this file's job. The verb does the work (ADR-0044 D2).
 import { toolAnswer } from "./result.ts";
 import { TOOLS, type JsonSchema } from "./tools.ts";
 
@@ -45,7 +45,7 @@ export function flatParameters(schema: JsonSchema): Record<string, DshParameter>
  * The catalogue as DSH's tools.
  *
  * Every tool is the same verb the command line calls, and every result is the value that verb
- * prints with `--json` (ADR-0143 D2). A verb that could not do its work throws: DSH turns a
+ * prints with `--json` (ADR-0044 D2). A verb that could not do its work throws: DSH turns a
  * throw into an error the model reads.
  */
 export function dshTools(): DshTool[] {

@@ -1,6 +1,6 @@
 # 自建符号库：怎么让 agent（或人）造符号
 
-> 依据：[ADR-0129](../adr/libraries/0129-footprint-format-and-geometry.md) D1（几何不进语言）、[ADR-0129](../adr/libraries/0129-footprint-format-and-geometry.md) D3、D4（库格式的原则：源是 `.teda`，IR 是编译产物，KiCad 格式是导出产物）、[ADR-0130](../adr/libraries/0130-symbol-format.md) D2（**引脚的电学事实归 `component`**）、[spec/symbol.md](../../spec/symbol.md)（语法）。
+> 依据：[ADR-0030](../adr/libraries/0030-footprint-format-and-geometry.md) D1（几何不进语言）、[ADR-0030](../adr/libraries/0030-footprint-format-and-geometry.md) D3、D4（库格式的原则：源是 `.teda`，IR 是编译产物，KiCad 格式是导出产物）、[ADR-0031](../adr/libraries/0031-symbol-format.md) D2（**引脚的电学事实归 `component`**）、[spec/symbol.md](../../spec/symbol.md)（语法）。
 > 一句话：**符号画在库里、库用 `.teda` 写；但引脚叫什么、是什么电气类型、编号多少，只写在 `component` 里。**
 
 ## 先分清两件事
@@ -121,7 +121,7 @@ bun run preview component bq24610rger         # 符号 + 封装两张图，路�
 bun run preview symbol bq24610rger --scale 8  # 放大看细节
 ```
 
-**改完符号先跑这个**。参考渲染器（`packages/renderer`，[ADR-0135](../adr/view/0135-our-own-reference-renderer.md)）把 IR 画成 SVG：引脚位置与朝向、引脚名/编号的内外侧、属性字段位置、引脚风格（反相气泡、时钟楔形）都在图上。校验全绿不等于看着对——引脚朝向反了、名字压到别的引脚上，这些只有看图才发现。
+**改完符号先跑这个**。参考渲染器（`packages/renderer`，[ADR-0036](../adr/view/0036-our-own-reference-renderer.md)）把 IR 画成 SVG：引脚位置与朝向、引脚名/编号的内外侧、属性字段位置、引脚风格（反相气泡、时钟楔形）都在图上。校验全绿不等于看着对——引脚朝向反了、名字压到别的引脚上，这些只有看图才发现。
 
 图里的字是**单线笔画字体**画成的路径（Hershey Sans，自带字形数据，不依赖系统字体——没装字体的机器打开也有字）。字高是 KiCad 的 cap height 口径，锚点是字的视觉中心；自带字体只有 ASCII，中文之类的字符画不出来，命令会在 stderr 上点名。
 
@@ -141,7 +141,7 @@ bun run smoke:symbol            # 用 examples/reference-project/assets/symbols/
 
 1. 符号存在、`lib:name` 能解析到具体符号；
 2. **符号引脚号集合 == 器件引脚号集合**：少一个 → 错误；多一个 → 警告；
-3. 器件引脚号 ⊆ 封装 pad 号（[ADR-0129](../adr/libraries/0129-footprint-format-and-geometry.md) decision 7 的库级检查，在工具链里做）；
+3. 器件引脚号 ⊆ 封装 pad 号（[ADR-0030](../adr/libraries/0030-footprint-format-and-geometry.md) decision 7 的库级检查，在工具链里做）；
 4. 引脚名重复、引脚号重复、`unit` 越界 → 编译期报错（带行列）。
 
 ## 常见坑

@@ -1,4 +1,4 @@
-// Schematic rendering: the sheet frame, placed symbols, wires, labels, ports and notes (ADR-0134).
+// Schematic rendering: the sheet frame, placed symbols, wires, labels, ports and notes (ADR-0035).
 //
 // The renderer is a pure function of (view IR, caller-supplied symbol facts): no file system, no
 // auto-placement, and the same inputs must produce byte-identical SVG.

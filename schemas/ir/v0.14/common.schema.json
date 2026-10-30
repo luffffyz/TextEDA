@@ -2,12 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:texteda:ir:0.14:common",
   "title": "TextEDA IR v0.14 \u2014 common definitions",
-  "description": "Scalars, identity patterns and unit conventions shared by all shards. The field-name suffix is the unit: _nm nanometers, _mdeg millidegrees, _mohm milliohms, _uv microvolts, _na nanoamps, _uw microwatts, _mhz millihertz, _mdegc millidegrees Celsius, _ppm parts per million, _uohm microohms, _ff femtofarads, _ph picohenries. Rules: docs/adr/ir/0105-ir-shards-and-hashes.md.",
+  "description": "Scalars, identity patterns and unit conventions shared by all shards. The field-name suffix is the unit: _nm nanometers, _mdeg millidegrees, _mohm milliohms, _uv microvolts, _na nanoamps, _uw microwatts, _mhz millihertz, _mdegc millidegrees Celsius, _ppm parts per million, _uohm microohms, _ff femtofarads, _ph picohenries. Rules: docs/adr/ir/0006-ir-shards-and-hashes.md.",
   "$defs": {
     "device_ref": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]*$",
-      "description": "Device id, bare: every device the project reads lives in assets/components/ under its own id. A qualified `<lib>:<id>` is rejected \u2014 an external library is a template that was copied in (ADR-0133), not a namespace that is resolved."
+      "description": "Device id, bare: every device the project reads lives in assets/components/ under its own id. A qualified `<lib>:<id>` is rejected \u2014 an external library is a template that was copied in (ADR-0034), not a namespace that is resolved."
     },
     "format_version": {
       "type": "string",
@@ -17,7 +17,7 @@
     "instance_id": {
       "type": "string",
       "pattern": "^([A-Z]+[0-9]+\\.)?[A-Z]+[0-9]+$",
-      "description": "Instance id of the board's flat list: U1. An instance of a module carries the module's prefix: <module_instance_id>.<refdes> (M1.U1). This is the identity key; see ADR-0105 decision 6 and ADR-0112 decision 2."
+      "description": "Instance id of the board's flat list: U1. An instance of a module carries the module's prefix: <module_instance_id>.<refdes> (M1.U1). This is the identity key; see ADR-0006 decision 6 and ADR-0013 decision 2."
     },
     "ir_version": {
       "const": "0.14",
@@ -26,7 +26,7 @@
     "layer_name": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_.+*-]+$",
-      "description": "Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0129)."
+      "description": "Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0030)."
     },
     "lib_id": {
       "type": "string",
@@ -46,7 +46,7 @@
     "note": {
       "type": "string",
       "maxLength": 2048,
-      "description": "Free text; canonical JSON has no comments, this is the substitute (ADR-0104 rule 8)."
+      "description": "Free text; canonical JSON has no comments, this is the substitute (ADR-0005 rule 8)."
     },
     "pad_ref": {
       "type": "string",
@@ -70,7 +70,7 @@
             },
             "value": {
               "type": "integer",
-              "description": "The unit is determined by the type declared in the component's params section (resistance\u2192\u00b5\u03a9 etc.; see ADR-0105 decision 7)."
+              "description": "The unit is determined by the type declared in the component's params section (resistance\u2192\u00b5\u03a9 etc.; see ADR-0006 decision 7)."
             }
           }
         },
@@ -107,7 +107,7 @@
     },
     "provenance": {
       "type": "object",
-      "description": "Where a device's facts came from and whether a human checked them (ADR-0133 decision 5). Omitted means the file makes no claim.",
+      "description": "Where a device's facts came from and whether a human checked them (ADR-0034 decision 5). Omitted means the file makes no claim.",
       "additionalProperties": false,
       "required": [
         "status"

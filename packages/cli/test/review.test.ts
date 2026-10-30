@@ -1,4 +1,4 @@
-// Contract tests for the review app's model (`texteda review`, ADR-0134).
+// Contract tests for the review app's model (`texteda review`, ADR-0035).
 //
 // The app is only as honest as the payload it is handed: every board either has a drawing or says
 // why it does not, and the document a reviewer looks at is the one CI attaches. Both are checked

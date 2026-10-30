@@ -1,7 +1,7 @@
 # Plugin hosts — what a plugin looks like from the inside
 
 > Reference notes, not a decision. The decision these notes feed is
-> [ADR-0142](adr/view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md).
+> [ADR-0043](adr/view/0043-the-review-app-is-a-plugin-of-the-agent-workbench.md).
 >
 > The facts below were read from the hosts' own documentation and from a third-party plugin's
 > contract notes on 2026-10-29. Host APIs move fast: treat the version numbers as the anchor and
@@ -49,7 +49,7 @@ a drawing surface**, and any host that has one can carry our drawing — whateve
 
 A drawing surface is a place the host draws what we return. It is usually a page, but it does not
 have to be: Claude Code's mods draw into a pane or a band above the prompt, with no page anywhere
-([ADR-0145](adr/process/0145-a-host-is-entered-once.md) D3). So the question a host has to answer
+([ADR-0046](adr/process/0046-a-host-is-entered-once.md) D3). So the question a host has to answer
 is not "does it have a page" but "can a plugin draw here".
 
 ## DSH (DeepSeek Harness)
@@ -107,7 +107,7 @@ declared range it does not satisfy. The host half needs Node ≥ 22.19.
   wrapping it in React is a small adapter.)
 - The **picture** is not the same thing as the **page**. What the client half needs is a drawing
   surface; DSH's `web` and `desktop` profiles have one because they have a page, and Claude
-  Code's mods have one without one ([ADR-0145](adr/process/0145-a-host-is-entered-once.md) D3).
+  Code's mods have one without one ([ADR-0046](adr/process/0046-a-host-is-entered-once.md) D3).
 - The plugin would ship no new geometry code. The renderer, the model and the checks stay in the
   core, and the plugin is a delivery form for them.
 
@@ -116,7 +116,7 @@ declared range it does not satisfy. The host half needs Node ≥ 22.19.
 `plugins/dsh-texteda/` is the host half: a cordis plugin that registers the catalogue's eight
 verbs as tools, with the catalogue's JSON Schema projected onto DSH's flat parameter spec. Each
 tool returns one canonical JSON value, and `output.render` is what the model reads
-([ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D2).
+([ADR-0044](adr/process/0044-the-agent-surface-is-a-set-of-verbs.md) D2).
 
 ```sh
 bun run scripts/build-dsh-plugin.ts     # one file, with our packages inside it
@@ -124,7 +124,7 @@ bun run scripts/build-dsh-plugin.ts     # one file, with our packages inside it
 
 The bundle carries our packages because they are not published (F53); the host's own packages
 stay external, because the host provides them. The client half — the drawing surface — is the
-review app's business ([ADR-0142](adr/view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md)).
+review app's business ([ADR-0043](adr/view/0043-the-review-app-is-a-plugin-of-the-agent-workbench.md)).
 
 ## pi (oh-my-pi / OMP)
 
@@ -180,7 +180,7 @@ Herdr, Orca, CMUX), *not* an OS window.
 verbs as pi tools, with the catalogue's JSON Schema projected onto the host's `pi.zod` builder.
 The projection is the whole of it — the tools call the same verbs the command line calls, and a
 tool's answer is the value the command line prints with `--json`
-([ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D2).
+([ADR-0044](adr/process/0044-the-agent-surface-is-a-set-of-verbs.md) D2).
 
 ```sh
 omp --extension plugins/pi-texteda        # or: symlink it into ~/.omp/agent/tools/
@@ -255,7 +255,7 @@ are not policy.
 ### What it means for TextEDA — our plan
 
 - The verbs do **not** come from a mod. Claude Code speaks MCP, and one server serves it
-  ([ADR-0145](adr/process/0145-a-host-is-entered-once.md) D2). A mod that also registered them
+  ([ADR-0046](adr/process/0046-a-host-is-entered-once.md) D2). A mod that also registered them
   would give the model the same verb twice.
 - The picture is the other half. A mod can draw our SVG — as a `Client` region, which takes
   pointer input, so hovering and clicking have somewhere to live.
@@ -267,7 +267,7 @@ are not policy.
 
 ## The picture's three routes, and which host takes which
 
-A picture reaches a host by one of three routes ([ADR-0146](adr/process/0146-the-picture-reaches-a-host-by-three-routes.md)):
+A picture reaches a host by one of three routes ([ADR-0047](adr/process/0047-the-picture-reaches-a-host-by-three-routes.md)):
 
 1. **A browser** — our own `texteda review` over HTTP, or its static export. Nothing host-specific,
    works in every host.
@@ -313,15 +313,15 @@ carry both, and a host with no drawing surface simply uses the first.
 
 What the agent-facing half *is* — the verbs, the skill, and what a host's tool registry may add
 on top — is decided in
-[ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md).
+[ADR-0044](adr/process/0044-the-agent-surface-is-a-set-of-verbs.md).
 
 All three hosts have a native way to expose our verbs to the agent. That is not the whole picture:
 the survey in [docs/tool-formats.md](tool-formats.md) found that four of the six hosts — Claude
 Code, Codex, WorkBuddy and Qoder — speak MCP. So MCP is not a second protocol for traditional
 applications; it is the ordinary route into the ecosystem, and the native registries are the
-accelerators on top of it ([ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md) D5).
+accelerators on top of it ([ADR-0044](adr/process/0044-the-agent-surface-is-a-set-of-verbs.md) D5).
 
-The server is `texteda mcp` ([ADR-0144](adr/process/0144-the-mcp-server-is-a-slice-we-write-ourselves.md)):
+The server is `texteda mcp` ([ADR-0045](adr/process/0045-the-mcp-server-is-a-slice-we-write-ourselves.md)):
 one stdio process that answers `initialize`, `tools/list` and `tools/call`, and hands back the
 values the command line prints with `--json`. A host that speaks MCP points at it like this:
 

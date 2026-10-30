@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:texteda:ir:0.14:project",
   "title": "TextEDA IR v0.14 — project shard",
-  "description": "IR projection of project.toml: human-written metadata plus the board, variant and compliance lists. Contains no circuit semantics. See ADR-0105 decision 10.",
+  "description": "IR projection of project.toml: human-written metadata plus the board, variant and compliance lists. Contains no circuit semantics. See ADR-0006 decision 10.",
   "type": "object",
   "additionalProperties": false,
   "required": [

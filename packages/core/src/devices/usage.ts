@@ -1,7 +1,7 @@
 // Library curation: is every device file used by the project?
 //
 // A device file is content of the project, not just a build input: it becomes a shard, and the
-// project hash covers it (ADR-0105). That is the right shape for an IR — a file with no shard
+// project hash covers it (ADR-0006). That is the right shape for an IR — a file with no shard
 // would be indistinguishable from a file that does not exist — but it also means an abandoned
 // candidate is invisible: it sits in `assets/components/`, changes the project hash, and nobody
 // notices. With more than one author that is how a library turns into a dumping ground.

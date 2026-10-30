@@ -2,7 +2,7 @@
 //
 // A verb that prints cannot be adapted: a host's tool registry wants the value, and the command
 // line wants the words. So every verb computes into a `VerbResult` and the script prints it
-// (ADR-0143 D2). The two faces call the same function, so they cannot drift.
+// (ADR-0044 D2). The two faces call the same function, so they cannot drift.
 
 /** The outcome of a verb: the value it computed, or why it could not. */
 export interface VerbResult<T> {

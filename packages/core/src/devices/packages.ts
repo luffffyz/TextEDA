@@ -1,7 +1,7 @@
-// The power a chip resistor's package gives it (ADR-0126).
+// The power a chip resistor's package gives it (ADR-0027).
 //
 // Device engineering knowledge, not language structure — the same reasoning that keeps the
-// construction vocabulary here (ADR-0124 D7). The numbers are the **standard, thick-film** ratings
+// construction vocabulary here (ADR-0025 D7). The numbers are the **standard, thick-film** ratings
 // of the JEDEC chip sizes, which is the lowest grade a part of that size is sold at: every other
 // film of the same size is rated the same or higher. That is what makes the number usable as a
 // floor — a dissipation above it is above what *any* part of the size is guaranteed to take, so a
@@ -15,7 +15,7 @@
 // (`spec/footprint.md` §2). An IEC spelling is not an error — it is simply a package this table
 // does not know, and an unknown package is counted as "not compared", never as a pass.
 
-/** Microwatts, the canonical unit for power (ADR-0105 decision 7). */
+/** Microwatts, the canonical unit for power (ADR-0006 decision 7). */
 const CHIP_RESISTOR_POWER: Readonly<Record<string, number>> = {
   "0201": 50_000, // 1/20 W
   "0402": 62_500, // 1/16 W

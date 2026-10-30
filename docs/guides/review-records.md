@@ -2,7 +2,7 @@
 
 How a project records what its reviewers saw, and what the accountable person decided about it.
 
-Decision: [ADR-0136](../adr/view/0136-review-records-and-attribution.md). This file is the convention; the
+Decision: [ADR-0037](../adr/view/0037-review-records-and-attribution.md). This file is the convention; the
 decision is the reason.
 
 ## The shape
@@ -97,7 +97,7 @@ process, not a property of the design.
 ## Library items
 
 A review of a **library item** is a claim about the record, and it lives in the record:
-`provenance`, `verified_by` and `verified_on` ([ADR-0132](../adr/libraries/0132-libraries-are-unverified-facts.md)).
+`provenance`, `verified_by` and `verified_on` ([ADR-0033](../adr/libraries/0033-libraries-are-unverified-facts.md)).
 When a project disagrees with a library item, it writes a round whose `target` is that component,
 next to the derived file that acts on the disagreement.
 

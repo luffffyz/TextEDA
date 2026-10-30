@@ -1,4 +1,4 @@
-// CLI argument parsing and command dispatch (ADR-0137).
+// CLI argument parsing and command dispatch (ADR-0038).
 //
 // The focus is errors like "a flag's value being treated as a positional argument": they don't crash, but they steer the command off course.
 import { describe, expect, test } from "bun:test";

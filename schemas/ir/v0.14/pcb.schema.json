@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:texteda:ir:0.14:pcb",
   "title": "TextEDA IR v0.14 — pcb shard",
-  "description": "Physical facts and rule intent of one board (layer B0). No drawing parameters, silkscreen layout, fill caches or UUIDs; connectivity is decided by connect and the schematic and is never back-derived from geometry. See ADR-0115, spec/pcb.md.",
+  "description": "Physical facts and rule intent of one board (layer B0). No drawing parameters, silkscreen layout, fill caches or UUIDs; connectivity is decided by connect and the schematic and is never back-derived from geometry. See ADR-0016, spec/pcb.md.",
   "type": "object",
   "additionalProperties": false,
   "required": ["ir_version", "format", "board", "board_thickness_nm", "stackup", "outline", "place", "connect", "rules"],

@@ -56,7 +56,7 @@ export interface ReadabilityFacts {
   readonly view: SchematicView;
   readonly schematic: Schematic;
   readonly geometry: ReadabilityGeometry;
-  /** A record's IR path (`/wire/2`) → where it was written (ADR-0103 D1: the IR has no lines). */
+  /** A record's IR path (`/wire/2`) → where it was written (ADR-0004 D1: the IR has no lines). */
   readonly locate?: (irPath: string) => DiagnosticLocation | undefined;
 }
 

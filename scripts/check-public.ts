@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Pre-flight check for making this repository public (docs/backlog.md F6, ADR-0138 decision 1).
+ * Pre-flight check for making this repository public (docs/backlog.md F6, ADR-0039 decision 1).
  *
  * A public repository is a one-way door: once the history is reachable, anything it contains is
  * permanently exposed, and forks may already exist. So this check runs against the **history**, not

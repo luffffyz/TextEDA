@@ -1,5 +1,5 @@
 /**
- * Diagnostic error code registry (ADR-0102).
+ * Diagnostic error code registry (ADR-0003).
  *
  * - Codes look like `domain.short-slug`; domains come from a **closed vocabulary** (adding a domain requires an ADR).
  * - Domains split by "kind of error", not by stage of discovery: a unit mismatch is `value.*` no matter which layer finds it.
@@ -68,7 +68,7 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     summary: "The file uses a construct that was removed from the language",
     hint: "Migrate the file to the current language version; the migration note is in teda.md §13.4",
-    spec: ["teda.md §13.4", "docs/adr/schematic/0111-one-flat-schematic-per-board.md"],
+    spec: ["teda.md §13.4", "docs/adr/schematic/0012-one-flat-schematic-per-board.md"],
   },
   "syntax.unknown-field": {
     domain: "syntax",
@@ -287,27 +287,27 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     summary: "A component file does not declare a valid kind (part or generic)",
     hint: "Declare `kind part` for a specific device, `kind generic` for a device class",
-    spec: ["teda.md §6.1", "docs/adr/devices/0123-the-device-kind-is-part-or-generic.md D1"],
+    spec: ["teda.md §6.1", "docs/adr/devices/0024-the-device-kind-is-part-or-generic.md D1"],
   },
   "value.component-mpn-invalid": {
     domain: "value",
     severity: "error",
     summary: "A part must declare a manufacturer part number, a generic must not",
     hint: "Which part to buy is a procurement decision, not a fact of the generic",
-    spec: ["teda.md §6.1", "docs/adr/devices/0123-the-device-kind-is-part-or-generic.md"],
+    spec: ["teda.md §6.1", "docs/adr/devices/0024-the-device-kind-is-part-or-generic.md"],
   },
   "value.component-generic-fact-invalid": {
     domain: "value",
     severity: "error",
     summary: "A generic must declare its construction and whether it is polarised; a part must declare neither",
-    spec: ["teda.md §6.1", "docs/adr/devices/0123-the-device-kind-is-part-or-generic.md D1"],
+    spec: ["teda.md §6.1", "docs/adr/devices/0024-the-device-kind-is-part-or-generic.md D1"],
   },
   "value.component-identity-invalid": {
     domain: "value",
     severity: "error",
     summary: "A generic must declare a required value parameter, a part must declare no parameters",
     hint: "The pin table is the identity boundary: a value that varies belongs to a generic",
-    spec: ["teda.md §6.2", "docs/adr/devices/0123-the-device-kind-is-part-or-generic.md"],
+    spec: ["teda.md §6.2", "docs/adr/devices/0024-the-device-kind-is-part-or-generic.md"],
   },
   "value.component-param-reserved": {
     domain: "value",
@@ -327,35 +327,35 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     summary: "A generic declares a construction outside the closed vocabulary",
     hint: "The construction is closed: the rules that branch on it cannot run on an unknown value",
-    spec: ["teda.md §6.1.1", "docs/adr/devices/0124-device-vocabulary-and-parameter-roles.md"],
+    spec: ["teda.md §6.1.1", "docs/adr/devices/0025-device-vocabulary-and-parameter-roles.md"],
   },
   "value.component-param-invalid": {
     domain: "value",
     severity: "error",
     summary: "A parameter column is not a role of the construction, has the wrong quantity or the wrong requiredness, or a required role is missing",
     hint: "A parameter is a role (what it measures) and a quantity (its unit); the roles of a construction are fixed",
-    spec: ["teda.md §6.2", "teda.md §6.2.2", "docs/adr/devices/0124-device-vocabulary-and-parameter-roles.md"],
+    spec: ["teda.md §6.2", "teda.md §6.2.2", "docs/adr/devices/0025-device-vocabulary-and-parameter-roles.md"],
   },
   "value.component-param-value-invalid": {
     domain: "value",
     severity: "error",
     summary: "A parameter value is outside the closed value set of its role",
     hint: "The value set is closed and the spelling is exact: two spellings of one code would be two BOM lines",
-    spec: ["teda.md §6.2.1", "docs/adr/devices/0124-device-vocabulary-and-parameter-roles.md"],
+    spec: ["teda.md §6.2.1", "docs/adr/devices/0025-device-vocabulary-and-parameter-roles.md"],
   },
   "value.component-rating-invalid": {
     domain: "value",
     severity: "error",
     summary: "A rating row is not a role of the vocabulary, has the wrong quantity, or is written twice",
     hint: "A rating is a role (what it measures) and a quantity (its unit); the roles are closed",
-    spec: ["teda.md §6.4", "docs/adr/devices/0125-a-part-states-its-own-ratings.md"],
+    spec: ["teda.md §6.4", "docs/adr/devices/0026-a-part-states-its-own-ratings.md"],
   },
   "value.component-rating-value-invalid": {
     domain: "value",
     severity: "error",
     summary: "A rating value is outside the closed value set of its role",
     hint: "The value set is closed and the spelling is exact: two spellings of one code would be two BOM lines",
-    spec: ["teda.md §6.4", "docs/adr/devices/0125-a-part-states-its-own-ratings.md"],
+    spec: ["teda.md §6.4", "docs/adr/devices/0026-a-part-states-its-own-ratings.md"],
   },
   "value.invalid-value": {
     domain: "value",
@@ -367,7 +367,7 @@ export const DIAGNOSTIC_CODES = {
     domain: "value",
     severity: "error",
     summary: "Invalid file revision (`rev`)",
-    hint: "A revision is a release tag or a commit hash, not a branch: no whitespace, no `#`; `+local.N` marks a fork (ADR-0133)",
+    hint: "A revision is a release tag or a commit hash, not a branch: no whitespace, no `#`; `+local.N` marks a fork (ADR-0034)",
     spec: ["teda.md §6.1", "spec/symbol.md §2", "spec/footprint.md §2"],
   },
   "value.duplicate-field": {
@@ -381,14 +381,14 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     summary: "An instance UID is used more than once",
     hint: "Give every instance its own UID; never copy an existing one",
-    spec: ["docs/adr/project/0109-instance-identity-is-a-uid.md"],
+    spec: ["docs/adr/project/0010-instance-identity-is-a-uid.md"],
   },
   "value.instance-uid-missing": {
     domain: "value",
     severity: "warning",
     summary: "An instance has no stable UID (language 0.9 and newer)",
     hint: "Add a UID as the second column: ID plus six lowercase Crockford Base32 characters",
-    spec: ["docs/adr/project/0109-instance-identity-is-a-uid.md"],
+    spec: ["docs/adr/project/0010-instance-identity-is-a-uid.md"],
   },
   "value.procurement-generic-invalid": {
     domain: "value",
@@ -472,8 +472,8 @@ export const DIAGNOSTIC_CODES = {
     domain: "value",
     severity: "error",
     summary: "`[project].owner` is not a string",
-    hint: "The owner is the accountable person's name, one string (ADR-0136 D5)",
-    spec: ["docs/adr/view/0136-review-records-and-attribution.md D5"],
+    hint: "The owner is the accountable person's name, one string (ADR-0037 D5)",
+    spec: ["docs/adr/view/0037-review-records-and-attribution.md D5"],
   },
   "value.project-status-invalid": {
     domain: "value",
@@ -507,29 +507,29 @@ export const DIAGNOSTIC_CODES = {
     domain: "value",
     severity: "error",
     summary: "[DEPRECATED] A libref is missing a key or carries a value outside the vocabulary (the `libref` description type was withdrawn)",
-    hint: "Nothing writes or reads a libref: an external library is a template that `texteda lib import` copies into assets/ (ADR-0133)",
-    spec: ["docs/adr/libraries/0133-trust-in-a-library-you-do-not-own.md"],
+    hint: "Nothing writes or reads a libref: an external library is a template that `texteda lib import` copies into assets/ (ADR-0034)",
+    spec: ["docs/adr/libraries/0034-trust-in-a-library-you-do-not-own.md"],
   },
   "value.libref-unpinned": {
     domain: "value",
     severity: "error",
     summary: "[DEPRECATED] A libref does not pin an immutable revision (the `libref` description type was withdrawn)",
-    hint: "Nothing writes or reads a libref: the revision is recorded as a header comment in every imported file (ADR-0133)",
-    spec: ["docs/adr/libraries/0133-trust-in-a-library-you-do-not-own.md"],
+    hint: "Nothing writes or reads a libref: the revision is recorded as a header comment in every imported file (ADR-0034)",
+    spec: ["docs/adr/libraries/0034-trust-in-a-library-you-do-not-own.md"],
   },
   "value.provenance-invalid": {
     domain: "value",
     severity: "error",
     summary: "The provenance block does not say what it claims: `reviewed` without an attribution, or `generated` with one",
-    hint: "`provenance reviewed` needs `verified_by` and `verified_on` (YYYY-MM-DD); `provenance generated` takes neither (ADR-0133 decision 5)",
-    spec: ["docs/adr/libraries/0133-trust-in-a-library-you-do-not-own.md", "teda.md §6.1"],
+    hint: "`provenance reviewed` needs `verified_by` and `verified_on` (YYYY-MM-DD); `provenance generated` takes neither (ADR-0034 decision 5)",
+    spec: ["docs/adr/libraries/0034-trust-in-a-library-you-do-not-own.md", "teda.md §6.1"],
   },
   "value.project-lib-invalid": {
     domain: "value",
     severity: "error",
     summary: "[DEPRECATED] A library entry is not a table, has no source, or is not pinned (`[libs]` was withdrawn)",
-    hint: "A project does not depend on a library: import a template with `texteda lib import` (ADR-0133 decision 15)",
-    spec: ["docs/adr/libraries/0133-trust-in-a-library-you-do-not-own.md"],
+    hint: "A project does not depend on a library: import a template with `texteda lib import` (ADR-0034 decision 15)",
+    spec: ["docs/adr/libraries/0034-trust-in-a-library-you-do-not-own.md"],
   },
   "value.project-operating-temp-invalid": {
     domain: "value",
@@ -544,36 +544,36 @@ export const DIAGNOSTIC_CODES = {
     domain: "ref",
     severity: "error",
     summary: "[DEPRECATED] A vendored library does not match the content hash its libref pins (there is no vendored library any more)",
-    hint: "Nothing is verified after an import: the copy is the project's own content and editing it is normal work (ADR-0133)",
-    spec: ["docs/adr/libraries/0133-trust-in-a-library-you-do-not-own.md"],
+    hint: "Nothing is verified after an import: the copy is the project's own content and editing it is normal work (ADR-0034)",
+    spec: ["docs/adr/libraries/0034-trust-in-a-library-you-do-not-own.md"],
   },
   "ref.library-unpinned": {
     domain: "ref",
     severity: "error",
     summary: "[DEPRECATED] A directory under external/libs/ has no libref (anchors were withdrawn)",
-    hint: "A tree under external/libs/ is not read at all: import the devices you need with `texteda lib import` (ADR-0133)",
-    spec: ["docs/adr/libraries/0133-trust-in-a-library-you-do-not-own.md"],
+    hint: "A tree under external/libs/ is not read at all: import the devices you need with `texteda lib import` (ADR-0034)",
+    spec: ["docs/adr/libraries/0034-trust-in-a-library-you-do-not-own.md"],
   },
   "ref.id-ambiguous": {
     domain: "ref",
     severity: "error",
     summary: "[DEPRECATED] A bare id resolves to more than one vendored library (libraries are not resolved any more)",
-    hint: "Every device is a file of this project: two providers of one id cannot happen (ADR-0133)",
-    spec: ["docs/adr/libraries/0133-trust-in-a-library-you-do-not-own.md"],
+    hint: "Every device is a file of this project: two providers of one id cannot happen (ADR-0034)",
+    spec: ["docs/adr/libraries/0034-trust-in-a-library-you-do-not-own.md"],
   },
   "ref.library-in-tree": {
     domain: "ref",
     severity: "error",
     summary: "A tree under external/libs/ holds library assets, but the build does not read that directory",
-    hint: "Import the devices you need (`texteda lib import <name> --from <dir> --rev <rev>`), then delete the tree: an external library is a template, not a dependency (ADR-0133)",
-    spec: ["docs/adr/libraries/0133-trust-in-a-library-you-do-not-own.md", "docs/guides/library-import.md"],
+    hint: "Import the devices you need (`texteda lib import <name> --from <dir> --rev <rev>`), then delete the tree: an external library is a template, not a dependency (ADR-0034)",
+    spec: ["docs/adr/libraries/0034-trust-in-a-library-you-do-not-own.md", "docs/guides/library-import.md"],
   },
   "ref.library-qualified-id": {
     domain: "ref",
     severity: "error",
     summary: "A device reference is qualified with a library name (`lib:id`), which no longer resolves",
-    hint: "Write the bare id: an imported device lives in assets/components/ under its own name (ADR-0133)",
-    spec: ["docs/adr/libraries/0133-trust-in-a-library-you-do-not-own.md", "teda.md §4.2"],
+    hint: "Write the bare id: an imported device lives in assets/components/ under its own name (ADR-0034)",
+    spec: ["docs/adr/libraries/0034-trust-in-a-library-you-do-not-own.md", "teda.md §4.2"],
   },
   "ref.unknown-component": {
     domain: "ref",
@@ -587,7 +587,7 @@ export const DIAGNOSTIC_CODES = {
     severity: "warning",
     summary: "Reference to a component whose file has errors",
     hint: "Fix the errors reported for that device file first: its facts cannot be used while it is broken",
-    spec: ["teda.md §7.1", "docs/adr/devices/0124-device-vocabulary-and-parameter-roles.md"],
+    spec: ["teda.md §7.1", "docs/adr/devices/0025-device-vocabulary-and-parameter-roles.md"],
   },
   "ref.component-id-mismatch": {
     domain: "ref",
@@ -970,43 +970,43 @@ export const DIAGNOSTIC_CODES = {
     severity: "warning",
     summary: "An instance of the flattened sch result has no place in the pcb (the layout is partial)",
     hint: "Place the missing instances; a partial layout is legal, it is reported so a fragment cannot pass for a board",
-    spec: ["spec/pcb.md §5.2", "docs/adr/pcb/0118-a-partial-layout-is-legal.md D1"],
+    spec: ["spec/pcb.md §5.2", "docs/adr/pcb/0019-a-partial-layout-is-legal.md D1"],
   },
-  // ---- review: the review process (ADR-0136), not the design ----
+  // ---- review: the review process (ADR-0037), not the design ----
   "review.round-unclosed": {
     domain: "review",
     severity: "warning",
     summary: "A review round has notes and no decision",
     hint: "Someone raised something and nobody answered it: write docs/reviews/<round>.decision.toml (accepted / declined / deferred)",
-    spec: ["docs/adr/view/0136-review-records-and-attribution.md D6", "docs/adr/view/0136-review-records-and-attribution.md D7"],
+    spec: ["docs/adr/view/0037-review-records-and-attribution.md D6", "docs/adr/view/0037-review-records-and-attribution.md D7"],
   },
   "review.owner-missing": {
     domain: "review",
     severity: "error",
     summary: "The project has review rounds but no accountable person (`[project].owner`)",
     hint: "Nobody can close a round until the project names who is accountable: write `[project].owner` in project.toml",
-    spec: ["docs/adr/view/0136-review-records-and-attribution.md D5"],
+    spec: ["docs/adr/view/0037-review-records-and-attribution.md D5"],
   },
   "review.owner-mismatch": {
     domain: "review",
     severity: "warning",
     summary: "A decision is owned by someone other than the project's accountable person",
     hint: "Either somebody decided without the authority, or the handover was never written into project.toml",
-    spec: ["docs/adr/view/0136-review-records-and-attribution.md D5", "docs/adr/view/0136-review-records-and-attribution.md D7"],
+    spec: ["docs/adr/view/0037-review-records-and-attribution.md D5", "docs/adr/view/0037-review-records-and-attribution.md D7"],
   },
   "review.decision-invalid": {
     domain: "review",
     severity: "error",
     summary: "A decision file is missing a field or carries a verdict outside the closed set",
     hint: "A decision needs target, owner, date and a verdict of accepted / declined / deferred",
-    spec: ["docs/adr/view/0136-review-records-and-attribution.md D4"],
+    spec: ["docs/adr/view/0037-review-records-and-attribution.md D4"],
   },
   "bind.connect-unbacked": {
     domain: "bind",
     severity: "warning",
     summary: "A declared `connect` pair is not implemented by any chain of copper in the drawing",
     hint: "Draw the copper the declaration implies, or declare the pair the copper actually joins",
-    spec: ["spec/pcb.md §5.2", "docs/adr/pcb/0119-connect-pairs-need-copper.md D1"],
+    spec: ["spec/pcb.md §5.2", "docs/adr/pcb/0020-connect-pairs-need-copper.md D1"],
   },
   "bind.not-checked": {
     domain: "bind",
@@ -1044,7 +1044,7 @@ export const DIAGNOSTIC_CODES = {
     severity: "note",
     summary: "Two schematic nets are physically shorted by a declared net_tie",
     hint: "a tie changes the connectivity of both nets; check that this is the one you meant",
-    spec: ["spec/pcb.md §4.12", "docs/adr/schematic/0113-connectivity-has-one-authority.md D10"],
+    spec: ["spec/pcb.md §4.12", "docs/adr/schematic/0014-connectivity-has-one-authority.md D10"],
   },
   "bind.procurement-footprint-mismatch": {
     domain: "bind",
@@ -1058,7 +1058,7 @@ export const DIAGNOSTIC_CODES = {
     severity: "warning",
     summary: "A net is physically split into regions that do not touch by a declared split_ground",
     hint: "a split ground breaks the return path of every signal that crosses the gap; check the isolation and the stitching",
-    spec: ["spec/pcb.md §4.12", "docs/adr/schematic/0113-connectivity-has-one-authority.md D10"],
+    spec: ["spec/pcb.md §4.12", "docs/adr/schematic/0014-connectivity-has-one-authority.md D10"],
   },
   "bind.system-voltage-mismatch": {
     domain: "bind",
@@ -1078,50 +1078,50 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     summary: "A zone names a layer that is not a copper layer of the board's stackup",
     hint: "name a copper layer of the `stackup` section, or add that layer to the stackup",
-    spec: ["spec/pcb.md §4.7", "docs/adr/pcb/0117-copper-fill-uses-a-geometry-kernel.md"],
+    spec: ["spec/pcb.md §4.7", "docs/adr/pcb/0018-copper-fill-uses-a-geometry-kernel.md"],
   },
   "drc.zone-empty": {
     domain: "drc",
     severity: "warning",
     summary: "A zone declared copper but the pour covered no area",
     hint: "check the zone outline, the keepouts on that layer, and the clearance around nearby copper",
-    spec: ["spec/pcb.md §4.7", "docs/adr/pcb/0117-copper-fill-uses-a-geometry-kernel.md"],
+    spec: ["spec/pcb.md §4.7", "docs/adr/pcb/0018-copper-fill-uses-a-geometry-kernel.md"],
   },
   "drc.zone-min-width": {
     domain: "drc",
     severity: "warning",
     summary: "The min_width rule removed copper from a pour, so part of the zone is thinner than the rule allows",
     hint: "widen the zone, move the copper that splits it, or lower `min_width` if the board house can etch thinner",
-    spec: ["spec/pcb.md §4.9", "docs/adr/pcb/0117-copper-fill-uses-a-geometry-kernel.md"],
+    spec: ["spec/pcb.md §4.9", "docs/adr/pcb/0018-copper-fill-uses-a-geometry-kernel.md"],
   },
   "drc.zone-overlap": {
     domain: "drc",
     severity: "error",
     summary: "Two zones of different nets on one layer overlap, so their pours would short",
     hint: "separate the two zone outlines, put one on another layer, or state the pour priority the design intends",
-    spec: ["spec/pcb.md §4.7", "docs/adr/pcb/0117-copper-fill-uses-a-geometry-kernel.md"],
+    spec: ["spec/pcb.md §4.7", "docs/adr/pcb/0018-copper-fill-uses-a-geometry-kernel.md"],
   },
-  // ---- design: the design against the parts it is built from (ADR-0125) ----
+  // ---- design: the design against the parts it is built from (ADR-0026) ----
   "design.rating-exceeded": {
     domain: "design",
     severity: "error",
     summary: "A device's declared rating cannot cover the declared window of the net it sits on",
     hint: "raise the device's rating, lower the declared window, or state why the window is what it is",
-    spec: ["spec/teda.md §7.4", "docs/adr/devices/0125-a-part-states-its-own-ratings.md D8、D11"],
+    spec: ["spec/teda.md §7.4", "docs/adr/devices/0026-a-part-states-its-own-ratings.md D8、D11"],
   },
   "design.stress-unknown": {
     domain: "design",
     severity: "note",
     summary: "Instances that could not be compared with their declared window, and why",
     hint: "state the reference potential (voltage GND 0V..0V) and a window on the net; multi-pin stress models are not implemented yet",
-    spec: ["docs/adr/devices/0125-a-part-states-its-own-ratings.md"],
+    spec: ["docs/adr/devices/0026-a-part-states-its-own-ratings.md"],
   },
   "design.power-unknown": {
     domain: "design",
     severity: "note",
     summary: "Resistive instances whose worst-case dissipation could not be compared with any power limit",
     hint: "state the reference potential (voltage GND 0V..0V) and a window on the net; the package floor covers chip resistors with a JEDEC size, nothing else",
-    spec: ["docs/adr/devices/0125-a-part-states-its-own-ratings.md", "docs/adr/devices/0126-the-package-gives-a-chip-resistor-its-floor.md"],
+    spec: ["docs/adr/devices/0026-a-part-states-its-own-ratings.md", "docs/adr/devices/0027-the-package-gives-a-chip-resistor-its-floor.md"],
   },
   "cli.bad-usage": {
     domain: "cli",
@@ -1148,7 +1148,7 @@ export const DIAGNOSTIC_CODES = {
   // ---- view: the schematic view layer (S1) ----
   // Only the codes the view parser emits are registered here; the board <-> print page cross-check
   // and the readability checks register theirs when they land (the registry is the source of truth
-  // for what is actually emitted, ADR-0102).
+  // for what is actually emitted, ADR-0003).
   "view.out-of-sheet": {
     domain: "view",
     severity: "error",
@@ -1270,7 +1270,7 @@ export function isDiagnosticCode(code: string): code is DiagnosticCodeId {
  * - `contract`: the produced IR does not satisfy the schema — the implementation or the IR understanding is wrong.
  * - `semantic`: the description is readable but the design has problems (net conflicts, missing connections, sch↔pcb deviations) — fix the design.
  *
- * The stage is determined by the **domain** (the domain vocabulary is closed, see ADR-0102), so call sites do not need to restate it:
+ * The stage is determined by the **domain** (the domain vocabulary is closed, see ADR-0003), so call sites do not need to restate it:
  * an error found in the same domain has the same stage no matter which layer found it.
  */
 export type DiagnosticStage = "parse" | "contract" | "semantic";

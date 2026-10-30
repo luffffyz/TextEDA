@@ -11,9 +11,9 @@ category     resistor
 symbol project:r
 footprint project:chip-0402
 
-# The part's own ratings (ADR-0125): what the device is, not what the design asks of it.
+# The part's own ratings (ADR-0026): what the device is, not what the design asks of it.
 # The power rating is the package's (0.063W for a 0402 thick film), stated here so that a design which
-# declares a dissipation limit on a 10k line can be compared against what this part can take (ADR-0125).
+# declares a dissipation limit on a 10k line can be compared against what this part can take (ADR-0026).
 ratings
   value      resistance  10k
   tolerance  percent     1%

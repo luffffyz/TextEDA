@@ -624,7 +624,7 @@ describe("a skipped binding check is reported, not assumed (AGENTS.md §4.4 rule
   });
 });
 
-describe("review rounds (ADR-0136 F33)", () => {
+describe("review rounds (ADR-0037 F33)", () => {
   const ROUND = "# Review of b, round 1\n\nTarget `board:b`. Roles: power.\n\n- power (2026-10-23): the rail has no margin.\n";
 
   /** Add `[project].owner` and an optional decision to a project built by `makeProject`. */
@@ -689,7 +689,7 @@ describe("review rounds (ADR-0136 F33)", () => {
   });
 });
 
-describe("library curation (ADR-0105: the shard set is the project's content)", () => {
+describe("library curation (ADR-0006: the shard set is the project's content)", () => {
   test("a device file nothing uses is reported, not silently kept", () => {
     const root = makeProject(BOARD);
     try {
@@ -750,7 +750,7 @@ describe("library curation (ADR-0105: the shard set is the project's content)", 
 
 // The project's geometry is checked at the layer that reads it: every symbol and footprint file
 // must compile and satisfy its contract. `ir` refuses to write a shard for a broken one, so a check
-// that skipped them would go green while the build is red (ADR-0137 decision 7).
+// that skipped them would go green while the build is red (ADR-0038 decision 7).
 const SYMBOL = `version 0.5
 symbol r
 

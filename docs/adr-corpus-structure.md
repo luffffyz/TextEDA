@@ -1,10 +1,11 @@
 # The Shape of the Decision-Record Corpus — the 2026-10-27 Restructuring
 
 **Status: adopted and carried out.** The 56 flat records under `docs/adr/` became the 41 records
-in topic folders, in the commit "docs: file the decision corpus in topic folders". §1–§7 describe
-the reasoning and the resulting shape; §8 is the old-to-new map, kept because a retired number is
-never handed out again and the map is the only way to follow a citation written before the swap.
-The rules themselves live where they are enforced: the record shape in `AGENTS.md` §12, the
+in topic folders, in the commit "docs: file the decision corpus in topic folders"; the corpus grew
+to 47 records, and on 2026-10-30 it was renumbered from `0100`–`0146` into `0001`–`0047`. §1–§7
+describe the reasoning and the resulting shape; §8 is the old-to-new map, kept because a retired
+number is never handed out again and the map is the only way to follow a citation written before
+a swap. The rules themselves live where they are enforced: the record shape in `AGENTS.md` §12, the
 numbering and retired range in `docs/adr/README.md`, each folder's scope in its own `README.md`.
 
 ## 1. What was wrong with the corpus before the swap
@@ -50,7 +51,7 @@ not decide (and where that lives instead)**, and **in what order to read it**.
 
 ## 3. The folders
 
-Ten folders, 41 records, 3 to 6 records each. Sizes are kept in that band on purpose: a folder
+Ten folders, 47 records, 3 to 8 records each. Sizes are kept in that band on purpose: a folder
 with one record is a folder that should be a section, and a folder with nine is a folder hiding a
 second axis.
 
@@ -64,27 +65,33 @@ second axis.
 | `manufacturing/` | What leaves the tool: the output path, the target form of the package, the zero-dependency rule, prototype delivery | Which part to buy (`devices/`), the electrical rules (`schematic/`, `pcb/`) | 3 |
 | `devices/` | Device semantics: `part` vs `generic`, the parameter vocabulary and roles, ratings and how they are checked, the package code, the procurement layer | File formats of symbols and footprints (`libraries/`) | 6 |
 | `libraries/` | Symbols and footprints: our own formats, where geometry lives, which library is trusted at which revision | Device electrical facts (`devices/`) | 5 |
-| `view/` | The drawing layer: the view as an independent description, the reference renderer, review records and who is accountable for them | What the view draws (`schematic/`, `pcb/`) | 3 |
-| `process/` | How the project works: the implementation stack, the agent's entry point, licensing and openness, what stays outside the language, how documentation is governed | The language's rules (`language/`), the record corpus's own layout (this proposal) | 4 |
+| `view/` | The drawing layer: the view as an independent description, the reference renderer, review records and who is accountable for them | What the view draws (`schematic/`, `pcb/`) | 5 |
+| `process/` | How the project works: the implementation stack, the agent's entry point, licensing and openness, what stays outside the language, how documentation is governed | The language's rules (`language/`), the record corpus's own layout (this proposal) | 8 |
 
 ## 4. Numbering
 
 - **One flat counter.** The corpus has a single sequence of numbers, handed out in the order the
-  records are written: `0100`, `0101`, `0102`, … A number says one thing only: which record it
+  records are written: `0001`, `0002`, `0003`, … A number says one thing only: which record it
   names. What the record is *about* is said by the folder — a path, not a number.
 - **The sequence is not contiguous, and is not meant to be.** Gaps are normal. A number is
   consumed by every record ever written, and a retired record's number is never handed out
   again. The forty-one records of the first corpus happen to come out grouped by folder, because
   they were written folder by folder; that is a fact about this corpus, not a rule.
 - **A number is never changed and never reused.** This is the property that makes the corpus
-  citable: a link to `ADR-0105` names the same decision forever. So a new record never disturbs
+  citable: a link to `ADR-0006` names the same decision forever. So a new record never disturbs
   the numbers of the existing ones — it takes the next free number, whatever folder it is filed
   in — and a record that is re-filed keeps its number.
-- **The new series never reuses a retired number.** `0001`–`0056` are retired, not renamed into
-  `0100`–`0140`. The reason is mechanical: if a new record were numbered `0022`, one missed
-  reference rewrite would silently point at a *different* decision, and no gate could see it.
-  With a disjoint range, a missed rewrite is a link to a number that does not exist — the link
-  gate's rule "an ADR-NNNN is mentioned but there is no decision record for it" fires immediately.
+- **The new series never reuses a retired number.** The series before this one — `0100`–`0146` —
+  is retired, and the current series is `0001`–`0047`. The reason is mechanical: if a new record
+  were numbered `0022`, one missed reference rewrite would silently point at a *different*
+  decision, and no gate could see it. With a disjoint range, a missed rewrite is a link to a
+  number that does not exist — the link gate's rule "an ADR-NNNN is mentioned but there is no
+  decision record for it" fires immediately.
+- **One exception, taken once.** The first corpus was `0001`–`0056` and its numbers are gone: the
+  current series reuses them, so a citation written before 2026-10-28 names a different decision
+  than it did. That pass is why the topic-folder corpus was put on a disjoint range in the first
+  place; the 2026-10-30 renumbering put it back on `0001` and accepted the collision with the
+  first corpus, because the first corpus's numbers were already dead everywhere else.
 - Retired numbers are **not** listed in the index's reserved table. Reserved means "declared, not
   written yet"; retired means "written once, gone now". Keeping retired numbers out of the
   reserved table is what makes a stale citation an error instead of a silence.
@@ -103,9 +110,9 @@ insertion-locality, and it costs more than it saves:
   must be renumbered, and a renumbering breaks every *prose* citation of it. Those are the ones
   in code comments and in the `description` fields of the published IR contract: 830 of them,
   hand-maintained, because no script rewrites a comment.
-- It buys nothing the path does not already say. `language/0100-fact-layer.md` states the topic
+- It buys nothing the path does not already say. `language/0001-fact-layer.md` states the topic
   twice, and a reader has to know the scheme to read the number at all.
-- It makes the number unreadable in the one place numbers are read most: a citation. `ADR-0105`
+- It makes the number unreadable in the one place numbers are read most: a citation. `ADR-0006`
   is a handle; `ADR-01-05` is a coordinate in a scheme the reader must look up.
 
 A flat counter gives the same insertion-locality with no coupling, because the number was never
@@ -115,12 +122,12 @@ stops sorting by topic — and the folder already sorts by topic, and the index 
 ## 5. The record format
 
 ```markdown
-# ADR-0100: Title of the decision
+# ADR-0001: Title of the decision
 
 Status: Accepted
 Date: 2026-10-27
 Scope: Decides: <one claim that can be checked against the code or the specs>. Does not decide: <the neighbouring question, and where it is answered>.
-Related: ADR-0101, ADR-0104
+Related: ADR-0002, ADR-0005
 Impact: `spec/teda.md` §13; `packages/parser/src/version.ts`; `scripts/check-links.ts`
 ```
 
@@ -164,16 +171,17 @@ What this folder decides, in one paragraph.
 
 ## Not here
 The questions that are decided elsewhere, and where they are decided. Each line is a pointer:
-`[ADR-0107](../project/0107-....md)`.
+`[ADR-0008](../project/0107-....md)`.
 
 ## Reading order
 1. ADR-XXXX — why it comes first.
 2. ADR-XXXX — ...
 
 ## Records
+
 | Record | Title | Status | Date |
 |---|---|---|---|
-| [ADR-0100](0100-....md) | ... | Accepted | 2026-10-27 |
+| [ADR-0001](0001-....md) | ... | Accepted | 2026-10-27 |
 ```
 
 The README states scope, not decisions. A rule that belongs to a record lives in the record; the
@@ -186,113 +194,131 @@ table per section, with the same four columns the link gate parses today (link, 
 date). The folder is expressed by the section, so the index needs no new column and the gate's
 index parser needs no change. The index additionally states:
 
-- the retired range `0001`–`0056` and that it is retired, not reserved;
+- the retired range `0100`–`0146` and that it is retired, not reserved;
 - the reserved table for numbers declared but not yet written (the mechanism the gate already
   supports);
 - the numbering rule: one flat counter, next free number, never reused, never changed.
 
 ## 8. The mapping
 
+Two renumberings happened to this corpus, so there are two maps to keep.
+
+**The first (2026-10-28).** The corpus was filed in topic folders and its 56 flat records were
+reduced to 41. That pass merged records and dropped two that were already superseded, so its map
+carries information that a shift cannot: which decisions were folded into which, and which were
+dropped. Its left column is the **current** number of each record; its "From" column is the
+number the record carried in the first corpus.
+
+**The second (2026-10-30).** The topic-folder corpus was numbered `0100`–`0146`. It was
+renumbered in one pass — every record, every citation, every link target — into `0001`–`0047`,
+and the old numbers were retired (`docs/adr/README.md`). That pass is a pure shift: `0100`→`0001`,
+`0101`→`0002`, …, `0146`→`0047`. Every record kept its place in the order and its folder, so a
+record's old number is its current number plus 99.
+
 Every current record appears exactly once below, except `0002`, whose surviving part is split
 between two records and whose superseded part is dropped. Two records are dropped outright because
 they are already superseded (`0007` by `0025`, `0046` by `0047`).
 
-The new numbers run `0100`–`0140` with no gaps. They are allocated in the order the records are
+The numbers run `0001`–`0047` with no gaps. They are allocated in the order the records are
 written, and the records are written folder by folder, so the numbers *happen* to group by
-folder — a fact about this corpus, not a rule (§4). The next record written takes `0141`, and it
+folder — a fact about this corpus, not a rule (§4). The next record written takes `0048`, and it
 goes in whatever folder it belongs to.
 
 ### `language/`
 
 | New | Title | From | Note |
 |---|---|---|---|
-| 0100 | The Fact Layer Has No Expressions; Generators Live Outside the Language | 0017 | unchanged |
-| 0101 | One Language Version Number | 0022 + 0056 | merged: the version policy and the merge that replaced nine per-type lines |
-| 0102 | Diagnostic Error Code Registry (`domain.slug`) | 0016 | unchanged |
-| 0103 | Source Spans — Diagnostics Point at the File, the IR Stays Clean | 0020 | unchanged |
+| 0001 | The Fact Layer Has No Expressions; Generators Live Outside the Language | 0017 | unchanged |
+| 0002 | One Language Version Number | 0022 + 0056 | merged: the version policy and the merge that replaced nine per-type lines |
+| 0003 | Diagnostic Error Code Registry (`domain.slug`) | 0016 | unchanged |
+| 0004 | Source Spans — Diagnostics Point at the File, the IR Stays Clean | 0020 | unchanged |
 
 ### `ir/`
 
 | New | Title | From | Note |
 |---|---|---|---|
-| 0104 | IR Representation (Semantic Model / Contract / Serialization) | 0004 | unchanged |
-| 0105 | IR Sharding, Identity Keys, and Hashes | 0008 + 0023 | merged: sharding and the on-disk layer are one decision; the units half stays in `spec/teda.md` §12 |
-| 0106 | A Device's Description Is a Fact, So It Enters the IR | 0042 | unchanged |
+| 0005 | IR Representation (Semantic Model / Contract / Serialization) | 0004 | unchanged |
+| 0006 | IR Sharding, Identity Keys, and Hashes | 0008 + 0023 | merged: sharding and the on-disk layer are one decision; the units half stays in `spec/teda.md` §12 |
+| 0007 | A Device's Description Is a Fact, So It Enters the IR | 0042 | unchanged |
 
 ### `project/`
 
 | New | Title | From | Note |
 |---|---|---|---|
-| 0107 | The Project Tree Has Owners | 0031 | unchanged |
-| 0108 | How Boards Are Linked Together | 0001 | unchanged |
-| 0109 | Instance Identity Is a Stable Project-Local UID, Not the Refdes | 0051 | unchanged |
-| 0110 | Renumbering Is a Code-Executed Global Rename, Not an Agent Edit | 0050 | unchanged |
+| 0008 | The Project Tree Has Owners | 0031 | unchanged |
+| 0009 | How Boards Are Linked Together | 0001 | unchanged |
+| 0010 | Instance Identity Is a Stable Project-Local UID, Not the Refdes | 0051 | unchanged |
+| 0011 | Renumbering Is a Code-Executed Global Rename, Not an Agent Edit | 0050 | unchanged |
 
 ### `schematic/`
 
 | New | Title | From | Note |
 |---|---|---|---|
-| 0111 | One Flat Schematic per Board, Pages Become Print Pages in the View Layer | 0024 + 0025 | merged: the flat board, the print pages, and the level tags in flattened names are one naming decision; absorbs `0007`'s net-set rule |
-| 0112 | A Board Is Composed of Modules; the IR Stays Flat | 0026 | unchanged |
-| 0113 | Connectivity Has One Authority; Reverse Engineering Is an Import, Not a Mode | 0035 | unchanged |
-| 0114 | Flattening and the Net Set | 0002 | split: the flattening half only; the BOM-counting half moves to `0128` |
+| 0012 | One Flat Schematic per Board, Pages Become Print Pages in the View Layer | 0024 + 0025 | merged: the flat board, the print pages, and the level tags in flattened names are one naming decision; absorbs `0007`'s net-set rule |
+| 0013 | A Board Is Composed of Modules; the IR Stays Flat | 0026 | unchanged |
+| 0014 | Connectivity Has One Authority; Reverse Engineering Is an Import, Not a Mode | 0035 | unchanged |
+| 0015 | Flattening and the Net Set | 0002 | split: the flattening half only; the BOM-counting half moves to `0029` |
 
 ### `pcb/`
 
 | New | Title | From | Note |
 |---|---|---|---|
-| 0115 | Agent-First PCB Description (Segment Set and Trade-offs) | 0003 | unchanged |
-| 0116 | Layout and Routing Are Agent-Driven, Checker-Gated, and Frozen on Acceptance | 0053 | unchanged |
-| 0117 | Copper Fill Uses a Self-Built Constrained Geometry Kernel | 0054 | unchanged |
-| 0118 | A Partial Layout Is Legal, and It Is Reported | 0040 | unchanged |
-| 0119 | A Declared `connect` Pair Must Be Implemented by Copper | 0041 | unchanged |
+| 0016 | Agent-First PCB Description (Segment Set and Trade-offs) | 0003 | unchanged |
+| 0017 | Layout and Routing Are Agent-Driven, Checker-Gated, and Frozen on Acceptance | 0053 | unchanged |
+| 0018 | Copper Fill Uses a Self-Built Constrained Geometry Kernel | 0054 | unchanged |
+| 0019 | A Partial Layout Is Legal, and It Is Reported | 0040 | unchanged |
+| 0020 | A Declared `connect` Pair Must Be Implemented by Copper | 0041 | unchanged |
 
 ### `manufacturing/`
 
 | New | Title | From | Note |
 |---|---|---|---|
-| 0120 | The Manufacturing Output Path and Its Target Form | 0005 + 0018 + 0034 | merged: the path, the zero-dependency rule, and the target form are one decision about what leaves the tool |
-| 0121 | JLC Prototype Delivery (BOM / Coordinates / Part Number) | 0006 | unchanged |
-| 0122 | The Output Package Carries Its Own Provenance | new | placeholder: a package must state which source and which tool version produced it (invariant 11) — currently spread across `spec/pcb.md` §8 and the exporters |
+| 0021 | The Manufacturing Output Path and Its Target Form | 0005 + 0018 + 0034 | merged: the path, the zero-dependency rule, and the target form are one decision about what leaves the tool |
+| 0022 | JLC Prototype Delivery (BOM / Coordinates / Part Number) | 0006 | unchanged |
+| 0023 | The Output Package Carries Its Own Provenance | new | placeholder: a package must state which source and which tool version produced it (invariant 11) — currently spread across `spec/pcb.md` §8 and the exporters |
 
 ### `devices/`
 
 | New | Title | From | Note |
 |---|---|---|---|
-| 0123 | The Device Kind Is `part` or `generic`, and Devices Live in One Directory | 0027 + 0037 | merged: the split into parts and families, and the two-kind vocabulary, are one vocabulary decision |
-| 0124 | The Device Vocabulary Is Closed and Checked; a Parameter Is a Role and a Quantity | 0038 | unchanged |
-| 0125 | A Part States Its Own Ratings, and They Are Checked Against Declared Windows | 0039 + 0043 + 0044 + 0052 | merged: the rating vocabulary, the comparison against windows, dissipation, and the terminal naming are one decision about ratings |
-| 0126 | The Package Gives a Chip Resistor Its Floor | 0045 | unchanged |
-| 0127 | The Package Code Lives in the Footprint; 3D Models Belong to Parts | 0029 | unchanged |
-| 0128 | The Procurement Layer — Which Part to Buy Is a Project-Local Decision | 0030 | absorbs the BOM-counting rule from `0002` |
+| 0024 | The Device Kind Is `part` or `generic`, and Devices Live in One Directory | 0027 + 0037 | merged: the split into parts and families, and the two-kind vocabulary, are one vocabulary decision |
+| 0025 | The Device Vocabulary Is Closed and Checked; a Parameter Is a Role and a Quantity | 0038 | unchanged |
+| 0026 | A Part States Its Own Ratings, and They Are Checked Against Declared Windows | 0039 + 0043 + 0044 + 0052 | merged: the rating vocabulary, the comparison against windows, dissipation, and the terminal naming are one decision about ratings |
+| 0027 | The Package Gives a Chip Resistor Its Floor | 0045 | unchanged |
+| 0028 | The Package Code Lives in the Footprint; 3D Models Belong to Parts | 0029 | unchanged |
+| 0029 | The Procurement Layer — Which Part to Buy Is a Project-Local Decision | 0030 | absorbs the BOM-counting rule from `0002` |
 
 ### `libraries/`
 
 | New | Title | From | Note |
 |---|---|---|---|
-| 0129 | Footprint Geometry and 3D Models Do Not Enter the Language; Our Own Footprint Format Is the Source | 0010 + 0011 | merged: what geometry is allowed in the language and the format that carries it are one decision about footprint files |
-| 0130 | Self-Built Symbol Libraries Use Our Own Format | 0012 | unchanged |
-| 0131 | The Reference Project Is Entirely Self-Built | 0013 | unchanged |
-| 0132 | Libraries Are Unverified Facts; Provenance, Disclaimers, and Derived Overrides | 0028 | unchanged |
-| 0133 | Trust in a Library You Do Not Own | 0047 + 0048 + 0049 | merged: template-not-dependency, the consumer's trust record, and the per-file revision are one trust model; absorbs `0046` |
+| 0030 | Footprint Geometry and 3D Models Do Not Enter the Language; Our Own Footprint Format Is the Source | 0010 + 0011 | merged: what geometry is allowed in the language and the format that carries it are one decision about footprint files |
+| 0031 | Self-Built Symbol Libraries Use Our Own Format | 0012 | unchanged |
+| 0032 | The Reference Project Is Entirely Self-Built | 0013 | unchanged |
+| 0033 | Libraries Are Unverified Facts; Provenance, Disclaimers, and Derived Overrides | 0028 | unchanged |
+| 0034 | Trust in a Library You Do Not Own | 0047 + 0048 + 0049 | merged: template-not-dependency, the consumer's trust record, and the per-file revision are one trust model; absorbs `0046` |
 
 ### `view/`
 
 | New | Title | From | Note |
 |---|---|---|---|
-| 0134 | The View Layer Is an Independent Description, and the View Is a Drawing, Not a Build Input | 0021 + 0032 | merged: the description type and the rule that it never becomes a build input are one decision |
-| 0135 | Our Own Reference Renderer — IR → Drawing Commands → SVG | 0014 | unchanged |
-| 0136 | Review Is Not a Description Type — Notes, Decisions, and the One Accountable Person | 0033 | unchanged |
-
+| 0035 | The View Layer Is an Independent Description, and the View Is a Drawing, Not a Build Input | 0021 + 0032 | merged: the description type and the rule that it never becomes a build input are one decision |
+| 0036 | Our Own Reference Renderer — IR → Drawing Commands → SVG | 0014 | unchanged |
+| 0037 | Review Is Not a Description Type — Notes, Decisions, and the One Accountable Person | 0033 | unchanged |
+| 0042 | The Review App Has Four Modes, and `layout` Writes Placement, Not Copper | new | written after the topic-folder swap |
+| 0043 | The Review App Is a Plugin of the Agent Workbench, and the Agent Owns the Source | new | written after the topic-folder swap |
 ### `process/`
 
 | New | Title | From | Note |
 |---|---|---|---|
-| 0137 | Implementation Stack and the Agent's Entry Point | 0009 + 0019 | merged: the stack and the contract reference an agent reads are one decision about how agents work with the tool |
-| 0138 | Licensing and Openness Policy | 0015 | unchanged |
-| 0139 | Process Entities Stay Outside the Language | 0036 | unchanged |
-| 0140 | Documentation Has One Authority per Fact, and the Rest Is a Pointer | 0055 | unchanged |
-
+| 0038 | Implementation Stack and the Agent's Entry Point | 0009 + 0019 | merged: the stack and the contract reference an agent reads are one decision about how agents work with the tool |
+| 0039 | Licensing and Openness Policy | 0015 | unchanged |
+| 0040 | Process Entities Stay Outside the Language | 0036 | unchanged |
+| 0041 | Documentation Has One Authority per Fact, and the Rest Is a Pointer | 0055 | unchanged |
+| 0044 | The Agent's Surface Is a Set of Verbs; Every Host Adapts the Same Ones | new | written after the topic-folder swap |
+| 0045 | The MCP Server Is a Slice We Write Ourselves | new | written after the topic-folder swap |
+| 0046 | A Host Is Entered Once — One Route for the Tools, One Surface for the Picture | new | written after the topic-folder swap |
+| 0047 | The Picture Reaches a Host by Three Routes, and a Host-Native Plugin Is Written Only Where Nothing Else Reaches | new | written after the topic-folder swap |
 ## 9. What the change costs the link gate
 
 The gate is a shared asset: its semantic changes are reviewed line by line, and the corpus must not
@@ -301,7 +327,7 @@ paths relative to `docs/adr/`:
 
 | Rule | Today | Needed |
 |---|---|---|
-| Record discovery | `scanAdrFiles` reads `docs/adr/` non-recursively and maps number → file name | read recursively; map number → path relative to `docs/adr/` (e.g. `language/0100-x.md`) |
+| Record discovery | `scanAdrFiles` reads `docs/adr/` non-recursively and maps number → file name | read recursively; map number → path relative to `docs/adr/` (e.g. `language/0001-x.md`) |
 | Link target check | compares the resolved link target against `join(docs/adr, <file name>)` | unchanged in shape — the stored value becomes a relative path |
 | Index rows | four columns: link, title, status, date | unchanged — the folder is the section, not a column |
 | Index ↔ disk | every record on disk is listed exactly once | unchanged in shape — compare against the relative path |
@@ -331,7 +357,22 @@ rejects:
 The proof of completeness was mechanical: every old number appears in the mapping exactly once,
 every old number is absent from the tree afterwards, and the link gate reports zero errors.
 
-### 10.1 Adding a record afterwards
+### 10.1 The renumbering of 2026-10-30
+
+The same discipline, for a pure shift:
+
+1. The mapping was computed from the records on disk — the old numbers in order, the new numbers
+   from `0001` — and checked before anything was touched: 47 records, every old number once.
+2. One script rewrote every tracked text file in a single pass: the citation `ADR-NNNN` and the
+   file name `NNNN-<slug>.md` carry the same number, so both are tokens of one replacement table.
+   One pass means a number is moved in one step and never half-moved.
+3. The 47 files were renamed to their new numbers.
+4. The prose that states the scheme was updated by hand: the index's numbering and retired
+   sections, `AGENTS.md` §12, this document.
+5. The gate ran: zero errors, and the retired range (`0100`–`0146`) is disjoint from the live
+   series, so a missed rewrite is a link to a number that does not exist.
+
+### 10.2 Adding a record afterwards
 
 The rule that makes this cheap: **a new record takes the next free number and disturbs nothing.**
 
@@ -352,7 +393,7 @@ is unaffected.
 1. **Numbering blocks.** One flat counter, no per-folder blocks — see §4. A per-folder block ties a
    record's identity to its folder, so re-filing would force a renumbering that breaks prose
    citations in code and in the published contract.
-2. **A record with no predecessor.** `0122` is one: it states provenance on the output package,
+2. **A record with no predecessor.** `0023` is one: it states provenance on the output package,
    which lived in a spec and in the exporters but in no record. The corpus holds it. A record's
    predecessor is a convenience of the swap, not a requirement — a decision that was never written
    down is exactly the kind of fact a corpus exists to fix.
@@ -360,7 +401,7 @@ is unaffected.
    sentence carrying both halves, so a record has one header line for it and the gate can check
    that both halves are present. The gate checks presence, never quality; that limit is accepted.
 4. **Retiring the retired.** `0007` and `0046` were dropped rather than kept as retired stubs,
-   because each was already superseded by a record that survives (`0111` and `0133`). The
+   because each was already superseded by a record that survives (`0012` and `0034`). The
    retired-stub mechanism stays, for a record that has to be retired from now on.
 5. **Adding a new folder.** Creating a folder is not a claim about the project, so it takes no
    record: the folder is created with its `README.md` when a topic has no home, and §10.1's

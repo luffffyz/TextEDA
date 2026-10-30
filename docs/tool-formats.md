@@ -2,7 +2,7 @@
 
 What each host expects of a **tool** — a model-callable function with a name, a description and
 typed arguments. This is the reference for the tool catalogue
-([ADR-0143](adr/process/0143-the-agent-surface-is-a-set-of-verbs.md)); it is a description of other
+([ADR-0044](adr/process/0044-the-agent-surface-is-a-set-of-verbs.md)); it is a description of other
 people's interfaces, not a decision of ours.
 
 Sources were read on 2026-10-29. Where a host publishes nothing on a question, the row says so
@@ -72,7 +72,7 @@ Two things in the plugin's component list matter to us as well:
 So the CLI-and-skill floor works here without any protocol of ours: the plugin ships `bin/texteda`
 and a skill that says when to run it. The MCP route exists for hosts that want typed tools, and
 the mods registry is a third way in. Which route we take is decided in
-[ADR-0145](adr/process/0145-a-host-is-entered-once.md) D2: the verbs go over MCP.
+[ADR-0046](adr/process/0046-a-host-is-entered-once.md) D2: the verbs go over MCP.
 
 ### Codex CLI
 
@@ -171,7 +171,7 @@ of it.
 3. **One MCP server** — for the four hosts that speak MCP (Claude Code, Codex, WorkBuddy,
    Qoder). Because MCP is JSON-Schema-native, this is the cheapest adapter of the three, and it
    also carries `outputSchema` / `structuredContent`. Claude Code has a registry of its own as
-   well, but it is served over MCP ([ADR-0145](adr/process/0145-a-host-is-entered-once.md) D2).
+   well, but it is served over MCP ([ADR-0046](adr/process/0046-a-host-is-entered-once.md) D2).
 
 **What no host needs from us:** a protocol of our own, or a second implementation of the verbs.
 The verbs stay the command line's; the catalogue is a projection of them.

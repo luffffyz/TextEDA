@@ -3,7 +3,7 @@
 //
 // Usage: bun run scripts/export-symbol.ts <symbol.json> --component <component.teda> [--out <file>]
 //
-// Pin names/electrical types come from the component (single owner, ADR-0130); pin numbers must exist on both sides:
+// Pin names/electrical types come from the component (single owner, ADR-0031); pin numbers must exist on both sides:
 // present in the symbol but not in the component → error; present in the component but not drawn in the symbol → warning (may be intentionally hidden power pins).
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";

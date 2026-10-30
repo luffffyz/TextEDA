@@ -228,7 +228,7 @@ if (options.kind === "view") {
   const boardFile = join(projectRoot, "design/sch", `${board}.teda`);
   if (!existsFile(boardFile)) fail(`board not found: ${boardFile}`);
   // The board is flattened first: a board composes modules, and the view names the flat ids
-  // (M1.U1 for a module instance, ADR-0112 decision 2).
+  // (M1.U1 for a module instance, ADR-0013 decision 2).
   const parsedBoard = parseSchematic(readFileSync(boardFile, "utf8"), {
     file: `sch/${board}.teda`,
     board,
@@ -253,7 +253,7 @@ if (options.kind === "view") {
     fail(`view ${options.id} failed to parse`);
   }
 
-  // The view names the board's instances by their board-level id (ADR-0111, ADR-0112).
+  // The view names the board's instances by their board-level id (ADR-0012, ADR-0013).
   const componentOf = new Map(parsedBoard.ir.instances.map((i) => [i.id, i.component]));
   const rowOf = new Map(parsedBoard.ir.instances.map((i) => [i.id, i]));
   const instances = new Map<string, SchematicInstance>();

@@ -1,7 +1,7 @@
 // Glyph layout: text becomes stroke polylines in model coordinates, with no system font involved.
 //
 // The layout lives in `packages/core` because the board image strokes the silkscreen with it
-// (ADR-0117 D4). The contract it has to keep is orientation: the same string is read differently in
+// (ADR-0018 D4). The contract it has to keep is orientation: the same string is read differently in
 // a symbol (+y up) and in a footprint (+y down), and the anchor is the visual centre of the cap box.
 import { describe, expect, test } from "bun:test";
 import { textAdvance, textStrokes, unsupportedChars } from "../src/font/index.ts";

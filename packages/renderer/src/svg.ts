@@ -1,12 +1,12 @@
 // IR → drawing commands → SVG: the foundation of the reference renderer (the "reference renderer" of AGENTS.md §1).
 //
 // Conventions:
-//   - Coordinates are always **integer nanometers**; orientation matches the source: symbols +y up, footprints +y down (ADR-0130 decision 5);
+//   - Coordinates are always **integer nanometers**; orientation matches the source: symbols +y up, footprints +y down (ADR-0031 decision 5);
 //     when converting to SVG, flip y according to `orientation` (SVG's y points down).
 //   - Rendering the same IR twice yields **byte-identical** output: no timestamps, no random numbers, no dependence on external state.
 //   - Drawing commands are an intermediate representation (`SvgDoc`), not strings: they can be asserted on, reverse-engineered (extract), and plugged into other backends later.
 //
-// This layer does not depend on KiCad: previews belong to the design loop, KiCad only owns the manufacturing exit (ADR-0120).
+// This layer does not depend on KiCad: previews belong to the design loop, KiCad only owns the manufacturing exit (ADR-0021).
 // It also does not depend on system fonts: text is drawn as paths (Hershey single-stroke font, see `font/`) --
 // machines without fonts installed (containers, CI) still show text when opening the SVG.
 
@@ -32,7 +32,7 @@ export interface SvgPoint {
  *
  * `ref` names the object (`instance:U1`, `net:VCC`, `pad:U1.3`) and reaches the SVG as `data-ref`;
  * `net` names the net an object carries (`VCC`) and reaches it as `data-net`. Both are advisory: the
- * renderer knows what it drew, not what hover and click mean (ADR-0141 D2). An object with no
+ * renderer knows what it drew, not what hover and click mean (ADR-0042 D2). An object with no
  * identity — a sheet frame, a board outline — simply has neither.
  */
 export interface SvgIdentity {
@@ -126,7 +126,7 @@ export interface SvgText extends SvgIdentity {
   unit?: number;
 }
 
-/** Symbol pin: connection point + orientation + length + style. Name and electrical type come from `component` (ADR-0130). */
+/** Symbol pin: connection point + orientation + length + style. Name and electrical type come from `component` (ADR-0031). */
 export interface SvgPin extends SvgIdentity {
   kind: "pin";
   number: string;
@@ -447,7 +447,7 @@ export function toSvgText(doc: SvgDoc): string {
     const style = styleOf(layer);
     out.push(`  <g stroke="${style.stroke}" fill="${style.fill}" stroke-linecap="round" stroke-linejoin="round">`);
     // Primitives that share an identity are wrapped in one group, so the app can address an
-    // object by `data-ref` and move it by transforming the group (ADR-0141 D2). The group key is
+    // object by `data-ref` and move it by transforming the group (ADR-0042 D2). The group key is
     // the identity *pair*: a pad is one object (`pad:U1.3`) and also carries a net (`VCC`), and
     // both have to be addressable. The primitives of one object are contiguous, but a repeated
     // identity would simply open a second group: the app addresses every group it finds.
@@ -617,7 +617,7 @@ function primitiveSvg(
 
 /**
  * Pin orientation → unit direction (symbol coordinates: +x right, +y up).
- * `rotMdeg` is in **millidegrees** (IR convention, ADR-0104 decision 3): 90° = 90000.
+ * `rotMdeg` is in **millidegrees** (IR convention, ADR-0005 decision 3): 90° = 90000.
  */
 export function pinDirection(rotMdeg: number): { x: number; y: number } {
   const r = ((rotMdeg % 360_000) + 360_000) % 360_000;

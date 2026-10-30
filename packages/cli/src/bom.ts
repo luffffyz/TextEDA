@@ -11,7 +11,7 @@
 //
 // The marker never goes into the part number cell: the exported BOM is consumed by an ordering
 // system, and a part number that reads `unsourced` would be ordered as if it were a part
-// (ADR-0121).
+// (ADR-0022).
 import { formatQuantity, parseProcurement, parseSchematic, type QuantityKind } from "@texteda/parser";
 import type { Procurement } from "@texteda/ir/procurement";
 import { buildBomLines } from "@texteda/core";
@@ -87,7 +87,7 @@ export interface BomValue {
  * The board's bill of materials, as a value.
  *
  * The command line prints it and a host's tool registry hands it back; both call this function, so
- * the two faces cannot drift (ADR-0143 D2).
+ * the two faces cannot drift (ADR-0044 D2).
  */
 export function buildBom(options: { root: string; board: string }): VerbResult<BomValue> {
   const { root, board } = options;
@@ -130,7 +130,7 @@ export function buildBom(options: { root: string; board: string }): VerbResult<B
     if (parsed.ir) procurements.push({ ir: parsed.ir, file: source.file });
   }
 
-  // The package floor (ADR-0126) is keyed by the land pattern's package code, so the devices are
+  // The package floor (ADR-0027) is keyed by the land pattern's package code, so the devices are
   // decorated the same way `check` does it: the BOM and the check must not disagree on a selection.
   const devices = withPackageCodes(loadedDevices, loadFootprintLibrary(root));
   const facts = buildProcurementFacts({ schematic: schematic.ir, procurements, devices });

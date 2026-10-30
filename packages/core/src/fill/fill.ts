@@ -1,4 +1,4 @@
-// The pour itself (ADR-0117 D3): one `zone` intent in, one region of copper out.
+// The pour itself (ADR-0018 D3): one `zone` intent in, one region of copper out.
 //
 // The shape of the computation is a single sentence, in this order:
 //   1. the pour is the zone outline clipped to the board, minus the board's cutouts and its `no_pour`
@@ -15,7 +15,7 @@
 //
 // Every step is a kernel boolean, so the output is a disjoint cover of convex pieces in canonical
 // order: two runs over the same input are byte-identical, and a pour is a cache entry that may be
-// thrown away and recomputed (ADR-0117 D4 — the fill never enters the IR or a hash).
+// thrown away and recomputed (ADR-0018 D4 — the fill never enters the IR or a hash).
 import {
   bounds,
   difference,
@@ -97,7 +97,7 @@ export function fillZone(facts: FillFacts, zone: FillZoneInput): ZoneFill {
   };
   // 0. Two zones of different nets that overlap would pour copper into each other: the copper would
   //    be a short that the file then carries to a board house. The IR has no pour priority, so
-  //    "which one wins" is not a question this layer may answer (ADR-0117 open question 2), and the
+  //    "which one wins" is not a question this layer may answer (ADR-0018 open question 2), and the
   //    pour refuses before computing anything.
   for (const other of facts.zones) {
     if (other === zone || other.layer !== zone.layer || other.net === zone.net) continue;

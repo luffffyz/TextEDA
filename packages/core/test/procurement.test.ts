@@ -1,4 +1,4 @@
-// Unit tests for the procurement rules (`spec/procurement.md` §3, ADR-0128).
+// Unit tests for the procurement rules (`spec/procurement.md` §3, ADR-0029).
 //
 // The facts are given directly: the rules are pure, so the tests do not need a project on disk.
 import { describe, expect, test } from "bun:test";
@@ -223,7 +223,7 @@ describe("the bill of materials", () => {
   });
 });
 
-// The package floor (ADR-0126 D4): a line that says nothing about power still asks for the
+// The package floor (ADR-0027 D4): a line that says nothing about power still asks for the
 // standard grade of its package, so the selected part must state its rating and meet the floor.
 describe("the package floor of a chip resistor", () => {
   /** The 0402 generic, with the two facts the floor is keyed by. */

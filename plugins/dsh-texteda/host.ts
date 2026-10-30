@@ -1,8 +1,8 @@
 // The picture half of the TextEDA plugin for a DeepSeek Harness session.
 //
-// A review surface inside the workbench (ADR-0142 D1, D9): the client half draws the print page and
+// A review surface inside the workbench (ADR-0043 D1, D9): the client half draws the print page and
 // reports what a person picked; this half answers what it draws and writes the one thing a person
-// may write — the page's `place` rows (ADR-0142 D3). Everything else is the core's: the model is
+// may write — the page's `place` rows (ADR-0043 D3). Everything else is the core's: the model is
 // `buildReviewModel`, the write is `planPlaces` / `applyPlaces`, and the drawing is the renderer's
 // (no host SDK enters the core, AGENTS.md §2 invariant 20).
 //
@@ -17,7 +17,7 @@
 // only by the owner principal, so the session id also names whose project a request may read.
 //
 // The commit answers with the rebuilt model, as the standalone server does, so the client adopts
-// it instead of asking again (ADR-0141 D9).
+// it instead of asking again (ADR-0042 D9).
 import type { Context } from "@deepseek-ai/cordis";
 import { defineTool } from "@deepseek-ai/dsh-tools";
 import { dshTools } from "../../packages/cli/src/dsh-tools.ts";
@@ -37,7 +37,7 @@ export const MODEL_PATH = "/api/texteda-review";
 export const PLACES_PATH = "/api/texteda-review/places";
 
 /**
- * What this host grants the app (ADR-0142 D3, D6).
+ * What this host grants the app (ADR-0043 D3, D6).
  *
  * `review` and `layout` are the two modes that need nothing outside a print page: the drawing, and
  * its `place` rows. `edit` is not offered — the source is the agent's, not the plugin's — and
@@ -69,7 +69,7 @@ function reviewModel(root: string): ReviewModel {
  * Answer the model route.
  *
  * A project that does not compile is not a failure of this route: `buildReviewModel` reports what
- * it found, and the app draws the boards it has with the findings beside them (ADR-0134 D6).
+ * it found, and the app draws the boards it has with the findings beside them (ADR-0035 D6).
  */
 function handleModel(ctx: Context, request: Request): Response {
     const sessionId = new URL(request.url).searchParams.get("sessionId");
@@ -109,7 +109,7 @@ function askedPlaces(value: unknown[]): { instance_id: string; x: number; y: num
  * `commit: false` plans and draws — the client shows the page as it would be written and the person
  * decides. `commit: true` writes the `place` rows and answers with the rebuilt model. Either way
  * only the `place` rows change; the wires a move disturbs go stale and are reported (`stale`),
- * never re-anchored — that is `texteda view rewire`'s job (ADR-0142 D10).
+ * never re-anchored — that is `texteda view rewire`'s job (ADR-0043 D10).
  */
 async function handlePlaces(ctx: Context, request: Request): Promise<Response> {
     const sessionId = new URL(request.url).searchParams.get("sessionId");
@@ -169,7 +169,7 @@ async function handlePlaces(ctx: Context, request: Request): Promise<Response> {
 
 export function apply(ctx: Context): void {
     // The verbs first: the agent's surface is the same catalogue every other host gets
-    // (ADR-0143 D2, D5). This half of the plugin adds the picture; it does not change the verbs.
+    // (ADR-0044 D2, D5). This half of the plugin adds the picture; it does not change the verbs.
     for (const tool of dshTools()) {
         ctx.tools.register(defineTool(tool));
     }

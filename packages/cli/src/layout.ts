@@ -1,16 +1,16 @@
-// Writing a print page back after a placement change (ADR-0141 D3, D5, ADR-0142 D3).
+// Writing a print page back after a placement change (ADR-0042 D3, D5, ADR-0043 D3).
 //
 // What this file may write: `views/<board_id>/<page_id>.view.teda`, and nothing else. Moving a
 // symbol on a drawing is a drawing change; the circuit (`design/**`) is not touched, and no IR
-// shard, no hash and no manufacturing artifact moves (ADR-0134 D5). The bytes written are the
-// formatter's (ADR-0134 D10), so a save leaves a diff that shows the design change and nothing else.
+// shard, no hash and no manufacturing artifact moves (ADR-0035 D5). The bytes written are the
+// formatter's (ADR-0035 D10), so a save leaves a diff that shows the design change and nothing else.
 //
 // Two write paths live here, and they are not interchangeable:
 //   - `planLayout` / `applyLayout` / `commitPlan`: the standalone app's Apply. It moves symbols,
 //     re-anchors the wires that lost their pins, and reseats floating labels and ports.
-//   - `planPlaces` / `applyPlaces`: the plugin's drag (ADR-0142 D3). It rewrites the `place` rows
+//   - `planPlaces` / `applyPlaces`: the plugin's drag (ADR-0043 D3). It rewrites the `place` rows
 //     and nothing else, so the wires whose pins moved go stale; the staleness is reported and
-//     re-anchoring stays with the command line (`texteda view rewire`, ADR-0142 D10).
+//     re-anchoring stays with the command line (`texteda view rewire`, ADR-0043 D10).
 //
 // The re-anchor itself is not a route: the wires whose pins moved keep their shape and get their
 // corners back (see `packages/core/src/view/reroute.ts`). The wires of every other net, and every
@@ -162,7 +162,7 @@ function computePlacements(
 /**
  * What a placement change would do, without doing it.
  *
- * The app draws the result before it commits it (ADR-0141 D5: Apply is the commit point), so the
+ * The app draws the result before it commits it (ADR-0042 D5: Apply is the commit point), so the
  * plan carries the page's new source *and* the page as it would be drawn.
  */
 export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
@@ -290,13 +290,13 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
 }
 
 /**
- * Move the symbols the app asks for and write back **only** the `place` rows (ADR-0142 D3).
+ * Move the symbols the app asks for and write back **only** the `place` rows (ADR-0043 D3).
  *
  * This is the plugin's write: a drag moves a symbol and nothing else. The wires whose pins moved
  * keep the corners they were written with, so they go stale; the staleness is reported (`stale`)
  * and the page is drawn as the file now says it is — moved symbols, stale wires, no re-anchor —
  * because that is the honest picture. Re-anchoring stays with the command line (`texteda view
- * rewire`, ADR-0142 D10). `applyLayout` is the standalone app's write: it also re-anchors and
+ * rewire`, ADR-0043 D10). `applyLayout` is the standalone app's write: it also re-anchors and
  * reseats.
  */
 export function applyPlaces(root: string, request: LayoutRequest): PlacesOutcome {
@@ -309,7 +309,7 @@ export function applyPlaces(root: string, request: LayoutRequest): PlacesOutcome
  * What a places-only write would do, without doing it.
  *
  * The page's new source is the formatter's output, and the page is drawn as it would be after the
- * change — the symbols at their new places and the wires as they were written (ADR-0142 D5) — so
+ * change — the symbols at their new places and the wires as they were written (ADR-0043 D5) — so
  * the drawing shows the staleness instead of hiding it.
  */
 export function planPlaces(root: string, request: LayoutRequest): PlacesPlan {
@@ -399,7 +399,7 @@ export function savePageSource(root: string, board: string, page: string, text: 
  * A page's source as it would be drawn, with what the parser says about it.
  *
  * The edit mode shows the source and the drawing of the same text: the browser cannot parse a
- * `.teda` file, so the server draws it (ADR-0141 D9: the file system and the parser stay here).
+ * `.teda` file, so the server draws it (ADR-0042 D9: the file system and the parser stay here).
  */
 export function renderPageSource(
   root: string,
@@ -433,7 +433,7 @@ export interface RowAnchor {
  * Where each row of a page is, so a click on the drawing can put the cursor on the row.
  *
  * The line comes from the parser's source map, so it is the line of the text that was parsed and
- * not of the file on disk (ADR-0103 D2).
+ * not of the file on disk (ADR-0004 D2).
  */
 function rowAnchors(view: SchematicView, sources: SourceMap | undefined): RowAnchor[] {
   if (sources === undefined) return [];

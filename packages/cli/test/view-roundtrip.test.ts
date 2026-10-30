@@ -1,5 +1,5 @@
 // Round-trip of the reference project's print pages: what the drawing shows must equal what the
-// view IR says (AGENTS.md §2 invariant 4, ADR-0135 decision 5). The synthetic cases live in
+// view IR says (AGENTS.md §2 invariant 4, ADR-0036 decision 5). The synthetic cases live in
 // `packages/renderer/test/schematic-roundtrip.test.ts`; this one runs every page that exists.
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";

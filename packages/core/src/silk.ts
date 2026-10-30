@@ -212,7 +212,7 @@ export interface SilkText {
  *
  * The two texts differ in origin: the reference is the instance id (a board fact), the value is the
  * caller's (`values`), because a generic device's file cannot hold a value and a part's value is its
- * MPN (ADR-0123). A footprint whose value was never supplied prints none.
+ * MPN (ADR-0024). A footprint whose value was never supplied prints none.
  */
 export function silkTexts(
   placed: readonly PlacedFootprint[],

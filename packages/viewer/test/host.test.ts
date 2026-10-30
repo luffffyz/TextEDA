@@ -1,7 +1,7 @@
 // The seams between the review app and whatever hosts it.
 //
 // Two rules a host can change, and both are worth a test that needs no browser: what a refusal
-// says, and whose keys the app may take (ADR-0142 D2, D9).
+// says, and whose keys the app may take (ADR-0043 D2, D9).
 import { describe, expect, test } from "bun:test";
 import { isForeignEditable, refusalMessage, unsavedSource } from "../src/host.ts";
 

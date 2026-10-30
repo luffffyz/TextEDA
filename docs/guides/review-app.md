@@ -2,8 +2,8 @@
 
 `texteda review` serves the review app: the project's print pages, drawn by the renderer, with
 hover and click so a reviewer can ask "what is this, and what is it on" without leaving the drawing.
-Decision: [ADR-0134](../adr/view/0134-the-view-layer-is-a-drawing.md) (D7 records the form
-this first version takes) and [ADR-0141](../adr/view/0141-the-review-app-has-four-modes.md)
+Decision: [ADR-0035](../adr/view/0035-the-view-layer-is-a-drawing.md) (D7 records the form
+this first version takes) and [ADR-0042](../adr/view/0042-the-review-app-has-four-modes.md)
 (the four modes, and what each may write).
 
 ## Run it
@@ -43,13 +43,13 @@ modes are as complete as the served one; `Layout` and `Edit` show, but cannot wr
 
 The bar above the drawing switches what the canvas shows. One code path serves the drawing,
 the hover and the selection in every mode; the mode decides which drawing it is and what a click
-means ([ADR-0141](../adr/view/0141-the-review-app-has-four-modes.md) D1).
+means ([ADR-0042](../adr/view/0042-the-review-app-has-four-modes.md) D1).
 
 | Mode | Draws | A click | Can write |
 |---|---|---|---|
 | `Review` | the print page | selects a symbol, a label, a port or a net | nothing (invariant 3) |
 | `Layout` | the print page, with the moves the user has made | drags the symbol under the pointer; `r` turns the selection; `Ctrl+Enter` applies, `Esc` drops | `views/<board_id>/<page_id>.view.teda` only |
-| `Placement` | the board's physical canvas: outline, pads, copper, silkscreen (ADR-0141 D1) | lights the copper of the net under the pointer | nothing |
+| `Placement` | the board's physical canvas: outline, pads, copper, silkscreen (ADR-0042 D1) | lights the copper of the net under the pointer | nothing |
 | `Edit` | the source text on the left, drawn as you type | puts the cursor on the row the clicked object came from | the same page file, in the formatter's form |
 
 A mode the board cannot show is disabled with a title saying why: `Layout` and `Edit` need a print
@@ -58,12 +58,12 @@ page, `Placement` needs a `pcb` description.
 ### `Layout`
 
 The print page is a drawing, so its edits are drawing edits: `place` rows and the wires and labels
-that depend on them. `design/**`, the IR and the build hash are never touched (ADR-0141 D3).
+that depend on them. `design/**`, the IR and the build hash are never touched (ADR-0042 D3).
 
 - **Press and move a symbol** to drag it. The symbol snaps to 1.27 mm (the 0.05 inch pin pitch the
   symbols are drawn on); `r` turns it in 90-degree steps. The other modes keep drag as pan, so a
   move cannot happen by accident.
-- **The wires are re-anchored, not re-routed** (ADR-0141 D5). A wire keeps its shape — the same
+- **The wires are re-anchored, not re-routed** (ADR-0042 D5). A wire keeps its shape — the same
   number of segments in the same directions — and only the corners the shape pins down move with
   the pins. A wire that cannot keep its shape (both pins moved apart in different directions) is
   replaced by one elbow and reported in the status line; so is a label or a port that was left off
@@ -74,7 +74,7 @@ that depend on them. `design/**`, the IR and the build hash are never touched (A
 - **An unsaved edit survives the move.** If the editor holds text that was never saved, it rides
   along with the layout request and the write is *that* text with the moved rows applied — a drag
   never silently discards what was typed. Without an edit the file on disk is the base, as before
-  ([ADR-0141](../adr/view/0141-the-review-app-has-four-modes.md) D6).
+  ([ADR-0042](../adr/view/0042-the-review-app-has-four-modes.md) D6).
 - **Routing is not live.** The drawing is not re-routed during the drag, and a move can introduce a
   readability finding (a wire through a symbol's body, a label off its net). `Apply` writes, the
   server re-checks, and the left column says what the move did. That report is the point: the app
@@ -85,7 +85,7 @@ that depend on them. `design/**`, the IR and the build hash are never touched (A
 The board's own canvas, drawn from the `pcb` description and the footprints it places — the answer
 to "where did this part land, and what copper is it on". It is read-only by design: the copper, the
 zones and the spacing belong to the agent-driven layout loop, not to a browser
-([ADR-0116](../adr/pcb/0116-layout-and-routing-are-agent-driven.md)). Clicking lights one net's
+([ADR-0017](../adr/pcb/0017-layout-and-routing-are-agent-driven.md)). Clicking lights one net's
 pads, tracks and vias, and the status line names it; a part's reference and value are printed only
 where the board's `silk` section says so (spec/pcb.md §4.10), so the canvas shows what the board
 will print. Here the click is resolved from the drawing's own objects, so what is picked is what
@@ -102,14 +102,14 @@ drawing that looks wrong to the line that made it. The click is resolved from th
 from its ink, so a 0402 body — a 0.4 mm stroke — is as easy to hit as a QFP.
 
 - **A board with no view file is listed, not drawn.** The reference project's `mcu-board` has a
-  schematic and no print page; the app says so on the canvas and draws nothing (ADR-0134 decision 6).
+  schematic and no print page; the app says so on the canvas and draws nothing (ADR-0035 decision 6).
   It does not invent a layout. What it does show is the board's instances as chips: the logic is
   there even when the drawing is not, and clicking a chip reports that instance's facts.
 - **A page that cannot be drawn says why** and is marked in the board list.
 - **`review` writes nothing back.** The app adds behaviour to the SVG it is given; the drawing is
-  not regenerated, and there is no way to move a symbol from the `review` canvas (ADR-0134,
+  not regenerated, and there is no way to move a symbol from the `review` canvas (ADR-0035,
   AGENTS.md §2 invariant 3). The `layout` mode is the one exception: it writes `place`
-  rows, never `design/**` ([ADR-0141](../adr/view/0141-the-review-app-has-four-modes.md) D3).
+  rows, never `design/**` ([ADR-0042](../adr/view/0042-the-review-app-has-four-modes.md) D3).
 
 ## Interaction
 
@@ -127,11 +127,11 @@ from its ink, so a 0402 body — a 0.4 mm stroke — is as easy to hit as a QFP.
 
 These bindings are the page modes'. `Layout` adds `r` (turn the selection), `Ctrl+Enter` (apply)
 and `Esc` (drop the moves), and its drag moves the symbol instead of panning
-([ADR-0141](../adr/view/0141-the-review-app-has-four-modes.md) D4). The source jump is an explicit
+([ADR-0042](../adr/view/0042-the-review-app-has-four-modes.md) D4). The source jump is an explicit
 action in `Review` and `Layout`: double-click or press `Enter`; a single click only selects. In
 `Edit` a single click is the jump, because the source is on screen and there is nothing to select.
 The definitions come from the advisory
-`dist/ir/identity.json` written by `texteda ir` ([ADR-0103](../adr/language/0103-source-spans.md),
+`dist/ir/identity.json` written by `texteda ir` ([ADR-0004](../adr/language/0004-source-spans.md),
 2026-10-26 amendment), so the app never re-parses a file.
 
 `vscode://file/...` is handled by whatever the user has bound to that URI scheme. A static
@@ -150,13 +150,13 @@ a "1.5 px" stroke then paints 1.5 mm, which reads as a slug over small parts.
 
 - **Live routing.** The `Layout` mode moves symbols and re-anchors the wires they are on; it never
   searches for a new path, and it does not route around a symbol the user moved onto a wire
-  (ADR-0141 D5). A move that creates a finding is reported, not repaired.
+  (ADR-0042 D5). A move that creates a finding is reported, not repaired.
 - **Board editing.** `Placement` is read-only: moving a part on the board, routing copper, editing
   the stackup belong to the agent-driven layout loop
-  ([ADR-0116](../adr/pcb/0116-layout-and-routing-are-agent-driven.md)), not to the review app.
+  ([ADR-0017](../adr/pcb/0017-layout-and-routing-are-agent-driven.md)), not to the review app.
 - **A write from the static report.** `--out` has no server, so nothing can be applied or saved.
 - **Note anchors** (`[instance:U3]` prefixes), which are an open point of
-  [ADR-0136](../adr/view/0136-review-records-and-attribution.md).
+  [ADR-0037](../adr/view/0037-review-records-and-attribution.md).
 
 ## When it looks wrong
 

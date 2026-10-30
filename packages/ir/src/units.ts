@@ -1,5 +1,5 @@
 /**
- * IR quantity table (ADR-0105 decision 7).
+ * IR quantity table (ADR-0006 decision 7).
  *
  * The IR contains **no floating point**: quantities are always integers, and the canonical unit
  * is determined by the field-name suffix: `min_uv` is voltage (µV), `max_na` is current (nA),

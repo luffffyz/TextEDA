@@ -1,4 +1,4 @@
-// The 2D geometry kernel (ADR-0117): integer-nanometre shapes, exact predicates where they decide
+// The 2D geometry kernel (ADR-0018): integer-nanometre shapes, exact predicates where they decide
 // topology, and deterministic output. It knows nothing about nets, layers, rules, or Gerber.
 //
 // A polygon is a closed ring of points. A region is a set of convex polygons that do not overlap

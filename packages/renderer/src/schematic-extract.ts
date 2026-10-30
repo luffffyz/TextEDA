@@ -1,4 +1,4 @@
-// Print page -> the semantic projection of the drawing, and back (ADR-0135 decision 5).
+// Print page -> the semantic projection of the drawing, and back (ADR-0036 decision 5).
 //
 // `extract(render(ir)) == ir` cannot compare the view IR itself: the drawing does not carry
 // placement origins, wire pin references or the unit of a placement -- a reader sees pins, wire

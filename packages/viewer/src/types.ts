@@ -1,4 +1,4 @@
-// The payload of the review app: what the CLI hands the browser (ADR-0134 decision 7).
+// The payload of the review app: what the CLI hands the browser (ADR-0035 decision 7).
 //
 // Two rules shape it. **Lengths are millimetres** as numbers, already divided by 1e6 from the IR's
 // integer nanometres: the payload is a drawing, not a contract, and a consumer that wanted
@@ -7,7 +7,7 @@
 // written — the file it came from is a path, and the line is a number.
 //
 // The page's SVG is a string: the renderer produced it from the view and the symbols, and the app
-// adds behaviour around it rather than drawing again (ADR-0134: the viewer does not become a second
+// adds behaviour around it rather than drawing again (ADR-0035: the viewer does not become a second
 // renderer).
 
 /** A rectangle on the sheet, in millimetres, origin at the sheet's top-left (SVG orientation). */
@@ -37,7 +37,7 @@ export interface ReviewText {
 }
 
 /**
- * The modes the app offers (ADR-0141 D1).
+ * The modes the app offers (ADR-0042 D1).
  *
  * `review` reads, `layout` moves symbols on a print page, `placement` shows the board's physical
  * canvas, `edit` shows the page's source. They share one highlight and one jump: the mode decides
@@ -45,13 +45,13 @@ export interface ReviewText {
  */
 export type ReviewMode = "review" | "layout" | "placement" | "edit";
 
-/** What the host behind this document allows (ADR-0142 D3, D6). */
+/** What the host behind this document allows (ADR-0043 D3, D6). */
 export interface ReviewCapability {
   /** The modes the person may enter, in the order the mode bar shows them. */
   modes: ReviewMode[];
   /**
    * What a write may touch: `places` — the page's `place` rows only, the plugin's write
-   * (ADR-0142 D3); `layout` — the whole layout, the standalone app's write (ADR-0141 D3).
+   * (ADR-0043 D3); `layout` — the whole layout, the standalone app's write (ADR-0042 D3).
    */
   write: "places" | "layout";
 }
@@ -141,7 +141,7 @@ export type ReviewSourceKind =
   | "view-port"
   | "pcb-place";
 
-/** One place an identity is defined or used, as a source location (ADR-0103 D6). */
+/** One place an identity is defined or used, as a source location (ADR-0004 D6). */
 export interface ReviewSourceLocation {
   kind: ReviewSourceKind;
   /** Human label for the definition menu (`sch instance row`, `view place (buck-5v)`, …). */
@@ -204,7 +204,7 @@ export interface ReviewAnswer {
  *
  * The standalone app posts to the CLI's two routes; a plugin asks its own host half. The client
  * half names the route and hands over the body, and knows nothing else about the host
- * (ADR-0142 D2, D9).
+ * (ADR-0043 D2, D9).
  */
 export interface ReviewApi {
   /** Post a JSON body to one of the host's routes. */
@@ -216,18 +216,18 @@ export interface ReviewModel {
   project: { name: string; root: string };
   /**
    * Whether the app may write through the server that served this document. A static export
-   * (`texteda review --out`) has no server behind it and cannot write (ADR-0141 D9).
+   * (`texteda review --out`) has no server behind it and cannot write (ADR-0042 D9).
    */
   writable?: boolean;
   /** IR project hash (`texteda ir`), when the project compiles; the drawing belongs to that build. */
   hash?: string;
   boards: ReviewBoard[];
   diagnostics: ReviewDiagnostic[];
-  /** Identity → source locations (ADR-0103 D6); advisory, derived from the same parse as the IR. */
+  /** Identity → source locations (ADR-0004 D6); advisory, derived from the same parse as the IR. */
   sources: ReviewSources;
   /**
    * What the host behind this document allows. Absent means the standalone app's full set: every
-   * mode the board supports, and the whole layout as the write (ADR-0142 D3, D6).
+   * mode the board supports, and the whole layout as the write (ADR-0043 D3, D6).
    */
   capability?: ReviewCapability;
 }

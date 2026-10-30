@@ -1,6 +1,6 @@
 // Compile the review app once, in memory, for the page the CLI serves.
 //
-// No bundler dependency and no build output on disk (ADR-0134 decision 7): `Bun.build` is part of
+// No bundler dependency and no build output on disk (ADR-0035 decision 7): `Bun.build` is part of
 // the toolchain the project already requires, the entry point is one file, and the result is a
 // string the server inlines. That keeps the review app a single self-contained HTML document, which
 // is also what makes the static report (`texteda review --out`) an artifact CI can attach.

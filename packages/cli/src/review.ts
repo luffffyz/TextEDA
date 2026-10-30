@@ -1,4 +1,4 @@
-// `texteda review <project dir>` — the review app (ADR-0134 decision 7).
+// `texteda review <project dir>` — the review app (ADR-0035 decision 7).
 //
 // A browser app served by the CLI on 127.0.0.1: the file system stays here, the browser receives JSON
 // and SVG only. Two things this file deliberately does not do: it does not parse or lay out anything
@@ -6,7 +6,7 @@
 // the drawing (the app does, around the SVG it is given).
 //
 // `--out <file>` writes the same document as one self-contained HTML file, which is the static review
-// report CI can attach to a pull request (ADR-0134 decision 7: one bundle, three hosts).
+// report CI can attach to a pull request (ADR-0035 decision 7: one bundle, three hosts).
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -45,7 +45,7 @@ export interface ReviewOptions {
  *
  * The canvas is the board description drawn by the renderer: the outline, the placed parts with
  * their pads, the copper and the silkscreen. A board with no `pcb` description has no canvas —
- * the app says so rather than inventing one (ADR-0141 D7).
+ * the app says so rather than inventing one (ADR-0042 D7).
  */
 
 
@@ -59,7 +59,7 @@ export interface ReviewOptions {
  * Build the payload the page shows.
  *
  * Every board that has a schematic becomes a board; a board with no view file becomes a board with no
- * pages and a note saying so — the honest state of ADR-0134 decision 6, not an invented layout.
+ * pages and a note saying so — the honest state of ADR-0035 decision 6, not an invented layout.
  */
 
 
@@ -218,7 +218,7 @@ function readBody(request: IncomingMessage): Promise<string> {
  * Serve the app on `127.0.0.1:port`, or write it to `outFile` and return.
  *
  * The server answers the document, and two write routes: the layout Apply and the edit mode's
- * save. Both own the file system: the browser asks, the server writes (ADR-0141 D9). The static
+ * save. Both own the file system: the browser asks, the server writes (ADR-0042 D9). The static
  * export (`--out`) has no routes at all — it is a document, not a server — and the app says so
  * when a write is asked of it.
  */
@@ -229,7 +229,7 @@ export async function runReview(options: ReviewOptions): Promise<number> {
   if (options.outFile !== undefined) {
     const target = resolve(options.outFile);
     mkdirSync(dirname(target), { recursive: true });
-    // A static document has no server behind it: the app must not offer to write (ADR-0141 D9).
+    // A static document has no server behind it: the app must not offer to write (ADR-0042 D9).
     writeFileSync(target, await renderReviewHtml({ ...model, writable: false }));
     process.stdout.write(`${target}\n`);
     return 0;

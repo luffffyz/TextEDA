@@ -90,7 +90,7 @@ const qualifiedSectionPattern = /([A-Za-z0-9_./-]+\.md)\s*§\s*([0-9]+(?:\.[0-9]
 const bareSectionPattern = /§\s*([0-9]+(?:\.[0-9]+)*)/g;
 
 // Backlog item references (F12, F49). Checked on the line with inline code blanked, because
-// ADR-0102's retired numeric diagnostic codes (`F200`, `F100`) also look like item numbers.
+// ADR-0003's retired numeric diagnostic codes (`F200`, `F100`) also look like item numbers.
 const backlogItemPattern = /(?<![A-Za-z0-9_])F(\d{1,3})(?![A-Za-z0-9_])/g;
 
 const amendmentHeadingPattern = /^#{2,3} /;

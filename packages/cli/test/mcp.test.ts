@@ -1,8 +1,8 @@
 // The MCP server: the verbs over a transport a host can speak.
 //
-// The server is an adapter, not a second implementation (ADR-0143 D5): the tools it lists are the
+// The server is an adapter, not a second implementation (ADR-0044 D5): the tools it lists are the
 // catalogue's entries, and the value a tool returns is the value the command line prints with
-// `--json`, field for field (ADR-0144 D5).
+// `--json`, field for field (ADR-0045 D5).
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { MCP_PROTOCOL_VERSIONS, handleMcpRequest, mcpTools } from "../src/mcp.ts";

@@ -1,10 +1,10 @@
-// RS-274X writer: the board image, laid out as Gerber statements (ADR-0117 D4).
+// RS-274X writer: the board image, laid out as Gerber statements (ADR-0018 D4).
 //
 // This file owns digits and nothing else. No net, no clip, no kernel call, no clock, no randomness:
 // a `BoardImage` in, text out. Every shape was decided by the assembler and the fill policy, so a
 // change in this file can only change the *wording*, never the copper.
 //
-// Format decisions, frozen (ADR-0117 D9):
+// Format decisions, frozen (ADR-0018 D9):
 //   - `%FSLAX46Y46*%` with `%MOMM*%`: four integer digits and six decimals in millimetres, leading
 //     zeros suppressed. One unit is therefore 1 nm (`0.000001 mm`), so a coordinate is written as
 //     the nanometre count itself — no rescaling, no rounding, no float anywhere.

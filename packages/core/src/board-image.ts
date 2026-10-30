@@ -1,5 +1,5 @@
 // Assembly: the pcb IR, the footprints it places, and a board fill, turned into the board image that
-// the Gerber and Excellon writers serialize (ADR-0117 D4).
+// the Gerber and Excellon writers serialize (ADR-0018 D4).
 //
 // Every geometric decision is made here or below (the fill policy, the silk policy, the kernel); a
 // writer only lays digits out. Three consequences worth stating:
@@ -49,7 +49,7 @@ export interface BoardImageFacts {
    * The printed value of each instance, by instance id (`10k`, `100nF`, an MPN).
    *
    * A value is not a fact of the land pattern, so the assembly cannot derive it: a generic device
-   * cannot hold one and a part's value is its MPN (ADR-0123). The caller that knows the schematic
+   * cannot hold one and a part's value is its MPN (ADR-0024). The caller that knows the schematic
    * supplies it; an instance without one prints no value.
    */
   values?: ReadonlyMap<string, string>;

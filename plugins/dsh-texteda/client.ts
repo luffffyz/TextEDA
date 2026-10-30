@@ -1,9 +1,9 @@
 // The picture half of the TextEDA plugin, as a DeepSeek Harness client module.
 //
-// What a host draws (ADR-0142 D2, D9): this module registers one right-sidebar tab whose body is
+// What a host draws (ADR-0043 D2, D9): this module registers one right-sidebar tab whose body is
 // the review app. It is a mount, not a second app — the same `mountReview` the standalone page runs,
 // with the model and the write channel handed in by this host instead of by `texteda review`
-// (ADR-0142 D2). Nothing here draws a schematic or decides what a move means; both live in
+// (ADR-0043 D2). Nothing here draws a schematic or decides what a move means; both live in
 // `@texteda/viewer` and in the CLI's core.
 //
 // Why the right sidebar and not a tool row: the app is a three-column frame (boards, sheet,
@@ -13,7 +13,7 @@
 //
 // The write channel: the app asks its host with paths of its own (`/api/layout`, `/api/source`).
 // This module answers the first and refuses the second. Refusing is not a gap — the plugin grants
-// no `edit` mode (the source is the agent's to write, ADR-0142 D3), so the app never asks, and a
+// no `edit` mode (the source is the agent's to write, ADR-0043 D3), so the app never asks, and a
 // refusal is what a mode that somehow did ask would get.
 //
 // Written with `createElement` and no JSX on purpose: the repository has no React dependency, and

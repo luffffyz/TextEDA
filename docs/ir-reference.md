@@ -4,12 +4,12 @@
 >
 > This table answers only two questions: **what type a field is** and **what its unit is**. Behavioral semantics are defined by `spec/` (the language-wide spec is `spec/teda.md`).
 >
-> Units are determined by field-name suffixes (ADR-0105 decision 7): `min_uv` is voltage (µV), `max_na` is current (nA), `value_mohm` is impedance (mΩ).
+> Units are determined by field-name suffixes (ADR-0006 decision 7): `min_uv` is voltage (µV), `max_na` is current (nA), `value_mohm` is impedance (mΩ).
 
 ## `common`
 
 - schema: `urn:texteda:ir:0.14:common`
-- Scalars, identity patterns and unit conventions shared by all shards. The field-name suffix is the unit: _nm nanometers, _mdeg millidegrees, _mohm milliohms, _uv microvolts, _na nanoamps, _uw microwatts, _mhz millihertz, _mdegc millidegrees Celsius, _ppm parts per million, _uohm microohms, _ff femtofarads, _ph picohenries. Rules: docs/adr/ir/0105-ir-shards-and-hashes.md.
+- Scalars, identity patterns and unit conventions shared by all shards. The field-name suffix is the unit: _nm nanometers, _mdeg millidegrees, _mohm milliohms, _uv microvolts, _na nanoamps, _uw microwatts, _mhz millihertz, _mdegc millidegrees Celsius, _ppm parts per million, _uohm microohms, _ff femtofarads, _ph picohenries. Rules: docs/adr/ir/0006-ir-shards-and-hashes.md.
 
 ### Top-level
 
@@ -20,7 +20,7 @@
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `name` | string | yes | — | Parameter name, matching the column name declared in the component's params section. |
-| `value` | integer | yes | — | The unit is determined by the type declared in the component's params section (resistance→µΩ etc.; see ADR-0105 decision 7). |
+| `value` | integer | yes | — | The unit is determined by the type declared in the component's params section (resistance→µΩ etc.; see ADR-0006 decision 7). |
 
 ### param_value
 
@@ -47,7 +47,7 @@
 ## `component`
 
 - schema: `urn:texteda:ir:0.14:component`
-- Semantic projection of one .teda component file. Pins must already be materialized in the IR: inline pins are copied verbatim; when `symbol` points to a third-party library that carries pin facts and the file omits `pins`, the parser expands them from the library and `pins_source` records the source. A self-built `symbol` stores only the view, without pin facts (ADR-0130), so a component pointing at a self-built symbol must inline `pins`.
+- Semantic projection of one .teda component file. Pins must already be materialized in the IR: inline pins are copied verbatim; when `symbol` points to a third-party library that carries pin facts and the file omits `pins`, the parser expands them from the library and `pins_source` records the source. A self-built `symbol` stores only the view, without pin facts (ADR-0031), so a component pointing at a self-built symbol must inline `pins`.
 
 ### Top-level
 
@@ -63,23 +63,23 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `category` | string | no | — | Open value set: mcu / resistor / capacitor / inductor / led / diode / mosfet_p / regulator / battery_charger / …. Used only for classification; whether a part number is required follows from the kind, not from the category (ADR-0123). |
-| `construction` | string | no | — | The technology of the generic (ADR-0123): mlcc, tantalum, film, shielded, .... Required for a generic, absent for a part. Open value set. |
+| `category` | string | no | — | Open value set: mcu / resistor / capacitor / inductor / led / diode / mosfet_p / regulator / battery_charger / …. Used only for classification; whether a part number is required follows from the kind, not from the category (ADR-0024). |
+| `construction` | string | no | — | The technology of the generic (ADR-0024): mlcc, tantalum, film, shielded, .... Required for a generic, absent for a part. Open value set. |
 | `datasheet` | string | no | — | Datasheet URL. |
 | `description` | string | no | — | One-line human description of the device (e.g. `SOT-23-5 500 mA LDO`). Prose only: it never participates in a check and never changes identity. |
 | `footprint` | library_ref | yes | — | Footprint library reference lib:name; geometry is a fact of the component library and does not enter the board description. |
 | `id` | slug | yes | — | Equals the file name without the extension; not a relative path. |
-| `kind` | `part` \| `generic` | yes | — | Which kind of device this is (ADR-0123, ADR-0123): a part is one purchasable device named by its part number, a generic is a device class whose value lives in the instances row. Never inferred. |
-| `lcsc` | string | no | — | LCSC part number; see ADR-0121. |
+| `kind` | `part` \| `generic` | yes | — | Which kind of device this is (ADR-0024, ADR-0024): a part is one purchasable device named by its part number, a generic is a device class whose value lives in the instances row. Never inferred. |
+| `lcsc` | string | no | — | LCSC part number; see ADR-0022. |
 | `manufacturer` | string | no | — | Manufacturer name. |
-| `mpn` | string | no | — | Manufacturer part number; required for a part, absent for a generic (ADR-0123). |
+| `mpn` | string | no | — | Manufacturer part number; required for a part, absent for a generic (ADR-0024). |
 | `params` | array<param_decl> | no | — | Declares the extra columns allowed in instances rows; the order is the column order; required must precede optional (teda.md §12). |
 | `pins` | array<pin> | yes | — | Pin table; pin numbers are unique and form the key that aligns with the footprint. |
 | `pins_source` | `inline` \| `symbol` | yes | — | inline = the file has a pins section (inline wins); symbol = the file omits pins and the pins are resolved from a third-party library that carries pin facts (a self-built symbol has no pin facts and cannot be this source). When both are present, inline is taken; the difference is reported by validation and does not enter the IR. |
-| `polarized` | boolean | no | — | Whether the generic is polarised (ADR-0123). Required for a generic, absent for a part. |
-| `provenance` | provenance | no | — | Where the facts came from and whether a human checked them (ADR-0133 decision 5). Omitted means the file makes no claim. The attribution rule (`reviewed` requires `verified_by` and `verified_on`; `generated` takes neither) is enforced by the parser as `value.provenance-invalid`: expressing it here needs an `allOf` on the component object, which flattens the whole type in the TS generator. |
-| `ratings` | array<rating> | no | — | The part's own ratings, one row per role (ADR-0125). Absent for a generic: a class has no ratings of its own, its requirements live in the instances rows. |
-| `rev` | string | no | — | The release of this file's facts (ADR-0133): the tag or commit in which they were last established. A copy whose facts diverged appends `+local.N`. Not the format version. |
+| `polarized` | boolean | no | — | Whether the generic is polarised (ADR-0024). Required for a generic, absent for a part. |
+| `provenance` | provenance | no | — | Where the facts came from and whether a human checked them (ADR-0034 decision 5). Omitted means the file makes no claim. The attribution rule (`reviewed` requires `verified_by` and `verified_on`; `generated` takes neither) is enforced by the parser as `value.provenance-invalid`: expressing it here needs an `allOf` on the component object, which flattens the whole type in the TS generator. |
+| `ratings` | array<rating> | no | — | The part's own ratings, one row per role (ADR-0026). Absent for a generic: a class has no ratings of its own, its requirements live in the instances rows. |
+| `rev` | string | no | — | The release of this file's facts (ADR-0034): the tag or commit in which they were last established. A copy whose facts diverged appends `+local.N`. Not the format version. |
 | `symbol` | library_ref | yes | — | Symbol library reference lib:name; a self-built symbol stores only the view, without pin facts. |
 
 ### param_decl
@@ -106,7 +106,7 @@
 |---|---|---|---|---|
 | `name` | string | yes | — | The rating role, from the closed role vocabulary (teda.md §6.2.1). |
 | `type` | param_type | yes | — | The quantity the role is measured in; the unit of the integer value. |
-| `value` | integer | yes | — | The rating, in the canonical unit of the type (resistance→µΩ, percent→ppm, …; see ADR-0105 decision 7). |
+| `value` | integer | yes | — | The rating, in the canonical unit of the type (resistance→µΩ, percent→ppm, …; see ADR-0006 decision 7). |
 
 ### rating
 
@@ -119,7 +119,7 @@
 ## `footprint`
 
 - schema: `urn:texteda:ir:0.14:footprint`
-- One footprint of a self-built footprint library: the canonical description. This is the **source of truth**; the KiCad .kicad_mod is an export artifact (ADR-0129). Lengths are always integer nanometers, angles integer millidegrees (ADR-0105); the origin is the footprint center, +x right, +y down (KiCad convention).
+- One footprint of a self-built footprint library: the canonical description. This is the **source of truth**; the KiCad .kicad_mod is an export artifact (ADR-0030). Lengths are always integer nanometers, angles integer millidegrees (ADR-0006); the origin is the footprint center, +x right, +y down (KiCad convention).
 
 ### Top-level
 
@@ -140,9 +140,9 @@
 | `library` | lib_id | yes | — | Owning library name (the directory under assets/footprints/ that holds the file); KiCad footprint id = <library>:<name>. |
 | `model3d` | model3d | no | — | 3D model reference: file path plus offset/scale/rotation. |
 | `name` | string | yes | — | Footprint name, e.g. ti-sot-23-5. Unique within the library. |
-| `package_code` | string | no | — | The package code of this land pattern, e.g. 0402, SOT-23-5, LQFP-100 (ADR-0127 decision 1). The device does not restate it. |
+| `package_code` | string | no | — | The package code of this land pattern, e.g. 0402, SOT-23-5, LQFP-100 (ADR-0028 decision 1). The device does not restate it. |
 | `pads` | array<pad> | yes | — | Pad table; pad numbers in natural order; numbering must match the symbol pin numbers. |
-| `rev` | string | no | — | The release of this file's facts (ADR-0133): the tag or commit in which they were last established. A copy whose facts diverged appends `+local.N`. Not the format version. |
+| `rev` | string | no | — | The release of this file's facts (ADR-0034): the tag or commit in which they were last established. A copy whose facts diverged appends `+local.N`. Not the format version. |
 | `tags` | array<string> | no | — | Tag list, sorted by byte order (a set; order carries no semantics). |
 | `texts` | array<text_item> | no | — | Text primitives on the footprint (silkscreen/assembly markings). |
 
@@ -190,8 +190,8 @@
 | `clearance_nm` | integer | no | nm | Clearance distance around the pad, nanometers. |
 | `drill` | size | no | — | Through-hole drill size (required for th). |
 | `layers` | array<layer_name> | yes | — | Layers the pad is on, e.g. ["F.Cu","F.Mask","F.Paste"]; through-hole uses ["*.Cu","*.Mask"]. |
-| `number` | pin_number | yes | — | Pad number; must match the symbol pin number (ADR-0129 decision 7). |
-| `roundrect_ratio_ppm` | integer | no | ppm | Roundrect corner ratio in parts per million (0 = square, 500000 = capsule). The IR allows no floating point (ADR-0104 decision 3). |
+| `number` | pin_number | yes | — | Pad number; must match the symbol pin number (ADR-0030 decision 7). |
+| `roundrect_ratio_ppm` | integer | no | ppm | Roundrect corner ratio in parts per million (0 = square, 500000 = capsule). The IR allows no floating point (ADR-0005 decision 3). |
 | `shape` | `rect` \| `roundrect` \| `oval` \| `circle` | yes | — | Pad shape, e.g. rect, roundrect, oval, circle. |
 | `size` | size | yes | — | Pad size (width × height). |
 | `solder_mask_margin_nm` | integer | no | nm | Solder-mask expansion relative to the pad, nanometers; may be negative. |
@@ -246,7 +246,7 @@
 ## `manifest`
 
 - schema: `urn:texteda:ir:0.14:manifest`
-- Shard manifest and hashes: one sha256 per shard (computed over the canonical JSON bytes) and its classification; the project hash covers the normative shards, the advisory hash the advisory ones (ADR-0105 decision 9, amended 2026-10-22). The hashes are recomputed by rule and not persisted elsewhere. See ADR-0105 decision 8.
+- Shard manifest and hashes: one sha256 per shard (computed over the canonical JSON bytes) and its classification; the project hash covers the normative shards, the advisory hash the advisory ones (ADR-0006 decision 9, amended 2026-10-22). The hashes are recomputed by rule and not persisted elsewhere. See ADR-0006 decision 8.
 
 ### Top-level
 
@@ -255,7 +255,7 @@
 | `advisory_hash` | sha256 | no | — | Advisory hash = SHA-256(concatenation of "<path>:<sha256>\n" lines after sorting the advisory shards by path). Absent when the project has no advisory shard. A hash identifies a build, not the project's file set: changing an advisory shard changes this hash and leaves the project hash alone. |
 | `ir_version` | ir_version | yes | — | IR contract version, currently always 0.14. |
 | `note` | note | no | — | Free text; canonical JSON has no comments, this is the substitute. |
-| `shards` | array<object> | yes | — | Shard list: path, content hash and classification of each shard. The classification decides which hash the shard enters (ADR-0105 decision 9). |
+| `shards` | array<object> | yes | — | Shard list: path, content hash and classification of each shard. The classification decides which hash the shard enters (ADR-0006 decision 9). |
 | `source_hash` | sha256 | yes | — | Project hash = SHA-256(concatenation of "<path>:<sha256>\n" lines after sorting the normative shards by path). The board hash uses the same rule over the subset of that board's normative shards. |
 | `tool_version` | string | yes | — | Version of the tool that produced the IR; the other half of artifact traceability. |
 
@@ -263,14 +263,14 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `normative` | boolean | yes | — | Whether the build depends on this shard. A normative shard is part of the build identity; an advisory one is not (ADR-0105 decision 9, amended 2026-10-22). The classification is a property of the source file, so a tool never has to infer it from a path. |
+| `normative` | boolean | yes | — | Whether the build depends on this shard. A normative shard is part of the build identity; an advisory one is not (ADR-0006 decision 9, amended 2026-10-22). The classification is a property of the source file, so a tool never has to infer it from a path. |
 | `path` | string | yes | — | Shard path relative to dist/ir/, e.g. boards/charger-buck/schematic.json. |
 | `sha256` | sha256 | yes | — | SHA-256 of this shard's canonical JSON bytes. |
 
 ## `pcb`
 
 - schema: `urn:texteda:ir:0.14:pcb`
-- Physical facts and rule intent of one board (layer B0). No drawing parameters, silkscreen layout, fill caches or UUIDs; connectivity is decided by connect and the schematic and is never back-derived from geometry. See ADR-0115, spec/pcb.md.
+- Physical facts and rule intent of one board (layer B0). No drawing parameters, silkscreen layout, fill caches or UUIDs; connectivity is decided by connect and the schematic and is never back-derived from geometry. See ADR-0016, spec/pcb.md.
 
 ### Top-level
 
@@ -283,7 +283,7 @@
 | `format` | format_version | yes | — | Language version of the .teda file that produced this shard, in canonical form (the patch component is left out when it is zero); see teda.md §13. |
 | `ir_version` | ir_version | yes | — | IR contract version, currently always 0.14. |
 | `keepout` | array<keepout> | no | — | The regions where something may not be put. |
-| `note` | note | no | — | Free text; canonical JSON has no comments, this is the substitute (ADR-0104 rule 8). |
+| `note` | note | no | — | Free text; canonical JSON has no comments, this is the substitute (ADR-0005 rule 8). |
 | `outline` | array<point> | yes | — | Closed board-outline polyline (closed automatically from first to last); only polylines are supported. The coordinate origin is the lower-left corner of the outline's bounding box. |
 | `physical_only` | array<physical_only> | no | — | The items that exist on the board but not in the schematic. |
 | `place` | array<placement> | yes | — | Where the placed instances sit, one entry per instance. |
@@ -321,7 +321,7 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0129). |
+| `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0030). |
 | `points` | array<point> | yes | — | The outline of the keepout, at least three points; the polygon is closed implicitly. |
 | `type` | `no_track` \| `no_pour` \| `no_place` \| `no_via` | yes | — | What the keepout forbids. |
 
@@ -341,7 +341,7 @@
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `id` | string | yes | — | The item's id, unique in the board. |
-| `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0129). |
+| `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0030). |
 | `size_nm` | integer | yes | nm | Diameter of the mark, nanometres. |
 | `type` | `fiducial` | yes | — | What the item is: a fiducial mark. |
 | `x_nm` | integer | yes | nm | X of the fiducial centre, nanometres, board frame, y grows downward. |
@@ -374,7 +374,7 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `instance_id` | instance_id | yes | — | Instance id of the board's flat list: U1. An instance of a module carries the module's prefix: <module_instance_id>.<refdes> (M1.U1). This is the identity key; see ADR-0105 decision 6 and ADR-0112 decision 2. |
+| `instance_id` | instance_id | yes | — | Instance id of the board's flat list: U1. An instance of a module carries the module's prefix: <module_instance_id>.<refdes> (M1.U1). This is the identity key; see ADR-0006 decision 6 and ADR-0013 decision 2. |
 | `rot_mdeg` | integer | yes | m° | Clockwise positive, millidegrees; reduced modulo 360000. |
 | `side` | `top` \| `bottom` | yes | — | Which side of the board the instance sits on. |
 | `x_nm` | integer | yes | nm | X coordinate of the instance's origin, nanometres. |
@@ -483,7 +483,7 @@
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `kind` | `signal` \| `power` \| `plane` | yes | — | What the copper layer is for. |
-| `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0129). |
+| `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0030). |
 | `thickness_nm` | integer | yes | nm | Thickness of the copper, nanometres. |
 | `type` | `copper` | yes | — | The kind of layer: copper. |
 
@@ -492,7 +492,7 @@
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `er_ppm` | integer | no | ppm | Dielectric constant × 10^6, e.g. FR4 4.3 = 4300000; omitted means unknown. |
-| `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0129). |
+| `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0030). |
 | `material` | string | yes | — | The dielectric material. |
 | `thickness_nm` | integer | yes | nm | Thickness of the dielectric, nanometres. |
 | `type` | `dielectric` | yes | — | The kind of layer: dielectric. |
@@ -501,7 +501,7 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0129). |
+| `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0030). |
 | `net` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
 | `points` | array<point> | yes | — | The track's centre line, at least two points. |
 | `width_nm` | integer | yes | nm | Track width, nanometres. |
@@ -511,10 +511,10 @@
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `drill_nm` | integer | yes | nm | Diameter of the drilled hole, nanometres. |
-| `from_layer` | layer_name | no | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0129). |
+| `from_layer` | layer_name | no | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0030). |
 | `net` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
 | `size_nm` | integer | yes | nm | Outer diameter of the via's pad, nanometres. |
-| `to_layer` | layer_name | no | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0129). |
+| `to_layer` | layer_name | no | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0030). |
 | `x_nm` | integer | yes | nm | X coordinate of the via's centre, nanometres. |
 | `y_nm` | integer | yes | nm | Y coordinate of the via's centre, nanometres. |
 
@@ -522,14 +522,14 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0129). |
+| `layer` | layer_name | yes | — | Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0030). |
 | `net` | net_id | yes | — | The net name is the identity key: GND, VFB. A net of a module carries the module's prefix: <module_instance_id>.<net> (M1.VFB). |
 | `points` | array<point> | yes | — | The outline of the zone, at least three points; the polygon is closed implicitly. |
 
 ## `procurement`
 
 - schema: `urn:texteda:ir:0.14:procurement`
-- Which parts a board is bought with. The primary shard is normative (the build is made of these parts); the alternatives shard is advisory (a second source does not change the build). See spec/procurement.md and ADR-0128.
+- Which parts a board is bought with. The primary shard is normative (the build is made of these parts); the alternatives shard is advisory (a second source does not change the build). See spec/procurement.md and ADR-0029.
 
 ### Top-level
 
@@ -544,7 +544,7 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `board` | slug | yes | — | The board these selections belong to. A selection always belongs to a board, because a BOM is a board's (ADR-0114). |
+| `board` | slug | yes | — | The board these selections belong to. A selection always belongs to a board, because a BOM is a board's (ADR-0015). |
 | `role` | `primary` \| `alternatives` | yes | — | Which of the two files this is: the primary selections (normative) or the second sources (advisory). |
 | `selections` | array<selection> | yes | — | One row per selected BOM line, ordered by the line key. |
 
@@ -560,7 +560,7 @@
 ## `project`
 
 - schema: `urn:texteda:ir:0.14:project`
-- IR projection of project.toml: human-written metadata plus the board, variant and compliance lists. Contains no circuit semantics. See ADR-0105 decision 10.
+- IR projection of project.toml: human-written metadata plus the board, variant and compliance lists. Contains no circuit semantics. See ADR-0006 decision 10.
 
 ### Top-level
 
@@ -632,7 +632,7 @@
 ## `schematic-view`
 
 - schema: `urn:texteda:ir:0.14:schematic-view`
-- The view (S1) of one print page of a board: where the symbols sit, how the wires run, where the labels and board ports are. This layer carries no electrical facts — it references the board's logical schematic by instance id, pin number and net id, and the two must agree. Lengths are integer nanometers, angles integer millidegrees (ADR-0105). The origin is the sheet's upper-left corner, +x right, +y down. See ADR-0134, ADR-0111.
+- The view (S1) of one print page of a board: where the symbols sit, how the wires run, where the labels and board ports are. This layer carries no electrical facts — it references the board's logical schematic by instance id, pin number and net id, and the two must agree. Lengths are integer nanometers, angles integer millidegrees (ADR-0006). The origin is the sheet's upper-left corner, +x right, +y down. See ADR-0035, ADR-0012.
 
 ### Top-level
 
@@ -642,7 +642,7 @@
 | `format` | format_version | yes | — | Language version of the .teda file that produced this shard; see teda.md §13. |
 | `ir_version` | ir_version | yes | — | IR contract version, currently always 0.14. |
 | `label` | array<label> | no | — | Net name labels; the text shown is the net id itself, never an override. |
-| `note` | note | no | — | Free text; canonical JSON has no comments, this is the substitute (ADR-0104 rule 8). |
+| `note` | note | no | — | Free text; canonical JSON has no comments, this is the substitute (ADR-0005 rule 8). |
 | `page` | slug | yes | — | The print page id this view draws, resolved to views/<board_id>/<page_id>.view.teda. A print page is a drawing and print unit, not a logical partition. |
 | `place` | array<place> | yes | — | Where each component instance sits on the print page, sorted by instance id. |
 | `port` | array<port> | no | — | Board port symbols; a port names an existing net, it never creates one. |
@@ -712,7 +712,7 @@
 ## `schematic`
 
 - schema: `urn:texteda:ir:0.14:schematic`
-- Schematic IR of one board: the board's flat list of instances and nets, as declared in design/sch/<board_id>.teda. A board has exactly one schematic file; there is no page level and no flattening. See ADR-0111, ADR-0105 decision 5.
+- Schematic IR of one board: the board's flat list of instances and nets, as declared in design/sch/<board_id>.teda. A board has exactly one schematic file; there is no page level and no flattening. See ADR-0012, ADR-0006 decision 5.
 
 ### Top-level
 
@@ -803,13 +803,13 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `component` | device_ref | yes | — | Device reference (component_id), bare: every device the project reads is its own file under assets/components/ (ADR-0133). |
+| `component` | device_ref | yes | — | Device reference (component_id), bare: every device the project reads is its own file under assets/components/ (ADR-0034). |
 | `dnp` | boolean | no | — | Whether it is not placed (unmounted but occupies a spot). |
-| `id` | instance_id | yes | — | Flattened display name of the board's flat instance list: U1. It remains the key used by net members and placements; the stable identity is `uid` (ADR-0109). |
+| `id` | instance_id | yes | — | Flattened display name of the board's flat instance list: U1. It remains the key used by net members and placements; the stable identity is `uid` (ADR-0010). |
 | `logical_only` | boolean | no | — | E.g. power flags: exist only at the logical layer and produce no physical entity. |
 | `note` | note | no | — | Free text; canonical JSON has no comments, this is the substitute. |
 | `params` | array<param_value> | no | — | Ordered as declared in the component's params section; optional columns may be omitted. |
-| `uid` | string | no | — | Stable instance identity (ADR-0109): ID plus six lowercase Crockford Base32 characters. A module-local instance is qualified by its module instance uid, e.g. IDp8x2n4/IDk2m8q4. Absent in pre-0.9 files. |
+| `uid` | string | no | — | Stable instance identity (ADR-0010): ID plus six lowercase Crockford Base32 characters. A module-local instance is qualified by its module instance uid, e.g. IDp8x2n4/IDk2m8q4. Absent in pre-0.9 files. |
 
 ### net
 
@@ -829,7 +829,7 @@
 ## `symbol`
 
 - schema: `urn:texteda:ir:0.14:symbol`
-- **View** of one symbol in a self-built symbol library: pin placement, outline, unit grouping, display toggles. Pin name/number/electrical type belong to `component` (single owner, ADR-0130); this shard only describes how to draw. Lengths are always integer nanometers, angles integer millidegrees (ADR-0104 decision 3); +x right, +y up (KiCad symbol convention).
+- **View** of one symbol in a self-built symbol library: pin placement, outline, unit grouping, display toggles. Pin name/number/electrical type belong to `component` (single owner, ADR-0031); this shard only describes how to draw. Lengths are always integer nanometers, angles integer millidegrees (ADR-0005 decision 3); +x right, +y up (KiCad symbol convention).
 
 ### Top-level
 
@@ -855,7 +855,7 @@
 | `pin_numbers_hidden` | boolean | yes | — | Whether pin numbers are hidden. |
 | `pins` | array<pin> | yes | — | Pin view table; pin numbers align with the component pin table. |
 | `power` | boolean | yes | — | Power symbol (KiCad `(power)`). |
-| `rev` | string | no | — | The release of this file's facts (ADR-0133): the tag or commit in which they were last established. A copy whose facts diverged appends `+local.N`. Not the format version. |
+| `rev` | string | no | — | The release of this file's facts (ADR-0034): the tag or commit in which they were last established. A copy whose facts diverged appends `+local.N`. Not the format version. |
 | `tags` | array<string> | no | — | Tag list, sorted by byte order (a set; order carries no semantics). |
 | `units` | integer | yes | — | Number of units. > 1 for multi-unit devices (e.g. dual op-amps); elements with `unit=0` are shared by all units. |
 
@@ -919,7 +919,7 @@
 ## `system`
 
 - schema: `urn:texteda:ir:0.14:system`
-- Multi-board connections: system-level nets between boards. Members only reference board ports, never pins, and never rewrite any board's internal connectivity. See ADR-0108.
+- Multi-board connections: system-level nets between boards. Members only reference board ports, never pins, and never rewrite any board's internal connectivity. See ADR-0009.
 
 ### Top-level
 

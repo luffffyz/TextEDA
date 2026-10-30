@@ -1,4 +1,4 @@
-// The procurement rules (`spec/procurement.md` §3, ADR-0128).
+// The procurement rules (`spec/procurement.md` §3, ADR-0029).
 //
 // A selection says which part is bought for a line of the design. Two things can go wrong and
 // both matter: the selection can break the rules (it names something that is not a part, it
@@ -65,9 +65,9 @@ export interface Device {
   readonly ratings: Readonly<Record<string, { readonly type: string; readonly value: number | string }>>;
   /** The parameter columns a generic declares: role → quantity. */
   readonly params: readonly { readonly name: string; readonly type: string }[];
-  /** The generic's construction (ADR-0124): the technology a package floor is stated for. */
+  /** The generic's construction (ADR-0025): the technology a package floor is stated for. */
   readonly construction?: string;
-  /** The land pattern's package code (ADR-0127 decision 1, JEDEC spelling): the floor's other key. */
+  /** The land pattern's package code (ADR-0028 decision 1, JEDEC spelling): the floor's other key. */
   readonly package_code?: string;
 }
 
@@ -213,7 +213,7 @@ export function checkProcurement(facts: ProcurementFacts): Diagnostic[] {
       });
     }
 
-    // Rule 4a (ADR-0126): a chip resistor's package is an implied lower bound. A line that says
+    // Rule 4a (ADR-0027): a chip resistor's package is an implied lower bound. A line that says
     // nothing about power is asking for the standard grade of its package — the lowest a part of
     // that size is sold at — so the selected part must state its rating and meet that floor.
     const floor = packagePowerRating(generic.construction, generic.package_code);

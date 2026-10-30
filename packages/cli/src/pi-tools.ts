@@ -3,7 +3,7 @@
 // pi takes a tool as a schema plus a function; the catalogue's schema is JSON Schema, and pi
 // wants the Zod-compatible builder the host injects (`pi.zod`). This file is the projection and
 // nothing else: it translates the schema and hands the value back. It does not decide what a
-// tool does — the verb does (ADR-0143 D2, ADR-0144 D5).
+// tool does — the verb does (ADR-0044 D2, ADR-0045 D5).
 import { toolAnswer } from "./result.ts";
 import { TOOLS, type JsonSchema } from "./tools.ts";
 
@@ -89,7 +89,7 @@ function label(name: string): string {
  * The catalogue as pi's tools.
  *
  * Every tool is the same verb the command line calls, and every result is the value that verb
- * prints with `--json` (ADR-0143 D2). A verb that could not do its work is a tool error the
+ * prints with `--json` (ADR-0044 D2). A verb that could not do its work is a tool error the
  * model can read and answer with different arguments.
  */
 export function piTools(z: ZodLike): PiTool[] {

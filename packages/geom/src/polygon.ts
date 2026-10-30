@@ -79,7 +79,7 @@ export function isSimple(polygon: Polygon): boolean {
  *
  * The canonical start is what makes an operation independent of the operand order and of the
  * input's own vertex order: two rings describing the same square produce the same array, so the
- * same region serializes to the same bytes (ADR-0117 D5).
+ * same region serializes to the same bytes (ADR-0018 D5).
  */
 export function normalize(points: readonly Point[]): Polygon {
   const deduped = canonicalZero(dedupe(points));
@@ -131,7 +131,7 @@ function rotateToFirst(ring: Polygon): Polygon {
  *
  * Convexity matters because a convex ring has an exact offset with no join repair: the Minkowski sum
  * of two convex rings is computed by merging their edge directions, which is closed-form and never
- * needs a boolean (ADR-0117, "offset joins").
+ * needs a boolean (ADR-0018, "offset joins").
  */
 export function isConvex(polygon: Polygon): boolean {
   if (polygon.length < 3) return false;

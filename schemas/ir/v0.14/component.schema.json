@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:texteda:ir:0.14:component",
   "title": "TextEDA IR v0.14 — component shard",
-  "description": "Semantic projection of one .teda component file. Pins must already be materialized in the IR: inline pins are copied verbatim; when `symbol` points to a third-party library that carries pin facts and the file omits `pins`, the parser expands them from the library and `pins_source` records the source. A self-built `symbol` stores only the view, without pin facts (ADR-0130), so a component pointing at a self-built symbol must inline `pins`.",
+  "description": "Semantic projection of one .teda component file. Pins must already be materialized in the IR: inline pins are copied verbatim; when `symbol` points to a third-party library that carries pin facts and the file omits `pins`, the parser expands them from the library and `pins_source` records the source. A self-built `symbol` stores only the view, without pin facts (ADR-0031), so a component pointing at a self-built symbol must inline `pins`.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -39,7 +39,7 @@
           "type": "string",
           "minLength": 1,
           "pattern": "^[^\\s#]+$",
-          "description": "The release of this file's facts (ADR-0133): the tag or commit in which they were last established. A copy whose facts diverged appends `+local.N`. Not the format version."
+          "description": "The release of this file's facts (ADR-0034): the tag or commit in which they were last established. A copy whose facts diverged appends `+local.N`. Not the format version."
         },
         "id": {
           "$ref": "urn:texteda:ir:0.14:common#/$defs/slug",
@@ -50,12 +50,12 @@
             "part",
             "generic"
           ],
-          "description": "Which kind of device this is (ADR-0123, ADR-0123): a part is one purchasable device named by its part number, a generic is a device class whose value lives in the instances row. Never inferred."
+          "description": "Which kind of device this is (ADR-0024, ADR-0024): a part is one purchasable device named by its part number, a generic is a device class whose value lives in the instances row. Never inferred."
         },
         "mpn": {
           "type": "string",
           "minLength": 1,
-          "description": "Manufacturer part number; required for a part, absent for a generic (ADR-0123)."
+          "description": "Manufacturer part number; required for a part, absent for a generic (ADR-0024)."
         },
         "manufacturer": {
           "type": "string",
@@ -64,16 +64,16 @@
         "category": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$",
-          "description": "Open value set: mcu / resistor / capacitor / inductor / led / diode / mosfet_p / regulator / battery_charger / …. Used only for classification; whether a part number is required follows from the kind, not from the category (ADR-0123)."
+          "description": "Open value set: mcu / resistor / capacitor / inductor / led / diode / mosfet_p / regulator / battery_charger / …. Used only for classification; whether a part number is required follows from the kind, not from the category (ADR-0024)."
         },
         "construction": {
           "type": "string",
           "minLength": 1,
-          "description": "The technology of the generic (ADR-0123): mlcc, tantalum, film, shielded, .... Required for a generic, absent for a part. Open value set."
+          "description": "The technology of the generic (ADR-0024): mlcc, tantalum, film, shielded, .... Required for a generic, absent for a part. Open value set."
         },
         "polarized": {
           "type": "boolean",
-          "description": "Whether the generic is polarised (ADR-0123). Required for a generic, absent for a part."
+          "description": "Whether the generic is polarised (ADR-0024). Required for a generic, absent for a part."
         },
         "datasheet": {
           "type": "string",
@@ -82,7 +82,7 @@
         "lcsc": {
           "type": "string",
           "pattern": "^C[0-9]+$",
-          "description": "LCSC part number; see ADR-0121."
+          "description": "LCSC part number; see ADR-0022."
         },
         "description": {
           "type": "string",
@@ -105,14 +105,14 @@
         },
         "ratings": {
           "type": "array",
-          "description": "The part's own ratings, one row per role (ADR-0125). Absent for a generic: a class has no ratings of its own, its requirements live in the instances rows.",
+          "description": "The part's own ratings, one row per role (ADR-0026). Absent for a generic: a class has no ratings of its own, its requirements live in the instances rows.",
           "items": {
             "$ref": "#/$defs/rating"
           }
         },
         "provenance": {
           "$ref": "urn:texteda:ir:0.14:common#/$defs/provenance",
-          "description": "Where the facts came from and whether a human checked them (ADR-0133 decision 5). Omitted means the file makes no claim. The attribution rule (`reviewed` requires `verified_by` and `verified_on`; `generated` takes neither) is enforced by the parser as `value.provenance-invalid`: expressing it here needs an `allOf` on the component object, which flattens the whole type in the TS generator."
+          "description": "Where the facts came from and whether a human checked them (ADR-0034 decision 5). Omitted means the file makes no claim. The attribution rule (`reviewed` requires `verified_by` and `verified_on`; `generated` takes neither) is enforced by the parser as `value.provenance-invalid`: expressing it here needs an `allOf` on the component object, which flattens the whole type in the TS generator."
         },
         "pins": {
           "type": "array",
@@ -176,7 +176,7 @@
         "integer",
         "string"
       ],
-      "description": "The parameter type determines the integer unit in the IR: resistance→µΩ, capacitance→fF, inductance→pH, voltage→µV, current→nA, power→µW, frequency→mHz, length→nm, temperature→m°C, percent→ppm, integer→1. See ADR-0105 decision 7."
+      "description": "The parameter type determines the integer unit in the IR: resistance→µΩ, capacitance→fF, inductance→pH, voltage→µV, current→nA, power→µW, frequency→mHz, length→nm, temperature→m°C, percent→ppm, integer→1. See ADR-0006 decision 7."
     },
     "pin": {
       "type": "object",
@@ -233,7 +233,7 @@
       ]
     },
     "rating": {
-      "description": "One rating of a part: the role, the quantity it is measured in, and the value (ADR-0125). A part states its own ratings; a generic states none, because its requirements live in the instances rows.",
+      "description": "One rating of a part: the role, the quantity it is measured in, and the value (ADR-0026). A part states its own ratings; a generic states none, because its requirements live in the instances rows.",
       "oneOf": [
         {
           "type": "object",
@@ -255,7 +255,7 @@
             },
             "value": {
               "type": "integer",
-              "description": "The rating, in the canonical unit of the type (resistance→µΩ, percent→ppm, …; see ADR-0105 decision 7)."
+              "description": "The rating, in the canonical unit of the type (resistance→µΩ, percent→ppm, …; see ADR-0006 decision 7)."
             }
           }
         },

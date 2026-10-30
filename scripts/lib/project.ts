@@ -35,7 +35,7 @@ export function tedaFiles(dir: string): string[] {
   return out;
 }
 
-/** The project's device files: parts and generics alike, in `assets/components/` (ADR-0123, ADR-0123). */
+/** The project's device files: parts and generics alike, in `assets/components/` (ADR-0024, ADR-0024). */
 export function deviceFiles(projectRoot: string): string[] {
   return tedaFiles(join(projectRoot, "assets/components"));
 }
@@ -58,7 +58,7 @@ export function loadFootprint(file: string, library: string): Loaded<Footprint> 
   return { ok: true, value: parsed.ir, diagnostics: parsed.diagnostics };
 }
 
-/** Read the facts of a component description (the single owner of pin names and electrical types, ADR-0130). */
+/** Read the facts of a component description (the single owner of pin names and electrical types, ADR-0031). */
 export function loadComponent(file: string): Loaded<ComponentFacts> {
   const facts = readComponentFacts(readFileSync(file, "utf8"), { file });
   if (!facts.ok || !facts.facts) return { ok: false, diagnostics: facts.diagnostics };

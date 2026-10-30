@@ -1,4 +1,4 @@
-// Rating checks (ADR-0125): a device's limit against the declared window of the net it sits on.
+// Rating checks (ADR-0026): a device's limit against the declared window of the net it sits on.
 import { irVersion } from "@texteda/ir";
 import { describe, expect, test } from "bun:test";
 import { checkRatings } from "../src/index.ts";
@@ -123,7 +123,7 @@ describe("rating checks", () => {
   });
 });
 
-describe("dissipation checks (ADR-0125)", () => {
+describe("dissipation checks (ADR-0026)", () => {
   const RESISTOR: RatingDevice = {
     pins: ["1", "2"],
     ratings: {},
@@ -221,7 +221,7 @@ describe("dissipation checks (ADR-0125)", () => {
     expect(note?.data?.compared).toBe(0);
   });
 
-  test("with nothing declared, the package's standard rating is the floor (ADR-0126)", () => {
+  test("with nothing declared, the package's standard rating is the floor (ADR-0027)", () => {
     const schematic = board({
       instances: [{ id: "R1", component: "res-thick-0402" }],
       nets: [

@@ -1,4 +1,4 @@
-// The modes a person may enter, resolved from the board and the host's capability (ADR-0142 D3,
+// The modes a person may enter, resolved from the board and the host's capability (ADR-0043 D3,
 // D6). These tests need no DOM: the board is built literally, and the helper is pure.
 import { describe, expect, test } from "bun:test";
 import { availableModes } from "../src/capability.ts";

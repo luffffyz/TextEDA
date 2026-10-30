@@ -1,4 +1,4 @@
-// The copper-fill policy layer (ADR-0117 D3): what a pour must keep clear of, and what copper it
+// The copper-fill policy layer (ADR-0018 D3): what a pour must keep clear of, and what copper it
 // leaves behind. The kernel (`@texteda/geom`) knows shapes; this layer knows nets, layers, clearance
 // and thermal settings, and it is where DRC and the routing tools will get their geometry from.
 //

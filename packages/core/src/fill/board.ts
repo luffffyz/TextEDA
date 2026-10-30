@@ -12,7 +12,7 @@ export function fillBoardFacts(options: {
   pcb: Pcb;
   placed: readonly PlacedFootprint[];
   pin_net: PinNet;
-  /** Where a `zone` or `keepout` row was written, so a pour's diagnostics point at it (ADR-0103). */
+  /** Where a `zone` or `keepout` row was written, so a pour's diagnostics point at it (ADR-0004). */
   locate?: (irPath: string) => DiagnosticLocation | undefined;
 }): FillFacts {
   const { pcb } = options;

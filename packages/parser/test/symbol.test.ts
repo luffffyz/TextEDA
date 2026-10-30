@@ -50,7 +50,7 @@ describe("example symbol", () => {
     expect(validate("symbol", result.ir).ok).toBe(true);
   });
 
-  test("no floats in the IR (ADR-0104 decision 3)", () => {
+  test("no floats in the IR (ADR-0005 decision 3)", () => {
     expect(() => canonicalJson(result.ir)).not.toThrow();
   });
 });

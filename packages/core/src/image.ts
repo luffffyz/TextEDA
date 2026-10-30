@@ -1,11 +1,11 @@
-// The board image: the last shape-bearing structure before RS-274X / Excellon text (ADR-0117 D4).
+// The board image: the last shape-bearing structure before RS-274X / Excellon text (ADR-0018 D4).
 //
 // The writers serialize; they do not own geometry. By the time an image reaches them, every item is
 // already a polygon, a stroked polyline, or a circular flash in board nanometres, so a serializer
 // has no clipping, no offsetting and no notion of nets. Assembly — pcb IR plus pads plus the fill
 // policy's output into these items — happens above this file.
 //
-// Determinism (ADR-0117 D5, invariant 18): the items carry no order of their own. A writer sorts
+// Determinism (ADR-0018 D5, invariant 18): the items carry no order of their own. A writer sorts
 // them, so two runs over the same board cannot differ because a map iterated differently.
 import type { Point, Polygon } from "@texteda/geom";
 

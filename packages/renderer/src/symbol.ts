@@ -1,6 +1,6 @@
 // Symbol IR -> drawing primitives.
 //
-// Symbols are **views** (ADR-0130): pin placement, outline, units, and visibility toggles live here;
+// Symbols are **views** (ADR-0031): pin placement, outline, units, and visibility toggles live here;
 // pin names and electrical types belong to `component`, looked up by pin number at render time.
 import type { Symbol } from "@texteda/ir/symbol";
 import { pinDirection, type SvgDoc, type SvgFill, type SvgPrimitive } from "./svg.ts";

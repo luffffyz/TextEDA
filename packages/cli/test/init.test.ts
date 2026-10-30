@@ -172,7 +172,7 @@ describe("init disk-write behavior", () => {
     expect(result.stderr).toContain("Unknown command");
   });
 
-  test("cli-domain failures carry registry codes (ADR-0102)", () => {
+  test("cli-domain failures carry registry codes (ADR-0003)", () => {
     const unknownFlag = runInit(["init", "somewhere", "--bogus"]);
     expect(unknownFlag.code).toBe(2);
     expect(unknownFlag.stderr).toContain("cli.bad-flag");

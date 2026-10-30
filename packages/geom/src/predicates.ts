@@ -1,6 +1,6 @@
 // Exact orientation and the basic scalar predicates. Coordinates stay integers all the way to the
 // sign test; the products are far below Number.MAX_SAFE_INTEGER for board-scale inputs, but callers
-// that can exceed that range should split the polygon before calling (ADR-0117 D5).
+// that can exceed that range should split the polygon before calling (ADR-0018 D5).
 import type { Point } from "./types.ts";
 
 export function cross(a: Point, b: Point, c: Point): number {

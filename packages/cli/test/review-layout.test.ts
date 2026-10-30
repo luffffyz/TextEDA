@@ -1,4 +1,4 @@
-// The layout Apply: what a placement change writes, and what it must not write (ADR-0141 D3, D5).
+// The layout Apply: what a placement change writes, and what it must not write (ADR-0042 D3, D5).
 //
 // The contract is narrow on purpose: a drawing change touches the drawing and nothing else, the
 // bytes written are the formatter's, the wires that lost their pins are re-anchored, and every

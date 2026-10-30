@@ -1,4 +1,4 @@
-// Reading a project's review rounds off disk (ADR-0136 D3/D4).
+// Reading a project's review rounds off disk (ADR-0037 D3/D4).
 //
 // The notes are Markdown and the tools do not parse them for meaning — only the header's target
 // and the `- author (date): ...` shape of a bullet are read, to say *who raised what and when*.

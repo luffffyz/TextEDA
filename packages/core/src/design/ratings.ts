@@ -1,12 +1,12 @@
 // Rating checks: does a device's declared limit cover the window the design declares for it?
-// (ADR-0125.)
+// (ADR-0026.)
 //
 // The two sides exist in the language and had never been put next to each other: a net states a
 // window (`voltage SYS 9V..19.8V`), a device states a limit (a generic's `voltage` column, a
 // part's `ratings`). This module compares them at the endpoint that stresses the device, because a
 // device that survives only the nominal point is a device with an unexamined failure (D1).
 //
-// Deliberately narrow (D6 of ADR-0125): a **two-terminal** device with a `voltage` capability,
+// Deliberately narrow (D6 of ADR-0026): a **two-terminal** device with a `voltage` capability,
 // against the difference of its two nets' declared windows. Multi-terminal stress (Vds, Vgs, Vin)
 // needs per-construction pin semantics and would otherwise produce noise; a net whose potential
 // is not declared is unknown, and unknown is counted, not passed (D4).
@@ -35,7 +35,7 @@ export interface RatingFacts {
   readonly schematic: Schematic;
   /** Devices by component id; a missing id means the component file could not be read. */
   readonly devices: ReadonlyMap<string, RatingDevice>;
-  /** Where an instance was written (ADR-0103 D1: the IR carries no line numbers). */
+  /** Where an instance was written (ADR-0004 D1: the IR carries no line numbers). */
   readonly locateInstance?: (instanceId: string) => DiagnosticLocation | undefined;
 }
 
@@ -213,10 +213,10 @@ function resistanceOf(
 }
 
 /**
- * Worst-case dissipation of a resistive device, against every declared upper bound (ADR-0125).
+ * Worst-case dissipation of a resistive device, against every declared upper bound (ADR-0026).
  *
  * The bound is `ΔV² / R`, with `ΔV` the extreme difference of the declared windows of the two nets —
- * the same worst-case reading ADR-0125 D8/D2 uses for voltage. It is a **bound, not a measurement**:
+ * the same worst-case reading ADR-0026 D8/D2 uses for voltage. It is a **bound, not a measurement**:
  * two nets with the same window yield zero even when the part really dissipates, because the current
  * through it is not stated by the language (`current VOUT 3A` does not say who carries it). So this
  * check reports violations and never proves a pass; what it could not compare is counted.
@@ -282,7 +282,7 @@ function checkDissipation(
     if (limits.length === 0) {
       // Nothing narrowed the part class, so the package convention is what the design is
       // standing on: the standard rating of this size is the lowest any part of it is sold at
-      // (ADR-0126), which makes a violation certain rather than a guess about a part.
+      // (ADR-0027), which makes a violation certain rather than a guess about a part.
       const floor = packagePowerRating(device.construction, device.package_code);
       if (floor === undefined) {
         skipped.push("no_package_rating");
@@ -354,7 +354,7 @@ function checkDissipation(
  * The voltage capability of one instance, in microvolts.
  *
  * An instance's own `voltage` column comes first: for a generic it is the specification the design
- * needs, and the purchased part has to meet it. A part states the fact in its `ratings` (ADR-0125).
+ * needs, and the purchased part has to meet it. A part states the fact in its `ratings` (ADR-0026).
  */
 function capabilityOf(
   instance: Schematic["instances"][number],

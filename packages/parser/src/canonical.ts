@@ -1,4 +1,4 @@
-// canonical JSON: rules 1–9 of ADR-0104 decision 3.
+// canonical JSON: rules 1–9 of ADR-0005 decision 3.
 // Keys sorted by Unicode code point ascending; integers only; default fields omitted; no timestamps, absolute paths, or random ids.
 // Output uses 2-space indentation (files under dist/ir/ must be human-diffable), with a single trailing newline.
 

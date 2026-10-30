@@ -1,4 +1,4 @@
-// Re-anchoring a wire after a placement change (ADR-0141 D5).
+// Re-anchoring a wire after a placement change (ADR-0042 D5).
 //
 // A wire row names its endpoints by pin and stores its corners as absolute points. When a symbol
 // moves, the endpoints move with it — they are the symbol's own connection points — while the
@@ -34,7 +34,7 @@ export interface WireCorners {
  * ends have to leave.
  *
  * It is still not a router. The interior corners keep their coordinates, nothing is searched, and a
- * wire whose interior is not orthogonal is reported rather than redrawn (ADR-0141 D6).
+ * wire whose interior is not orthogonal is reported rather than redrawn (ADR-0042 D6).
  */
 export interface RerouteInput {
   readonly net: string;
@@ -158,7 +158,7 @@ export interface Reanchored {
   points: WireCorners[];
   /**
    * Set when the wire's shape could not be kept. The corners are then a fresh elbow, and the
-   * person has to look at the wire (ADR-0141 D6: a conflict is reported, not papered over).
+   * person has to look at the wire (ADR-0042 D6: a conflict is reported, not papered over).
    */
   conflict?: "not-orthogonal" | "shape-lost";
 }

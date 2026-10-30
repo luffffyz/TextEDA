@@ -1,4 +1,4 @@
-// Turning lexed lines into spans (ADR-0103).
+// Turning lexed lines into spans (ADR-0004).
 //
 // A span points at the first token of a record (D4) and never enters the IR (D1). Parsers record one
 // span per IR record they emit; `check` uses the map to turn a schema violation — which only knows an

@@ -1,5 +1,5 @@
 // The board image: the pcb IR plus its footprints plus a pour, projected into the shape-bearing
-// structure the writers serialize (ADR-0117 D4). Synthetic boards, for the same reason as fill.test:
+// structure the writers serialize (ADR-0018 D4). Synthetic boards, for the same reason as fill.test:
 // the projection consumes IR and geometry only.
 import { irVersion } from "@texteda/ir";
 import type { Footprint } from "@texteda/ir/footprint";
@@ -492,7 +492,7 @@ describe("boardImage", () => {
     expect(Math.max(...textPoints.map((vertex) => vertex.x_nm))).toBeLessThan(mm(5));
   });
 
-  test("an unplaced footprint contributes nothing (a partial layout, ADR-0118)", () => {
+  test("an unplaced footprint contributes nothing (a partial layout, ADR-0019)", () => {
     const placed: PlacedFootprint[] = [
       { instance_id: "U1", footprint: footprint([smdPad("1", 0, 0, 1, 1)]) },
     ];

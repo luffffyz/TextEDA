@@ -1,4 +1,4 @@
-// The review check is pure: rounds are handed in, diagnostics come out (ADR-0136 D6/D7).
+// The review check is pure: rounds are handed in, diagnostics come out (ADR-0037 D6/D7).
 import { describe, expect, test } from "bun:test";
 import { checkReviews, type ReviewRound } from "../src/index.ts";
 

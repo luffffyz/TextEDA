@@ -4,7 +4,7 @@
 // because a netlist made from a broken design would only mislead whoever reads it downstream.
 //
 // The value is built here and printed by the script, so the command line and a host's tool
-// registry call the same function (ADR-0143 D2).
+// registry call the same function (ADR-0044 D2).
 import type { Netlist } from "@texteda/exporter/netlist";
 import { formatNetlist, toNetlist } from "@texteda/exporter/netlist";
 import { analyzeProject } from "./check.ts";

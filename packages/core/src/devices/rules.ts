@@ -1,9 +1,9 @@
-// The device rule table (ADR-0124 D7).
+// The device rule table (ADR-0025 D7).
 //
 // Device engineering knowledge, not language structure: the table changes when the device world
 // changes, so it lives next to the language (in the tool), not inside it. Closed and
 // fail-closed — an unknown construction is an error, because the rules that branch on it
-// (ADR-0127's envelope rule: a land pattern may carry a generic body only where the package
+// (ADR-0028's envelope rule: a land pattern may carry a generic body only where the package
 // determines the body) would otherwise be skipped silently. A silent miss is worse than an error.
 //
 // Pure functions: they consume facts, touch no filesystem and know no syntax, so the parser,
@@ -41,7 +41,7 @@ export interface DeviceConstruction {
  *
  * `film` has no `dielectric` role: that role's values are the IEC 60068-4 temperature
  * characteristic codes, which are an MLCC's vocabulary. A film's material class would need a
- * second vocabulary, which is not decided (ADR-0124, open points).
+ * second vocabulary, which is not decided (ADR-0025, open points).
  */
 export const DEVICE_CONSTRUCTIONS: Record<string, DeviceConstruction> = {
   mlcc: {
@@ -126,7 +126,7 @@ export const DEVICE_CONSTRUCTION_NAMES: readonly string[] = Object.keys(DEVICE_C
  *
  * `value` is deliberately not here: its quantity is the construction's primary (resistance,
  * capacitance, inductance), and a part declares no construction — it states the quantity of its
- * own `value` row (ADR-0125 D3).
+ * own `value` row (ADR-0026 D3).
  */
 export const DEVICE_ROLE_TYPES: Record<string, string> = {
   tolerance: "percent",
@@ -183,7 +183,7 @@ function roleList(construction: DeviceConstruction): string {
 /**
  * Check a generic's declaration against the rule table.
  *
- * Four things can be wrong (ADR-0124 D4/D6):
+ * Four things can be wrong (ADR-0025 D4/D6):
  * 1. the construction is not in the closed set — the rules that branch on it would be skipped;
  * 2. a declared role is not a role of this construction;
  * 3. the role's quantity is not the one the table gives it;
@@ -192,7 +192,7 @@ function roleList(construction: DeviceConstruction): string {
 export function checkDeviceDeclaration(facts: DeviceDeclarationFacts): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
   const construction = facts.construction;
-  // A part has no construction and no parameters: the part number fixes the device (ADR-0123).
+  // A part has no construction and no parameters: the part number fixes the device (ADR-0024).
   if (construction === undefined) return diagnostics;
 
   const rule = DEVICE_CONSTRUCTIONS[construction];
@@ -286,7 +286,7 @@ export function checkDeviceParamValue(
  *
  * The same sets as the parameters' (a `dielectric` is spelled the same way wherever it is
  * written), but a different construct: this is a part's own rating, not a column an instance
- * row fills (ADR-0125 D1).
+ * row fills (ADR-0026 D1).
  */
 export function checkDeviceRatingValue(
   role: string,
@@ -336,7 +336,7 @@ export interface DeviceRatingFacts {
 }
 
 /**
- * Check a part's ratings against the role vocabulary (ADR-0125 D3).
+ * Check a part's ratings against the role vocabulary (ADR-0026 D3).
  *
  * Three things can be wrong: the role is not one of the vocabulary's, the row's quantity is not
  * the one the vocabulary gives that role, and the same rating is written twice. The value

@@ -1,6 +1,6 @@
 # Importing an external library
 
-> Decision: [ADR-0133](../adr/libraries/0133-trust-in-a-library-you-do-not-own.md). An
+> Decision: [ADR-0034](../adr/libraries/0034-trust-in-a-library-you-do-not-own.md). An
 > external library is a **template**, not a dependency: you copy the devices you need into
 > `assets/`, and from that moment they are the project's own files.
 
@@ -21,7 +21,7 @@ footprint reference is not a dependency — it is the directory under `assets/sy
 `assets/footprints/`) that holds the geometry.
 
 Why a copy instead of a pinned dependency: the full argument is in
-[ADR-0133](../adr/libraries/0133-trust-in-a-library-you-do-not-own.md). The short version
+[ADR-0034](../adr/libraries/0034-trust-in-a-library-you-do-not-own.md). The short version
 is that a content hash only pins a whole tree, review is per item, and the two disagree —
 a three-hundred-device library would arrive unreviewed for the three devices you actually place.
 
@@ -33,7 +33,7 @@ texteda lib import vendor --from /path/to/library --rev v2.1.0
 
 - `--from <dir>` points at a directory that already exists. The command does not fetch: cloning
   the upstream repository at a tag is your step, and no gate in this repository needs a network
-  ([ADR-0120](../adr/manufacturing/0120-the-manufacturing-output-path.md)).
+  ([ADR-0021](../adr/manufacturing/0021-the-manufacturing-output-path.md)).
 - `--rev <tag-or-commit>` is required and selects the tree. A branch name is refused: it describes
   an instant, not a revision. The revision a *file* carries is its own `rev` (stamped from this
   one when the template has none), so re-importing a later release leaves the files it did not
@@ -101,7 +101,7 @@ verified_on 2026-10-24
 
 `reviewed` without both fields is an error (`value.provenance-invalid`): a claim nobody can be
 asked about is worse than no claim. Nothing else is enforced — there is no signature and no
-strict mode ([ADR-0132](../adr/libraries/0132-libraries-are-unverified-facts.md) D2); the point
+strict mode ([ADR-0033](../adr/libraries/0033-libraries-are-unverified-facts.md) D2); the point
 is that the statement exists and is attributable.
 
 `verified_by` is an **account or a name a reader can look up** — in practice the GitHub handle of
@@ -144,7 +144,7 @@ for the human who receives the tree, and is not written into imports.
 - An item applies to a file whose own `rev` equals it exactly. A file whose `rev` moved is
   unreviewed until an item names the new one; the record is about facts at a revision, not about a
   library forever. There is no `[library] rev` and no row-level `rev`
-  ([ADR-0133](../adr/libraries/0133-trust-in-a-library-you-do-not-own.md)).
+  ([ADR-0034](../adr/libraries/0034-trust-in-a-library-you-do-not-own.md)).
 - Components the entry lists arrive with `provenance reviewed` and the recorded attribution.
   Components it does not list arrive `generated`. A file that already claims `reviewed` on its own
   keeps its own claim (it is more specific and it is what the template said).
@@ -164,7 +164,7 @@ is the one written in the same file as the facts.
 
 An upstream or "official" library will not carry a manifest in our subset, and you cannot add one to
 it. The vouching act still belongs to the party that looked, so it lives on the consuming side, in a
-file the importer is **given** ([ADR-0133](../adr/libraries/0133-trust-in-a-library-you-do-not-own.md)): nothing discovers it, there is no default path and no
+file the importer is **given** ([ADR-0034](../adr/libraries/0034-trust-in-a-library-you-do-not-own.md)): nothing discovers it, there is no default path and no
 environment variable.
 
 ```toml
@@ -197,7 +197,7 @@ texteda lib import vendor --from ../libs/vendor --rev v2.1.0 --trust ../trust/ta
   write no row at all — the copies stay `generated` and each one carries the disclaimer header,
   which is the cheapest honest statement available.
 - `by` / `on` are written per act, once: they must travel inside the copy, and a copy has no access
-  to the repository that holds the table ([ADR-0133](../adr/libraries/0133-trust-in-a-library-you-do-not-own.md)
+  to the repository that holds the table ([ADR-0034](../adr/libraries/0034-trust-in-a-library-you-do-not-own.md)
   decision 5). Pull requests and commit history corroborate the row; they cannot replace it.
 - **The two records compose**: ids only one of them covers are vouched for by that one. The same id
   at the same revision with a different attribution is an **error**, not a precedence question — two
@@ -209,7 +209,7 @@ texteda lib import vendor --from ../libs/vendor --rev v2.1.0 --trust ../trust/ta
 
 The table is organisation policy about libraries the organisation does not own, so it stays **out**
 of the project tree — one file for many projects. Ownership decides which record exists, per library
-([ADR-0133](../adr/libraries/0133-trust-in-a-library-you-do-not-own.md) D8):
+([ADR-0034](../adr/libraries/0034-trust-in-a-library-you-do-not-own.md) D8):
 
 | The library | The tree | The record |
 |---|---|---|
@@ -220,7 +220,7 @@ So a company usually has both: a table for what it consumes and a tree for what 
 for the *same* library is the thing to avoid — two statements of one review, one of them stale.
 
 **Re-importing does not re-stamp the files a release did not touch.** Each copy carries the
-revision it was imported at (`rev`, [ADR-0133](../adr/libraries/0133-trust-in-a-library-you-do-not-own.md)). On
+revision it was imported at (`rev`, [ADR-0034](../adr/libraries/0034-trust-in-a-library-you-do-not-own.md)). On
 `--force`, the importer compares the template's facts with the copy's — everything except the origin
 header, the stamped `rev`, a component's `version` line and the provenance block it derives from a
 record. Same facts: the copy keeps its revision, its claim and its date, and is not written at all

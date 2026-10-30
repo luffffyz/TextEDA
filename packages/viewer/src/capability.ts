@@ -1,4 +1,4 @@
-// What a host behind this document allows (ADR-0142 D3, D6).
+// What a host behind this document allows (ADR-0043 D3, D6).
 //
 // This helper is the one place the viewer decides what a person may enter, so it is pure: no
 // DOM, no window, no state — the board and the host's answer are the only inputs, and the output
@@ -9,7 +9,7 @@ import type { ReviewBoard, ReviewCapability, ReviewMode } from "./types.ts";
 /** The modes in the order the mode bar shows them: what the capability order is not allowed to set. */
 export const REVIEW_MODE_ORDER: readonly ReviewMode[] = ["review", "layout", "placement", "edit"];
 
-/** The modes this board can show, in the canonical order (ADR-0141 D1). */
+/** The modes this board can show, in the canonical order (ADR-0042 D1). */
 function boardModes(board: ReviewBoard | undefined): ReviewMode[] {
   const modes: ReviewMode[] = ["review"];
   if (board !== undefined && board.pages.length > 0) modes.push("layout");
@@ -24,7 +24,7 @@ function boardModes(board: ReviewBoard | undefined): ReviewMode[] {
  *
  * With no capability the result is the board's own set. With a capability it is the intersection
  * of that set with `capability.modes`, and the canonical order is kept: a capability may remove a
- * mode, never add one the board does not support (ADR-0142 D3, D6).
+ * mode, never add one the board does not support (ADR-0043 D3, D6).
  */
 export function availableModes(
   board: ReviewBoard | undefined,

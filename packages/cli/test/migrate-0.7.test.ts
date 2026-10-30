@@ -1,4 +1,4 @@
-// The 0.6 -> 0.7 migration (ADR-0111): the board becomes one flat file, the page files disappear,
+// The 0.6 -> 0.7 migration (ADR-0012): the board becomes one flat file, the page files disappear,
 // the print pages and the pcb description lose their page prefixes -- and a name collision stops
 // the migration instead of picking a name.
 import { describe, expect, test } from "bun:test";

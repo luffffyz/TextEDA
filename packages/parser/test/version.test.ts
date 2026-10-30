@@ -1,4 +1,4 @@
-// Unit tests for the language version module (teda.md §13, ADR-0101).
+// Unit tests for the language version module (teda.md §13, ADR-0002).
 //
 // The rules under test: the grammar is MAJOR.MINOR[.PATCH]; the patch component is optional and
 // means zero when omitted; a patch never changes the acceptance decision; the language has ONE
@@ -81,7 +81,7 @@ describe("version acceptance", () => {
   });
 
   test("every description type accepts the current language version and any patch of it", () => {
-    // ADR-0101 D2: the language has ONE version number. Every type declares the same number, and the
+    // ADR-0002 D2: the language has ONE version number. Every type declares the same number, and the
     // patch bit never decides (a patch does not change the accepted file set).
     for (const type of ALL_TYPES) {
       const range = typeRange(type);
@@ -105,7 +105,7 @@ describe("version acceptance", () => {
   });
 
   test("every description type refuses a version below the one it was born at", () => {
-    // The floor stays per type (ADR-0101 D4): a type that did not exist yet cannot have a file from
+    // The floor stays per type (ADR-0002 D4): a type that did not exist yet cannot have a file from
     // before it.
     const tooOld: Array<[string, string]> = [
       ["symbol", "0.4"],

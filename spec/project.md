@@ -1,7 +1,7 @@
 # `project.toml`: project metadata
 
 > Specification: the `project.toml` file every project has at its root — its tables, keys and defaults.
-> Decision: the project tree it sits in (`docs/adr/project/0107-project-tree-has-owners.md`); the responsible person it names (`docs/adr/view/0136-review-records-and-attribution.md`); why there is no library table (`docs/adr/libraries/0133-trust-in-a-library-you-do-not-own.md`).
+> Decision: the project tree it sits in (`docs/adr/project/0008-project-tree-has-owners.md`); the responsible person it names (`docs/adr/view/0037-review-records-and-attribution.md`); why there is no library table (`docs/adr/libraries/0034-trust-in-a-library-you-do-not-own.md`).
 
 ## 0. What it is
 
@@ -19,7 +19,7 @@ else is added by hand when it is needed.
 |---|---|---|
 | `[project]` | `name` `version` `format` | **Required**; `version` is the project version, `format` is the **language version** — the one number every `.teda` file in the project declares (current value: `spec/teda.md` §13.1) |
 | `[project]` | `description` `license` `status` | Optional; `license` in SPDX form, `status` one of `draft` / `prototype` / `frozen` / `production` / `deprecated` |
-| `[project]` | `owner` | Optional, but **required once review records exist**: the project's responsible person (creator, or whoever took it over). Only the owner may dispose of review comments ([ADR-0136](../docs/adr/view/0136-review-records-and-attribution.md)) |
+| `[project]` | `owner` | Optional, but **required once review records exist**: the project's responsible person (creator, or whoever took it over). Only the owner may dispose of review comments ([ADR-0037](../docs/adr/view/0037-review-records-and-attribution.md)) |
 | `[project]` | `default_variant` | With several variants; must point at a defined `[variants.<id>]` |
 | `[[project.authors]]` | `name` `email` | Optional |
 | `[project.links]` | `repository` `homepage` `issues` | Optional |
@@ -32,7 +32,7 @@ else is added by hand when it is needed.
 
 | Table | Why it is gone |
 |---|---|
-| `[libs.<name>]` | A project does not reference an external library. Libraries are templates: `texteda lib import` copies files into `assets/` and they become the project's own ([ADR-0133](../docs/adr/libraries/0133-trust-in-a-library-you-do-not-own.md)). Reading `[libs.*]` now reports `syntax.unknown-field` |
+| `[libs.<name>]` | A project does not reference an external library. Libraries are templates: `texteda lib import` copies files into `assets/` and they become the project's own ([ADR-0034](../docs/adr/libraries/0034-trust-in-a-library-you-do-not-own.md)). Reading `[libs.*]` now reports `syntax.unknown-field` |
 | `[libs.<name>]` for a self-built library | The project's own assets are not a library either; they are referenced by bare id under `assets/` |
 
 ## 2. Rules

@@ -72,7 +72,7 @@ Two traps:
 
 1. **`init` creates the tree, not the content** — every directory above comes back empty (a
    `.gitkeep` each). The library files themselves are yours to write (§3). The tree is organised by
-   ownership (AGENTS.md §9, ADR-0107): `assets/` is what the project owns, `external/` is what it
+   ownership (AGENTS.md §9, ADR-0008): `assets/` is what the project owns, `external/` is what it
    borrows, `design/` is the circuit, `views/` is the drawings.
 2. **`init` does not reach the network, does not fetch templates and does not create `dist/`**. The
    output is deterministic: the same project name yields byte-identical files.
@@ -80,7 +80,7 @@ Two traps:
 ## 3. Step 1: the library (symbol + footprint)
 
 The library holds the **view**; the component (§4) holds the pin facts. A project's own assets are
-named by a directory, not declared in a table (ADR-0107): `assets/symbols/<lib>/` and
+named by a directory, not declared in a table (ADR-0008): `assets/symbols/<lib>/` and
 `assets/footprints/<lib>/`, referenced with the `<lib>:` prefix (the convention for the project's own
 library is `project:`). A library the project does not own is a **template**: `texteda lib import
 <name> --from <dir> --rev <tag> [--only <id>,…]` copies the devices you need into `assets/` under
@@ -134,7 +134,7 @@ graphics
 
 The full rules for writing library files are in `docs/guides/symbol-authoring.md` and
 `docs/guides/footprint-authoring.md`; **the symbol's pin number set must match the component's**
-([ADR-0130](../adr/libraries/0130-symbol-format.md), "the two pin number sets must be aligned").
+([ADR-0031](../adr/libraries/0031-symbol-format.md), "the two pin number sets must be aligned").
 
 ## 4. Step 2: the devices
 
@@ -189,13 +189,13 @@ What matters:
 - **The pin table is the identity boundary**: only attributes that do not change a pin's electrical
   behaviour may be `params` (value, tolerance, voltage rating, ESR). The footprint is a fixed
   attribute, never a parameter; the package code is **not** in the device file at all — the
-  footprint file states it (`package_code`, ADR-0127 decision 1).
+  footprint file states it (`package_code`, ADR-0028 decision 1).
 
 ## 5. Step 3: nothing to lock
 
 A project's devices, symbols and footprints live under `assets/` and are the project's own
 content. There is no library reference to pin: `project.toml` has no `[libs]` table (it was
-withdrawn — [ADR-0133](../adr/libraries/0133-trust-in-a-library-you-do-not-own.md)), and
+withdrawn — [ADR-0034](../adr/libraries/0034-trust-in-a-library-you-do-not-own.md)), and
 `lib:verify` checks the assets directly rather than against a stored hash.
 
 If the assets came from someone else's library, the copy was made with `texteda lib import`, and
@@ -223,7 +223,7 @@ nets
 
 - An `instances` row is `refdes  [uid]  component_id  <param values…>`; the number and order of the
   values come from the component's `params` section (§4). The UID is the project-scoped stable
-  identity ([ADR-0109](../adr/project/0109-instance-identity-is-a-uid.md)); generate one with
+  identity ([ADR-0010](../adr/project/0010-instance-identity-is-a-uid.md)); generate one with
   `texteda id <dir> --count N`, then paste it. A missing UID is a warning on a 0.9 file, not a
   silent default.
 - A `nets` row is `net_name  <pin>…`, where a pin is written `refdes.pin_number` — the **number**,
@@ -243,7 +243,7 @@ Checked 1 boards: 0 errors, 0 warnings (stages: parse 0 · contract 0 · design 
 ```
 
 The three stages are **parse** (syntax), **contract** (IR against the schema) and **design** (ERC).
-`--json` emits the machine-readable payload (ADR-0102).
+`--json` emits the machine-readable payload (ADR-0003).
 
 ```sh
 bun run texteda compile /tmp/demo demo --out /tmp/demo/dist/schematic.json
@@ -331,7 +331,7 @@ bun run $REPO/packages/exporter/scripts/export-footprint.ts dist/fp.json --out d
 Products: `dist/c.kicad_sym`, `dist/chip-0402.kicad_mod`.
 
 `--component` is not optional: a symbol stores only "where to draw it and how", while **the pin
-facts (number, name, electrical type) live in the component** (ADR-0130). The exporter merges them
+facts (number, name, electrical type) live in the component** (ADR-0031). The exporter merges them
 by pin number, and the two pin number sets must match.
 
 ## 10. How far this goes, and what it cannot reach

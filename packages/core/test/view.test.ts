@@ -89,7 +89,7 @@ describe("board ↔ print page", () => {
     expect(mismatch[0]!.data).toMatchObject({ net: "A", pin: "R2.2" });
   });
 
-  test("a wire that contradicts a net names the board's net row (ADR-0103 D5)", () => {
+  test("a wire that contradicts a net names the board's net row (ADR-0004 D5)", () => {
     const netRows = new Map([
       ["A", { file: "design/sch/b.teda", line: 9, col: 3 }],
     ]);

@@ -2,7 +2,7 @@
 // brought back onto its pins.
 //
 // The print page is the view layer's own description (S1), so its commands live under one noun
-// (ADR-0143 D6). `view metrics` gives the numbers an agent iterates on, `view render` writes the
+// (ADR-0044 D6). `view metrics` gives the numbers an agent iterates on, `view render` writes the
 // drawing so a person can look at it, and `view rewire` puts the wiring back on the pins.
 //
 // An agent drawing a page iterates against numbers, not against pixels: the warnings say whether a
@@ -10,7 +10,7 @@
 // wires pile up. Same geometry as the checks (`packages/renderer`'s `schematicGeometry`), so the
 // metric and the warning can never disagree about where something is.
 //
-// Integer nanometres and ppm ratios only (ADR-0104): two runs, two machines, one table.
+// Integer nanometres and ppm ratios only (ADR-0005): two runs, two machines, one table.
 import { readFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import { parseSchematic, parseView } from "@texteda/parser";
@@ -171,7 +171,7 @@ export interface ViewRewireResult {
  * When a symbol moves, the run that leaves it can stop being orthogonal — that is what
  * `view.wire-diagonal` reports. This rewrites those corners: the interior keeps its coordinates,
  * the ends are put back where the pins are, and a wire whose interior is broken is reported instead
- * of redrawn (ADR-0141 D6).
+ * of redrawn (ADR-0042 D6).
  */
 export function buildViewRewire(options: ViewRewireOptions): VerbResult<ViewRewireResult> {
   const { root, board, page } = options;

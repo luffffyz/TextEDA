@@ -1,5 +1,5 @@
 // `texteda lib import <name> --from <dir> --rev <rev> [--only <id>,…]`: copy a library's assets into
-// the project and make them the project's own files (ADR-0133).
+// the project and make them the project's own files (ADR-0034).
 //
 // The command is the only place a library enters a project, and it is deliberately one-way:
 //
@@ -9,7 +9,7 @@
 //   only record of where the file came from: it is visible in a diff, it never enters the IR, and
 //   nothing verifies it afterwards (there is no anchor to verify against).
 // - a copied device declares `provenance generated`, because a transcription is not a review; a human
-//   compares it with the datasheet and edits that line in place (ADR-0133 decision 5).
+//   compares it with the datasheet and edits that line in place (ADR-0034 decision 5).
 //
 // A subset is legal (`--only`) and is closed under references: the symbols and footprints the chosen
 // devices name are pulled in with them. A device without its geometry cannot be drawn or matched
@@ -42,7 +42,7 @@ export interface LibImportOptions {
   /** Destination directory under `assets/symbols/` and `assets/footprints/`; defaults to `name`. */
   dest?: string;
   /**
-   * The consumer's trust table (ADR-0133): what this organisation vouches for about libraries it
+   * The consumer's trust table (ADR-0034): what this organisation vouches for about libraries it
    * does not own. Named explicitly; nothing discovers it, and the file never enters a build.
    */
   trust?: string;
@@ -61,7 +61,7 @@ const COMPONENT_SECTIONS = new Set(["params", "pins", "ratings"]);
 
 /**
  * The version line every copied file carries: the language has one version number, and a copy is
- * written against the language the tool implements (ADR-0101 D2). Derived from the parser, so it
+ * written against the language the tool implements (ADR-0002 D2). Derived from the parser, so it
  * cannot drift from the version the tool accepts.
  */
 const LANGUAGE_VERSION = formatVersion(SUPPORTED_LANGUAGE);
@@ -135,7 +135,7 @@ function importLibrary(options: LibImportOptions): number {
   }
 
   // The library's own record of what a human checked. It is the one place a reviewer writes to; the
-  // copy carries the resulting per-file claim (ADR-0133 D5).
+  // copy carries the resulting per-file claim (ADR-0034 D5).
   // A library that ships without `library.toml` vests no trust records — that is a fact about the
   // library, not a failure — so the manifest is read only when present.
   const manifestPath = join(from, MANIFEST);
@@ -143,13 +143,13 @@ function importLibrary(options: LibImportOptions): number {
     ? readTrust(readTextFile(manifestPath, `--from: ${MANIFEST}`), `the library manifest in ${from}`)
     : [];
 
-  // The consumer's record about libraries it does not own (ADR-0133): an upstream library will not
+  // The consumer's record about libraries it does not own (ADR-0034): an upstream library will not
   // carry our manifest, so the vouching act has to live on the consuming side. Both records use the
-  // same shape (ADR-0133 decision 10): a row is one act, and every item names `id@rev`. Which record
+  // same shape (ADR-0034 decision 10): a row is one act, and every item names `id@rev`. Which record
   // decides is therefore not a precedence question — it is decided per item, and two records saying
   // different things about the same item are a conflict a person resolves.
   const consumer = options.trust === undefined ? [] : readConsumerTrust(options.trust).filter((entry) => entry.library === name);
-  // Which record a consumer entry points at is what a reader will see in the origin header (ADR-0133).
+  // Which record a consumer entry points at is what a reader will see in the origin header (ADR-0034).
   // The path is resolved from the importer's root so the header names a path the reader can find.
   const trustLabel: string = options.trust === undefined
     ? "the library's trust record"
@@ -279,7 +279,7 @@ function importLibrary(options: LibImportOptions): number {
     const template = readFileSync(join(from, file.relativePath), "utf8");
     const target = targetPath(root, file, dest);
     const previous = existsSync(target) ? readFileSync(target, "utf8") : undefined;
-    // The revision a claim is matched against is the one the copy will carry (ADR-0133 decision 12):
+    // The revision a claim is matched against is the one the copy will carry (ADR-0034 decision 12):
     // the file's own `rev` when it states one; otherwise the revision the copy already carries, as
     // long as the template's facts did not move — a release that touched another file must not
     // re-stamp this one (decision 5); otherwise the revision being imported.
@@ -315,7 +315,7 @@ function importLibrary(options: LibImportOptions): number {
       // The same facts at the same revision: the copy keeps the day it arrived, its claim and its
       // date, and is not written at all. The comparison is the facts, not the text: the text also
       // carries the claim the import derives, and a review a human wrote into the copy is the
-      // copy's own (ADR-0133 decision 5) — a re-import of unchanged facts has no business
+      // copy's own (ADR-0034 decision 5) — a re-import of unchanged facts has no business
       // withdrawing it.
       unchanged += 1;
       continue;
@@ -347,7 +347,7 @@ function readTrust(text: string, label: string): TrustEntry[] {
   return read.manifest === undefined ? [] : [...read.manifest.trust];
 }
 
-/** The consumer's trust table (ADR-0133); a table that cannot be read vouches for nothing. */
+/** The consumer's trust table (ADR-0034); a table that cannot be read vouches for nothing. */
 function readConsumerTrust(file: string): readonly ConsumerTrustEntry[] {
   const text = readTextFile(file, `--trust: ${file}`);
   const read = readTrustTable(text, file);
@@ -375,10 +375,10 @@ interface Claim {
  * The claim a file's revision carries, whichever record states it.
  *
  * A record answers per item: the item must name this id **and** the revision the copy will carry
- * (ADR-0133 decision 10). Ids one record covers and the other does not are not a problem — each is
+ * (ADR-0034 decision 10). Ids one record covers and the other does not are not a problem — each is
  * vouched for by the record that lists it. Two records stating the same item with different
  * attribution is a conflict: one act, one author, and the importer picks neither
- * (ADR-0133 decision 11).
+ * (ADR-0034 decision 11).
  */
 function claimFor(file: LibraryFile, rev: string, records: readonly TrustRecord[]): Claim | undefined {
   const hits: Claim[] = [];
@@ -397,7 +397,7 @@ function claimFor(file: LibraryFile, rev: string, records: readonly TrustRecord[
       `${file.group}/${file.id}@${rev} is vouched for twice, by different authors:\n` +
         `  ${first.by} on ${first.on} (${first.source})\n` +
         `  ${disagree.by} on ${disagree.on} (${disagree.source})\n` +
-        `  one act has one author: correct whichever record is wrong (ADR-0133 decision 11)`,
+        `  one act has one author: correct whichever record is wrong (ADR-0034 decision 11)`,
     );
   }
   return first;
@@ -500,7 +500,7 @@ function rewrite(
     if (!isComment && COMPONENT_SECTIONS.has(trimmed)) inSection = true;
     const isProvenance = isComponent && !isComment && !inSection && /^provenance\s/.test(trimmed);
     if (!isComment && /^version\s/.test(trimmed)) {
-      // Every copied file carries the language's one version number (ADR-0101 D2): the copy is
+      // Every copied file carries the language's one version number (ADR-0002 D2): the copy is
       // written against the language this tool implements, whichever type it is.
       out.push(`version ${LANGUAGE_VERSION}`);
     } else if (isProvenance && reviewed !== undefined && cells[1] === "generated") {
@@ -550,7 +550,7 @@ const SECTION_HEADS: Record<LibraryFile["group"], ReadonlySet<string>> = {
 };
 
 /**
- * The revision a template file states for itself (`rev`, ADR-0133 decision 6), or `undefined`.
+ * The revision a template file states for itself (`rev`, ADR-0034 decision 6), or `undefined`.
  *
  * Read as text on purpose: a symbol or footprint that does not compile still has to be importable
  * (import is verbatim), and the parsers would reject it before we ever reach this. A `rev` after
@@ -574,12 +574,12 @@ function fileRev(text: string, group: LibraryFile["group"]): string | undefined 
  * The copy's facts: its lines with everything an import rewrites taken out.
  *
  * The importer rewrites exactly four things — the origin header, the stamped `rev`, the `version`
- * (every copy carries the language's one number, ADR-0101 D2), and the provenance block it derives
+ * (every copy carries the language's one number, ADR-0002 D2), and the provenance block it derives
  * from a record — plus the library qualifier of self-authored assets. Everything else is verbatim, so
  * what remains is the library's content.
  *
  * Comparing two texts this way answers "did this release touch this file" without a hash: a comment
- * edit or a pin change is a new revision, a re-stamp is not (ADR-0133 decision 13).
+ * edit or a pin change is a new revision, a re-stamp is not (ADR-0034 decision 13).
  */
 function factsOf(text: string, name: string, dest: string): string {
   const out: string[] = [];

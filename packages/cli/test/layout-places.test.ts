@@ -1,4 +1,4 @@
-// The places-only write path (ADR-0142 D3, D10): the plugin's write rewrites the `place` rows and
+// The places-only write path (ADR-0043 D3, D10): the plugin's write rewrites the `place` rows and
 // nothing else, and reports the nets whose wires went stale instead of re-anchoring them.
 //
 // The cases here cover the contract: only `place` rows change, only the page file changes, the

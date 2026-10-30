@@ -1,4 +1,4 @@
-// `symbol` description parsing: `.teda` source → IR fragments (spec/symbol.md, ADR-0130).
+// `symbol` description parsing: `.teda` source → IR fragments (spec/symbol.md, ADR-0031).
 //
 // Surface parsing and unit conversion only; pin names/electrical types do not live here — they belong to `component`,
 // merged by pin number when exporting `.kicad_sym`. Contract validation is delegated to the closed schema in @texteda/ir.
@@ -48,7 +48,7 @@ export interface SymbolParseResult {
   ok: boolean;
   ir?: Symbol;
   diagnostics: Diagnostic[];
-  /** IR path → span of the record that produced it (ADR-0103 D2). Never persisted. */
+  /** IR path → span of the record that produced it (ADR-0004 D2). Never persisted. */
   sources?: SourceMap;
 }
 
@@ -390,7 +390,7 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
   const bodyItems: BodyItem[] = [];
   const fields: Field[] = [];
   // Span of each record, by object identity: the IR sorts these arrays, so the index in a pointer
-  // only means something after the sort (ADR-0103 D2/D4).
+  // only means something after the sort (ADR-0004 D2/D4).
   const at = new Map<object, Span>();
   const src = new SourceFile(file, lex(text));
   const put = <T extends object>(list: T[], item: T, line: Line): void => {
@@ -431,7 +431,7 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
       const trailing = (from: number): string => rest.slice(from).map((c) => c.text).join(" ");
       switch (key) {
         case "rev": {
-          // The release of *this file's* facts (ADR-0133 D6), not the format version.
+          // The release of *this file's* facts (ADR-0034 D6), not the format version.
           const value = trailing(0);
           if (!REV_RE.test(value)) {
             collector.error(file, line.number, line.cells[1]?.col ?? line.cells[0]!.col, "value.rev-invalid", `rev must be a release name without whitespace: "${value}"`);

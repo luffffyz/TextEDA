@@ -1,11 +1,11 @@
 #!/usr/bin/env bun
-// Migration to 0.9.1 (ADR-0101): one version number for the whole language.
+// Migration to 0.9.1 (ADR-0002): one version number for the whole language.
 //
 // Usage:
 //   bun run migrate:0.9 <project dir>
 //
 // The per-description-type version lines are gone. The language has one number, and every `.teda`
-// file declares the language generation it was written against (ADR-0101 D2); `project.toml`'s
+// file declares the language generation it was written against (ADR-0002 D2); `project.toml`'s
 // `format` is that number.
 //
 // What it does, and nothing else:
@@ -26,7 +26,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { formatVersion, SUPPORTED_LANGUAGE } from "@texteda/parser";
 
-/** The one number every file carries after the merge (ADR-0101 D2). */
+/** The one number every file carries after the merge (ADR-0002 D2). */
 const TARGET = formatVersion(SUPPORTED_LANGUAGE);
 
 /**

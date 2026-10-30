@@ -1,7 +1,7 @@
 # `procurement`: which part to buy
 
 > Specification: the `procurement` description type (since language 0.9), the selection rows that bind a generic device to a purchasable part, and the two files a board's procurement state is written in.
-> Decision: `docs/adr/devices/0128-the-procurement-layer.md`; the device model it builds on: `docs/adr/devices/0123-the-device-kind-is-part-or-generic.md`; the kind vocabulary: `docs/adr/devices/0123-the-device-kind-is-part-or-generic.md`; the library trust rules: `docs/adr/libraries/0132-libraries-are-unverified-facts.md`; the project tree: `docs/adr/project/0107-project-tree-has-owners.md`.
+> Decision: `docs/adr/devices/0029-the-procurement-layer.md`; the device model it builds on: `docs/adr/devices/0024-the-device-kind-is-part-or-generic.md`; the kind vocabulary: `docs/adr/devices/0024-the-device-kind-is-part-or-generic.md`; the library trust rules: `docs/adr/libraries/0033-libraries-are-unverified-facts.md`; the project tree: `docs/adr/project/0008-project-tree-has-owners.md`.
 
 ## 0. What it is
 
@@ -28,10 +28,10 @@ role primary
 ```
 
 - The file lives at `assets/procurement/primary/<board_id>.teda` (the primary selections) or `assets/procurement/alternatives/<board_id>.teda` (the second sources). The tree is the one in
-  [ADR-0107](../docs/adr/project/0107-project-tree-has-owners.md) decision 1.
+  [ADR-0008](../docs/adr/project/0008-project-tree-has-owners.md) decision 1.
 - The `board_id` in the file header must match the file name, otherwise it is an error (the same rule as `component` and `module`).
 - The `board_id` must be a board of this project (a `schematic` file for it exists). A selection always belongs to a board, because a BOM is a board's
-  ([ADR-0114](../docs/adr/schematic/0114-flattening-and-the-net-set.md)).
+  ([ADR-0015](../docs/adr/schematic/0015-flattening-and-the-net-set.md)).
 - `role` is `primary` or `alternatives`, and it must agree with the directory the file is in. The two files have the same grammar; only the role and the
   standing differ.
 - The `procurement` type exists since language **0.9**; a file below 0.9 cannot be a `procurement` file. Every `.teda` file declares the language version
@@ -58,9 +58,9 @@ selections
 ```
 
 - **The left side is the BOM line key**: a generic id — bare, because every device a project reads is its own file
-  ([ADR-0133](../docs/adr/libraries/0133-trust-in-a-library-you-do-not-own.md)) — followed by the values of the generic's declared `params`, **in the generic's declared order** — the same
+  ([ADR-0034](../docs/adr/libraries/0034-trust-in-a-library-you-do-not-own.md)) — followed by the values of the generic's declared `params`, **in the generic's declared order** — the same
   shape as an `instances` row. The generic's `params` section is the only place that order is written down.
-- **The right side is the part that is bought**: a project-owned `kind: part` by its bare id (`avx-taj-220u-10v`). Imported devices are the project's own files, so they are bare too ([ADR-0133](../docs/adr/libraries/0133-trust-in-a-library-you-do-not-own.md)).
+- **The right side is the part that is bought**: a project-owned `kind: part` by its bare id (`avx-taj-220u-10v`). Imported devices are the project's own files, so they are bare too ([ADR-0034](../docs/adr/libraries/0034-trust-in-a-library-you-do-not-own.md)).
 - **`->` terminates the left side.** The parameter list has a length that depends on the generic, so a reader cannot tell where the parameters stop without
   resolving the generic; the separator makes the row readable on its own. `:` is already the nets-section token, `=` already binds a type to a value, and
   neither of them can terminate an open-ended list.
@@ -86,9 +86,9 @@ That part is the purchase, and the procurement layer says nothing about it. Only
 | The generic resolves, and it is a `kind: generic` | A part may not be re-selected |
 | The part resolves, and it is a `kind: part` | A generic may not be selected as a part |
 | The part has an `mpn` | Required of every part; this is what makes the row purchasable |
-| The part's ratings cover the roles the line states — same names, same types | Otherwise the specification in the row cannot be carried by the part, and the BOM line would silently lose a column. A part states its own ratings in its `ratings` section (`kind: part` declares no `params` — the roles an `instances` row fills are the generic's, the part's are its own; see [ADR-0125](../docs/adr/devices/0125-a-part-states-its-own-ratings.md)). |
+| The part's ratings cover the roles the line states — same names, same types | Otherwise the specification in the row cannot be carried by the part, and the BOM line would silently lose a column. A part states its own ratings in its `ratings` section (`kind: part` declares no `params` — the roles an `instances` row fills are the generic's, the part's are its own; see [ADR-0026](../docs/adr/devices/0026-a-part-states-its-own-ratings.md)). |
 | The part's `footprint` equals the generic's `footprint` | The land pattern is a **hard constraint** of the generic; a selection that changes it is not a selection, it is a design change |
-| The part is not a library item the project has shadowed | A derived copy replaces the library item it overrides; selecting the shadowed item would put the same device in the BOM twice ([ADR-0132](../docs/adr/libraries/0132-libraries-are-unverified-facts.md)) |
+| The part is not a library item the project has shadowed | A derived copy replaces the library item it overrides; selecting the shadowed item would put the same device in the BOM twice ([ADR-0033](../docs/adr/libraries/0033-libraries-are-unverified-facts.md)) |
 
 The last two are the checks that make the layer worth having: they catch the case where a selection quietly alters the board.
 
@@ -107,7 +107,7 @@ A row's left side is a **requirement**, not a description of a part: it says wha
 
 **A better part always qualifies.** `R1 10k ±1%` accepts a 0.5% part (which is what you buy when 1% is out of stock) and rejects a 2% one: the design's guarantee holds for every part inside the envelope, and a part outside it breaks the guarantee. Substitution is blocked by *stating a value as a fact*, never by stating a bound.
 
-The part's own ratings are what the comparison reads: they live in the part file's `ratings` section ([ADR-0125](../docs/adr/devices/0125-a-part-states-its-own-ratings.md)). The rule above is decided.
+The part's own ratings are what the comparison reads: they live in the part file's `ratings` section ([ADR-0026](../docs/adr/devices/0026-a-part-states-its-own-ratings.md)). The rule above is decided.
 
 ## 4. The two files
 
@@ -121,7 +121,7 @@ The part's own ratings are what the comparison reads: they live in the part file
 | A broken row | error | warning (error in strict mode) |
 
 The two files are separate files, not two sections of one file, because each file produces exactly one IR shard with exactly one classification
-([ADR-0105](../docs/adr/ir/0105-ir-shards-and-hashes.md) decision 9). The primary is part of the build: a different primary part is a different build. An alternative
+([ADR-0006](../docs/adr/ir/0006-ir-shards-and-hashes.md) decision 9). The primary is part of the build: a different primary part is a different build. An alternative
 is not: the Gerbers are byte-identical, and a hash that moved for that reason would make every re-sourcing exercise look like a design change and invalidate a
 manufacturing package that nothing had changed.
 
@@ -138,7 +138,7 @@ A generic line with alternatives but no primary is **unsourced** (§5.2). Altern
 | A generic line without a selection | the design names a generic, nothing selects it | **no MPN** — the line is unsourced |
 
 The row key is uniform: **a BOM row is keyed by `(component_id, parameters)`, and a part has an empty parameter set**
-([ADR-0128](../docs/adr/devices/0128-the-procurement-layer.md) decision 7).
+([ADR-0029](../docs/adr/devices/0029-the-procurement-layer.md) decision 7).
 
 ### 5.2 An unsourced line
 
@@ -146,7 +146,7 @@ A board may legitimately be designed but not yet sourced. The BOM then carries t
 comment/status column.
 
 The marker does not go into the MPN cell: the exported BOM is consumed by a parts ordering system
-([ADR-0121](../docs/adr/manufacturing/0121-jlc-prototype-delivery.md)), and a part number that reads `unsourced` would be ordered as if it were a part. An empty cell plus
+([ADR-0022](../docs/adr/manufacturing/0022-jlc-prototype-delivery.md)), and a part number that reads `unsourced` would be ordered as if it were a part. An empty cell plus
 an explicit marker is both honest and consumable.
 
 The BOM is written by `texteda bom <project dir> <board_id>`: a table with the device id, the part number, the parameter values, the quantity, the
@@ -180,7 +180,7 @@ This is deliberately not an error — a gate that rejects unfinished sourcing wo
 | A generic line has no selection | warning (unsourced) |
 | A selected part does not satisfy the line (§3.3) | error in the primary, warning in the alternatives |
 | A selection names a part the design does not use | warning — a selection may be made for a revision that has not been drawn yet |
-| A selected part comes from a library item with `provenance = generated` | warning; error in strict mode ([ADR-0132](../docs/adr/libraries/0132-libraries-are-unverified-facts.md) decision 6) |
+| A selected part comes from a library item with `provenance = generated` | warning; error in strict mode ([ADR-0033](../docs/adr/libraries/0033-libraries-are-unverified-facts.md) decision 6) |
 
 The asymmetry between the two files is about the **content of a row**, not about whether the file parses.
 
@@ -196,7 +196,7 @@ The procurement descriptions compile to one shard each:
 The primary shard is a board shard, so it takes part in the board hash: changing the part a board is built from changes that board's identity, and the review
 of that board has to be redone. The alternatives shard is not in the board hash and not in the project hash.
 
-The shard's shape is specified in `schemas/ir/v0.6/procurement.schema.json` ([ADR-0105](../docs/adr/ir/0105-ir-shards-and-hashes.md) decision 2).
+The shard's shape is specified in `schemas/ir/v0.6/procurement.schema.json` ([ADR-0006](../docs/adr/ir/0006-ir-shards-and-hashes.md) decision 2).
 Both shards have a producer: `texteda ir` writes them, `texteda compile --procurement` compiles the primary one, and `texteda check` parses and
 validates both.
 
@@ -206,14 +206,14 @@ The `not_required` state is the one thing the shard says about a line that has n
 The selection check and the BOM are implemented (§3.2, §3.3, §5): the rules live in `packages/core` (the comparison is a cross-file question — the part's
 own ratings against the requirement — so it belongs to the checker, not to the parser) and `texteda check` and `texteda bom` run them.
 
-**Not implemented yet**: the check that a selected part is not a library item the project has shadowed ([ADR-0132](../docs/adr/libraries/0132-libraries-are-unverified-facts.md)),
-because the shadowing itself is not implemented (`docs/backlog.md` F10), and the ordering export of the BOM ([ADR-0121](../docs/adr/manufacturing/0121-jlc-prototype-delivery.md)).
+**Not implemented yet**: the check that a selected part is not a library item the project has shadowed ([ADR-0033](../docs/adr/libraries/0033-libraries-are-unverified-facts.md)),
+because the shadowing itself is not implemented (`docs/backlog.md` F10), and the ordering export of the BOM ([ADR-0022](../docs/adr/manufacturing/0022-jlc-prototype-delivery.md)).
 
 ## 9. What is not in here
 
 Packing form, supplier, price, minimum order quantity and lead time are **not** in the procurement description. They are commercial facts about a purchase,
 not facts about the design, and a BOM that carries them becomes a document that changes weekly and belongs to purchasing
-([ADR-0128](../docs/adr/devices/0128-the-procurement-layer.md) decision 10).
+([ADR-0029](../docs/adr/devices/0029-the-procurement-layer.md) decision 10).
 
 ## 10. Examples
 

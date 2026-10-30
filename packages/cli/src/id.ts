@@ -1,4 +1,4 @@
-// `texteda id`: generate project-scoped instance UIDs (ADR-0109).
+// `texteda id`: generate project-scoped instance UIDs (ADR-0010).
 //
 // This command only generates and prints; it never edits a source file. Assigning a UID to a row
 // is an authoring action, and a generator without a place to insert it would be a second editor.
@@ -17,10 +17,10 @@ import type { Diagnostic } from "@texteda/ir/diagnostics";
 import { hintFor } from "@texteda/ir/diagnostics";
 import { listBoards, loadBoard, loadModules } from "./project.ts";
 
-/** The Crockford Base32 alphabet used by an instance UID (ADR-0109). */
+/** The Crockford Base32 alphabet used by an instance UID (ADR-0010). */
 export const CROCKFORD_ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz";
 
-/** Fixed suffix length of an instance UID (ADR-0109). */
+/** Fixed suffix length of an instance UID (ADR-0010). */
 export const UID_SUFFIX_LENGTH = 6;
 
 /** Every UID a project declares, plus parse diagnostics that make generation unsafe. */

@@ -2,7 +2,7 @@
 //
 // Two rules live here, because they are the two places where a host can change what the app
 // does: how a refusal is read, and whose keys the app may take. Both are pure functions, so they
-// can be tested without a browser (ADR-0142 D2, D9).
+// can be tested without a browser (ADR-0043 D2, D9).
 
 /**
  * The message a refusal carries.

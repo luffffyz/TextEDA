@@ -1,4 +1,4 @@
-// Unit tests for source spans (ADR-0103): positions are Unicode-scalar columns and UTF-8 bytes,
+// Unit tests for source spans (ADR-0004): positions are Unicode-scalar columns and UTF-8 bytes,
 // the IR stays byte-identical when the source is reordered, and a record's span follows it.
 //
 // The three properties here are the ones the ADR promises: D1 (spans never enter the IR), D3 (what a

@@ -1,4 +1,4 @@
-// The placement canvas: the board drawn from the PCB IR (ADR-0141 D1).
+// The placement canvas: the board drawn from the PCB IR (ADR-0042 D1).
 //
 // The canvas draws what the board says -- outline, placed parts with their pads and courtyards,
 // copper -- and gives every drawn object a stable identity, so the app can address a net's copper

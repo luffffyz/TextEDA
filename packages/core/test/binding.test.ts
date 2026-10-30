@@ -94,7 +94,7 @@ describe("rule 3: a pair of pads must be inside the same sch net", () => {
     expect(diagnostics[0]!.data).toEqual({ a: "R1.1", b: "R1.2", net_a: "A", net_b: "B" });
   });
 
-  test("the finding names the connect row and the net's own row (ADR-0103 D5)", () => {
+  test("the finding names the connect row and the net's own row (ADR-0004 D5)", () => {
     const pcb = { ...pcbBase, connect: [...pcbBase.connect, { a: "R1.1", b: "R1.2" }] };
     const index = pcb.connect.length - 1;
     const diagnostics = checkBinding({
@@ -156,7 +156,7 @@ describe("rule 5: pcb must not reference nets absent from sch", () => {
   });
 });
 
-describe("declared deviations enter the report (ADR-0113 D10)", () => {
+describe("declared deviations enter the report (ADR-0014 D10)", () => {
   test("a net_tie is a note and names both nets", () => {
     const pcb: Pcb = { ...pcbBase, deviation: [{ type: "net_tie", net_a: "A", net_b: "B" }] };
     const diagnostics = check(pcb).filter((d) => d.code === "bind.net-tie");
@@ -174,7 +174,7 @@ describe("declared deviations enter the report (ADR-0113 D10)", () => {
   });
 });
 
-describe("rule 12: a partial layout is reported, not forbidden (ADR-0118)", () => {
+describe("rule 12: a partial layout is reported, not forbidden (ADR-0019)", () => {
   // R1 and R2 placed, C1 not: drop its place row *and* its connect pair, so the only
   // complaint is the missing placement itself (rule 4 ignores unplaced instances).
   const partial: Pcb = {

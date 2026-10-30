@@ -1,4 +1,4 @@
-// `texteda id`: project-scoped UID generation (ADR-0109).
+// `texteda id`: project-scoped UID generation (ADR-0010).
 //
 // The generator is pure enough to test with a deterministic random source; the command itself is
 // covered through the CLI so a flag or output regression is visible.

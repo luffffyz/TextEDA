@@ -1,7 +1,7 @@
 // The catalogue: the verbs a host can register as tools, and the rule that keeps the two faces
 // honest.
 //
-// A tool's result must equal the same verb's `--json` output, field for field (ADR-0143 D2). The
+// A tool's result must equal the same verb's `--json` output, field for field (ADR-0044 D2). The
 // test runs both and compares them — not a spot check, every tool in the catalogue.
 import { describe, expect, test } from "bun:test";
 import { cpSync } from "node:fs";

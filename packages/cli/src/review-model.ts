@@ -2,7 +2,7 @@
 //
 // The model is what the app draws: the boards, their print pages, the drawings, the findings and
 // the build hash. It is not the server and not the document — the command line serves it and
-// writes it into a page, and a plugin host serves it over its own transport (ADR-0142 D9). So it
+// writes it into a page, and a plugin host serves it over its own transport (ADR-0043 D9). So it
 // lives here, apart from the HTTP server, and can be built by either.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -102,7 +102,7 @@ function reviewPage(
     texts,
     problems,
     // The source is what the edit mode shows and edits; the placements are what the layout mode
-    // moves. Both are the page's own facts, not a second drawing (ADR-0141 D3, D7).
+    // moves. Both are the page's own facts, not a second drawing (ADR-0042 D3, D7).
     source: viewText,
     places: view.place.map((place) => ({
       instance_id: place.instance_id,
@@ -118,7 +118,7 @@ function reviewPage(
  *
  * The canvas is the board description drawn by the renderer: the outline, the placed parts with
  * their pads, the copper and the silkscreen. A board with no `pcb` description has no canvas —
- * the app says so rather than inventing one (ADR-0141 D7).
+ * the app says so rather than inventing one (ADR-0042 D7).
  */
 function reviewPcb(
   root: string,
@@ -145,7 +145,7 @@ function reviewPcb(
   const pcb = parsed.ir;
 
   // The parts the board places, resolved through the schematic's own devices: a part whose
-  // footprint is unknown contributes no pads, and the binding check says so (ADR-0118).
+  // footprint is unknown contributes no pads, and the binding check says so (ADR-0019).
   const parts = pcb.place.flatMap((placement) => {
     const instance = schematic.instances.find((candidate) => candidate.id === placement.instance_id);
     if (instance === undefined) return [];
@@ -153,7 +153,7 @@ function reviewPcb(
     const footprint = ref === undefined ? undefined : library.get(ref);
     if (footprint === undefined) return [];
     // The printed value is not a fact of the land pattern, so it comes from the schematic's instance
-    // row -- the same string the print page and the manufacturing export use (ADR-0123).
+    // row -- the same string the print page and the manufacturing export use (ADR-0024).
     const value = instanceValueText(instance, deviceOf(instance.component));
     return [{ instance_id: placement.instance_id, footprint, ...(value === undefined ? {} : { value }) }];
   });
@@ -259,7 +259,7 @@ function reviewInstances(
  * Build the payload the page shows.
  *
  * Every board that has a schematic becomes a board; a board with no view file becomes a board with no
- * pages and a note saying so — the honest state of ADR-0134 decision 6, not an invented layout.
+ * pages and a note saying so — the honest state of ADR-0035 decision 6, not an invented layout.
  */
 export function buildReviewModel(root: string): ReviewModel {
   const projectFile = "project.toml";
@@ -329,7 +329,7 @@ export function buildReviewModel(root: string): ReviewModel {
       nets: schematic.nets.map((net) => ({ id: net.id, members: [...net.members] })),
       ...(pcb === undefined ? {} : { pcb }),
       ...(pages.length === 0
-        ? { note: `no view file: nothing in ${dirOf(loaded.file)} draws this board (ADR-0134)` }
+        ? { note: `no view file: nothing in ${dirOf(loaded.file)} draws this board (ADR-0035)` }
         : {}),
     });
   }

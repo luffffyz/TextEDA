@@ -1,4 +1,4 @@
-// The shared types and helpers for diagnostics live in `@texteda/ir/diagnostics` (ADR-0102: error-code registry and unified shape).
+// The shared types and helpers for diagnostics live in `@texteda/ir/diagnostics` (ADR-0003: error-code registry and unified shape).
 //
 // This file only re-exports, so callers of `packages/parser` can keep importing from the local path;
 // new code may also import `@texteda/ir/diagnostics` directly.

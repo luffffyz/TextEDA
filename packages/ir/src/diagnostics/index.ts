@@ -1,4 +1,4 @@
-// Shared shapes and utility functions for diagnostics (ADR-0102).
+// Shared shapes and utility functions for diagnostics (ADR-0003).
 //
 // Diagnostics are part of the product (AGENTS.md §12): every diagnostic must point to a file,
 // line/column, expected/actual values and a fix hint, and must be consumable by agents (`--json`).
@@ -48,7 +48,7 @@ export type Severity = "error" | "warning" | "note";
  *
  * `col` counts Unicode scalars (a `Ω` or `±` is one column, not two), `byte` is the 0-based UTF-8
  * offset of the same character. Both are carried because a human reads a column and a tool seeks a
- * byte (ADR-0103 D3). `end` is exclusive and optional: record-level diagnostics point at the first
+ * byte (ADR-0004 D3). `end` is exclusive and optional: record-level diagnostics point at the first
  * token of the record and may give its end.
  */
 export interface DiagnosticLocation {
@@ -112,7 +112,7 @@ export interface DiagnosticsPayload {
 export function diagnosticsToPayload(diagnostics: readonly Diagnostic[]): DiagnosticsPayload {
   return {
     diagnostics: diagnostics.map((d) => {
-      // Fix hint: the call site's is more specific; if absent, use the registry's (ADR-0102).
+      // Fix hint: the call site's is more specific; if absent, use the registry's (ADR-0003).
       const hint = d.hint ?? hintFor(d.code);
       return {
         ...d,

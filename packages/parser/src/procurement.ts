@@ -1,4 +1,4 @@
-// `procurement` description parsing: `.teda` source → the procurement IR (spec/procurement.md, ADR-0128).
+// `procurement` description parsing: `.teda` source → the procurement IR (spec/procurement.md, ADR-0029).
 //
 // A procurement description says which part is bought. It is a **project decision**: what the
 // design needs lives in the schematic, what a part is lives in the device library, and what is
@@ -39,7 +39,7 @@ export const PROCUREMENT_SECTIONS = ["selections"] as const;
  * The reserved target of a selection row: the line needs nothing bought.
  *
  * It is not a device id — it is the statement that there is nothing to order for this line,
- * which is different from "nobody has ordered it yet" (ADR-0128 D4).
+ * which is different from "nobody has ordered it yet" (ADR-0029 D4).
  */
 export const NOT_REQUIRED = "not-required";
 export type ProcurementSection = (typeof PROCUREMENT_SECTIONS)[number];
@@ -48,7 +48,7 @@ export type ProcurementSection = (typeof PROCUREMENT_SECTIONS)[number];
  * A device id: bare, `[a-z][a-z0-9-]*` (teda.md §4.2, `common#/$defs/device_ref`).
  *
  * Every device a project reads is its own file under `assets/components/`; the `<lib>:<id>`
- * qualifier was withdrawn with the vendored library (ADR-0133), and a qualified id is reported as
+ * qualifier was withdrawn with the vendored library (ADR-0034), and a qualified id is reported as
  * `ref.library-qualified-id` rather than resolved.
  */
 
@@ -67,7 +67,7 @@ export interface ProcurementParseResult {
   ok: boolean;
   ir?: Procurement;
   diagnostics: Diagnostic[];
-  /** IR path → span of the record that produced it (ADR-0103 D2). Never persisted. */
+  /** IR path → span of the record that produced it (ADR-0004 D2). Never persisted. */
   sources?: SourceMap;
 }
 
@@ -124,7 +124,7 @@ class Collector {
       actual?: string;
       hint?: string;
       data?: Record<string, string | number | boolean>;
-      /** The definition site of a reference, when it has one (ADR-0103 D5). */
+      /** The definition site of a reference, when it has one (ADR-0004 D5). */
       related?: DiagnosticLocation[];
     },
   ): void {
@@ -152,7 +152,7 @@ class Collector {
       actual?: string;
       hint?: string;
       data?: Record<string, string | number | boolean>;
-      /** The definition site of a reference, when it has one (ADR-0103 D5). */
+      /** The definition site of a reference, when it has one (ADR-0004 D5). */
       related?: DiagnosticLocation[];
     },
   ): void {
@@ -170,7 +170,7 @@ class Collector {
       actual?: string;
       hint?: string;
       data?: Record<string, string | number | boolean>;
-      /** The definition site of a reference, when it has one (ADR-0103 D5). */
+      /** The definition site of a reference, when it has one (ADR-0004 D5). */
       related?: DiagnosticLocation[];
     },
   ): void {
@@ -303,7 +303,7 @@ export function parseProcurementDocument(
         {
           expected: "a bare device id",
           actual: generic,
-          hint: "import the device into assets/components/ (`texteda lib import`), then write its bare id (ADR-0133)",
+          hint: "import the device into assets/components/ (`texteda lib import`), then write its bare id (ADR-0034)",
         },
       );
       continue;
@@ -326,7 +326,7 @@ export function parseProcurementDocument(
         {
           expected: "a bare device id",
           actual: part,
-          hint: "import the device into assets/components/ (`texteda lib import`), then write its bare id (ADR-0133)",
+          hint: "import the device into assets/components/ (`texteda lib import`), then write its bare id (ADR-0034)",
         },
       );
       continue;
@@ -405,7 +405,7 @@ export function parseProcurement(text: string, options: ProcurementParseOptions)
   const selections: Selection[] = [];
   /**
    * Line of each selection, by object identity: the rows are sorted before they enter the IR, and a
-   * line number is a function of the line order, so it stays beside the IR (ADR-0103 D1).
+   * line number is a function of the line order, so it stays beside the IR (ADR-0004 D1).
    */
   const at = new Map<object, number>();
   /** The lines already selected in the primary file: one per BOM line (spec/procurement.md §6). */

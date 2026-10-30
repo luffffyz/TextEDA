@@ -7,7 +7,7 @@ export type Pad = {
   [k: string]: unknown;
 } & {
   /**
-   * Pad number; must match the symbol pin number (ADR-0129 decision 7).
+   * Pad number; must match the symbol pin number (ADR-0030 decision 7).
    */
   number: string;
   /**
@@ -28,7 +28,7 @@ export type Pad = {
    */
   layers: [LayerName, ...LayerName[]];
   /**
-   * Roundrect corner ratio in parts per million (0 = square, 500000 = capsule). The IR allows no floating point (ADR-0104 decision 3).
+   * Roundrect corner ratio in parts per million (0 = square, 500000 = capsule). The IR allows no floating point (ADR-0005 decision 3).
    */
   roundrect_ratio_ppm?: number;
   /**
@@ -57,7 +57,7 @@ export type Pad = {
   thermal_gap_nm?: number;
 };
 /**
- * Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0129).
+ * Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0030).
  *
  * This interface was referenced by `Footprint`'s JSON-Schema
  * via the `definition` "layer_name".
@@ -75,7 +75,7 @@ export type Graphic = {
    */
   kind: "line" | "rect" | "circle" | "arc" | "poly";
   /**
-   * Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0129).
+   * Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0030).
    */
   layer: string;
   /**
@@ -106,7 +106,7 @@ export type Graphic = {
   locked?: boolean;
 };
 /**
- * Device id, bare: every device the project reads lives in assets/components/ under its own id. A qualified `<lib>:<id>` is rejected — an external library is a template that was copied in (ADR-0133), not a namespace that is resolved.
+ * Device id, bare: every device the project reads lives in assets/components/ under its own id. A qualified `<lib>:<id>` is rejected — an external library is a template that was copied in (ADR-0034), not a namespace that is resolved.
  *
  * This interface was referenced by `Footprint`'s JSON-Schema
  * via the `definition` "device_ref".
@@ -120,7 +120,7 @@ export type DeviceRef = string;
  */
 export type FormatVersion = string;
 /**
- * Instance id of the board's flat list: U1. An instance of a module carries the module's prefix: <module_instance_id>.<refdes> (M1.U1). This is the identity key; see ADR-0105 decision 6 and ADR-0112 decision 2.
+ * Instance id of the board's flat list: U1. An instance of a module carries the module's prefix: <module_instance_id>.<refdes> (M1.U1). This is the identity key; see ADR-0006 decision 6 and ADR-0013 decision 2.
  *
  * This interface was referenced by `Footprint`'s JSON-Schema
  * via the `definition` "instance_id".
@@ -155,7 +155,7 @@ export type LibraryRef = string;
  */
 export type NetId = string;
 /**
- * Free text; canonical JSON has no comments, this is the substitute (ADR-0104 rule 8).
+ * Free text; canonical JSON has no comments, this is the substitute (ADR-0005 rule 8).
  *
  * This interface was referenced by `Footprint`'s JSON-Schema
  * via the `definition` "note".
@@ -179,7 +179,7 @@ export type ParamValue =
        */
       name: string;
       /**
-       * The unit is determined by the type declared in the component's params section (resistance→µΩ etc.; see ADR-0105 decision 7).
+       * The unit is determined by the type declared in the component's params section (resistance→µΩ etc.; see ADR-0006 decision 7).
        */
       value: number;
     }
@@ -230,7 +230,7 @@ export type Sha256 = string;
 export type Slug = string;
 
 /**
- * One footprint of a self-built footprint library: the canonical description. This is the **source of truth**; the KiCad .kicad_mod is an export artifact (ADR-0129). Lengths are always integer nanometers, angles integer millidegrees (ADR-0105); the origin is the footprint center, +x right, +y down (KiCad convention).
+ * One footprint of a self-built footprint library: the canonical description. This is the **source of truth**; the KiCad .kicad_mod is an export artifact (ADR-0030). Lengths are always integer nanometers, angles integer millidegrees (ADR-0006); the origin is the footprint center, +x right, +y down (KiCad convention).
  */
 export interface Footprint {
   /**
@@ -243,7 +243,7 @@ export interface Footprint {
    */
   footprint: {
     /**
-     * The release of this file's facts (ADR-0133): the tag or commit in which they were last established. A copy whose facts diverged appends `+local.N`. Not the format version.
+     * The release of this file's facts (ADR-0034): the tag or commit in which they were last established. A copy whose facts diverged appends `+local.N`. Not the format version.
      */
     rev?: string;
     /**
@@ -255,7 +255,7 @@ export interface Footprint {
      */
     name: string;
     /**
-     * The package code of this land pattern, e.g. 0402, SOT-23-5, LQFP-100 (ADR-0127 decision 1). The device does not restate it.
+     * The package code of this land pattern, e.g. 0402, SOT-23-5, LQFP-100 (ADR-0028 decision 1). The device does not restate it.
      */
     package_code?: string;
     /**
@@ -428,7 +428,7 @@ export interface TextItem {
   text: string;
   at: Position1;
   /**
-   * Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0129).
+   * Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0030).
    */
   layer: string;
   /**
@@ -496,7 +496,7 @@ export interface Field {
   value: string;
   at?: Position2;
   /**
-   * Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0129).
+   * Layer name, e.g. F.Cu, F.Mask, B.SilkS. A through-hole pad sits on every copper layer: `*.Cu` and `*.Mask` (the wildcard is part of the name, ADR-0030).
    */
   layer?: string;
   /**
@@ -578,7 +578,7 @@ export interface Model3D {
   rotation_mdeg?: [number, number, number];
 }
 /**
- * Where a device's facts came from and whether a human checked them (ADR-0133 decision 5). Omitted means the file makes no claim.
+ * Where a device's facts came from and whether a human checked them (ADR-0034 decision 5). Omitted means the file makes no claim.
  *
  * This interface was referenced by `Footprint`'s JSON-Schema
  * via the `definition` "provenance".

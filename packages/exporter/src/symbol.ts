@@ -1,6 +1,6 @@
 // Symbol → KiCad `.kicad_sym`.
 //
-// The source of truth is split in two (ADR-0130):
+// The source of truth is split in two (ADR-0031):
 //   - the `symbol` shard (schemas/ir/v0.3/symbol.schema.json) provides the view: pin placement, outline, units, visibility toggles;
 //   - `component` provides the electrical facts: pin names, electrical types, footprint, datasheet.
 // On export the two are joined by **pin number**; this is where "one fact, one owner" lands.

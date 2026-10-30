@@ -12,7 +12,7 @@ contract promises.
 examples/cases/<case_id>/
 ├── README.md          what it proves, what it deliberately leaves out, which checks it pins
 ├── project.toml
-├── assets/            this case's own devices, symbols and footprints (ADR-0133: no external libs)
+├── assets/            this case's own devices, symbols and footprints (ADR-0034: no external libs)
 ├── design/sch/        the board
 └── expected/
     ├── ir/**.json     every IR shard, byte for byte

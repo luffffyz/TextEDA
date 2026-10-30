@@ -107,7 +107,7 @@ for (const { file, fromDirectory } of files) {
   } else if (type === "module") {
     result = formatSchematic(text, { file, kind: "module" });
   } else if (type === "page") {
-    // The `page` description type was removed in language 0.7 (ADR-0111): say so instead of
+    // The `page` description type was removed in language 0.7 (ADR-0012): say so instead of
     // silently skipping a leftover file.
     console.error(
       `${file}: the \`page\` description type was removed in language 0.7: a board has one schematic file`,

@@ -1,7 +1,7 @@
 // Board ↔ print page cross checks (spec/schematic-view.md §9).
 //
 // A view is a drawing of the board's logical model, not a second description of it: it names the
-// board's ids and defines none (ADR-0134, ADR-0111 decision 4). So everything it says about the
+// board's ids and defines none (ADR-0035, ADR-0012 decision 4). So everything it says about the
 // board has to be answerable by the board, and the drawing that says nothing about a net is a
 // finding of its own — a board where a two-member net is drawn nowhere is a board whose drawing
 // does not show a connection that exists.
@@ -21,12 +21,12 @@ export interface ViewPage {
   readonly view: SchematicView;
   /**
    * A record's IR path (`/place/3`) → where it was written. The view IR carries no line numbers
-   * (ADR-0103 D1), so a finding that names a row gets the row's span from the parse.
+   * (ADR-0004 D1), so a finding that names a row gets the row's span from the parse.
    */
   readonly locate?: (irPath: string) => DiagnosticLocation | undefined;
 }
 
-/** A board net's declaration, for the view findings that contradict it (ADR-0103 D5). */
+/** A board net's declaration, for the view findings that contradict it (ADR-0004 D5). */
 export type NetLocator = (netId: string) => DiagnosticLocation | undefined;
 
 export interface ViewFacts {
@@ -51,7 +51,7 @@ function pinOf(member: string): string {
  * IDs are the board's: an instance, a net or a port that the board does not have is an error —
  * the drawing would be showing something the logic does not say. Coverage (D: a net drawn on no
  * page) is a warning, and only once the board has at least one page: a board with logic and no
- * drawing is a legal state, not a defect (ADR-0134).
+ * drawing is a legal state, not a defect (ADR-0035).
  */
 export function checkViews(facts: ViewFacts): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
@@ -65,7 +65,7 @@ export function checkViews(facts: ViewFacts): Diagnostic[] {
   /** Net ids that some page draws with a wire or a label. */
   const drawn = new Set<string>();
 
-  /** The board's row for a net: the definition the drawing is checked against (ADR-0103 D5). */
+  /** The board's row for a net: the definition the drawing is checked against (ADR-0004 D5). */
   const netRow = (netId: string): { related?: DiagnosticLocation[] } => {
     const row = facts.locateNet?.(netId);
     return row === undefined ? {} : { related: [row] };
@@ -150,7 +150,7 @@ export function checkViews(facts: ViewFacts): Diagnostic[] {
   // Coverage: a net with two or more members that no page draws is a connection the drawing does
   // not show. One finding per board, not per net — a drawing in progress is a normal state, and it
   // has to be *sayable* without turning thirty undrawn nets into thirty warnings
-  // (the policy of ADR-0118 D4, applied to the drawing). The names come along so a tool can act.
+  // (the policy of ADR-0019 D4, applied to the drawing). The names come along so a tool can act.
   if (pages.length > 0) {
     const undrawn = [...nets.values()]
       .filter((net) => net.members.length >= 2 && !drawn.has(net.id))

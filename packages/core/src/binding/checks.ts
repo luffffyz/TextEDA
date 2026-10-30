@@ -18,7 +18,7 @@ export interface BindingFacts {
   file: string;
   schematic: Schematic;
   pcb: Pcb;
-  /** A pcb record's IR path (`/connect/3`) → where it was written (ADR-0103 D2). */
+  /** A pcb record's IR path (`/connect/3`) → where it was written (ADR-0004 D2). */
   readonly locate?: (irPath: string) => DiagnosticLocation | undefined;
   /** A board net's id → the row that declares it: the definition a pcb reference is checked against. */
   readonly locateNet?: (netId: string) => DiagnosticLocation | undefined;
@@ -59,7 +59,7 @@ function referencedNets(pcb: Pcb): string[] {
  * 3. a pair of pads in `connect` must be inside the same sch net — unless overridden by `deviation.net_tie`;
  * 4. each sch net's members (placed instances only) must appear in at least one `connect` pair;
  * 5. nets referenced by pcb must exist in sch;
- * 6. every physical instance of sch must be placed (a partial layout is legal, but it is reported: ADR-0118).
+ * 6. every physical instance of sch must be placed (a partial layout is legal, but it is reported: ADR-0019).
  */
 export function checkBinding(facts: BindingFacts): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
@@ -67,7 +67,7 @@ export function checkBinding(facts: BindingFacts): Diagnostic[] {
   const fileOnly: DiagnosticLocation = { file: facts.file, line: 1, col: 1 };
   /** Where a pcb record was written; the file alone when the parse carried no spans. */
   const at = (irPath: string): DiagnosticLocation => facts.locate?.(irPath) ?? fileOnly;
-  /** The board's declaration of a net, for the findings that contradict it (ADR-0103 D5). */
+  /** The board's declaration of a net, for the findings that contradict it (ADR-0004 D5). */
   const netRows = (netId: string): { related?: DiagnosticLocation[] } => {
     const row = facts.locateNet?.(netId);
     return row === undefined ? {} : { related: [row] };
@@ -89,7 +89,7 @@ export function checkBinding(facts: BindingFacts): Diagnostic[] {
     });
   }
 
-  // Rule 6 (ADR-0118): every physical instance must be placed. A partial layout is a normal
+  // Rule 6 (ADR-0019): every physical instance must be placed. A partial layout is a normal
   // work state, so this is a warning, and it is one diagnostic per board: "9 of 61 placed" is
   // a fact about the description, not 52 facts about 52 instances. `logical_only` instances
   // have no physical entity; a DNP part still has a land pattern, so it counts (D6).
@@ -129,7 +129,7 @@ export function checkBinding(facts: BindingFacts): Diagnostic[] {
     tied.add(deviation.net_a < deviation.net_b ? `${deviation.net_a}|${deviation.net_b}` : `${deviation.net_b}|${deviation.net_a}`);
   }
 
-  // Declared deviations enter the report (ADR-0113 D10): a net tie is a note, a split ground is a warning.
+  // Declared deviations enter the report (ADR-0014 D10): a net tie is a note, a split ground is a warning.
   for (const [index, deviation] of (facts.pcb.deviation ?? []).entries()) {
     if (deviation.type === "net_tie") {
       diagnostics.push({

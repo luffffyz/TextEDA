@@ -1,4 +1,4 @@
-// `texteda renumber`: a code-executed global rename of reference designators (ADR-0110).
+// `texteda renumber`: a code-executed global rename of reference designators (ADR-0011).
 //
 // This is deliberately not `fmt`: the formatter only changes layout, while a renumbering changes
 // names and therefore the project hash. The command computes one mapping, validates it, rewrites
@@ -11,7 +11,7 @@
 //     its definition, so one mapping updates every `M<tag>.<old>` reference in every board that
 //     uses that module.
 //
-// What is not renamed (ADR-0110 decision 5 and "What this does not do"):
+// What is not renamed (ADR-0011 decision 5 and "What this does not do"):
 //   - module instance tags (`M1`, `M2`), net names, port names, component ids, symbol/footprint ids;
 //   - prose. Markdown is searched and reported, never edited.
 //
@@ -437,7 +437,7 @@ function validateMaps(context: ProjectContext, maps: NameMaps, policy: string): 
     for (const [old, next] of map) {
       if (!currentSet.has(old)) {
         // A mapping whose old name is gone and whose new name is present has already been applied.
-        // That is what makes a second run with the same explicit mapping a no-op (ADR-0110 D4).
+        // That is what makes a second run with the same explicit mapping a no-op (ADR-0011 D4).
         if (currentSet.has(next)) {
           stale.push(old);
           continue;

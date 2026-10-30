@@ -133,7 +133,7 @@ deviation
   });
 
   test("the retired test_point form is rejected as an unknown physical entity type", () => {
-    // A test point is a one-pin device in the schematic (ADR-0113 D8/D9), not a pcb entity.
+    // A test point is a one-pin device in the schematic (ADR-0014 D8/D9), not a pcb entity.
     const result = parse(`${valid}
 physical_only
   TP1 test_point VBUS  1.0mm

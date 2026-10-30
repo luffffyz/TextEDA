@@ -1,15 +1,15 @@
 // The MCP server: the same verbs, over a transport a host can speak.
 //
-// MCP is a transport, not a second implementation (ADR-0143 D5). The tools here are the
+// MCP is a transport, not a second implementation (ADR-0044 D5). The tools here are the
 // catalogue's entries and nothing else: the server maps a call onto the same function the command
 // line calls, and hands back the same value the command line prints with `--json`.
 //
 // The server is written here rather than taken from the SDK, because the slice we need is three
-// methods and a line of JSON (ADR-0144 D1). The stdio transport is newline-delimited JSON on
+// methods and a line of JSON (ADR-0045 D1). The stdio transport is newline-delimited JSON on
 // stdin and stdout; nothing goes to stderr but the server's own complaints.
 //
 // It speaks both eras of the protocol: the `initialize` handshake of the older revisions, and the
-// `server/discover` probe of the newer one (ADR-0144 D2).
+// `server/discover` probe of the newer one (ADR-0045 D2).
 import { SUPPORTED_LANGUAGE, formatVersion } from "@texteda/parser";
 import { toolAnswer } from "./result.ts";
 import { findTool, toolCatalogue } from "./tools.ts";
@@ -106,7 +106,7 @@ function callTool(name: unknown, args: unknown): ToolOutcome {
   }
   const arguments_ = args !== undefined && args !== null && typeof args === "object" ? (args as Record<string, unknown>) : {};
   // A verb that failed but still computed something has computed the answer: the model is to see
-  // it, and the call is marked as the failure the command line would report (ADR-0144 D5).
+  // it, and the call is marked as the failure the command line would report (ADR-0045 D5).
   const answer = toolAnswer(tool.run(arguments_));
   return {
     kind: "result",

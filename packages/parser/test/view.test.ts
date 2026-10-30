@@ -63,7 +63,7 @@ describe("view parsing", () => {
     expect(ir.text![0]!.text).toBe("Rev A — power section");
   });
 
-  test("row order does not affect IR bytes (ADR-0103 D1: no line numbers in the IR)", () => {
+  test("row order does not affect IR bytes (ADR-0004 D1: no line numbers in the IR)", () => {
     const shuffled = SOURCE.replace(
       "  U1    40.0  30.0\n  C1    20.0  30.0  90\n  U2    80.0  30.0  0   unit=2",
       "  U2    80.0  30.0  0   unit=2\n  C1    20.0  30.0  90\n  U1    40.0  30.0",

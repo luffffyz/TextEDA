@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// Migration 0.6 -> 0.7 (ADR-0111): one flat schematic per board, the drawing partitioned in print pages.
+// Migration 0.6 -> 0.7 (ADR-0012): one flat schematic per board, the drawing partitioned in print pages.
 //
 // Usage:
 //   bun run migrate:0.7 <project dir>
@@ -15,7 +15,7 @@
 //   4. rewrites the pcb description: the instance ids and net names lose their page prefix.
 //
 // What it refuses to do: choose a name. Two pages that use the same refdes, or the same net name,
-// are reported and the board is left untouched -- renaming is an authoring decision (ADR-0111
+// are reported and the board is left untouched -- renaming is an authoring decision (ADR-0012
 // decision 2). The same goes for the print pages' port rows: a page port has no board-level
 // counterpart in general, so the script reports it instead of inventing one.
 import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";

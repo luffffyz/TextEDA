@@ -1,4 +1,4 @@
-// The identity a drawn object carries (ADR-0141 D2).
+// The identity a drawn object carries (ADR-0042 D2).
 //
 // The renderer knows what it drew, not what hover and click mean. It writes the object's name into
 // the SVG (`data-ref`) and the net it carries (`data-net`), so the app can address an object -- or

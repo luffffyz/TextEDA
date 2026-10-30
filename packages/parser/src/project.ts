@@ -49,10 +49,10 @@ const TOP_LEVEL_TABLES = ["project", "boards", "variants", "compliance", "ext"] 
 /**
  * Tables that used to be legal and are not any more, with the sentence that says what to do.
  * A withdrawn key is not a typo: the generic "unknown table" message would send the reader
- * looking for a spelling mistake (ADR-0133 decision 15).
+ * looking for a spelling mistake (ADR-0034 decision 15).
  */
 const WITHDRAWN_TABLES: Record<string, string> = {
-  libs: "`[libs]` was withdrawn: a project does not depend on a library. Import a template with `texteda lib import`; the copy becomes the project's own device files (ADR-0133)",
+  libs: "`[libs]` was withdrawn: a project does not depend on a library. Import a template with `texteda lib import`; the copy becomes the project's own device files (ADR-0034)",
 };
 
 const STATUS_VALUES = ["draft", "prototype", "frozen", "production", "deprecated"] as const;
@@ -66,14 +66,14 @@ export interface ProjectParseResult {
   ok: boolean;
   ir?: Project;
   /**
-   * The project's accountable person (`[project].owner`, ADR-0136 D5).
+   * The project's accountable person (`[project].owner`, ADR-0037 D5).
    *
    * Deliberately outside the IR: ownership is a fact about the project, not about the design,
    * so changing it must change no shard and no hash. The review check is its only consumer.
    */
   owner?: string;
   diagnostics: Diagnostic[];
-  /** IR path → span of the table or key that produced it (ADR-0103 D2). Never persisted. */
+  /** IR path → span of the table or key that produced it (ADR-0004 D2). Never persisted. */
   sources?: SourceMap;
 }
 
@@ -170,7 +170,7 @@ export function parseProjectToml(source: string, options: ProjectParseOptions): 
   const ownerRaw = tableValue(projectTable, "owner");
   const owner = asString(ownerRaw);
   if (ownerRaw !== undefined && owner === undefined) {
-    diagnostics.push(error(file, 1, 1, "value.project-owner-invalid", "`[project].owner` must be a string (the accountable person, ADR-0136 D5)"));
+    diagnostics.push(error(file, 1, 1, "value.project-owner-invalid", "`[project].owner` must be a string (the accountable person, ADR-0037 D5)"));
   }
 
   const name = asString(tableValue(projectTable, "name"));
@@ -390,7 +390,7 @@ export function parseProjectToml(source: string, options: ProjectParseOptions): 
     ...(ext !== undefined ? { ext } : {}),
   };
   // IR path → span, through the TOML reader's table/key positions. The IR sorts boards and variants
-  // by id, so the pointer is resolved by id, not by the order of appearance (ADR-0103 D2/D4).
+  // by id, so the pointer is resolved by id, not by the order of appearance (ADR-0004 D2/D4).
   const sources: SourceMap = new Map();
   const positions = toml.positions ?? new Map();
   const put = (pointer: string, ...keys: string[]): void => {

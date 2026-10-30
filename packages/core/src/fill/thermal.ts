@@ -1,4 +1,4 @@
-// Thermal reliefs (ADR-0117 D3): a same-net pad that is joined to the pour by four spokes instead of
+// Thermal reliefs (ADR-0018 D3): a same-net pad that is joined to the pour by four spokes instead of
 // by every bit of its outline, so a soldering iron can heat the pad without heating the whole board.
 //
 // The geometry is one ring and four bridges:
