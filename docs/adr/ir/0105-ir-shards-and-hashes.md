@@ -177,10 +177,11 @@ Parameter type → IR unit:
 - For each shard: `sha256` is computed over **the canonical JSON bytes that are written to disk** —
   the file's content is the hashed content, there is no second serialization step — and is recorded
   in the `shards` array of `manifest.json`.
-- A board hash = `sha256` (of the board's shards' `<path>:<sha256>\n` sorted by path and
-  concatenated); the project hash is computed the same way over all shards. Board and project
-  hashes are **not written to disk**; they can be recomputed by this rule — which avoids two
-  sources of truth where "the hash is stored but the content does not match".
+- A board hash = `sha256` (of the board's **normative** shards' `<path>:<sha256>\n` sorted by path
+  and concatenated); the project hash is computed the same way over the project's **normative**
+  shards (which shards count as normative is D9). Board and project hashes are **not written to
+  disk**; they can be recomputed by this rule — which avoids two sources of truth where "the hash
+  is stored but the content does not match".
 - Derivative artifacts (Gerber, images, netlists) write `source_hash` (the project hash) + the
   board hash they belong to + `tool_version`.
 - Incremental: change one source file and only that shard is recomputed; unchanged shards keep the
