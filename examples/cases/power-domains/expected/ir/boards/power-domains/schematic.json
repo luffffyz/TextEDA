@@ -1,0 +1,2307 @@
+{
+  "board": "power-domains",
+  "constraints": [
+    {
+      "max_uv": 0,
+      "min_uv": 0,
+      "subject": "GND",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 5500000,
+      "min_uv": 4500000,
+      "subject": "VDD_IN",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD01",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD02",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD03",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD04",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD05",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD06",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD07",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD08",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD09",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD10",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD11",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD12",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD13",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD14",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD15",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD16",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD17",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD18",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD19",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "VDD20",
+      "type": "voltage"
+    }
+  ],
+  "format": "0.9.1",
+  "instances": [
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C1",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDms96qt"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C2",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDh2abeq"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C3",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDds2m99"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C4",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "ID7caaar"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C5",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDqkdtbc"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C6",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDvtdvb3"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C7",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDjwjv73"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C8",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDew97yr"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C9",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDbxes4c"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C10",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDft9g0b"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C11",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "ID4wt922"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C12",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDddkkk3"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C13",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDbbr93j"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C14",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDgz1068"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C15",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDs1g8d9"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C16",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "ID7d0t75"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C17",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDgeea0b"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C18",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDq8rv0r"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C19",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "ID3svda6"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C20",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDc4033s"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C21",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDvm4ghj"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C22",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDwbt2r6"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C23",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "ID0bk4zz"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C24",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDcfks0q"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C25",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDnn8a1m"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C26",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "ID3axeqa"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C27",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "ID5vssn5"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C28",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "ID4q3f7j"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C29",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDpkk7jf"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C30",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "ID4wwydt"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C31",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDnk4j96"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C32",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDkvf1td"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C33",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "ID0p2rp3"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C34",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDm2mgwy"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C35",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDrfmef7"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C36",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDb6gzsy"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C37",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDxs9b49"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C38",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDczgt8y"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C39",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDcybw85"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "C40",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "ID2726dd"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R1",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID1t5fec"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R2",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID97n5wh"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R3",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDe9htr4"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R4",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID6s0j2j"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R5",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID5xkvp0"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R6",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDnsw8cw"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R7",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDmdq2qw"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R8",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID2q5dej"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R9",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDhfv662"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R10",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID0pww19"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R11",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID6vtcce"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R12",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDfrta51"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R13",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID73xfgz"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R14",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID6m1hh1"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R15",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDd4smyg"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R16",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDzgfz7c"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R17",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDj0kjeh"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R18",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID0zmqh0"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R19",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID60jg5c"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R20",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDr2a5j2"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R21",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID03nnj8"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R22",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDy07nqy"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R23",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDa2q9vg"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R24",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDac07xv"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R25",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDyxymrc"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R26",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID2bq0f6"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R27",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDg2caqa"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R28",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDv4t4rq"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R29",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDt71y26"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R30",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDjgfav0"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R31",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID3e18k5"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R32",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDttaqr5"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R33",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID6af8rp"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R34",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID7pyxbt"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R35",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDddw6vc"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R36",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDhdzgp4"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R37",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDa55vhh"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R38",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID3e99y8"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R39",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDrdg3z3"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R40",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDcwbpmy"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U1",
+      "uid": "IDgr78qd"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U2",
+      "uid": "IDayj7en"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U3",
+      "uid": "IDy1r0r7"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U4",
+      "uid": "IDd78p23"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U5",
+      "uid": "ID0mgvr4"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U6",
+      "uid": "ID9g2xbw"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U7",
+      "uid": "IDafeknb"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U8",
+      "uid": "IDvrwt6c"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U9",
+      "uid": "ID4ag4za"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U10",
+      "uid": "ID2gn6e9"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U11",
+      "uid": "IDfvrzzs"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U12",
+      "uid": "IDk4ep9d"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U13",
+      "uid": "IDf9czdx"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U14",
+      "uid": "IDythfvt"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U15",
+      "uid": "ID0b03zn"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U16",
+      "uid": "IDd94r6a"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U17",
+      "uid": "ID4sqbjm"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U18",
+      "uid": "IDb2prsj"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U19",
+      "uid": "ID5wfpv7"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "U20",
+      "uid": "IDgg2zf8"
+    }
+  ],
+  "ir_version": "0.14",
+  "nets": [
+    {
+      "id": "EN01",
+      "members": [
+        "R2.2",
+        "U1.3"
+      ]
+    },
+    {
+      "id": "EN02",
+      "members": [
+        "R4.2",
+        "U2.3"
+      ]
+    },
+    {
+      "id": "EN03",
+      "members": [
+        "R6.2",
+        "U3.3"
+      ]
+    },
+    {
+      "id": "EN04",
+      "members": [
+        "R8.2",
+        "U4.3"
+      ]
+    },
+    {
+      "id": "EN05",
+      "members": [
+        "R10.2",
+        "U5.3"
+      ]
+    },
+    {
+      "id": "EN06",
+      "members": [
+        "R12.2",
+        "U6.3"
+      ]
+    },
+    {
+      "id": "EN07",
+      "members": [
+        "R14.2",
+        "U7.3"
+      ]
+    },
+    {
+      "id": "EN08",
+      "members": [
+        "R16.2",
+        "U8.3"
+      ]
+    },
+    {
+      "id": "EN09",
+      "members": [
+        "R18.2",
+        "U9.3"
+      ]
+    },
+    {
+      "id": "EN10",
+      "members": [
+        "R20.2",
+        "U10.3"
+      ]
+    },
+    {
+      "id": "EN11",
+      "members": [
+        "R22.2",
+        "U11.3"
+      ]
+    },
+    {
+      "id": "EN12",
+      "members": [
+        "R24.2",
+        "U12.3"
+      ]
+    },
+    {
+      "id": "EN13",
+      "members": [
+        "R26.2",
+        "U13.3"
+      ]
+    },
+    {
+      "id": "EN14",
+      "members": [
+        "R28.2",
+        "U14.3"
+      ]
+    },
+    {
+      "id": "EN15",
+      "members": [
+        "R30.2",
+        "U15.3"
+      ]
+    },
+    {
+      "id": "EN16",
+      "members": [
+        "R32.2",
+        "U16.3"
+      ]
+    },
+    {
+      "id": "EN17",
+      "members": [
+        "R34.2",
+        "U17.3"
+      ]
+    },
+    {
+      "id": "EN18",
+      "members": [
+        "R36.2",
+        "U18.3"
+      ]
+    },
+    {
+      "id": "EN19",
+      "members": [
+        "R38.2",
+        "U19.3"
+      ]
+    },
+    {
+      "id": "EN20",
+      "members": [
+        "R40.2",
+        "U20.3"
+      ]
+    },
+    {
+      "id": "GND",
+      "members": [
+        "C1.2",
+        "C2.2",
+        "C3.2",
+        "C4.2",
+        "C5.2",
+        "C6.2",
+        "C7.2",
+        "C8.2",
+        "C9.2",
+        "C10.2",
+        "C11.2",
+        "C12.2",
+        "C13.2",
+        "C14.2",
+        "C15.2",
+        "C16.2",
+        "C17.2",
+        "C18.2",
+        "C19.2",
+        "C20.2",
+        "C21.2",
+        "C22.2",
+        "C23.2",
+        "C24.2",
+        "C25.2",
+        "C26.2",
+        "C27.2",
+        "C28.2",
+        "C29.2",
+        "C30.2",
+        "C31.2",
+        "C32.2",
+        "C33.2",
+        "C34.2",
+        "C35.2",
+        "C36.2",
+        "C37.2",
+        "C38.2",
+        "C39.2",
+        "C40.2",
+        "R1.2",
+        "R3.2",
+        "R5.2",
+        "R7.2",
+        "R9.2",
+        "R11.2",
+        "R13.2",
+        "R15.2",
+        "R17.2",
+        "R19.2",
+        "R21.2",
+        "R23.2",
+        "R25.2",
+        "R27.2",
+        "R29.2",
+        "R31.2",
+        "R33.2",
+        "R35.2",
+        "R37.2",
+        "R39.2",
+        "U1.2",
+        "U2.2",
+        "U3.2",
+        "U4.2",
+        "U5.2",
+        "U6.2",
+        "U7.2",
+        "U8.2",
+        "U9.2",
+        "U10.2",
+        "U11.2",
+        "U12.2",
+        "U13.2",
+        "U14.2",
+        "U15.2",
+        "U16.2",
+        "U17.2",
+        "U18.2",
+        "U19.2",
+        "U20.2"
+      ]
+    },
+    {
+      "id": "VDD01",
+      "members": [
+        "C2.1",
+        "R1.1",
+        "U1.5"
+      ]
+    },
+    {
+      "id": "VDD02",
+      "members": [
+        "C4.1",
+        "R3.1",
+        "U2.5"
+      ]
+    },
+    {
+      "id": "VDD03",
+      "members": [
+        "C6.1",
+        "R5.1",
+        "U3.5"
+      ]
+    },
+    {
+      "id": "VDD04",
+      "members": [
+        "C8.1",
+        "R7.1",
+        "U4.5"
+      ]
+    },
+    {
+      "id": "VDD05",
+      "members": [
+        "C10.1",
+        "R9.1",
+        "U5.5"
+      ]
+    },
+    {
+      "id": "VDD06",
+      "members": [
+        "C12.1",
+        "R11.1",
+        "U6.5"
+      ]
+    },
+    {
+      "id": "VDD07",
+      "members": [
+        "C14.1",
+        "R13.1",
+        "U7.5"
+      ]
+    },
+    {
+      "id": "VDD08",
+      "members": [
+        "C16.1",
+        "R15.1",
+        "U8.5"
+      ]
+    },
+    {
+      "id": "VDD09",
+      "members": [
+        "C18.1",
+        "R17.1",
+        "U9.5"
+      ]
+    },
+    {
+      "id": "VDD10",
+      "members": [
+        "C20.1",
+        "R19.1",
+        "U10.5"
+      ]
+    },
+    {
+      "id": "VDD11",
+      "members": [
+        "C22.1",
+        "R21.1",
+        "U11.5"
+      ]
+    },
+    {
+      "id": "VDD12",
+      "members": [
+        "C24.1",
+        "R23.1",
+        "U12.5"
+      ]
+    },
+    {
+      "id": "VDD13",
+      "members": [
+        "C26.1",
+        "R25.1",
+        "U13.5"
+      ]
+    },
+    {
+      "id": "VDD14",
+      "members": [
+        "C28.1",
+        "R27.1",
+        "U14.5"
+      ]
+    },
+    {
+      "id": "VDD15",
+      "members": [
+        "C30.1",
+        "R29.1",
+        "U15.5"
+      ]
+    },
+    {
+      "id": "VDD16",
+      "members": [
+        "C32.1",
+        "R31.1",
+        "U16.5"
+      ]
+    },
+    {
+      "id": "VDD17",
+      "members": [
+        "C34.1",
+        "R33.1",
+        "U17.5"
+      ]
+    },
+    {
+      "id": "VDD18",
+      "members": [
+        "C36.1",
+        "R35.1",
+        "U18.5"
+      ]
+    },
+    {
+      "id": "VDD19",
+      "members": [
+        "C38.1",
+        "R37.1",
+        "U19.5"
+      ]
+    },
+    {
+      "id": "VDD20",
+      "members": [
+        "C40.1",
+        "R39.1",
+        "U20.5"
+      ]
+    },
+    {
+      "id": "VDD_IN",
+      "members": [
+        "C1.1",
+        "C3.1",
+        "C5.1",
+        "C7.1",
+        "C9.1",
+        "C11.1",
+        "C13.1",
+        "C15.1",
+        "C17.1",
+        "C19.1",
+        "C21.1",
+        "C23.1",
+        "C25.1",
+        "C27.1",
+        "C29.1",
+        "C31.1",
+        "C33.1",
+        "C35.1",
+        "C37.1",
+        "C39.1",
+        "R2.1",
+        "R4.1",
+        "R6.1",
+        "R8.1",
+        "R10.1",
+        "R12.1",
+        "R14.1",
+        "R16.1",
+        "R18.1",
+        "R20.1",
+        "R22.1",
+        "R24.1",
+        "R26.1",
+        "R28.1",
+        "R30.1",
+        "R32.1",
+        "R34.1",
+        "R36.1",
+        "R38.1",
+        "R40.1",
+        "U1.1",
+        "U2.1",
+        "U3.1",
+        "U4.1",
+        "U5.1",
+        "U6.1",
+        "U7.1",
+        "U8.1",
+        "U9.1",
+        "U10.1",
+        "U11.1",
+        "U12.1",
+        "U13.1",
+        "U14.1",
+        "U15.1",
+        "U16.1",
+        "U17.1",
+        "U18.1",
+        "U19.1",
+        "U20.1"
+      ]
+    }
+  ],
+  "ports": [
+    {
+      "id": "GND",
+      "net": "GND"
+    },
+    {
+      "id": "VDD01",
+      "net": "VDD01"
+    },
+    {
+      "id": "VDD02",
+      "net": "VDD02"
+    },
+    {
+      "id": "VDD03",
+      "net": "VDD03"
+    },
+    {
+      "id": "VDD04",
+      "net": "VDD04"
+    },
+    {
+      "id": "VDD05",
+      "net": "VDD05"
+    },
+    {
+      "id": "VDD06",
+      "net": "VDD06"
+    },
+    {
+      "id": "VDD07",
+      "net": "VDD07"
+    },
+    {
+      "id": "VDD08",
+      "net": "VDD08"
+    },
+    {
+      "id": "VDD09",
+      "net": "VDD09"
+    },
+    {
+      "id": "VDD10",
+      "net": "VDD10"
+    },
+    {
+      "id": "VDD11",
+      "net": "VDD11"
+    },
+    {
+      "id": "VDD12",
+      "net": "VDD12"
+    },
+    {
+      "id": "VDD13",
+      "net": "VDD13"
+    },
+    {
+      "id": "VDD14",
+      "net": "VDD14"
+    },
+    {
+      "id": "VDD15",
+      "net": "VDD15"
+    },
+    {
+      "id": "VDD16",
+      "net": "VDD16"
+    },
+    {
+      "id": "VDD17",
+      "net": "VDD17"
+    },
+    {
+      "id": "VDD18",
+      "net": "VDD18"
+    },
+    {
+      "id": "VDD19",
+      "net": "VDD19"
+    },
+    {
+      "id": "VDD20",
+      "net": "VDD20"
+    },
+    {
+      "id": "VDD_IN",
+      "net": "VDD_IN"
+    }
+  ],
+  "source": {
+    "file": "design/sch/power-domains.teda",
+    "line": 1
+  }
+}

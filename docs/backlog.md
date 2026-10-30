@@ -206,9 +206,9 @@
 
 ---
 
-## F12. 十用例语料（语法准入规则的闸门）——**进行中（4 / 10）**
+## F12. 十用例语料（语法准入规则的闸门）——**进行中（5 / 10）**
 
-**进度（2026-10-25 三个，2026-10-27 加 `diff-pair`）**：约定落地在 `examples/cases/README.md`（一个用例 = 一个完整小工程 + `expected/{ir/**,manifest.json,diagnostics.json,netlist.txt}`；`bun run cases:check` 比对、`--update` 重写，`bun test` 里有一条带上它；用例必须无 error）。已写：
+**进度（2026-10-25 三个，2026-10-27 加 `diff-pair`，2026-10-30 加 `power-domains`）**：约定落地在 `examples/cases/README.md`（一个用例 = 一个完整小工程 + `expected/{ir/**,manifest.json,diagnostics.json,netlist.txt}`；`bun run cases:check` 比对、`--update` 重写，`bun test` 里有一条带上它；用例必须无 error）。已写：
 
 | 用例 | 证明什么 | 暴露的问题 |
 |---|---|---|
@@ -216,19 +216,20 @@
 | `nc-pins` | `no_connect` 静默 / 有意悬空告警 / 已连静默，三者分得开；port 豁免单成员告警；三爪（TH）封装 | 契约的 `layer_name` 模式拒绝 `*.Cu`——**任何 TH 封装都过不了契约**（解析器一直在产出这个名字）→ 已修模式并补正例夹具 |
 | `bus` | `bus` 只是命名方案：成员行展开成普通 net（`i2c0.scl`），不连接成员；port / constraint 可以点名成员 net；一个 bus id 只允许一个块，重复**成员行**才合并 | 成员 net 原先**不在** `scope.nets` 里，port 与 constraint 点名它会被报 `ref.unknown-net`；重复的 `bus` 块原先静默产出两个同 id 的 bus 分片 → 已补 `busNets` 解析、`ref.duplicate-bus` 与 `net.duplicate-member`，并修 `fmt` 把第二个 bus 块覆盖掉的问题 |
 | `diff-pair` | 差分对是**声明**不是几何：`diff CANH CANL 120Ω ±10%` 与 `skew CANH CANL <= 5mm` 落在 IR 的 `impedance_mohm`(120000) / `tolerance_ppm`(100000) / `op`(`<=`) / `length_nm`(5000000)；两个 net 仍是普通 net（成员、窗口、悬空引脚照常查）；split termination 用 4 个通用件围一对线；`U1.Vref` 有意悬空 → 一条 `net.pin-unassigned` warning 被钉住 | 没有。全部用现有语言写出（`diff` / `skew` 自 `spec/teda.md` §7.4 起就有语法、解析器与契约分支），用例证明的是**没有东西消费它们**——`packages/core` 里没有检查器读 `diff` / `skew`，所以这对约束只能钉 IR，钉不到诊断。**缺口是检查器，不是表面**。另外顺手抓到一个渲染器缺陷：通孔焊盘的层是通配名 `*.Cu` / `*.Mask`，`LAYER_STYLE` 没有这两个键，回退成 `fill=none stroke=none`——**整块通孔焊盘画不出来**（参考工程全是 SMD 件，三个带排针的用例都没人看一眼图）。已补样式与绘序，回归测试见 `packages/renderer/test/wildcard-layers.test.ts`；同时修了两个用例里丝印压在焊盘上的行 |
+| `power-domains` | 20 路电源域 × 5 器件 = **100 个实例**、42 个 net、22 个 port、22 条约束；共享的 `VDD_IN`（60 成员）与 `GND`（80 成员）按 80 列规则折成续行；每路一条自己的 `voltage` 窗口（`3.135V..3.465V`），通用件无选料、`kind: generic` | 没有。canonical 后 **223 行**、最长表行 **78 列**、`texteda check` **0 error 0 warning**（3 条 note：`design.stress-unknown` / `design.power-unknown` / `bind.not-checked`）——[ADR-0001](adr/language/0001-fact-layer-has-no-expressions.md) D6 的触发条件（折行后仍不可读）**不成立**，语言对这一批可以冻结。用例写的是"每域 5 器件 + 一条共享回流网"的形状，不是 20 份手抄的整板 |
 
 **`diff` / `skew` 的落地状态（写于 2026-10-27）**：语法（`spec/teda.md` §7.4）、解析（`packages/parser/src/schematic.ts` 的 `case "diff"` / `case "skew"`）、契约（`schematic.schema.json` 的 `constraint` 分支）都在，**没有**任何规则消费它们：`impedance` / `length` / `diff` / `skew` 目前只被「pcb 里点名的 net 必须存在」这条绑定校验顺带看到（`packages/core/src/binding/checks.ts`）。差分阻抗与等长要能判定，得先有 B0 的走线数据与 DRC 指标（F48），所以本项不重复登记。
 
-**剩下的 6 个，各自的已知障碍**（写之前先读）：
+**剩下的 5 个，各自的已知障碍**（写之前先读）：
 
 - **DNP 变体**：语言**没有** `dnp` 的表面（`project.toml` 的 `[variants]` 也还没解析），IR 有 `dnp` 字段但没有来源 → 先定表面（ADR），再写用例。
 - **net tie**：受控偏差在 `pcb` 的类型里，需要 `pcb` 描述 + `connect` 段 + 铜箔，用例要带一块最小的板。
-- 其余 4 个（BGA 200 脚、20 路电源域、层次复用、参数化分压）都能用现有语言写。**顺序不按难度，按风险**（2026-10-30 改）：先用**片段级探针**（不是完整用例）手写一次 20 路 × 5 器件的表，看它在 `spec/teda.md` §12 规则 8 的 80 列折行之后还剩多少行、还能不能一眼读懂。探针不能代替正式证据（[ADR-0001](adr/language/0001-fact-layer-has-no-expressions.md) D6 的触发条件是那个用例本身），但它把"要不要改语言"从赌注变成一次决定：
+- 其余 3 个（BGA 200 脚、层次复用、参数化分压）都能用现有语言写。**顺序不按难度，按风险**（2026-10-30 改）：先用**片段级探针**（不是完整用例）手写一次 20 路 × 5 器件的表，看它在 `spec/teda.md` §12 规则 8 的 80 列折行之后还剩多少行、还能不能一眼读懂。探针不能代替正式证据（[ADR-0001](adr/language/0001-fact-layer-has-no-expressions.md) D6 的触发条件是那个用例本身），但它把"要不要改语言"从赌注变成一次决定：
   - **表够用** → 语言对这一批冻结 → 层次复用 → BGA 200 脚 → 参数化分压；
   - **表不够用** → 先写完整的 20 路电源域用例（正式证据）→ 出 ADR + 迁移脚本 + 迁移说明 → 改语言 → 再写剩下 3 个。
   - **探针结果（2026-10-30，实测）**：用现有语言搭了一块 20 路 × 5 器件的板（100 个实例、41 个 net、21 个 port、21 条约束）：canonical 后 **203 行**，最长的一行 **80 列**，共享的 GND（80 个成员）折行成 **8 行**，`texteda check` **0 error**。**结论：表够用**——[ADR-0001](adr/language/0001-fact-layer-has-no-expressions.md) D6 的触发条件（折行之后仍不可读）不成立，语言对这一批可以冻结。瓶颈不是行宽而是**行数**（203 行要人读一遍），而这一条语言已经答了：生成器在语言外（同记录 D3）、重复的域用模块（[ADR-0013](adr/schematic/0013-modules-compose-boards.md)）——用例就按这个形状写（每域 5 个器件 + 一条共享回流网），别写成 20 份手抄的整板。
     - **探针没覆盖的**：每域的模拟采样线 / 使能 / PGood 网（更多短行，不是更宽的行）；每域 15 个器件以上的规模（更多行，不是更宽的行）。
-- **20 路电源域**写完后要回头回答 `AGENTS.md` §11 Q2（表达式程度）：如果表真的宽到不可用，那才是引入受限表达式的触发条件。
+- **20 路电源域**写完后要回头回答 `AGENTS.md` §11 Q2（表达式程度）：**已答（2026-10-30）**——用例写完（100 个实例、42 个 net），canonical 后 **223 行**、最长表行 **78 列**、`texteda check` **0 error 0 warning**：表**够用**，[ADR-0001](adr/language/0001-fact-layer-has-no-expressions.md) D6 的触发条件（折行之后仍不可读）不成立，**这一批不改语言、不引入受限表达式**。Q2 本身仍然待定（十用例没跑完，同记录明说不关它），这一条只钉住"20 路电源域这一批"。
 
 
 **原决定（2026-10-21，已被上面的进度取代）**：**延后**。项目距完善还有相当距离，十用例不是当前瓶颈；sch 解析器、展平、BOM 计数、诊断注册表都还没落地，现在写语料等于给一个还会变的 IR 写黄金文件。**触发条件**：sch 的 IR 与展平口径定版之后。
@@ -239,13 +240,13 @@
 - 第 1 条改为**在 ADR 里写清"这个特性解决哪个具体硬件问题"**，并给一个**最小的具体片段**（不是完整用例），例如"20 路电源域里每路的 5 个器件要写 5 行 × 20 路 = 100 行"；
 - ADR 里要写"将来补语料时回到这条"。
 
-**现状**：`AGENTS.md` §10 列了十个困难用例（BGA 200 脚、双运放多单元、20 路电源域、差分对、DNP 变体、net tie、总线、层次复用、参数化分压、NC 引脚），并要求"先于实现写"；`AGENTS.md` §5.2 把"至少一个用例必须用到它"作为新语法特性的准入条件。**已落地 4 个**（见上表），另 6 个未写（障碍见上）。
+**现状**：`AGENTS.md` §10 列了十个困难用例（BGA 200 脚、双运放多单元、20 路电源域、差分对、DNP 变体、net tie、总线、层次复用、参数化分压、NC 引脚），并要求"先于实现写"；`AGENTS.md` §5.2 把"至少一个用例必须用到它"作为新语法特性的准入条件。**已落地 5 个**（见上表），另 5 个未写（障碍见上）。
 
 **为什么现在做**：这是当前**最挡路的一条**：
 
 - `AGENTS.md` §5.2 的语法准入规则**无法评估**——没有用例就没有证据，任何新语法都能绕过闸门；
 - conformance（`source → IR → netlist` 黄金文件）与 binding（5 类受控偏差正反例）都从这批语料长出来；
-- `AGENTS.md` §11 Q2（表达式程度）的修订条件绑定在"20 路电源域"这个用例上；
+- `AGENTS.md` §11 Q2（表达式程度）的修订条件绑定在"20 路电源域"这个用例上；该用例已写，条件**未触发**（这一批不改语言），Q2 本身仍待定到十用例跑完；
 - 参考工程只有 2 块板（`mcu-board` 单页、`charger-buck` 两页），规模与难度都不到用例级别。
 
 **要做的事**：
@@ -253,7 +254,7 @@
 1. ~~定目录约定~~ **已定**（2026-10-24，实际形状见 `examples/cases/README.md`）：一个用例 = 一个完整小工程（`project.toml` + `assets/` + `design/sch/`），期望在 `expected/ir/**`（逐字节）+ `expected/manifest.json`（去掉 `tool_version`）+ `expected/diagnostics.json`（`code/severity/file/line`，不钉文案）+ `expected/netlist.txt`（连通性投影）。
 2. 十个用例逐个落地，每个至少含：源描述、期望 IR（canonical）、**以及这个用例触发的检查点**（哪些错误码、哪些断言）。
 3. ~~先做不依赖 sch 解析器的四个~~：sch 解析器已落地，这条按难度排取代（见上面的进度表）；`nc-pins` 已完成。
-4. 再做需要 sch 解析器的六个：BGA 200 脚、双运放多单元、20 路电源域、总线、层次复用、参数化分压（外加差分对；`dual-opamp-multi-unit`、`bus`、`diff-pair` 已完成）。
+4. 再做需要 sch 解析器的六个：BGA 200 脚、双运放多单元、20 路电源域、总线、层次复用、参数化分压（外加差分对；`dual-opamp-multi-unit`、`bus`、`diff-pair`、`power-domains` 已完成，剩下 BGA 200 脚、层次复用、参数化分压三个）。
 5. ~~每个用例配一条可跑的检查~~ **已落地**：`bun run cases:check`（`--update` 重写）+ `bun test` 里的 `packages/cli/test/cases.test.ts`。
 6. 用例写完后回头把 `AGENTS.md` §5.2 的闸门接上（当前状态：能问"哪个用例用到它"，但"没有用例用到"还不足以下结论，见 `AGENTS.md` §5.2）。
 

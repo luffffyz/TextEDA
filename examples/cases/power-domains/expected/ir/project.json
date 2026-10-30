@@ -1,0 +1,10 @@
+{
+  "ir_version": "0.14",
+  "project": {
+    "description": "Case 3 of the ten: twenty power domains, one table",
+    "format": "0.9.1",
+    "name": "power-domains",
+    "status": "draft",
+    "version": "0.1.0"
+  }
+}

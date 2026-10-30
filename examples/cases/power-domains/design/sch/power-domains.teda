@@ -1,0 +1,223 @@
+version 0.9.1
+schematic power-domains
+
+# Case 3 of the ten (AGENTS.md §10, docs/backlog.md F12): twenty power domains, one table.
+#
+# The shape is the point. Twenty regulated rails, five devices each, one hundred instances, and
+# two nets that carry the whole board: `VDD_IN` with sixty members and `GND` with eighty. A power
+# tree is the case that asks whether the table form survives repetition, and it does -- every row
+# is one fact, the two wide nets wrap into continuation lines under the 80-column rule, and the
+# board reads as a hundred short rows a reviewer can scan. No expression is needed to say any of
+# it, so ADR-0001 D6's trigger is not met by this case.
+#
+# This is not a claim that hand-writing this file is the way to build a power tree. The repetition
+# is what generators are for (ADR-0001 D3: generators live outside the language) and what modules
+# are for (ADR-0013). What the case pins is the *form* at this scale, so that the answer to
+# `AGENTS.md` §11 Q2 rests on a case instead of on an opinion.
+instances
+  C1   IDms96qt  cap-mlcc-0402   100n  10%  16V  X7R
+  C2   IDh2abeq  cap-mlcc-0402   10u   20%  10V  X7R
+  C3   IDds2m99  cap-mlcc-0402   100n  10%  16V  X7R
+  C4   ID7caaar  cap-mlcc-0402   10u   20%  10V  X7R
+  C5   IDqkdtbc  cap-mlcc-0402   100n  10%  16V  X7R
+  C6   IDvtdvb3  cap-mlcc-0402   10u   20%  10V  X7R
+  C7   IDjwjv73  cap-mlcc-0402   100n  10%  16V  X7R
+  C8   IDew97yr  cap-mlcc-0402   10u   20%  10V  X7R
+  C9   IDbxes4c  cap-mlcc-0402   100n  10%  16V  X7R
+  C10  IDft9g0b  cap-mlcc-0402   10u   20%  10V  X7R
+  C11  ID4wt922  cap-mlcc-0402   100n  10%  16V  X7R
+  C12  IDddkkk3  cap-mlcc-0402   10u   20%  10V  X7R
+  C13  IDbbr93j  cap-mlcc-0402   100n  10%  16V  X7R
+  C14  IDgz1068  cap-mlcc-0402   10u   20%  10V  X7R
+  C15  IDs1g8d9  cap-mlcc-0402   100n  10%  16V  X7R
+  C16  ID7d0t75  cap-mlcc-0402   10u   20%  10V  X7R
+  C17  IDgeea0b  cap-mlcc-0402   100n  10%  16V  X7R
+  C18  IDq8rv0r  cap-mlcc-0402   10u   20%  10V  X7R
+  C19  ID3svda6  cap-mlcc-0402   100n  10%  16V  X7R
+  C20  IDc4033s  cap-mlcc-0402   10u   20%  10V  X7R
+  C21  IDvm4ghj  cap-mlcc-0402   100n  10%  16V  X7R
+  C22  IDwbt2r6  cap-mlcc-0402   10u   20%  10V  X7R
+  C23  ID0bk4zz  cap-mlcc-0402   100n  10%  16V  X7R
+  C24  IDcfks0q  cap-mlcc-0402   10u   20%  10V  X7R
+  C25  IDnn8a1m  cap-mlcc-0402   100n  10%  16V  X7R
+  C26  ID3axeqa  cap-mlcc-0402   10u   20%  10V  X7R
+  C27  ID5vssn5  cap-mlcc-0402   100n  10%  16V  X7R
+  C28  ID4q3f7j  cap-mlcc-0402   10u   20%  10V  X7R
+  C29  IDpkk7jf  cap-mlcc-0402   100n  10%  16V  X7R
+  C30  ID4wwydt  cap-mlcc-0402   10u   20%  10V  X7R
+  C31  IDnk4j96  cap-mlcc-0402   100n  10%  16V  X7R
+  C32  IDkvf1td  cap-mlcc-0402   10u   20%  10V  X7R
+  C33  ID0p2rp3  cap-mlcc-0402   100n  10%  16V  X7R
+  C34  IDm2mgwy  cap-mlcc-0402   10u   20%  10V  X7R
+  C35  IDrfmef7  cap-mlcc-0402   100n  10%  16V  X7R
+  C36  IDb6gzsy  cap-mlcc-0402   10u   20%  10V  X7R
+  C37  IDxs9b49  cap-mlcc-0402   100n  10%  16V  X7R
+  C38  IDczgt8y  cap-mlcc-0402   10u   20%  10V  X7R
+  C39  IDcybw85  cap-mlcc-0402   100n  10%  16V  X7R
+  C40  ID2726dd  cap-mlcc-0402   10u   20%  10V  X7R
+  R1   ID1t5fec  res-thick-0402  10k   ±1%
+  R2   ID97n5wh  res-thick-0402  100k  ±1%
+  R3   IDe9htr4  res-thick-0402  10k   ±1%
+  R4   ID6s0j2j  res-thick-0402  100k  ±1%
+  R5   ID5xkvp0  res-thick-0402  10k   ±1%
+  R6   IDnsw8cw  res-thick-0402  100k  ±1%
+  R7   IDmdq2qw  res-thick-0402  10k   ±1%
+  R8   ID2q5dej  res-thick-0402  100k  ±1%
+  R9   IDhfv662  res-thick-0402  10k   ±1%
+  R10  ID0pww19  res-thick-0402  100k  ±1%
+  R11  ID6vtcce  res-thick-0402  10k   ±1%
+  R12  IDfrta51  res-thick-0402  100k  ±1%
+  R13  ID73xfgz  res-thick-0402  10k   ±1%
+  R14  ID6m1hh1  res-thick-0402  100k  ±1%
+  R15  IDd4smyg  res-thick-0402  10k   ±1%
+  R16  IDzgfz7c  res-thick-0402  100k  ±1%
+  R17  IDj0kjeh  res-thick-0402  10k   ±1%
+  R18  ID0zmqh0  res-thick-0402  100k  ±1%
+  R19  ID60jg5c  res-thick-0402  10k   ±1%
+  R20  IDr2a5j2  res-thick-0402  100k  ±1%
+  R21  ID03nnj8  res-thick-0402  10k   ±1%
+  R22  IDy07nqy  res-thick-0402  100k  ±1%
+  R23  IDa2q9vg  res-thick-0402  10k   ±1%
+  R24  IDac07xv  res-thick-0402  100k  ±1%
+  R25  IDyxymrc  res-thick-0402  10k   ±1%
+  R26  ID2bq0f6  res-thick-0402  100k  ±1%
+  R27  IDg2caqa  res-thick-0402  10k   ±1%
+  R28  IDv4t4rq  res-thick-0402  100k  ±1%
+  R29  IDt71y26  res-thick-0402  10k   ±1%
+  R30  IDjgfav0  res-thick-0402  100k  ±1%
+  R31  ID3e18k5  res-thick-0402  10k   ±1%
+  R32  IDttaqr5  res-thick-0402  100k  ±1%
+  R33  ID6af8rp  res-thick-0402  10k   ±1%
+  R34  ID7pyxbt  res-thick-0402  100k  ±1%
+  R35  IDddw6vc  res-thick-0402  10k   ±1%
+  R36  IDhdzgp4  res-thick-0402  100k  ±1%
+  R37  IDa55vhh  res-thick-0402  10k   ±1%
+  R38  ID3e99y8  res-thick-0402  100k  ±1%
+  R39  IDrdg3z3  res-thick-0402  10k   ±1%
+  R40  IDcwbpmy  res-thick-0402  100k  ±1%
+  U1   IDgr78qd  tps7a2033pdbvr
+  U2   IDayj7en  tps7a2033pdbvr
+  U3   IDy1r0r7  tps7a2033pdbvr
+  U4   IDd78p23  tps7a2033pdbvr
+  U5   ID0mgvr4  tps7a2033pdbvr
+  U6   ID9g2xbw  tps7a2033pdbvr
+  U7   IDafeknb  tps7a2033pdbvr
+  U8   IDvrwt6c  tps7a2033pdbvr
+  U9   ID4ag4za  tps7a2033pdbvr
+  U10  ID2gn6e9  tps7a2033pdbvr
+  U11  IDfvrzzs  tps7a2033pdbvr
+  U12  IDk4ep9d  tps7a2033pdbvr
+  U13  IDf9czdx  tps7a2033pdbvr
+  U14  IDythfvt  tps7a2033pdbvr
+  U15  ID0b03zn  tps7a2033pdbvr
+  U16  IDd94r6a  tps7a2033pdbvr
+  U17  ID4sqbjm  tps7a2033pdbvr
+  U18  IDb2prsj  tps7a2033pdbvr
+  U19  ID5wfpv7  tps7a2033pdbvr
+  U20  IDgg2zf8  tps7a2033pdbvr
+
+nets
+  EN01:    R2.2  U1.3
+  EN02:    R4.2  U2.3
+  EN03:    R6.2  U3.3
+  EN04:    R8.2  U4.3
+  EN05:    R10.2  U5.3
+  EN06:    R12.2  U6.3
+  EN07:    R14.2  U7.3
+  EN08:    R16.2  U8.3
+  EN09:    R18.2  U9.3
+  EN10:    R20.2  U10.3
+  EN11:    R22.2  U11.3
+  EN12:    R24.2  U12.3
+  EN13:    R26.2  U13.3
+  EN14:    R28.2  U14.3
+  EN15:    R30.2  U15.3
+  EN16:    R32.2  U16.3
+  EN17:    R34.2  U17.3
+  EN18:    R36.2  U18.3
+  EN19:    R38.2  U19.3
+  EN20:    R40.2  U20.3
+  GND:     C1.2  C2.2  C3.2  C4.2  C5.2  C6.2  C7.2  C8.2  C9.2  C10.2  C11.2
+  :        C12.2  C13.2  C14.2  C15.2  C16.2  C17.2  C18.2  C19.2  C20.2
+  :        C21.2  C22.2  C23.2  C24.2  C25.2  C26.2  C27.2  C28.2  C29.2
+  :        C30.2  C31.2  C32.2  C33.2  C34.2  C35.2  C36.2  C37.2  C38.2
+  :        C39.2  C40.2  R1.2  R3.2  R5.2  R7.2  R9.2  R11.2  R13.2  R15.2
+  :        R17.2  R19.2  R21.2  R23.2  R25.2  R27.2  R29.2  R31.2  R33.2
+  :        R35.2  R37.2  R39.2  U1.2  U2.2  U3.2  U4.2  U5.2  U6.2  U7.2  U8.2
+  :        U9.2  U10.2  U11.2  U12.2  U13.2  U14.2  U15.2  U16.2  U17.2  U18.2
+  :        U19.2  U20.2
+  VDD01:   C2.1  R1.1  U1.5
+  VDD02:   C4.1  R3.1  U2.5
+  VDD03:   C6.1  R5.1  U3.5
+  VDD04:   C8.1  R7.1  U4.5
+  VDD05:   C10.1  R9.1  U5.5
+  VDD06:   C12.1  R11.1  U6.5
+  VDD07:   C14.1  R13.1  U7.5
+  VDD08:   C16.1  R15.1  U8.5
+  VDD09:   C18.1  R17.1  U9.5
+  VDD10:   C20.1  R19.1  U10.5
+  VDD11:   C22.1  R21.1  U11.5
+  VDD12:   C24.1  R23.1  U12.5
+  VDD13:   C26.1  R25.1  U13.5
+  VDD14:   C28.1  R27.1  U14.5
+  VDD15:   C30.1  R29.1  U15.5
+  VDD16:   C32.1  R31.1  U16.5
+  VDD17:   C34.1  R33.1  U17.5
+  VDD18:   C36.1  R35.1  U18.5
+  VDD19:   C38.1  R37.1  U19.5
+  VDD20:   C40.1  R39.1  U20.5
+  VDD_IN:  C1.1  C3.1  C5.1  C7.1  C9.1  C11.1  C13.1  C15.1  C17.1  C19.1
+  :        C21.1  C23.1  C25.1  C27.1  C29.1  C31.1  C33.1  C35.1  C37.1
+  :        C39.1  R2.1  R4.1  R6.1  R8.1  R10.1  R12.1  R14.1  R16.1  R18.1
+  :        R20.1  R22.1  R24.1  R26.1  R28.1  R30.1  R32.1  R34.1  R36.1
+  :        R38.1  R40.1  U1.1  U2.1  U3.1  U4.1  U5.1  U6.1  U7.1  U8.1  U9.1
+  :        U10.1  U11.1  U12.1  U13.1  U14.1  U15.1  U16.1  U17.1  U18.1
+  :        U19.1  U20.1
+
+ports
+  GND     GND
+  VDD01   VDD01
+  VDD02   VDD02
+  VDD03   VDD03
+  VDD04   VDD04
+  VDD05   VDD05
+  VDD06   VDD06
+  VDD07   VDD07
+  VDD08   VDD08
+  VDD09   VDD09
+  VDD10   VDD10
+  VDD11   VDD11
+  VDD12   VDD12
+  VDD13   VDD13
+  VDD14   VDD14
+  VDD15   VDD15
+  VDD16   VDD16
+  VDD17   VDD17
+  VDD18   VDD18
+  VDD19   VDD19
+  VDD20   VDD20
+  VDD_IN  VDD_IN
+
+constraints
+  voltage  GND     0V..0V
+  voltage  VDD_IN  4.5V..5.5V
+  voltage  VDD01   3.135V..3.465V
+  voltage  VDD02   3.135V..3.465V
+  voltage  VDD03   3.135V..3.465V
+  voltage  VDD04   3.135V..3.465V
+  voltage  VDD05   3.135V..3.465V
+  voltage  VDD06   3.135V..3.465V
+  voltage  VDD07   3.135V..3.465V
+  voltage  VDD08   3.135V..3.465V
+  voltage  VDD09   3.135V..3.465V
+  voltage  VDD10   3.135V..3.465V
+  voltage  VDD11   3.135V..3.465V
+  voltage  VDD12   3.135V..3.465V
+  voltage  VDD13   3.135V..3.465V
+  voltage  VDD14   3.135V..3.465V
+  voltage  VDD15   3.135V..3.465V
+  voltage  VDD16   3.135V..3.465V
+  voltage  VDD17   3.135V..3.465V
+  voltage  VDD18   3.135V..3.465V
+  voltage  VDD19   3.135V..3.465V
+  voltage  VDD20   3.135V..3.465V
