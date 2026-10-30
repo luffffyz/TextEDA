@@ -49,7 +49,11 @@ pointer, because the pointer is already there to pick a row, and two gestures to
 one too many. Either way the selection is never hidden: the kind fold opens for the drawing it holds,
 and the class block holding the selected drawing stays open after the pointer leaves. What a leaf
 row looks like matters for the same reason: the rows a reviewer picks are set apart from the
-headings above them, or a list of classes and a list of drawings read as the same list.
+headings above them — their own type and a chip background — or a list of classes and a list of
+drawings read as the same list. Indentation carries the other half of that: it marks what **opens**,
+so a class heading is one step in from its kind and a drawing takes no step of its own, its name
+lining up under the class name it is filed in. Indenting something that cannot be opened says
+something untrue about it, and the third level of a 260px column leaves the names nowhere to go.
 
 The board's own facts (its instances, its nets) stay where they were: on the board, not on the
 drawing. A drawing shows; the board says.

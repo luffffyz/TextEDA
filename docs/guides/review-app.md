@@ -59,7 +59,9 @@ category, a footprint's package family (ADR-0049) — because a project with for
 flat list of forty rows. That class level does not wait for a click: it opens under the pointer and
 closes when the pointer leaves, so a drawing is one gesture away instead of two. Each summary
 carries the block's count, and the rows a reviewer actually picks are drawn as chips on their own
-background, set apart from the headings above them. The selection is never hidden: the kind block
+background, set apart from the headings above them. Indentation marks what can be opened: a class
+heading takes one step in from its kind, and a drawing takes none — its name lines up under the
+class name it is filed in, because a drawing cannot be opened. The selection is never hidden: the kind block
 opens for the drawing it holds, and the class block holding the selected drawing stays open even
 after the pointer leaves. The arrow keys walk the drawings of the same kind, in the order the tree
 shows them — the print pages among themselves, the symbols among themselves — and reaching one

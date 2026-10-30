@@ -64,31 +64,38 @@ export const APP_STYLES = `
 /* A class block inside Symbols or Footprints. It is not a fold the person clicks: the rows stay
    closed and open under the pointer, so picking a drawing is one gesture rather than click-open,
    click-pick. The reveal class marks the block that holds the selected drawing, open whether or
-   not the pointer is on it, and :focus-within covers walking in with Tab. */
-.teda-review .class-block { position: relative; }
-.teda-review .class-block > .group-title { cursor: default; padding-left: 18px; }
-.teda-review .class-block > .group-title::before {
-  content: "\\25B8"; position: absolute; left: 6px; font-size: 9px; color: var(--muted);
-}
+   not the pointer is on it, and :focus-within covers walking in with Tab.
+
+   Indentation means "this heading opens": a class heading takes one step in from its kind, and the
+   drawings inside it take none of their own — their names line up under the class name. A drawing
+   cannot be opened, so indenting it would claim something untrue about it, and a third level in a
+   260px column leaves the names almost no room. */
+.teda-review .class-block { margin-left: 10px; }
+.teda-review .class-block > .group-title { cursor: default; }
+.teda-review .class-block > .group-title::before { content: "\\25B8"; font-size: 9px; color: var(--muted); }
 .teda-review .class-block:hover > .group-title::before,
 .teda-review .class-block.reveal > .group-title::before,
 .teda-review .class-block:focus-within > .group-title::before { content: "\\25BE"; }
 .teda-review .class-block:hover > .group-title,
 .teda-review .class-block.reveal > .group-title,
 .teda-review .class-block:focus-within > .group-title { color: var(--fg); }
-.teda-review .class-rows { display: none; }
+.teda-review .class-rows { display: none; margin-left: 10px; }
 .teda-review .class-block:hover > .class-rows,
 .teda-review .class-block.reveal > .class-rows,
 .teda-review .class-block:focus-within > .class-rows { display: block; }
 /* The leaves: what a reviewer actually picks. Their own type and a chip background separate them
-   from the headings above, so a class's rows read as items and not as more headings. */
+   from the headings above, so a class's rows read as items and not as more headings. The chip's
+   left padding lines the name up under the class name — a drawing takes no indent of its own
+   (above), so the background must not push it one step further in than the heading it belongs to. */
 .teda-review .class-rows .page-name {
-  color: var(--fg); font-size: 12px; background: #202329; margin: 1px 0 1px 6px;
-  padding: 2px 6px 2px 10px;
+  color: var(--fg); font-size: 12px; background: #202329; margin: 1px 0; padding: 2px 6px 2px 7px;
 }
 .teda-review .class-rows .page-name:hover { background: #282c33; }
 .teda-review .class-rows .page-name.active { color: var(--accent); background: #262a31; }
 .teda-review .class-rows .page-name.problem { color: var(--warning); }
+/* A drawing that sits directly under a kind — a print page, a board canvas — is a leaf too, and
+   takes the same step as a class's rows: one step for the heading it belongs to, none for itself. */
+.teda-review details.fold > .page-name { padding-left: 17px; }
 .teda-review .page-name .row-note { float: right; color: var(--muted); font-size: 10px; }
 .teda-review .instance-list { display: flex; flex-wrap: wrap; gap: 3px; padding: 2px 6px 4px 18px; }
 .teda-review .instance-name {
