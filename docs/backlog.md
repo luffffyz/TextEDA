@@ -165,18 +165,6 @@
 
 ---
 
-## F9. 事实层禁止表达式 / 生成器在语言之外（**已定**）
-
-**现状**：**决策已写成 [ADR-0001](adr/language/0001-fact-layer-has-no-expressions.md)**（Accepted，2026-10-22），语言层与文档已同步：
-
-- `AGENTS.md` §5.1 硬规则新增第 7 条（事实层没有表达式）、第 2 条补"主形式只有表格一种，不引入链式记法"；`AGENTS.md` §5.3 的"生成器/循环"行指向 ADR-0001 D3；`AGENTS.md` §11 Q1 已定（不引入链式）、Q2 保留待定但判据已写死。
-- `teda.md` §1 第 1 条与 `spec/teda.md` §15 的"生成器/循环/条件""表达式语言"两行指向 ADR-0001。
-
-**ADR-0001 的决策**：D1 值是终值字面量（带单位），D2 事实层无控制流，D3 生成器在语言之外、产物是表；D4 划清边界（组合层与值层不受限），D5 给出可检查判据（每个 token 都要能回答"它描述了哪个硬件事实"），D6 写死修订条件，D7 不引入链式。
-
-**剩下的**：只有一条——**修订条件是否被触发**。触发器是 `spec/teda.md` §10 十用例里的"20 路电源域"（语料见 F12，**已决定延后**）。在语料跑完之前，`AGENTS.md` §11 Q2 保持待定（ADR-0001 明说不关它）。真要修订时：另起 ADR + 迁移说明 + 迁移脚本，0.x 期间是**语言版本**上的一个 PATCH（[ADR-0002](adr/language/0002-one-language-version-number.md) D5）。
-
-
 ## F10. 库包规范与分发（registry 前置）
 
 **现状**：[ADR-0039](adr/process/0039-licensing-and-open-standard.md) 承诺"让别人围绕它建工具"。但**光有语言规范不够**——别人要建工具，第一件事是"我从哪拿封装库"。Cohdl 的做法是 `registry.cohdl.org`（命名空间、包、精确版本钉死、`cohdl search`）加 LSP 加 VS Code 扩展加 Explorer 应用。TextEDA 侧还没有任何"分发"概念：`assets/components/` / `assets/symbols/` / `assets/footprints/` 只存在于本地工程，库引用靠 `project.toml` 的 `[libs.<name>]` 指向本地路径或 `project:` 库（[ADR-0030](adr/libraries/0030-footprint-format-and-geometry.md) 的内容哈希锚点），**没有跨工程、跨组织的库获取方式**。
@@ -292,7 +280,7 @@
 
 1. **层次只在源码层，IR 存展平结果**——展平口径由 module 自己定义（旧的页面展平机制已随语言 0.7 撤销，见 [ADR-0012](adr/schematic/0012-one-flat-schematic-per-board.md)）。IR 里不留 module 结构，否则第三方实现要额外实现 module 解析 / 展开 / 端口解析三套语义。**已落地**：IR 契约不变（仍是 0.2 的平表），模块只存在于源码层。
 2. **module 是唯一的层次**：有 ports，展平命名用 `<instance_id>.<net>`（[ADR-0012](adr/schematic/0012-one-flat-schematic-per-board.md) D5），未连接端口必须显式（与 F8 的 pin 归属三态同构）。**外层 id 的层级标记**：module 实例用 `M` 开头（`M1.R1`）；`P`（页面）已随页面机制撤销，`MOD` 不用（[ADR-0012](adr/schematic/0012-one-flat-schematic-per-board.md) decision 6）。**已落地**：模块实例 id `M1`、展平实例 `M1.R1`、展平 net `M1.VFB`；端口用 `no_connect` 显式悬空。
-3. **参数只做字面量替换，不参与运算**：参数值与实例覆盖值都必须是字面量（可带单位）；禁止 `VOUT = $vin * $ratio`、禁止参数引用参数、禁止函数调用。派生值由语言外的生成器算好后写成字面量（与 F9 同源）。**未落地**（见下）。
+3. **参数只做字面量替换，不参与运算**：参数值与实例覆盖值都必须是字面量（可带单位）；禁止 `VOUT = $vin * $ratio`、禁止参数引用参数、禁止函数调用。派生值由语言外的生成器算好后写成字面量（与 [ADR-0001](adr/language/0001-fact-layer-has-no-expressions.md) 同源）。**未落地**（见下）。
 4. **评审可见性**：module 体里的 `$rset` 意味着"值来自实例"，评审者看实例行即可（**一跳**，不是程序语义）；实例行里的值是字面量。参数化**结构**不藏事实，参数化**取值**才藏事实——后者不做。
 
 **还没落地的部分**（触发后做）：
@@ -313,7 +301,7 @@
 
 - 层次是源码层机制，越晚定越便宜——sch 解析器与展平口径没定之前定层次，等于在没学会走路前学跑步。（模块层是在展平口径定版之后才落的。）
 - 不要用层次去解决"文件太长"：表长不是问题，**一行一个事实**才是问题；层次会把"可见的事实"变成"要展开才可见的事实"。
-- 引入层次时，F9 的"事实层无表达式"仍然成立：层次是替换机制，不是表达式机制。
+- 引入层次时，[ADR-0001](adr/language/0001-fact-layer-has-no-expressions.md) 的"事实层无表达式"仍然成立：层次是替换机制，不是表达式机制。
 
 ---
 

@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-22
 Scope: Decides: that a value in the fact layer is a literal with a unit, and that repetition is handled by a generator outside the language. Does not decide: whether a limited expression may ever be introduced — the trigger is the ten-case corpus, see `docs/backlog.md` F12.
 Related: [ADR-0002](0002-one-language-version-number.md), [ADR-0005](../ir/0005-ir-representation.md), [ADR-0013](../schematic/0013-modules-compose-boards.md)
-Impact: `AGENTS.md` §5; `spec/teda.md` §5, §13; `docs/backlog.md` F9, F12
+Impact: `AGENTS.md` §5; `spec/teda.md` §5, §13; `docs/backlog.md` F12
 
 ## Background
 

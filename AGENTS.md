@@ -209,7 +209,7 @@
 2. 能用一段 EBNF + 一段语义说明 + 一个正例 + 一个反例说清；
 3. 有明确的错误信息文案（含行列与修复建议）。
 
-**现状：第 1 条还不能下结论**——用例没补齐，"没有用例用到"不足以下结论；补齐之前仍要求另起 ADR + 迁移说明 + 迁移脚本（F9、F12）。
+**现状：第 1 条还不能下结论**——用例没补齐，"没有用例用到"不足以下结论；补齐之前仍要求另起 ADR + 迁移说明 + 迁移脚本（F12）。
 
 ### 5.3 表格的边界（提议）
 
@@ -365,7 +365,7 @@ dist/ir/
 17. `fab` 描述进语言吗？**形态已定、实现延后**：默认产物是制造中立的数据而非 Gerber（[ADR-0021](docs/adr/manufacturing/0021-the-manufacturing-output-path.md) D9、F14 / F15）。
 18. 困难用例语料谁来写？**已决定延后**，延后期间用 ADR 代替用例证据（F12）。
 
-**近期已定（不再讨论，细节见对应 backlog / ADR）**：诊断错误码 = `域.slug`，码冻结、只增不改（[ADR-0003](docs/adr/language/0003-diagnostic-error-codes.md)）；事实层不使用表达式（[ADR-0001](docs/adr/language/0001-fact-layer-has-no-expressions.md)，F9）；契约层永久开源、项目是纯开源技术规范、无商业计划（[ADR-0039](docs/adr/process/0039-licensing-and-open-standard.md)，不变量 19）；核心链路零外部依赖、KiCad 是可选后端、Gerber 写出器自研、CAM 判定不自研（[ADR-0021](docs/adr/manufacturing/0021-the-manufacturing-output-path.md)，不变量 20）；**语言只有一个版本号**（[ADR-0002](docs/adr/language/0002-one-language-version-number.md)）。
+**近期已定（不再讨论，细节见对应 backlog / ADR）**：诊断错误码 = `域.slug`，码冻结、只增不改（[ADR-0003](docs/adr/language/0003-diagnostic-error-codes.md)）；事实层不使用表达式（[ADR-0001](docs/adr/language/0001-fact-layer-has-no-expressions.md)）；契约层永久开源、项目是纯开源技术规范、无商业计划（[ADR-0039](docs/adr/process/0039-licensing-and-open-standard.md)，不变量 19）；核心链路零外部依赖、KiCad 是可选后端、Gerber 写出器自研、CAM 判定不自研（[ADR-0021](docs/adr/manufacturing/0021-the-manufacturing-output-path.md)，不变量 20）；**语言只有一个版本号**（[ADR-0002](docs/adr/language/0002-one-language-version-number.md)）。
 
 ---
 
