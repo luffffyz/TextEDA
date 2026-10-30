@@ -12,9 +12,16 @@ import { findTool, TOOLS, toolCatalogue } from "../src/tools.ts";
 const script = join(import.meta.dir, "../scripts/texteda.ts");
 const project = join(import.meta.dir, "../../../examples/reference-project");
 
-function run(args: string[]): { code: number; stdout: string; stderr: string } {
+function run(args: string[]): { code: number | null; stdout: string; stderr: string } {
   const proc = Bun.spawnSync(["bun", "run", script, ...args], { stdout: "pipe", stderr: "pipe" });
   return { code: proc.exitCode, stdout: proc.stdout.toString(), stderr: proc.stderr.toString() };
+}
+
+/** A command that failed says how: the exit code alone hides what the child printed. */
+function assertRan(command: { code: number | null; stderr: string }, what: string): void {
+  if (command.code === 0) return;
+  const how = command.code === null ? "was killed" : `exited with ${command.code}`;
+  throw new Error(`texteda ${what} ${how}\n${command.stderr}`);
 }
 
 /** A copy of the reference project: the tools that write must not touch the repository. */
@@ -76,7 +83,7 @@ describe("the tool catalogue", () => {
       expect(tool).toBeDefined();
 
       const command = run(testCase.args.map((arg) => (arg === "PROJECT" ? dir : arg)));
-      expect(command.code).toBe(0);
+      assertRan(command, testCase.args.join(" "));
 
       const call = { ...testCase.call };
       for (const [key, value] of Object.entries(call)) {
