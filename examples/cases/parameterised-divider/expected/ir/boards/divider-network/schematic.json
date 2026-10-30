@@ -1,0 +1,165 @@
+{
+  "board": "divider-network",
+  "constraints": [
+    {
+      "max_uv": 0,
+      "min_uv": 0,
+      "subject": "GND",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3300000,
+      "min_uv": 3300000,
+      "subject": "VREF",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 2200000,
+      "min_uv": 2200000,
+      "subject": "TAP1",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 1100000,
+      "min_uv": 1100000,
+      "subject": "TAP2",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 1650000,
+      "min_uv": 1650000,
+      "subject": "TAP3",
+      "type": "voltage"
+    }
+  ],
+  "format": "0.9.1",
+  "instances": [
+    {
+      "component": "res-thick-0402",
+      "id": "R1",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDnphqjf"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R2",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDpynvkp"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R3",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDts5dqz"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R4",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID4kxgem"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "R5",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID4nq9r2"
+    }
+  ],
+  "ir_version": "0.14",
+  "nets": [
+    {
+      "id": "GND",
+      "members": [
+        "R3.2",
+        "R5.2"
+      ]
+    },
+    {
+      "id": "TAP1",
+      "members": [
+        "R1.2",
+        "R2.1"
+      ]
+    },
+    {
+      "id": "TAP2",
+      "members": [
+        "R2.2",
+        "R3.1"
+      ]
+    },
+    {
+      "id": "TAP3",
+      "members": [
+        "R4.2",
+        "R5.1"
+      ]
+    },
+    {
+      "id": "VREF",
+      "members": [
+        "R1.1",
+        "R4.1"
+      ]
+    }
+  ],
+  "ports": [
+    {
+      "id": "GND",
+      "net": "GND"
+    },
+    {
+      "id": "VREF",
+      "net": "VREF"
+    }
+  ],
+  "source": {
+    "file": "design/sch/divider-network.teda",
+    "line": 1
+  }
+}

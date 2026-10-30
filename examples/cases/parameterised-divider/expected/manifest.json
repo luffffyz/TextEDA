@@ -1,0 +1,31 @@
+{
+  "ir_version": "0.14",
+  "shards": [
+    {
+      "path": "boards/divider-network/schematic.json",
+      "sha256": "865bf4a3343dd3fcc13be11e823c6751740f71a8b356252fcda08192f9964bd6",
+      "normative": true
+    },
+    {
+      "path": "components/res-thick-0402.json",
+      "sha256": "0b93b109a1ed241b4aafa6bc014406c351e266806767ab0c70a29ebc115bd58e",
+      "normative": true
+    },
+    {
+      "path": "footprints/project/chip-0402.json",
+      "sha256": "ab6387326ec4506405de5725ad12a6336f7aa84032f45b0c400228e13eee4e13",
+      "normative": true
+    },
+    {
+      "path": "project.json",
+      "sha256": "c60e4a9a417512ef9d0259d9ed19787b23182f8a2d971026c2dfe3122649a2c6",
+      "normative": true
+    },
+    {
+      "path": "symbols/project/r.json",
+      "sha256": "cf424904941cc7ece02b13e1e7c3342ee925e88010a3bb6d3e11dff0f8092dcc",
+      "normative": true
+    }
+  ],
+  "source_hash": "da7ed7a7a9c27e247c8ec691d40d98ee2f89a2be9fdb99dd115d9c054b2d5028"
+}

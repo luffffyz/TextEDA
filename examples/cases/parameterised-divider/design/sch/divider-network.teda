@@ -1,0 +1,36 @@
+version 0.9.1
+schematic divider-network
+
+# Two resistive dividers off one reference: a three-leg ladder with two taps, and a plain two-leg
+# divider. The second divider is the same shape as the first with a different ratio -- and that
+# ratio is not something the language can say. There is no expression (ADR-0001 D3) and no module
+# parameter (F13), so the values and the tap voltages are literals the designer worked out by hand.
+#
+# The windows are therefore the designer's arithmetic, not the checker's: `voltage TAP1 2.2V..2.2V`
+# is a statement about the tap, and the checker compares the parts against it -- it cannot check
+# that the divider divides. Five resistors of one value make three different voltages here; the
+# ratio lives in how the resistors are connected, and the description does not say so.
+instances
+  R1  IDnphqjf  res-thick-0402  100k  ±1%
+  R2  IDpynvkp  res-thick-0402  100k  ±1%
+  R3  IDts5dqz  res-thick-0402  100k  ±1%
+  R4  ID4kxgem  res-thick-0402  100k  ±1%
+  R5  ID4nq9r2  res-thick-0402  100k  ±1%
+
+nets
+  GND:   R3.2  R5.2
+  TAP1:  R1.2  R2.1
+  TAP2:  R2.2  R3.1
+  TAP3:  R4.2  R5.1
+  VREF:  R1.1  R4.1
+
+ports
+  GND   GND
+  VREF  VREF
+
+constraints
+  voltage  GND   0V..0V
+  voltage  VREF  3.3V..3.3V
+  voltage  TAP1  2.2V..2.2V
+  voltage  TAP2  1.1V..1.1V
+  voltage  TAP3  1.65V..1.65V
