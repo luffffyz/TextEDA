@@ -1,0 +1,45 @@
+version 0.9.1
+pcb tie-board
+
+board_thickness  1.6
+
+stackup
+  F.Cu     copper      0.035  signal
+  prepreg  dielectric  1.53   FR4     4.3
+  B.Cu     copper      0.035  signal
+
+outline
+  0  0
+  40  0
+  40  30
+  0  30
+
+place
+  C1  10  20  0  top
+  R1  30  20  0  top
+  U1  20  8  0  top
+
+connect
+  C1.1  U1.5
+  C1.2  U1.2
+  R1.1  U1.5
+  R1.2  U1.2
+  U1.1  U1.3
+
+trace
+  GND  F.Cu  0.3  10.5  20  30.5  20  30.5  26  18  26  18  8  19.05  8
+  V3V3_SENSE  F.Cu  0.3  20.95  8.475  30.5  8.475  30.5  19.5  29.5  20
+  V3V3  F.Cu  0.3  9.5  20  19.5  20  19.5  8.475  20.95  8.475
+  VIN  F.Cu  0.3  15  3  19.05  3  19.05  7.05  19.05  8.95
+
+rules
+  clearance  0.2
+  width  0.3
+  via  0.6  0.3
+  mask  0.05
+  paste  0.9  -0.02
+  thermal  0.25  0.4
+  min_width  0.15
+
+deviation
+  net_tie  V3V3  V3V3_SENSE

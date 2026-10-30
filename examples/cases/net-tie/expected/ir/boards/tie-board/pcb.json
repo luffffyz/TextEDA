@@ -1,0 +1,236 @@
+{
+  "board": "tie-board",
+  "board_thickness_nm": 1600000,
+  "connect": [
+    {
+      "a": "C1.1",
+      "b": "U1.5"
+    },
+    {
+      "a": "C1.2",
+      "b": "U1.2"
+    },
+    {
+      "a": "R1.1",
+      "b": "U1.5"
+    },
+    {
+      "a": "R1.2",
+      "b": "U1.2"
+    },
+    {
+      "a": "U1.1",
+      "b": "U1.3"
+    }
+  ],
+  "deviation": [
+    {
+      "net_a": "V3V3",
+      "net_b": "V3V3_SENSE",
+      "type": "net_tie"
+    }
+  ],
+  "format": "0.9.1",
+  "ir_version": "0.14",
+  "outline": [
+    {
+      "x_nm": 0,
+      "y_nm": 0
+    },
+    {
+      "x_nm": 40000000,
+      "y_nm": 0
+    },
+    {
+      "x_nm": 40000000,
+      "y_nm": 30000000
+    },
+    {
+      "x_nm": 0,
+      "y_nm": 30000000
+    }
+  ],
+  "place": [
+    {
+      "instance_id": "C1",
+      "rot_mdeg": 0,
+      "side": "top",
+      "x_nm": 10000000,
+      "y_nm": 20000000
+    },
+    {
+      "instance_id": "R1",
+      "rot_mdeg": 0,
+      "side": "top",
+      "x_nm": 30000000,
+      "y_nm": 20000000
+    },
+    {
+      "instance_id": "U1",
+      "rot_mdeg": 0,
+      "side": "top",
+      "x_nm": 20000000,
+      "y_nm": 8000000
+    }
+  ],
+  "rules": [
+    {
+      "type": "clearance",
+      "value_nm": 200000
+    },
+    {
+      "type": "width",
+      "value_nm": 300000
+    },
+    {
+      "drill_nm": 300000,
+      "size_nm": 600000,
+      "type": "via"
+    },
+    {
+      "expansion_nm": 50000,
+      "type": "mask"
+    },
+    {
+      "offset_nm": -20000,
+      "ratio_ppm": 900000,
+      "type": "paste"
+    },
+    {
+      "bridge_nm": 400000,
+      "gap_nm": 250000,
+      "type": "thermal"
+    },
+    {
+      "type": "min_width",
+      "value_nm": 150000
+    }
+  ],
+  "source": {
+    "file": "design/pcb/tie-board.teda",
+    "line": 1
+  },
+  "stackup": [
+    {
+      "kind": "signal",
+      "layer": "F.Cu",
+      "thickness_nm": 35000,
+      "type": "copper"
+    },
+    {
+      "er_ppm": 4300000,
+      "layer": "prepreg",
+      "material": "FR4",
+      "thickness_nm": 1530000,
+      "type": "dielectric"
+    },
+    {
+      "kind": "signal",
+      "layer": "B.Cu",
+      "thickness_nm": 35000,
+      "type": "copper"
+    }
+  ],
+  "trace": [
+    {
+      "layer": "F.Cu",
+      "net": "GND",
+      "points": [
+        {
+          "x_nm": 10500000,
+          "y_nm": 20000000
+        },
+        {
+          "x_nm": 30500000,
+          "y_nm": 20000000
+        },
+        {
+          "x_nm": 30500000,
+          "y_nm": 26000000
+        },
+        {
+          "x_nm": 18000000,
+          "y_nm": 26000000
+        },
+        {
+          "x_nm": 18000000,
+          "y_nm": 8000000
+        },
+        {
+          "x_nm": 19050000,
+          "y_nm": 8000000
+        }
+      ],
+      "width_nm": 300000
+    },
+    {
+      "layer": "F.Cu",
+      "net": "V3V3_SENSE",
+      "points": [
+        {
+          "x_nm": 20950000,
+          "y_nm": 8475000
+        },
+        {
+          "x_nm": 30500000,
+          "y_nm": 8475000
+        },
+        {
+          "x_nm": 30500000,
+          "y_nm": 19500000
+        },
+        {
+          "x_nm": 29500000,
+          "y_nm": 20000000
+        }
+      ],
+      "width_nm": 300000
+    },
+    {
+      "layer": "F.Cu",
+      "net": "V3V3",
+      "points": [
+        {
+          "x_nm": 9500000,
+          "y_nm": 20000000
+        },
+        {
+          "x_nm": 19500000,
+          "y_nm": 20000000
+        },
+        {
+          "x_nm": 19500000,
+          "y_nm": 8475000
+        },
+        {
+          "x_nm": 20950000,
+          "y_nm": 8475000
+        }
+      ],
+      "width_nm": 300000
+    },
+    {
+      "layer": "F.Cu",
+      "net": "VIN",
+      "points": [
+        {
+          "x_nm": 15000000,
+          "y_nm": 3000000
+        },
+        {
+          "x_nm": 19050000,
+          "y_nm": 3000000
+        },
+        {
+          "x_nm": 19050000,
+          "y_nm": 7050000
+        },
+        {
+          "x_nm": 19050000,
+          "y_nm": 8950000
+        }
+      ],
+      "width_nm": 300000
+    }
+  ]
+}

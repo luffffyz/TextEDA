@@ -1,0 +1,56 @@
+{
+  "ir_version": "0.14",
+  "shards": [
+    {
+      "path": "boards/tie-board/pcb.json",
+      "sha256": "87fbfba8c2283138e3c62bbf6d13cd3951160bba7e756e737ead8d7088ed73e4",
+      "normative": true
+    },
+    {
+      "path": "boards/tie-board/schematic.json",
+      "sha256": "2dc63f52c3d2ad8c0d10fc831a6ea6821b35dbdae9abebd78108044cf3881731",
+      "normative": true
+    },
+    {
+      "path": "components/cap-mlcc-0402.json",
+      "sha256": "64072260b00929f2ab225aeb4bfa1d414f9e7fad5ade6ae2378f2eeae65695fc",
+      "normative": true
+    },
+    {
+      "path": "components/res-thick-0402.json",
+      "sha256": "0b93b109a1ed241b4aafa6bc014406c351e266806767ab0c70a29ebc115bd58e",
+      "normative": true
+    },
+    {
+      "path": "components/tps7a2033pdbvr.json",
+      "sha256": "2def93f3e082c72a13955bbf8d3c6bb9eddcc0fab96c2168741e7c82f38c3a20",
+      "normative": true
+    },
+    {
+      "path": "footprints/project/chip-0402.json",
+      "sha256": "ab6387326ec4506405de5725ad12a6336f7aa84032f45b0c400228e13eee4e13",
+      "normative": true
+    },
+    {
+      "path": "footprints/project/sot-23-5.json",
+      "sha256": "daf23862b5985165233251343facf55f9bd12406ebfce8b287511e08757cf0a9",
+      "normative": true
+    },
+    {
+      "path": "project.json",
+      "sha256": "d96a6e39373b907f6f8517a014bd6b904feec619f2438fc1fca23b2d55467475",
+      "normative": true
+    },
+    {
+      "path": "symbols/project/c.json",
+      "sha256": "930899f521ecc455ff8ced3d157f73fcdff265936d1a760cd34910581088a15e",
+      "normative": true
+    },
+    {
+      "path": "symbols/project/r.json",
+      "sha256": "cf424904941cc7ece02b13e1e7c3342ee925e88010a3bb6d3e11dff0f8092dcc",
+      "normative": true
+    }
+  ],
+  "source_hash": "de3db9e597de5a469246e2b38de7a168e5804171a4d99cfd0a27c42bf18fb4d1"
+}

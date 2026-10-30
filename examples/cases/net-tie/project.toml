@@ -1,0 +1,7 @@
+[project]
+name = "net-tie"
+version = "0.1.0"
+format = "0.9.1"
+description = "Case 5 of the ten: a declared net tie between two nets"
+license = "Apache-2.0"
+status = "draft"

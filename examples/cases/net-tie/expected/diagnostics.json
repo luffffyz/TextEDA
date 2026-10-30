@@ -1,0 +1,14 @@
+[
+  {
+    "code": "bind.net-tie",
+    "severity": "note",
+    "file": "design/pcb/tie-board.teda",
+    "line": 45
+  },
+  {
+    "code": "design.stress-unknown",
+    "severity": "note",
+    "file": "design/sch/tie-board.teda",
+    "line": 1
+  }
+]

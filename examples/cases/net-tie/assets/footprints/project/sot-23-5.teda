@@ -1,0 +1,22 @@
+version 0.9.1
+footprint sot-23-5
+
+description SOT-23-5 body 2.9x1.6mm pitch 0.95mm (generic land pattern)
+tags SOT-23 SOT-23-5
+attr smd
+package_code SOT-23-5
+field Reference at=0,-2 layer=F.SilkS size=1,1 thickness=0.15 REF**
+field Value at=0,2 layer=F.Fab size=1,1 thickness=0.15 SOT-23-5
+
+pads
+  1  smd  roundrect  -0.95  0.95    1.1  0.6  rratio=0.25
+  2  smd  roundrect  -0.95  0       1.1  0.6  rratio=0.25
+  3  smd  roundrect  -0.95  -0.95   1.1  0.6  rratio=0.25
+  4  smd  roundrect  0.95   -0.475  1.1  0.6  rratio=0.25
+  5  smd  roundrect  0.95   0.475   1.1  0.6  rratio=0.25
+
+graphics
+  line  F.SilkS  -2.1,-0.95,-1.6,-0.95  width=0.12
+  line  F.SilkS  -2.1,0.95,-1.6,0.95    width=0.12
+  rect  F.CrtYd  -1.65,-1.2,1.65,1.2    width=0.05
+  rect  F.Fab    -1.45,-0.8,1.45,0.8    width=0.1

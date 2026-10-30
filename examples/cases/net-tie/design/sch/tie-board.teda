@@ -1,0 +1,35 @@
+version 0.9.1
+schematic tie-board
+
+# A 3.3 V rail and the sense line that measures it at the far end of the board. The schematic keeps
+# the two nets apart -- they are different nets, with different members -- and the board joins them
+# with copper. The join is the point: it changes the connectivity of both nets, so it has to be
+# declared (spec/pcb.md §4.12) and it has to show up in the report.
+#
+# The two nets carry the same window on purpose: they are the same voltage, which is exactly what
+# the tie says physically.
+#
+# There is no net-tie *part* here: the construction vocabulary is closed and has no entry for one
+# (spec/teda.md §6.2.1), so the tie is the copper between two pads plus the declaration.
+instances
+  C1  IDrtqdyy  cap-mlcc-0402   10u  20%  10V  X7R
+  R1  IDs6518y  res-thick-0402  10k  ±1%
+  U1  ID5swfwb  tps7a2033pdbvr
+
+nets
+  GND:         C1.2  R1.2  U1.2
+  V3V3:        C1.1  U1.5
+  V3V3_SENSE:  R1.1
+  VIN:         U1.1  U1.3
+
+ports
+  GND         GND
+  V3V3        V3V3
+  V3V3_SENSE  V3V3_SENSE
+  VIN         VIN
+
+constraints
+  voltage  GND         0V..0V
+  voltage  VIN         4.5V..5.5V
+  voltage  V3V3        3.135V..3.465V
+  voltage  V3V3_SENSE  3.135V..3.465V

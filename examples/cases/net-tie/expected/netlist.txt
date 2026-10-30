@@ -1,0 +1,15 @@
+# netlist tie-board (ir 0.14)
+GND: C1.2 R1.2 U1.2
+V3V3: C1.1 U1.5
+V3V3_SENSE: R1.1
+VIN: U1.1 U1.3
+
+port GND: GND
+port V3V3: V3V3
+port V3V3_SENSE: V3V3_SENSE
+port VIN: VIN
+
+# components 3
+C1 cap-mlcc-0402
+R1 res-thick-0402
+U1 tps7a2033pdbvr

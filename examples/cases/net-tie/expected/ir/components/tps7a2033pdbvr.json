@@ -1,0 +1,57 @@
+{
+  "component": {
+    "category": "regulator",
+    "datasheet": "https://www.ti.com/lit/ds/symlink/tps7a20.pdf",
+    "footprint": "project:sot-23-5",
+    "id": "tps7a2033pdbvr",
+    "kind": "part",
+    "manufacturer": "Texas Instruments",
+    "mpn": "TPS7A2033PDBVR",
+    "pins": [
+      {
+        "electrical_type": "power_in",
+        "name": "IN",
+        "number": "1",
+        "unit": 1
+      },
+      {
+        "electrical_type": "power",
+        "name": "GND",
+        "number": "2",
+        "unit": 1
+      },
+      {
+        "electrical_type": "input",
+        "name": "EN",
+        "number": "3",
+        "unit": 1
+      },
+      {
+        "electrical_type": "no_connect",
+        "name": "NC",
+        "number": "4",
+        "unit": 1
+      },
+      {
+        "electrical_type": "power_out",
+        "name": "OUT",
+        "number": "5",
+        "unit": 1
+      }
+    ],
+    "pins_source": "inline",
+    "ratings": [
+      {
+        "name": "rated_current",
+        "type": "current",
+        "value": 300000000
+      }
+    ],
+    "symbol": "project:ldo-sot23-5"
+  },
+  "ir_version": "0.14",
+  "source": {
+    "file": "assets/components/regulators/tps7a2033pdbvr.teda",
+    "line": 1
+  }
+}
