@@ -600,4 +600,86 @@ describe("scripts/check-links.ts", () => {
       removeTree(root);
     }
   });
+
+  // The citations outside Markdown: source, contracts, project files, CI and the notice. A number
+  // nobody handed out points at nothing, and nothing noticed it before (F51).
+  test("reports a decision number cited in code that does not exist", () => {
+    const root = makeTree({
+      "packages/cli/src/thing.ts": "// see ADR-0005 for the licensing decision\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems.some((p) => p.includes("packages/cli/src/thing.ts:1") && p.includes("ADR-0005 does not exist"))).toBe(true);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("reports a decision number cited in a contract, a project file or the notice", () => {
+    const root = makeTree({
+      "schemas/ir/v0.9/thing.schema.json": '{ "description": "per ADR-0005" }\n',
+      "examples/demo/project.toml": "# per ADR-0005\n",
+      "examples/demo/design/sch/board.teda": "# per ADR-0005\n",
+      ".github/workflows/ci.yml": "# per ADR-0005\n",
+      "NOTICE": "per ADR-0005\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems.filter((p) => p.includes("ADR-0005 does not exist"))).toHaveLength(5);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("accepts a decision number cited in code that exists", () => {
+    const root = makeTree({
+      "docs/adr/0006-accepted.md": adrFile("0006", "Title", "Accepted", "2026-10-20"),
+      "docs/adr/README.md": `${minimalIndex}\n${indexRow("0006", "0006-accepted.md", "Title", "Accepted", "2026-10-20")}\n`,
+      "packages/cli/src/thing.ts": "// see ADR-0006\n",
+    });
+    try {
+      expect(checkRepo(root).problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("accepts a reserved decision number cited in code", () => {
+    const root = makeTree({
+      "packages/cli/src/thing.ts": "// see ADR-0099\n",
+      "docs/adr/README.md": `${minimalIndex}\n| ADR-0099 | \`0099-not-yet.md\` | F34 |\n`,
+    });
+    try {
+      expect(checkRepo(root).problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("exempts the gate's own test file, whose numbers are fixtures", () => {
+    const root = makeTree({
+      "scripts/check-links.test.ts": '"ADR-0006 is mentioned\\nADR-0099 is reserved\\n"\n',
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      expect(checkRepo(root).problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("exempts history, whose dead pointers are advisory", () => {
+    const root = makeTree({
+      "docs/adr/0100-thing.teda": "# per ADR-0005\n",
+      "docs/trial-run/demo/notes.json": '{ "note": "per ADR-0005" }\n',
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      expect(checkRepo(root).problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
 });

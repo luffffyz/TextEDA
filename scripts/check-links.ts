@@ -18,6 +18,8 @@
 //   8. (R3) a retired decision record's Status line names its superseding record;
 //   9. (R4) no appendix/addendum/amendment block exceeds 40% of the record (a warning);
 //  10. (R5) a number is never reused: no record may carry a number the index lists as retired;
+//  11. every ADR-NNNN cited outside Markdown — in source, contracts, project files, CI and the notice — resolves to
+//      a decision record or to a reserved number (the gate's own test file and the history folders are exempt);
 //
 // Exit code 1 if there is any error. R4 warnings never change the exit code.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -32,12 +34,17 @@ const skipDirs = new Set([".git", "node_modules", "dist", ".cache"]);
 
 /** Recursively list Markdown files under `root` (skipping the directory skip list). */
 function listMarkdownFiles(root: string): string[] {
+  return listFiles(root, (entry) => entry.endsWith(".md"));
+}
+
+/** Recursively list the files under `root` that `accept` names, skipping the directory skip list. */
+function listFiles(root: string, accept: (entry: string) => boolean): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(root)) {
     if (skipDirs.has(entry)) continue;
     const full = join(root, entry);
-    if (statSync(full).isDirectory()) out.push(...listMarkdownFiles(full));
-    else if (entry.endsWith(".md")) out.push(full);
+    if (statSync(full).isDirectory()) out.push(...listFiles(full, accept));
+    else if (accept(entry)) out.push(full);
   }
   return out;
 }
@@ -631,11 +638,57 @@ function proseRules(
   }
 }
 
+/**
+ * The files that carry decision-record citations outside Markdown: source, contracts, project
+ * files, CI workflows and the notice. A citation in any of them is a pointer to a record, and a
+ * pointer to a number nobody handed out points at nothing (F51).
+ */
+const citedExtensions = [".ts", ".json", ".toml", ".yml", ".yaml", ".teda"];
+const citedNames = new Set(["NOTICE"]);
+
+/** Where a citation is allowed to point at a number that does not exist: nowhere. */
+function citedFiles(root: string): string[] {
+  return listFiles(root, (entry) => citedExtensions.some((ext) => entry.endsWith(ext)) || citedNames.has(entry));
+}
+
+/**
+ * Rule 11: a decision number cited in code, contracts, project files or CI must exist.
+ *
+ * Only existence is checked. A cited `D<n>` has no stable anchor in a code comment — records
+ * merge and decisions get renumbered — so matching the decision itself would be a one-shot
+ * check that goes stale immediately. Existence is enough to catch the case that matters: a
+ * citation to a number nobody handed out, which points at nothing at all.
+ *
+ * The test file of this gate is exempt: its `ADR-NNNN` are fixtures for numbers that never
+ * existed. Files under `docs/adr/**` and `docs/trial-run/**` are exempt for the same reason the
+ * Markdown side exempts them: history is not rewritten.
+ */
+function citedAdrRules(
+  problems: string[],
+  root: string,
+  adrFiles: Map<string, string>,
+  reserved: Map<string, string>,
+): void {
+  for (const full of citedFiles(root)) {
+    const where = relative(root, full);
+    if (where === "scripts/check-links.test.ts") continue;
+    if (isHistoricalDoc(where)) continue;
+    const lines = readFileSync(full, "utf-8").split("\n");
+    lines.forEach((line, index) => {
+      for (const match of line.matchAll(adrPattern)) {
+        const number = match[1];
+        if (adrFiles.has(number) || reserved.has(number)) continue;
+        fail(problems, `${where}:${index + 1}`, `ADR-${number} does not exist`);
+      }
+    });
+  }
+}
+
 /** What `checkRepo` saw, so the CLI tail can print the ok summary without rescanning the tree. */
 export type CheckResult = {
   problems: string[];
   warnings: string[];
-  counts: { records: number; indexed: number; reserved: number; markdownFiles: number };
+  counts: { records: number; indexed: number; reserved: number; markdownFiles: number; citedFiles: number };
 };
 
 /** Run every check under `root` and return the collected problems, advisory warnings and counts. */
@@ -719,10 +772,12 @@ export function checkRepo(root: string): CheckResult {
     indexed: index.rows.size,
     reserved: index.reserved.size,
     markdownFiles: listMarkdownFiles(root).length,
+    citedFiles: citedFiles(root).length,
   };
 
   adrRecordRules(problems, warnings, root, adrDirPath, adrFiles, adrHeaderMap);
   proseRules(problems, warnings, root, adrDirPath, adrFiles, index.reserved);
+  citedAdrRules(problems, root, adrFiles, index.reserved);
 
   return { problems, warnings, counts };
 }
@@ -743,7 +798,7 @@ if (import.meta.main) {
 
   let okSummary =
     `check:links ok — ${counts.records} decision records, ${counts.indexed} indexed, ${counts.reserved} reserved, ` +
-    `${counts.markdownFiles} Markdown files`;
+    `${counts.markdownFiles} Markdown files, ${counts.citedFiles} cited files`;
   if (warnings.length > 0) okSummary += `, ${warnings.length} warning(s)`;
   console.log(okSummary);
 }

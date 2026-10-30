@@ -26,6 +26,7 @@
 - **F46（每文件 `rev` 与按文件的信任匹配）已关闭** → [ADR-0133](adr/libraries/0133-trust-in-a-library-you-do-not-own.md) D13（三种描述各多一个可选 `rev`；`[[trust]]` 的条目是 `id@rev`；`[library] rev` 删除；做法见 `docs/guides/library-import.md`）
 - **F47（位号重编号（`texteda renumber`））已关闭** → [ADR-0110](adr/project/0110-renumbering-is-a-code-executed-rename.md)（命令 `texteda renumber`，默认 dry-run、`--apply` 才写盘；做法见 `docs/guides/renumbering.md`）
 - **F53（插件包：评审 app 的两半接到 agent 工作台）已关闭** → [ADR-0142](adr/view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) 与 [ADR-0146](adr/process/0146-the-picture-reaches-a-host-by-three-routes.md)（DSH 插件两半都落地：host 侧八条动词 + 两条路由，client 侧是右栏 tab；真宿主冒烟见 F58，MCP Apps 那条见 F59）
+- **F51（`check:links` 只扫 Markdown，代码与契约里的 `ADR-NNNN` 引用没有门禁）已关闭** → `scripts/check-links.ts` 规则 11（代码、契约、工程文件、CI 与 `NOTICE` 里的 `ADR-NNNN` 必须指向真实记录或索引预留号；**只查存在性**，不查 `D<n>`——决策号在代码注释里没有稳定锚点，查了也会立刻过时；门禁自己的测试文件与历史目录豁免；485 个文件、约 2.1k 处引用已纳入扫描）
 ---
 
 ## F1. 校准自建封装的几何（footprint 校准）
