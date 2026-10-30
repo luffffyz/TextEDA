@@ -23,13 +23,12 @@ The numbers `0100`–`0146` are the numbers these same forty-seven decisions car
 before 2026-10-30. The corpus was renumbered in one pass — every record, every
 citation, every link target — and the old numbers are **retired, not reused**: a
 citation that still says `ADR-0105` now points at nothing, and the link gate says so.
-The mapping is the table in `docs/adr-corpus-structure.md` §8.
+The retired range is disjoint from the series in use, and a retired number is never
+listed as reserved: reserved means declared, not yet written.
 
-Before that, the corpus ran `0001`–`0056`: the first flat series, written in eight
-days and later re-filed into topic folders. Those numbers overlap the current series
-and were taken over by it, so a citation written before 2026-10-28 names a different
-decision than it did. The mapping for that pass is in the git history of
-`docs/adr-corpus-structure.md`.
+Two earlier series were renamed into this one, so a citation written before
+2026-10-28 names a different decision than it did. The mapping for those passes is in
+the git history of `docs/adr-corpus-structure.md`.
 
 ## Reserved
 
