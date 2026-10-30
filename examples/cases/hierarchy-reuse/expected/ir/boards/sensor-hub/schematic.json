@@ -1,0 +1,304 @@
+{
+  "board": "sensor-hub",
+  "constraints": [
+    {
+      "max_uv": 0,
+      "min_uv": 0,
+      "subject": "GND",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3300000,
+      "min_uv": 0,
+      "subject": "NTC",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3300000,
+      "min_uv": 0,
+      "subject": "SIG1",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3300000,
+      "min_uv": 0,
+      "subject": "SIG2",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3300000,
+      "min_uv": 0,
+      "subject": "M1.MID",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3300000,
+      "min_uv": 0,
+      "subject": "OUT1",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3300000,
+      "min_uv": 0,
+      "subject": "M2.MID",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3300000,
+      "min_uv": 0,
+      "subject": "OUT2",
+      "type": "voltage"
+    }
+  ],
+  "format": "0.9.1",
+  "instances": [
+    {
+      "component": "cap-mlcc-0402",
+      "id": "M1.C1",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "ID4xekqr/IDgt9qvr"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "M1.C2",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 25000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "ID4xekqr/IDq5y4q2"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "M1.R1",
+      "params": [
+        {
+          "name": "value",
+          "value": 1000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID4xekqr/ID7ccrvp"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "M1.R2",
+      "params": [
+        {
+          "name": "value",
+          "value": 1000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID4xekqr/ID37p8ey"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "M2.C1",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 16000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDcg99hr/IDgt9qvr"
+    },
+    {
+      "component": "cap-mlcc-0402",
+      "id": "M2.C2",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000
+        },
+        {
+          "name": "tolerance",
+          "value": 100000
+        },
+        {
+          "name": "voltage",
+          "value": 25000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDcg99hr/IDq5y4q2"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "M2.R1",
+      "params": [
+        {
+          "name": "value",
+          "value": 1000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDcg99hr/ID7ccrvp"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "M2.R2",
+      "params": [
+        {
+          "name": "value",
+          "value": 1000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDcg99hr/ID37p8ey"
+    },
+    {
+      "component": "ntc-103at",
+      "id": "RT1",
+      "uid": "IDzkg1gj"
+    }
+  ],
+  "ir_version": "0.14",
+  "nets": [
+    {
+      "id": "GND",
+      "members": [
+        "M1.C1.2",
+        "M1.C2.2",
+        "M2.C1.2",
+        "M2.C2.2",
+        "RT1.2"
+      ]
+    },
+    {
+      "id": "M1.MID",
+      "members": [
+        "M1.C1.1",
+        "M1.R1.2",
+        "M1.R2.1"
+      ]
+    },
+    {
+      "id": "M2.MID",
+      "members": [
+        "M2.C1.1",
+        "M2.R1.2",
+        "M2.R2.1"
+      ]
+    },
+    {
+      "id": "NTC",
+      "members": [
+        "RT1.1"
+      ]
+    },
+    {
+      "id": "OUT1",
+      "members": [
+        "M1.C2.1",
+        "M1.R2.2"
+      ]
+    },
+    {
+      "id": "OUT2",
+      "members": [
+        "M2.C2.1",
+        "M2.R2.2"
+      ]
+    },
+    {
+      "id": "SIG1",
+      "members": [
+        "M1.R1.1"
+      ]
+    },
+    {
+      "id": "SIG2",
+      "members": [
+        "M2.R1.1"
+      ]
+    }
+  ],
+  "ports": [
+    {
+      "id": "GND",
+      "net": "GND"
+    },
+    {
+      "id": "NTC",
+      "net": "NTC"
+    },
+    {
+      "id": "OUT1",
+      "net": "OUT1"
+    },
+    {
+      "id": "OUT2",
+      "net": "OUT2"
+    },
+    {
+      "id": "SIG1",
+      "net": "SIG1"
+    },
+    {
+      "id": "SIG2",
+      "net": "SIG2"
+    }
+  ],
+  "source": {
+    "file": "design/sch/sensor-hub.teda",
+    "line": 1
+  }
+}

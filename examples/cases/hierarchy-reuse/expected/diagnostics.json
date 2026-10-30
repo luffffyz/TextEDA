@@ -1,0 +1,14 @@
+[
+  {
+    "code": "bind.not-checked",
+    "severity": "note",
+    "file": "design/sch/sensor-hub.teda",
+    "line": 1
+  },
+  {
+    "code": "design.stress-unknown",
+    "severity": "note",
+    "file": "design/sch/sensor-hub.teda",
+    "line": 1
+  }
+]

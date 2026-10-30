@@ -1,0 +1,53 @@
+{
+  "component": {
+    "category": "capacitor",
+    "construction": "mlcc",
+    "footprint": "project:chip-0402",
+    "id": "cap-mlcc-0402",
+    "kind": "generic",
+    "params": [
+      {
+        "name": "value",
+        "required": true,
+        "type": "capacitance"
+      },
+      {
+        "name": "tolerance",
+        "required": true,
+        "type": "percent"
+      },
+      {
+        "name": "voltage",
+        "required": true,
+        "type": "voltage"
+      },
+      {
+        "name": "dielectric",
+        "required": true,
+        "type": "string"
+      }
+    ],
+    "pins": [
+      {
+        "electrical_type": "passive",
+        "name": "A",
+        "number": "1",
+        "unit": 1
+      },
+      {
+        "electrical_type": "passive",
+        "name": "B",
+        "number": "2",
+        "unit": 1
+      }
+    ],
+    "pins_source": "inline",
+    "polarized": false,
+    "symbol": "project:c"
+  },
+  "ir_version": "0.14",
+  "source": {
+    "file": "assets/components/passives/cap-mlcc-0402.teda",
+    "line": 1
+  }
+}

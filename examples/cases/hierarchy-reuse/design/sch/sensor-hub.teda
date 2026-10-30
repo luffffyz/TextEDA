@@ -1,0 +1,38 @@
+version 0.9.1
+schematic sensor-hub
+
+# Two sensor channels, one filter module each, and a local thermistor that belongs to no module.
+#
+# The board owns the parts outside any module (`RT1`) and the nets the modules' ports merge into.
+# Everything inside a module stays inside it: `MID` becomes `M1.MID` / `M2.MID` in the flat IR, while
+# `IN`, `OUT` and `GND` disappear into the board nets their ports are bound to.
+modules
+  M1  ID4xekqr  rc-filter-2stage
+  M2  IDcg99hr  rc-filter-2stage
+
+instances
+  RT1  IDzkg1gj  ntc-103at
+
+nets
+  GND:   M1.GND  M2.GND  RT1.2
+  NTC:   RT1.1
+  OUT1:  M1.OUT
+  OUT2:  M2.OUT
+  SIG1:  M1.IN
+  SIG2:  M2.IN
+
+# The board's external interface. The two output windows are not written here: they travel with the
+# module, and land on `OUT1` / `OUT2` because the module's `OUT` port is bound to those nets.
+ports
+  GND   GND
+  NTC   NTC
+  OUT1  OUT1
+  OUT2  OUT2
+  SIG1  SIG1
+  SIG2  SIG2
+
+constraints
+  voltage  GND   0V..0V
+  voltage  NTC   0V..3.3V
+  voltage  SIG1  0V..3.3V
+  voltage  SIG2  0V..3.3V

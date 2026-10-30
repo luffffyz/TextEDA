@@ -1,0 +1,7 @@
+[project]
+name = "hierarchy-reuse"
+version = "0.1.0"
+format = "0.9.1"
+description = "Case 4 of the ten: one module, two instances, one board"
+license = "Apache-2.0"
+status = "draft"

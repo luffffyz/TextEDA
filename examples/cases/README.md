@@ -32,4 +32,5 @@ expectation is the error code alone.
 
 The ten cases (`AGENTS.md` §10, `docs/backlog.md` F12): BGA 200 pins, dual op-amp multi-unit, 20-way
 power domains, differential pair, DNP variant, net tie, bus, hierarchy reuse, parameterised divider,
-NC pins. Written so far: `dual-opamp-multi-unit`, `nc-pins`, `bus`, `diff-pair`, `power-domains`.
+NC pins. Written so far: `dual-opamp-multi-unit`, `nc-pins`, `bus`, `diff-pair`, `power-domains`,
+`hierarchy-reuse`.

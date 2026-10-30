@@ -1,0 +1,34 @@
+version 0.9.1
+module rc-filter-2stage
+
+# A two-stage RC filter: one series resistor and one shunt capacitor per stage. The interstage node
+# `MID` is this module's own business -- no port names it, so it stays inside the module and lands on
+# `M1.MID` / `M2.MID` in the flat IR.
+#
+# The board instantiates this module twice (`M1`, `M2`). The two instances are electrically
+# identical: the uids below are local to this definition, so both instances carry the same local
+# uids and the flattened uids differ only by the module instance uid in front of them.
+instances
+  C1  IDgt9qvr  cap-mlcc-0402   100n  10%  16V  X7R
+  C2  IDq5y4q2  cap-mlcc-0402   10n   10%  25V  X7R
+  R1  ID7ccrvp  res-thick-0402  1k    ±1%
+  R2  ID37p8ey  res-thick-0402  1k    ±1%
+
+nets
+  GND:  C1.2  C2.2
+  IN:   R1.1
+  MID:  C1.1  R1.2  R2.1
+  OUT:  C2.1  R2.2
+
+# The module's interface. `SPARE` says `no_connect`: a port the board deliberately does not use.
+ports
+  GND    GND
+  IN     IN
+  OUT    OUT
+  SPARE  no_connect
+
+# The module's own windows. `OUT` is merged into a board net by the port above, so this constraint
+# lands on that board net; `MID` is private, so it lands on `M1.MID` / `M2.MID`.
+constraints
+  voltage  MID  0V..3.3V
+  voltage  OUT  0V..3.3V

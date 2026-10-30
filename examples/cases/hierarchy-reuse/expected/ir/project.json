@@ -1,0 +1,10 @@
+{
+  "ir_version": "0.14",
+  "project": {
+    "description": "Case 4 of the ten: one module, two instances, one board",
+    "format": "0.9.1",
+    "name": "hierarchy-reuse",
+    "status": "draft",
+    "version": "0.1.0"
+  }
+}
