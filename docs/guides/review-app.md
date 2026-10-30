@@ -71,6 +71,10 @@ that depend on them. `design/**`, the IR and the build hash are never touched (A
 - **Nothing is written until `Apply`.** The release of the drag asks the server what the page would
   look like (`/api/layout` with `commit: false`), which draws the re-anchored page and reports the
   conflicts. `Apply` (or `Ctrl+Enter`) is the commit; `Revert` (or `Esc`) drops the moves.
+- **An unsaved edit survives the move.** If the editor holds text that was never saved, it rides
+  along with the layout request and the write is *that* text with the moved rows applied — a drag
+  never silently discards what was typed. Without an edit the file on disk is the base, as before
+  ([ADR-0141](../adr/view/0141-the-review-app-has-four-modes.md) D6).
 - **Routing is not live.** The drawing is not re-routed during the drag, and a move can introduce a
   readability finding (a wire through a symbol's body, a label off its net). `Apply` writes, the
   server re-checks, and the left column says what the move did. That report is the point: the app

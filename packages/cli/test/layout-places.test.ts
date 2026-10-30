@@ -174,6 +174,19 @@ describe("layout-places: the places-only write path", () => {
     expect(plan.text).not.toEqual(before);
   });
 
+  test("a request that carries the editor's text keeps it", () => {
+    const dir = scratch();
+    cpSync(REFERENCE, dir, { recursive: true });
+    const file = pageFile("charger-buck", "buck-5v");
+    const before = content(dir, file);
+    const draft = before.replace("# TPS5430 5V/3A buck print page.", "# TPS5430 5V/3A buck print page (edited).");
+
+    const plan = planPlaces(dir, { ...REQUEST, text: draft });
+    expect(plan.changed).toBe(true);
+    expect(plan.text).toContain("(edited).");
+    expect(plan.text).toContain("M2.U1  150.0  105.0  0");
+  });
+
   test("a request that moves nothing writes nothing", () => {
     const dir = scratch();
     cpSync(REFERENCE, dir, { recursive: true });

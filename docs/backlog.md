@@ -27,11 +27,15 @@
 - **F47（位号重编号（`texteda renumber`））已关闭** → [ADR-0110](adr/project/0110-renumbering-is-a-code-executed-rename.md)（命令 `texteda renumber`，默认 dry-run、`--apply` 才写盘；做法见 `docs/guides/renumbering.md`）
 - **F53（插件包：评审 app 的两半接到 agent 工作台）已关闭** → [ADR-0142](adr/view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) 与 [ADR-0146](adr/process/0146-the-picture-reaches-a-host-by-three-routes.md)（DSH 插件两半都落地：host 侧八条动词 + 两条路由，client 侧是右栏 tab；真宿主冒烟见 F58，MCP Apps 那条见 F59）
 - **F51（`check:links` 只扫 Markdown，代码与契约里的 `ADR-NNNN` 引用没有门禁）已关闭** → `scripts/check-links.ts` 规则 11（代码、契约、工程文件、CI 与 `NOTICE` 里的 `ADR-NNNN` 必须指向真实记录或索引预留号；**只查存在性**，不查 `D<n>`——决策号在代码注释里没有稳定锚点，查了也会立刻过时；门禁自己的测试文件与历史目录豁免；485 个文件、约 2.1k 处引用已纳入扫描）
+- **F54（拖动会丢掉未保存的文本编辑）已关闭** → [ADR-0141](adr/view/0141-the-review-app-has-four-modes.md) D6（布局请求带 `text` 时以草稿为基准：`planLayout` / `planPlaces` 算的是草稿，写回的是草稿 + 移动后的行；没有草稿时行为完全不变；解析不了的草稿被拒绝且不写盘；app 只在草稿与它知道的页面不同时才带上）
+
 ---
+
 
 ## F1. 校准自建封装的几何（footprint 校准）
 
-**现状**：`examples/reference-project/assets/footprints/project/` 下的 16 个封装是**通用 land pattern**——焊盘尺寸与间距按 IPC 通用推荐取整，不是各料号 datasheet 的精确 land pattern（见 `docs/adr/libraries/0131-the-reference-project-is-self-built.md` decision 5）。每个文件的 `description` 里都写了 `generic land pattern` 作为标记。
+**现状**：`examples/reference-project/assets/footprints/project/` 下的 16 个封装是**通用 land pattern**——焊盘尺寸与间距按 IPC 通用推荐取整，不是各料号 datasheet 的精确 land pattern（见 `docs/adr/libraries/0131
+-the-reference-project-is-self-built.md` decision 5）。每个文件的 `description` 里都写了 `generic land pattern` 作为标记。
 
 **为什么现在不做**：库级闭环（`bun run lib:verify`：引用可解析、canonical、契约通过、KiCad 能读能渲染、合并板 DRC 0 违规）已经成立，几何精度不影响链路验证。参考工程的价值是"可复现的样本"，不是"厂商级库"。
 
@@ -988,45 +992,6 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 - **不要用 viewer 截图当验收**：Gerber 是图像，正确性靠面积/拓扑/层归属断言。
 
 ---
-
-## F51. `check:links` 只扫 Markdown，代码与契约里的 `ADR-NNNN` 引用没有门禁（2026-10-28）
-
-**现状**：`bun run check:links` 的取数入口是 `listMarkdownFiles`，所以它只管 `.md`。语料换号（`0001`–`0056` → `0100`–`0140`）之后，带引用的非 Markdown 文件全靠一次性的 `grep` 扫尾：本轮扫出 **8 处**写着退役号的引用，全部手工修掉——`examples/reference-project/project.toml` 两处（`ADR-0056`、`ADR-0033 D5`）、6 个 `.teda` 文件的注释（`ADR-0030`、`ADR-0039`、`ADR-0044`）、`.github/workflows/*.yml` 两处（`ADR-0018`）、`.gitignore`（`ADR-0031`）、`NOTICE` 三处（`ADR-0005`、`ADR-0014`、`ADR-0015`）。**没有任何门禁会在下次换号时抓到它们**。
-
-**要做的事**：把"一个号要么存在、要么落在索引声明的预留表里"这条规则（门禁第 2 条）扩展到代码与契约。取数面是现成的：`git ls-files` 里的 `*.ts` / `*.json` / `*.toml` / `*.yml` / `*.teda` 以及 `NOTICE`，实测 189 个文件、约 2.1k 处 `ADR-NNNN`。范围要先定死再写代码：
-
-1. **只查存在性**，不查决策号。`ADR-NNNN D7` 的 `D7` 在代码注释里没有稳定含义（记录会被合并、决策会被重编号），按标题匹配又只能做一次；存在性已经能挡住"指向已退役号"这一类。
-2. **跳过 `scripts/check-links.test.ts`**：那里的 `ADR-NNNN` 是夹具（`0006`、`0099` 之类本来就不存在）。
-3. **跳过 `docs/adr/**` 与 `docs/trial-run/**` 里的非 Markdown 文件**（目前没有），理由同历史记录不追改。
-4. 报错文案与 Markdown 侧一致：`<file>:<line>: ADR-NNNN does not exist`。
-
-**涉及文件**：`scripts/check-links.ts`（新增一个非 Markdown 取数函数 + 一条规则）、`scripts/check-links.test.ts`（正反例：代码注释里的退役号要报错、预留号通过、夹具文件不报）。
-
-**验收**：
-- 在 `NOTICE` 里塞回 `ADR-0005`，`bun run check:links` 非零退出；改回 `ADR-0120` 即通过。
-- 在 `packages/parser/src/version.ts` 的注释里写 `ADR-0099`（未预留），非零退出；写 `ADR-0141` 并且索引预留表声明了它，通过。
-- 全仓 `git ls-files` 的 `.ts` / `.json` / `.toml` / `.yml` / `.teda` / `NOTICE` 扫描后零报错（现状已干净，门禁应当保持干净）。
-
-**注意**：
-- **不要顺手查决策号**：`D<n>` 在代码里没有稳定锚点，做了也会立刻过时（理由同上第 1 条）。
-- **不要把 `docs/trial-run/**` 拉进来**：那是历史记录，过期指针由门禁报 warning、不修。
-- 这条门禁一旦上线，"换号后靠 grep 扫尾"就不再是流程的一部分——**换号脚本自己也该跑它**。
-
-## F54. 拖动会丢掉未保存的文本编辑：`/api/layout` 只认磁盘上的那一版（2026-10-29）
-
-**现状**：`POST /api/layout` 的请求体只有 `{board, page, places, commit}`；`planLayout` 直接 `readFileSync` 打印页文件（`packages/cli/src/layout.ts`），所以拖动是在**磁盘上的那一版**上算的，`commitPlan` 写回的也是那一版。结果：在 `edit` 模式里改了文本但没保存，再拖一个符号并 Apply，那些文本改动被覆盖掉——这是一条数据丢失路径。
-
-**为什么现在要**：插件形态下拖动是人的主要手势（[ADR-0142](adr/view/0142-the-review-app-is-a-plugin-of-the-agent-workbench.md) D3），而客户端可能同时持有草稿；这个缺陷在今天的 app 里已经存在。
-
-**要做的事**：布局路由接受当前草稿文本（`text`），`planLayout` 与 `commitPlan` 以草稿为基准；没有草稿时行为完全不变。
-
-**涉及文件**：`packages/cli/src/layout.ts`（`planLayout` / `commitPlan` 接草稿）、`packages/cli/src/review.ts`（路由读 `text`）、`packages/viewer/src/client.ts`（有草稿时带上）。
-
-**验收**：
-
-- 在 `edit` 模式改一行文本（不保存），切到 `layout` 拖一个符号并 Apply：改过的文本仍在文件里，符号位置也更新了。
-- 不带草稿的请求行为不变（`packages/cli/test/review-layout.test.ts` 现有用例全绿）。
-- 写回仍是规范形式：`bun run fmt:teda --check .` 通过。
 
 ## F58. 两个原生注册表适配器（DSH、pi）（2026-10-29）
 

@@ -41,6 +41,14 @@ export interface LayoutRequest {
   board: string;
   page: string;
   places: LayoutPlace[];
+  /**
+   * The page's source as it stands in the editor, when the editor holds one.
+   *
+   * The layout is computed on this text and the write is this text with the moved rows applied —
+   * not the file on disk. Without it a drag would silently discard every unsaved edit (F54).
+   * Absent means "use the file", which is what the command line and a plugin's request do.
+   */
+  text?: string;
 }
 
 export interface LayoutOutcome {
@@ -161,7 +169,8 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
   const file = pageFile(request.board, request.page);
   const path = join(root, file);
   if (!existsSync(path)) throw new LayoutError(`no such print page: ${file}`);
-  const text = readFileSync(path, "utf8");
+  // The editor's text is the base when there is one; the file on disk is the base otherwise.
+  const text = request.text ?? readFileSync(path, "utf8");
 
   const facts = boardFacts(root, request.board);
   const parsed = parseView(text, { file, board: request.board });
@@ -307,7 +316,8 @@ export function planPlaces(root: string, request: LayoutRequest): PlacesPlan {
   const file = pageFile(request.board, request.page);
   const path = join(root, file);
   if (!existsSync(path)) throw new LayoutError(`no such print page: ${file}`);
-  const text = readFileSync(path, "utf8");
+  // The editor's text is the base when there is one; the file on disk is the base otherwise.
+  const text = request.text ?? readFileSync(path, "utf8");
 
   const facts = boardFacts(root, request.board);
   const parsed = parseView(text, { file, board: request.board });

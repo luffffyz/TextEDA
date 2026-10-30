@@ -86,6 +86,9 @@ not pretend otherwise.
 What the app writes is canonical (ADR-0134 D10): the file it writes is byte-identical to what `fmt`
 produces for that content, so a save leaves a diff that shows design changes and nothing else.
 
+The base of that write is the editor's text when the editor holds one, and the file on disk
+otherwise (D6).
+
 The plugin that carries this app into a host writes **less**, not more: the `place` rows only, and
 not the bends of the disturbed nets ([ADR-0142](0142-the-review-app-is-a-plugin-of-the-agent-workbench.md)
 D3). This record governs the standalone app, which keeps its modes for now
@@ -132,6 +135,12 @@ attached to is reported as `view.wire-crosses-symbol` and left for a person or a
 A reroute must not silently overwrite work a person did. The re-anchor only touches the affected
 set (D5), and within that set it changes bends, not intent: it keeps the shape and the free
 coordinates, so a hand-placed detour stays a hand-placed detour.
+
+Text the person typed but did not save is work a person did, and it survives a move the same way: a
+layout write is computed on the editor's text when there is one, so the file that is written is that
+text with the moved rows applied. The draft travels with the write request, not with the pointer
+move, and a request without a draft is computed on the file on disk — the behavior before this rule
+existed. A draft that does not parse is refused, and nothing is written.
 
 Where the shape cannot be kept at all — the single-run wire of D5 — the app says so rather than
 silently choosing an elbow the person did not draw. A wholesale regeneration is a separate,

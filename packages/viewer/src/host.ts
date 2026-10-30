@@ -20,6 +20,19 @@ export function refusalMessage(payload: Record<string, unknown>): string {
 }
 
 /**
+ * The editor's unsaved text for a page, when there is one.
+ *
+ * A draft that is the same as the page the app knows is not an edit: sending it would write the
+ * app's snapshot over whatever the file says now, which is the hazard this seam exists to avoid
+ * in the other direction (F54). No draft and an unchanged draft both answer "nothing to send".
+ */
+export function unsavedSource(draft: string | null, source: string | undefined): string | undefined {
+  if (draft === null) return undefined;
+  if (draft === (source ?? "")) return undefined;
+  return draft;
+}
+
+/**
  * Whether a key press belongs to a text field that is not ours.
  *
  * In a plugin the host has fields of its own — the chat input above all — and a key press there

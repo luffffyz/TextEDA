@@ -11,7 +11,7 @@
 import { definitionLocations, editorUri } from "./definitions.ts";
 import { APP_ROOT_CLASS, APP_STYLES } from "./styles.ts";
 import { availableModes, REVIEW_MODE_ORDER } from "./capability.ts";
-import { refusalMessage } from "./host.ts";
+import { refusalMessage, unsavedSource } from "./host.ts";
 import type {
   ReviewBoard,
   ReviewDiagnostic,
@@ -1089,6 +1089,17 @@ function pendingPlaces(): { instance_id: string; x: number; y: number; rot: numb
 }
 
 /**
+ * The editor's unsaved text for this page, when there is one.
+ *
+ * Only a text that differs from the page the app knows is sent: an unchanged editor holds the
+ * snapshot, and sending that would write the snapshot over whatever the file says now — the very
+ * thing this fixes in the other direction (F54).
+ */
+function unsavedDraft(current: ReviewPage): string | undefined {
+  return unsavedSource(state.draft, current.source);
+}
+
+/**
  * Ask the server what the page would look like after the pending moves.
  *
  * The answer is the page with its wires re-anchored — not routed, re-anchored: the wires keep
@@ -1109,6 +1120,9 @@ async function requestPreview(): Promise<void> {
       page: current.id,
       places,
       commit: false,
+      // The unsaved text is the base the layout is computed on, so the preview is the page that
+      // would be written — the edit and the move together (F54).
+      ...(unsavedDraft(current) === undefined ? {} : { text: unsavedDraft(current) }),
     });
     state.preview = {
       svg: String(payload["svg"] ?? ""),
@@ -1150,17 +1164,30 @@ async function applyPendingMoves(): Promise<void> {
   }
   const current = page();
   if (current === undefined) return;
+  const draft = unsavedDraft(current);
   try {
     const payload = await postJson("/api/layout", {
       board: state.board,
       page: current.id,
       places,
       commit: true,
+      // The write is the editor's text with the moved rows applied: the edit is not thrown away
+      // by the move (F54).
+      ...(draft === undefined ? {} : { text: draft }),
     });
     const next = payload["model"];
     if (next !== undefined) model = next as ReviewModel;
     state.pending.clear();
     state.preview = null;
+    // The draft is on disk now, so it is no longer an unsaved edit; the editor shows what is
+    // written.
+    if (draft !== undefined) {
+      state.draft = null;
+      state.draftSvg = "";
+      state.draftErrors = [];
+      const written = page();
+      if (written !== undefined) frame.sourceText.value = written.source ?? "";
+    }
     renderAll();
     const conflicts = (payload["conflicts"] as string[] | undefined) ?? [];
     const stale = (payload["stale"] as string[] | undefined) ?? [];

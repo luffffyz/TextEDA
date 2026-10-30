@@ -227,4 +227,79 @@ describe("the layout Apply", () => {
     expect(outcome.changed).toBe(false);
     expect(statSync(file).mtimeMs).toBe(before);
   });
+
+  // The data-loss path (F54): the editor holds text that was never saved, and a move writes the
+  // page back. Without the draft in the request, the write is the file on disk and the edit is
+  // gone.
+  test("a move keeps the editor's unsaved text", () => {
+    const dir = scratch();
+    const file = join(dir, "views", "charger-buck", "buck-5v.view.teda");
+    const text = readFileSync(file, "utf8");
+    // The editor's text: the same page with one comment changed.
+    const draft = text.replace("# TPS5430 5V/3A buck print page.", "# TPS5430 5V/3A buck print page (edited).");
+    expect(draft).not.toBe(text);
+
+    const outcome = applyLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 90 }],
+      text: draft,
+    });
+    expect(outcome.changed).toBe(true);
+
+    const written = readFileSync(file, "utf8");
+    // The edit is still there, and so is the move.
+    expect(written).toContain("# TPS5430 5V/3A buck print page (edited).");
+    expect(written).toContain("M2.C1  118.0  95.0  90");
+  });
+
+  test("a move without a draft writes the file on disk, as before", () => {
+    const dir = scratch();
+    const file = join(dir, "views", "charger-buck", "buck-5v.view.teda");
+    const before = readFileSync(file, "utf8");
+    const outcome = applyLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 90 }],
+    });
+    expect(outcome.changed).toBe(true);
+    const written = readFileSync(file, "utf8");
+    expect(written).not.toBe(before);
+    expect(written).toContain("M2.C1  118.0  95.0  90");
+  });
+
+  test("a draft that does not parse is refused, and nothing is written", () => {
+    const dir = scratch();
+    const file = join(dir, "views", "charger-buck", "buck-5v.view.teda");
+    const before = readFileSync(file, "utf8");
+    expect(() =>
+      applyLayout(dir, {
+        board: "charger-buck",
+        page: "buck-5v",
+        places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 90 }],
+        text: "version 0.9.1\nview buck-5v\n\nplace\n  M2.C1  118.0\n",
+      }),
+    ).toThrow(LayoutError);
+    expect(readFileSync(file, "utf8")).toBe(before);
+  });
+
+  test("the file a draft write produces is the formatter's form", () => {
+    const dir = scratch();
+    const file = join(dir, "views", "charger-buck", "buck-5v.view.teda");
+    const text = readFileSync(file, "utf8");
+    // A draft with a column the formatter would realign.
+    const draft = text.replace("  M2.C1  120.0  95.0  90", "  M2.C1  120.0   95.0  90");
+    const outcome = applyLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 90 }],
+      text: draft,
+    });
+    expect(outcome.changed).toBe(true);
+    const written = readFileSync(file, "utf8");
+    expect(written).toContain("M2.C1  118.0  95.0  90");
+    // The columns are aligned the way the formatter aligns them, not the way the draft had them.
+    const row = written.split("\n").find((line) => line.includes("M2.C1"));
+    expect(row).toBe("  M2.C1  118.0  95.0  90");
+  });
 });

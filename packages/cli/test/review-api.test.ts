@@ -109,6 +109,53 @@ describe("the review app's write routes", () => {
     }
   });
 
+  // The data-loss path (F54): the editor holds text that was never saved, and a move writes the
+  // page back. Without the draft in the request, the write is the file on disk and the edit is
+  // gone.
+  test("the layout route keeps the editor's unsaved text", async () => {
+    const dir = scratch();
+    const text = readFileSync(join(dir, pageFile), "utf8");
+    const draft = text.replace("# TPS5430 5V/3A buck print page.", "# TPS5430 5V/3A buck print page (edited).");
+    const server = await serve(dir);
+    try {
+      const response = await post(server, "/api/layout", {
+        board: "charger-buck",
+        page: "buck-5v",
+        places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 90 }],
+        commit: true,
+        text: draft,
+      });
+      expect(response.status).toBe(200);
+      expect(response.payload["changed"]).toBe(true);
+      const written = readFileSync(join(dir, pageFile), "utf8");
+      // The edit is still there, and so is the move.
+      expect(written).toContain("# TPS5430 5V/3A buck print page (edited).");
+      expect(written).toContain("M2.C1  118.0  95.0  90");
+    } finally {
+      server.stop();
+    }
+  });
+
+  test("the layout route refuses a draft that does not parse, and writes nothing", async () => {
+    const dir = scratch();
+    const before = readFileSync(join(dir, pageFile), "utf8");
+    const server = await serve(dir);
+    try {
+      const response = await post(server, "/api/layout", {
+        board: "charger-buck",
+        page: "buck-5v",
+        places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 90 }],
+        commit: true,
+        text: "version 0.9.1\nview buck-5v\n\nplace\n  M2.C1  118.0\n",
+      });
+      expect(response.status).toBe(400);
+      expect(String(response.payload["error"] ?? "")).toContain("syntax.row-too-short");
+      expect(readFileSync(join(dir, pageFile), "utf8")).toBe(before);
+    } finally {
+      server.stop();
+    }
+  });
+
   test("the layout route refuses a board or a page the project does not have", async () => {
     const dir = scratch();
     const server = await serve(dir);
