@@ -21,7 +21,7 @@
 
 ```bash
 bun install
-bun test                # 单元 + 契约 + round-trip 测试
+bun run test           # 单元 + 契约 + round-trip 测试
 bun run typecheck       # 每个包与插件一起过 tsc
 bun run lib:verify      # 库级闭环（**零外部依赖**）
 bun run lib:verify:kicad  # 可选：追加 KiCad 互操作段（KiCad 能读能渲染、合并板 DRC 0 违规）
@@ -90,7 +90,7 @@ TextEDA 的完整对比按三个透镜组织——商业全流程 GUI、开源/�
 
 `.github/workflows/ci.yml` 在每次 push 与指向 `main` 的 PR 上运行。**必过段零外部依赖**——只要 Bun，不需要 KiCad：
 
-`bun test` · `bun run typecheck` · `bun run gen:check` · `bun run lib:verify` · `bun run check:links` · `bun run check:public` · `bun run fmt:teda --check .`
+`bun run test` · `bun run typecheck` · `bun run gen:check` · `bun run lib:verify` · `bun run check:links` · `bun run check:public` · `bun run fmt:teda --check .`
 
 KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.yml`，定时 + 手动触发），因为门禁不得依赖外部软件（[ADR-0021](docs/adr/manufacturing/0021-the-manufacturing-output-path.md)）。
 

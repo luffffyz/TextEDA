@@ -1,9 +1,0 @@
-# Bun's configuration for this repository.
-#
-# One setting: the test budget. The CLI integration tests start a process per
-# case, and a shared CI runner is about twice as slow as a laptop. Bun's
-# default of 5 s per test cut those runs short, and the failure then read
-# "expected 0, received null" -- the child had been killed -- instead of
-# naming the cause.
-[test]
-preload = ["./scripts/test-setup.ts"]

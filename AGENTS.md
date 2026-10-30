@@ -308,7 +308,7 @@ dist/ir/
 
 | 命令 | 查什么 | 规则住在哪 |
 |---|---|---|
-| `bun test` | 单元、契约正反例、round-trip | 各包 `test/`；`tests/schemas/` |
+| `bun run test` | 单元、契约正反例、round-trip | 各包 `test/`；`tests/schemas/`（脚本带 `--timeout 30000`，见下） |
 | `bun run typecheck` | 全包类型 | `tsconfig.base.json` |
 | `bun run gen:check` | 生成物（IR 类型、`docs/error-codes.md`、`docs/ir-reference.md`）不漂移 | `packages/ir/src/generated/`；[ADR-0038](docs/adr/process/0038-implementation-stack-and-agent-entry.md) |
 | `bun run lib:verify` | 库闭包：引用可解析、无孤儿、引脚号与焊盘号对齐 | `spec/symbol.md` §7、`spec/footprint.md` §7 |
@@ -338,7 +338,7 @@ dist/ir/
 - **错误质量**：每条诊断含文件、行列、期望 / 实际、修复建议；`--json` 输出机器可读载荷；诊断位置来自编译期的"IR 路径 → 源 span"映射（[ADR-0004](docs/adr/language/0004-source-spans.md)）。
 - **未落地**：conformance 黄金文件语料不存在；绑定用例缺正反例（F21）；困难用例没补齐（F12）；`.kicad_pcb` 板导出未落地（F15）；`fab` 描述没有实现。
 
-**CI 与提交前**：提交前必须跑完整检查，不允许"只跑单测"。CI（`.github/workflows/ci.yml`，push 与 PR 到 `main` 都触发）跑 `bun test`、`bun run typecheck`、`bun run gen:check`、`bun run lib:verify`、`bun run check:links`、`bun run check:public`、`bun run fmt:teda --check .`。**必过段全部零外部依赖**；KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.yml`，定时 + 手动触发），因为门禁不得依赖外部工具（不变量 20 / [ADR-0021](docs/adr/manufacturing/0021-the-manufacturing-output-path.md)）。
+**CI 与提交前**：提交前必须跑完整检查，不允许"只跑单测"。CI（`.github/workflows/ci.yml`，push 与 PR 到 `main` 都触发）跑 `bun run test`、`bun run typecheck`、`bun run gen:check`、`bun run lib:verify`、`bun run check:links`、`bun run check:public`、`bun run fmt:teda --check .`。**必过段全部零外部依赖**；KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.yml`，定时 + 手动触发），因为门禁不得依赖外部工具（不变量 20 / [ADR-0021](docs/adr/manufacturing/0021-the-manufacturing-output-path.md)）。
 
 ---
 
@@ -372,7 +372,7 @@ dist/ir/
 ## 12. Agent 工作方式
 
 - **先改 spec，再改实现。** 规范与 conformance 用例同一次提交。
-- **改 IR 语义要同时改 `schemas/` 与 conformance 用例。** JSON Schema 是唯一契约（TS 类型由它生成，项目里没有 zod）。改完跑 `bun test packages/ir`（契约正反例；夹具在 `tests/schemas/valid` 与 `tests/schemas/invalid`）与 `bun run gen`（重新生成类型）。**注意：`tests/schemas/` 下没有独立的 runner，那条 `cd tests/schemas && node run.mjs` 是过时写法。**
+- **改 IR 语义要同时改 `schemas/` 与 conformance 用例。** JSON Schema 是唯一契约（TS 类型由它生成，项目里没有 zod）。改完跑 `bun run test packages/ir`（契约正反例；夹具在 `tests/schemas/valid` 与 `tests/schemas/invalid`）与 `bun run gen`（重新生成类型）。**注意：`tests/schemas/` 下没有独立的 runner，那条 `cd tests/schemas && node run.mjs` 是过时写法。**
 - **不要加规范里没有的"顺手功能"。** 需要就先写 ADR。
 - **不要为了通过测试而放宽语义**（例如把未知字段当警告）。
 - **不要给契约层加许可限制**（不变量 19）：`spec/`、`schemas/`、`examples/`、`tests/` 的开放性不可交易——**没有商业计划，开放性不是可交易的东西**。
@@ -393,11 +393,11 @@ dist/ir/
 - **改错是就地改，不是追加附录**：记录陈述的是**现在为真的事**，写错了就改那一句；带日期的附录只留给**退役记录**（`Status:` 指向取代它的那条）。历史在 git 里，不在正文里积累。
 - **拆活时，共享的验证器不能当作各分片的验收标准。** 分片共享"会变的门禁"时，"绿了"什么也不证明——要么先冻结门禁、派工只改被它检查的内容，要么这一组串行。改 `scripts/check-*.ts` 或任何自校验工具，diff 必须逐行读：门禁抓不到门禁自己的回归。
 - **同一句话里不要既给规则又给例外。** 矛盾的规格一定会被执行成错的那一半。
-- **派工看"对错能不能被门禁判"，不看文件数或行数。** **派**：枚举、审计、纯删除加引用收口、机械迁移、能由 `bun test` / `bun run check` / `fmt:teda` 判定对错的重构。**不派**：散文可读性（ADR 正文、README）、视觉几何（符号 / 封装 / 打印页）、共享门禁脚本的语义改动——这三类的对错门禁表达不了，只能逐行读 diff（门禁脚本若尚无测试，先补测试，`scripts/check-links.test.ts` 是范例）。判分的活即使派出去也必须配逐行 diff 复核，因为子代理报"绿色"不构成证据。**派审计时分片范围要写死到"哪个文件、哪个正则、输出哪几列"**——范围是派工的一部分。
+- **派工看"对错能不能被门禁判"，不看文件数或行数。** **派**：枚举、审计、纯删除加引用收口、机械迁移、能由 `bun run test` / `bun run check` / `fmt:teda` 判定对错的重构。**不派**：散文可读性（ADR 正文、README）、视觉几何（符号 / 封装 / 打印页）、共享门禁脚本的语义改动——这三类的对错门禁表达不了，只能逐行读 diff（门禁脚本若尚无测试，先补测试，`scripts/check-links.test.ts` 是范例）。判分的活即使派出去也必须配逐行 diff 复核，因为子代理报"绿色"不构成证据。**派审计时分片范围要写死到"哪个文件、哪个正则、输出哪几列"**——范围是派工的一部分。
 - **判研（judge）的分档判据由 omp 内置，不要自造短版 rubric 去测它。** `prewalk.auto` 与 `find.enabled: auto` 都走 `judge` 角色，rubric 是 `omp://prewalk.md` 里那张带例子的三档表，验证时必须逐字复制：简化标签会让同一批任务判错，错的是**探针**不是模型。改 `prewalk.autoTarget` 前先确认目标角色指向哪个模型：角色是别名，模型会被换掉。
 - **提交信息英文**。
 - **新增依赖需要 ADR**；默认零运行时依赖的 parser 是目标。
-- **改完 schema 必须重生成**：`bun run gen`（产物在 `packages/ir/src/generated/`，不手改），CI 用 `bun run gen:check` 挡住漂移；`bun test` + `bun run typecheck` 必过。
+- **改完 schema 必须重生成**：`bun run gen`（产物在 `packages/ir/src/generated/`，不手改），CI 用 `bun run gen:check` 挡住漂移；`bun run test` + `bun run typecheck` 必过。
 - **`ir` / `parser` / `exporter` / `renderer` 禁止 `Bun.*` 与 `process.env`**（`core` 同样适用）：这些包要能跑在 Node 扩展宿主与浏览器里；文件系统只允许出现在 CLI / 导出层（[ADR-0038](docs/adr/process/0038-implementation-stack-and-agent-entry.md) decision 1）。
 
 ---

@@ -21,7 +21,7 @@ Describe a piece of hardware as **human-written text**: the schematic (`sch`) an
 
 ```bash
 bun install
-bun test                # unit + contract + round-trip tests
+bun run test           # unit + contract + round-trip tests
 bun run typecheck       # every package and plugin through tsc
 bun run lib:verify      # library closure, **zero external dependencies**
 bun run lib:verify:kicad  # optional: adds the KiCad interoperability section
@@ -90,7 +90,7 @@ The full, sourced **three-lens** comparison — commercial full-flow GUI, open/l
 
 `.github/workflows/ci.yml` runs on every push and pull request to `main`. The required gate is **zero-dependency** — it needs Bun and nothing else, no KiCad:
 
-`bun test` · `bun run typecheck` · `bun run gen:check` · `bun run lib:verify` · `bun run check:links` · `bun run check:public` · `bun run fmt:teda --check .`
+`bun run test` · `bun run typecheck` · `bun run gen:check` · `bun run lib:verify` · `bun run check:links` · `bun run check:public` · `bun run fmt:teda --check .`
 
 The KiCad interoperability section is a **separate, optional workflow** (`.github/workflows/ci-kicad.yml`, scheduled and manual) because a gate must never depend on external software ([ADR-0021](docs/adr/manufacturing/0021-the-manufacturing-output-path.md)).
 

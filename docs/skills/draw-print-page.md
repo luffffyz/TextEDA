@@ -266,7 +266,7 @@ Definitions and data fields: [`spec/schematic-view.md`](../../spec/schematic-vie
 For the reference project, the round-trip and metrics tests are the extra gate:
 
 ```sh
-bun test packages/cli/test/view-roundtrip.test.ts packages/cli/test/view.test.ts
+bun run test packages/cli/test/view-roundtrip.test.ts packages/cli/test/view.test.ts
 ```
 
 ## 6. What not to do

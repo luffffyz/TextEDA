@@ -22,7 +22,7 @@ examples/cases/<case_id>/
 ```
 
 `bun run cases:check` compares every case with its expectation; `bun run cases:update` rewrites the
-expectation. Both are one test in `bun test`, so a case that changes silently fails CI.
+expectation. Both are one test in `bun run test`, so a case that changes silently fails CI.
 
 What is pinned and what is not: the shard bytes, the netlist and the project hash are pinned, because that is
 what "the IR only depends on meaning" means (`AGENTS.md` §10); the diagnostic **wording** is not, because
