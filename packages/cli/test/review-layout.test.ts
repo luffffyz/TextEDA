@@ -8,7 +8,7 @@ import { cpSync, mkdtempSync, readFileSync, readdirSync, statSync } from "node:f
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseView } from "@texteda/parser";
+import { formatView, parseView } from "@texteda/parser";
 import { applyLayout, LayoutError, planLayout, renderPageSource } from "../src/layout.ts";
 import { buildReviewModel } from "../src/review-model.ts";
 
@@ -40,6 +40,19 @@ function content(dir: string, file: string): string {
   return readFileSync(join(dir, file), "utf8");
 }
 
+function expectC1At118(text: string): void {
+  const parsed = parseView(text, {
+    file: "views/charger-buck/buck-5v.view.teda",
+    board: "charger-buck",
+  });
+  expect(parsed.ok).toBe(true);
+  expect(parsed.ir?.place.find((place) => place.instance_id === "M2.C1")).toMatchObject({
+    x_nm: 118_000_000,
+    y_nm: 95_000_000,
+    rot_mdeg: 90_000,
+  });
+}
+
 describe("the layout Apply", () => {
   test("moves a symbol and rewrites the wires that lost their pins", () => {
     const dir = scratch();
@@ -53,7 +66,7 @@ describe("the layout Apply", () => {
     expect(outcome.conflicts).toEqual([]);
 
     const page = content(dir, outcome.file);
-    expect(page).toContain("M2.C1  118.0  95.0  90");
+    expectC1At118(page);
     // The two wires that leave C1's pins follow it; their shape is the same, their end is not.
     const parsed = parseView(page, { file: outcome.file, board: "charger-buck" });
     expect(parsed.ok).toBe(true);
@@ -181,7 +194,7 @@ describe("the layout Apply", () => {
     expect(plan.changed).toBe(true);
     expect(plan.file).toBe("views/charger-buck/buck-5v.view.teda");
     // The plan is the page after the change: its source and its drawing.
-    expect(plan.text).toContain("M2.C1  118.0  95.0  90");
+    expectC1At118(plan.text);
     expect(plan.svg).toContain("<svg");
     // The file on disk is the one that was there.
     expect(readFileSync(file, "utf8")).toBe(before);
@@ -250,7 +263,7 @@ describe("the layout Apply", () => {
     const written = readFileSync(file, "utf8");
     // The edit is still there, and so is the move.
     expect(written).toContain("# TPS5430 5V/3A buck print page (edited).");
-    expect(written).toContain("M2.C1  118.0  95.0  90");
+    expectC1At118(written);
   });
 
   test("a move without a draft writes the file on disk, as before", () => {
@@ -265,7 +278,7 @@ describe("the layout Apply", () => {
     expect(outcome.changed).toBe(true);
     const written = readFileSync(file, "utf8");
     expect(written).not.toBe(before);
-    expect(written).toContain("M2.C1  118.0  95.0  90");
+    expectC1At118(written);
   });
 
   test("a draft that does not parse is refused, and nothing is written", () => {
@@ -288,7 +301,11 @@ describe("the layout Apply", () => {
     const file = join(dir, "views", "charger-buck", "buck-5v.view.teda");
     const text = readFileSync(file, "utf8");
     // A draft with a column the formatter would realign.
-    const draft = text.replace("  M2.C1  120.0  95.0  90", "  M2.C1  120.0   95.0  90");
+    const draft = text.replace(
+      /^([ \t]*)M2\.C1\b.*$/m,
+      "$1M2.C1       120.0       95.0      90",
+    );
+    expect(draft).not.toBe(text);
     const outcome = applyLayout(dir, {
       board: "charger-buck",
       page: "buck-5v",
@@ -297,9 +314,10 @@ describe("the layout Apply", () => {
     });
     expect(outcome.changed).toBe(true);
     const written = readFileSync(file, "utf8");
-    expect(written).toContain("M2.C1  118.0  95.0  90");
+    expectC1At118(written);
     // The columns are aligned the way the formatter aligns them, not the way the draft had them.
-    const row = written.split("\n").find((line) => line.includes("M2.C1"));
-    expect(row).toBe("  M2.C1  118.0  95.0  90");
+    const canonical = formatView(written, { file: "views/charger-buck/buck-5v.view.teda" });
+    expect(canonical.ok).toBe(true);
+    expect(canonical.text).toBe(written);
   });
 });

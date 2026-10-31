@@ -83,6 +83,15 @@ function refused(fn: () => unknown): string {
   }
 }
 
+
+function expectU1At150(text: string, file: string): void {
+  const parsed = parseView(text, { file, board: "charger-buck" });
+  expect(parsed.ok).toBe(true);
+  const u1 = parsed.ir?.place.find((place) => place.instance_id === "M2.U1");
+  expect(u1).toMatchObject({ x_nm: 150_000_000, y_nm: 105_000_000 });
+  expect(u1?.rot_mdeg ?? 0).toBe(0);
+}
+
 describe("layout-places: the places-only write path", () => {
   test("only the place row changes, and only that row", () => {
     const dir = scratch();
@@ -114,7 +123,7 @@ describe("layout-places: the places-only write path", () => {
     const placeBefore = beforeRows.place.map((line) => line.trim());
     const placeAfter = afterRows.place.map((line) => line.trim());
     expect(placeAfter).not.toEqual(placeBefore);
-    expect(placeAfter.find((line) => line.startsWith("M2.U1"))).toBe("M2.U1  150.0  105.0  0");
+    expectU1At150(content(dir, file), file);
     expect(placeAfter.filter((line) => !line.startsWith("M2.U1"))).toEqual(placeBefore.filter((line) => !line.startsWith("M2.U1")));
   });
 
@@ -184,7 +193,7 @@ describe("layout-places: the places-only write path", () => {
     const plan = planPlaces(dir, { ...REQUEST, text: draft });
     expect(plan.changed).toBe(true);
     expect(plan.text).toContain("(edited).");
-    expect(plan.text).toContain("M2.U1  150.0  105.0  0");
+    expectU1At150(plan.text, file);
   });
 
   test("a request that moves nothing writes nothing", () => {

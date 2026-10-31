@@ -10,6 +10,7 @@ import { cpSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseView } from "@texteda/parser";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const referenceProject = join(repoRoot, "examples", "reference-project");
@@ -22,6 +23,16 @@ function scratch(): string {
   const dir = mkdtempSync(join(tmpdir(), "texteda-review-api-test-"));
   cpSync(referenceProject, dir, { recursive: true });
   return dir;
+}
+
+function expectC1At118(text: string): void {
+  const parsed = parseView(text, { file: pageFile, board: "charger-buck" });
+  expect(parsed.ok).toBe(true);
+  expect(parsed.ir?.place.find((place) => place.instance_id === "M2.C1")).toMatchObject({
+    x_nm: 118_000_000,
+    y_nm: 95_000_000,
+    rot_mdeg: 90_000,
+  });
 }
 
 interface Server {
@@ -103,7 +114,7 @@ describe("the review app's write routes", () => {
       });
       expect(response.status).toBe(200);
       expect(response.payload["changed"]).toBe(true);
-      expect(readFileSync(join(dir, pageFile), "utf8")).toContain("M2.C1  118.0  95.0  90");
+      expectC1At118(readFileSync(join(dir, pageFile), "utf8"));
     } finally {
       server.stop();
     }
@@ -130,7 +141,7 @@ describe("the review app's write routes", () => {
       const written = readFileSync(join(dir, pageFile), "utf8");
       // The edit is still there, and so is the move.
       expect(written).toContain("# TPS5430 5V/3A buck print page (edited).");
-      expect(written).toContain("M2.C1  118.0  95.0  90");
+      expectC1At118(written);
     } finally {
       server.stop();
     }
@@ -193,16 +204,21 @@ describe("the review app's write routes", () => {
   test("the source route saves the page in the formatter's form", async () => {
     const dir = scratch();
     const text = readFileSync(join(dir, pageFile), "utf8");
+    const draft = text.replace(
+      /^([ \t]*)M2\.C1[ \t]+120\.0[ \t]+95\.0[ \t]+90$/m,
+      "$1M2.C1 118.0 95.0 90",
+    );
+    expect(draft).not.toBe(text);
     const server = await serve(dir);
     try {
       const response = await post(server, "/api/source", {
         file: pageFile,
-        text: text.replace("M2.C1  120.0  95.0  90", "M2.C1  118.0  95.0  90"),
+        text: draft,
         save: true,
       });
       expect(response.status).toBe(200);
       expect(response.payload["changed"]).toBe(true);
-      expect(readFileSync(join(dir, pageFile), "utf8")).toContain("M2.C1  118.0  95.0  90");
+      expectC1At118(readFileSync(join(dir, pageFile), "utf8"));
     } finally {
       server.stop();
     }

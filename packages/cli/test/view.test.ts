@@ -7,6 +7,7 @@ import { describe, expect, test } from "bun:test";
 import { cpSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { parseView } from "@texteda/parser";
 
 const script = join(import.meta.dir, "../scripts/texteda.ts");
 const project = join(import.meta.dir, "../../../examples/reference-project");
@@ -88,7 +89,12 @@ describe("texteda view rewire", () => {
   test("a moved symbol pulls its wires onto it", () => {
     const dir = copyProject();
     const page = join(dir, "views/charger-buck/buck-5v.view.teda");
-    const text = readFileSync(page, "utf8").replace("  M2.U1  140.0  105.0  0", "  M2.U1  150.0  105.0  0");
+    const original = readFileSync(page, "utf8");
+    const text = original.replace(
+      /^([ \t]*)M2\.U1[ \t]+140\.0[ \t]+105\.0[ \t]+0$/m,
+      "$1M2.U1 150.0 105.0 0",
+    );
+    expect(text).not.toBe(original);
     writeFileSync(page, text);
 
     // Before: the wires that left the moved symbol are no longer on the axes.
@@ -114,9 +120,17 @@ describe("texteda view rewire", () => {
     const after = run(["check", dir]);
     expect(after.stderr).not.toContain("view.wire-diagonal");
     const rewritten = readFileSync(page, "utf8");
-    expect(rewritten).toContain("M2.U1  150.0  105.0  0");
+    const parsed = parseView(rewritten, { file: "views/charger-buck/buck-5v.view.teda", board: "charger-buck" });
+    expect(parsed.ok).toBe(true);
+    const u1 = parsed.ir?.place.find((place) => place.instance_id === "M2.U1");
+    expect(u1).toMatchObject({ x_nm: 150_000_000, y_nm: 105_000_000 });
+    expect(u1?.rot_mdeg ?? 0).toBe(0);
     // The wire's interior corner (120, 120) is where it was; only the end moved.
-    expect(rewritten).toContain("120.0 120.0");
+    expect(
+      parsed.ir?.wire?.some((wire) =>
+        wire.points?.some((point) => point.x_nm === 120_000_000 && point.y_nm === 120_000_000),
+      ),
+    ).toBe(true);
   });
 
   test("a page that needs nothing is reported as such", () => {
