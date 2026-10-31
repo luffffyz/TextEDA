@@ -321,7 +321,7 @@ function pointList(
   return points;
 }
 
-/** Normalize a ring: rotate the start to the lexicographically smallest vertex, and make the direction uniform so the signed area is positive (spec §6.2). */
+/** Normalize a ring: rotate the start to the lexicographically smallest vertex, and make the direction uniform so the signed area is positive (`spec/pcb.md` §6.2). */
 export function normalizeRing(points: readonly Point[]): Point[] {
   const key = (p: Point) => `${p.x_nm},${p.y_nm}`;
   let start = 0;

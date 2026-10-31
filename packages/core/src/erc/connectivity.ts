@@ -48,7 +48,7 @@ function locationOf(
  * Run the connectivity rules, return diagnostics (in deterministic order: net-level first,
  * then pin-level).
  *
- * Rules come from `teda.md` §11.4:
+ * Rules come from `spec/teda.md` §7.2 and §11, rule 4:
  * - A single-member net is a strong signal of a missing connection (nets with ports excepted).
  * - A pin belongs to at most one net.
  * - Every pin, except `no_connect` pins, should land on some net.
