@@ -81,7 +81,7 @@ component pin numbers = symbol pin numbers
 component pin numbers ⊆ footprint pad numbers
 ```
 
-A symbol pin without a component fact is an error. A component pin without a drawn symbol pin is at least a warning and must be intentional. Every component pin that requires a physical pad must have one; additional pads may be warned about and need an intentional explanation (for example, a non-electrical exposed pad).
+A symbol pin without a component fact is invalid. `lib:verify` requires exact equality between component and symbol pin sets. Every component pin that needs a physical pad must have one; extra footprint pads are reported and must be intentional (for example, a non-electrical exposed pad).
 
 ### 4.2 Write the symbol
 
@@ -180,18 +180,18 @@ Run the narrow checks first, then the project check:
 ```sh
 bun run fmt:teda --check <project-dir>/assets/symbols
 bun run fmt:teda --check <project-dir>/assets/footprints
-bun run lib:verify
+bun run lib:verify <project-dir>
 bun run check <project-dir>
 ```
 
-`fmt:teda --check` checks canonical source formatting. `lib:verify` checks library closure and cross-asset pin/pad references. `check` checks the project-level contract and semantic rules.
+`fmt:teda --check` checks canonical source formatting. `lib:verify <project-dir>` checks library closure, canonical compilation and contract validation, exports, rendering, and cross-asset pin/pad references. `check <project-dir>` checks the project-level contract and semantic rules.
 
 When KiCad is available, run the downstream smoke checks as well:
 
 ```sh
-bun run smoke:symbol
-bun run smoke:footprint
-bun run lib:verify:kicad
+bun run smoke:symbol <symbol-file> <component-file>
+bun run smoke:footprint <footprint-file>
+bun run lib:verify:kicad <project-dir>
 ```
 
 These checks answer a different question: whether generated KiCad artifacts can be consumed and checked downstream. They do not replace the TextEDA checks or visual preview. A missing KiCad installation blocks only these optional downstream checks, not authoring or preview.
@@ -207,8 +207,8 @@ bun run check:links
 | Symptom | Likely cause | Corrective action |
 |---|---|---|
 | `symbol` or `footprint` cannot be found | Wrong classification, id, or directory depth | Check `assets/<group>/<classification>/<id>.teda` and the `<classification>:<id>` reference; pass `--class` when ids collide |
-| Symbol pin mismatch | Component and symbol number sets differ | Compare pin rows by number; fix the owner that is factually wrong, then rerun `lib:verify` |
-| Pad mismatch or unconnected exposed pad | Footprint pad number or component pin fact is wrong | Reconcile the datasheet, component table, symbol, and pad table; do not add a duplicate alias |
+| Symbol pin mismatch | Component and symbol number sets differ | Compare pin rows by number; fix the owner that is factually wrong, then rerun `lib:verify <project-dir>` |
+| Pad mismatch or unconnected exposed pad | Footprint pad number or component pin fact is wrong | Reconcile the datasheet, component table, symbol, and pad table; do not add a duplicate alias; rerun `lib:verify <project-dir>` |
 | Symbol appears upside down | Symbol `+y` convention was confused with footprint `+y` | Recompute symbol pin coordinates and rotations using [spec/symbol.md](../../spec/symbol.md); do not mirror the footprint blindly |
 | Pin label or number overlaps | Insufficient symbol spacing or a required text rotation is not representable | Adjust pin/body geometry first; preview again; do not add unsupported text keys or silently hide the label |
 | `1.27 mm` appears in a symbol review | Renderer number-text offset was confused with pin pitch | Keep the regular pin row at `1.25 mm`; the current renderer's `1.27 mm` value is a separate text offset |
