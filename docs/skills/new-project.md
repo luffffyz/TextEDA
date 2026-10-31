@@ -139,7 +139,7 @@ graphics
 
 The full rules for writing library files are in `docs/guides/symbol-authoring.md` and
 `docs/guides/footprint-authoring.md`; **the symbol's pin number set must match the component's**
-([ADR-0031](../adr/libraries/0031-symbol-format.md), "the two pin number sets must be aligned").
+([ADR-0031](../adr/08-libraries/0031-symbol-format.md), "the two pin number sets must be aligned").
 
 ## 4. Step 2: the devices
 
@@ -200,7 +200,7 @@ What matters:
 
 A project's devices, symbols and footprints live under `assets/` and are the project's own
 content. There is no library reference to pin: `project.toml` has no `[libs]` table (it was
-withdrawn — [ADR-0034](../adr/libraries/0034-trust-in-a-library-you-do-not-own.md)), and
+withdrawn — [ADR-0034](../adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md)), and
 `lib:verify` checks the assets directly rather than against a stored hash.
 
 If the assets came from someone else's library, the copy was made with `texteda lib import`, and
@@ -228,7 +228,7 @@ nets
 
 - An `instances` row is `refdes  [uid]  component_id  <param values…>`; the number and order of the
   values come from the component's `params` section (§4). The UID is the project-scoped stable
-  identity ([ADR-0010](../adr/project/0010-instance-identity-is-a-uid.md)); generate one with
+  identity ([ADR-0010](../adr/03-project/0010-instance-identity-is-a-uid.md)); generate one with
   `texteda id <dir> --count N`, then paste it. A missing UID is a warning on a 0.9 file, not a
   silent default.
 - A `nets` row is `net_name  <pin>…`, where a pin is written `refdes.pin_number` — the **number**,

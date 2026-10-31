@@ -113,7 +113,7 @@ Apply these rules when placing new symbol pins and reviewing the rendered result
 4. **Geometry grid**: use `0.05 mm` as the minimum authoring increment for library artwork. Symbol pin/body coordinates and non-dimensional footprint graphics should use exact multiples of `0.05 mm`. Physical footprint pad centers and sizes must preserve datasheet values, even when they fall off-grid.
 5. **Legibility wins**: move the pin or body only when that preserves the electrical pin order and the intended symbol meaning. Do not make a visually neat symbol by changing the datasheet's pin identity.
 
-The current `.teda` symbol contract has no per-pin text-position or text-rotation field. The reference renderer currently generates pin numbers outside the connection point along the pin axis and uses the fixed `1.27 mm` number-text offset documented in [ADR-0036](../adr/view/0036-our-own-reference-renderer.md). That offset is **not pin pitch**. Therefore:
+The current `.teda` symbol contract has no per-pin text-position or text-rotation field. The reference renderer currently generates pin numbers outside the connection point along the pin axis and uses the fixed `1.27 mm` number-text offset documented in [ADR-0036](../adr/09-view/0036-our-own-reference-renderer.md). That offset is **not pin pitch**. Therefore:
 
 - Do not move a pin by `1.27 mm` merely to match the renderer's number-text offset.
 - Do not invent unsupported `rotate` or text-position keys in a symbol file.

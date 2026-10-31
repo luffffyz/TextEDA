@@ -89,4 +89,4 @@ Three routes, and only one of them is what this package is: a host-native plugin
 (`texteda review` or its static export) needs no host code at all, and MCP Apps would need one
 implementation for every host that renders them — but none of the hosts we support is on that
 list yet, so it is tracked as F59. The census, and why exactly two hosts need their own drawing
-code, is in `docs/plugin-hosts.md` and [ADR-0047](../../docs/adr/process/0047-the-picture-reaches-a-host-by-three-routes.md).
+code, is in `docs/plugin-hosts.md` and [ADR-0047](../../docs/adr/10-process/0047-the-picture-reaches-a-host-by-three-routes.md).

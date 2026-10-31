@@ -1,6 +1,6 @@
 # Role Reviews
 
-A round records what reviewers saw and what the accountable person decided ([ADR-0037](../adr/view/0037-review-records-and-attribution.md); the file convention is [review-records.md](review-records.md)). This guide adds one thing on top of that: **how to run a round from several roles' points of view**, so that the notes cover the failures one reviewer would not think to look for.
+A round records what reviewers saw and what the accountable person decided ([ADR-0037](../adr/09-view/0037-review-records-and-attribution.md); the file convention is [review-records.md](review-records.md)). This guide adds one thing on top of that: **how to run a round from several roles' points of view**, so that the notes cover the failures one reviewer would not think to look for.
 
 Roles are not personas. A role differs from another role in exactly three ways:
 
@@ -18,7 +18,7 @@ Drop any of the three and two "roles" produce the same review with different voc
 
 | Role | Signs off on | Reads | Blind to |
 |---|---|---|---|
-| Requirements / product | measurable acceptance criteria per requirement | nothing machine-readable: requirements are prose ([ADR-0040](../adr/process/0040-process-entities-outside-the-language.md)) | the implementation |
+| Requirements / product | measurable acceptance criteria per requirement | nothing machine-readable: requirements are prose ([ADR-0040](../adr/10-process/0040-process-entities-outside-the-language.md)) | the implementation |
 | System architect | interface table, power tree, clock tree | `system` shards, every board's `ports` and `constraints` | module internals |
 | Project manager | milestones, long-lead risk register, baseline freeze | the risk list and dates | electrical detail |
 | Accountable person (`owner`) | the decision file | the notes | — (may not write notes of its own in the same round) |
@@ -79,7 +79,7 @@ The target enum is `board:<id>`, `page:<id>` and `component:<id>`. A review whos
 | Gap | Consequence |
 |---|---|
 | The target enum has no `system:` or `project:` | cross-board rounds must be filed against a board (see above) |
-| Requirements, interface tables and analyses are outside the language ([ADR-0040](../adr/process/0040-process-entities-outside-the-language.md)) | requirement coverage can never be a `check` result; it is a reviewer's judgement with citations |
-| `owner` is an accepted `project.toml` key but is deliberately outside the IR ([ADR-0037](../adr/view/0037-review-records-and-attribution.md) D5) | nothing downstream can read who is accountable from a shard; `check` reads `project.toml` directly |
+| Requirements, interface tables and analyses are outside the language ([ADR-0040](../adr/10-process/0040-process-entities-outside-the-language.md)) | requirement coverage can never be a `check` result; it is a reviewer's judgement with citations |
+| `owner` is an accepted `project.toml` key but is deliberately outside the IR ([ADR-0037](../adr/09-view/0037-review-records-and-attribution.md) D5) | nothing downstream can read who is accountable from a shard; `check` reads `project.toml` directly |
 
 None of these stops a review from being useful today: the notes and the decision are files, and the evidence in them is checkable by reading the cited lines.

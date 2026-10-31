@@ -1,6 +1,6 @@
 # 自建封装库：怎么让 agent（或人）造封装
 
-> 依据：[ADR-0030](../adr/libraries/0030-footprint-format-and-geometry.md) D1（几何不进语言）、[ADR-0030](../adr/libraries/0030-footprint-format-and-geometry.md) D3、D4（**源是 `.teda`**，IR 是编译产物，KiCad 格式是导出产物）、[spec/footprint.md](../../spec/footprint.md)（语法）。
+> 依据：[ADR-0030](../adr/08-libraries/0030-footprint-format-and-geometry.md) D1（几何不进语言）、[ADR-0030](../adr/08-libraries/0030-footprint-format-and-geometry.md) D3、D4（**源是 `.teda`**，IR 是编译产物，KiCad 格式是导出产物）、[spec/footprint.md](../../spec/footprint.md)（语法）。
 > 一句话：**几何与 3D 不进 `.teda` 板描述；它们落在项目自建的封装库里，库用 `.teda` 写，编译成 IR，再导出成 KiCad。**
 
 ## 为什么不是"把 3D 尺寸写进 teda"
@@ -30,9 +30,9 @@
 )
 ```
 
-参考工程**全部自建**：`examples/reference-project/` 下没有一个器件指向外部库，每个器件的 `symbol` / `footprint` 都指向本工程的分类目录（如 `footprint sot:sot-23-5`），源文件在 `assets/symbols/<category>/` 与 `assets/footprints/<family>/`（[ADR-0049](../adr/libraries/0049-assets-are-filed-by-what-they-are.md)）。
+参考工程**全部自建**：`examples/reference-project/` 下没有一个器件指向外部库，每个器件的 `symbol` / `footprint` 都指向本工程的分类目录（如 `footprint sot:sot-23-5`），源文件在 `assets/symbols/<category>/` 与 `assets/footprints/<family>/`（[ADR-0049](../adr/08-libraries/0049-assets-are-filed-by-what-they-are.md)）。
 
-要拿 KiCad 官方库的封装，不登记、不加依赖：用 `texteda lib import` 把需要的封装（连同它们的 symbol 与 component）拷进 `assets/`，之后它就是本工程的封装，引用写它落地的那个分类目录。`external/libs/**` 不是依赖（[ADR-0034](../adr/libraries/0034-trust-in-a-library-you-do-not-own.md)），做法见 [library-import.md](library-import.md)。
+要拿 KiCad 官方库的封装，不登记、不加依赖：用 `texteda lib import` 把需要的封装（连同它们的 symbol 与 component）拷进 `assets/`，之后它就是本工程的封装，引用写它落地的那个分类目录。`external/libs/**` 不是依赖（[ADR-0034](../adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md)），做法见 [library-import.md](library-import.md)。
 
 ## 造封装的流程
 
@@ -115,7 +115,7 @@ bun run export:footprint dist/ir/footprints/sot/sot-23-5.json --out dist/footpri
 
 - `fp-lib-table` 登记分类目录（`sot`，见上）：一个分类目录对应一个 `.pretty`。
 - `component` 里：`footprint sot:sot-23-5`，`symbol` 指向对应分类目录下的符号（`symbol <category>:<id>`）。
-- `project.toml` 里**没有**库登记项：自建库就是工程的 `assets/`，没有版本锚点、没有 `content_hash`（`[libs]` 已撤销，[ADR-0034](../adr/libraries/0034-trust-in-a-library-you-do-not-own.md)）。库级的闭环由 `bun run lib:verify` 当场校验（引用可解析、引脚号与焊盘号对齐、KiCad 能读、DRC 0 违规）。
+- `project.toml` 里**没有**库登记项：自建库就是工程的 `assets/`，没有版本锚点、没有 `content_hash`（`[libs]` 已撤销，[ADR-0034](../adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md)）。库级的闭环由 `bun run lib:verify` 当场校验（引用可解析、引脚号与焊盘号对齐、KiCad 能读、DRC 0 违规）。
 
 ### 6. 看一眼（不用 KiCad）
 
@@ -125,7 +125,7 @@ bun run preview component bq24610rger         # 器件的符号 + 封装两张�
 bun run preview footprint sot-23-5 --scale 20 # 放大看焊盘与丝印的细节
 ```
 
-**改完封装先跑这个**。参考渲染器（`packages/renderer`，[ADR-0036](../adr/view/0036-our-own-reference-renderer.md)）把 IR 画成 SVG：焊盘位置与尺寸、courtyard、F.Fab、丝印、属性文字都在图上，而且**渲染约定与 KiCad 一致**（逐项比对过，见 [ADR-0036](../adr/view/0036-our-own-reference-renderer.md) decision 6）——所以这张图能当 KiCad 的预演看。
+**改完封装先跑这个**。参考渲染器（`packages/renderer`，[ADR-0036](../adr/09-view/0036-our-own-reference-renderer.md)）把 IR 画成 SVG：焊盘位置与尺寸、courtyard、F.Fab、丝印、属性文字都在图上，而且**渲染约定与 KiCad 一致**（逐项比对过，见 [ADR-0036](../adr/09-view/0036-our-own-reference-renderer.md) decision 6）——所以这张图能当 KiCad 的预演看。
 
 看图抓的是 DRC 抓不到的：丝印压焊盘（DRC 才报）、courtyard 圈小了没罩住焊盘、丝印线画到了板边外、1 脚标记没画。
 
@@ -145,7 +145,7 @@ bun run smoke:footprint            # 用 examples/reference-project/assets/footp
 
 > 预览（第 6 步）**不需要 KiCad**；冒烟（第 7 步）需要——它验的是"我们的导出 KiCad 能读"，这是下游契约，故意依赖 KiCad。
 
-## 工具必须替人查的（[ADR-0030](../adr/libraries/0030-footprint-format-and-geometry.md) decision 7）
+## 工具必须替人查的（[ADR-0030](../adr/08-libraries/0030-footprint-format-and-geometry.md) decision 7）
 
 1. 封装存在、`lib:name` 能解析到具体封装；
 2. **pad 号集合 ⊇ sch 引脚编号集合**：少一个 → 错误；多一个 → 警告；

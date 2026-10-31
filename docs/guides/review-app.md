@@ -2,10 +2,10 @@
 
 `texteda review` serves the review app: the project's drawings, drawn by the renderer, with
 hover and click so a reviewer can ask "what is this, and what is it on" without leaving the drawing.
-Decision: [ADR-0035](../adr/view/0035-the-view-layer-is-a-drawing.md) (D7 records the form
-this first version takes), [ADR-0042](../adr/view/0042-the-review-app-has-modes.md)
+Decision: [ADR-0035](../adr/09-view/0035-the-view-layer-is-a-drawing.md) (D7 records the form
+this first version takes), [ADR-0042](../adr/09-view/0042-the-review-app-has-modes.md)
 (the modes, and what each may write) and
-[ADR-0048](../adr/view/0048-the-review-app-shows-drawings.md) (what the app shows: drawings,
+[ADR-0048](../adr/09-view/0048-the-review-app-shows-drawings.md) (what the app shows: drawings,
 not boards).
 
 ## Run it
@@ -44,7 +44,7 @@ as the served one; `Layout` and `Edit` show, but cannot write.
 ## What the app shows
 
 The app shows **drawings**, and there are four kinds of them
-([ADR-0048](../adr/view/0048-the-review-app-shows-drawings.md) D1):
+([ADR-0048](../adr/09-view/0048-the-review-app-shows-drawings.md) D1):
 
 | Kind | What it is | Where it comes from |
 |---|---|---|
@@ -78,7 +78,7 @@ inside a closed class opens it.
 The board's own canvas, drawn from the `pcb` description and the footprints it places — the answer
 to "where did this part land, and what copper is it on". It is read-only by design: the copper, the
 zones and the spacing belong to the agent-driven layout loop, not to a browser
-([ADR-0017](../adr/pcb/0017-layout-and-routing-are-agent-driven.md)). Clicking lights one net's
+([ADR-0017](../adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)). Clicking lights one net's
 pads, tracks and vias, and the status line names it; a part's reference and value are printed only
 where the board's `silk` section says so (spec/pcb.md §4.10), so the canvas shows what the board
 will print. Here the click is resolved from the drawing's own objects, so what is picked is what
@@ -88,8 +88,8 @@ was drawn — a pad, a track, a via — and not an invisible box around it.
 
 The bar above the drawing says what a press means. One code path serves the drawing, the hover and
 the selection in every mode; the mode decides what a click means, and the drawing decides what the
-canvas holds ([ADR-0042](../adr/view/0042-the-review-app-has-modes.md) D1,
-[ADR-0048](../adr/view/0048-the-review-app-shows-drawings.md) D2).
+canvas holds ([ADR-0042](../adr/09-view/0042-the-review-app-has-modes.md) D1,
+[ADR-0048](../adr/09-view/0048-the-review-app-shows-drawings.md) D2).
 
 | Mode | Draws | A click | Can write |
 |---|---|---|---|
@@ -120,7 +120,7 @@ that depend on them. `design/**`, the IR and the build hash are never touched (A
 - **An unsaved edit survives the move.** If the editor holds text that was never saved, it rides
   along with the layout request and the write is *that* text with the moved rows applied — a drag
   never silently discards what was typed. Without an edit the file on disk is the base, as before
-  ([ADR-0042](../adr/view/0042-the-review-app-has-modes.md) D6).
+  ([ADR-0042](../adr/09-view/0042-the-review-app-has-modes.md) D6).
 - **Routing is not live.** The drawing is not re-routed during the drag, and a move can introduce a
   readability finding (a wire through a symbol's body, a label off its net). `Apply` writes, the
   server re-checks, and the left column says what the move did. That report is the point: the app
@@ -139,7 +139,7 @@ from its ink, so a 0402 body — a 0.4 mm stroke — is as easy to hit as a QFP.
 - **`review` writes nothing back.** The app adds behaviour to the SVG it is given; the drawing is
   not regenerated, and there is no way to move a symbol from the `review` canvas (ADR-0035,
   AGENTS.md §2 invariant 3). The `layout` mode is the one exception: it writes `place`
-  rows, never `design/**` ([ADR-0042](../adr/view/0042-the-review-app-has-modes.md) D3).
+  rows, never `design/**` ([ADR-0042](../adr/09-view/0042-the-review-app-has-modes.md) D3).
 
 ## Interaction
 
@@ -157,11 +157,11 @@ from its ink, so a 0402 body — a 0.4 mm stroke — is as easy to hit as a QFP.
 
 These bindings are the page modes'. `Layout` adds `r` (turn the selection), `Ctrl+Enter` (apply)
 and `Esc` (drop the moves), and its drag moves the symbol instead of panning
-([ADR-0042](../adr/view/0042-the-review-app-has-modes.md) D4). The source jump is an explicit
+([ADR-0042](../adr/09-view/0042-the-review-app-has-modes.md) D4). The source jump is an explicit
 action in `Review` and `Layout`: double-click or press `Enter`; a single click only selects. In
 `Edit` a single click is the jump, because the source is on screen and there is nothing to select.
 The definitions come from the advisory
-`dist/ir/identity.json` written by `texteda ir` ([ADR-0004](../adr/language/0004-source-spans.md),
+`dist/ir/identity.json` written by `texteda ir` ([ADR-0004](../adr/01-language/0004-source-spans.md),
 2026-10-26 amendment), so the app never re-parses a file.
 
 `vscode://file/...` is handled by whatever the user has bound to that URI scheme. A static
@@ -188,7 +188,7 @@ says how much of the sheet it takes and how far it is from comfortable
   it there, so the reviewer does not have to hunt for it on the sheet. The way there is the identity
   index the app already had: the finding names a place in a file, and the index says which object
   sits at that place and where else it appears
-  ([ADR-0048](../adr/view/0048-the-review-app-shows-drawings.md) D5).
+  ([ADR-0048](../adr/09-view/0048-the-review-app-shows-drawings.md) D5).
 - **The measurements are the core's own.** The app measures nothing itself: it reports what
   `packages/core`'s measurement says, and a page that cannot be measured shows no numbers rather
   than a wrong one.
@@ -200,10 +200,10 @@ says how much of the sheet it takes and how far it is from comfortable
   (ADR-0042 D5). A move that creates a finding is reported, not repaired.
 - **Board editing.** The board canvas is read-only: moving a part on the board, routing copper,
   editing the stackup belong to the agent-driven layout loop
-  ([ADR-0017](../adr/pcb/0017-layout-and-routing-are-agent-driven.md)), not to the review app.
+  ([ADR-0017](../adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)), not to the review app.
 - **A write from the static report.** `--out` has no server, so nothing can be applied or saved.
 - **Note anchors** (`[instance:U3]` prefixes), which are an open point of
-  [ADR-0037](../adr/view/0037-review-records-and-attribution.md).
+  [ADR-0037](../adr/09-view/0037-review-records-and-attribution.md).
 
 ## When it looks wrong
 

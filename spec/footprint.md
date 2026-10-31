@@ -1,6 +1,6 @@
 # `footprint` 描述规范（草案）
 
-状态：草案。决策与取舍见 `docs/adr/libraries/0030-footprint-format-and-geometry.md`；跨描述通用的词法、单位、版本、canonical 规则见 `teda.md` §3–§5、§10、§12。
+状态：草案。决策与取舍见 `docs/adr/08-libraries/0030-footprint-format-and-geometry.md`；跨描述通用的词法、单位、版本、canonical 规则见 `teda.md` §3–§5、§10、§12。
 
 本文件是 `teda.md` 的分描述补充：`.teda` 语言的共用规则在 `teda.md`，`footprint` 这一类描述的具体段定义在这里。
 
@@ -10,13 +10,13 @@
 
 `footprint` 描述表达**一个封装的规范几何**：焊盘、图形、属性、3D 模型引用。
 
-三条底线（`AGENTS.md` §2、[ADR-0030](../docs/adr/libraries/0030-footprint-format-and-geometry.md) decision 1）：
+三条底线（`AGENTS.md` §2、[ADR-0030](../docs/adr/08-libraries/0030-footprint-format-and-geometry.md) decision 1）：
 
 1. **几何不进板描述**。`pcb` 描述里只有 `component.footprint`（`lib:name` 引用），没有焊盘尺寸、没有 3D 尺寸。几何是器件库的事实。
-2. **源格式是 `.teda`，IR 是编译产物**。agent 的工作面是 `.teda` 源码 + 校验报告（[ADR-0005](../docs/adr/ir/0005-ir-representation.md) decision 5），不是 IR JSON。
+2. **源格式是 `.teda`，IR 是编译产物**。agent 的工作面是 `.teda` 源码 + 校验报告（[ADR-0005](../docs/adr/02-ir/0005-ir-representation.md) decision 5），不是 IR JSON。
 3. **KiCad 格式是导出产物**。`.kicad_mod` 与板文件内联块都由 `packages/exporter` 从 IR 生成；库的几何改动**不回写** IR 之外的东西。
 
-`footprint` 描述是**库产物**，不是板描述：它不进 `dist/ir/` 的描述分片树，而进库目录（`assets/footprints/<lib>/`），单独编译；它作为工程资产进入构建身份（规范分片），没有单独的库哈希（[ADR-0030](../docs/adr/libraries/0030-footprint-format-and-geometry.md) D6）。
+`footprint` 描述是**库产物**，不是板描述：它不进 `dist/ir/` 的描述分片树，而进库目录（`assets/footprints/<lib>/`），单独编译；它作为工程资产进入构建身份（规范分片），没有单独的库哈希（[ADR-0030](../docs/adr/08-libraries/0030-footprint-format-and-geometry.md) D6）。
 
 ---
 
@@ -39,11 +39,11 @@ footprint sot-23-5
 
 | 键 | 必填 | 说明 |
 |---|---|---|
-| `rev` | 否 | 该文件的事实最后确立的那个发布名（[ADR-0034](../docs/adr/libraries/0034-trust-in-a-library-you-do-not-own.md)）。不写也能用：只有信任记录需要它 |
+| `rev` | 否 | 该文件的事实最后确立的那个发布名（[ADR-0034](../docs/adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md)）。不写也能用：只有信任记录需要它 |
 | `description` | 否 | 自由文本。进 IR 的 `description`。 |
 | `tags` | 否 | 空格分隔的标签列表（KiCad 的 `tags` 是一个空格分隔的字符串）。 |
 | `attr` | 否 | `smd` / `through_hole` / `virtual` / `board_only`；缺省按焊盘推断（全 `smd` → `smd`）。 |
-| `package_code` | 否 | 这块焊盘图案的封装代号，如 `0402`、`SOT-23-5`、`LQFP-100`。器件文件不再写封装名，封装代号由这里说（决策见 [ADR-0028](../docs/adr/devices/0028-package-code-and-3d-models.md) decision 1）。库级检查要求每个封装都写明自己的代号。**两脚片式封装写 JEDEC（英制）代号**：`0402`，不写 IEC 公制 `1005` —— 同一个封装的两种拼法是两个代号，而工具按代号查表（片式电阻的功率底线按 `0402` 这类代号给，[ADR-0027](../docs/adr/devices/0027-the-package-gives-a-chip-resistor-its-floor.md) D3）；写公制不报错，但那条底线就查不到，实例会被计成未比较。 |
+| `package_code` | 否 | 这块焊盘图案的封装代号，如 `0402`、`SOT-23-5`、`LQFP-100`。器件文件不再写封装名，封装代号由这里说（决策见 [ADR-0028](../docs/adr/07-devices/0028-package-code-and-3d-models.md) decision 1）。库级检查要求每个封装都写明自己的代号。**两脚片式封装写 JEDEC（英制）代号**：`0402`，不写 IEC 公制 `1005` —— 同一个封装的两种拼法是两个代号，而工具按代号查表（片式电阻的功率底线按 `0402` 这类代号给，[ADR-0027](../docs/adr/07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md) D3）；写公制不报错，但那条底线就查不到，实例会被计成未比较。 |
 | `model` | 否 | 3D 模型：`model <path> [offset=x,y,z] [scale=x,y,z] [rot=x,y,z]`。`path` 是项目相对路径。 |
 | `field` | 否 | 属性，可重复：`field <Name> [key=value …] <text…>`。可选键：`at`（`x,y`）、`layer`、`hide`（`yes`）、`size`（`w,h`）、`thickness`。`text` 是**行尾剩余文本**（可为空），所以 `key=value` 必须写在值之前。常见 `Reference` / `Value` / `Datasheet`。 |
 
@@ -73,7 +73,7 @@ pads
 
 | 列 | 取值 | 单位 |
 |---|---|---|
-| `number` | 焊盘号，必须与符号引脚编号一致（[ADR-0030](../docs/adr/libraries/0030-footprint-format-and-geometry.md) decision 7） | — |
+| `number` | 焊盘号，必须与符号引脚编号一致（[ADR-0030](../docs/adr/08-libraries/0030-footprint-format-and-geometry.md) decision 7） | — |
 | `type` | `smd` / `th` | — |
 | `shape` | `rect` / `roundrect` / `oval` / `circle` | — |
 | `x` `y` | 焊盘中心，原点在封装中心，+x 向右、+y 向下 | 长度 |
@@ -131,7 +131,7 @@ graphics
 
 长度的列类型给出默认单位 **mm**，可显式写 `mm` / `mil` / `in` / `m`（`teda.md` §10.2）。角度默认 **度**，可写 `deg`。
 
-换算只发生在边界：`.teda` 解析进来时换算成 **整数纳米 / 整数毫度**（[ADR-0005](../docs/adr/ir/0005-ir-representation.md) decision 3）；换算结果不是整数时**报错**（"精度超过纳米"），不四舍五入。
+换算只发生在边界：`.teda` 解析进来时换算成 **整数纳米 / 整数毫度**（[ADR-0005](../docs/adr/02-ir/0005-ir-representation.md) decision 3）；换算结果不是整数时**报错**（"精度超过纳米"），不四舍五入。
 
 ---
 
@@ -143,7 +143,7 @@ graphics
 2. `graphics` 的 `geometry` 单元格点数与 `kind` 匹配；`poly` 点数 ≥ 3。
 3. `field` 的 `Name` 唯一。
 4. 编译产物必须通过 `schemas/ir/v0.3/footprint.schema.json`（closed schema）。
-5. 库级检查（与符号引脚号比对、DRC）不属于本描述，属工具链（[ADR-0030](../docs/adr/libraries/0030-footprint-format-and-geometry.md) decision 7）。
+5. 库级检查（与符号引脚号比对、DRC）不属于本描述，属工具链（[ADR-0030](../docs/adr/08-libraries/0030-footprint-format-and-geometry.md) decision 7）。
 6. 编译产物的顺序只依赖语义，不依赖源文件书写顺序：`pads` 按号自然序、`graphics` 按 `(kind, layer, 坐标)`、`fields` 按 `Name`、`tags` 按字节序。同一封装换个写法编译出的 IR 必须字节相同（这是产物可复现、diff 有意义的前提）。
 
 诊断格式：`file:line:col: <severity> <code>: <message>`。

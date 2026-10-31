@@ -1,7 +1,7 @@
 # Renumbering reference designators
 
 `texteda renumber` performs a **global rename** of reference designators under one validated
-mapping ([ADR-0011](../adr/project/0011-renumbering-is-a-code-executed-rename.md)). It is not `fmt`:
+mapping ([ADR-0011](../adr/03-project/0011-renumbering-is-a-code-executed-rename.md)). It is not `fmt`:
 the formatter only changes layout, while renumbering changes names, references and the project hash.
 Never hand-edit numbers and never ask an agent to edit them one by one.
 
@@ -83,10 +83,10 @@ a module **port** name, not an instance reference; only `M1.U1.6` and longer for
 Comments and prose are not parsed; Markdown files under the project
 root that still mention an old name are reported with file and line (build output and caches are
 skipped), and left for a person to edit
-([ADR-0037](../adr/view/0037-review-records-and-attribution.md)).
+([ADR-0037](../adr/09-view/0037-review-records-and-attribution.md)).
 
 The instance `uid` is preserved. References are still names, so a renumber still changes the source
-and the project hash ([ADR-0010](../adr/project/0010-instance-identity-is-a-uid.md)).
+and the project hash ([ADR-0010](../adr/03-project/0010-instance-identity-is-a-uid.md)).
 
 ## Dry run, apply and hashes
 

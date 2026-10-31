@@ -9,7 +9,7 @@
 ## `common`
 
 - schema: `urn:texteda:ir:0.14:common`
-- Scalars, identity patterns and unit conventions shared by all shards. The field-name suffix is the unit: _nm nanometers, _mdeg millidegrees, _mohm milliohms, _uv microvolts, _na nanoamps, _uw microwatts, _mhz millihertz, _mdegc millidegrees Celsius, _ppm parts per million, _uohm microohms, _ff femtofarads, _ph picohenries. Rules: docs/adr/ir/0006-ir-shards-and-hashes.md.
+- Scalars, identity patterns and unit conventions shared by all shards. The field-name suffix is the unit: _nm nanometers, _mdeg millidegrees, _mohm milliohms, _uv microvolts, _na nanoamps, _uw microwatts, _mhz millihertz, _mdegc millidegrees Celsius, _ppm parts per million, _uohm microohms, _ff femtofarads, _ph picohenries. Rules: docs/adr/02-ir/0006-ir-shards-and-hashes.md.
 
 ### Top-level
 

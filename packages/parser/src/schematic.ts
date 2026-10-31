@@ -380,7 +380,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
         typeLine.number,
         typeLine.cells[0]!.col,
         {
-          hint: "merge this file's instances, nets and constraints into sch/<board_id>.teda and delete the pages section; see teda.md §13.4 and docs/adr/schematic/0012-one-flat-schematic-per-board.md",
+          hint: "merge this file's instances, nets and constraints into sch/<board_id>.teda and delete the pages section; see teda.md §13.4 and docs/adr/04-schematic/0012-one-flat-schematic-per-board.md",
         },
       );
     } else {
@@ -442,7 +442,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
         line.number,
         cells[0]!.col,
         {
-          hint: "merge the page files' instances, nets and constraints into this file and delete the pages section; see teda.md §13.4 and docs/adr/schematic/0012-one-flat-schematic-per-board.md",
+          hint: "merge the page files' instances, nets and constraints into this file and delete the pages section; see teda.md §13.4 and docs/adr/04-schematic/0012-one-flat-schematic-per-board.md",
         },
       );
       continue;

@@ -12,8 +12,8 @@
     "packages/*"
   ],
   "scripts": {
-    "gen": "bun run --cwd packages/ir gen",
-    "gen:check": "bun run --cwd packages/ir gen --check",
+    "gen": "bun run --cwd packages/ir gen && bun run scripts/api-reference.ts",
+    "gen:check": "bun run --cwd packages/ir gen --check && bun run scripts/api-reference.ts --check",
     "test": "bun test --timeout 30000",
     "typecheck": "tsc -p packages/geom --noEmit && tsc -p packages/core --noEmit && tsc -p packages/ir --noEmit && tsc -p packages/exporter --noEmit && tsc -p packages/parser --noEmit && tsc -p packages/renderer --noEmit && tsc -p packages/cli --noEmit && tsc -p packages/viewer --noEmit && tsc -p plugins/pi-texteda --noEmit && tsc -p plugins/dsh-texteda --noEmit",
     "texteda": "bun run packages/cli/scripts/texteda.ts",

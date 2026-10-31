@@ -87,7 +87,7 @@ Procedure:
 ### 2.2 Mode B: human-owned placement, agent wiring (the finish)
 
 This is the finish, not a seed: the renderer never places anything
-([ADR-0035](../adr/view/0035-the-view-layer-is-a-drawing.md) decision 6). The human owns the final positions
+([ADR-0035](../adr/09-view/0035-the-view-layer-is-a-drawing.md) decision 6). The human owns the final positions
 (however they were seeded), the agent writes the wires, and the human reviews the wired page.
 The initial placement can come from a reference, an agent proposal, or the human.
 
@@ -151,7 +151,7 @@ symbol; only the absolute bends can go stale (and then `view.wire-diagonal` or a
 collision appears; a crossing is not stale by itself).
 The agent re-routes the affected nets; the human is not asked to hand-fix the wires. When the human
 does edit a wire by hand, that edit is source: do not run a wholesale regenerator over it
-([ADR-0035](../adr/view/0035-the-view-layer-is-a-drawing.md)). Re-route only on an explicit
+([ADR-0035](../adr/09-view/0035-the-view-layer-is-a-drawing.md)). Re-route only on an explicit
 request and show the diff.
 
 The `layout` mode is the one place a human moves a symbol from the canvas: select one symbol, drag
@@ -164,7 +164,7 @@ pins down move. Until `Apply` the page is stale: the old wires stay with stale b
 readability finding (a wire through a body, a label off its net); `texteda check` reports it after
 `Apply`, and the app shows it in the findings column. Do not run a router on every drag frame.
 Placement snaps to 1.27 mm; the view's 0.01 mm grid is storage precision. One symbol at a time.
-Built per [ADR-0042](../adr/view/0042-the-review-app-has-modes.md) D3 / D5.
+Built per [ADR-0042](../adr/09-view/0042-the-review-app-has-modes.md) D3 / D5.
 
 ## 3. The command loop
 
@@ -288,11 +288,11 @@ bun run test packages/cli/test/view-roundtrip.test.ts packages/cli/test/view.tes
 - [`spec/schematic-view.md`](../../spec/schematic-view.md) §5 (wire),
   [`spec/schematic-view.md`](../../spec/schematic-view.md) §9.2 (warnings),
   [`spec/schematic-view.md`](../../spec/schematic-view.md) §9.5 (round-trip).
-- [ADR-0035](../adr/view/0035-the-view-layer-is-a-drawing.md) D1: the view is an independent description; the
+- [ADR-0035](../adr/09-view/0035-the-view-layer-is-a-drawing.md) D1: the view is an independent description; the
   renderer draws but never places.
-- [ADR-0035](../adr/view/0035-the-view-layer-is-a-drawing.md) D4、D5: a view is kept, advisory and not
+- [ADR-0035](../adr/09-view/0035-the-view-layer-is-a-drawing.md) D4、D5: a view is kept, advisory and not
   a build input.
-- [ADR-0014](../adr/schematic/0014-connectivity-has-one-authority.md): the schematic decides
+- [ADR-0014](../adr/04-schematic/0014-connectivity-has-one-authority.md): the schematic decides
   connectivity; geometry never does.
 - [`docs/skills/new-project.md`](new-project.md): the other end of the toolchain (project →
   netlist).
