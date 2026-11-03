@@ -75,7 +75,7 @@ describe("version acceptance", () => {
   });
 
   test("rejects a version the tool does not implement", () => {
-    const verdict = checkVersion("0.10", range, "view");
+    const verdict = checkVersion("0.11", range, "view");
     expect(verdict.ok).toBe(false);
     expect(verdict.ok === false && verdict.code).toBe("format.unsupported-version");
   });
@@ -85,18 +85,18 @@ describe("version acceptance", () => {
     // patch bit never decides (a patch does not change the accepted file set).
     for (const type of ALL_TYPES) {
       const range = typeRange(type);
-      for (const text of ["0.9.1", "0.9", "0.9.0", "0.9.99"]) {
+      for (const text of ["0.10", "0.10.0", "0.10.1", "0.10.99"]) {
         expect({ type, text, ok: checkVersion(text, range, type).ok }).toEqual({ type, text, ok: true });
       }
     }
   });
 
   test("every description type refuses a version the language has not reached", () => {
-    // 0.10 is beyond the language's current MINOR, and 1.0 is the frozen-surface milestone — neither
+    // 0.11 is beyond the language's current MINOR, and 1.0 is the frozen-surface milestone — neither
     // is implemented, for any type.
     for (const type of ALL_TYPES) {
       const range = typeRange(type);
-      for (const text of ["0.10", "1.0"]) {
+      for (const text of ["0.11", "1.0"]) {
         const verdict = checkVersion(text, range, type);
         expect({ type, text, ok: verdict.ok }).toEqual({ type, text, ok: false });
         expect(verdict.ok === false && verdict.code).toBe("format.unsupported-version");
@@ -151,11 +151,11 @@ describe("version acceptance", () => {
     expect(floors.size).toBeGreaterThan(1);
   });
 
-  test("a board file keeps the whole 0.1..0.9 window", () => {
+  test("a board file keeps the whole 0.1..0.10 window", () => {
     // A board gained sections over time (ports at 0.2, modules at 0.8, instance UIDs at 0.9), so the
-    // window stays open: a flat board may still say 0.2 while a board that carries UIDs says 0.9.
+    // window stays open: a flat board may still say 0.2 while a board that carries UIDs says 0.9 or later.
     const schematic = typeRange("schematic");
-    for (const text of ["0.2", "0.7", "0.8", "0.9"]) {
+    for (const text of ["0.2", "0.7", "0.8", "0.9", "0.9.2", "0.10.0"]) {
       expect({ text, ok: checkVersion(text, schematic, "schematic").ok }).toEqual({ text, ok: true });
     }
     expect(checkVersion("1.0", schematic, "schematic").ok).toBe(false);
@@ -191,7 +191,7 @@ describe("parsers accept a patch version", () => {
   test("a schematic file may declare the current language version", () => {
     // The upper bound is the language version the tool supports, not the version that introduced
     // the type: a board written today declares the language's number, not 0.3.
-    const result = parseSchematicDocument("version 0.9.1\nschematic b\n", { file: "b.teda" });
+    const result = parseSchematicDocument("version 0.10.0\nschematic b\n", { file: "b.teda" });
     expect(result.ok).toBe(true);
   });
 

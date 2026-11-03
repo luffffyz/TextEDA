@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.14",
+  "ir_version": "0.15",
   "source": {
     "file": "assets/symbols/connectors/hdr-2x5.teda",
     "line": 1
@@ -8,14 +8,14 @@
     "body": [
       {
         "end": {
-          "x_nm": 3810000,
-          "y_nm": 6350000
+          "x_nm": 4500000,
+          "y_nm": 6000000
         },
         "fill": "background",
         "kind": "rect",
         "start": {
-          "x_nm": -3810000,
-          "y_nm": -6350000
+          "x_nm": -4500000,
+          "y_nm": -6000000
         },
         "unit": 1,
         "width_nm": 254000
@@ -26,7 +26,7 @@
       {
         "at": {
           "x_nm": 0,
-          "y_nm": 7620000
+          "y_nm": 7500000
         },
         "name": "Reference",
         "value": "J"
@@ -34,7 +34,7 @@
       {
         "at": {
           "x_nm": 0,
-          "y_nm": -7620000
+          "y_nm": -7500000
         },
         "name": "Value",
         "value": "hdr-2x5"
@@ -51,10 +51,10 @@
       {
         "at": {
           "rotation_mdeg": 0,
-          "x_nm": -5080000,
-          "y_nm": 5080000
+          "x_nm": -7000000,
+          "y_nm": -4000000
         },
-        "length_nm": 2540000,
+        "length_nm": 2500000,
         "number": "1",
         "style": "line",
         "unit": 1
@@ -62,10 +62,10 @@
       {
         "at": {
           "rotation_mdeg": 180000,
-          "x_nm": 5080000,
-          "y_nm": 5080000
+          "x_nm": 7000000,
+          "y_nm": -4000000
         },
-        "length_nm": 2540000,
+        "length_nm": 2500000,
         "number": "2",
         "style": "line",
         "unit": 1
@@ -73,10 +73,10 @@
       {
         "at": {
           "rotation_mdeg": 0,
-          "x_nm": -5080000,
-          "y_nm": 2540000
+          "x_nm": -7000000,
+          "y_nm": -2000000
         },
-        "length_nm": 2540000,
+        "length_nm": 2500000,
         "number": "3",
         "style": "line",
         "unit": 1
@@ -84,10 +84,10 @@
       {
         "at": {
           "rotation_mdeg": 180000,
-          "x_nm": 5080000,
-          "y_nm": 2540000
+          "x_nm": 7000000,
+          "y_nm": -2000000
         },
-        "length_nm": 2540000,
+        "length_nm": 2500000,
         "number": "4",
         "style": "line",
         "unit": 1
@@ -95,10 +95,10 @@
       {
         "at": {
           "rotation_mdeg": 0,
-          "x_nm": -5080000,
+          "x_nm": -7000000,
           "y_nm": 0
         },
-        "length_nm": 2540000,
+        "length_nm": 2500000,
         "number": "5",
         "style": "line",
         "unit": 1
@@ -106,10 +106,10 @@
       {
         "at": {
           "rotation_mdeg": 180000,
-          "x_nm": 5080000,
+          "x_nm": 7000000,
           "y_nm": 0
         },
-        "length_nm": 2540000,
+        "length_nm": 2500000,
         "number": "6",
         "style": "line",
         "unit": 1
@@ -117,10 +117,10 @@
       {
         "at": {
           "rotation_mdeg": 0,
-          "x_nm": -5080000,
-          "y_nm": -2540000
+          "x_nm": -7000000,
+          "y_nm": 2000000
         },
-        "length_nm": 2540000,
+        "length_nm": 2500000,
         "number": "7",
         "style": "line",
         "unit": 1
@@ -128,10 +128,10 @@
       {
         "at": {
           "rotation_mdeg": 180000,
-          "x_nm": 5080000,
-          "y_nm": -2540000
+          "x_nm": 7000000,
+          "y_nm": 2000000
         },
-        "length_nm": 2540000,
+        "length_nm": 2500000,
         "number": "8",
         "style": "line",
         "unit": 1
@@ -139,10 +139,10 @@
       {
         "at": {
           "rotation_mdeg": 0,
-          "x_nm": -5080000,
-          "y_nm": -5080000
+          "x_nm": -7000000,
+          "y_nm": 4000000
         },
-        "length_nm": 2540000,
+        "length_nm": 2500000,
         "number": "9",
         "style": "line",
         "unit": 1
@@ -150,10 +150,10 @@
       {
         "at": {
           "rotation_mdeg": 180000,
-          "x_nm": 5080000,
-          "y_nm": -5080000
+          "x_nm": 7000000,
+          "y_nm": 4000000
         },
-        "length_nm": 2540000,
+        "length_nm": 2500000,
         "number": "10",
         "style": "line",
         "unit": 1

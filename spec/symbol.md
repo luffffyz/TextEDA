@@ -49,7 +49,7 @@ symbol bq24610rger
 | `units` | 否 | 单元数，正整数，缺省 `1`。多单元器件（双运放等）写 `2`。 |
 | `pin_numbers` | 否 | `show` / `hide`，缺省 `show`。 |
 | `pin_names` | 否 | `show` / `hide`，缺省 `show`。 |
-| `pin_name_offset` | 否 | 引脚名相对**引脚内端**（贴符号体那一头）沿引脚方向向内的偏移，长度，缺省 `0.508`。与 KiCad 的 `(pin_names (offset …))` 同义。 |
+| `pin_name_offset` | 否 | 引脚名相对**引脚内端**（贴符号体那一头）沿引脚方向向内的偏移，长度，缺省 `0.508`。与 KiCad 的 `(pin_names (offset …))` 同义；参考 SVG 渲染器在有可见符号体时按 [ADR-0053](../docs/adr/09-view/0053-pin-name-body-clearance-is-measured-from-symbol-body-bounds.md) 以器件框内侧边缘的 `0.40` 间隙摆放，无可见符号体时仍使用这个偏移。
 | `power` | 否 | `yes` / `no`，缺省 `no`。电源符号（KiCad `(power)`）。 |
 | `in_bom` | 否 | `yes` / `no`，缺省 `yes`。 |
 | `on_board` | 否 | `yes` / `no`，缺省 `yes`。 |
@@ -74,9 +74,9 @@ symbol bq24610rger
 
 ```
 pins
-  1        -12.7  13.97   0
-  24       -2.54  19.05   270
-  25        2.54 -19.05   90  style=inverted
+  1        -12.5  -11.0   0
+  24       -1.0    19.0   270
+  25        1.0   -19.0   90  style=inverted
 ```
 
 固定列：`number x y rot`。**第一列是引脚号，不是引脚名**（引脚名归 `component`）。
@@ -84,7 +84,7 @@ pins
 | 列 | 取值 | 单位 |
 |---|---|---|
 | `number` | 引脚号，必须与 `component` 的引脚编号一致（库级检查） | — |
-| `x` `y` | 引脚**连接点**，+y 向上 | 长度 |
+| `x` `y` | 引脚**连接点**，+y 向上；落在 `0.5 mm` 网格上（见下） | 长度 |
 | `rot` | 引脚朝向：`0` 向右（左侧引脚）、`180` 向左（右侧）、`90` 向上（下方引脚）、`270` 向下（上方引脚） | 角度 |
 
 可选尾列（`key=value`，顺序任意，多余的键报错）：
@@ -96,6 +96,18 @@ pins
 | `style` | 引脚图形：`line`（缺省）/ `inverted` / `clock` / `inverted_clock` / `input_low` / `clock_low` / `output_low` / `edge_clock_high` / `non_logic` |
 
 引脚名与电气类型**不在这里**：导出时从 `component` 的 `pins` 表按编号查。查不到即错误（工具报"符号引脚在器件里不存在"）。
+
+### 4.1 引脚摆位网格
+
+**规则**（[ADR-0057](../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D1、D4）：引脚**连接点**与它的**内端**（尾端与本体重合的那一点）都是 `0.5 mm` 的整数倍，`length` 因此也是 `0.5 mm` 的整数倍。规则管的是**画的坐标**，不管器件的物理封装：焊盘坐标归 `footprint`，按数据手册取值，即使落不在这个网格上也不动（同一条记录 D6）。
+
+**为什么内端也算**：走线从引脚出发要能接到一个折点。只管连接点会把尾端留在任意偏移上，而尾端是读者在图上唯一看得见的引脚笔画。
+
+**常规引脚行的间距**是 `2.0 mm`（同一条记录 D2）：`2.0` 是同时为 `0.5` 的整数倍又为偶数的最小值，于是偶数脚的一侧关于 `0` 对称，每一行都落在网格上。`1.5 mm` 被否决——`1.5 × 奇数` 会产生 `.5` 的偏移，破坏 3 脚与 9 脚一侧的对称。例外仍是 `0.5` 的整数倍：100 脚的 `ch32v307vct6` 与 `bq24610rger` 的 12/9 脚两侧用 `2.5 mm`，让引脚号在密集排布下仍分得开；必须靠得很近的两个同侧脚（`dual-diode`、`sw-push`）用 `1.0 mm`。
+
+**可见矩形本体**的边是引脚尾端的落点，所以本体坐标也在网格上（同一条记录 D3）；纯装饰花纹（电阻的矩形、电感的四个拱、二极管的三角）保持原样，只让引脚行与尾端进网格。
+
+**连接器的画不是它的焊盘**（同一条记录 D5）：`hdr-1x4` / `jst-sh-4` / `hdr-1x3` / `hdr-2x5` 为了可读性把行画成 `2.0 mm` 间距，真实焊盘间距（`2.54 mm`、`1.0 mm`）写在 `footprint` 里。两个网格回答两个问题，都不许为对齐对方而凑整。
 
 ---
 
@@ -167,7 +179,7 @@ v0.1 不支持：文字标注（极性 `+`/`−`、功能名）、图片、贝�
 
 ## 9. 例子
 
-`examples/reference-project/symbols/project/bq24610rger.teda`（即 canonical form；`bun run fmt:teda --check examples/reference-project/symbols` 退出 0）：
+`examples/reference-project/assets/symbols/power/bq24610rger.teda`（即 canonical form；`bun run packages/parser/scripts/fmt-teda.ts --check examples/reference-project/assets/symbols` 退出 0）：
 
 ```
 version 0.9.2
@@ -175,18 +187,21 @@ symbol bq24610rger
 
 description 24V synchronous buck battery charger controller
 tags battery charger
-field Reference at=-6.35,17.78 U
-field Value at=0,-21.59 bq24610rger
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0057); rows are 2.0 mm apart on the 12/9-pin sides
+# and 2.5 mm on the 2-pin sides, and every tail is 2.5 mm.
+pin_name_offset 1.25
+field Reference at=-6.5,20 U
+field Value at=0,-20 bq24610rger
 
 pins
-  1   -12.7  13.97   0
-  2   -12.7  11.43   0
-  3    12.7   6.35   180
+  1   -12.5  -11  0    length=2.5
+  2   -12.5  -9   0    length=2.5
+  3    12.5   -8  180  length=2.5
   ...
-  25   2.54 -19.05   90
+  25   1     -19  90   length=2.5
 
 body
-  rect  -10.16,-16.51,10.16,16.51  fill=background  width=0.254
+  rect  -10,-16.5,10,16.5  fill=background  width=0.25
 ```
 
 配套的 `component`（`examples/reference-project/components/power/bq24610rger.teda`）提供引脚名与电气类型：

@@ -14,12 +14,15 @@ import type { ReviewModel } from "@texteda/viewer";
 import { clientScript } from "@texteda/viewer/build";
 import {
   commitPlan,
+  LayoutError,
   planLayout,
   renderPageSource,
   savePageSource,
+  type LayoutField,
+  type LayoutFieldRemoval,
   type LayoutPlace,
 } from "./layout.ts";
-import { buildReviewModel } from "./review-model.ts";
+import { buildReviewModel, reviewGeometry } from "./review-model.ts";
 
 export interface ReviewOptions {
   readonly root: string;
@@ -74,6 +77,34 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+
+function parseLayoutFields(value: unknown, key: "fields" | "remove_fields"): LayoutField[] | LayoutFieldRemoval[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new LayoutError(`${key} must be an array`);
+  return value.map((entry, index) => {
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new LayoutError(`${key}[${index}] must be an object`);
+    }
+    const object = entry as Record<string, unknown>;
+    if (typeof object["instance_id"] !== "string" || object["instance_id"].length === 0) {
+      throw new LayoutError(`${key}[${index}].instance_id must be a non-empty string`);
+    }
+    const expected = key === "fields" ? ["instance_id", "name", "x", "y"] : ["instance_id", "name"];
+    if (Object.keys(object).some((property) => !expected.includes(property)) || expected.some((property) => !(property in object))) {
+      throw new LayoutError(`${key}[${index}] must contain exactly ${expected.join(", ")}`);
+    }
+    if (object["name"] !== "Reference" && object["name"] !== "Value") {
+      throw new LayoutError(`${key}[${index}].name must be Reference or Value`);
+    }
+    const instance_id = object["instance_id"];
+    const name = object["name"];
+    if (key === "remove_fields") return { instance_id, name } as LayoutFieldRemoval;
+    if (typeof object["x"] !== "number" || !Number.isFinite(object["x"]) || typeof object["y"] !== "number" || !Number.isFinite(object["y"])) {
+      throw new LayoutError(`${key}[${index}].x and .y must be finite numbers`);
+    }
+    return { instance_id, name, x: object["x"], y: object["y"] } as LayoutField;
+  });
+}
 /**
  * The whole app as one document: styles, the model, the script.
  *
@@ -115,8 +146,8 @@ html, body { height: 100%; margin: 0; background: #131416; }
  * Both take the board and page from the request and check them against the model the server
  * already holds: a route may only touch a print page the project actually has, so a request cannot
  * name a path of its own. The layout route either plans (the browser draws the result and the user
- * decides) or commits (the file is written and the model is rebuilt). The edit route saves the
- * source it is given, in the formatter's form, and answers with the page as it is drawn.
+ * decides) or commits (the file is written and the model is rebuilt). The Source route saves the
+ * explicit Source-panel draft in the formatter's form, and answers with the page as it is drawn.
  */
 async function handleApi(
   root: string,
@@ -151,27 +182,40 @@ async function handleApi(
         return;
       }
       const places = Array.isArray(body["places"]) ? (body["places"] as LayoutPlace[]) : [];
-      // The editor's unsaved text, when the app holds one: the layout is computed on it and the
-      // write is it with the moved rows applied, so a drag cannot discard the edit (ADR-0042 D6).
-      const draft = typeof body["text"] === "string" ? { text: body["text"] } : {};
-      const plan = planLayout(root, { board: board.id, page: pageId, places, ...draft });
+      const fields = parseLayoutFields(body["fields"], "fields");
+      const remove_fields = parseLayoutFields(body["remove_fields"], "remove_fields");
+       // The editor's unsaved text, when the app holds one: the layout is computed on it and the
+       // write is it with the moved rows applied, so a drag cannot discard the edit (ADR-0042 D6).
+       const draft = typeof body["text"] === "string" ? { text: body["text"] } : {};
+      const request = { board: board.id, page: pageId, places, ...draft } as Parameters<typeof planLayout>[1];
+      if (fields !== undefined) request.fields = fields as LayoutField[];
+      if (remove_fields !== undefined) request.remove_fields = remove_fields as LayoutFieldRemoval[];
+      const plan = planLayout(root, request);
       if (body["commit"] === true) {
         commitPlan(root, plan);
         const after = rebuild();
+        const planned = reviewGeometry(plan.geometry);
         send(200, {
           changed: plan.changed,
           conflicts: plan.conflicts,
           reseated: plan.reseated,
           svg: plan.svg,
+          symbols: planned.symbols,
+          texts: planned.texts,
+          fields: planned.fields,
           model: after,
         });
         return;
       }
+      const planned = reviewGeometry(plan.geometry);
       send(200, {
         changed: plan.changed,
         conflicts: plan.conflicts,
         reseated: plan.reseated,
         svg: plan.svg,
+        symbols: planned.symbols,
+        texts: planned.texts,
+        fields: planned.fields,
       });
       return;
     }
@@ -219,14 +263,13 @@ function readBody(request: IncomingMessage): Promise<string> {
 /**
  * Serve the app on `127.0.0.1:port`, or write it to `outFile` and return.
  *
- * The server answers the document, and two write routes: the layout Apply and the edit mode's
- * save. Both own the file system: the browser asks, the server writes (ADR-0042 D9). The static
- * export (`--out`) has no routes at all — it is a document, not a server — and the app says so
- * when a write is asked of it.
+ * The server answers the document and two write routes: Apply for pending layout/view changes and
+ * the explicit Source-panel save. Both own the file system: the browser asks, the server writes
+ * (ADR-0042 D9). The static export (`--out`) has no routes at all — it is a document, not a server
+ * — and the app says so when a write is asked of it.
  */
 export async function runReview(options: ReviewOptions): Promise<number> {
   let model = { ...buildReviewModel(options.root), writable: true };
-  const html = await renderReviewHtml(model);
 
   if (options.outFile !== undefined) {
     const target = resolve(options.outFile);
@@ -251,14 +294,25 @@ export async function runReview(options: ReviewOptions): Promise<number> {
       response.end("not found\n");
       return;
     }
-    response.writeHead(200, {
-      "content-type": "text/html; charset=utf-8",
-      // The document is regenerated on every start; a cached copy would show a stale drawing.
-      "cache-control": "no-store",
-    });
-    response.end(html);
-  });
 
+    model = { ...buildReviewModel(options.root), writable: true };
+    void renderReviewHtml(model).then(
+      (document) => {
+        if (response.writableEnded) return;
+        response.writeHead(200, {
+          "content-type": "text/html; charset=utf-8",
+          // The document is regenerated on every request; a cached copy would show a stale drawing.
+          "cache-control": "no-store",
+        });
+        response.end(document);
+      },
+      (error: unknown) => {
+        if (response.writableEnded) return;
+        response.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+        response.end(error instanceof Error ? error.message : String(error));
+      },
+    );
+  });
   const listening = Promise.withResolvers<void>();
   server.once("error", listening.reject);
   server.listen(options.port, "127.0.0.1", listening.resolve);

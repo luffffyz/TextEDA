@@ -32,6 +32,7 @@
     "compile:schematic": "bun run packages/cli/scripts/texteda.ts compile",
     "export:symbol": "bun run scripts/export-symbol.ts",
     "fmt:teda": "bun run packages/parser/scripts/fmt-teda.ts",
+    "bench:schematic": "bun run scripts/benchmark-schematic.ts",
     "smoke:symbol": "bun run scripts/smoke-symbol.ts",
     "preview": "bun run scripts/preview.ts",
     "check": "bun run packages/cli/scripts/texteda.ts check",

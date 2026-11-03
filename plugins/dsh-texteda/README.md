@@ -65,8 +65,11 @@ A right-sidebar tab of kind `texteda-review`. Its body builds the model from the
 mounts the app; the project root is the session's `cwd`, so the tab reviews the project the session
 is working in.
 
-The tab offers `review` and `layout` only. `edit` is not offered: the source is the agent's to
-write, and the plugin grants no route that writes it (ADR-0043 D3, D6).
+A single interaction surface serves every drawing. Schematic clicks select only; the selected symbol can
+be moved with `m` and rotated with `r`, but this DSH host grants placement writes only. The PCB,
+symbol and footprint drawings are read-only. Source editing and field overrides are unavailable in
+this host: its capability is `{ write: "places" }`, and requests containing `fields`, `remove_fields`,
+or `text` are rejected with HTTP 400 rather than silently ignored (ADR-0043 D3, D6; [ADR-0056](../../docs/adr/09-view/0056-the-review-app-has-one-interaction-surface.md)).
 
 ### The two routes
 

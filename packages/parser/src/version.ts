@@ -68,12 +68,15 @@ export interface VersionRange {
  *
  * The language has one version number (ADR-0002): every `.teda` file declares the version of the
  * language it was written against, and it is the same for all description types. It is the `0.x`
- * line the whole language moves on while the surface is still open (ADR-0002 D2): `0.9` is
- * the last global MINOR, and `1.0` is a milestone reached by a decision, not a counter.
+ * line the whole language moves on while the surface is still open (ADR-0002 D2): `0.10` is the
+ * current global MINOR, and `1.0` is a milestone reached by a decision, not a counter.
  *
  * It is also the upper bound every description type accepts — there is no per-type ceiling.
  */
-export const SUPPORTED_LANGUAGE: LanguageVersion = { major: 0, minor: 9, patch: 2 };
+export const SUPPORTED_LANGUAGE: LanguageVersion = { major: 0, minor: 10, patch: 0 };
+
+/** The `view.field` section was introduced by language 0.10. */
+export const VIEW_FIELD_VERSION: LanguageVersion = { major: 0, minor: 10, patch: 0 };
 
 /** Every description type this implementation reads. */
 export type DescriptionType =

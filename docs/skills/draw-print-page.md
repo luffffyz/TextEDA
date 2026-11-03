@@ -17,7 +17,7 @@ and ports go where, and **which diagnostic code to look at when the page is wron
 The normative rules are not repeated here. The definitions live in
 [`spec/schematic-view.md`](../../spec/schematic-view.md) §5 and §9.2; the code table is
 `docs/error-codes.md`, generated from `packages/ir/src/diagnostics/codes.ts`. This skill only gives
-the command loop, the two authoring modes, and the repair action for each code.
+the command loop, the two layout-seeding workflows, and the repair action for each code.
 
 ## 1. Prerequisites
 
@@ -36,7 +36,7 @@ The commands used below:
 | `bun run texteda view rewire <project> <board>/<page> [--dry-run]` | Bring the wiring back onto the pins after a part moved; the interior corners keep their place. |
 | `bun run texteda view render <project> <board>/<page> [--out <file>]` | Write the page's drawing as an SVG file (same renderer as the review app). |
 | `bun run preview view <board>/<page> [--project <project>] [--out <dir>]` | Render one page to SVG and print its path. |
-| `bun run texteda review <project> [--out <file>]` | Serve `review` mode on `127.0.0.1`; `--out` writes the same self-contained HTML. |
+| `bun run texteda review <project> [--out <file>]` | Serve the single review surface on `127.0.0.1`; `--out` writes the same self-contained, read-only HTML. |
 | `bun run fmt:teda <project>` / `bun run fmt:teda --check <project>` | Canonicalise the view; `--check` is the gate. |
 
 The page needs two inputs:
@@ -72,9 +72,12 @@ Hard limits:
 - **Do not commit the screenshot or the datasheet PDF.** Vendor figures are copyrighted; keep them
   local (the reference project's `docs/datasheets/` is gitignored) and cite the source in prose if
   needed.
-- **Snap to the view's 0.01 mm grid.** Image coordinates are approximate; write rounded `place`
-  rows. Any OCR/vision step is an authoring aid outside the language; it produces text for review,
-  not an IR input, and it adds no runtime dependency.
+- **Snap placement to the 0.5 mm layout grid.** Image coordinates are approximate; write rounded `place`
+  rows. The grid is the symbol pin lattice ([ADR-0057](../adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)):
+  a symbol whose origin is a multiple of `0.5 mm` has every pin point on a multiple of `0.5 mm` too,
+  so a wire can always leave a pin and bend on the same lattice. Any OCR/vision step is an authoring
+  aid outside the language; it produces text for review, not an IR input, and it adds no runtime
+  dependency.
 
 Procedure:
 
@@ -93,8 +96,8 @@ The initial placement can come from a reference, an agent proposal, or the human
 
 Procedure:
 
-1. **Place.** Write the `place` rows (or accept a proposed placement). The view grid is 0.01 mm;
-   pin pitch is 1.27 mm (127 steps), so orthogonal runs stay on the grid.
+1. **Place.** Write the `place` rows (or accept a proposed placement). The layout grid is 0.5 mm;
+   keep physical pin positions from the library rather than deriving them from this placement grid.
    - **Default:** place, then route (step 2) and hand over a wired draft. The human reviews
      placement and wiring together.
    - **Optional:** when the human explicitly wants to settle positions first, or the rearrangement
@@ -154,17 +157,17 @@ does edit a wire by hand, that edit is source: do not run a wholesale regenerato
 ([ADR-0035](../adr/09-view/0035-the-view-layer-is-a-drawing.md)). Re-route only on an explicit
 request and show the diff.
 
-The `layout` mode is the one place a human moves a symbol from the canvas: select one symbol, drag
-it, turn it in 90-degree steps. Selection does not navigate: a single click only selects; `Enter` or
-a double-click opens the definition menu (parameters, view placement, component file). Drag/rotate
-only edits the pending placement. It is not a live route: `Apply` writes the `place` rows and
-**re-anchors** the affected wires — same segment count, same directions, only the corners the shape
-pins down move. Until `Apply` the page is stale: the old wires stay with stale bends, and
-`view.wire-diagonal` / `view.wire-crosses-pin` are the signal. A move can therefore create a
-readability finding (a wire through a body, a label off its net); `texteda check` reports it after
-`Apply`, and the app shows it in the findings column. Do not run a router on every drag frame.
-Placement snaps to 1.27 mm; the view's 0.01 mm grid is storage precision. One symbol at a time.
-Built per [ADR-0042](../adr/09-view/0042-the-review-app-has-modes.md) D3 / D5.
+The review app has one interaction surface: select a schematic symbol, press `m` to start an
+explicit move transaction, or press `r` to queue a clockwise 90-degree rotation. Selection does not
+navigate: a single click only selects; `Enter` or a double-click opens the definition menu. The move
+preview uses the 0.5 mm placement grid (ADR-0057); a left-click completes only the local preview, and `Escape`
+restores that move transaction without reverting unrelated pending edits. `Apply` writes the pending
+view changes and **re-anchors** affected wires — same segment count, same directions, only the corners
+the moved pin positions require. Until `Apply` the page is local state: the old wires stay with stale
+bends, and `view.wire-diagonal` / `view.wire-crosses-pin` are the signal. A move can therefore create
+a readability finding; `texteda check` reports it after `Apply`, and the app shows it in the findings
+column. Do not run a router on every drag frame. The PCB, symbol and footprint drawings are
+read-only; source edits use the explicit Source panel. Built per [ADR-0056](../adr/09-view/0056-the-review-app-has-one-interaction-surface.md).
 
 ## 3. The command loop
 

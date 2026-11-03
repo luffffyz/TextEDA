@@ -45,7 +45,7 @@
     "polarized": false,
     "symbol": "passives:c"
   },
-  "ir_version": "0.14",
+  "ir_version": "0.15",
   "source": {
     "file": "assets/components/passives/cap-mlcc-0402.teda",
     "line": 1

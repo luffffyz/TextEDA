@@ -10,8 +10,8 @@ One flat counter, handed out in the order the records are written, starting at
 `0001`. A number names one record and nothing else: what a record is about is said by
 its folder, not by its number. A number is **never changed and never reused** — a link
 to `ADR-0006` names the same decision forever — so a new record takes the next free
-number and disturbs nothing that already exists. The next free number is `0048`. The
-sequence is not contiguous; gaps are normal.
+number and disturbs nothing that already exists. The next free number is `0058`.
+The sequence is not contiguous; gaps are normal.
 
 ## Retired
 
@@ -123,6 +123,14 @@ that was meant for it, and by nothing else.
 | [ADR-0042](09-view/0042-the-review-app-has-modes.md) | The Review App Has Modes, and `layout` Writes Placement, Not Copper | Accepted | 2026-10-28 |
 | [ADR-0043](09-view/0043-the-review-app-is-a-plugin-of-the-agent-workbench.md) | The Review App Is a Plugin of the Agent Workbench, and the Agent Owns the Source | Accepted | 2026-10-29 |
 | [ADR-0048](09-view/0048-the-review-app-shows-drawings.md) | The Review App Shows Drawings, Not Boards | Accepted | 2026-10-30 |
+| [ADR-0050](09-view/0050-pin-number-placement-is-a-renderer-convention.md) | Pin-Number Placement Is a Renderer Convention | Accepted | 2026-11-01 |
+| [ADR-0051](09-view/0051-pin-number-clearance-is-measured-from-painted-ink.md) | Pin-Number Clearance Is Measured from Painted Ink | Accepted | 2026-11-01 |
+| [ADR-0052](09-view/0052-pin-number-body-clearance-is-measured-from-symbol-body-bounds.md) | Pin-Number Body Clearance Is Measured from the Symbol Body Bounds | Accepted | 2026-11-01 |
+| [ADR-0053](09-view/0053-pin-name-body-clearance-is-measured-from-symbol-body-bounds.md) | Pin-Name Body Clearance Is Measured from Symbol-Body Bounds | Accepted | 2026-11-01 |
+| [ADR-0054](09-view/0054-vertical-pin-name-labels-use-collision-aware-rotation.md) | Vertical Pin-Name Labels Always Rotate Toward Their Pins | Accepted | 2026-11-01 |
+| [ADR-0055](09-view/0055-schematic-fields-are-view-overrides.md) | Schematic `Reference` and `Value` Fields Are Per-Instance View Overrides | Accepted | 2026-11-01 |
+| [ADR-0056](09-view/0056-the-review-app-has-one-interaction-surface.md) | The Review App Has One Interaction Surface | Accepted | 2026-11-03 |
+| [ADR-0057](08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) | Symbol Pin Connection Points Sit on a 0.5 mm Lattice | Accepted | 2026-11-03 |
 
 ## Process
 

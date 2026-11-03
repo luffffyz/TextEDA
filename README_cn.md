@@ -33,6 +33,7 @@ bun run preview component bq24610rger  # 画器件的符号 + 封装
 bun run preview view charger-buck/buck-5v  # 画原理图打印页（从视图文件，不依赖 KiCad）
 bun run fmt:teda --check examples/reference-project   # canonical form 检查
 bun run check examples/reference-project          # 解析、IR 契约、ERC、绑定、器件、额定值、选料、评审轮次
+bun run bench:schematic -- --shape all --sizes 128,512,2048  # 测量检查器扩展性；不设 CI 门槛
 bun run texteda ir examples/reference-project      # 写出 IR 分片树（canonical JSON + manifest + 哈希）
 bun run texteda netlist examples/reference-project --board mcu-board  # 网表 = IR 的连通性投影
 bun run texteda bom examples/reference-project charger-buck   # 物料表，带选料状态
@@ -46,17 +47,19 @@ bun run texteda renumber examples/reference-project charger-buck --policy compac
 bun run texteda init ./my-board        # 生成空工程骨架
 ```
 
+该脚本在 `/tmp` 生成临时工程：`sparse` 每个器件配一个双成员 net；`fanout` 把所有器件接到两个 net。先校验工程，再在独立 worker 中测量预热后的 `checkProject()`；峰值 RSS 包含 Bun 启动和模块加载。可用 `--keep` 保留输入。这是基线探测，不是 CI 门禁；PCB 基准测试仍暂缓。
+
 当前状态，按层看：
 
 **描述。** 工程可以写 `schematic`（实例、net、port、约束、bus——一块板一份扁平文件，[ADR-0012](docs/adr/04-schematic/0012-one-flat-schematic-per-board.md)）；用带端口的 `module` 文件组合板，展平进板级 IR、IR 仍是平表（[ADR-0013](docs/adr/04-schematic/0013-modules-compose-boards.md)）；用 `view` 打印页画图，它是独立描述、永远不进构建（[ADR-0035](docs/adr/09-view/0035-the-view-layer-is-a-drawing.md) D1、D5）；用 `pcb` 描述物理事实与规则意图（12 段，[ADR-0016](docs/adr/05-pcb/0016-agent-first-pcb-description.md)）；布局与布线是 agent 驱动的循环（[ADR-0017](docs/adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)），不内建求解器；用 `system` 描述经声明端口的跨板连接（[ADR-0009](docs/adr/03-project/0009-board-linking.md)）；用 `procurement` 决定这块板买哪颗（主料 + 备料，[ADR-0029](docs/adr/07-devices/0029-the-procurement-layer.md)）；用 `component` 备器件——`kind: part` 带料号，`kind: generic` 把取值留给实例行（[ADR-0024](docs/adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D1、D2）——再用 `symbol` / `footprint` 写几何，引脚的电学事实仍归器件（[ADR-0031](docs/adr/08-libraries/0031-symbol-format.md)）。`project.toml` 是最外层的元数据。除 `component` 外，`fmt` 对上面每一种描述都写 canonical form。库是**模板，不是依赖**：`texteda lib import` 把一颗器件和它引用的符号 / 封装拷进 `assets/`、写成裸 id、加上来源头注释，并盖上每个文件自己的版本号（[ADR-0034](docs/adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md) D2、D6）。
 
 **检查。** `texteda check` 一次跑完：解析、IR 契约、连通性 ERC、sch↔pcb 绑定（包括每一对声明的 `connect` 是否真有铜箔兑现，以及把部分布局**报出来**而不是静默通过，[ADR-0020](docs/adr/05-pcb/0020-connect-pairs-need-copper.md)、[ADR-0019](docs/adr/05-pcb/0019-a-partial-layout-is-legal.md)）、器件词表与参数角色（[ADR-0025](docs/adr/07-devices/0025-device-vocabulary-and-parameter-roles.md)）、额定值对不对得上声明的窗口、耗散对不对得上声明的上限（[ADR-0026](docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D8、D11）、选料、评审轮次是否闭环与处置人是否越权（[ADR-0037](docs/adr/09-view/0037-review-records-and-attribution.md)），以及板 ↔ 打印页交叉校验与可读性数值。参考工程上是 **0 error**；那些 warning 是它诚实的现状——`mcu-board` 是块 bring-up 板，没有 `pcb`，选料表是空的。
 
-**画。** 参考渲染器把符号、封装与原理图打印页画成 SVG，自带笔画字体，不需要装 KiCad（[ADR-0036](docs/adr/09-view/0036-our-own-reference-renderer.md)）；三者各自被 `extract(render(ir)) == ir` 闭环。`texteda review` 把工程里的「画」服务给浏览器——打印页、板画布、符号、封装——三种模式：读图、在打印页上摆位、改页面源码，hover 高亮、点击选中、点图跳源码，或者把读图模式写成一份自包含 HTML 文件（[ADR-0042](docs/adr/09-view/0042-the-review-app-has-modes.md)、[ADR-0048](docs/adr/09-view/0048-the-review-app-shows-drawings.md)）。
+**画。** 参考渲染器把符号、封装与原理图打印页画成 SVG，自带笔画字体，不需要装 KiCad（[ADR-0036](docs/adr/09-view/0036-our-own-reference-renderer.md)）；三者各自被 `extract(render(ir)) == ir` 闭环。`texteda review` 把打印页、板画布、符号、封装放在一个不切模式的交互面里：点击只选中；选中原理图符号后用 `m` 移动、`r` 排队顺时针四分之一转，显式 Source 操作才打开源码。Apply 提交的改动只涉及视图；PCB 与库图保持只读。静态 HTML 输出仍只读（[ADR-0048](docs/adr/09-view/0048-the-review-app-shows-drawings.md)、[ADR-0056](docs/adr/09-view/0056-the-review-app-has-one-interaction-surface.md)）。
 
 **导出与哈希。** KiCad `.kicad_mod` / `.kicad_sym`、网表（IR 的连通性投影）、物料表。`texteda export gerbers` 把铜层、阻焊、锡膏、丝印写成 RS-274X，全部孔写成一份 Excellon，**铜皮在导出时重算**——IR 与任何哈希里都没有预存的填充（[ADR-0018](docs/adr/05-pcb/0018-copper-fill-uses-a-geometry-kernel.md)）。`texteda ir` 写 `dist/ir/`：每种描述一份 canonical JSON 分片、一份带每片 sha256 的 manifest、一个覆盖**规范**分片的工程哈希，以及另一个 `advisory_hash`——画（打印页）与第二货源（备料）属于附注类（[ADR-0006](docs/adr/02-ir/0006-ir-shards-and-hashes.md)）。
 
-**还没落地。** agent 驱动的布局与布线循环（[ADR-0017](docs/adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)，无内置求解器）、`.kicad_pcb` 板写出器与 `fab` 描述（backlog F15 / F14，[ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md)；Gerber 层集合与钻孔已落地）、KiCad 原理图导出（F16）、逆向工程与外部网表的导入器（F36）、评审 GUI 的 `layout` 模式里的实时布线（F34；拖动只重锚 wire，不重新搜索路径）、模块参数与嵌套（F13），以及把引用整体重键到实例 UID（实例已有稳定 `uid`，但改 refdes 仍会改源码与哈希；[ADR-0010](docs/adr/03-project/0010-instance-identity-is-a-uid.md)）。KiCad 是当前兜底，直到自研制造出口落地（[ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md) D1、D3）。
+**还没落地。** agent 驱动的布局与布线循环（[ADR-0017](docs/adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)，无内置求解器）、`.kicad_pcb` 板写出器与 `fab` 描述（backlog F15 / F14，[ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md)；Gerber 层集合与钻孔已落地）、KiCad 原理图导出（F16）、逆向工程与外部网表的导入器（F36）、模块参数与嵌套（F13），以及把引用整体重键到实例 UID（实例已有稳定 `uid`，但改 refdes 仍会改源码与哈希；[ADR-0010](docs/adr/03-project/0010-instance-identity-is-a-uid.md)）。评审 app 的移动预览不会实时布线，既有 wire 保持不变。KiCad 是当前兜底，直到自研制造出口落地（[ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md) D1、D3）。
 
 给 agent 用的三份派生物（都由 `bun run gen` 生成，不手改）：
 

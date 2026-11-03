@@ -9,16 +9,16 @@
 //     with the renderer's sign-swap switch, so the two implementations check each other;
 //   - `extractSchematic(doc)` reads the drawing commands, which are already in sheet coordinates.
 //
-// Deliberately not in the projection: placement origin and rotation (a wrong origin that still lands
-// every pin in the same place is not a defect of the drawing), stroke widths, text sizes and anchors
-// (styling -- the symbol round-trip already gates what a symbol draws), and the shape of the port
-// tag beyond its tip and direction. Also not in it: which instance a drawn pin belongs to. Two
-// identical symbols swapped on the page draw the same picture; the Reference text is what a reader
-// uses, and it is compared as text.
+// The projection omits placement origin and rotation when those do not move drawn facts. It keeps
+// field anchors because fields are authored per instance in symbol-local coordinates; text sizes,
+// anchors, stroke widths, and the shape of a port tag beyond its tip/direction remain styling.
+// Also absent: which instance a drawn pin belongs to. Two identical symbols swapped on the page draw
+// the same pins; their separate Reference fields provide the instance identities.
 import type { SchematicView } from "@texteda/ir/schematic-view";
 import type { SvgDoc } from "./svg.ts";
 import { renderSymbol } from "./symbol.ts";
 import type { SchematicInstance } from "./schematic.ts";
+import { resolveSchematicFields } from "./field-placement.ts";
 
 type Place = SchematicView["place"][number];
 type Wire = NonNullable<SchematicView["wire"]>[number];
@@ -39,6 +39,16 @@ export interface SchematicTextProjection {
   layer: string;
   role: string;
   name?: string;
+  text: string;
+  x_nm: number;
+  y_nm: number;
+  rotation_mdeg?: number;
+}
+
+/** A symbol field as it appears on the sheet, kept separate from view-authored free text. */
+export interface SchematicFieldProjection {
+  instance_id: string;
+  name: string;
   text: string;
   x_nm: number;
   y_nm: number;
@@ -67,6 +77,7 @@ export interface SchematicProjection {
   sheet: { width_nm: number; height_nm: number };
   pins: SchematicPinProjection[];
   texts: SchematicTextProjection[];
+  fields: SchematicFieldProjection[];
   shapes: SchematicShapeProjection[];
   ports: SchematicPortProjection[];
 }
@@ -173,13 +184,32 @@ export function schematicProjection(
 
   const pins: SchematicPinProjection[] = [];
   const texts: SchematicTextProjection[] = [];
+  const fields: SchematicFieldProjection[] = [];
   const shapes: SchematicShapeProjection[] = [];
 
   for (const place of view.place) {
     const entry = placed.get(place.instance_id)!;
     if (!entry.instance) throw new Error(`schematic view: no symbol facts for placed instance ${place.instance_id}`);
     const unit = place.unit ?? 1;
-    for (const primitive of renderSymbol(entry.instance.symbol, entry.instance.part).primitives) {
+    const rendered = renderSymbol(entry.instance.symbol, entry.instance.part).primitives;
+    const resolvedFields = resolveSchematicFields(rendered, place.instance_id, unit, entry.instance.value, view.field, place.rot_mdeg);
+    for (const primitive of rendered) {
+      if (primitive.kind === "text" && primitive.role === "field") {
+        const resolved = resolvedFields.get(primitive);
+        if (!resolved) continue;
+        const at = toSheet(place, resolved.x, resolved.y);
+        fields.push({
+          instance_id: place.instance_id,
+          name: primitive.name ?? "field",
+          text: resolved.text,
+          x_nm: Math.round(at.x),
+          y_nm: Math.round(at.y),
+          ...(primitive.rotateMdeg === undefined
+            ? {}
+            : { rotation_mdeg: ((primitive.rotateMdeg - quadrantOf(place.rot_mdeg) * 90_000) % 360_000 + 360_000) % 360_000 }),
+        });
+        continue;
+      }
       if (!inUnit(primitive.kind === "pad" ? 1 : primitive.unit, unit)) continue;
       switch (primitive.kind) {
         case "pin": {
@@ -197,25 +227,16 @@ export function schematicProjection(
         }
         case "text": {
           const at = toSheet(place, primitive.x, primitive.y);
-          // The symbol's Reference and Value fields are library placeholders; the placed instance names
-          // itself (and its value, when the device has one). Computed here independently of the
-          // renderer: the projection is the reader's view, not a copy of the drawing code.
-          const text =
-            primitive.role === "field" && primitive.name === "Reference"
-              ? place.instance_id
-              : primitive.role === "field" && primitive.name === "Value" && entry.instance.value !== undefined
-                ? entry.instance.value
-                : primitive.text;
           texts.push({
             layer: primitive.layer ?? "",
             role: primitive.role,
             ...(primitive.name === undefined ? {} : { name: primitive.name }),
-            text,
+            text: primitive.text,
             x_nm: Math.round(at.x),
             y_nm: Math.round(at.y),
             ...(primitive.rotateMdeg === undefined
               ? {}
-              : { rotation_mdeg: ((quadrantOf(place.rot_mdeg) * 90_000 - primitive.rotateMdeg) % 360_000 + 360_000) % 360_000 }),
+              : { rotation_mdeg: ((primitive.rotateMdeg - quadrantOf(place.rot_mdeg) * 90_000) % 360_000 + 360_000) % 360_000 }),
           });
           break;
         }
@@ -226,7 +247,6 @@ export function schematicProjection(
           break;
         }
         case "rect": {
-          // All four corners, so the check does not depend on the renderer's two-corner shortcut.
           const box = normalizeRect([
             toSheet(place, primitive.x1, primitive.y1),
             toSheet(place, primitive.x2, primitive.y1),
@@ -281,6 +301,7 @@ export function schematicProjection(
     sheet: { width_nm: view.sheet.width_nm, height_nm: view.sheet.height_nm },
     pins: byFact(pins),
     texts: byFact(texts),
+    fields: byFact(fields),
     shapes: byFact(shapes),
     ports: byFact(
       (view.port ?? []).map((port) => {
@@ -317,6 +338,7 @@ function wirePoints(wire: Wire, placed: ReadonlyMap<string, { place: Place; inst
 export function extractSchematic(doc: SvgDoc): SchematicProjection {
   const pins: SchematicPinProjection[] = [];
   const texts: SchematicTextProjection[] = [];
+  const fields: SchematicFieldProjection[] = [];
   const shapes: SchematicShapeProjection[] = [];
   const ports: SchematicPortProjection[] = [];
   let sheet = { width_nm: 0, height_nm: 0 };
@@ -339,6 +361,24 @@ export function extractSchematic(doc: SvgDoc): SchematicProjection {
         });
         break;
       case "text": {
+        if (primitive.role === "field") {
+          const fieldRef = primitive.ref?.startsWith("field:") ? primitive.ref.slice("field:".length) : undefined;
+          const separator = fieldRef?.lastIndexOf(":") ?? -1;
+          const instanceId = separator > 0 ? fieldRef?.slice(0, separator) : undefined;
+          const fieldName = separator > 0 ? fieldRef?.slice(separator + 1) : undefined;
+          if (!instanceId || !fieldName || (fieldName !== "Reference" && fieldName !== "Value")) {
+            throw new Error("schematic drawing: field text is missing its instance identity or field name");
+          }
+          fields.push({
+            instance_id: instanceId,
+            name: fieldName,
+            text: primitive.text,
+            x_nm: primitive.x,
+            y_nm: primitive.y,
+            ...(primitive.rotateMdeg === undefined ? {} : { rotation_mdeg: primitive.rotateMdeg }),
+          });
+          break;
+        }
         if (primitive.layer === "port") {
           portNames.push(primitive.text);
           break;
@@ -416,5 +456,5 @@ export function extractSchematic(doc: SvgDoc): SchematicProjection {
     ports.push({ id, x_nm: tag.x_nm, y_nm: tag.y_nm, dir_x: tag.dir_x, dir_y: tag.dir_y });
   }
 
-  return { sheet, pins: byFact(pins), texts: byFact(texts), shapes: byFact(shapes), ports: byFact(ports) };
+  return { sheet, pins: byFact(pins), texts: byFact(texts), fields: byFact(fields), shapes: byFact(shapes), ports: byFact(ports) };
 }

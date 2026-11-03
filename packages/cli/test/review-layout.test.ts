@@ -73,12 +73,12 @@ describe("the layout Apply", () => {
     const wire = (net: string, from: string) =>
       parsed.ir?.wire?.find((candidate) => candidate.net === net && candidate.from_pin === from);
     expect(wire("GND", "M2.C1.2")?.points).toEqual([
-      { x_nm: 118_000_000, y_nm: 120_000_000 },
-      { x_nm: 137_460_000, y_nm: 120_000_000 },
+      { x_nm: 118_000_000, y_nm: 121_000_000 },
+      { x_nm: 139_000_000, y_nm: 121_000_000 },
     ]);
     expect(wire("SYS", "M2.C1.1")?.points).toEqual([
-      { x_nm: 118_000_000, y_nm: 83_000_000 },
-      { x_nm: 140_000_000, y_nm: 83_000_000 },
+      { x_nm: 118_000_000, y_nm: 86_000_000 },
+      { x_nm: 140_000_000, y_nm: 86_000_000 },
     ]);
   });
 
@@ -319,5 +319,92 @@ describe("the layout Apply", () => {
     const canonical = formatView(written, { file: "views/charger-buck/buck-5v.view.teda" });
     expect(canonical.ok).toBe(true);
     expect(canonical.text).toBe(written);
+  });
+  test("field-only Apply writes local overrides without repairing any wiring", () => {
+    const dir = scratch();
+    const file = "views/charger-buck/buck-5v.view.teda";
+    const original = content(dir, file);
+    const draft = original
+      .replace("version 0.9.2", "version 0.10.0")
+      .replace("\nwire\n", "\n# Keep this wire-section note.\nwire\n");
+    const request = {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [],
+      text: draft,
+      fields: [
+        { instance_id: "M2.C1", name: "Value" as const, x: 0, y: 0 },
+        { instance_id: "M2.C1", name: "Reference" as const, x: -0.01, y: 0.01 },
+      ],
+    };
+    const plan = planLayout(dir, request);
+    expect(plan.changed).toBe(true);
+    expect(plan.conflicts).toEqual([]);
+    expect(plan.reseated).toEqual([]);
+    expect(plan.text).toContain("# Keep this wire-section note.");
+    expect(plan.text.indexOf("field\n")).toBeLessThan(plan.text.indexOf("# Keep this wire-section note."));
+    const beforeWires = parseView(draft, { file, board: "charger-buck" }).ir?.wire;
+    const after = parseView(plan.text, { file, board: "charger-buck" });
+    expect(after.ok).toBe(true);
+    expect(after.ir?.wire).toEqual(beforeWires);
+    expect(after.ir?.field).toEqual([
+      { instance_id: "M2.C1", name: "Reference", x_nm: -10_000, y_nm: 10_000 },
+      { instance_id: "M2.C1", name: "Value", x_nm: 0, y_nm: 0 },
+    ]);
+    expect(content(dir, file)).toBe(original);
+
+    applyLayout(dir, request);
+    const persisted = parseView(content(dir, file), { file, board: "charger-buck" });
+    expect(persisted.ir?.field).toEqual(after.ir?.field);
+  });
+
+  test("removing an override restores renderer-owned automatic field placement", () => {
+    const dir = scratch();
+    const file = "views/charger-buck/buck-5v.view.teda";
+    const original = content(dir, file).replace("version 0.9.2", "version 0.10.0");
+    const base = { board: "charger-buck", page: "buck-5v", places: [], text: original };
+    const automatic = planLayout(dir, base).geometry.fields;
+    applyLayout(dir, {
+      ...base,
+      fields: [{ instance_id: "M2.C1", name: "Value", x: 0, y: 0 }],
+    });
+    const overridden = parseView(content(dir, file), { file, board: "charger-buck" });
+    expect(overridden.ir?.field).toEqual([{ instance_id: "M2.C1", name: "Value", x_nm: 0, y_nm: 0 }]);
+    const restored = planLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [],
+      remove_fields: [{ instance_id: "M2.C1", name: "Value" }],
+    });
+    expect(restored.changed).toBe(true);
+    expect(parseView(restored.text, { file, board: "charger-buck" }).ir?.field).toBeUndefined();
+    expect(restored.geometry.fields).toEqual(automatic);
+    applyLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [],
+      remove_fields: [{ instance_id: "M2.C1", name: "Value" }],
+    });
+    expect(parseView(content(dir, file), { file, board: "charger-buck" }).ir?.field).toBeUndefined();
+  });
+
+  test("a mixed symbol move still reanchors its wires and saves local fields", () => {
+    const dir = scratch();
+    const file = "views/charger-buck/buck-5v.view.teda";
+    const draft = content(dir, file).replace("version 0.9.2", "version 0.10.0");
+    const outcome = applyLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 90 }],
+      fields: [{ instance_id: "M2.C1", name: "Reference", x: 4.25, y: -2.5 }],
+      text: draft,
+    });
+    expect(outcome.conflicts).toEqual([]);
+    const saved = parseView(content(dir, file), { file, board: "charger-buck" });
+    expect(saved.ir?.field).toEqual([{ instance_id: "M2.C1", name: "Reference", x_nm: 4_250_000, y_nm: -2_500_000 }]);
+    expect(saved.ir?.wire?.find((wire) => wire.net === "SYS" && wire.from_pin === "M2.C1.1")?.points?.[0]).toEqual({
+      x_nm: 118_000_000,
+      y_nm: 86_000_000,
+    });
   });
 });

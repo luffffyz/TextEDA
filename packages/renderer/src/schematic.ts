@@ -1,15 +1,14 @@
 // Schematic print page -> drawing primitives.
 //
-// The view (S1) knows only *where*: symbol placements, wire runs, labels, ports, notes (ADR-0035).
-// The electrical facts -- which pin belongs to which net, what the pin is called -- live in the
-// logical IR, so the caller resolves each placed instance to its symbol and its component pin
-// facts and passes them in. The renderer never reads the file system and never places anything:
-// no view, no drawing.
+// The view (S1) knows where symbols, wires, labels, fields, ports, and notes go. Field text and
+// symbol geometry come from the caller's symbol and component facts; field anchors are resolved
+// here from either view overrides or deterministic painted-body placement.
 import type { SchematicView } from "@texteda/ir/schematic-view";
-import { pinDirection, type SvgDoc, type SvgPrimitive } from "./svg.ts";
+import { pinDirection, type SvgDoc, type SvgPrimitive, type SvgText } from "./svg.ts";
 import { textAdvance } from "@texteda/core/font";
 import { renderSymbol, type SymbolBody, type SymbolPart } from "./symbol.ts";
-
+import { resolveSchematicFields } from "./field-placement.ts";
+ 
 /** What the renderer needs to draw one placed instance: the symbol's geometry and the pin facts from `component`. */
 export interface SchematicInstance {
   symbol: SymbolBody;
@@ -162,11 +161,11 @@ function placePrimitive(primitive: SvgPrimitive, place: Place): SvgPrimitive {
         ...(fieldAnchor === undefined ? {} : { anchor: fieldAnchor }),
         x: at.x,
         y: at.y,
-        // A symbol's text rotation is visually counterclockwise; the placed symbol turned clockwise by
-        // `rot` removes that much, and a y-down document reads `rotateMdeg` as clockwise.
+        // Symbol text rotation is expressed in the symbol's +y-up frame. Placement rotation is clockwise
+        // on the y-down sheet, so subtract it; the SVG serializer applies the resulting sheet rotation.
         ...(rotate === undefined
           ? {}
-          : { rotateMdeg: (((rotationOf(place.rot_mdeg) * 1000 - rotate) % 360_000) + 360_000) % 360_000 }),
+          : { rotateMdeg: (((rotate - rotationOf(place.rot_mdeg) * 1000) % 360_000 + 360_000) % 360_000) }),
       };
     }
     case "pin": {
@@ -305,15 +304,17 @@ export function renderSchematic(
     });
   }
 
-  // Symbols, with the drawn unit filtered out of pins, body, and pin decoration.
   for (const { place, instance } of placed.values()) {
     const unit = place.unit ?? 1;
     const ref = `instance:${place.instance_id}`;
-    for (const primitive of placeSymbol(instance, place, unit)) {
-      primitives.push({ ...primitive, ref });
+    for (const primitive of placeSymbol(instance, place, unit, view.field)) {
+      const identity =
+        primitive.kind === "text" && primitive.role === "field" && primitive.name !== undefined
+          ? `field:${place.instance_id}:${primitive.name}`
+          : ref;
+      primitives.push({ ...primitive, ref: identity });
     }
   }
-
   for (const label of view.label ?? []) {
     primitives.push(labelPrimitive(label));
   }
@@ -417,29 +418,25 @@ function wireEndpoint(
   return pinPoint(entry.place, entry.instance, pin);
 }
 
-/**
- * Symbol primitives in sheet coordinates for one placed unit.
- *
- * `renderSymbol` already computes the symbol's own drawing (body, pin graphics, pin names/numbers
- * and fields) in symbol coordinates; this function reuses that computation and only moves it.
- */
-function placeSymbol(instance: SchematicInstance, place: Place, unit: number): SvgPrimitive[] {
+/** Move one placed symbol; its fields use per-instance overrides or automatic painted-body anchors. */
+function placeSymbol(
+  instance: SchematicInstance,
+  place: Place,
+  unit: number,
+  overrides: SchematicView["field"],
+): SvgPrimitive[] {
   const symbolDoc = renderSymbol(instance.symbol, instance.part);
+  const fieldPositions = resolveSchematicFields(symbolDoc.primitives, place.instance_id, unit, instance.value, overrides, place.rot_mdeg);
   const out: SvgPrimitive[] = [];
   for (const primitive of symbolDoc.primitives) {
+    if (primitive.kind === "text" && primitive.role === "field") {
+      const field = fieldPositions.get(primitive);
+      if (!field) continue;
+      out.push(placePrimitive({ ...primitive, x: field.x, y: field.y, text: field.text }, place));
+      continue;
+    }
     if (!inUnit(primitive, unit)) continue;
-    const moved = placePrimitive(primitive, place);
-    // The symbol's Reference field is a placeholder (`U` in the library); the placed instance names itself.
-    if (moved.kind === "text" && moved.role === "field" && moved.name === "Reference") {
-      out.push({ ...moved, text: place.instance_id });
-      continue;
-    }
-    // The same for Value: `10k` is a fact about this instance, not about the resistor symbol.
-    if (moved.kind === "text" && moved.role === "field" && moved.name === "Value" && instance.value !== undefined) {
-      out.push({ ...moved, text: instance.value });
-      continue;
-    }
-    out.push(moved);
+    out.push(placePrimitive(primitive, place));
   }
   return out;
 }
@@ -558,6 +555,9 @@ export interface SheetField {
   readonly name: string;
   /** What is actually printed: the instance's designator or value, not the symbol's placeholder. */
   readonly text: string;
+  /** The resolved anchor in symbol-local coordinates, before the place transform. */
+  readonly local_x_nm: number;
+  readonly local_y_nm: number;
   readonly box: SheetBox;
   /** The view record that places the instance (`/place/3`): moving the field means editing the symbol. */
   readonly ir_path?: string;
@@ -673,7 +673,9 @@ export function schematicGeometry(
   for (const [index, place] of view.place.entries()) {
     const instance = instances.get(place.instance_id);
     if (!instance) continue; // the cross-check reports a missing instance; geometry cannot invent one
-    const drawn = placeSymbol(instance, place, place.unit ?? 1);
+    const symbolDoc = renderSymbol(instance.symbol, instance.part);
+    const resolvedFields = resolveSchematicFields(symbolDoc.primitives, place.instance_id, place.unit ?? 1, instance.value, view.field, place.rot_mdeg);
+    const drawn = placeSymbol(instance, place, place.unit ?? 1, view.field);
     const box = graphicsBox(drawn.filter((p) => p.kind !== "text" && p.kind !== "pin"));
     const pins = new Map<string, { x_nm: number; y_nm: number }>();
     for (const pin of instance.symbol.pins) {
@@ -684,12 +686,22 @@ export function schematicGeometry(
     else symbols.push({ instance_id: place.instance_id, pins, box: { min_x_nm: place.x_nm, min_y_nm: place.y_nm, max_x_nm: place.x_nm, max_y_nm: place.y_nm } });
     for (const primitive of drawn) {
       if (primitive.kind !== "text" || primitive.role !== "field") continue;
+      const source = symbolDoc.primitives.find(
+        (candidate): candidate is SvgText =>
+          candidate.kind === "text" && candidate.role === "field" && candidate.name === primitive.name,
+      );
+      const resolved = source === undefined ? undefined : resolvedFields.get(source);
+      const overrideIndex = (view.field ?? []).findIndex(
+        (field) => field.instance_id === place.instance_id && field.name === primitive.name,
+      );
       fields.push({
         instance_id: place.instance_id,
         name: primitive.name ?? "field",
         text: primitive.text,
+        local_x_nm: resolved?.x ?? primitive.x,
+        local_y_nm: resolved?.y ?? primitive.y,
         box: rotatedTextBox(primitive.x, primitive.y, primitive.text, primitive.sizeNm, primitive.anchor, primitive.rotateMdeg ?? 0),
-        ir_path: `/place/${index}`,
+        ir_path: overrideIndex >= 0 ? `/field/${overrideIndex}` : `/place/${index}`,
       });
     }
   }

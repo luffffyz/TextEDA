@@ -1,4 +1,4 @@
-# netlist divider-network (ir 0.14)
+# netlist divider-network (ir 0.15)
 GND: R3.2 R5.2
 TAP1: R1.2 R2.1
 TAP2: R2.2 R3.1

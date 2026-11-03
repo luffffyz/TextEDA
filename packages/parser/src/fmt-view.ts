@@ -19,7 +19,7 @@ export interface ViewFormatResult {
   diagnostics: Diagnostic[];
 }
 
-const SECTIONS = ["place", "wire", "label", "port", "text"] as const;
+const SECTIONS = ["place", "field", "wire", "label", "port", "text"] as const;
 const SECTION_SET = new Set<string>(SECTIONS);
 
 interface Row {
@@ -207,6 +207,9 @@ export function formatView(text: string, options: ViewFormatOptions): ViewFormat
       case "place":
         rows.sort((a, b) => naturalCompare(a.cells[0] ?? "", b.cells[0] ?? ""));
         break;
+      case "field":
+        rows.sort((a, b) => naturalCompare(a.cells[0] ?? "", b.cells[0] ?? "") || byteCompare(a.cells[1] ?? "", b.cells[1] ?? ""));
+        break;
       case "wire":
         rows.sort((a, b) => {
           const byNet = byteCompare(a.cells[0] ?? "", b.cells[0] ?? "");
@@ -242,6 +245,9 @@ export function formatView(text: string, options: ViewFormatOptions): ViewFormat
     switch (name) {
       case "place":
         block.push(...formatPlace(rows, "  "));
+        break;
+      case "field":
+        block.push(...alignCells(rows, 4, "  "));
         break;
       case "wire":
         block.push(...formatWire(rows, "  "));

@@ -34,6 +34,7 @@ import type {
   ReviewModel,
   ReviewPcbPart,
   ReviewSymbol,
+  ReviewField,
   ReviewText,
 } from "@texteda/viewer";
 import { checkProject } from "./check.ts";
@@ -90,7 +91,8 @@ function reviewPage(
       svg: "",
       symbols: [],
       texts: [],
-      problems: parsed.diagnostics.map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`),
+      fields: [],
+       problems: parsed.diagnostics.map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`),
       board: boardId,
     };
   }
@@ -106,8 +108,8 @@ function reviewPage(
     problems.push(error instanceof Error ? error.message : String(error));
   }
 
-  const { symbols, texts } = reviewGeometry(schematicGeometry(view, instances));
-
+  const geometry = reviewGeometry(schematicGeometry(view, instances));
+  const { symbols, texts, fields } = geometry;
   // What the page measures: how crowded it is, how long its wiring is, where the wires cross
   // (spec/schematic-view.md §9.4). The findings say *that* something is wrong; these say how much.
   const metrics = reviewMetrics(view, schematic, instances);
@@ -121,12 +123,14 @@ function reviewPage(
     svg,
     symbols,
     texts,
+    fields,
     problems,
     board: boardId,
     page: pageId,
     ...(metrics === undefined ? {} : { metrics }),
-    // The source is what the edit mode shows and edits; the placements are what the layout mode
-    // moves. Both are the page's own facts, not a second drawing (ADR-0042 D3, D7).
+    // The source is exposed for the explicit Source panel; placements are the pending view actions
+    // that can be applied to this page. Both are the page's own facts, not a second drawing
+    // (ADR-0056 D1, D2).
     source: viewText,
     places: view.place.map((place) => ({
       instance_id: place.instance_id,
@@ -348,7 +352,11 @@ function reviewFootprint(ref: string, footprint: Footprint): ReviewDrawing {
  * nanometres) and the app reads boxes in millimetres: the plugin host converts with the same rule
  * the model does, instead of keeping a second one.
  */
-export function reviewGeometry(geometry: SheetGeometry): { symbols: ReviewSymbol[]; texts: ReviewText[] } {
+export function reviewGeometry(geometry: SheetGeometry): {
+  symbols: ReviewSymbol[];
+  texts: ReviewText[];
+  fields: ReviewField[];
+} {
   return {
     symbols: geometry.symbols.map((symbol) => ({
       id: symbol.instance_id,
@@ -362,6 +370,15 @@ export function reviewGeometry(geometry: SheetGeometry): { symbols: ReviewSymbol
       text: text.text,
       ...(text.subject === undefined ? {} : { subject: text.subject }),
       box: box(text.box.min_x_nm, text.box.min_y_nm, text.box.max_x_nm, text.box.max_y_nm),
+    })),
+    fields: geometry.fields.map((field) => ({
+      instance_id: field.instance_id,
+      name: field.name as ReviewField["name"],
+      text: field.text,
+      box: box(field.box.min_x_nm, field.box.min_y_nm, field.box.max_x_nm, field.box.max_y_nm),
+      x: mm(field.local_x_nm),
+      y: mm(field.local_y_nm),
+      manual: field.ir_path?.startsWith("/field/") === true,
     })),
   };
 }

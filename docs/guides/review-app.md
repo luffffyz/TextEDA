@@ -1,12 +1,12 @@
 # Reviewing a board in the browser
 
-`texteda review` serves the review app: the project's drawings, drawn by the renderer, with
-hover and click so a reviewer can ask "what is this, and what is it on" without leaving the drawing.
+`texteda review` serves one interaction surface: the project's drawings, drawn by the renderer, with
+hover, selection, explicit schematic move/rotate actions, and an optional Source panel. PCB drawings
+remain read-only. A person can ask "what is this, and what is it on" without leaving the drawing.
 Decision: [ADR-0035](../adr/09-view/0035-the-view-layer-is-a-drawing.md) (D7 records the form
-this first version takes), [ADR-0042](../adr/09-view/0042-the-review-app-has-modes.md)
-(the modes, and what each may write) and
-[ADR-0048](../adr/09-view/0048-the-review-app-shows-drawings.md) (what the app shows: drawings,
-not boards).
+this first version takes), [ADR-0048](../adr/09-view/0048-the-review-app-shows-drawings.md) (what
+the app shows: drawings, not boards), and [ADR-0056](../adr/09-view/0056-the-review-app-has-one-interaction-surface.md)
+(the current interaction and write contract).
 
 ## Run it
 
@@ -30,15 +30,15 @@ document, so `--out` writes byte-identical bytes to what the server sends. That 
 report for a pull request: no build step, no assets beside it.
 
 A static `--out` document has no server behind it, so it has no write routes: the `Apply` and
-`Save` buttons are disabled and say "this document cannot write". Its `Review` mode is as complete
-as the served one; `Layout` and `Edit` show, but cannot write.
+`Save` buttons are disabled and say "this document cannot write". The same drawing, selection,
+navigation, and read-only PCB behavior remain available.
 
 ## The three columns
 
 | Column | What it is |
 |---|---|
 | left | The project and its build hash, the drawings grouped by kind (print pages, board canvases, library symbols, library footprints), what the current print page measures, then the findings from `texteda check` (errors, then warnings, then notes). The first five show; "show all N" opens the rest. A finding that names an object carries a **show** button: it takes the reviewer to that object on the drawing. |
-| middle | The mode bar (see below) over the drawing the mode shows, with a status line naming the source file, the size, and what the drawing is made of. |
+| middle | The current drawing with explicit actions above it, a status line naming the source file, the size, and what the drawing is made of. |
 | right | The facts about whatever is under the pointer or was selected: instance id, device, symbol, footprint, spec, source file, and the nets its pins land on with those pins listed. The selected identity also has a **definitions** button; `Enter` or a double-click opens it. |
 
 ## What the app shows
@@ -84,62 +84,57 @@ where the board's `silk` section says so (spec/pcb.md §4.10), so the canvas sho
 will print. Here the click is resolved from the drawing's own objects, so what is picked is what
 was drawn — a pad, a track, a via — and not an invisible box around it.
 
-## The modes
+## One interaction surface
 
-The bar above the drawing says what a press means. One code path serves the drawing, the hover and
-the selection in every mode; the mode decides what a click means, and the drawing decides what the
-canvas holds ([ADR-0042](../adr/09-view/0042-the-review-app-has-modes.md) D1,
-[ADR-0048](../adr/09-view/0048-the-review-app-shows-drawings.md) D2).
+There is no review, layout or edit mode. The current drawing determines which explicit actions are
+available. All drawings share hover, selection, definitions, navigation, zoom and pan. A schematic
+print page additionally exposes placement actions when its host can write; the PCB and library
+drawings remain read-only.
 
-| Mode | Draws | A click | Can write |
-|---|---|---|---|
-| `Review` | the current drawing | selects a symbol, a label, a port or a net | nothing (invariant 3) |
-| `Layout` | the print page, with the moves the user has made | drags the symbol under the pointer; `r` turns the selection; `Ctrl+Enter` applies, `Esc` drops | `views/<board_id>/<page_id>.view.teda` only |
-| `Edit` | the source text on the left, drawn as you type | puts the cursor on the row the clicked object came from | the same page file, in the formatter's form |
+### Selection and definitions
 
-A mode the current drawing cannot show is disabled with a title saying why: `Layout` and `Edit`
-need a print page. Everything else — the board canvas, the library symbols and footprints — is
-read, and `Review` is the only mode it offers.
+- **Click a drawn object** to select it. A schematic click does not move anything and does not jump
+  to a source row. PCB clicks select the drawn object and highlight its net; they never edit the PCB.
+- **`Enter` or a double-click** opens the definitions menu for the selected identity. Choosing an
+  entry opens `vscode://file/<absolute path>:<line>:<col>`.
+- **Click empty paper** clears the selection. `Escape` closes an open definitions menu first, then
+  clears the selection when no transaction is active.
 
-### `Layout`
+### Schematic placement actions
 
-The print page is a drawing, so its edits are drawing edits: `place` rows and the wires and labels
-that depend on them. `design/**`, the IR and the build hash are never touched (ADR-0042 D3).
+Placement is a local transaction on the current schematic print page. It is available to a standalone
+server and to a host with `write: "layout"`; a places-only host with `write: "places"` may move
+placements but cannot edit fields or source.
 
-- **Press and move a symbol** to drag it. The symbol snaps to 1.27 mm (the 0.05 inch pin pitch the
-  symbols are drawn on); `r` turns it in 90-degree steps. The other modes keep drag as pan, so a
-  move cannot happen by accident.
-- **The wires are re-anchored, not re-routed** (ADR-0042 D5). A wire keeps its shape — the same
-  number of segments in the same directions — and only the corners the shape pins down move with
-  the pins. A wire that cannot keep its shape (both pins moved apart in different directions) is
-  replaced by one elbow and reported in the status line; so is a label or a port that was left off
-  its net and had to be put back on it.
-- **Nothing is written until `Apply`.** The release of the drag asks the server what the page would
-  look like (`/api/layout` with `commit: false`), which draws the re-anchored page and reports the
-  conflicts. `Apply` (or `Ctrl+Enter`) is the commit; `Revert` (or `Esc`) drops the moves.
-- **An unsaved edit survives the move.** If the editor holds text that was never saved, it rides
-  along with the layout request and the write is *that* text with the moved rows applied — a drag
-  never silently discards what was typed. Without an edit the file on disk is the base, as before
-  ([ADR-0042](../adr/09-view/0042-the-review-app-has-modes.md) D6).
-- **Routing is not live.** The drawing is not re-routed during the drag, and a move can introduce a
-  readability finding (a wire through a symbol's body, a label off its net). `Apply` writes, the
-  server re-checks, and the left column says what the move did. That report is the point: the app
-  shows the consequence instead of hiding it.
+- **`m` starts movement** only after a schematic symbol or permitted field is selected. The preview
+  uses the existing `snapPlacement()` path and its 0.5 mm grid (ADR-0057). Pointer movement changes the local
+  preview; it does not write a file.
+- **Left-click completes the local move preview.** The result remains pending until `Apply` or
+  `Ctrl+Enter` sends a commit to `POST /api/layout`.
+- **`Escape` during a move cancels that transaction only.** It restores the symbol or field's
+  original placement and preserves unrelated pending edits. It does not commit anything.
+- **`r` queues a clockwise 90-degree rotation** for the selected schematic symbol. Rotation is a
+  pending view edit. The click or `Escape` after rotation clears the selection but does not undo the
+  queued rotation.
+- **`Apply` / `Ctrl+Enter` is the commit point.** Placement, rotation and permitted field changes
+  are written together through the CLI. A full-capability standalone surface may also use the
+  explicit **Source** action to preview and save source text; source editing is never entered by a
+  drawing click.
 
-### `Edit`
+The browser never writes files. The server owns canonical parsing and writing, and these actions
+write only `views/<board_id>/<page_id>.view.teda`; they do not write `design/**`, IR shards, project
+hashes or build hashes. The standalone server's full capability accepts fields and source. The DSH
+places-only host rejects `fields`, `remove_fields` and `text` payload keys instead of ignoring them.
+The app does not route wires during a move or solve placement; stale or conflicting wires are
+reported for the CLI/agent workflow.
 
-The page's source with its drawing beside it. The browser cannot parse a `.teda` file, so the
-server does: `/api/source` with `save: false` draws the draft and answers with the line each object
-came from, and the same route with `save: true` writes it — in the formatter's form, and only if the
-source parses. A draft that does not parse is reported and the last good drawing stays on the
-sheet. Clicking a drawn object puts the cursor on its row: that is how a reviewer gets from a
-drawing that looks wrong to the line that made it. The click is resolved from the object's box, not
-from its ink, so a 0402 body — a 0.4 mm stroke — is as easy to hit as a QFP.
+The definitions menu is backed by the advisory `dist/ir/identity.json` written by `texteda ir`
+([ADR-0004](../adr/01-language/0004-source-spans.md), 2026-10-26 amendment), so the app does not
+re-parse a file merely to locate a definition.
 
-- **`review` writes nothing back.** The app adds behaviour to the SVG it is given; the drawing is
-  not regenerated, and there is no way to move a symbol from the `review` canvas (ADR-0035,
-  AGENTS.md §2 invariant 3). The `layout` mode is the one exception: it writes `place`
-  rows, never `design/**` ([ADR-0042](../adr/09-view/0042-the-review-app-has-modes.md) D3).
+`vscode://file/...` is handled by whatever the user has bound to that URI scheme. A static `--out`
+report embeds the build machine's absolute paths; it is useful where that project tree exists and
+otherwise still shows the relative file and line.
 
 ## Interaction
 
@@ -155,26 +150,20 @@ from its ink, so a 0402 body — a 0.4 mm stroke — is as easy to hit as a QFP.
 | `+` / `-` | Zooms in and out. |
 | `←` / `→` | Previous and next drawing of the same kind: the print pages among themselves, the library symbols among themselves. |
 
-These bindings are the page modes'. `Layout` adds `r` (turn the selection), `Ctrl+Enter` (apply)
-and `Esc` (drop the moves), and its drag moves the symbol instead of panning
-([ADR-0042](../adr/09-view/0042-the-review-app-has-modes.md) D4). The source jump is an explicit
-action in `Review` and `Layout`: double-click or press `Enter`; a single click only selects. In
-`Edit` a single click is the jump, because the source is on screen and there is nothing to select.
-The definitions come from the advisory
-`dist/ir/identity.json` written by `texteda ir` ([ADR-0004](../adr/01-language/0004-source-spans.md),
-2026-10-26 amendment), so the app never re-parses a file.
-
-`vscode://file/...` is handled by whatever the user has bound to that URI scheme. A static
-`--out` report embeds the build machine's absolute paths; it is useful where that project tree
-exists and otherwise still shows the relative file and line.
+These bindings apply to the one surface. `m`, `r`, `Ctrl+Enter` and the transaction rules are
+available only when the current schematic drawing and host capability allow them. A single click
+always selects; it never jumps to a source row. Source navigation is available through the explicit
+Source action and through the definitions menu, not through drawing clicks.
 
 The mark is a screen annotation: its stand-off (4 px plus half the drawing's typical 0.25 mm stroke)
 and its stroke (1.25 px hovered, 1.75 px picked) are rewritten in sheet units on every zoom, so both
 the outline and the gap to the drawn edge keep their size at any magnification. The half-stroke term
 is not decoration: the boxes in the model are centreline boxes, and the drawing's ink grows outward
-from them as you zoom in, so a fixed pixel stand-off would look tighter the closer you look. `vector-effect: non-scaling-stroke` would be the obvious way to do that and does not
-work here — it compensates the SVG's own viewBox, not the CSS `scale()` on the canvas around it, and
-a "1.5 px" stroke then paints 1.5 mm, which reads as a slug over small parts.
+from them as you zoom in, so a fixed pixel stand-off would look tighter the closer you look.
+`vector-effect: non-scaling-stroke` would be the obvious way to do that and does not work here — it
+compensates the SVG's own viewBox, not the CSS `scale()` on the canvas around it, and a "1.5 px"
+stroke then paints 1.5 mm, which reads as a slug over small parts.
+
 
 ## The findings and the measurements
 
@@ -195,9 +184,9 @@ says how much of the sheet it takes and how far it is from comfortable
 
 ## What is not built
 
-- **Live routing.** The `Layout` mode moves symbols and re-anchors the wires they are on; it never
-  searches for a new path, and it does not route around a symbol the user moved onto a wire
-  (ADR-0042 D5). A move that creates a finding is reported, not repaired.
+- **No live routing.** An explicit schematic move keeps the existing wire geometry in the local
+  preview; it never searches for a new path or routes around a symbol. `Apply` reports stale or
+  conflicting wiring for the CLI/agent workflow instead of repairing it in the browser.
 - **Board editing.** The board canvas is read-only: moving a part on the board, routing copper,
   editing the stackup belong to the agent-driven layout loop
   ([ADR-0017](../adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)), not to the review app.
@@ -209,8 +198,8 @@ says how much of the sheet it takes and how far it is from comfortable
 
 - `0 boards` — the project has no `design/sch/<board>.teda`; the model lists only boards that have a
   schematic. Point the command at the project root, not at `design/`.
-- `Apply` or `Save` disabled — either the mode is not one that writes, or the document was written by
-  `--out`. The button's title says which.
+- `Apply` or `Save` disabled — either the current host capability does not permit that action, or the
+  document was written by `--out`. The button's title says which.
 - A page marked as a problem — its file failed to parse or the cross-check refused it; the status
   line carries the parse messages.
 - "not compiled" instead of a build hash — the project has an error somewhere, so `texteda ir` wrote

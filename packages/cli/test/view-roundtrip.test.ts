@@ -65,7 +65,7 @@ describe("print page round-trip", () => {
       test(`${page}: every placed instance names itself in the drawing`, () => {
         const projection = extractSchematic(renderSchematic(view.ir!, instances));
         const references = new Set(
-          projection.texts.filter((text) => text.role === "field" && text.name === "Reference").map((text) => text.text),
+          projection.fields.filter((field) => field.name === "Reference").map((field) => field.text),
         );
         for (const place of view.ir!.place) expect(references.has(place.instance_id)).toBe(true);
       });

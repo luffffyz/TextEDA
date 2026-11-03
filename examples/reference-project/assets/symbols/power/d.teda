@@ -6,13 +6,14 @@ tags diode
 pin_numbers hide
 pin_names hide
 # Plain diode: anode on the left (pin 1), cathode bar on the right (pin 2).
-field Reference at=0,2.54 U
-field Value at=0,-2.54 d
+# Pin connection points, pin tails, and the body frame sit on the 0.5 mm placement lattice (ADR-0057).
+field Reference at=0,2.5 U
+field Value at=0,-2.5 d
 
 pins
-  1  -3.81  0  0
-  2  3.81   0  180
+  1  -4  0  0    length=2.5
+  2  4   0  180  length=2.5
 
 body
-  line  1.27,-1.27,1.27,1.27           width=0.254
-  poly  -1.27,1.27,1.27,0,-1.27,-1.27  width=0.254
+  line  1.5,-1.5,1.5,1.5          width=0.25
+  poly  -1.5,1.5,1.5,0,-1.5,-1.5  width=0.25

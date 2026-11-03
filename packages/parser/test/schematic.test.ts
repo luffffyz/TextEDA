@@ -35,7 +35,8 @@ describe("single-file board (mcu-board)", () => {
   test("instances and nets are unique sets of the board", () => {
     const ir = result.ir!;
     expect(ir.board).toBe("mcu-board");
-    expect(ir.format).toBe(formatVersion(SUPPORTED_LANGUAGE));
+    // The reference project fixture intentionally remains at its authored language version.
+    expect(ir.format).toBe("0.9.2");
     expect(ir.instances.length).toBe(21);
     expect(ir.nets.length).toBe(10);
   });
@@ -545,7 +546,7 @@ describe("negative cases", () => {
   });
 
   test("version higher than the tool supports", () => {
-    const text = board.replace("version 0.3", "version 0.10");
+    const text = board.replace("version 0.3", "version 0.11");
     expect(codes(text)).toContain("format.unsupported-version");
   });
 

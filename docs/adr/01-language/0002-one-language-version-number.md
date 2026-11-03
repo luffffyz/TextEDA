@@ -2,8 +2,8 @@
 
 Status: Accepted
 Date: 2026-10-27
-Scope: Decides: that the language has one version number, that it moves in PATCH steps only, and that a description type's floor is the version it was born at. Does not decide: when the surface is frozen — `1.0` is reserved for that, see `spec/teda.md` §13.2.
-Related: [ADR-0001](0001-fact-layer-has-no-expressions.md), [ADR-0006](../02-ir/0006-ir-shards-and-hashes.md), [ADR-0011](../03-project/0011-renumbering-is-a-code-executed-rename.md), [ADR-0041](../10-process/0041-documentation-has-one-authority-per-fact.md)
+Scope: Decides: that the language has one version number, that additive language changes may take an explicitly recorded MINOR step while compatible clarifications take PATCH, and that a description type's floor is the version it was born at. Does not decide: when the surface is frozen — `1.0` is reserved for that, see `spec/teda.md` §13.2.
+Related: [ADR-0001](0001-fact-layer-has-no-expressions.md), [ADR-0006](../02-ir/0006-ir-shards-and-hashes.md), [ADR-0011](../03-project/0011-renumbering-is-a-code-executed-rename.md), [ADR-0041](../10-process/0041-documentation-has-one-authority-per-fact.md), [ADR-0055](../09-view/0055-schematic-fields-are-view-overrides.md)
 Impact: `spec/teda.md` §13; `packages/parser/src/version.ts`; `scripts/migrate-0.9.ts`; `examples/**`
 
 ## Background
@@ -48,7 +48,7 @@ with its own discipline, is a discipline that will be broken again. The referenc
 eleven distinct numbers across its `.teda` files, and even one type's line was not one number in
 the tree: `component` was at `0.1.2` in some files and `0.1.5` in others.
 
-The owner asked for one number, PATCH-only changes from here, and a changelog.
+The owner asked for one number, a changelog, and an explicit decision whenever an additive MINOR step is needed.
 
 ## Decision
 
@@ -94,16 +94,18 @@ changed. This matters: before this rule, the `symbol` parser refused anything ab
 `schematic` parser refused anything above `0.3`, so a symbol file written today at the current
 language version was rejected.
 
-### D5. The Version Moves in PATCH Steps Only
+### D5. MINOR Requires an Explicit Decision; PATCH Covers Compatible Changes
 
-Inside the `0.x` line the version moves in PATCH steps: the next change after any release is the
-next patch of it, never a MINOR. A MINOR step is a decision that needs a record. The version the
-language is at right now lives in `spec/teda.md` §13.1, not here.
+Inside the `0.x` line, a change that does not alter the accepted file set is a PATCH. An additive
+description type, section, or field is a MINOR when an explicit decision records the release; the
+absence of such a decision is not permission to use a MINOR number. Therefore `0.10.0` is valid
+when the decision that introduces its new construct says so, while an ordinary clarification or
+diagnostic improvement remains a PATCH.
 
-A removal needs a mechanism too, and the PATCH bit is it: inside the `0.x` phase a removal rides
-the PATCH bit with a migration note and a script. A removal before `1.0` is allowed and announced;
-only the bit that carries it is settled. The rule that a PATCH never breaks compatibility belongs
-to the line after `1.0`, where PATCH is the only bit that moves.
+A removal needs a mechanism too. Before `1.0`, a removal requires an explicit decision, a migration
+note, and a migration script; the old files may stop being valid only under that recorded decision.
+After `1.0`, only PATCH releases follow and no new description types, sections, or fields may be
+added.
 
 ### D6. `1.0` Is a Milestone, Not a Counter
 
@@ -144,14 +146,18 @@ Before the merge, `symbol` accepted `0.5` and nothing else; after, it accepts `0
 accepts becomes refused. A merge is a widening, and that is what makes it safe to do while the
 corpus is still incomplete.
 
-### D11. The Repository's Own Files Carry the Single Number
+### D11. Repository Files May Keep Older Compatible Versions
 
-The `.teda` files under `examples/` and the `format` key of the `project.toml` files moved to
-`0.9.1` together; from here they carry whatever number `spec/teda.md` §13.1 gives, and a release
-moves all of them at once. The shards change with them (the `format` field), so the hashes change
-and the case goldens are regenerated. Because the contract layer is public, the mechanical part also gets a script:
-`bun run migrate:0.9 <project dir>` rewrites the version line of every `.teda` file and the
-`format` key of `project.toml`; it renames nothing else, because a renumbering is a renumbering.
+The repository's `.teda` files and `project.toml` files do not move in lockstep merely because the
+language has a newer version. A file may keep an older accepted version when it uses only constructs
+available at that version. A file that uses a new construct declares the MINOR that introduced that
+construct; the parser gates the construct, not unrelated files. The IR shard records the source
+file's declared language version, so only shards produced from changed source files acquire that
+format value and any resulting hash changes.
+
+Any required migration is scoped to the construct that requires it and is documented in
+`spec/teda.md` §13.4. A migration script may rewrite the affected files, but a release does not
+silently rewrite every `.teda` file or every project's `format` key.
 
 ## Consequences
 

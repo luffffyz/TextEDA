@@ -37,13 +37,10 @@ export const MODEL_PATH = "/api/texteda-review";
 export const PLACES_PATH = "/api/texteda-review/places";
 
 /**
- * What this host grants the app (ADR-0043 D3, D6).
- *
- * `review` and `layout` are the two modes that need nothing outside a print page: the drawing, and
- * its `place` rows. `edit` is not offered — the source is the agent's, not the plugin's — and
- * neither is `placement`, which reads a `pcb` description this half does not serve.
+ * This host exposes the single drawing surface with placement rows as its only write boundary.
+ * Fields, source text, and every other view fact remain outside the plugin's authority.
  */
-const CAPABILITY: ReviewCapability = { modes: ["review", "layout"], write: "places" };
+const CAPABILITY: ReviewCapability = { write: "places" };
 
 /** One refusal: what the route answers with, and with which status. */
 function refuse(status: number, message: string): Response {
@@ -82,12 +79,15 @@ function handleModel(ctx: Context, request: Request): Response {
     }
 }
 
-/** What the client half sends: which page, and the moves it has pending. */
+/** What the client half sends: which page and the placement rows it wants to plan or commit. */
 interface PlacesBody {
     readonly board?: unknown;
     readonly page?: unknown;
     readonly commit?: unknown;
     readonly places?: unknown;
+    readonly fields?: unknown;
+    readonly remove_fields?: unknown;
+    readonly text?: unknown;
 }
 
 /** The moves, narrowed to the shape the write path checks field by field. */
@@ -116,11 +116,20 @@ async function handlePlaces(ctx: Context, request: Request): Promise<Response> {
     const root = projectRoot(ctx, sessionId);
     if (typeof root !== "string") return refuse(404, root.reason);
 
-    let body: PlacesBody;
+    let parsed: unknown;
     try {
-        body = (await request.json()) as PlacesBody;
+        parsed = await request.json();
     } catch {
         return refuse(400, "the request body is not JSON");
+    }
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        return refuse(400, "the request body must be an object");
+    }
+    const body = parsed as PlacesBody;
+    for (const key of ["fields", "remove_fields", "text"] as const) {
+        if (Object.prototype.hasOwnProperty.call(body, key)) {
+            return refuse(400, `${key} is not supported by the places-only host`);
+        }
     }
     const board = typeof body.board === "string" ? body.board : undefined;
     const page = typeof body.page === "string" ? body.page : undefined;

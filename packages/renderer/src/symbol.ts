@@ -2,8 +2,9 @@
 //
 // Symbols are **views** (ADR-0031): pin placement, outline, units, and visibility toggles live here;
 // pin names and electrical types belong to `component`, looked up by pin number at render time.
+import { strokeWidthFor, textStrokes } from "@texteda/core/font";
 import type { Symbol } from "@texteda/ir/symbol";
-import { pinDirection, type SvgDoc, type SvgFill, type SvgPrimitive } from "./svg.ts";
+import { arcGeometry, pinDirection, type SvgAnchor, type SvgDoc, type SvgFill, type SvgPrimitive } from "./svg.ts";
 
 export type SymbolBody = Symbol["symbol"];
 type Pin = SymbolBody["pins"][number];
@@ -24,21 +25,246 @@ export interface SymbolPart {
 const DEFAULT_NAME_OFFSET_NM = 508_000;
 const DEFAULT_TEXT_SIZE_NM = 1_270_000;
 const NUMBER_TEXT_SIZE_NM = 1_270_000;
-/** Distance of the pin number from the connection point (KiCad uses 0.05 inch = 1.27mm). */
-const NUMBER_TEXT_OUT_NM = 1_270_000;
+/** Exact clear distance from pin lines and painted symbol-body bounds to number ink. */
+const NUMBER_TEXT_CLEARANCE_NM = 200_000;
+/** Legacy anchor distance when a symbol has no visible body frame. */
+const NUMBER_TEXT_BODY_FALLBACK_OFFSET_NM = 1_200_000;
+/** Exact clear distance from a visible symbol-body frame to pin-name ink. */
+const PIN_NAME_BODY_CLEARANCE_NM = 400_000;
 /** Inversion bubble radius (KiCad default 0.254mm). */
 const BUBBLE_RADIUS_NM = 254_000;
 /** Clock wedge length and half-width. */
 const CLOCK_WEDGE_LEN_NM = 508_000;
 const CLOCK_WEDGE_HALF_NM = 254_000;
 
+interface TextInkEdges {
+  left: number;
+  right: number;
+  bottom: number;
+  top: number;
+}
+
+/** Rotate a point around the text anchor using the symbol's y-up model coordinates. */
+function rotateTextPoint(x: number, y: number, rotateMdeg: number): { x: number; y: number } {
+  const rotation = ((rotateMdeg % 360_000) + 360_000) % 360_000;
+  if (rotation === 0) return { x, y };
+  const rad = (rotation * Math.PI) / 180_000;
+  return {
+    x: Math.round(x * Math.cos(rad) - y * Math.sin(rad)),
+    y: Math.round(x * Math.sin(rad) + y * Math.cos(rad)),
+  };
+}
+
+/** Painted bounds relative to a text label's anchor, including the rendered stroke width. */
+function textInkEdges(
+  text: string,
+  sizeNm: number,
+  anchor: SvgAnchor,
+  rotateMdeg = 0,
+): TextInkEdges {
+  const strokes = textStrokes(text, {
+    x: 0,
+    y: 0,
+    sizeNm,
+    anchor,
+    yDown: false,
+  });
+  let left = Number.POSITIVE_INFINITY;
+  let right = Number.NEGATIVE_INFINITY;
+  let bottom = Number.POSITIVE_INFINITY;
+  let top = Number.NEGATIVE_INFINITY;
+  for (const stroke of strokes) {
+    for (const point of stroke.points) {
+      const rotated = rotateTextPoint(point.x, point.y, rotateMdeg);
+      left = Math.min(left, rotated.x);
+      right = Math.max(right, rotated.x);
+      bottom = Math.min(bottom, rotated.y);
+      top = Math.max(top, rotated.y);
+    }
+  }
+  if (!Number.isFinite(left) || !Number.isFinite(right) || !Number.isFinite(bottom) || !Number.isFinite(top)) {
+    return { left: 0, right: 0, bottom: 0, top: 0 };
+  }
+  const halfStroke = strokeWidthFor(sizeNm) / 2;
+  return {
+    left: left - halfStroke,
+    right: right + halfStroke,
+    bottom: bottom - halfStroke,
+    top: top + halfStroke,
+  };
+}
+
+
+interface PinNamePlacement {
+  x: number;
+  y: number;
+  anchor: SvgAnchor;
+  rotateMdeg?: number;
+}
+
+
+/** Painted bounds relative to a middle-anchored pin-number label's anchor. */
+function pinNumberInkEdges(text: string): TextInkEdges {
+  return textInkEdges(text, NUMBER_TEXT_SIZE_NM, "middle");
+}
+
+
+interface BodyFrameBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  innerMinX: number;
+  innerMinY: number;
+  innerMaxX: number;
+  innerMaxY: number;
+}
+
+/** Axis-aligned outer and inner painted frames of visible symbol-body geometry. */
+function symbolBodyBounds(body: readonly BodyItem[] | undefined): BodyFrameBounds | undefined {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  let innerMinX = Number.POSITIVE_INFINITY;
+  let innerMinY = Number.POSITIVE_INFINITY;
+  let innerMaxX = Number.NEGATIVE_INFINITY;
+  let innerMaxY = Number.NEGATIVE_INFINITY;
+  const include = (x: number, y: number, margin: number): void => {
+    minX = Math.min(minX, x - margin);
+    minY = Math.min(minY, y - margin);
+    maxX = Math.max(maxX, x + margin);
+    maxY = Math.max(maxY, y + margin);
+    innerMinX = Math.min(innerMinX, x + margin);
+    innerMinY = Math.min(innerMinY, y + margin);
+    innerMaxX = Math.max(innerMaxX, x - margin);
+    innerMaxY = Math.max(innerMaxY, y - margin);
+  };
+
+  for (const item of body ?? []) {
+    const width = item.width_nm ?? 0;
+    const filled = item.kind !== "line" && item.kind !== "arc" && item.fill !== undefined && item.fill !== "none";
+    if (width <= 0 && !filled) continue;
+    const halfWidth = Math.max(0, width) / 2;
+    switch (item.kind) {
+      case "line":
+      case "rect": {
+        const start = item.start!;
+        const end = item.end!;
+        include(start.x_nm, start.y_nm, halfWidth);
+        include(end.x_nm, end.y_nm, halfWidth);
+        break;
+      }
+      case "circle": {
+        const center = item.center!;
+        const radius = item.radius_nm!;
+        include(center.x_nm - radius, center.y_nm - radius, halfWidth);
+        include(center.x_nm + radius, center.y_nm + radius, halfWidth);
+        break;
+      }
+      case "arc": {
+        const start = item.start!;
+        const mid = item.mid!;
+        const end = item.end!;
+        include(start.x_nm, start.y_nm, halfWidth);
+        include(mid.x_nm, mid.y_nm, halfWidth);
+        include(end.x_nm, end.y_nm, halfWidth);
+        const arc = arcGeometry(start.x_nm, start.y_nm, mid.x_nm, mid.y_nm, end.x_nm, end.y_nm);
+        if (!arc) break;
+
+        const d = 2 * (
+          start.x_nm * (mid.y_nm - end.y_nm) +
+          mid.x_nm * (end.y_nm - start.y_nm) +
+          end.x_nm * (start.y_nm - mid.y_nm)
+        );
+        const s1 = start.x_nm * start.x_nm + start.y_nm * start.y_nm;
+        const s2 = mid.x_nm * mid.x_nm + mid.y_nm * mid.y_nm;
+        const s3 = end.x_nm * end.x_nm + end.y_nm * end.y_nm;
+        const cx = (s1 * (mid.y_nm - end.y_nm) + s2 * (end.y_nm - start.y_nm) + s3 * (start.y_nm - mid.y_nm)) / d;
+        const cy = (s1 * (end.x_nm - mid.x_nm) + s2 * (start.x_nm - end.x_nm) + s3 * (mid.x_nm - start.x_nm)) / d;
+        const startAngle = Math.atan2(start.y_nm - cy, start.x_nm - cx);
+        const endAngle = Math.atan2(end.y_nm - cy, end.x_nm - cx);
+        const twoPi = 2 * Math.PI;
+        const forwardRaw = endAngle - startAngle;
+        const forward = ((forwardRaw % twoPi) + twoPi) % twoPi;
+        const positive = arc.sweep === 1;
+        const sweep = positive ? forward : forward - twoPi;
+        for (let index = 0; index < 4; index += 1) {
+          const angle = index * Math.PI / 2;
+          const deltaRaw = positive ? angle - startAngle : startAngle - angle;
+          const delta = ((deltaRaw % twoPi) + twoPi) % twoPi;
+          if (delta <= Math.abs(sweep) + 1e-12) {
+            include(cx + arc.radiusNm * Math.cos(angle), cy + arc.radiusNm * Math.sin(angle), halfWidth);
+          }
+        }
+        break;
+      }
+      case "poly":
+        for (const point of item.points!) include(point.x_nm, point.y_nm, halfWidth);
+        break;
+    }
+  }
+  if (!Number.isFinite(minX)) return undefined;
+  return {
+    minX: Math.floor(minX),
+    minY: Math.floor(minY),
+    maxX: Math.ceil(maxX),
+    maxY: Math.ceil(maxY),
+    innerMinX: Math.ceil(innerMinX),
+    innerMinY: Math.ceil(innerMinY),
+    innerMaxX: Math.floor(innerMaxX),
+    innerMaxY: Math.floor(innerMaxY),
+  };
+}
+
 /** How a symbol pin is drawn: the connection point is at the pin's "outer" end and the line runs toward the inside of the symbol body (spec/symbol.md §4). */
 export function renderSymbol(sym: SymbolBody, part: SymbolPart): SvgDoc {
   const primitives: SvgPrimitive[] = [];
   const names = new Map(part.pins.map((p) => [p.number, p]));
+  const bodyBounds = symbolBodyBounds(sym.body);
 
   for (const item of sym.body ?? []) {
     primitives.push(...bodyPrimitives(item, sym.power));
+  }
+  const pinNamePlacements = new Map<Pin, PinNamePlacement>();
+  if (bodyBounds && !sym.pin_names_hidden) {
+    for (const pin of sym.pins) {
+      const info = names.get(pin.number);
+      const name = info?.name ?? "";
+      if (name.length === 0) continue;
+
+      const rot = pin.at.rotation_mdeg ?? 0;
+      const dir = pinDirection(rot);
+      const inner = {
+        x: pin.at.x_nm + dir.x * pin.length_nm,
+        y: pin.at.y_nm + dir.y * pin.length_nm,
+      };
+      if (dir.x !== 0) {
+        const anchor = dir.x < 0 ? "end" : "start";
+        const ink = textInkEdges(name, DEFAULT_TEXT_SIZE_NM, anchor);
+        pinNamePlacements.set(pin, {
+          x: dir.x > 0
+            ? bodyBounds.innerMinX + PIN_NAME_BODY_CLEARANCE_NM - ink.left
+            : bodyBounds.innerMaxX - PIN_NAME_BODY_CLEARANCE_NM - ink.right,
+          y: inner.y,
+          anchor,
+        });
+        continue;
+      }
+
+      const anchor = "start" as const;
+      const rotateMdeg = 90_000;
+      const ink = textInkEdges(name, DEFAULT_TEXT_SIZE_NM, anchor, rotateMdeg);
+      const y = dir.y > 0
+        ? bodyBounds.innerMinY + PIN_NAME_BODY_CLEARANCE_NM - ink.bottom
+        : bodyBounds.innerMaxY - PIN_NAME_BODY_CLEARANCE_NM - ink.top;
+      pinNamePlacements.set(pin, {
+        x: inner.x,
+        y,
+        anchor,
+        rotateMdeg,
+      });
+    }
   }
 
   for (const pin of sym.pins) {
@@ -60,7 +286,6 @@ export function renderSymbol(sym: SymbolBody, part: SymbolPart): SvgDoc {
     if (sym.power) primitives.push(...powerBarPrimitives(pin));
 
     const dir = pinDirection(rot);
-    const away = { x: -dir.x, y: -dir.y };
     const horizontal = dir.x !== 0;
     // Pin inner end (the side against the symbol body): the pin line runs from the connection point toward the inside of the symbol body.
     const inner = {
@@ -69,20 +294,30 @@ export function renderSymbol(sym: SymbolBody, part: SymbolPart): SvgDoc {
     };
     primitives.push(...pinStylePrimitives(pin, dir));
 
-    // Pin name: placed against the inner end and shifted along the pin direction into the symbol body (same meaning as KiCad's pin_names offset).
-    const offset = sym.pin_name_offset_nm ?? DEFAULT_NAME_OFFSET_NM;
-    const nameX = inner.x + dir.x * offset;
-    // Text anchor: the text's **visual center** lands on the anchor point (SVG uses dominant-baseline="central").
-    const nameY = inner.y + dir.y * offset;
-    const anchor = dir.x < 0 ? "end" : "start";
-
-    if (!sym.pin_names_hidden) {
-      const name = info?.name ?? "";
-      if (name.length > 0) {
+    // Pin name: keep its frame-facing painted edge clear of the visible body; bodyless symbols retain pin_name_offset.
+    const name = info?.name ?? "";
+    if (!sym.pin_names_hidden && name.length > 0) {
+      const placement = pinNamePlacements.get(pin);
+      if (placement) {
         primitives.push({
           kind: "text",
-          x: nameX,
-          y: nameY,
+          x: placement.x,
+          y: placement.y,
+          text: name,
+          sizeNm: DEFAULT_TEXT_SIZE_NM,
+          anchor: placement.anchor,
+          ...(placement.rotateMdeg === undefined ? {} : { rotateMdeg: placement.rotateMdeg }),
+          role: "pinName",
+          pin: pin.number,
+          unit: pin.unit,
+        });
+      } else {
+        const anchor = dir.x < 0 ? "end" : "start";
+        const offset = sym.pin_name_offset_nm ?? DEFAULT_NAME_OFFSET_NM;
+        primitives.push({
+          kind: "text",
+          x: inner.x + dir.x * offset,
+          y: inner.y + dir.y * offset,
           text: name,
           sizeNm: DEFAULT_TEXT_SIZE_NM,
           anchor,
@@ -93,11 +328,28 @@ export function renderSymbol(sym: SymbolBody, part: SymbolPart): SvgDoc {
       }
     }
     if (!sym.pin_numbers_hidden) {
+      const ink = pinNumberInkEdges(pin.number);
+      const bodySide = bodyBounds
+        ? {
+            x: dir.x > 0
+              ? bodyBounds.minX - NUMBER_TEXT_CLEARANCE_NM - ink.right
+              : dir.x < 0
+                ? bodyBounds.maxX + NUMBER_TEXT_CLEARANCE_NM - ink.left
+                : inner.x,
+            y: dir.y > 0
+              ? bodyBounds.minY - NUMBER_TEXT_CLEARANCE_NM - ink.top
+              : dir.y < 0
+                ? bodyBounds.maxY + NUMBER_TEXT_CLEARANCE_NM - ink.bottom
+                : inner.y,
+          }
+        : {
+            x: inner.x - dir.x * NUMBER_TEXT_BODY_FALLBACK_OFFSET_NM,
+            y: inner.y - dir.y * NUMBER_TEXT_BODY_FALLBACK_OFFSET_NM,
+          };
       primitives.push({
         kind: "text",
-        x: pin.at.x_nm + away.x * NUMBER_TEXT_OUT_NM,
-        // Horizontal pin: the text center sits on the pin axis; vertical pin: the text center lands on the extrapolated anchor point.
-        y: horizontal ? pin.at.y_nm : pin.at.y_nm + away.y * NUMBER_TEXT_OUT_NM,
+        x: horizontal ? bodySide.x : pin.at.x_nm + NUMBER_TEXT_CLEARANCE_NM - ink.left,
+        y: horizontal ? pin.at.y_nm + NUMBER_TEXT_CLEARANCE_NM - ink.bottom : bodySide.y,
         text: pin.number,
         sizeNm: NUMBER_TEXT_SIZE_NM,
         anchor: "middle",

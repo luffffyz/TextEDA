@@ -1,4 +1,4 @@
-# netlist tie-board (ir 0.14)
+# netlist tie-board (ir 0.15)
 GND: C1.2 R1.2 U1.2
 V3V3: C1.1 U1.5
 V3V3_SENSE: R1.1

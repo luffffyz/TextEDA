@@ -3,8 +3,9 @@
 Status: Accepted
 Date: 2026-10-30
 Scope: Decides: that the review app shows drawings — a print page, a board's physical canvas, a library symbol, a library footprint — as four kinds of one thing; that the modes belong to the drawing (`review` everywhere, `layout` and `edit` on a print page) and that the `placement` mode is retired; that a finding names an object the app can select on the drawing; and that the app shows what a print page measures. Does not decide: what a print page is or how it is drawn — see ADR-0035 and ADR-0036; how PCB placement and copper routing are produced — see ADR-0017; what a review record says — see ADR-0037.
-Related: [ADR-0042](0042-the-review-app-has-modes.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0049](../08-libraries/0049-assets-are-filed-by-what-they-are.md).
+Related: [ADR-0042](0042-the-review-app-has-modes.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0049](../08-libraries/0049-assets-are-filed-by-what-they-are.md), [ADR-0056](0056-the-review-app-has-one-interaction-surface.md).
 Impact: `packages/viewer/**`; `packages/cli` (the `review` command and its model); `plugins/dsh-texteda`; `docs/guides/review-app.md`; `docs/backlog.md` (F34)
+> **Current interaction contract (2026-11-03):** the four drawing kinds and PCB-as-a-read-only-drawing decision remain current. The mode-switch rule in D2 and the capability wording in D3 are superseded by [ADR-0056](0056-the-review-app-has-one-interaction-surface.md).
 
 ## Context
 

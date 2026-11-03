@@ -30,7 +30,7 @@
     "pins_source": "inline",
     "symbol": "connectors:hdr-1x3"
   },
-  "ir_version": "0.14",
+  "ir_version": "0.15",
   "source": {
     "file": "assets/components/connectors/hdr-1x3-254.teda",
     "line": 1

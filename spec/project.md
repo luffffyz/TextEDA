@@ -17,7 +17,7 @@ else is added by hand when it is needed.
 
 | Table | Keys | When |
 |---|---|---|
-| `[project]` | `name` `version` `format` | **Required**; `version` is the project version, `format` is the **language version** — the one number every `.teda` file in the project declares (current value: `spec/teda.md` §13.1) |
+| `[project]` | `name` `version` `format` | **Required**; `version` is the project version, `format` records the project's language version (current value: `spec/teda.md` §13.1) |
 | `[project]` | `description` `license` `status` | Optional; `license` in SPDX form, `status` one of `draft` / `prototype` / `frozen` / `production` / `deprecated` |
 | `[project]` | `owner` | Optional, but **required once review records exist**: the project's responsible person (creator, or whoever took it over). Only the owner may dispose of review comments ([ADR-0037](../docs/adr/09-view/0037-review-records-and-attribution.md)) |
 | `[project]` | `default_variant` | With several variants; must point at a defined `[variants.<id>]` |
@@ -38,9 +38,11 @@ else is added by hand when it is needed.
 ## 2. Rules
 
 - **Unknown top-level keys are an error** (`ext` is the one exception).
-- `format` is the **language version**, not a per-description-type version: it is the number every
-  `.teda` file in the project declares. The current value is in `spec/teda.md` §13.1, the acceptance
-  rules in `spec/teda.md` §13.3.
+- `format` records one project-level language version, not a per-description-type version or an
+  assertion that every `.teda` file declares the same version. `texteda init` writes the current
+  language version; existing files may keep an older accepted version if they use only constructs
+  available at that version. Per-file acceptance is defined in `spec/teda.md` §13.3, and any new
+  construct requires the version that introduced it (see [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D11).
 - No timestamps, absolute paths, random IDs, secrets, or derived data (BOM / Gerber / checksums).
 - `init` writes only `name` / `version` / `format`; everything else is added when needed.
 - The board-level structure of a project is out of scope for this repository: this repository

@@ -13,10 +13,17 @@ What a person looks at: the view as an independent description and a drawing, th
 
 1. [0035](0035-the-view-layer-is-a-drawing.md) — the view is an independent description, and a drawing is not a build input.
 2. [0036](0036-our-own-reference-renderer.md) — the reference renderer is ours, and its output must be verifiable.
-3. [0037](0037-review-records-and-attribution.md) — a review is a record, not a description type.
-4. [0042](0042-the-review-app-has-modes.md) — the review app has modes, and `layout` writes placement, not copper.
-5. [0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md) — the review app becomes a plugin of the agent workbench, and the agent owns the source (it narrows 0141's write, and the app keeps its modes for now).
-6. [0048](0048-the-review-app-shows-drawings.md) — the app shows drawings, not boards: print pages, board canvases, symbols and footprints.
+3. [0050](0050-pin-number-placement-is-a-renderer-convention.md) — pin-number placement is a fixed renderer convention, separate from source facts and export geometry.
+4. [0051](0051-pin-number-clearance-is-measured-from-painted-ink.md) — pin-line clearance is measured from the nearest painted edge, not the text anchor.
+5. [0052](0052-pin-number-body-clearance-is-measured-from-symbol-body-bounds.md) — body-side clearance uses visible symbol-body bounds, with a bodyless fallback.
+6. [0053](0053-pin-name-body-clearance-is-measured-from-symbol-body-bounds.md) — pin-name body clearance uses the same visible frame, with a larger inside-frame gap.
+7. [0054](0054-vertical-pin-name-labels-use-collision-aware-rotation.md) — visible-body vertical pin names always use a fixed `90_000` millidegree rotation from the pin-facing side.
+8. [0055](0055-schematic-fields-are-view-overrides.md) — schematic `Reference` and `Value` fields are deterministic renderer defaults with per-instance local overrides.
+9. [0037](0037-review-records-and-attribution.md) — a review is a record, not a description type.
+10. [0042](0042-the-review-app-has-modes.md) — the historical mode and standalone write decision; its interaction-surface rule is superseded by [ADR-0056](0056-the-review-app-has-one-interaction-surface.md).
+11. [0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md) — the plugin boundary and places-only host write; its current interaction contract is superseded by [ADR-0056](0056-the-review-app-has-one-interaction-surface.md).
+12. [0048](0048-the-review-app-shows-drawings.md) — the app shows drawings, not boards: print pages, board canvases, symbols and footprints; its mode-switch rule is superseded by [ADR-0056](0056-the-review-app-has-one-interaction-surface.md).
+13. [0056](0056-the-review-app-has-one-interaction-surface.md) — one interaction surface with explicit move, rotate, source and commit actions.
 
 ## Records
 
@@ -28,3 +35,10 @@ What a person looks at: the view as an independent description and a drawing, th
 | [ADR-0042](0042-the-review-app-has-modes.md) | The Review App Has Modes, and `layout` Writes Placement, Not Copper | Accepted | 2026-10-28 |
 | [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md) | The Review App Is a Plugin of the Agent Workbench, and the Agent Owns the Source | Accepted | 2026-10-29 |
 | [ADR-0048](0048-the-review-app-shows-drawings.md) | The Review App Shows Drawings, Not Boards | Accepted | 2026-10-30 |
+| [ADR-0056](0056-the-review-app-has-one-interaction-surface.md) | The Review App Has One Interaction Surface | Accepted | 2026-11-03 |
+| [ADR-0050](0050-pin-number-placement-is-a-renderer-convention.md) | Pin-Number Placement Is a Renderer Convention | Accepted | 2026-11-01 |
+| [ADR-0051](0051-pin-number-clearance-is-measured-from-painted-ink.md) | Pin-Number Clearance Is Measured from Painted Ink | Accepted | 2026-11-01 |
+| [ADR-0052](0052-pin-number-body-clearance-is-measured-from-symbol-body-bounds.md) | Pin-Number Body Clearance Is Measured from the Symbol Body Bounds | Accepted | 2026-11-01 |
+| [ADR-0053](0053-pin-name-body-clearance-is-measured-from-symbol-body-bounds.md) | Pin-Name Body Clearance Is Measured from Symbol-Body Bounds | Accepted | 2026-11-01 |
+| [ADR-0054](0054-vertical-pin-name-labels-use-collision-aware-rotation.md) | Vertical Pin-Name Labels Always Rotate Toward Their Pins | Accepted | 2026-11-01 |
+| [ADR-0055](0055-schematic-fields-are-view-overrides.md) | Schematic `Reference` and `Value` Fields Are Per-Instance View Overrides | Accepted | 2026-11-01 |

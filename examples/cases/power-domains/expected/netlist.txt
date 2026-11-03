@@ -1,4 +1,4 @@
-# netlist power-domains (ir 0.14)
+# netlist power-domains (ir 0.15)
 EN01: R2.2 U1.3
 EN02: R4.2 U2.3
 EN03: R6.2 U3.3

@@ -100,8 +100,7 @@ function specProse(): string {
 
 /** Whether the prose of §13.1 states the language's current version. */
 function proseStatesCeiling(): boolean {
-  // The canonical spelling, patch included (`0.9.2` as of this change). The MINOR alone is the
-  // accepted-range bound, not the language's number, so it does not count here.
+  // The spec records the declared release as `0.10.0`; canonical source spelling omits a zero patch (`0.10`).
   return specProse().includes(formatVersion(SUPPORTED_LANGUAGE));
 }
 
@@ -179,7 +178,8 @@ describe("spec/teda.md §13.4, the changelog of the language", () => {
   test("the newest entry is the language's current version", () => {
     const found = entries();
     expect(found.length).toBeGreaterThan(0);
-    expect(found[0]!.version).toBe(formatVersion(SUPPORTED_LANGUAGE));
+    const declared = `${SUPPORTED_LANGUAGE.major}.${SUPPORTED_LANGUAGE.minor}.${SUPPORTED_LANGUAGE.patch}`;
+    expect(found[0]!.version).toBe(declared);
   });
 
   test("every entry carries a date", () => {

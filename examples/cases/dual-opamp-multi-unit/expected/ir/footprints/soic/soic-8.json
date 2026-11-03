@@ -276,7 +276,7 @@
       "SOIC-8"
     ]
   },
-  "ir_version": "0.14",
+  "ir_version": "0.15",
   "source": {
     "file": "assets/footprints/soic/soic-8.teda",
     "line": 1

@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.14",
+  "ir_version": "0.15",
   "source": {
     "file": "assets/symbols/passives/r.teda",
     "line": 1
@@ -8,14 +8,14 @@
     "body": [
       {
         "end": {
-          "x_nm": 2540000,
-          "y_nm": 1016000
+          "x_nm": 2500000,
+          "y_nm": 1000000
         },
         "fill": "background",
         "kind": "rect",
         "start": {
-          "x_nm": -2540000,
-          "y_nm": -1016000
+          "x_nm": -2500000,
+          "y_nm": -1000000
         },
         "unit": 1,
         "width_nm": 254000
@@ -26,7 +26,7 @@
       {
         "at": {
           "x_nm": 0,
-          "y_nm": 2540000
+          "y_nm": 2500000
         },
         "name": "Reference",
         "value": "U"
@@ -34,7 +34,7 @@
       {
         "at": {
           "x_nm": 0,
-          "y_nm": -2540000
+          "y_nm": -2500000
         },
         "name": "Value",
         "value": "r"
@@ -51,10 +51,10 @@
       {
         "at": {
           "rotation_mdeg": 0,
-          "x_nm": -3810000,
+          "x_nm": -4000000,
           "y_nm": 0
         },
-        "length_nm": 1270000,
+        "length_nm": 1500000,
         "number": "1",
         "style": "line",
         "unit": 1
@@ -62,10 +62,10 @@
       {
         "at": {
           "rotation_mdeg": 180000,
-          "x_nm": 3810000,
+          "x_nm": 4000000,
           "y_nm": 0
         },
-        "length_nm": 1270000,
+        "length_nm": 1500000,
         "number": "2",
         "style": "line",
         "unit": 1

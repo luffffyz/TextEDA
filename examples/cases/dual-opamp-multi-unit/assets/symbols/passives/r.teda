@@ -4,12 +4,13 @@ symbol r
 description Resistor, 2-pin generic view
 tags passive resistor
 # Generic resistor view: rectangular body + one pin on each side. Shared by several components (0402 / 2010 etc.).
-field Reference at=0,2.54 U
-field Value at=0,-2.54 r
+# Pin connection points, pin tails, and the body frame sit on the 0.5 mm placement lattice (ADR-0057).
+field Reference at=0,2.5 U
+field Value at=0,-2.5 r
 
 pins
-  1  -3.81  0  0
-  2  3.81   0  180
+  1  -4  0  0    length=2.5
+  2  4   0  180  length=2.5
 
 body
-  rect  -1.27,-0.635,1.27,0.635  fill=background  width=0.254
+  rect  -1.5,-0.5,1.5,0.5  fill=background  width=0.254

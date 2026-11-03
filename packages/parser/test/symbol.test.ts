@@ -23,8 +23,8 @@ describe("example symbol", () => {
     const sym = result.ir!.symbol;
     expect(sym.pins.length).toBe(25);
     const pin1 = sym.pins.find((p) => p.number === "1")!;
-    expect(pin1.at).toEqual({ x_nm: -12700000, y_nm: 13970000, rotation_mdeg: 0 });
-    expect(pin1.length_nm).toBe(2540000);
+    expect(pin1.at).toEqual({ x_nm: -12500000, y_nm: -11000000, rotation_mdeg: 0 });
+    expect(pin1.length_nm).toBe(2500000);
     expect(pin1.unit).toBe(1);
     expect(pin1.style).toBe("line");
     const pin17 = sym.pins.find((p) => p.number === "17")!;
@@ -36,14 +36,13 @@ describe("example symbol", () => {
     expect(body.length).toBe(1);
     expect(body[0]!.kind).toBe("rect");
     expect(body[0]!.fill).toBe("background");
-    expect(body[0]!.start).toEqual({ x_nm: -10160000, y_nm: -16510000 });
+    expect(body[0]!.start).toEqual({ x_nm: -10000000, y_nm: -16500000 });
   });
 
   test("fields are sorted by name; values do not contain keys", () => {
     const fields = result.ir!.symbol.fields!;
     expect(fields.map((f) => f.name)).toEqual(["Reference", "Value"]);
     expect(fields[0]!.value).toBe("U");
-    expect(fields[0]!.at).toEqual({ x_nm: -6350000, y_nm: 17780000 });
   });
 
   test("passes the IR contract (closed schema)", () => {

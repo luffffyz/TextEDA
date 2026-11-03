@@ -12,9 +12,8 @@
 // `sessionId` the host half wants: the project root is that session's `cwd`.
 //
 // The write channel: the app asks its host with paths of its own (`/api/layout`, `/api/source`).
-// This module answers the first and refuses the second. Refusing is not a gap — the plugin grants
-// no `edit` mode (the source is the agent's to write, ADR-0043 D3), so the app never asks, and a
-// refusal is what a mode that somehow did ask would get.
+// This host grants places-only capability, so the explicit Source action and field writes are
+// refused by the host rather than exposed as a second interaction surface.
 //
 // Written with `createElement` and no JSX on purpose: the repository has no React dependency, and
 // the host supplies React as a platform module (DSH's `PLATFORM_MODULES`). A `.tsx` file would need
@@ -66,8 +65,9 @@ function apiFor(sessionId: string): ReviewApi {
                 });
                 return answer(response);
             }
-            // `/api/source` is the standalone app's draft route. This host grants no `edit` mode, so
-            // the app never reaches for it; saying so beats a 404 nobody can read.
+            // `/api/source` is the standalone app's Source-panel route. This host has places-only
+            // capability, so it refuses the route explicitly rather than making the app depend on
+            // an unexplained 404.
             return {
                 status: 405,
                 payload: { error: "this host does not write page source: the agent does" },

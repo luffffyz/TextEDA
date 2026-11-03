@@ -36,23 +36,22 @@ export interface ReviewText {
   box: ReviewBox;
 }
 
-/**
- * The modes the app offers (ADR-0042 D1, as ADR-0048 amends it).
- *
- * `review` reads, `layout` moves symbols on a print page, `edit` shows the page's source. They
- * share one highlight and one jump: the drawing decides what the canvas holds, the mode decides
- * what a press means, not how a thing is found.
- */
-export type ReviewMode = "review" | "layout" | "edit";
+/** A schematic Reference or Value field, with its symbol-local anchor and override state. */
+export interface ReviewField {
+  instance_id: string;
+  name: "Reference" | "Value";
+  text: string;
+  box: ReviewBox;
+  /** Symbol-local anchor in millimetres; +x is right and +y is up. */
+  x: number;
+  y: number;
+  /** True when this field is placed by a `field` override row rather than automatically. */
+  manual: boolean;
+}
 
-/** What the host behind this document allows (ADR-0043 D3, D6). */
+/** The review app has one interaction surface; a drawing determines which actions are meaningful. */
 export interface ReviewCapability {
-  /** The modes the person may enter, in the order the mode bar shows them. */
-  modes: ReviewMode[];
-  /**
-   * What a write may touch: `places` — the page's `place` rows only, the plugin's write
-   * (ADR-0043 D3); `layout` — the whole layout, the standalone app's write (ADR-0042 D3).
-   */
+  /** What a write may touch: `places` for placement rows only, or `layout` for the full page view. */
   write: "places" | "layout";
 }
 
@@ -113,9 +112,11 @@ export interface ReviewDrawing {
   symbols: ReviewSymbol[];
   /** The texts on the sheet (a print page). */
   texts: ReviewText[];
-  /** The page's source, verbatim: what the edit mode shows and edits (a print page). */
+  /** Reference and Value fields on a schematic print page. */
+  fields?: ReviewField[];
+  /** The page's source, verbatim (a schematic print page). */
   source?: string;
-  /** Where the page's symbols sit: what the layout mode moves (a print page). */
+  /** Where the page's symbols sit (a schematic print page). */
   places?: ReviewPlace[];
   /** The parts the board places (a board canvas). */
   parts?: ReviewPcbPart[];
@@ -267,8 +268,8 @@ export interface ReviewModel {
   /** Identity → source locations (ADR-0004 D6); advisory, derived from the same parse as the IR. */
   sources: ReviewSources;
   /**
-   * What the host behind this document allows. Absent means the standalone app's full set: every
-   * mode the board supports, and the whole layout as the write (ADR-0043 D3, D6).
+   * What the host behind this document allows. Absent means the standalone app's full write
+   * boundary; a host may restrict writes to placement rows (ADR-0043 D3, D6).
    */
   capability?: ReviewCapability;
 }

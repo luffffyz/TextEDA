@@ -137,24 +137,18 @@ export const APP_STYLES = `
 }
 .teda-review .diag-toggle:hover { color: var(--fg); background: #23262c; }
 .teda-review .stage-wrap { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.teda-review .modes {
+.teda-review .actions {
   display: flex; align-items: center; gap: 4px; padding: 6px 10px;
   border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap;
 }
-.teda-review .mode {
+.teda-review .action {
   background: none; border: 1px solid var(--line); border-radius: 4px; padding: 3px 10px;
   color: var(--muted); font: inherit; font-size: 12px; cursor: pointer;
 }
-.teda-review .mode:hover:not(:disabled) { color: var(--fg); background: #23262c; }
-.teda-review .mode.active { color: var(--accent); border-color: var(--accent); }
-.teda-review .mode:disabled { opacity: .45; cursor: default; }
-.teda-review .mode-action {
-  background: none; border: 1px solid var(--accent); border-radius: 4px; padding: 3px 10px;
-  color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; margin-left: 4px;
-}
-.teda-review .mode-action:hover:not(:disabled) { background: #6ea8fe18; }
-.teda-review .mode-action:disabled { opacity: .4; cursor: default; border-color: var(--line); color: var(--muted); }
-.teda-review .mode-hint {
+.teda-review .action:hover:not(:disabled) { color: var(--fg); background: #23262c; }
+.teda-review .action.active { color: var(--accent); border-color: var(--accent); }
+.teda-review .action:disabled { opacity: .45; cursor: default; }
+.teda-review .action-hint {
   color: var(--muted); font-size: 11px; margin-left: 10px;
   flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -184,7 +178,7 @@ export const APP_STYLES = `
 /* The hit rect is invisible and exactly the object's box: no stroke, because a transparent stroke
    still counts for pointer-events and would make neighbouring 0402s steal each other's hover. */
 .teda-review .hotspot { fill: transparent; stroke: none; pointer-events: all; }
-/* The placement mode picks the board's own objects, so the page's hotspots stand aside. */
+/* PCB hit targets pick the board's own objects; the schematic page uses its symbol selection marks. */
 .teda-review .picking .hotspots, .teda-review .picking .marks { pointer-events: none; }
 /* The mark is a screen annotation, not part of the drawing: its box and stroke width are written
    per zoom in sheet units by the app, so it stays 1-2 px at any magnification. No filter glow

@@ -3,8 +3,9 @@
 Status: Accepted
 Date: 2026-10-29
 Scope: Decides: that the review app becomes a preview surface inside an agent workbench rather than an editing product; that the agent is the single writer of the design sources, with one exception — the plugin writes the print page's positions; that the standalone app survives as the bridge for hosts that cannot host a plugin; which host the picture half targets first; where the re-anchor after a drag happens; and what the standalone app keeps meanwhile. Does not decide: the shape of the agent's surface — see ADR-0044; which route serves a host that has two — see ADR-0046; what a print page is or how it is drawn — see ADR-0035 and ADR-0036.
-Related: [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0042](0042-the-review-app-has-modes.md), [ADR-0044](../10-process/0044-the-agent-surface-is-a-set-of-verbs.md), [ADR-0046](../10-process/0046-a-host-is-entered-once.md), [ADR-0047](../10-process/0047-the-picture-reaches-a-host-by-three-routes.md), [ADR-0048](0048-the-review-app-shows-drawings.md)
+Related: [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0042](0042-the-review-app-has-modes.md), [ADR-0044](../10-process/0044-the-agent-surface-is-a-set-of-verbs.md), [ADR-0046](../10-process/0046-a-host-is-entered-once.md), [ADR-0047](../10-process/0047-the-picture-reaches-a-host-by-three-routes.md), [ADR-0048](0048-the-review-app-shows-drawings.md), [ADR-0056](0056-the-review-app-has-one-interaction-surface.md)
 Impact: `packages/viewer/**`; `packages/cli/src/review.ts`; `packages/cli/src/review-model.ts`; `packages/cli/src/layout.ts`; `docs/guides/review-app.md`; `docs/backlog.md` (F34, F52, F53); `docs/plugin-hosts.md`
+> **Current interaction contract (2026-11-03):** [ADR-0056](0056-the-review-app-has-one-interaction-surface.md) supersedes the mode-state and standalone-mode wording here. The plugin's places-only write boundary and the host/core ownership decision remain in force; the capability is now expressed as `{ write: "places" | "layout" }`.
 
 ## Background
 

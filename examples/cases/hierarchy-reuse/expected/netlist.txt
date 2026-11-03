@@ -1,4 +1,4 @@
-# netlist sensor-hub (ir 0.14)
+# netlist sensor-hub (ir 0.15)
 GND: M1.C1.2 M1.C2.2 M2.C1.2 M2.C2.2 RT1.2
 M1.MID: M1.C1.1 M1.R1.2 M1.R2.1
 M2.MID: M2.C1.1 M2.R1.2 M2.R2.1

@@ -15,14 +15,15 @@ import { SourceFile } from "./sources.ts";
 import type { SourceMap } from "@texteda/ir/spans";
 import { byteCompare, naturalCompare, pinRefCompare } from "@texteda/ir/order";
 import { parseAngleMdeg, parseLengthNm } from "./units.ts";
-import { checkVersion, typeRange } from "./version.ts";
+import { checkVersion, compareVersions, parseVersion, typeRange, VIEW_FIELD_VERSION } from "./version.ts";
 
-export const VIEW_SECTIONS = ["place", "wire", "label", "port", "text"] as const;
+export const VIEW_SECTIONS = ["place", "field", "wire", "label", "port", "text"] as const;
 export type ViewSection = (typeof VIEW_SECTIONS)[number];
 
 const SECTION_SET = new Set<string>(VIEW_SECTIONS);
 /** The `place` tail keys (the section is a table with an optional key=value tail). */
 const PLACE_KEYS = new Set(["unit"]);
+const FIELD_NAMES = new Set(["Reference", "Value"]);
 const VIEW_ID_RE = /^[A-Za-z0-9_+-]+$/;
 /**
  * Board-level instance id: a plain refdes (`U1`) or the module-qualified form (`M1.U1`), which the
@@ -71,8 +72,24 @@ export interface ViewParseResult {
 class Collector {
   readonly diagnostics: Diagnostic[] = [];
 
-  error(file: string, line: number, col: number, code: DiagnosticCodeId, message: string): void {
-    this.diagnostics.push({ code, severity: "error", message, location: { file, line, col } });
+  error(
+    file: string,
+    line: number,
+    col: number,
+    code: DiagnosticCodeId,
+    message: string,
+    extra?: { expected?: string; actual?: string; hint?: string; related?: Diagnostic["related"] },
+  ): void {
+    this.diagnostics.push({
+      code,
+      severity: "error",
+      message,
+      location: { file, line, col },
+      ...(extra?.expected !== undefined ? { expected: extra.expected } : {}),
+      ...(extra?.actual !== undefined ? { actual: extra.actual } : {}),
+      ...(extra?.hint !== undefined ? { hint: extra.hint } : {}),
+      ...(extra?.related !== undefined ? { related: extra.related } : {}),
+    });
   }
 
   get hasError(): boolean {
@@ -167,6 +184,9 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
   if (!verdict.ok) {
     collector.error(file, versionLine.number, versionLine.cells[1]!.col, verdict.code, verdict.message);
   }
+  const parsedVersion = parseVersion(version);
+  // A malformed version already has its own diagnostic; do not add a field-specific one on top.
+  const fieldAllowed = parsedVersion === null || compareVersions(parsedVersion, VIEW_FIELD_VERSION) >= 0;
 
   const typeLine = nextMeaningful();
   if (!typeLine || typeLine.cells.length !== 2 || typeLine.cells[0]!.text !== "view") {
@@ -182,11 +202,12 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
   let sheetWidth = DEFAULT_SHEET_WIDTH_NM;
   let sheetHeight = DEFAULT_SHEET_HEIGHT_NM;
   const place: SchematicView["place"] = [];
+  const fields: NonNullable<SchematicView["field"]> = [];
+  const fieldAt = new Map<string, { line: number; col: number }>();
   const wire: SchematicView["wire"] = [];
   const label: SchematicView["label"] = [];
   const port: SchematicView["port"] = [];
   const texts: SchematicView["text"] = [];
-
   while (index < lines.length) {
     const line = lines[index]!;
     index += 1;
@@ -194,6 +215,16 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
 
     if (line.cells.length === 1 && SECTION_SET.has(line.cells[0]!.text)) {
       section = line.cells[0]!.text as ViewSection;
+      if (section === "field" && !fieldAllowed) {
+        collector.error(
+          file,
+          line.number,
+          line.cells[0]!.col,
+          "format.unsupported-version",
+          `the field section requires language 0.10 or later: ${version}`,
+          { hint: "write version 0.10 or later, or remove the field section" },
+        );
+      }
       continue;
     }
 
@@ -272,6 +303,47 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
         at.set(placed, line.number);
         continue;
       }
+      case "field": {
+        if (cells.length < 4) {
+          collector.error(file, line.number, cells[0]!.col, "syntax.row-too-short", "a field row needs 4 columns: instance_id name x y");
+          continue;
+        }
+        if (cells.length > 4) {
+          collector.error(file, line.number, cells[4]!.col, "syntax.invalid-token", "a field row has exactly 4 columns: instance_id name x y");
+          continue;
+        }
+        const instanceId = cells[0]!.text;
+        if (!INSTANCE_ID_RE.test(instanceId)) {
+          collector.error(file, line.number, cells[0]!.col, "syntax.invalid-token", `not a valid instance id: ${instanceId}`);
+          continue;
+        }
+        const nameText = cells[1]!.text;
+        if (!FIELD_NAMES.has(nameText)) {
+          collector.error(file, line.number, cells[1]!.col, "syntax.invalid-literal", `field name must be Reference or Value: ${nameText}`, {
+            expected: "Reference or Value",
+            actual: nameText,
+          });
+          continue;
+        }
+        const name = nameText as "Reference" | "Value";
+        const x = parseGridNm(cells[2]!, file, line.number, collector);
+        const y = parseGridNm(cells[3]!, file, line.number, collector);
+        if (x === null || y === null) continue;
+        const key = `${instanceId}\u0000${name}`;
+        const previous = fieldAt.get(key);
+        if (previous !== undefined) {
+          collector.error(file, line.number, cells[1]!.col, "value.duplicate-field", `duplicate field ${name} for instance ${instanceId}`, {
+            related: [src.span(previous.line, previous.col)],
+          });
+          continue;
+        }
+        fieldAt.set(key, { line: line.number, col: cells[1]!.col });
+        const written = { instance_id: instanceId, name, x_nm: x, y_nm: y };
+        fields.push(written);
+        at.set(written, line.number);
+        continue;
+      }
+
       case "wire": {
         if (cells.length < 3) {
           collector.error(file, line.number, cells[0]!.col, "syntax.row-too-short", "a wire row needs at least 3 columns: net from_pin to_pin");
@@ -394,6 +466,18 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
       }
     }
   }
+  for (const item of fields) {
+    if (!placed.has(item.instance_id)) {
+      collector.error(
+        file,
+        at.get(item) ?? 1,
+        1,
+        "ref.unknown-instance",
+        `the field ${item.name} references instance ${item.instance_id}, which is not in the place section`,
+      );
+    }
+  }
+
   for (const item of place) {
     checkOnSheet(file, at.get(item) ?? 1, item.x_nm, item.y_nm, sheetWidth, sheetHeight, collector);
   }
@@ -417,6 +501,8 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
   // The IR depends on the drawing only, not on where the rows were written: canonical order per
   // spec/schematic-view.md §11 (wire points keep their order — that one is semantic).
   place.sort((a, b) => naturalCompare(a.instance_id, b.instance_id));
+  fields.sort((a, b) => naturalCompare(a.instance_id, b.instance_id) || byteCompare(a.name, b.name));
+
   wire.sort(
     (a, b) =>
       byteCompare(a.net, b.net) ||
@@ -436,6 +522,8 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
     page,
     sheet: { width_nm: sheetWidth, height_nm: sheetHeight },
     place,
+    ...(fields.length > 0 ? { field: fields } : {}),
+
     ...(wire.length > 0 ? { wire } : {}),
     ...(label.length > 0 ? { label } : {}),
     ...(port.length > 0 ? { port } : {}),
@@ -448,6 +536,7 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
     items.forEach((item, index) => sources.set(`${base}/${index}`, src.span(at.get(item) ?? 1)));
   };
   note("/place", place);
+  note("/field", fields);
   note("/wire", wire);
   note("/label", label);
   note("/port", port);

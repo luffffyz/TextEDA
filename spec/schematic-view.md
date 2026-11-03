@@ -4,7 +4,7 @@
 
 本文件是 `teda.md` 的分描述补充：`.teda` 语言的共用规则在 `teda.md`，`view` 这一类描述的具体段定义在这里。
 
-**语言版本**：所有 `.teda` 文件写的是**同一个语言版本号**（当前 `0.9.2`，见 `teda.md` §13.1）。`view` 的下界是 `0.7`：0.6 引入打印页，0.7 起视图里的 id 从"页内局部名"改为"板级名"（`docs/adr/04-schematic/0012-one-flat-schematic-per-board.md` decision 4），所以 0.6 的视图文件不再被接受（接受规则见 `teda.md` §13.3）。
+Every `.teda` file declares the shared language version (currently `0.10.0`; see `spec/teda.md` §13.1). The `view` floor is `0.7`: `0.6` view files are no longer accepted because `0.7` changed their references from page-local to board-level ids ([ADR-0012](../docs/adr/04-schematic/0012-one-flat-schematic-per-board.md) D4). A `field` section requires language `0.10` or later; `0.9.2` view files without `field` remain valid.
 
 ---
 
@@ -15,7 +15,7 @@
 它是原理图逻辑（S0）与渲染器之间的那一层，也就是 `AGENTS.md` §3 分层表里的 **S1**。四条底线（`AGENTS.md` §2、[ADR-0035](../docs/adr/09-view/0035-the-view-layer-is-a-drawing.md) decision 1 6）：
 
 1. **视图不是第二个真源**。引脚电气类型、net 成员、器件身份都在板文件（`schematic`）里；`view` 只按同样的身份键（`instance_id` / `pin_number` / `net_id`）**引用**它们，不复述。视图与逻辑不一致是缺陷，要报出来。
-2. **渲染器只画不摆**。视图里没有坐标，就没有图；渲染器不会替人排版。理由：自动排版每次渲染结果都不同，人无法把重叠的标签挪开，`AGENTS.md` §6 的可读性检查（文字重叠、线压引脚、标签碰撞、越界、连线穿过符号）也就检查不出任何东西。
+2. The renderer does not arrange symbols, wires, labels or ports. It does provide deterministic `Reference` / `Value` field positions when no override is present; this narrow text-placement rule is not a layout solver.
 3. **视图可丢弃、可重画**。它是 S1 层，`AGENTS.md` §3 明确标为"可以自由、可以丢弃"。
 4. **视图不改变连通性**。`view` 里的 net 只是引用逻辑层的 net id；它既不新增连接，也不删除连接。连通性由 S0 决定（`AGENTS.md` §2 第 2 条）。
 
@@ -88,6 +88,7 @@ view main
 | 段 | 内容 | 必填 |
 |---|---|---|
 | `place` | 器件实例的摆位 | 是 |
+| `field` | `Reference` / `Value` 的每实例位置覆盖 | 否 |
 | `wire` | 走线 | 否 |
 | `label` | net 名标签 | 否 |
 | `port` | 板端口符号 | 否 |
@@ -123,6 +124,26 @@ place
 - 符号画成什么样**不在视图里**：由 `component.symbol` → 符号库决定，渲染器自己去查。视图只说"这个实例摆在哪儿、朝哪儿"。
 - 引脚的连接点坐标 = 符号原点 + 旋转后的引脚偏移（符号的几何事实，见 `spec/symbol.md`）。因此**符号改了引脚位置，视图里的线自动跟着走**，视图不需要跟着改。
 - 一个打印页只摆它要画的实例；板上的其它实例不出现在这个打印页里（不是错误）。
+
+---
+
+## 4.1. `field` section
+
+`field` is optional. It stores positions for the two schematic-instance fields, never their text or electrical facts:
+
+```teda
+field
+  U1  Reference  0.00  2.00
+  U1  Value     -0.50 -2.00
+```
+
+Each row is `<instance_id> <name> <x> <y>`. The vocabulary is closed to exactly `Reference` and `Value`; each `(instance_id, name)` pair occurs at most once. The instance must occur in this page's `place` section. Coordinates use the view's `0.01 mm` grid, are relative to the symbol origin, and are not checked against sheet bounds. In this local frame, `+x` points right and `+y` points up. The renderer applies the symbol's right-angle rotation when projecting a field to sheet coordinates; moving or rotating the symbol therefore carries the override with it.
+
+The text is taken from the schematic instance: `Reference` is its instance id and `Value` is its instance value. If the instance has no value, the renderer retains the symbol library's `Value` placeholder. A field row overrides its automatic position; deleting the row restores automatic placement. There are no `automatic` rows or tombstones.
+
+Without an override, a symbol with visible painted body geometry places `Reference` above and `Value` below the body, centered on its horizontal bounds with `1 mm` clearance from painted text ink. Geometry from the selected unit and shared visible symbol geometry both count. A bodyless symbol retains its library field positions and existing quarter-turn field anchoring. This is renderer-owned default text placement; it does not place symbols or change the drawing's connectivity.
+
+A `field` section requires language `0.10` (canonical spelling; equivalent to `0.10.0`). A `0.9.2` file containing `field` is rejected with `format.unsupported-version`; a `0.9.2` file without it remains valid. Unknown field names are invalid literals, duplicate pairs report `value.duplicate-field`, and an unknown instance reports `ref.unknown-instance`.
 
 ---
 
@@ -249,7 +270,7 @@ text
 >
 > **几何从渲染器来，不从检查器推**。文字宽度、符号本体范围、引脚落点都由 `packages/renderer` 的 `schematicGeometry` 按**实际画法**算出（同一套变换、同一套笔画字体度量），检查器只判断"压没压住""在不在线上"。检查器自己再算一遍就会和读者看到的东西漂移，那正是可读性检查要防的那类错误。
 >
-> **字段也在几何里**（2026-10-25）：`schematicGeometry` 除了视图自己的三条记录（`label` / `port` / `text`），还给出每个已放置实例的 `fields`——符号画的 Reference / Value 在纸上的框（含旋转，按绘制后的矩形取包围盒）。它们不是视图的记录（作者改不了位置，要改符号），但读者分不清哪个字来自哪个文件，所以检查器两者都读：`view.text-on-wire` 就靠它报出"走线穿过位号"。
+> **字段也在几何里**：`schematicGeometry` 除了视图自己的记录（`label` / `port` / `text`），还给出每个已放置实例的 `fields`——符号画的 `Reference` / `Value` 在纸上的框（含旋转，按绘制后的矩形取包围盒）。字段的默认位置由渲染器确定，显式 `field` 覆盖由视图作者调整；两者都是视图几何的一部分，但都不改变逻辑事实。可读性检查读取最终字段几何：`view.text-on-wire` 就靠它报出"走线穿过位号"。
 
 ### 9.2.1 每条警告带多少
 
@@ -276,22 +297,23 @@ text
 
 渲染器只读（`AGENTS.md` §2 不变量 3），所以它画的每一页都必须能反解回"这一页说了什么"——`extract(render(ir)) == ir`（不变量 4，[ADR-0036](../docs/adr/09-view/0036-our-own-reference-renderer.md) decision 5）。
 
-**比的是语义投影，不是 IR 本身**。一张打印页的语义是落在纸面上的东西：图幅大小、引脚连接点与朝向、符号自身的图形、走线折点、标签与注释的文字与位置、端口标签的尖点与朝向，全部在**绝对图纸坐标**里。以下故意不在投影里：
+**比的是语义投影，不是 IR 本身**。一张打印页的语义是落在纸面上的东西：图幅大小、引脚连接点与朝向、符号自身的图形、走线折点、标签与注释的文字与位置、端口标签的尖点与朝向，以及 `Reference` / `Value` 字段的文字与绝对图纸位置。以下故意不在投影里：
 
 | 不进投影 | 理由 |
 |---|---|
-| 摆位原点与旋转 | 读者看到的是引脚落在哪，不是原点在哪；原点算错但每个引脚都落在原处的图，不是这张图的缺陷 |
+| 实例摆位原点与旋转本身 | 投影比较的是由它们产生的引脚、图形和字段在纸面上的可见结果；不比较 IR 的摆位参数本身 |
 | 线宽、字号、对齐方式 | 外观，不是语义；符号自身的绘制由符号的 round-trip 负责 |
 | 端口标签的塔形细节 | 只比尖点与朝向，改标签外形不算失真 |
-| "这个引脚属于哪个实例" | 图上没有这条信息；同一符号的两个实例互换位置画出的是同一张图，实例身份靠 `Reference` 文字（也进投影） |
+| "这个引脚属于哪个实例" | 图上没有这条信息；同一符号的两个实例互换位置画出的是同一张图，实例身份靠投影中的 `Reference` 文字与字段归属来配对 |
 
-**库里那两个字段是占位符**：符号文件的 `Reference`（`U`）与 `Value`（符号名）只是"这里有个位号、有个值"，图上画的是实例自己——`Reference` 用实例 id，`Value` 用实例的 `value` 列（件没有这一列时用 `mpn`），见 `spec/symbol.md` §2。因此这两段文字的**内容**进投影（两端各自算出来再比），而不是画符号文件里那句占位文本。
+**字段文字来自实例**：符号文件的 `Reference`（`U`）与 `Value`（符号名）只是占位符。图上 `Reference` 使用实例 id；`Value` 使用实例的 `value` 列，未提供时保留符号库 `Value` 字段的占位文本，见 `spec/symbol.md` §2。两字段的内容与最终纸面位置都进入投影；库占位文本仅在 `Value` 无实例值时进入投影。
 
-**转过的器件，字段文字朝外长**：实例转 90° 或 270° 时，两个字段的锚点被带到本体两侧；文字居中就能互相压住（`220uF` 压在 `M2.C3` 上），所以左侧那位的文字以锚点为**结尾**、右侧那位以锚点为**起点**，两段都朝远离本体的方向排。正放（0° / 180°）时仍是居中对齐——一上一下不会撞。这是参考渲染器的排版选择（文字位置不进投影），不是契约。
+**自动字段位置是确定性渲染规则**：对有可见本体几何的符号，`Reference` 放在本体上方、`Value` 放在下方；与符号图形及其可见文字笔画保持至少 `1_000_000 nm` 间距。几何包含所选 unit 与共享可见图形。无本体几何时沿用符号库字段位置及现有的直角旋转锚定规则。显式 `field` 覆盖位置优先于自动位置；删除覆盖即恢复自动位置。字段位置进入投影。
 
-**两端独立实现**：视图侧用象限矩阵把符号坐标换到图纸坐标（`schematicProjection`），图纸侧直接读绘制指令（`extractSchematic`），两者不共用变换函数——共用就等于自己验证自己。落在复现性上：同一份 `view` 两次渲染字节相同（§11），反解也相同。
+**两端独立实现**：视图侧用象限矩阵把符号局部坐标换到图纸坐标（`schematicProjection`），图纸侧直接读绘制指令（`extractSchematic`），两者不共用变换函数——共用就等于自己验证自己。字段覆盖坐标按符号局部坐标存储（+x 右、+y 上），变换后与绘制出的字段位置比较。落在复现性上：同一份 `view` 两次渲染字节相同（§11），反解也相同。
 
-实现：`packages/renderer/src/schematic-extract.ts`；测试：`packages/renderer/test/schematic-roundtrip.test.ts`（四个象限 + 走线端点落在引脚上 + 灵敏度）与 `packages/cli/test/view-roundtrip.test.ts`（参考工程的每一页）。
+实现：`packages/renderer/src/schematic-extract.ts`；测试：`packages/renderer/test/schematic-roundtrip.test.ts`（四个象限 + 走线端点落在引脚上 + 字段位置与内容 + 灵敏度）与 `packages/cli/test/view-roundtrip.test.ts`（参考工程的每一页）。
+
 
 ### 9.4 度量（`texteda view metrics`）
 
@@ -368,9 +390,10 @@ wire
 
 ## 11. Canonical form
 
-- 段顺序固定：`place` → `wire` → `label` → `port` → `text`。
+段顺序固定：`place` → `field` → `wire` → `label` → `port` → `text`。
 - 段内行按**自然序**排序（标识符里的数字段按数值比，`C2` 在 `C10` 前；见 `teda.md` §12 规则 9）。
   - `place` 按 `instance_id` 排；
+  - `field` 按 `(instance_id, name)` 排；
   - `wire` 按 `(net, from_pin, to_pin)` 排；
   - `label` 按 `(net, x, y)` 排；
   - `port` 按 `port_id` 排；

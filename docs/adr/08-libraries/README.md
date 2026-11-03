@@ -17,6 +17,7 @@ Libraries as material: the formats this project writes, what a library claim is 
 4. [0033](0033-libraries-are-unverified-facts.md) — a library is an unverified fact that carries its provenance.
 5. [0034](0034-trust-in-a-library-you-do-not-own.md) — trust in a library you do not own.
 6. [0049](0049-assets-are-filed-by-what-they-are.md) — the directory is a classification, and each kind has its own axis.
+7. [0057](0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) — where a pin's connection point sits, and what the review grid snaps to.
 
 ## Records
 
@@ -28,3 +29,4 @@ Libraries as material: the formats this project writes, what a library claim is 
 | [ADR-0033](0033-libraries-are-unverified-facts.md) | Libraries Are Unverified Facts; Provenance, Disclaimers, and Corrections | Accepted | 2026-10-22 |
 | [ADR-0034](0034-trust-in-a-library-you-do-not-own.md) | Trust in a Library You Do Not Own | Accepted | 2026-10-24 |
 | [ADR-0049](0049-assets-are-filed-by-what-they-are.md) | Assets Are Filed by What They Are, Each Kind by Its Own Axis | Accepted | 2026-10-30 |
+| [ADR-0057](0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) | Symbol Pin Connection Points Sit on a 0.5 mm Lattice | Accepted | 2026-11-03 |

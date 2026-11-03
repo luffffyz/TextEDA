@@ -1,12 +1,75 @@
-// Schematic rendering: the sheet frame, placed symbols, wires, labels, ports and notes (ADR-0035).
+// Schematic rendering: the sheet frame, placed symbols, wires, labels, ports, notes and fields (ADR-0035).
 //
-// The renderer is a pure function of (view IR, caller-supplied symbol facts): no file system, no
-// auto-placement, and the same inputs must produce byte-identical SVG.
+// The renderer is a pure function of (view IR, caller-supplied symbol facts): no file system, and the
+// same inputs must produce byte-identical SVG. Automatic fields are derived from painted symbol geometry.
 import { irVersion } from "@texteda/ir";
+import { strokeWidthFor, textStrokes } from "@texteda/core/font";
 import { describe, expect, test } from "bun:test";
 import type { SchematicView } from "@texteda/ir/schematic-view";
-import type { SymbolBody } from "../src/index.ts";
-import { renderSchematic, toSvgText, type SchematicInstance } from "../src/index.ts";
+import type { SvgText, SymbolBody } from "../src/index.ts";
+import { extractSchematic, renderSchematic, renderSymbol, schematicProjection, toSvgText, type SchematicInstance } from "../src/index.ts";
+import { resolveSchematicFields } from "../src/field-placement.ts";
+
+interface InkBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+function inkBounds(field: Pick<SvgText, "text" | "sizeNm" | "anchor" | "rotateMdeg">): InkBounds {
+  const points = textStrokes(field.text, {
+    x: 0,
+    y: 0,
+    sizeNm: field.sizeNm,
+    anchor: field.anchor,
+    yDown: false,
+  }).flatMap((stroke) => stroke.points);
+  const rotation = ((field.rotateMdeg ?? 0) % 360_000 + 360_000) % 360_000;
+  const radians = (rotation * Math.PI) / 180_000;
+  const rotated = points.map((point) => ({
+    x: Math.round(point.x * Math.cos(radians) - point.y * Math.sin(radians)),
+    y: Math.round(point.x * Math.sin(radians) + point.y * Math.cos(radians)),
+  }));
+  const halfStroke = strokeWidthFor(field.sizeNm) / 2;
+  return {
+    minX: Math.min(...rotated.map((point) => point.x)) - halfStroke,
+    minY: Math.min(...rotated.map((point) => point.y)) - halfStroke,
+    maxX: Math.max(...rotated.map((point) => point.x)) + halfStroke,
+    maxY: Math.max(...rotated.map((point) => point.y)) + halfStroke,
+  };
+}
+
+function paintedPageTextBounds(text: SvgText): InkBounds {
+  const points = textStrokes(text.text, {
+    x: text.x,
+    y: text.y,
+    sizeNm: text.sizeNm,
+    anchor: text.anchor,
+    yDown: true,
+  }).flatMap((stroke) => stroke.points);
+  const rotation = ((text.rotateMdeg ?? 0) % 360_000 + 360_000) % 360_000;
+  const radians = (rotation * Math.PI) / 180_000;
+  const rotated = points.map((point) => {
+    const dx = point.x - text.x;
+    const dy = point.y - text.y;
+    return {
+      x: Math.round(text.x + dx * Math.cos(radians) + dy * Math.sin(radians)),
+      y: Math.round(text.y - dx * Math.sin(radians) + dy * Math.cos(radians)),
+    };
+  });
+  const halfStroke = strokeWidthFor(text.sizeNm) / 2;
+  return {
+    minX: Math.min(...rotated.map((point) => point.x)) - halfStroke,
+    minY: Math.min(...rotated.map((point) => point.y)) - halfStroke,
+    maxX: Math.max(...rotated.map((point) => point.x)) + halfStroke,
+    maxY: Math.max(...rotated.map((point) => point.y)) + halfStroke,
+  };
+}
+
+function fieldsOf(doc: ReturnType<typeof renderSchematic>): SvgText[] {
+  return doc.primitives.filter((primitive): primitive is SvgText => primitive.kind === "text" && primitive.role === "field");
+}
 
 function symbol(units = 1): SymbolBody {
   return {
@@ -101,6 +164,76 @@ describe("renderSchematic", () => {
     expect({ x: pin1.x, y: pin1.y }).toEqual({ x: 100_000_000, y: 96_190_000 });
     expect(pin1.rotMdeg).toBe(90_000);
   });
+  test("keeps vertical pin names inside the body after schematic placement", () => {
+    const pinSymbol: SymbolBody = {
+      library: "test",
+      name: "vertical-pin-name",
+      units: 1,
+      pin_numbers_hidden: false,
+      pin_names_hidden: false,
+      power: false,
+      in_bom: true,
+      on_board: true,
+      pins: [{
+        number: "1",
+        at: { x_nm: 0, y_nm: -5_000_000, rotation_mdeg: 90_000 },
+        length_nm: 2_000_000,
+        unit: 1,
+        style: "line",
+      }],
+      body: [{
+        kind: "rect",
+        start: { x_nm: -3_000_000, y_nm: -3_000_000 },
+        end: { x_nm: 3_000_000, y_nm: 3_000_000 },
+        width_nm: 254_000,
+        fill: "none",
+        unit: 1,
+      }],
+    };
+    const instance = {
+      symbol: pinSymbol,
+      part: { pins: [{ number: "1", name: "GND", type: "power_in" }] },
+    };
+
+    for (const rotation of [0, 90_000, 180_000, 270_000] as const) {
+      const doc = renderSchematic(
+        view({ place: [{ instance_id: "U1", x_nm: 100_000_000, y_nm: 100_000_000, rot_mdeg: rotation }] }),
+        new Map([["U1", instance]]),
+      );
+      const body = doc.primitives.find((primitive) => primitive.kind === "rect" && primitive.layer === "symbol");
+      const name = doc.primitives.find((primitive) => primitive.kind === "text" && primitive.role === "pinName");
+      const number = doc.primitives.find((primitive) => primitive.kind === "text" && primitive.role === "pinNumber");
+      if (body?.kind !== "rect" || name?.kind !== "text" || number?.kind !== "text") {
+        throw new Error("vertical pin symbol is missing its body or labels");
+      }
+      expect(name.rotateMdeg).toBe(({ 0: 90_000, 90_000: 0, 180_000: 270_000, 270_000: 180_000 } as const)[rotation]);
+
+      const halfBodyStroke = body.widthNm / 2;
+      const innerLeft = body.x1 + halfBodyStroke;
+      const innerTop = body.y1 + halfBodyStroke;
+      const innerRight = body.x2 - halfBodyStroke;
+      const innerBottom = body.y2 - halfBodyStroke;
+      const nameInk = paintedPageTextBounds(name);
+      const gap = rotation === 0
+        ? innerBottom - nameInk.maxY
+        : rotation === 90_000
+          ? nameInk.minX - innerLeft
+          : rotation === 180_000
+            ? nameInk.minY - innerTop
+            : innerRight - nameInk.maxX;
+      expect(gap).toBe(400_000);
+
+      const numberInk = paintedPageTextBounds(number);
+      const separation = rotation === 0
+        ? numberInk.minY - nameInk.maxY
+        : rotation === 90_000
+          ? nameInk.minX - numberInk.maxX
+          : rotation === 180_000
+            ? nameInk.minY - numberInk.maxY
+            : numberInk.minX - nameInk.maxX;
+      expect(separation).toBeGreaterThan(0);
+    }
+  });
 
   test("draws only the selected unit plus the shared unit", () => {
     const multi = symbol(2);
@@ -156,6 +289,33 @@ describe("renderSchematic", () => {
     }
   });
 
+  test("keeps quarter-turned fields one millimetre from the painted body frame", () => {
+    for (const rot_mdeg of [90_000, 270_000]) {
+      const place = { instance_id: "U1", x_nm: 100_000_000, y_nm: 100_000_000, rot_mdeg };
+      const instance = { ...part(), value: "bq24610rger" };
+      const doc = renderSchematic(view({ place: [place] }), new Map([["U1", instance]]));
+      const body = doc.primitives.find((primitive) => primitive.kind === "rect" && primitive.layer === "symbol");
+      if (body?.kind !== "rect") throw new Error("missing symbol body frame");
+      const bodyHalfStroke = body.widthNm / 2;
+      const bodyLeft = body.x1 - bodyHalfStroke;
+      const bodyRight = body.x2 + bodyHalfStroke;
+      const fields = fieldsOf(doc);
+      const reference = fields.find((field) => field.name === "Reference");
+      const value = fields.find((field) => field.name === "Value");
+      if (!reference || !value) throw new Error("missing symbol fields");
+      const referenceInk = inkBounds(reference);
+      const valueInk = inkBounds(value);
+
+      if (rot_mdeg === 90_000) {
+        expect(reference.x + referenceInk.minX - bodyRight).toBe(1_000_000);
+        expect(bodyLeft - (value.x + valueInk.maxX)).toBe(1_000_000);
+      } else {
+        expect(bodyLeft - (reference.x + referenceInk.maxX)).toBe(1_000_000);
+        expect(value.x + valueInk.minX - bodyRight).toBe(1_000_000);
+      }
+    }
+  });
+
   test("refuses to draw an instance without symbol facts", () => {
     expect(() => renderSchematic(view(), new Map())).toThrow(/no symbol facts/);
   });
@@ -178,5 +338,115 @@ describe("renderSchematic", () => {
     const pin2 = pins.find((p) => p.kind === "pin" && p.number === "2");
     expect(wire.points[0]).toEqual({ x: pin1!.x, y: pin1!.y });
     expect(wire.points[wire.points.length - 1]).toEqual({ x: pin2!.x, y: pin2!.y });
+  });
+  test("places automatic fields one million nanometres from every supported painted body", () => {
+    type BodyItem = NonNullable<SymbolBody["body"]>[number];
+    const cases: { item: BodyItem; minY: number; maxY: number }[] = [
+      {
+        item: { kind: "line", start: { x_nm: -2_000_000, y_nm: -3_000_000 }, end: { x_nm: 4_000_000, y_nm: 5_000_000 }, width_nm: 200_000 },
+        minY: -3_100_000,
+        maxY: 5_100_000,
+      },
+      {
+        item: { kind: "rect", start: { x_nm: -1_000_000, y_nm: -2_000_000 }, end: { x_nm: 3_000_000, y_nm: 4_000_000 }, width_nm: 200_000 },
+        minY: -2_100_000,
+        maxY: 4_100_000,
+      },
+      {
+        item: { kind: "circle", center: { x_nm: 0, y_nm: 0 }, radius_nm: 2_000_000, width_nm: 200_000 },
+        minY: -2_100_000,
+        maxY: 2_100_000,
+      },
+      {
+        item: { kind: "arc", start: { x_nm: 3_000_000, y_nm: 0 }, mid: { x_nm: 0, y_nm: 3_000_000 }, end: { x_nm: -3_000_000, y_nm: 0 }, width_nm: 200_000 },
+        minY: -100_000,
+        maxY: 3_100_000,
+      },
+      {
+        item: { kind: "poly", points: [{ x_nm: -1_000_000, y_nm: -4_000_000 }, { x_nm: 2_000_000, y_nm: 1_000_000 }, { x_nm: 4_000_000, y_nm: 2_000_000 }], width_nm: 200_000 },
+        minY: -4_100_000,
+        maxY: 2_100_000,
+      },
+    ];
+
+    for (const { item, minY, maxY } of cases) {
+      const candidate = { ...symbol(), body: [item] } satisfies SymbolBody;
+      const rendered = renderSymbol(candidate, part().part).primitives;
+      const resolved = resolveSchematicFields(rendered, "C1", 1, "10k", undefined);
+      for (const field of rendered.filter((primitive): primitive is SvgText => primitive.kind === "text" && primitive.role === "field")) {
+        const position = resolved.get(field);
+        if (position === undefined) throw new Error(`field ${field.name ?? "?"} was not resolved`);
+        const ink = inkBounds({ ...field, text: position.text });
+        if (field.name === "Reference") expect(position.y + ink.minY).toBe(maxY + 1_000_000);
+        if (field.name === "Value") expect(position.y + ink.maxY).toBe(minY - 1_000_000);
+      }
+    }
+  });
+
+  test("automatic bounds include the selected unit and shared body geometry", () => {
+    const multi = {
+      ...symbol(2),
+      body: [
+        { kind: "line", start: { x_nm: -1_000_000, y_nm: -1_000_000 }, end: { x_nm: 1_000_000, y_nm: -1_000_000 }, width_nm: 200_000, unit: 0 },
+        { kind: "line", start: { x_nm: -1_000_000, y_nm: 4_000_000 }, end: { x_nm: 1_000_000, y_nm: 4_000_000 }, width_nm: 200_000, unit: 1 },
+        { kind: "line", start: { x_nm: -1_000_000, y_nm: 10_000_000 }, end: { x_nm: 1_000_000, y_nm: 10_000_000 }, width_nm: 200_000, unit: 2 },
+      ],
+    } satisfies SymbolBody;
+    const rendered = renderSymbol(multi, part().part).primitives;
+    const resolved = resolveSchematicFields(rendered, "U1", 2, undefined, undefined);
+    const reference = rendered.find((primitive): primitive is SvgText => primitive.kind === "text" && primitive.name === "Reference");
+    const value = rendered.find((primitive): primitive is SvgText => primitive.kind === "text" && primitive.name === "Value");
+    if (!reference || !value) throw new Error("multi-unit fields are missing");
+    const referencePosition = resolved.get(reference);
+    const valuePosition = resolved.get(value);
+    if (!referencePosition || !valuePosition) throw new Error("multi-unit fields were not resolved");
+    expect(referencePosition.y + inkBounds({ ...reference, text: referencePosition.text }).minY).toBe(10_100_000 + 1_000_000);
+    expect(valuePosition.y + inkBounds({ ...value, text: valuePosition.text }).maxY).toBe(-1_100_000 - 1_000_000);
+  });
+
+  test("bodyless fields retain their library anchors", () => {
+    const bodyless = { ...symbol(), body: [] } satisfies SymbolBody;
+    const rendered = renderSymbol(bodyless, part().part).primitives;
+    const resolved = resolveSchematicFields(rendered, "C1", 1, undefined, undefined);
+    const reference = rendered.find((primitive): primitive is SvgText => primitive.kind === "text" && primitive.name === "Reference");
+    const value = rendered.find((primitive): primitive is SvgText => primitive.kind === "text" && primitive.name === "Value");
+    if (!reference || !value) throw new Error("bodyless fields are missing");
+    expect(resolved.get(reference)).toMatchObject({ x: 0, y: 2_540_000, text: "C1" });
+    expect(resolved.get(value)).toMatchObject({ x: 0, y: -2_540_000, text: "two-pin" });
+  });
+
+  test("manual fields use local coordinates, follow movement and rotation, and restore automatic placement when removed", () => {
+    const instance = { ...part(), value: "10k" };
+    const instances = new Map([["C1", instance]]);
+    const manual = [{ instance_id: "C1", name: "Reference" as const, x_nm: 4_000_000, y_nm: 5_000_000 }];
+    const at = (rot_mdeg: number, x_nm = 100_000_000) => {
+      const doc = renderSchematic(
+        view({ place: [{ instance_id: "C1", x_nm, y_nm: 100_000_000, rot_mdeg }], field: manual }),
+        instances,
+      );
+      const field = fieldsOf(doc).find((candidate) => candidate.name === "Reference");
+      if (!field) throw new Error("manual Reference field is missing");
+      return field;
+    };
+    expect(at(0)).toMatchObject({ x: 104_000_000, y: 95_000_000 });
+    expect(at(90_000)).toMatchObject({ x: 105_000_000, y: 104_000_000 });
+    expect(at(90_000, 110_000_000)).toMatchObject({ x: 115_000_000, y: 104_000_000 });
+
+    const automatic = fieldsOf(renderSchematic(view({ place: [{ instance_id: "C1", x_nm: 100_000_000, y_nm: 100_000_000, rot_mdeg: 0 }], field: [] }), instances))
+      .find((candidate) => candidate.name === "Reference");
+    if (!automatic) throw new Error("automatic Reference field is missing");
+    expect(automatic).not.toMatchObject({ x: 104_000_000, y: 95_000_000 });
+  });
+
+  test("field geometry stays separate from free text during projection and extraction", () => {
+    const v = view({ text: [{ x_nm: 10_000_000, y_nm: 10_000_000, text: "note" }] });
+    const instances = new Map([["C1", part()]]);
+    const doc = renderSchematic(v, instances);
+    const projection = schematicProjection(v, instances);
+    const extracted = extractSchematic(doc);
+    expect(projection.fields).toHaveLength(2);
+    expect(projection.texts.every((text) => text.role !== "field")).toBe(true);
+    expect(extracted.fields).toEqual(projection.fields);
+    expect(extracted.texts).toEqual(projection.texts);
   });
 });

@@ -8,20 +8,21 @@ description Dual zero-drift op-amp, three units
 tags analog dual opamp
 units 3
 # The device file owns the pin facts (numbers, names, electrical types); this file only draws.
-field Reference at=0,7.62 U
-field Value at=0,-7.62 opa2333
+# Pin connection points, pin tails, and the body frame sit on the 0.5 mm placement lattice (ADR-0057); rows are 2.0 mm apart.
+field Reference at=0,11 U
+field Value at=0,-11 opa2333
 
 pins
-  1  5.08   0      180
-  2  -5.08  -1.27  0
-  3  -5.08  1.27   0
-  5  -5.08  1.27   0    unit=2
-  6  -5.08  -1.27  0    unit=2
-  7  5.08   0      180  unit=2
-  4  0      -7.62  90   unit=3
-  8  0      7.62   270  unit=3
+  1  5   0     180  length=2.5
+  2  -5  -1    0    length=2.5
+  3  -5  1     0    length=2.5
+  5  -5  -1    0    length=2.5  unit=2
+  6  -5  1     0    length=2.5  unit=2
+  4  0   -7.5  90   length=2.5  unit=3
+  7  5   0     180  length=2.5  unit=3
+  8  0   7.5   270  length=2.5  unit=3
 
 body
-  poly  -2.54,-2.54,2.54,0,-2.54,2.54,-2.54,-2.54  width=0.254
-  poly  -2.54,-2.54,2.54,0,-2.54,2.54,-2.54,-2.54  unit=2       width=0.254
-  rect  -1.27,-2.54,1.27,2.54                      unit=3       width=0.254
+  poly  -2.5,-2.5,2.5,0,-2.5,2.5,-2.5,-2.5  width=0.254
+  poly  -2.5,-2.5,2.5,0,-2.5,2.5,-2.5,-2.5  unit=2       width=0.254
+  rect  -1.5,-2.5,1.5,2.5                   unit=3       width=0.254

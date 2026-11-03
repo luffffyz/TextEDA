@@ -1,24 +1,23 @@
 // The review app: one page, no framework, no build step of its own (ADR-0035 decision 7).
 //
-// What it is allowed to do: show the SVG the renderer produced, add behaviour to it (hover, click,
-// pan, zoom), and report what the page is made of. What it must not do: place symbols, move wires,
-// or write anything back — the drawing is a function of (logic IR, view IR), and a viewer that
-// adjusted it would become a second source of truth (ADR-0035, AGENTS.md §2 invariant 3).
+// It shows the renderer's drawing, adds hover/selection/pan/zoom behaviour, and sends explicit
+// pending view writes through its host. It never edits `design/**`, the IR, or the build hash.
 //
 // The app is mounted, not loaded: `mountReview(root, model, api)` hands it a place to draw, a
 // model to draw, and a channel to ask its host for a write (ADR-0043 D2). The standalone page
 // (`./client.ts`) and a plugin host both call it, and neither is the app's only caller.
+import { capabilityAllowsFull } from "./capability.ts";
 import { definitionLocations, editorUri } from "./definitions.ts";
 import { APP_ROOT_CLASS, APP_STYLES } from "./styles.ts";
-import { availableModes, REVIEW_MODE_ORDER } from "./capability.ts";
 import { refusalMessage, unsavedSource } from "./host.ts";
+import { snapPlacement } from "./placement.ts";
 import type {
   ReviewBoard,
   ReviewDiagnostic,
   ReviewDrawing,
   ReviewDrawingKind,
+  ReviewField,
   ReviewInstance,
-  ReviewMode,
   ReviewModel,
   ReviewApi,
   ReviewPlace,
@@ -28,7 +27,7 @@ import type {
 } from "./types.ts";
 
 interface Highlight {
-  readonly kind: "symbol" | "text";
+  readonly kind: "symbol" | "text" | "field";
   readonly id: string;
 }
 
@@ -45,16 +44,11 @@ const PX_PER_MM = 4;
 const DIAGNOSTIC_PREVIEW = 5;
 /** Instances listed for a board with no print page: a board is a few dozen parts, not a library. */
 const INSTANCE_PREVIEW = 60;
-/**
- * The grid a placement snaps to: 1.27 mm, the 0.05 inch the pin pitch is made of. The view's own
- * grid is finer (0.01 mm); this one is the step a person can hit by eye (ADR-0042 D4).
- */
-const SNAP_MM = 1.27;
 let expanded = false;
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 12;
 
-/** A placement the layout mode has moved but not yet committed. */
+/** A placement moved locally but not yet committed. */
 interface PendingPlace {
   instance_id: string;
   x: number;
@@ -62,26 +56,15 @@ interface PendingPlace {
   rot: number;
 }
 
-/** The server's answer to a preview request: the page as it would be drawn. */
-/**
- * The server's answer to a preview request: the page as it would be drawn.
- *
- * Three ways a write disturbs the drawing, because two write paths report different things: the
- * standalone server re-anchors the wires a move disturbs and reports what it could not keep
- * (`conflicts`) or had to put back (`reseated`); a host that may write only `place` rows writes no
- * wire at all and reports the nets whose wires went stale (`stale`), for `texteda view rewire` to
- * finish (ADR-0043 D10). The drawing is the same in every case; only the repair differs.
- */
-interface Preview {
-  svg: string;
-  symbols: ReviewSymbol[];
-  texts: ReviewText[];
-  conflicts: string[];
-  reseated: string[];
-  stale: string[];
+/** A field anchor moved locally but not yet committed. */
+interface PendingField {
+  instance_id: string;
+  name: ReviewField["name"];
+  x: number;
+  y: number;
 }
 
-/** The mode bar's action buttons; they follow what the mode can do. */
+/** The action bar's buttons follow the current drawing and pending changes. */
 let applyButton: HTMLButtonElement | undefined;
 let revertButton: HTMLButtonElement | undefined;
 let saveButton: HTMLButtonElement | undefined;
@@ -96,7 +79,9 @@ interface AppState {
   panX: number;
   panY: number;
   selected: Highlight | null;
-  /** The definition menu is open for the current selection (F34 source jump). */
+  /** The next ordinary click only dismisses a just-queued rotation. */
+  rotationPendingId: string | null;
+  /** The definition menu is open for the current selection. */
   definitionsOpen: boolean;
   /**
    * The kind blocks the person folded, by key (`kind/symbol`).
@@ -108,22 +93,22 @@ interface AppState {
   folded: Set<string>;
   /** Set once the reviewer pans or zooms: a window resize must not undo their framing. */
   adjusted: boolean;
-  /** Which of the app's four modes is showing (ADR-0042 D1). */
-  mode: ReviewMode;
-  /** The layout mode's moves: the instance id → where the user put it. */
+  /** Whether the current schematic page's source panel is open. */
+  sourceOpen: boolean;
+  /** The instance id → where the user put it. */
   pending: Map<string, PendingPlace>;
-  /** The server's preview of the pending moves, once it has answered. */
-  preview: Preview | null;
-  /** The edit mode's source, when it differs from the file. */
+  /** Field anchors keyed by `instance_id:name`. */
+  pendingFields: Map<string, PendingField>;
+  /** Explicit field removals, kept separate so `(0, 0)` remains a real coordinate. */
+  removeFields: Set<string>;
+  /** The page source, when it differs from the file. */
   draft: string | null;
-  /** The edit mode's rendered draft. */
+  /** The rendered draft. */
   draftSvg: string;
   draftErrors: string[];
-  /** Where each row of the draft is, so a click on the drawing can put the cursor on it. */
-  anchors: { key: string; kind: string; line: number }[];
 }
 
-/** The state a mount starts in: the first board, zoom 1, nothing selected, no moves pending. */
+/** The state a mount starts in: the first drawing, zoom 1, no selection or pending changes. */
 function initialState(): AppState {
   return {
     drawing: model.drawings[0]?.key ?? "",
@@ -131,22 +116,22 @@ function initialState(): AppState {
     panX: 0,
     panY: 0,
     selected: null,
+    rotationPendingId: null,
     definitionsOpen: false,
     folded: new Set<string>(),
     adjusted: false,
-    mode: "review",
+    sourceOpen: false,
     pending: new Map<string, PendingPlace>(),
-    preview: null,
+    pendingFields: new Map<string, PendingField>(),
+    removeFields: new Set<string>(),
     draft: null,
     draftSvg: "",
     draftErrors: [],
-    anchors: [],
   };
 }
 
 /** The state of the current mount; `mountReview` replaces it. Nothing reads it before then. */
 let state = undefined as unknown as AppState;
-
 
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -185,118 +170,89 @@ function severityRank(diagnostic: ReviewDiagnostic): number {
   return diagnostic.severity === "error" ? 0 : diagnostic.severity === "warning" ? 1 : 2;
 }
 
-/** The edit mode's draft belongs to one page: another page starts from its own source. */
+/** The page draft belongs to one drawing: another drawing starts from its own source. */
 function resetDraft(): void {
   state.draft = null;
   state.draftSvg = "";
   state.draftErrors = [];
-  state.anchors = [];
 }
 
-// --- the modes ------------------------------------------------------------------------------
-//
-// Three modes, one app (ADR-0042 D1, as ADR-0048 amends it). They share everything that finds a
-// thing — the selection, the hover mark, the jump to its source — and differ only in what the stage
-// shows and what a press means. A mode the current drawing cannot offer is not offered: only a
-// print page can be laid out or edited, and a board canvas and a library drawing are read.
-
-const MODE_LABEL: Record<ReviewMode, string> = {
-  review: "Review",
-  layout: "Layout",
-  edit: "Edit",
-};
-
-/** What each mode is for, in one line, under the buttons. */
-const MODE_HINT: Record<ReviewMode, string> = {
-  review: "Read the drawing: hover, click, jump to the source.",
-  layout: "Move the symbols of this page. Apply writes the page file.",
-  edit: "The page's source, and the drawing of it.",
-};
-
-/** The modes this drawing and this host both allow (ADR-0043 D6). */
-function modesFor(current: ReviewDrawing | undefined): ReviewMode[] {
-  return availableModes(current, model.capability);
+/** Whether the host grants writes beyond the DSH places-only boundary. */
+function canWriteFull(): boolean {
+  return canWrite() && capabilityAllowsFull(model.capability);
 }
 
-/**
- * Why a mode is not offered: the drawing's own limits first, then the host's.
- *
- * Only a print page can be laid out or edited; a board canvas and a library drawing are read, and
- * that is the project's fact. A mode the drawing has but the host does not grant is the host's
- * decision and says so (ADR-0043 D3).
- */
-function missingReason(mode: ReviewMode): string {
-  if (!availableModes(drawing(), undefined).includes(mode)) {
-    return mode === "layout" || mode === "edit"
-      ? "only a print page can be laid out or edited"
-      : "this drawing has no such mode";
-  }
-  return `this host does not offer ${MODE_LABEL[mode].toLowerCase()}`;
+/** Whether the current schematic source may be edited and saved. */
+function canEditSource(): boolean {
+  return canWriteFull() && drawing()?.kind === "sch";
 }
 
-function renderModes(): void {
-  frame.modeBar.textContent = "";
-  const available = modesFor(drawing());
-  for (const mode of REVIEW_MODE_ORDER) {
-    const button = el("button", "mode", MODE_LABEL[mode]);
-    button.type = "button";
-    button.title = MODE_HINT[mode];
-    if (mode === state.mode) button.classList.add("active");
-    if (!available.includes(mode)) {
-      button.disabled = true;
-      button.title = missingReason(mode);
-    }
-    button.addEventListener("click", () => {
-      if (state.mode === mode) return;
-      state.mode = mode;
-      state.pending.clear();
-      state.preview = null;
-      state.draft = null;
-      state.draftSvg = "";
-      state.draftErrors = [];
+/** Build the one action bar; actions are capabilities, not interaction modes. */
+function renderActions(): void {
+  frame.actionBar.textContent = "";
+  applyButton = undefined;
+  revertButton = undefined;
+  saveButton = undefined;
+  const current = drawing();
+  if (current?.kind === "sch" && capabilityAllowsFull(model.capability)) {
+    const source = el("button", "action", "Source");
+    source.type = "button";
+    source.title = "show or hide this page's source";
+    source.classList.toggle("active", state.sourceOpen);
+    source.addEventListener("click", () => {
+      state.sourceOpen = !state.sourceOpen;
       renderAll();
-      // The fit comes after the redraw: the edit mode shows the source pane, which narrows the
-      // stage, and a sheet fitted to the old stage would hang out of it.
       fit();
     });
-    frame.modeBar.append(button);
+    frame.actionBar.append(source);
   }
-  if (state.mode === "layout") {
-    const apply = el("button", "mode-action", "Apply");
+  if (current?.kind === "sch") {
+    const apply = el("button", "action", "Apply");
     apply.type = "button";
     apply.addEventListener("click", () => {
       void applyPendingMoves();
     });
-    const revert = el("button", "mode-action", "Revert");
+    const revert = el("button", "action", "Revert");
     revert.type = "button";
-    revert.title = "drop the moves (Escape)";
+    revert.title = "drop all pending changes";
     revert.addEventListener("click", revertPendingMoves);
     applyButton = apply;
     revertButton = revert;
-    frame.modeBar.append(apply, revert);
+    frame.actionBar.append(apply, revert);
   }
-  if (state.mode === "edit") {
-    const save = el("button", "mode-action", "Save");
+  if (current?.kind === "sch" && state.sourceOpen && capabilityAllowsFull(model.capability)) {
+    const save = el("button", "action", "Save");
     save.type = "button";
-    save.title = canWrite() ? "write the page file" : "this document cannot write";
+    save.title = canEditSource() ? "write the page file" : "this host cannot edit source";
     save.addEventListener("click", () => {
       void saveDraft();
     });
     saveButton = save;
-    frame.modeBar.append(save);
+    frame.actionBar.append(save);
   }
-  frame.modeBar.append(el("span", "mode-hint", MODE_HINT[state.mode]));
+  frame.actionBar.append(el("span", "action-hint", actionHint(current)));
   updateActions();
 }
+function actionHint(current: ReviewDrawing | undefined): string {
+  if (current?.kind !== "sch") return "Read the drawing: hover, select, zoom, and pan.";
+  return state.sourceOpen
+    ? "Source is explicit: edit the page text on the left; drawing clicks only select."
+    : "Select a symbol, press m to preview a snapped move, or r to rotate it.";
+}
 
-/** The buttons of the mode bar follow what the mode can do right now. */
+/** The action buttons follow the current drawing and pending changes. */
 function updateActions(): void {
+  const current = drawing();
+  const draftPending = current !== undefined && unsavedDraft(current) !== undefined;
   if (applyButton !== undefined) {
-    applyButton.disabled = state.pending.size === 0 || !canWrite();
+    const applicable = hasPendingEdits() || (canWriteFull() && draftPending);
+    applyButton.disabled = !applicable || !canWrite();
     applyButton.title = canWrite() ? "write the page file (Ctrl+Enter)" : "this document cannot write";
   }
-  if (revertButton !== undefined) revertButton.disabled = state.pending.size === 0;
-  if (saveButton !== undefined) saveButton.disabled = !canWrite();
+  if (revertButton !== undefined) revertButton.disabled = !hasPendingEdits();
+  if (saveButton !== undefined) {
+    saveButton.disabled = !canEditSource() || current === undefined || !draftPending;
+  }
 }
 
 // --- the frame -------------------------------------------------------------------------------
@@ -323,7 +279,7 @@ interface Frame {
   diagList: HTMLElement;
   stage: HTMLElement;
   canvas: HTMLElement;
-  modeBar: HTMLElement;
+  actionBar: HTMLElement;
   panes: HTMLElement;
   sourcePane: HTMLElement;
   sourceText: HTMLTextAreaElement;
@@ -370,16 +326,15 @@ function buildShell(): void {
   const canvas = el("div", "canvas");
   stage.append(canvas);
 
-  // The mode bar picks what the stage shows; the panes hold the stage and, in the edit mode, the
-  // page's source next to it.
-  const modeBar = el("div", "modes");
+  // The action bar exposes explicit actions; the source pane is an optional schematic panel.
+  const actionBar = el("div", "actions");
   const panes = el("div", "panes");
   const sourcePane = el("div", "source-pane");
   const sourceText = el("textarea", "source");
   sourceText.spellcheck = false;
   sourcePane.append(sourceText);
   panes.append(sourcePane, stage);
-  stageWrap.append(modeBar, panes);
+  stageWrap.append(actionBar, panes);
 
   const status = el("div", "status");
   stageWrap.append(status);
@@ -402,7 +357,7 @@ function buildShell(): void {
     diagList,
     stage,
     canvas,
-    modeBar,
+    actionBar,
     panes,
     sourcePane,
     sourceText,
@@ -426,8 +381,7 @@ function wireStage(): void {
   frame.stage.addEventListener("pointermove", onStagePointerMove);
   frame.stage.addEventListener("pointerup", stopDrag);
   frame.stage.addEventListener("pointercancel", stopDrag);
-  // The placement mode reads the drawing, not the rows: a plain move reports the net under the
-  // pointer while the stage is not being dragged.
+  // A plain move reports the net under the pointer while the stage is not being dragged.
   frame.stage.addEventListener("pointermove", onStageHover);
   frame.stage.addEventListener("wheel", onStageWheel, { passive: false });
   frame.sourceText.addEventListener("input", onSourceInput);
@@ -463,6 +417,7 @@ function drawingRow(candidate: ReviewDrawing): HTMLElement {
   button.append(el("span", "row-name", candidate.label));
   if (candidate.board !== undefined) button.append(el("span", "row-note", candidate.board));
   button.addEventListener("click", () => {
+    if (moveTransaction !== null) cancelMove();
     state.drawing = candidate.key;
     revealDrawing(candidate.key);
     resetDraft();
@@ -744,6 +699,7 @@ function renderDiagnostics(): void {
       jump.type = "button";
       jump.title = "select this on the drawing";
       jump.addEventListener("click", () => {
+        if (moveTransaction !== null) cancelMove();
         state.drawing = target.drawing;
         revealDrawing(target.drawing);
         resetDraft();
@@ -782,34 +738,28 @@ function applyTransform(): void {
   padMarks();
 }
 
-/**
- * What the frame.stage shows right now: the drawing, its size, and the objects it holds.
- *
- * The mode decides which drawing it is: the page's own, the layout mode's preview of the page
- * after the pending moves, or the edit mode's drawing of the draft.
- */
+/** The source panel shows the draft; the unified drawing surface shows pending local transforms. */
 function stageDrawing():
-  | { svg: string; sheet: { w: number; h: number }; symbols: ReviewSymbol[]; texts: ReviewText[] }
+  | { svg: string; sheet: { w: number; h: number }; symbols: ReviewSymbol[]; texts: ReviewText[]; fields: ReviewField[] }
   | undefined {
   const current = drawing();
   if (current === undefined) return undefined;
-  if (state.mode === "edit") {
+  if (state.sourceOpen && current.kind === "sch") {
     return {
       svg: state.draftSvg !== "" ? state.draftSvg : current.svg,
       sheet: current.sheet,
       symbols: current.symbols,
       texts: current.texts,
+      fields: current.fields ?? [],
     };
   }
-  if (state.mode === "layout" && state.preview !== null) {
-    return {
-      svg: state.preview.svg,
-      sheet: current.sheet,
-      symbols: state.preview.symbols,
-      texts: state.preview.texts,
-    };
-  }
-  return { svg: current.svg, sheet: current.sheet, symbols: current.symbols, texts: current.texts };
+  return {
+    svg: current.svg,
+    sheet: current.sheet,
+    symbols: current.symbols,
+    texts: current.texts,
+    fields: current.fields ?? [],
+  };
 }
 
 /** What the drawing holds, in the words the status line uses. */
@@ -856,30 +806,32 @@ function setStatus(text: string): void {
   frame.status.textContent = text;
 }
 
-/**
- * Draw the frame.stage.
- *
- * `keepSelection` is for the redraws that are not a change of subject: the layout mode redraws the
- * page when a symbol moves, and the selection has to survive that.
- */
+/** The last drawing rendered without preserving selection, for transition cleanup. */
+let renderedDrawingKey: string | null = null;
+
+/** Draw the frame.stage. */
 function renderStage(keepSelection = false): void {
+  if (!keepSelection && renderedDrawingKey !== state.drawing) {
+    resetInteractionForDrawingChange();
+  }
+  renderedDrawingKey = state.drawing;
   frame.canvas.textContent = "";
   if (!keepSelection) {
     state.selected = null;
+    state.rotationPendingId = null;
     state.definitionsOpen = false;
+    selectionAnchor = null;
   }
   frame.status.classList.remove("error");
-  frame.sourcePane.classList.toggle("hidden", state.mode !== "edit");
+  frame.sourcePane.classList.toggle("hidden", !state.sourceOpen || drawing()?.kind !== "sch");
   const current = drawing();
   // A board canvas is picked by the drawing's own objects (a net's copper), so the page's hotspots
-  // — which cover the page's symbols — must not swallow the click there. The edit mode keeps them:
-  // its objects are the page's, and a hotspot resolves a 0402 as well as a QFP does.
+  // — which cover the page's symbols — must not swallow the click there.
   frame.stage.classList.toggle("picking", current?.kind === "pcb");
 
   if (current === undefined) {
     const note = board()?.note ?? "this project has no drawing to show";
     frame.stage.classList.add("empty");
-    // The empty frame.stage says why it is empty rather than showing a black rectangle.
     frame.stage.dataset["empty"] = `${board()?.id ?? "this project"}\n${note}`;
     setStatus(note);
     renderInspector();
@@ -894,8 +846,8 @@ function renderStage(keepSelection = false): void {
     return;
   }
 
-  if (state.mode === "edit") {
-    renderEdit(current);
+  if (state.sourceOpen && current.kind === "sch") {
+    renderSource(current);
     return;
   }
 
@@ -905,8 +857,6 @@ function renderStage(keepSelection = false): void {
     return;
   }
 
-  // The renderer's SVG is inserted as markup and then measured: the app adds hotspots on top of it
-  // rather than drawing the sheet a second time.
   const holder = el("div", "sheet");
   holder.innerHTML = shown.svg;
   frame.canvas.append(holder);
@@ -918,27 +868,29 @@ function renderStage(keepSelection = false): void {
     return;
   }
   pinchSheet(svg);
-  overlay(svg, shown.symbols, shown.texts);
-  if (state.mode === "layout" && state.preview === null) applyPending(svg);
+  overlay(svg, shown.symbols, shown.texts, shown.fields);
+  applyPending(svg);
   if (keepSelection) paintHighlights(state.selected);
   applyTransform();
-  const pending = state.pending.size;
+  const pending = state.pending.size + state.pendingFields.size + state.removeFields.size;
   setStatus(
     `${current.file} · ${shown.sheet.w} × ${shown.sheet.h} mm · ${drawnCount(current, shown)}` +
-      (pending === 0 ? "" : ` · ${pending} moved, not applied`),
+      (pending === 0 ? "" : ` · ${pending} layout change${pending === 1 ? "" : "s"}, not applied`),
   );
 }
 
+
 /**
- * The layout mode's pending moves, drawn where the user put them.
+ * Pending placement rows, drawn where the user put them.
  *
  * The renderer groups what belongs to one instance under `data-ref`, so a moved symbol is moved by
  * transforming its groups (ADR-0042 D2). The transform is the same one the renderer would have
  * applied: a turn about the old origin, then a move to the new one.
  */
 function applyPending(svg: SVGSVGElement): void {
+  const originalPlaces = placedPlaces();
   for (const [id, place] of state.pending) {
-    const from = placedPlaces().get(id);
+    const from = originalPlaces.get(id);
     if (from === undefined) continue;
     const dx = place.x - from.x;
     const dy = place.y - from.y;
@@ -950,6 +902,115 @@ function applyPending(svg: SVGSVGElement): void {
       group.setAttribute("transform", transform);
     }
   }
+
+  for (const field of drawing()?.fields ?? []) {
+    const from = originalPlaces.get(field.instance_id);
+    if (from === undefined) continue;
+    const to = state.pending.get(field.instance_id) ?? from;
+    const key = fieldKey(field.instance_id, field.name);
+    const pending = state.pendingFields.get(key);
+    if (from === to && pending === undefined) continue;
+    const targetX = pending?.x ?? field.x;
+    const targetY = pending?.y ?? field.y;
+    const matrix = fieldTransform(from, to, field.x, field.y, targetX, targetY);
+    const ref = `field:${field.instance_id}:${field.name}`;
+    for (const node of svg.querySelectorAll<SVGElement>("[data-ref]")) {
+      if (node.getAttribute("data-ref") === ref) node.setAttribute("transform", matrix);
+    }
+  }
+}
+
+function fieldTransform(
+  from: ReviewPlace,
+  to: ReviewPlace,
+  baseX: number,
+  baseY: number,
+  targetX: number,
+  targetY: number,
+): string {
+  const base = fieldToSheet(from, baseX, baseY);
+  const target = fieldToSheet(to, targetX, targetY);
+  const radians = ((to.rot - from.rot) * Math.PI) / 180;
+  const a = Math.cos(radians);
+  const b = Math.sin(radians);
+  const c = -b;
+  const d = a;
+  const e = target.x - (a * base.x + c * base.y);
+  const f = target.y - (b * base.x + d * base.y);
+  return `matrix(${a} ${b} ${c} ${d} ${e} ${f})`;
+}
+
+/** Symbol-local coordinates (+y up) to sheet coordinates (+y down). */
+function fieldToSheet(place: ReviewPlace, x: number, y: number): { x: number; y: number } {
+  switch (((place.rot % 360) + 360) % 360) {
+    case 90:
+      return { x: place.x + y, y: place.y + x };
+    case 180:
+      return { x: place.x - x, y: place.y + y };
+    case 270:
+      return { x: place.x - y, y: place.y - x };
+    default:
+      return { x: place.x + x, y: place.y - y };
+  }
+}
+
+/** Sheet coordinates (+y down) back to symbol-local coordinates (+y up). */
+function fieldFromSheet(place: ReviewPlace, x: number, y: number): { x: number; y: number } {
+  switch (((place.rot % 360) + 360) % 360) {
+    case 90:
+      return { x: y - place.y, y: x - place.x };
+    case 180:
+      return { x: place.x - x, y: y - place.y };
+    case 270:
+      return { x: place.y - y, y: place.x - x };
+    default:
+      return { x: x - place.x, y: place.y - y };
+  }
+}
+
+function fieldKey(instanceId: string, name: ReviewField["name"]): string {
+  return `${instanceId}:${name}`;
+}
+
+function hasPendingEdits(): boolean {
+  return state.pending.size > 0 || state.pendingFields.size > 0 || state.removeFields.size > 0;
+}
+
+function splitFieldKey(key: string): { instance_id: string; name: ReviewField["name"] } | undefined {
+  const colon = key.lastIndexOf(":");
+  if (colon <= 0) return undefined;
+  const name = key.slice(colon + 1);
+  if (name !== "Reference" && name !== "Value") return undefined;
+  return { instance_id: key.slice(0, colon), name };
+}
+
+function fieldForKey(key: string): ReviewField | undefined {
+  const identity = splitFieldKey(key);
+  return identity === undefined
+    ? undefined
+    : stageDrawing()?.fields.find(
+        (field) => field.instance_id === identity.instance_id && field.name === identity.name,
+      );
+}
+
+function canWriteFields(): boolean {
+  return canWriteFull() && drawing()?.kind === "sch";
+}
+
+function restoreAutomaticField(instanceId: string, name: ReviewField["name"]): void {
+  if (!canWriteFields()) {
+    setStatus("this document cannot write: run `texteda review` to serve the app");
+    return;
+  }
+  const key = fieldKey(instanceId, name);
+  const persisted = drawing()?.fields?.some(
+    (field) => field.instance_id === instanceId && field.name === name && field.manual,
+  ) ?? false;
+  state.pendingFields.delete(key);
+  if (persisted) state.removeFields.add(key);
+  else state.removeFields.delete(key);
+  updateActions();
+  renderStage(true);
 }
 
 /** Where the page places each instance, as the page says it. */
@@ -958,25 +1019,20 @@ function placedPlaces(): Map<string, ReviewPlace> {
   for (const place of drawing()?.places ?? []) out.set(place.instance_id, place);
   return out;
 }
-
-/** The edit mode: the page's source, and the drawing of exactly that text. */
-function renderEdit(current: ReviewDrawing): void {
+/** Render the explicit source panel and its current draft. */
+function renderSource(current: ReviewDrawing): void {
   if (state.draft === null) {
     state.draft = current.source ?? "";
     frame.sourceText.value = state.draft;
-  }
-  if (state.anchors.length === 0) {
-    // The rows of the page are the server's to say: it parses the file and knows which line each
-    // object came from. The first draw asks for them, so a click on the drawing can find its row.
     void refreshDraft();
   }
-  const drawing = stageDrawing();
-  if (drawing === undefined) {
+  const shown = stageDrawing();
+  if (shown === undefined) {
     setStatus("there is nothing to draw");
     return;
   }
   const holder = el("div", "sheet");
-  holder.innerHTML = drawing.svg;
+  holder.innerHTML = shown.svg;
   frame.canvas.append(holder);
   applyTransform();
   const svg = holder.querySelector("svg");
@@ -985,9 +1041,7 @@ function renderEdit(current: ReviewDrawing): void {
     return;
   }
   pinchSheet(svg);
-  // The same hotspots as the page modes: in `edit` a click is resolved by position, and the boxes
-  // are what a person aims at (a 0402's ink is a 0.4 mm stroke).
-  overlay(svg, drawing.symbols, drawing.texts);
+  overlay(svg, shown.symbols, shown.texts, shown.fields ?? []);
   applyTransform();
   const errors = state.draftErrors;
   setStatus(
@@ -1052,11 +1106,10 @@ function padMarks(): void {
   }
 }
 
-/** Hotspots for symbols and net texts, drawn in the sheet's own millimetres. */
-function overlay(svg: SVGSVGElement, symbols: ReviewSymbol[], texts: ReviewText[]): void {
+/** Hotspots for symbols, net texts and instance fields, drawn in sheet millimetres. */
+function overlay(svg: SVGSVGElement, symbols: ReviewSymbol[], texts: ReviewText[], fields: ReviewField[] = []): void {
   const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
   group.setAttribute("class", "hotspots");
-
   const boxOf = new WeakMap<SVGRectElement, { x: number; y: number; w: number; h: number }>();
 
   const hotspot = (box: { x: number; y: number; w: number; h: number }, highlight: Highlight): SVGRectElement => {
@@ -1068,16 +1121,10 @@ function overlay(svg: SVGSVGElement, symbols: ReviewSymbol[], texts: ReviewText[
     rect.setAttribute("class", "hotspot");
     rect.dataset["kind"] = highlight.kind;
     rect.dataset["id"] = highlight.id;
-    // The hotspot also carries the drawing's identity, so a press resolved by position (`pickedAt`)
-    // finds the object from its box and not only from its ink: the edit mode jumps to a row from
-    // whatever was clicked, and a 0402's body is a 0.4 mm stroke (ADR-0042 D2, D7).
-    rect.setAttribute("data-ref", `${highlight.kind === "symbol" ? "instance" : "text"}:${highlight.id}`);
+    const ref = highlight.kind === "symbol" ? `instance:${highlight.id}` : highlight.kind === "field" ? `field:${highlight.id}` : `text:${highlight.id}`;
+    rect.setAttribute("data-ref", ref);
     boxOf.set(rect, box);
-    rect.addEventListener("mouseenter", () => {
-      hover(highlight);
-    });
-    // The frame.stage captures the pointer to pan, so `click` never reaches this element: a press is
-    // remembered here and turned into a selection on release when the pointer did not travel.
+    rect.addEventListener("mouseenter", () => hover(highlight));
     rect.addEventListener("pointerdown", () => {
       pressed = highlight;
     });
@@ -1086,15 +1133,13 @@ function overlay(svg: SVGSVGElement, symbols: ReviewSymbol[], texts: ReviewText[
 
   const rows: SVGRectElement[] = [];
   for (const symbol of symbols) rows.push(hotspot(symbol.box, { kind: "symbol", id: symbol.id }));
-  for (const text of texts) {
-    rows.push(hotspot(text.box, { kind: "text", id: text.subject ?? text.text }));
+  for (const text of texts) rows.push(hotspot(text.box, { kind: "text", id: text.subject ?? text.text }));
+  for (const field of fields) {
+    rows.push(hotspot(field.box, { kind: "field", id: fieldKey(field.instance_id, field.name) }));
   }
   group.append(...rows);
   svg.append(group);
 
-  // The visible marks go in a second group on top: a mark is the object's box inflated by a
-  // constant number of screen pixels, so a 0402 capacitor is as easy to point at as a QFP, and the
-  // outline never sits exactly on the drawing's own lines.
   const marks = document.createElementNS("http://www.w3.org/2000/svg", "g");
   marks.setAttribute("class", "marks");
   for (const rect of rows) {
@@ -1102,6 +1147,7 @@ function overlay(svg: SVGSVGElement, symbols: ReviewSymbol[], texts: ReviewText[
     mark.setAttribute("class", "mark");
     mark.dataset["kind"] = rect.dataset["kind"];
     mark.dataset["id"] = rect.dataset["id"];
+    mark.setAttribute("data-ref", rect.getAttribute("data-ref") ?? "");
     marks.append(mark);
     const bounds = boxOf.get(rect);
     if (bounds !== undefined) markBounds.set(mark, bounds);
@@ -1119,23 +1165,23 @@ function overlay(svg: SVGSVGElement, symbols: ReviewSymbol[], texts: ReviewText[
  */
 function hover(highlight: Highlight): void {
   paintHighlights(highlight);
-  if (state.mode === "edit") {
-    // The edit mode's frame.status line reports the action — the row that was jumped to, and whether the
-    // draft parses. The drawing is redrawn after a jump, which makes the browser enter the new
-    // hotspot under the pointer and would otherwise overwrite that message with the object's facts.
-    return;
-  }
   const facts = highlight.kind === "symbol" ? instanceOf(highlight.id) : undefined;
   if (highlight.kind === "symbol") {
     frame.status.textContent =
       facts === undefined
         ? `${highlight.id}`
         : `${facts.id} · ${facts.component} · ${facts.nets.join(" ") || "no nets"}`;
+  } else if (highlight.kind === "field") {
+    const field = fieldForKey(highlight.id);
+    frame.status.textContent =
+      field === undefined
+        ? highlight.id
+        : `${field.name} · ${field.text} · ${field.instance_id} · ${field.manual ? "manual" : "automatic"}`;
   } else {
     frame.status.textContent = `net ${highlight.id}`;
   }
-}
 
+}
 /** Keep the selected element marked while the pointer moves away from it. */
 function paintHighlights(under: Highlight | null): void {
   const selected = state.selected;
@@ -1164,23 +1210,28 @@ function awayFromStage(event: PointerEvent): void {
   frame.status.textContent = pageStatus;
 }
 
-/** Drop the selection and everything that showed it: the marks, the chips, the frame.inspector. */
+/** Drop the selection and its visual/inspector state. */
 function clearSelection(): void {
-  if (state.selected === null) return;
   state.selected = null;
+  state.rotationPendingId = null;
   state.definitionsOpen = false;
+  selectionAnchor = null;
   paintHighlights(null);
   renderTree();
   renderInspector();
 }
 
 function locationsFor(selected: Highlight): ReviewSourceLocation[] {
+  if (selected.kind === "field") return [];
+  const definitionSelected = selected.kind === "symbol"
+    ? { kind: "symbol" as const, id: selected.id }
+    : { kind: "text" as const, id: selected.id };
   const facts = instanceOf(selected.id);
   const symbol = drawing()?.symbols.find((candidate) => candidate.id === selected.id);
   return definitionLocations({
     sources: model.sources,
     board: board()?.id ?? "",
-    selected,
+    selected: definitionSelected,
     ...(facts === undefined ? {} : { instance: facts }),
     pins: Object.keys(symbol?.pins ?? {}),
   });
@@ -1193,7 +1244,7 @@ function openLocation(location: ReviewSourceLocation): void {
 }
 
 function showDefinitions(): void {
-  if (state.selected === null) return;
+  if (state.selected === null || state.selected.kind === "field") return;
   state.definitionsOpen = true;
   renderInspector();
   frame.inspectorBody.querySelector<HTMLButtonElement>(".definition-open")?.focus();
@@ -1240,6 +1291,32 @@ function renderInspector(): void {
   if (selected === null) {
     frame.inspectorTitle.textContent = "Nothing selected";
     frame.inspectorBody.append(el("div", "muted", "Click a symbol, a label or a port."));
+    return;
+  }
+  if (selected.kind === "field") {
+    const field = fieldForKey(selected.id);
+    const identity = splitFieldKey(selected.id);
+    frame.inspectorTitle.textContent = field === undefined ? selected.id : `${field.name} · ${field.instance_id}`;
+    if (field === undefined || identity === undefined) {
+      frame.inspectorBody.append(el("div", "muted", "the drawing field is unavailable"));
+      return;
+    }
+    const key = fieldKey(identity.instance_id, identity.name);
+    const pendingSet = state.pendingFields.has(key);
+    const pendingRemoval = state.removeFields.has(key);
+    const isManual = !pendingRemoval && (pendingSet || field.manual);
+    frame.inspectorBody.append(
+      el("div", "definition", `${field.text} · ${isManual ? "manual override" : "automatic placement"}`),
+      el("div", "muted", `symbol-local anchor ${field.x.toFixed(2)}, ${field.y.toFixed(2)} mm`),
+    );
+    if (isManual) {
+      const restore = el("button", "action", "Restore automatic placement");
+      restore.type = "button";
+      restore.disabled = !canWriteFields();
+      restore.title = canWriteFields() ? "remove this field override" : "this host cannot write field overrides";
+      restore.addEventListener("click", () => restoreAutomaticField(identity.instance_id, identity.name));
+      frame.inspectorBody.append(restore);
+    }
     return;
   }
   if (selected.kind === "text") {
@@ -1310,7 +1387,7 @@ async function postJson(path: string, body: unknown): Promise<Record<string, unk
   return answer.payload;
 }
 
-/** The moves the layout mode has pending, as the server wants them. */
+/** Pending placement rows, serialized for the host write path. */
 function pendingPlaces(): { instance_id: string; x: number; y: number; rot: number }[] {
   return [...state.pending.values()].map((place) => ({
     instance_id: place.instance_id,
@@ -1331,92 +1408,52 @@ function unsavedDraft(current: ReviewDrawing): string | undefined {
   return unsavedSource(state.draft, current.source);
 }
 
-/**
- * Ask the server what the page would look like after the pending moves.
- *
- * The answer is the page with its wires re-anchored — not routed, re-anchored: the wires keep
- * their shape and get their corners back (ADR-0042 D5). Nothing is written.
- */
-async function requestPreview(): Promise<void> {
-  const places = pendingPlaces();
-  if (places.length === 0) return;
-  if (!canWrite()) {
-    setStatus("this document cannot write: run `texteda review` to serve the app");
-    return;
-  }
-  const current = drawing();
-  if (current === undefined) return;
-  try {
-    const payload = await postJson("/api/layout", {
-      board: board()?.id ?? "",
-      page: current.page ?? "",
-      places,
-      commit: false,
-      // The unsaved text is the base the layout is computed on, so the preview is the page that
-      // would be written — the edit and the move together (ADR-0042 D6).
-      ...(unsavedDraft(current) === undefined ? {} : { text: unsavedDraft(current) }),
-    });
-    state.preview = {
-      svg: String(payload["svg"] ?? ""),
-      symbols: (payload["symbols"] as ReviewSymbol[] | undefined) ?? [],
-      texts: (payload["texts"] as ReviewText[] | undefined) ?? [],
-      conflicts: (payload["conflicts"] as string[] | undefined) ?? [],
-      reseated: (payload["reseated"] as string[] | undefined) ?? [],
-      stale: (payload["stale"] as string[] | undefined) ?? [],
-    };
-    updateActions();
-    renderStage(true);
-    // A stale net is the places-only path's version of a conflict: the move happened, the wire no
-    // longer reaches its pin, and `texteda view rewire` is what puts it back (ADR-0043 D10).
-    const notes = [
-      ...state.preview.conflicts,
-      ...state.preview.reseated.map((note) => `${note} put back`),
-      ...state.preview.stale.map((net) => `${net} wire stale: run \`texteda view rewire\``),
-    ];
-    setStatus(
-      notes.length === 0
-        ? "the page as it would be written: press Apply to write it"
-        : `the page as it would be written · ${notes.join("; ")}`,
-    );
-  } catch (error) {
-    setStatus(`the preview failed: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
-/** Write the pending moves: the page file changes, and nothing else does. */
+/** Write pending view changes; the server remains the only filesystem writer. */
 async function applyPendingMoves(): Promise<void> {
   const places = pendingPlaces();
-  if (places.length === 0) {
-    setStatus("nothing to apply");
-    return;
-  }
-  if (!canWrite()) {
-    setStatus("this document cannot write: run `texteda review` to serve the app");
-    return;
-  }
+  const fields = [...state.pendingFields.values()].map(({ instance_id, name, x, y }) => ({
+    instance_id,
+    name,
+    x,
+    y,
+  }));
+  const remove_fields = [...state.removeFields].flatMap((key) => {
+    const identity = splitFieldKey(key);
+    return identity === undefined ? [] : [identity];
+  });
   const current = drawing();
   if (current === undefined) return;
   const draft = unsavedDraft(current);
+  if (places.length === 0 && fields.length === 0 && remove_fields.length === 0 && draft === undefined) {
+    setStatus("nothing to apply");
+    return;
+  }
+  if (
+    !canWrite() ||
+    ((fields.length > 0 || remove_fields.length > 0 || draft !== undefined) && !canWriteFull()) ||
+    ((fields.length > 0 || remove_fields.length > 0) && !canWriteFields())
+  ) {
+    setStatus("this host cannot write these view changes");
+    return;
+  }
   try {
     const payload = await postJson("/api/layout", {
       board: board()?.id ?? "",
       page: current.page ?? "",
       places,
       commit: true,
-      // The write is the editor's text with the moved rows applied: the edit is not thrown away
-      // by the move (ADR-0042 D6).
+      ...(fields.length === 0 ? {} : { fields }),
+      ...(remove_fields.length === 0 ? {} : { remove_fields }),
       ...(draft === undefined ? {} : { text: draft }),
     });
     const next = payload["model"];
     if (next !== undefined) {
       model = next as ReviewModel;
-      // The identity index changed with the model; the reverse of it must be rebuilt.
       sourceIndex = undefined;
     }
     state.pending.clear();
-    state.preview = null;
-    // The draft is on disk now, so it is no longer an unsaved edit; the editor shows what is
-    // written.
+    state.pendingFields.clear();
+    state.removeFields.clear();
     if (draft !== undefined) {
       state.draft = null;
       state.draftSvg = "";
@@ -1427,16 +1464,17 @@ async function applyPendingMoves(): Promise<void> {
     renderAll();
     const conflicts = (payload["conflicts"] as string[] | undefined) ?? [];
     const stale = (payload["stale"] as string[] | undefined) ?? [];
-    // A net that went stale is a wire the write did not touch: this host may write only `place`
-    // rows, and the wire is `texteda view rewire`'s to put back (ADR-0043 D10).
-    const repairs = [
-      ...(conflicts.length === 0 ? [] : [`${conflicts.length} wire could not keep their shape`]),
-      ...(stale.length === 0 ? [] : [`${stale.length} net stale: run \`texteda view rewire\``]),
-    ];
+    const repairs = places.length === 0
+      ? []
+      : [
+          ...(conflicts.length === 0 ? [] : [`${conflicts.length} wire could not keep their shape`]),
+          ...(stale.length === 0 ? [] : [`${stale.length} net stale: run \`texteda view rewire\``]),
+        ];
+    const fieldChanges = fields.length + remove_fields.length;
     setStatus(
-      repairs.length === 0
-        ? `applied: ${places.length} symbol${places.length === 1 ? "" : "s"} moved, ${current.file} written`
-        : `applied, but ${repairs.join("; ")}`,
+      repairs.length > 0
+        ? `applied, but ${repairs.join("; ")}`
+        : `applied: ${places.length} symbol${places.length === 1 ? "" : "s"} moved, ${fieldChanges} field change${fieldChanges === 1 ? "" : "s"}, ${current.file} written`,
     );
   } catch (error) {
     setStatus(`the apply failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -1445,22 +1483,25 @@ async function applyPendingMoves(): Promise<void> {
 
 /** Throw the pending moves away: the page is as it was on disk. */
 function revertPendingMoves(): void {
-  if (state.pending.size === 0) return;
+  if (!hasPendingEdits()) return;
   state.pending.clear();
-  state.preview = null;
+  state.pendingFields.clear();
+  state.removeFields.clear();
   updateActions();
   renderStage(true);
-  setStatus("the moves were dropped");
+  renderInspector();
+  setStatus("the pending edits were dropped");
 }
 
-// --- the edit mode ---------------------------------------------------------------------------
+// --- the source panel -------------------------------------------------------------------------
 
-/** The edit mode's text changed: draw it again (the browser cannot parse a `.teda` file). */
+/** Source text changed: draw the draft again (the browser cannot parse a `.teda` file). */
 let draftTimer: number | undefined;
 
 function onSourceInput(): void {
   state.draft = frame.sourceText.value;
   state.draftErrors = [];
+  updateActions();
   clearTimeout(draftTimer);
   draftTimer = window.setTimeout(() => {
     void refreshDraft();
@@ -1474,8 +1515,8 @@ let draftTicket = 0;
 async function refreshDraft(): Promise<void> {
   const current = drawing();
   if (current === undefined || state.draft === null) return;
-  if (!canWrite()) {
-    setStatus("this document cannot draw a draft: it was exported without a server");
+  if (!canEditSource()) {
+    setStatus("this document cannot draw a draft: source editing is unavailable here");
     return;
   }
   draftTicket += 1;
@@ -1486,7 +1527,6 @@ async function refreshDraft(): Promise<void> {
     // text the person has already replaced, so it is dropped.
     if (ticket !== draftTicket) return;
     state.draftErrors = (payload["errors"] as string[] | undefined) ?? [];
-    state.anchors = (payload["anchors"] as { key: string; kind: string; line: number }[] | undefined) ?? [];
     const svg = String(payload["svg"] ?? "");
     // A draft that does not parse has no drawing; the last good one stays on the sheet.
     if (svg !== "") state.draftSvg = svg;
@@ -1501,8 +1541,8 @@ async function refreshDraft(): Promise<void> {
 async function saveDraft(): Promise<void> {
   const current = drawing();
   if (current === undefined || state.draft === null) return;
-  if (!canWrite()) {
-    setStatus("this document cannot write: run `texteda review` to serve the app");
+  if (!canEditSource()) {
+    setStatus("this document cannot write source: use the standalone review server");
     return;
   }
   try {
@@ -1516,7 +1556,6 @@ async function saveDraft(): Promise<void> {
     state.draft = null;
     state.draftSvg = "";
     state.draftErrors = [];
-    state.anchors = [];
     renderAll();
     // The redraw of the saved text comes first, so that the message about the save is the last
     // thing the frame.status line says.
@@ -1527,39 +1566,28 @@ async function saveDraft(): Promise<void> {
   }
 }
 
-/** Put the cursor on the row the drawing was clicked on. */
-function jumpToRow(ref: string): void {
-  const key = ref.includes(":") ? ref.slice(ref.indexOf(":") + 1) : ref;
-  const anchor = state.anchors.find((candidate) => candidate.key === key);
-  if (anchor === undefined) return;
-  const lines = frame.sourceText.value.split("\n");
-  let offset = 0;
-  for (let index = 0; index < anchor.line - 1 && index < lines.length; index += 1) {
-    offset += (lines[index]?.length ?? 0) + 1;
-  }
-  const text = lines[anchor.line - 1] ?? "";
-  frame.sourceText.focus();
-  frame.sourceText.setSelectionRange(offset, offset + text.length);
-  setStatus(`${anchor.kind} row, line ${anchor.line}`);
-}
 
-/** Turn the selected symbol a quarter turn, in the layout mode. */
+/** Turn the selected symbol a quarter turn and keep that edit pending. */
 function rotateSelected(): void {
-  if (state.mode !== "layout" || state.selected?.kind !== "symbol") return;
+  const current = drawing();
+  if (current?.kind !== "sch" || state.selected?.kind !== "symbol") return;
+  if (!canWrite()) {
+    setStatus("this document cannot write: run `texteda review` to serve the app");
+    return;
+  }
   const id = state.selected.id;
   const from = state.pending.get(id) ?? placedPlaces().get(id);
   if (from === undefined) return;
   const place: PendingPlace = { instance_id: id, x: from.x, y: from.y, rot: (from.rot + 90) % 360 };
   state.pending.set(id, place);
-  state.preview = null;
+  state.rotationPendingId = id;
   updateActions();
   renderStage(true);
-  void requestPreview();
 }
 
 // --- input -----------------------------------------------------------------------------------
 
-/** Pixels a pointer must travel before a press counts as a pan rather than a click. */
+/** Pixels a pointer must travel before a press counts as a pan or move rather than a click. */
 const DRAG_SLOP = 3;
 
 let dragging: { x: number; y: number; panX: number; panY: number; moved: boolean } | null = null;
@@ -1567,8 +1595,50 @@ let dragging: { x: number; y: number; panX: number; panY: number; moved: boolean
 let pressed: Highlight | null = null;
 /** The previous click, for double-click detection on our own pointer-up selection. */
 let lastPress: { kind: Highlight["kind"]; id: string; at: number } | null = null;
-/** The symbol the layout mode is dragging: the press, the place it came from, and where it is. */
-let symbolDrag: { id: string; from: ReviewPlace; start: { x: number; y: number }; moved: boolean } | null = null;
+/** The sheet point used as the anchor when `m` arms a move. */
+let selectionAnchor: { x: number; y: number } | null = null;
+let lastSheetPoint: { x: number; y: number } | null = null;
+
+type MoveTransaction =
+  | {
+      kind: "symbol";
+      id: string;
+      from: ReviewPlace;
+      originalPending: PendingPlace | undefined;
+      start: { x: number; y: number };
+      moved: boolean;
+    }
+  | {
+      kind: "field";
+      id: string;
+      name: ReviewField["name"];
+      from: ReviewPlace;
+      x: number;
+      y: number;
+      offsetX: number;
+      offsetY: number;
+      originalPending: PendingField | undefined;
+      originalRemoval: boolean;
+      start: { x: number; y: number };
+      moved: boolean;
+    };
+
+/** A move is entered with `m`; pointer-up keeps its local preview. */
+let moveTransaction: MoveTransaction | null = null;
+
+/** Restore and discard pointer state when a render switches to another drawing. */
+function resetInteractionForDrawingChange(): void {
+  if (moveTransaction !== null) {
+    restoreMove(moveTransaction);
+    moveTransaction = null;
+  }
+  dragging = null;
+  pressed = null;
+  lastPress = null;
+  selectionAnchor = null;
+  lastSheetPoint = null;
+  frame.stage.classList.remove("moving", "dragging");
+}
 
 /** The pointer's place on the sheet, in the sheet's own millimetres. */
 function sheetPoint(event: PointerEvent): { x: number; y: number } | undefined {
@@ -1579,54 +1649,190 @@ function sheetPoint(event: PointerEvent): { x: number; y: number } | undefined {
   return { x: point.x, y: point.y };
 }
 
-/** A length on the 1.27 mm grid: the step a person can hit by eye. */
-function snap(value: number): number {
-  return Math.round(value / SNAP_MM) * SNAP_MM;
+/** The 0.5 mm layout grid (ADR-0057) is shared by symbol placement and field anchors. */
+function snapField(value: number): number {
+  return snapPlacement(value);
+}
+
+function clonePendingPlace(place: PendingPlace): PendingPlace {
+  return { instance_id: place.instance_id, x: place.x, y: place.y, rot: place.rot };
+}
+
+function clonePendingField(field: PendingField): PendingField {
+  return { instance_id: field.instance_id, name: field.name, x: field.x, y: field.y };
+}
+
+function samePlace(a: ReviewPlace, b: PendingPlace): boolean {
+  return a.x === b.x && a.y === b.y && a.rot === b.rot;
+}
+
+function beginMove(): boolean {
+  const current = drawing();
+  const selected = state.selected;
+  if (current?.kind !== "sch" || state.sourceOpen || selected === null) return false;
+  if (!canWrite()) {
+    setStatus("this document cannot write: run `texteda review` to serve the app");
+    return true;
+  }
+  if (selected.kind === "symbol") {
+    const originalPending = state.pending.get(selected.id);
+    const from = originalPending ?? placedPlaces().get(selected.id);
+    if (from === undefined) return true;
+    moveTransaction = {
+      kind: "symbol",
+      id: selected.id,
+      from: { instance_id: from.instance_id, x: from.x, y: from.y, rot: from.rot },
+      originalPending: originalPending === undefined ? undefined : clonePendingPlace(originalPending),
+      start: selectionAnchor ?? lastSheetPoint ?? { x: from.x, y: from.y },
+      moved: false,
+    };
+  } else if (selected.kind === "field") {
+    if (!canWriteFields()) {
+      setStatus("this host cannot move field overrides");
+      return true;
+    }
+    const identity = splitFieldKey(selected.id);
+    const field = fieldForKey(selected.id);
+    const from = identity === undefined
+      ? undefined
+      : state.pending.get(identity.instance_id) ?? placedPlaces().get(identity.instance_id);
+    if (identity === undefined || field === undefined || from === undefined) return true;
+    const key = fieldKey(identity.instance_id, identity.name);
+    const originalPending = state.pendingFields.get(key);
+    const x = originalPending?.x ?? field.x;
+    const y = originalPending?.y ?? field.y;
+    const anchor = fieldToSheet(from, x, y);
+    const start = selectionAnchor ?? lastSheetPoint ?? anchor;
+    const local = fieldFromSheet(from, start.x, start.y);
+    moveTransaction = {
+      kind: "field",
+      id: identity.instance_id,
+      name: identity.name,
+      from: { instance_id: from.instance_id, x: from.x, y: from.y, rot: from.rot },
+      x,
+      y,
+      offsetX: local.x - x,
+      offsetY: local.y - y,
+      originalPending: originalPending === undefined ? undefined : clonePendingField(originalPending),
+      originalRemoval: state.removeFields.has(key),
+      start,
+      moved: false,
+    };
+  } else {
+    return false;
+  }
+  state.definitionsOpen = false;
+  state.rotationPendingId = null;
+  dragging = null;
+  pressed = null;
+  frame.stage.classList.add("moving");
+  setStatus("move preview: click to keep it, Escape to cancel");
+  return true;
+}
+
+function updateSymbolMove(move: Extract<MoveTransaction, { kind: "symbol" }>, point: { x: number; y: number }): void {
+  const dx = point.x - move.start.x;
+  const dy = point.y - move.start.y;
+  if (!move.moved && Math.hypot(dx, dy) * PX_PER_MM * state.zoom <= DRAG_SLOP) return;
+  move.moved = true;
+  const place: PendingPlace = {
+    instance_id: move.id,
+    x: snapPlacement(move.from.x + dx),
+    y: snapPlacement(move.from.y + dy),
+    rot: move.from.rot,
+  };
+  const persisted = placedPlaces().get(move.id);
+  if (persisted !== undefined && samePlace(persisted, place)) state.pending.delete(move.id);
+  else state.pending.set(move.id, place);
+  applyPendingToCanvas();
+  updateActions();
+  setStatus(`${move.id} → ${place.x.toFixed(2)}, ${place.y.toFixed(2)} mm · not applied yet`);
+}
+
+function updateFieldMove(move: Extract<MoveTransaction, { kind: "field" }>, point: { x: number; y: number }): void {
+  const local = fieldFromSheet(move.from, point.x, point.y);
+  const dx = (local.x - move.offsetX) - move.x;
+  const dy = (local.y - move.offsetY) - move.y;
+  if (!move.moved && Math.hypot(dx, dy) * PX_PER_MM * state.zoom <= DRAG_SLOP) return;
+  move.moved = true;
+  const x = snapField(local.x - move.offsetX);
+  const y = snapField(local.y - move.offsetY);
+  const key = fieldKey(move.id, move.name);
+  if (x === move.x && y === move.y) {
+    if (move.originalPending === undefined) state.pendingFields.delete(key);
+    else state.pendingFields.set(key, clonePendingField(move.originalPending));
+    if (move.originalRemoval) state.removeFields.add(key);
+    else state.removeFields.delete(key);
+  } else {
+    state.pendingFields.set(key, { instance_id: move.id, name: move.name, x, y });
+    state.removeFields.delete(key);
+  }
+  applyPendingToCanvas();
+  updateActions();
+  const current = state.pendingFields.get(key);
+  setStatus(current === undefined
+    ? `${move.name} · unchanged · not applied`
+    : `${move.name} → ${current.x.toFixed(2)}, ${current.y.toFixed(2)} mm · not applied yet`);
+}
+
+function restoreMove(move: MoveTransaction): void {
+  if (move.kind === "symbol") {
+    if (move.originalPending === undefined) state.pending.delete(move.id);
+    else state.pending.set(move.id, clonePendingPlace(move.originalPending));
+    return;
+  }
+  const key = fieldKey(move.id, move.name);
+  if (move.originalPending === undefined) state.pendingFields.delete(key);
+  else state.pendingFields.set(key, clonePendingField(move.originalPending));
+  if (move.originalRemoval) state.removeFields.add(key);
+  else state.removeFields.delete(key);
+}
+
+function cancelMove(): void {
+  const move = moveTransaction;
+  if (move === null) return;
+  restoreMove(move);
+  moveTransaction = null;
+  dragging = null;
+  pressed = null;
+  lastPress = null;
+  selectionAnchor = null;
+  lastSheetPoint = null;
+  frame.stage.classList.remove("moving", "dragging");
+  clearSelection();
+  updateActions();
+  renderStage(true);
+  setStatus("the current move was cancelled");
 }
 
 function onStagePointerDown(event: PointerEvent): void {
   if (event.button !== 0) return;
+  const point = sheetPoint(event);
+  if (point !== undefined) lastSheetPoint = point;
+  if (moveTransaction !== null) {
+    frame.stage.setPointerCapture(event.pointerId);
+    frame.stage.classList.add("moving");
+    event.preventDefault();
+    return;
+  }
   dragging = { x: event.clientX, y: event.clientY, panX: state.panX, panY: state.panY, moved: false };
   frame.stage.setPointerCapture(event.pointerId);
   frame.stage.classList.add("dragging");
-  // In the layout mode a press on a symbol is a drag of that symbol, not a pan (ADR-0042 D4).
-  if (state.mode !== "layout" || pressed === null || pressed.kind !== "symbol") return;
-  const from = placedPlaces().get(pressed.id);
-  const start = sheetPoint(event);
-  if (from === undefined || start === undefined) return;
-  symbolDrag = { id: pressed.id, from, start, moved: false };
-  // The preview answered the last move; it is stale the moment the symbol moves again.
-  state.preview = null;
 }
 
 function onStagePointerMove(event: PointerEvent): void {
-  if (symbolDrag !== null) {
-    const point = sheetPoint(event);
+  const point = sheetPoint(event);
+  if (point !== undefined) lastSheetPoint = point;
+  if (moveTransaction !== null) {
     if (point === undefined) return;
-    const dx = point.x - symbolDrag.start.x;
-    const dy = point.y - symbolDrag.start.y;
-    if (!symbolDrag.moved && Math.hypot(dx, dy) * PX_PER_MM * state.zoom <= DRAG_SLOP) return;
-    symbolDrag.moved = true;
-    const current = state.pending.get(symbolDrag.id) ?? symbolDrag.from;
-    const place: PendingPlace = {
-      instance_id: symbolDrag.id,
-      x: snap(symbolDrag.from.x + dx),
-      y: snap(symbolDrag.from.y + dy),
-      rot: current.rot,
-    };
-    state.pending.set(symbolDrag.id, place);
-    updateActions();
-    applyPendingToCanvas();
-    setStatus(`${symbolDrag.id} → ${place.x.toFixed(2)}, ${place.y.toFixed(2)} mm · not applied yet`);
+    if (moveTransaction.kind === "symbol") updateSymbolMove(moveTransaction, point);
+    else updateFieldMove(moveTransaction, point);
     return;
   }
   if (dragging === null) return;
   const dx = event.clientX - dragging.x;
   const dy = event.clientY - dragging.y;
   if (!dragging.moved) {
-    // Below the slop this is still a click candidate; past it the press becomes a pan, and the pan
-    // keeps the whole travel from the press point (resetting the origin here would swallow the
-    // first few pixels of every drag).
     if (Math.hypot(dx, dy) <= DRAG_SLOP) return;
     dragging.moved = true;
   }
@@ -1636,7 +1842,7 @@ function onStagePointerMove(event: PointerEvent): void {
   applyTransform();
 }
 
-/** Draw the pending moves on the sheet that is on screen. */
+/** Draw pending moves on the sheet that is on screen. */
 function applyPendingToCanvas(): void {
   const svg = frame.canvas.querySelector<SVGSVGElement>(".sheet-svg");
   if (svg === null) return;
@@ -1644,40 +1850,47 @@ function applyPendingToCanvas(): void {
 }
 
 const stopDrag = (event: PointerEvent): void => {
-  const selection = pressed;
-  const travelled = dragging?.moved ?? false;
-  const drag = symbolDrag;
-  dragging = null;
-  pressed = null;
-  symbolDrag = null;
-  frame.stage.classList.remove("dragging");
-  if (drag !== null && drag.moved) {
-    // The symbol was moved: ask the server what the page would look like, so the wires can be
-    // re-anchored before anything is written (ADR-0042 D5).
+  const move = moveTransaction;
+  if (move !== null) {
+    if (event.type === "pointercancel") {
+      cancelMove();
+      return;
+    }
+    const point = sheetPoint(event);
+    if (point !== undefined) {
+      if (move.kind === "symbol") updateSymbolMove(move, point);
+      else updateFieldMove(move, point);
+    }
+    moveTransaction = null;
+    frame.stage.classList.remove("moving");
+    clearSelection();
+    updateActions();
     lastPress = null;
-    void requestPreview();
+    setStatus(move.moved ? "move kept locally; Apply to write it" : "move completed without changes");
     return;
   }
+  const selection = pressed;
+  const travelled = dragging?.moved ?? false;
+  dragging = null;
+  pressed = null;
+  frame.stage.classList.remove("dragging");
   if (travelled) {
     lastPress = null;
     return;
   }
   const current = drawing();
-  if (current?.kind === "pcb" || state.mode === "edit") {
-    // A board canvas and the edit mode work from the drawing, so the press is resolved by position:
-    // the pointer capture the frame.stage takes for panning retargets the event.
+  if (current?.kind === "pcb") {
     lastPress = null;
     const group = pickedAt(event.clientX, event.clientY);
-    if (current?.kind === "pcb") {
-      highlightNet(group?.getAttribute("data-net") ?? null);
-      return;
-    }
-    const ref = group?.getAttribute("data-ref");
-    if (ref !== null && ref !== undefined) jumpToRow(ref);
+    highlightNet(group?.getAttribute("data-net") ?? null);
+    return;
+  }
+  if (state.rotationPendingId !== null) {
+    lastPress = null;
+    clearSelection();
     return;
   }
   if (selection === null) {
-    // A click on the paper, not a pan: the reviewer is done with whatever was picked.
     lastPress = null;
     clearSelection();
     return;
@@ -1689,6 +1902,7 @@ const stopDrag = (event: PointerEvent): void => {
     lastPress.id === selection.id &&
     now - lastPress.at < 350;
   lastPress = { kind: selection.kind, id: selection.id, at: now };
+  selectionAnchor = sheetPoint(event) ?? lastSheetPoint;
   state.selected = selection;
   state.definitionsOpen = false;
   hover(selection);
@@ -1716,7 +1930,7 @@ function pickedAt(clientX: number, clientY: number): Element | null {
  *
  * The renderer gives every drawn object its identity (`data-ref`, `data-net`), so the readings that
  * are not about the page's rows can work from the drawing alone: a board canvas highlights a net,
- * the edit mode puts the cursor on the row the object came from (ADR-0042 D2).
+ * while schematic selection remains local to the drawing (ADR-0042 D2).
  */
 function onStageHover(event: PointerEvent): void {
   if (drawing()?.kind !== "pcb") return;
@@ -1753,9 +1967,22 @@ function onStageWheel(event: WheelEvent): void {
 }
 
 function onKeyDown(event: KeyboardEvent): void {
-  // The edit mode's text field owns the keyboard while it has the focus: a key press there is
-  // text, not a command.
+  // Ctrl/Cmd+Enter is the explicit Apply action, including while the Source textarea owns focus.
   const inSource = event.target === frame.sourceText;
+  if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+    void applyPendingMoves();
+    event.preventDefault();
+    return;
+  }
+  // The Source textarea owns ordinary keyboard input. Escape remains available only to cancel an
+  // explicitly active move; it must not clear selection or run zoom/navigation commands in text.
+  if (inSource) {
+    if (event.key === "Escape" && moveTransaction !== null) {
+      cancelMove();
+      event.preventDefault();
+    }
+    return;
+  }
   if (event.key === "0") {
     fit();
     event.preventDefault();
@@ -1769,34 +1996,29 @@ function onKeyDown(event: KeyboardEvent): void {
     state.adjusted = true;
     applyTransform();
     event.preventDefault();
-  } else if (event.key === "r" && !inSource) {
-    // A quarter turn of the selected symbol, in the layout mode.
+  } else if (event.key === "m") {
+    if (beginMove()) event.preventDefault();
+  } else if (event.key === "r") {
     rotateSelected();
-    event.preventDefault();
-  } else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-    // Apply: the page file is written (ADR-0042 D5: Apply is the commit point).
-    void applyPendingMoves();
     event.preventDefault();
   } else if (event.key === "Enter") {
     // A focused button owns Enter: the definition row must open its own file, not reopen the menu.
     if (event.target instanceof HTMLElement && event.target.closest("button") !== null) return;
-    if (inSource) return;
     if (state.selected === null) return;
     showDefinitions();
     event.preventDefault();
   } else if (event.key === "Escape") {
-    if (state.definitionsOpen) {
+    if (moveTransaction !== null) {
+      cancelMove();
+    } else if (state.definitionsOpen) {
       state.definitionsOpen = false;
       renderInspector();
-    } else if (state.mode === "layout" && state.pending.size > 0) {
-      revertPendingMoves();
     } else {
       clearSelection();
     }
     event.preventDefault();
   } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-    if (inSource) return;
-    // The arrows walk the drawings of the same kind: the print pages among themselves, the library
+    // The arrows walk the drawings of the same kind: print pages among themselves and library
     // symbols among themselves (ADR-0048 D1).
     const current = drawing();
     if (current === undefined) return;
@@ -1807,6 +2029,7 @@ function onKeyDown(event: KeyboardEvent): void {
     const delta = event.key === "ArrowLeft" ? -1 : 1;
     const next = siblings[(at + delta + siblings.length) % siblings.length];
     if (next === undefined) return;
+    if (moveTransaction !== null) cancelMove();
     state.drawing = next.key;
     revealDrawing(next.key);
     resetDraft();
@@ -1824,7 +2047,7 @@ function renderAll(): void {
   renderTree();
   renderMetrics();
   renderDiagnostics();
-  renderModes();
+  renderActions();
   renderStage();
   renderInspector();
 }
@@ -1853,6 +2076,13 @@ export function mountReview(
   model = reviewModel;
   api = reviewApi;
   state = initialState();
+  moveTransaction = null;
+  dragging = null;
+  pressed = null;
+  lastPress = null;
+  selectionAnchor = null;
+  lastSheetPoint = null;
+  renderedDrawingKey = null;
   expanded = false;
   // The root carries the class every rule in APP_STYLES is scoped to, so the app paints its own
   // frame and leaves the host's page alone. The stylesheet travels with the mount: a host that

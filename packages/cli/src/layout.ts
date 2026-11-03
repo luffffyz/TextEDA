@@ -1,16 +1,17 @@
-// Writing a print page back after a placement change (ADR-0042 D3, D5, ADR-0043 D3).
+// Writing a print page back after an explicit view action (ADR-0056 D2, D3; ADR-0043 D3).
 //
 // What this file may write: `views/<board_id>/<page_id>.view.teda`, and nothing else. Moving a
 // symbol on a drawing is a drawing change; the circuit (`design/**`) is not touched, and no IR
 // shard, no hash and no manufacturing artifact moves (ADR-0035 D5). The bytes written are the
-// formatter's (ADR-0035 D10), so a save leaves a diff that shows the design change and nothing else.
+// formatter's (ADR-0035 D10), so a save leaves a diff that shows the view change and nothing else.
 //
 // Two write paths live here, and they are not interchangeable:
 //   - `planLayout` / `applyLayout` / `commitPlan`: the standalone app's Apply. It moves symbols,
-//     re-anchors the wires that lost their pins, and reseats floating labels and ports.
-//   - `planPlaces` / `applyPlaces`: the plugin's drag (ADR-0043 D3). It rewrites the `place` rows
-//     and nothing else, so the wires whose pins moved go stale; the staleness is reported and
-//     re-anchoring stays with the command line (`texteda view rewire`, ADR-0043 D10).
+//     applies permitted field/source state, re-anchors the wires that lost their pins, and reseats
+//     floating labels and ports.
+//   - `planPlaces` / `applyPlaces`: the plugin's places-only write (ADR-0043 D3). It rewrites the
+//     `place` rows and nothing else, so the wires whose pins moved go stale; re-anchoring stays with
+//     the command line (`texteda view rewire`, ADR-0043 D10).
 //
 // The re-anchor itself is not a route: the wires whose pins moved keep their shape and get their
 // corners back (see `packages/core/src/view/reroute.ts`). The wires of every other net, and every
@@ -36,17 +37,37 @@ export interface LayoutPlace {
   /** Degrees, clockwise positive. */
   rot: number;
 }
+/** A field override, in millimetres and symbol-local coordinates. */
+export interface LayoutField {
+  instance_id: string;
+  name: "Reference" | "Value";
+  x: number;
+  y: number;
+}
+
+/** Remove one field override; absence is the automatic-placement state. */
+export interface LayoutFieldRemoval {
+  instance_id: string;
+  name: "Reference" | "Value";
+}
+
 
 export interface LayoutRequest {
   board: string;
   page: string;
   places: LayoutPlace[];
+  /** Field overrides to set, in millimetres relative to the symbol origin. */
+  fields?: LayoutField[];
+  /** Field overrides to remove; `(instance_id, name)` is the identity. */
+  remove_fields?: LayoutFieldRemoval[];
+
   /**
-   * The page's source as it stands in the editor, when the editor holds one.
+   * The page's source as it stands in the explicit Source panel, when the panel holds one.
    *
    * The layout is computed on this text and the write is this text with the moved rows applied —
-   * not the file on disk. Without it a drag would silently discard every unsaved edit (ADR-0042 D6).
-   * Absent means "use the file", which is what the command line and a plugin's request do.
+   * not the file on disk. Without it a move would silently discard every unsaved Source edit
+   * (ADR-0056 D2). Absent means "use the file", which is what the command line and a plugin's
+   * request do.
    */
   text?: string;
 }
@@ -159,6 +180,76 @@ function computePlacements(
   });
   return { places, moved };
 }
+type ViewField = NonNullable<SchematicView["field"]>[number];
+
+interface PlannedFields {
+  fields: SchematicView["field"];
+  changed: boolean;
+  set: { index?: number; field: ViewField }[];
+  remove: { index: number }[];
+}
+
+function fieldKey(field: { instance_id: string; name: string }): string {
+  return `${field.instance_id}\u0000${field.name}`;
+}
+
+/** Apply field set/remove operations without touching any other view fact. */
+function computeFields(view: SchematicView, request: LayoutRequest, file: string): PlannedFields {
+  const current = view.field ?? [];
+  const byKey = new Map(current.map((field, index) => [fieldKey(field), { field, index }]));
+  const set = request.fields ?? [];
+  const remove = request.remove_fields ?? [];
+  const seen = new Set<string>();
+  for (const operation of [...set, ...remove]) {
+    if (operation.name !== "Reference" && operation.name !== "Value") {
+      throw new LayoutError(`${file}: field name must be Reference or Value: ${String(operation.name)}`);
+    }
+    const key = fieldKey(operation);
+    if (seen.has(key)) throw new LayoutError(`${file}: duplicate field operation for ${operation.instance_id} ${operation.name}`);
+    seen.add(key);
+  }
+  const placed = new Set(view.place.map((place) => place.instance_id));
+  for (const operation of set) {
+    if (!placed.has(operation.instance_id)) throw new LayoutError(`${file}: the page does not place ${operation.instance_id}`);
+    if (!Number.isFinite(operation.x) || !Number.isFinite(operation.y)) {
+      throw new LayoutError(`${file}: ${operation.instance_id} ${operation.name} coordinates must be finite`);
+    }
+    const x_nm = Math.round(operation.x * 1_000_000);
+    const y_nm = Math.round(operation.y * 1_000_000);
+    if (x_nm % 10_000 !== 0 || y_nm % 10_000 !== 0) {
+      throw new LayoutError(`${file}: ${operation.instance_id} ${operation.name} coordinates are limited to 0.01 mm resolution`);
+    }
+  }
+  for (const operation of remove) {
+    if (!placed.has(operation.instance_id)) throw new LayoutError(`${file}: the page does not place ${operation.instance_id}`);
+  }
+  const next = new Map(current.map((field) => [fieldKey(field), field]));
+  const plannedSet: PlannedFields["set"] = [];
+  for (const operation of set) {
+    const field: ViewField = {
+      instance_id: operation.instance_id,
+      name: operation.name,
+      x_nm: Math.round(operation.x * 1_000_000),
+      y_nm: Math.round(operation.y * 1_000_000),
+    };
+    const before = byKey.get(fieldKey(field));
+    if (before?.field.x_nm !== field.x_nm || before.field.y_nm !== field.y_nm) {
+      plannedSet.push({ ...(before === undefined ? {} : { index: before.index }), field });
+    }
+    next.set(fieldKey(field), field);
+  }
+  const plannedRemove: PlannedFields["remove"] = [];
+  for (const operation of remove) {
+    const before = byKey.get(fieldKey(operation));
+    if (before !== undefined) {
+      plannedRemove.push({ index: before.index });
+      next.delete(fieldKey(operation));
+    }
+  }
+  const fields = [...next.values()];
+  return { fields: fields.length === 0 ? undefined : fields, changed: plannedSet.length > 0 || plannedRemove.length > 0, set: plannedSet, remove: plannedRemove };
+}
+
 /**
  * What a placement change would do, without doing it.
  *
@@ -181,9 +272,24 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
   const view = parsed.ir;
 
   const { places: newPlaces, moved } = computePlacements(view, request, file);
+  const plannedFields = computeFields(view, request, file);
   if (moved.size === 0) {
-    const drawn = drawPage(view, facts.instances);
-    return { file, text, changed: false, conflicts: [], reseated: [], ...drawn };
+    if (!plannedFields.changed) {
+      const drawn = drawPage(view, facts.instances);
+      return { file, text, changed: false, conflicts: [], reseated: [], ...drawn };
+    }
+    const edited = rewritePage(text, {
+      file,
+      sources: parsed.sources ?? new Map(),
+      places: [],
+      fields: plannedFields.set,
+      remove_fields: plannedFields.remove,
+      wires: [],
+      labels: [],
+      ports: [],
+    });
+    const drawn = drawPage(withFields(view, plannedFields.fields), facts.instances);
+    return { file, text: edited, changed: edited !== text, conflicts: [], reseated: [], ...drawn };
   }
   const before = schematicGeometry(view, facts.instances);
   const after = schematicGeometry({ ...view, place: newPlaces }, facts.instances);
@@ -262,6 +368,8 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
         const before = view.place[index]!;
         return before.x_nm !== place.x_nm || before.y_nm !== place.y_nm || before.rot_mdeg !== place.rot_mdeg;
       }),
+    fields: plannedFields.set,
+    remove_fields: plannedFields.remove,
     wires: newWires
       .map((wire, index) => ({ index, wire }))
       .filter(({ index, wire }) => !samePoints(view.wire?.[index]?.points, wire.points)),
@@ -283,7 +391,7 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
     return { file, text, changed: false, conflicts, reseated, ...drawn };
   }
   const drawn = drawPage(
-    { ...view, place: newPlaces, wire: newWires, label: newLabels, port: newPorts },
+    withFields({ ...view, place: newPlaces, wire: newWires, label: newLabels, port: newPorts }, plannedFields.fields),
     facts.instances,
   );
   return { file, text: edited, changed: true, conflicts, reseated, ...drawn };
@@ -362,6 +470,12 @@ function staleNets(view: SchematicView, moved: ReadonlySet<string>): string[] {
   }
   return [...stale].sort();
 }
+function withFields(view: SchematicView, fields: SchematicView["field"]): SchematicView {
+  if (fields !== undefined) return { ...view, field: fields };
+  const withoutFields = { ...view };
+  delete withoutFields.field;
+  return withoutFields;
+}
 /** The page as it is drawn: the renderer's SVG and the geometry it was drawn from. */
 function drawPage(
   view: SchematicView,
@@ -398,8 +512,9 @@ export function savePageSource(root: string, board: string, page: string, text: 
 /**
  * A page's source as it would be drawn, with what the parser says about it.
  *
- * The edit mode shows the source and the drawing of the same text: the browser cannot parse a
- * `.teda` file, so the server draws it (ADR-0042 D9: the file system and the parser stay here).
+ * The explicit Source panel shows the source and the drawing of the same text: the browser cannot
+ * parse a `.teda` file, so the server draws it (ADR-0056 D3: the file system and the parser stay
+ * here).
  */
 export function renderPageSource(
   root: string,
@@ -535,6 +650,8 @@ export function rewritePage(
     file: string;
     sources: SourceMap;
     places: { index: number; place: SchematicView["place"][number] }[];
+    fields?: { index?: number; field: ViewField }[];
+    remove_fields?: { index: number }[];
     wires: { index: number; wire: NonNullable<SchematicView["wire"]>[number] }[];
     labels: { index: number; label: NonNullable<SchematicView["label"]>[number] }[];
     ports: { index: number; port: NonNullable<SchematicView["port"]>[number] }[];
@@ -560,6 +677,17 @@ export function rewritePage(
     if (unit !== undefined) cells.push(unit.text);
     edits.push(rowEdit(row, lines, cells.join("  ")));
   });
+  (changed.fields ?? []).forEach(({ index, field }) => {
+    if (index === undefined) return;
+    const row = rowOf(`/field/${index}`);
+    if (!row) return;
+    edits.push(rowEdit(row, lines, [field.instance_id, field.name, coord(field.x_nm), coord(field.y_nm)].join("  ")));
+  });
+  (changed.remove_fields ?? []).forEach(({ index }) => {
+    const row = rowOf(`/field/${index}`);
+    if (!row) return;
+    edits.push(rowEdit(row, lines, ""));
+  });
 
   changed.wires.forEach(({ index, wire }) => {
     const row = rowOf(`/wire/${index}`);
@@ -583,13 +711,34 @@ export function rewritePage(
     edits.push(rowEdit(row, lines, cells.join("  ")));
   });
 
-  const edited = applyEdits(lines, edits);
+  let edited = applyEdits(lines, edits);
+  const newFields = (changed.fields ?? []).filter(({ index }) => index === undefined).map(({ field }) => field);
+  if (newFields.length > 0) edited = insertFieldRows(edited, newFields);
   const formatted = formatView(edited, { file: changed.file });
   if (formatted.text === undefined) {
     const first = formatted.diagnostics.find((diagnostic) => diagnostic.severity === "error");
     throw new LayoutError(`${changed.file}: the rewritten page does not parse: ${first ? first.message : "unknown"}`);
   }
   return formatted.text;
+}
+
+/** Insert new field overrides before comments belonging to the following section. */
+function insertFieldRows(text: string, fields: readonly ViewField[]): string {
+  const lines = text.split("\n");
+  const parsed = lex(text);
+  const sections = new Set(["place", "field", "wire", "label", "port", "text"]);
+  const section = (line: Line): string | undefined =>
+    line.cells.length === 1 && sections.has(line.cells[0]!.text) ? line.cells[0]!.text : undefined;
+  const ignorable = (line: string | undefined): boolean => line === undefined || line.trim() === "" || line.trimStart().startsWith("#");
+  const fieldHeader = parsed.findIndex((line) => section(line) === "field");
+  const nextSection = fieldHeader >= 0
+    ? parsed.slice(fieldHeader + 1).find((line) => section(line) !== undefined && section(line) !== "field")
+    : parsed.find((line) => section(line) !== undefined && section(line) !== "place");
+  let insertion = nextSection === undefined ? lines.length - 1 : nextSection.number - 1;
+  while (insertion > 0 && ignorable(lines[insertion - 1])) insertion -= 1;
+  const rows = fields.map((field) => `  ${field.instance_id}  ${field.name}  ${coord(field.x_nm)}  ${coord(field.y_nm)}`);
+  lines.splice(insertion, 0, ...(fieldHeader < 0 ? ["field", ...rows] : rows));
+  return lines.join("\n");
 }
 
 /** An edit that replaces a row with new text. */

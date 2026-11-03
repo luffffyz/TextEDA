@@ -4,17 +4,19 @@ symbol crystal-4
 description Crystal, 4-pin generic view
 tags crystal oscillator
 # Four-pin crystal: two electrode plates + a square wave in the middle; the two pins below are ground.
-field Reference at=0,2.54 U
-field Value at=0,-2.54 crystal-4
+# Pin connection points sit on the 0.5 mm placement lattice and every tail ends on the body frame (ADR-0057).
+pin_name_offset 0.5
+field Reference at=0,2.5 U
+field Value at=0,-2.5 crystal-4
 
 pins
-  1  -5.08  0.635  0
-  2  -1.27  -3.81  90
-  3  5.08   0.635  180
-  4  1.27   -3.81  90
+  1  -5    0.5  0    length=2.5
+  2  -1.5  -4   90   length=2.5
+  3  5     0.5  180  length=2.5
+  4  1.5   -4   90   length=2.5
 
 body
-  line  -0.635,-1.016,-0.635,1.016          width=0.254
-  line  0.635,-1.016,0.635,1.016            width=0.254
-  poly  -0.508,-0.254,0,0.254,0.508,-0.254  width=0.254
-  rect  -2.54,-1.27,2.54,1.27               width=0.254
+  line  -0.5,-1,-0.5,1          width=0.25
+  line  0.5,-1,0.5,1            width=0.25
+  poly  -0.5,-0.5,0,0,0.5,-0.5  width=0.25
+  rect  -2.5,-1.5,2.5,1.5       width=0.25

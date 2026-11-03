@@ -83,17 +83,27 @@ const MODEL_PATH = plugin.MODEL_PATH;
 const PLACES_PATH = plugin.PLACES_PATH;
 const hostInject = plugin.inject;
 const registered: DshTool[] = [];
-const routes: { path: string; methods: readonly string[]; requestBody: string }[] = [];
+const routes: {
+  path: string;
+  methods: readonly string[];
+  requestBody: string;
+  fetch: (request: Request) => Response | Promise<Response>;
+}[] = [];
 const disposers: (() => void)[] = [];
 const hostContext = {
   effect: (callback: () => () => void, _label: string) => {
     disposers.push(callback());
   },
   tools: { register: (definition: DshTool) => registered.push(definition) },
-  sessions: { get: (_id: string) => undefined },
+  sessions: { get: (_id: string) => ({ header: { cwd: join(root, "examples/reference-project") } }) },
   connection: {
     fetch: {
-      register: (route: { path: string; methods: readonly string[]; requestBody: string }) => {
+      register: (route: {
+        path: string;
+        methods: readonly string[];
+        requestBody: string;
+        fetch: (request: Request) => Response | Promise<Response>;
+      }) => {
         routes.push(route);
         return () => {};
       },
@@ -137,6 +147,27 @@ for (const path of paths) {
   }
 }
 console.log(`[3] routes: ${paths.map((path) => `${methodOf(path)?.join("|")} ${path}`).join(", ")}`);
+
+const placesRoute = routes.find((route) => route.path === PLACES_PATH);
+if (placesRoute === undefined) {
+  console.error("the places route was not registered");
+  process.exit(1);
+}
+for (const key of ["fields", "remove_fields", "text"] as const) {
+  const response = await placesRoute.fetch(
+    new Request(`http://texteda.test${PLACES_PATH}?sessionId=session-1`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ board: "board", page: "page", places: [], [key]: key === "text" ? "" : {} }),
+    }),
+  );
+  const payload = (await response.json()) as { error?: unknown };
+  if (response.status !== 400 || payload.error !== `${key} is not supported by the places-only host`) {
+    console.error(`the places route accepted unsupported ${key}: ${response.status} ${JSON.stringify(payload)}`);
+    process.exit(1);
+  }
+}
+console.log("[3a] places route rejects fields, remove_fields, and text");
 
 // The host half's inject list names the services the apply above actually used.
 if (!Array.isArray(hostInject) || !["tools", "sessions", "connection"].every((name) => hostInject.includes(name))) {

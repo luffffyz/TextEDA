@@ -72,7 +72,7 @@
 
 - **sch 的逻辑 IR 仍然没有坐标**（`instances` / `nets` / `ports` 只有身份与成员），画在独立的 `view` IR 里；渲染器的输入因此是 `view` + 调用方解析好的符号事实（符号 IR、器件引脚事实），仍然不碰文件系统。
 - **S1 视图层已闭环到渲染**：`spec/schematic-view.md`、`schemas/ir/v0.3/schematic-view.schema.json`、`packages/parser` 的 `view` 解析与 canonical `fmt`（语言版本 0.7）、`packages/renderer` 的 `renderSchematic`、`preview view`、参考工程两份打印页。**下一步**：`packages/core` 的板 ↔ 打印页交叉校验（视图引用的实例 / net / port 是否存在、端点引脚是否属于该 net），再把可读性检查与 round-trip 反解补上。
-- **已知口径冲突（`view.label-not-on-net` 落地前必须定）**：`view` 坐标限制在 0.1mm 栅格（`VIEW_GRID_NM`），而符号引脚偏移是 2.54 / 3.81mm 的倍数，**不在 0.1mm 栅格上**。所以"标签必须精确落在引脚连接点上"对标准符号不可满足。参考工程的标签全部落在走线的网格折点 / 直段上（buck-5v 的 GND 走一条位总线，引脚到总线用带折点的 wire 连），没有标签落在引脚端点上。
+- **口径已澄清（[ADR-0057](adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)）**：两件事不再混为一谈。`VIEW_GRID_NM = 10_000` 是**视图文件能表达的坐标分辨率**（`0.01 mm`），不是绘制网格；符号的编写晶格是**引脚连接点与内端都是 `0.5 mm` 的整数倍**、常规间距 `2.0 mm`，评审 app 的拖动吸附同为 `0.5 mm`。于是一条标签既可以落在引脚连接点上（本仓库现有的符号库全部满足），也可以落在走线的晶格折点上，两者都合法；旧的「标准符号不在 `0.1mm` 栅格上、标签只能落在折点」的冲突已消失。参考工程的 `buck-5v` 仍把 GND 走成位总线、标签落在总线上，那是排版选择，不是规则要求。
 - 布局不自动排版：sch 的坐标来自 IR，渲染器只画。多单元器件（双运放）要按 `unit` 选对符号视图。
 - 不要顺手做自动排版——S1 打印页的自动排版仍明确不做（每次渲染都变，可读性检查就失去意义）。B0 的 agent 驱动布局布线是另一条线，见 [ADR-0017](adr/05-pcb/0017-layout-and-routing-are-agent-driven.md) 与 F48。
 
@@ -673,36 +673,38 @@
 
 ---
 
-## F34. 评审 GUI（`packages/viewer`）：高亮指针、跳转源码、画图与三种模式
+## F34. 评审 GUI（`packages/viewer`）：高亮指针、跳转源码、画图与单一交互面
 
-**现状**：**画图与三种模式全部落地（2026-10-30）**——`review` 与跳源码见 2026-10-24 / 2026-10-26 那两轮；`layout` / `placement` / `edit` 按 [ADR-0042](adr/09-view/0042-the-review-app-has-modes.md) 落地：`packages/renderer/src/pcb.ts` 出 PCB 画布（`kind: "pcb"`，板框坐标系 + 每个绘制对象的 `data-ref`），`packages/core/src/view/reroute.ts` 做 `place` 改动后的**重锚**（不改形状、不搜索），`packages/cli/src/layout.ts` 是唯一写 `views/**` 的地方（`planLayout` 只算、`commitPlan` 才写、`savePageSource` 走 `fmt`），`packages/viewer/src/client.ts` 的模式栏 + 三个写入交互，CLI 侧两条写路由 `POST /api/layout` 与 `POST /api/source`。`packages/cli/test/review-layout.test.ts`（12 条）与 `packages/cli/test/review-api.test.ts`（7 条，真起服务）钉住写什么、不写什么。**2026-10-30 起 app 画的是「画」不是「板」**（[ADR-0048](adr/09-view/0048-the-review-app-shows-drawings.md)）：模型里一张 `ReviewDrawing`（`kind` 为 `sch` / `pcb` / `symbol` / `footprint`），侧栏按 kind 分组；`placement` 模式**退役**（PCB 画布自己就是一张画，读它就是 `review`），模式只剩 `review` / `layout` / `edit`，且属于当前画；符号与封装也能单独看（符号用引用它的器件的引脚画，ADR-0031）；**发现可点击**（有对象的发现带「show」按钮，跳到持有它的那张画并选中，依据身份索引的反查）；侧栏多一块**度量**（spec/schematic-view.md §9.4：占版面比例、文字间隙、走线长度、交叉数，取 core 的测量，app 自己不测量）。**没落地**：意见锚点（`[instance:U3]` 前缀）、`layout` 里的实时布线（按设计不做）。决策见 [ADR-0035](adr/09-view/0035-the-view-layer-is-a-drawing.md) D3、D7、D8、[ADR-0042](adr/09-view/0042-the-review-app-has-modes.md) D1–D9 与 [ADR-0048](adr/09-view/0048-the-review-app-shows-drawings.md) D1–D6。
+**现状**：**已落地（2026-11-03）**。`texteda review <工程目录>` 提供一个不切模式的交互面：所有画都支持 hover、选中、定义菜单、同类画箭头导航、缩放与平移；原理图选中后可用 `m` 移动、`r` 排队顺时针 90° 旋转，显式的 Source 操作才打开源码面板。移动使用现有 `snapPlacement()` 的 0.5 mm 网格（[ADR-0057](adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)）；左键只完成本地预览，`Escape` 只撤销当前移动事务，`Apply` / `Ctrl+Enter` 才写回。PCB、符号、封装画保持只读。实现见 `packages/viewer/src/app.ts`、`packages/viewer/src/capability.ts` 与 `packages/viewer/src/types.ts`；文件写入仍只经过 CLI 的 `POST /api/layout` / `POST /api/source`，写入目标只有 `views/**`。决策见 [ADR-0035](adr/09-view/0035-the-view-layer-is-a-drawing.md)、[ADR-0042](adr/09-view/0042-the-review-app-has-modes.md)、[ADR-0048](adr/09-view/0048-the-review-app-shows-drawings.md) 与 [ADR-0056](adr/09-view/0056-the-review-app-has-one-interaction-surface.md)。
 
-**要做的事**：
+模型仍按 `ReviewDrawing` 区分 `sch` / `pcb` / `symbol` / `footprint`，侧栏按 kind 分组；`placement` 不是交互模式，PCB 画布是一张独立的只读画。发现项的 show 按钮会依据身份索引跳到持有它的画并选中，度量来自 core，app 不自行测量。意见锚点（`[instance:U3]` 前缀）仍未落地；实时布线按设计不做。
 
-1. **`packages/viewer`**：浏览器应用，`texteda review <工程目录>` 起本地服务（`node:http`，ADR-0035 decision 7；文件读写留在 CLI 侧，浏览器只收 JSON + SVG）。
-2. **元素 id**：渲染器给每个绘制对象发稳定 id（`instance:U1` / `net:VCC` / `label:...`），SVG 里落成 `data-ref`。这是 renderer 侧的小改动，**渲染器仍然纯**（不知道 hover 与点击）。
-3. **hover 高亮**：纯 CSS/SVG 层（描边 / 透明度 / 小浮层），**不重绘、不重排**——性能不构成压力；不做命中测试几何、不做空间索引。
-4. **双击/`Enter` 跳转**：**已落地（2026-10-26）**。身份索引是 `dist/ir/identity.json`（`identity -> [{kind,label,file,line,col}]`，附注类，[ADR-0004](adr/01-language/0004-source-spans.md) D6），不是 `dist/ir/<shard>.spans.json`。选中一个元素后，双击它或按 `Enter`，给出「这个身份定义在哪里」的短菜单（sch 的实例行 / view 的摆位 / PCB 摆位 / 器件文件 / 符号 / 封装 / pin 行 / net 行），选中即打开 `vscode://file/<abs>:<line>:<col>`。**单次点击只选中，不跳转**；否则会与 `layout` 的拖拽/旋转抢同一个手势。`edit` 模式的 `Enter` 归文本编辑器。
-5. ~~**四种模式**~~ **已落地（2026-10-29），`placement` 于 2026-10-30 退役（ADR-0048 D3）**：`review`（读图 + 高亮 + 跳转）、`layout`（S1 打印页摆位：选中一个符号、拖拽、`r` 旋转；拖动/旋转只写 `place` 行；**不在拖动中走线**，Apply 时才写回 `place` 并重锚受影响的 wire，见 [ADR-0042](adr/09-view/0042-the-review-app-has-modes.md)）、`edit`（分栏：源码文本 + 画布；点画布移动文本光标，改文本刷新画布，**编辑发生在文本里**）。PCB 画布（板框、courtyard、走线、过孔、丝印；点一个对象高亮它的 net）不再是模式，而是**一张画**。切模式换 SVG 与覆盖层，不重新实现交互。
-6. **意见锚点（可选）**：note 行允许 `[instance:U3]` 这样的可选前缀，只有 viewer 解析——与 ADR-0037「工具不解析散文」的张力是 ADR-0037 的开放点。
+**实现记录**：
+
+1. **浏览器应用与写边界**：`packages/viewer` 由 `texteda review` 挂载，浏览器只消费 JSON + SVG；文件读写留在 CLI / 宿主侧。独立 CLI 沿用完整能力，DSH 插件固定为 `{ write: "places" }`。
+2. **元素 id 与 hover**：渲染器给绘制对象提供稳定 `data-ref`；hover 只改 DOM/CSS，不重绘、不重排，不做 viewer 自己的几何命中索引。
+3. **定义跳转**：双击或 `Enter` 打开定义位置菜单，选中后使用 `vscode://file/<abs>:<line>:<col>`；普通画布单击只选中，不跳源码。源码编辑只在显式 Source 面板发生。
+4. **单一交互面**：没有 `review` / `layout` / `edit` 的模式状态、模式栏或模式切换。`m` 的移动事务、`r` 的排队旋转、字段移动与 Source 面板都服从能力边界和 Apply 提交点；DSH 对 `fields`、`remove_fields`、`text` 请求键返回 HTTP 400，不静默忽略。
+5. **意见锚点（可选）**：note 行允许 `[instance:U3]` 这样的前缀仍是开放项；与 ADR-0037「工具不解析散文」的张力保持在该开放点。
 
 **验收**：
 
-- hover 一个符号 → 该符号高亮并显示身份（实例 id、器件、封装），**SVG 不重新生成**（渲染一次后只看 DOM 变化）。
-- 双击或按 `Enter` 一个符号 → 出现「定义位置」菜单，至少含 sch 实例行与 view 摆位两项；选中后打开对应文件并定位到行。
-- 单次点击一个符号 → 只选中并显示 facts，不打开文件；在 `layout` 里按住拖动不会触发跳转。
-- `review` / `layout` / `edit` 三个模式都能用，且共用同一套高亮与跳转代码；模式属于当前画，只有打印页有 `layout` 与 `edit`。
-- `layout` 拖动/旋转一个符号 → 只改 `place` 行，`design/**` 不变；Apply 前不重算走线，旧线标 stale；Apply 后只重锚相关 net，未受影响 net 的 wire 与手改不动；`check` 无新增 error。**"`view.*` warning 清零"按"Apply 不引入新的 `view.*`"验收**：`view.nets-not-drawn` 是页面的既有状态，一次摆位改不动它。
-- `edit` 模式改文本 → 画布更新；`edit` 的画布不做直接编辑（`layout` 才有拖动/吸附）。
+- hover 一个符号 → 该符号高亮并显示身份（实例 id、器件、封装），**SVG 不重新生成**。
+- 双击或按 `Enter` 一个符号 → 出现定义位置菜单，至少含 sch 实例行与 view 摆位项；选中后打开对应文件并定位到行。
+- 单次点击一个原理图符号 → 只选中并显示 facts，不移动、不跳源码；PCB 点击只做对象 / net 选择与高亮。
+- 选中原理图符号后按 `m` → 移动预览按 0.5 mm 吸附；左键完成本地预览，`Escape` 恢复这一次移动而保留其他 pending 编辑；切换画时也不提交 pending 编辑。
+- 选中原理图符号后按 `r` → 排队顺时针 90°；随后点击或按 `Escape` 只清除选中，不撤销排队的旋转。
+- `Apply` / `Ctrl+Enter` → 通过 CLI / 宿主 canonical 写路由提交 placement、rotation、字段和 Source 草稿；只修改对应的 `views/<board>/<page>.view.teda`，不修改 `design/**`、IR 或工程哈希。`write: "places"` 只允许摆位，`write: "layout"` 才允许字段与 Source 写入。
+- 不存在三个模式或模式切换的验收；所有画共用 hover、选中、定义菜单、导航、缩放与平移，只有原理图画提供显式摆位动作，PCB / symbol / footprint 保持只读。
+- viewer 不布线、不做布局求解；既有 wire 保持在本地预览中，布线搜索仍由 agent / CLI 的独立工作流完成（[ADR-0017](adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)）。
 
 **注意**：
 
-- **选中是状态，跳转是动作**：单击只选中；`layout` 的拖拽/旋转与双击/`Enter` 跳转不共享手势。
-- **GUI 不写设计**：`design/**` 一律不改；`layout` 的拖动/旋转只写 view 的 `place` 行，Apply 才写 `wire`；`edit` 改文本；没有第二个设计模型。
-- **viewer 不布线**：`layout` 只产生 S1 打印页摆位；B0 布线的搜索在 sandbox 里由 agent/CLI 完成，不是拖动循环里的 interactive router（[ADR-0017](adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)）。
-- **身份索引已不再是阻塞**（[ADR-0004](adr/01-language/0004-source-spans.md) D6）：`dist/ir/identity.json` 已提供「身份 → 位置」索引，`review` 的跳转已用它；仍要保留的是：身份索引是**附注类**，不进工程哈希，不能变成第二个真源。
-- 别在 viewer 里做布局求解或自己的走线算法——viewer 只显示与选中；布局布线的工具、检查与冻结在 CLI/agent 侧（[ADR-0017](adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)）。
-- PCB 画布依赖 `packages/renderer` 的 PCB SVG（F21）；画不出来时如实报"还没有 PCB 画布"，别用 sch 画布顶替。
+- **选中是状态，跳转是动作**：单击只选中；定义菜单和 Source 操作是显式动作，不能用画布点击隐式改源码位置。
+- **GUI 不写设计**：`design/**` 一律不改；placement、rotation、字段和 Source 改动都只走 view 写路由，Apply 才提交，浏览器不直接访问文件系统。
+- **能力不是模式**：`ReviewCapability.write` 控制宿主可写范围，不再决定一套不同的 UI；不支持的 DSH 请求必须拒绝而不是降级为部分写入。
+- **身份索引不是第二真源**：`dist/ir/identity.json` 是附注类，只提供身份到源码位置的导航，不进入工程哈希。
+- 别在 viewer 里做布局求解或自己的走线算法——viewer 只显示、选择与预览；PCB 画布依赖 `packages/renderer` 的 PCB SVG，画不出来时如实报没有 PCB 画布。
 
 ---
 

@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.14",
+  "ir_version": "0.15",
   "format": "0.9.1",
   "board": "demo",
   "board_thickness_nm": 1600000,

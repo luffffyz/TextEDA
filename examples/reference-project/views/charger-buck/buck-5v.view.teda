@@ -2,54 +2,56 @@ version 0.9.2
 view buck-5v
 
 # TPS5430 5V/3A buck print page. Every net is drawn as wires; GND runs as a bus below the parts
-# (the view layer has no ground-symbol primitive). C1.2 drops straight to the bus and crosses the
-# VFB wire without a dot: a crossing is not a connection (spec/schematic-view.md §5.1). Ports sit
-# on the wires they name.
+# (the view layer has no ground-symbol primitive). R2.2 sits on the bus, so the bus is drawn in two
+# runs that both end at that pin: a wire passing through a connection point would read as a junction
+# the drawing does not declare (spec/schematic-view.md §5).
 #
 # The buck is module M2 of the board, so the page names the board's flat ids: M2.U1, M2.C2, ...
-# (spec/module.md §7).
+# (spec/module.md §7). Every symbol origin is a multiple of 0.5 mm, so every pin point is too
+# (ADR-0057), and every bend below sits on that same lattice.
 place
-  M2.C1  120.0   95.0  90
-  M2.C2  165.1   91.44  0
-  M2.C3  205.0   95.0  90
-  M2.C4  225.0   95.0  90
-  M2.D1  177.8   105.41  90
-  M2.L1  189.23  91.44  0
-  M2.R1  229.87  139.7  270
-  M2.R2  229.87  127.0  270
-  M2.U1  140.0   105.0  0
+  M2.C1  120.0  95.0  90
+  M2.C2  165.0  91.5  0
+  M2.C3  205.0  99.0  90
+  M2.C4  225.0  99.0  90
+  M2.D1  177.5  108.5  90
+  M2.L1  189.0  91.5  0
+  M2.R1  202.0  136.5  270
+  M2.R2  202.0  125.0  270
+  M2.U1  140.0  105.0  0
 
 wire
-  GND      M2.C1.2  M2.U1.6  120.0 120.0  137.46 120.0
-  GND      M2.C3.2  M2.C4.2  205.0 120.0  225.0 120.0
-  GND      M2.C4.2  M2.R2.2  225.0 120.0  238.0 120.0  238.0 123.19
-  GND      M2.D1.2  M2.C3.2  177.8 120.0  205.0 120.0
-  GND      M2.U1.9  M2.U1.6  142.54 120.00  137.46 120.00
-  M2.BOOT  M2.U1.1  M2.C2.1  157.0 108.81  157.0 91.44
-  M2.PH    M2.C2.2  M2.L1.1  185.42 91.44
-  M2.PH    M2.D1.1  M2.L1.1  177.8 91.44
-  M2.PH    M2.U1.8  M2.D1.1  155.24 84.0  175.0 84.0  175.0 101.6
-  M2.VFB   M2.R1.2  M2.R2.1  229.87 130.81
-  M2.VFB   M2.U1.4  M2.R2.1  124.76 111.3  110.0 111.3  110.0 130.81
-  SYS      M2.C1.1  M2.U1.7  120.0 83.0  140.0 83.0
+  GND      M2.C1.2  M2.U1.6  120.0 121.0  139.0 121.0
+  GND      M2.C3.2  M2.C4.2  205.0 121.0  225.0 121.0
+  GND      M2.D1.2  M2.R2.2  177.5 121.0  202.0 121.0
+  GND      M2.R2.2  M2.C3.2  205.0 121.0
+  GND      M2.U1.6  M2.U1.9  139.0 121.0  141.0 121.0
+  GND      M2.U1.9  M2.D1.2  141.0 121.0  177.5 121.0
+  M2.BOOT  M2.U1.1  M2.C2.1  161.0 108.0
+  M2.PH    M2.C2.2  M2.L1.1  185.0 91.5
+  M2.PH    M2.D1.1  M2.L1.1  177.5 91.5
+  M2.PH    M2.U1.8  M2.D1.1  177.5 102.0
+  M2.VFB   M2.R1.2  M2.R2.1
+  M2.VFB   M2.U1.4  M2.R2.1  125.0 129.0
+  SYS      M2.C1.1  M2.U1.7  120.0 86.0  140.0 86.0
   VOUT     M2.C3.1  M2.C4.1
-  VOUT     M2.C4.1  M2.R1.1  246.0 91.19  246.0 143.51
-  VOUT     M2.L1.2  M2.C3.1  195.0 91.44  195.0 91.19
+  VOUT     M2.C4.1  M2.R1.1  233.0 95.0  233.0 140.5
+  VOUT     M2.L1.2  M2.C3.1  205.0 91.5
 
 label
-  GND      177.8  120.0
-  GND      190.0  120.0
-  GND      210.0  120.0
-  GND      220.0  120.0
-  M2.BOOT  157.0  104.0
-  M2.PH    175.0  97.79
-  M2.VFB   150.0  130.81
-  SYS      130.0  83.0
-  VOUT     195.0  91.44
+  GND      130.0  121.0
+  GND      190.0  121.0
+  GND      210.0  121.0
+  GND      220.0  121.0
+  M2.BOOT  157.0  108.0
+  M2.PH    170.0  102.0
+  M2.VFB   150.0  129.0
+  SYS      130.0  86.0
+  VOUT     196.0  91.5
 
 port
-  GND      137.46  117.6  180
-  VOUT_5V  246.0   143.51
+  GND      120.0  121.0  180
+  VOUT_5V  220.0  140.5
 
 text
   20.0  15.0  5V 3A buck from SYS (TPS5430)

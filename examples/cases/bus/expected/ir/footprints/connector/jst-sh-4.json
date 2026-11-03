@@ -149,7 +149,7 @@
       "smd"
     ]
   },
-  "ir_version": "0.14",
+  "ir_version": "0.15",
   "source": {
     "file": "assets/footprints/connector/jst-sh-4.teda",
     "line": 1

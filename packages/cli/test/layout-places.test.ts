@@ -73,6 +73,10 @@ function rowsOf(text: string): Record<"place" | "wire" | "label" | "port" | "tex
   return rows;
 }
 
+function sortedRows(rows: readonly string[]): string[] {
+  return [...rows].sort();
+}
+
 function refused(fn: () => unknown): string {
   try {
     fn();
@@ -111,20 +115,23 @@ describe("layout-places: the places-only write path", () => {
     expect(parsedAfter.ir!.port).toEqual(parsedBefore.ir!.port);
     expect(parsedAfter.ir!.text).toEqual(parsedBefore.ir!.text);
 
-    // and the rows themselves: the sections are byte-identical
+    // and the rows themselves: the sections are the same rows. The written file is canonical
+    // (spec/schematic-view.md §11 sorts wires by net then pin), while the checked-in page need not
+    // be, so compare as multisets rather than by line order.
     const beforeRows = rowsOf(before);
     const afterRows = rowsOf(content(dir, file));
-    expect(afterRows.wire).toEqual(beforeRows.wire);
-    expect(afterRows.label).toEqual(beforeRows.label);
-    expect(afterRows.port).toEqual(beforeRows.port);
-    expect(afterRows.text).toEqual(beforeRows.text);
+    expect(sortedRows(afterRows.wire)).toEqual(sortedRows(beforeRows.wire));
+    expect(sortedRows(afterRows.label)).toEqual(sortedRows(beforeRows.label));
+    expect(sortedRows(afterRows.port)).toEqual(sortedRows(beforeRows.port));
+    expect(sortedRows(afterRows.text)).toEqual(sortedRows(beforeRows.text));
 
     // the place section: the moved symbol has its new place, nothing else in it moved
-    const placeBefore = beforeRows.place.map((line) => line.trim());
-    const placeAfter = afterRows.place.map((line) => line.trim());
-    expect(placeAfter).not.toEqual(placeBefore);
+    // The write is canonical, so column padding moves with the widest row; compare the placements
+    // themselves, not the text: every symbol except the moved one keeps its coordinates and rotation.
+    const placesBefore = (parsedBefore.ir!.place ?? []).filter((place) => place.instance_id !== "M2.U1");
+    const placesAfter = (parsedAfter.ir!.place ?? []).filter((place) => place.instance_id !== "M2.U1");
+    expect(placesAfter).toEqual(placesBefore);
     expectU1At150(content(dir, file), file);
-    expect(placeAfter.filter((line) => !line.startsWith("M2.U1"))).toEqual(placeBefore.filter((line) => !line.startsWith("M2.U1")));
   });
 
   test("only the page file in the project changes", () => {

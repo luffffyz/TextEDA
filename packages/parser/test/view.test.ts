@@ -124,7 +124,45 @@ describe("view parsing", () => {
     // The qualified names satisfy the contract, not just the parser.
     expect(validate("schematic-view", ir)).toMatchObject({ ok: true, errors: [] });
   });
+  test("parses symbol-local field overrides in canonical order and maps source spans", () => {
+    const source = `version 0.10.0
+view main
+
+place
+  U10  10.0  10.0
+  U2   20.0  20.0
+
+field
+  U10 Value      2000.0  -2000.0
+  U2  Value      1.0     2.0
+  U2  Reference  -3.0     -4.0
+`;
+    const result = parseView(source, { file, board: "b" });
+    expect(result.diagnostics).toEqual([]);
+    expect(result.ok).toBe(true);
+    expect(result.ir!.field).toEqual([
+      { instance_id: "U2", name: "Reference", x_nm: -3_000_000, y_nm: -4_000_000 },
+      { instance_id: "U2", name: "Value", x_nm: 1_000_000, y_nm: 2_000_000 },
+      { instance_id: "U10", name: "Value", x_nm: 2_000_000_000, y_nm: -2_000_000_000 },
+    ]);
+    // Local coordinates may lie outside the sheet; only the symbol-local grid matters.
+    expect(result.sources!.get("/field/0")!.line).toBe(source.split("\n").indexOf("  U2  Reference  -3.0     -4.0") + 1);
+  });
+
+  test("a 0.9.2 view remains valid when it has no field section", () => {
+    const result = parseView("version 0.9.2\nview main\n\nplace\n  U1  10.0  10.0\n", { file, board: "b" });
+    expect(result.ok).toBe(true);
+    expect(result.ir!.format).toBe("0.9.2");
+    expect(result.ir!.field).toBeUndefined();
+  });
+
+  test("a field section requires language 0.10, even when empty", () => {
+    const result = parseView("version 0.9.2\nview main\n\nfield\n", { file, board: "b" });
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toContain("format.unsupported-version");
+  });
 });
+
 
 describe("view diagnostics", () => {
   const cases: { name: string; source: string; code: string }[] = [
@@ -173,6 +211,26 @@ describe("view diagnostics", () => {
       source: "version 0.6\nview main\n\nplace\n  U1  10.0  10.0\n",
       code: "format.unsupported-version",
     },
+    {
+      name: "an unknown schematic field name",
+      source: "version 0.10\nview main\n\nplace\n  U1  10.0  10.0\n\nfield\n  U1  Label  1.0  2.0\n",
+      code: "syntax.invalid-literal",
+    },
+    {
+      name: "a duplicate field override",
+      source: "version 0.10\nview main\n\nplace\n  U1  10.0  10.0\n\nfield\n  U1  Reference  1.0  2.0\n  U1  Reference  3.0  4.0\n",
+      code: "value.duplicate-field",
+    },
+    {
+      name: "a field override whose instance is not placed",
+      source: "version 0.10\nview main\n\nplace\n  U1  10.0  10.0\n\nfield\n  C1  Value  1.0  2.0\n",
+      code: "ref.unknown-instance",
+    },
+    {
+      name: "a field coordinate finer than the 0.01 mm grid",
+      source: "version 0.10\nview main\n\nplace\n  U1  10.0  10.0\n\nfield\n  U1  Value  1.005  2.0\n",
+      code: "value.length-invalid",
+    },
   ];
 
   for (const c of cases) {
@@ -219,6 +277,33 @@ label
 `,
     );
     const second = formatView(first.text!, { file });
+    expect(second.text).toBe(first.text);
+  });
+
+  test("sorts field overrides, preserves row comments and is idempotent", () => {
+    const source = `version 0.10
+view main
+
+place
+  U2  20.0  20.0
+  U1  10.0  10.0
+
+field
+  # value comment
+  U2 Value  2.0  -2.0
+  # reference comment
+  U1 Reference  1.0  2.0
+  U1 Value  3.0  4.0
+`;
+    const first = formatView(source, { file });
+    expect(first.ok).toBe(true);
+    expect(first.text).toContain("field\n");
+    expect(first.text).toContain("# reference comment\n  U1");
+    expect(first.text).toContain("# value comment\n  U2");
+    expect(first.text!.indexOf("  U1  Reference")).toBeLessThan(first.text!.indexOf("  U1  Value"));
+    expect(first.text!.indexOf("  U1  Value")).toBeLessThan(first.text!.indexOf("  U2  Value"));
+    const second = formatView(first.text!, { file });
+    expect(second.ok).toBe(true);
     expect(second.text).toBe(first.text);
   });
 

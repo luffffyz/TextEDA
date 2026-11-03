@@ -182,6 +182,93 @@ describe("the review app's write routes", () => {
     }
   });
 
+  test("the layout route previews and commits a field override without writing the preview", async () => {
+    const dir = scratch();
+    const before = readFileSync(join(dir, pageFile), "utf8");
+    const draft = before.replace("version 0.9.2", "version 0.10.0");
+    const server = await serve(dir);
+    try {
+      const preview = await post(server, "/api/layout", {
+        board: "charger-buck",
+        page: "buck-5v",
+        places: [],
+        fields: [{ instance_id: "M2.C1", name: "Value", x: 0, y: 0 }],
+        text: draft,
+        commit: false,
+      });
+      expect(preview.status).toBe(200);
+      expect(preview.payload["changed"]).toBe(true);
+      expect(readFileSync(join(dir, pageFile), "utf8")).toBe(before);
+
+      const commit = await post(server, "/api/layout", {
+        board: "charger-buck",
+        page: "buck-5v",
+        places: [],
+        fields: [{ instance_id: "M2.C1", name: "Value", x: 0, y: 0 }],
+        text: draft,
+        commit: true,
+      });
+      expect(commit.status).toBe(200);
+      const document = await (await fetch(server.url)).text();
+      const embedded = /window\.__TEXTEDA_REVIEW__ = (.*);<\/script>/.exec(document);
+      expect(embedded).not.toBeNull();
+      const model = JSON.parse(embedded?.[1] ?? "{}") as {
+        drawings?: { file?: string; fields?: { instance_id: string; name: string; text: string; x: number; y: number; manual: boolean }[] }[];
+      };
+      const page = model.drawings?.find((drawing) => drawing.file === pageFile);
+      expect(page?.fields?.find((field) => field.instance_id === "M2.C1" && field.name === "Value")).toMatchObject({
+        text: "10uF",
+        x: 0,
+        y: 0,
+        manual: true,
+      });
+      const parsed = parseView(readFileSync(join(dir, pageFile), "utf8"), { file: pageFile, board: "charger-buck" });
+      expect(parsed.ir?.field).toEqual([{ instance_id: "M2.C1", name: "Value", x_nm: 0, y_nm: 0 }]);
+    } finally {
+      server.stop();
+    }
+  });
+
+  test("the layout route rejects malformed, unknown, and conflicting field operations", async () => {
+    const dir = scratch();
+    const before = readFileSync(join(dir, pageFile), "utf8");
+    const draft = before.replace("version 0.9.2", "version 0.10.0");
+    const server = await serve(dir);
+    try {
+      const malformed = await post(server, "/api/layout", {
+        board: "charger-buck",
+        page: "buck-5v",
+        places: [],
+        fields: [{ instance_id: "M2.C1", name: "Value", x: "0", y: 0 }],
+      });
+      expect(malformed.status).toBe(400);
+      expect(String(malformed.payload["error"] ?? "")).toContain("finite numbers");
+
+      const unknown = await post(server, "/api/layout", {
+        board: "charger-buck",
+        page: "buck-5v",
+        places: [],
+        fields: [{ instance_id: "M2.UNKNOWN", name: "Value", x: 0, y: 0 }],
+        text: draft,
+      });
+      expect(unknown.status).toBe(400);
+      expect(String(unknown.payload["error"] ?? "")).toContain("does not place M2.UNKNOWN");
+
+      const conflicting = await post(server, "/api/layout", {
+        board: "charger-buck",
+        page: "buck-5v",
+        places: [],
+        fields: [{ instance_id: "M2.C1", name: "Value", x: 0, y: 0 }],
+        remove_fields: [{ instance_id: "M2.C1", name: "Value" }],
+        text: draft,
+      });
+      expect(conflicting.status).toBe(400);
+      expect(String(conflicting.payload["error"] ?? "")).toContain("duplicate field operation");
+      expect(readFileSync(join(dir, pageFile), "utf8")).toBe(before);
+    } finally {
+      server.stop();
+    }
+  });
   test("the source route draws a draft and says which row each object came from", async () => {
     const dir = scratch();
     const text = readFileSync(join(dir, pageFile), "utf8");

@@ -9,27 +9,28 @@ pin_names hide
 # segments, and the bulk arrow pointing at the channel (the direction that says N-channel). The drain leaves straight
 # up, the gate straight left, and the three source pins share one bus below the circle.
 # Pin 4 is the gate. Pin 5 is the drain; pins 1/2/3 all land on the source bus.
-field Reference at=0,6.35 U
-field Value at=0,-7.62 nmos-5
+# Pin connection points, pin tails, and the body frame sit on the 0.5 mm placement lattice (ADR-0057).
+field Reference at=0,6.5 U
+field Value at=0,-7.5 nmos-5
 
 pins
-  1  1.27   -5.08  90   length=1.27
-  2  2.54   -5.08  90   length=1.27
-  3  3.81   -5.08  90   length=1.27
-  4  -6.35  0      0
-  5  2.54   5.08   270
+  1  1.5   -5  90   length=1
+  2  3     -5  90   length=1
+  3  4.5   -5  90   length=1
+  4  -6.5  0   0    length=2.5
+  5  3     5   270  length=2.5
 
 body
-  circle  1.016,0,2.794                     width=0.254
-  line    -3.81,0,0.254,0                   width=0.254
-  line    0.254,-1.905,0.254,1.905          width=0.254
-  line    0.762,-0.508,0.762,0.508          width=0.254
-  line    0.762,-1.778,2.54,-1.778          width=0.254
-  line    0.762,-2.286,0.762,-1.27          width=0.254
-  line    0.762,1.27,0.762,2.286            width=0.254
-  line    0.762,1.778,2.54,1.778            width=0.254
-  line    1.27,-3.81,3.81,-3.81             width=0.254
-  line    2.54,-3.81,2.54,0                 width=0.254
-  line    2.54,0,0.762,0                    width=0.254
-  line    2.54,1.778,2.54,2.54              width=0.254
-  poly    1.016,0,2.032,0.381,2.032,-0.381  fill=outline
+  circle  1.5,0,2.5               width=0.25
+  line    -4,0,0.5,0              width=0.25
+  line    0.5,-2,0.5,2            width=0.25
+  line    1,-0.5,1,0.5            width=0.25
+  line    1,-2,3,-2               width=0.25
+  line    1,-2.5,1,-1.5           width=0.25
+  line    1,1.5,1,2.5             width=0.25
+  line    1,2,3,2                 width=0.25
+  line    1.5,-4,4.5,-4           width=0.25
+  line    3,-4,3,0                width=0.25
+  line    3,0,1,0                 width=0.25
+  line    3,2,3,2.5               width=0.25
+  poly    1.5,0,2.5,0.5,2.5,-0.5  fill=outline

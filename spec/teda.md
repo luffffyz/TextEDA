@@ -624,7 +624,7 @@ nets
    - pcb：见 `spec/pcb.md` §6.1（`stackup`、`outline`、`place`、`connect`、`trace`、`via`、`zone`、`keepout`、`rules`、`silk`、`physical_only`、`deviation`）
    - footprint：`pads`、`graphics`；标量顺序与行的排序见 `spec/footprint.md` §8
    - symbol：`pins`、`body`；标量顺序与行的排序见 `spec/symbol.md` §8
-   - view：`place`、`wire`、`label`、`port`、`text`；标量顺序与行的排序见 `spec/schematic-view.md` §11
+   - view：`place`、`field`、`wire`、`label`、`port`、`text`；标量顺序与行的排序见 `spec/schematic-view.md` §11
    - procurement：`selections`（唯一段）；标量只有 `role`
 2. 行排序（名称一律按 ASCII 字节序；`instances` 的 refdes 按自然序，数字按数值比较）：
    - `instances` 按 refdes 自然序
@@ -654,7 +654,7 @@ nets
 
 `version` 为 `MAJOR.MINOR[.PATCH]`，三位各自无前导零。**PATCH 位可省略，省略即 0**：`0.6` 与 `0.6.0` 是同一个版本，IR 里只存一种写法（`0.6`）。
 
-**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.9.2**。
+**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.10.0**。
 
 各描述类型之间剩下的唯一差别是**下界**：一种描述类型在它被引入之前不存在，所以工具不读比那更早的它的文件。上界对所有描述类型都是同一个——语言当前版本。
 
@@ -672,7 +672,7 @@ nets
 
 下界表由 `packages/parser/src/version.ts` 的 `TYPE_BIRTH` 实现，两者由 `packages/parser/test/version-spec.test.ts` 钉在一起：抬一个类型的下界会让测试红，而不是让规范悄悄过期。
 
-在 `0.x` 阶段**语言版本只走 PATCH 位**（`0.9.1` → `0.9.2` → `0.9.3`）：加段、加字段一般也不抬 MINOR；抬 MINOR 需要一份决策记录（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D5）。
+在 `0.x` 阶段，兼容澄清和诊断改进走 PATCH；新增段或字段走 MINOR，并且必须有显式决策记录（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D5）。本次 `0.10.0` 由 [ADR-0055](../docs/adr/09-view/0055-schematic-fields-are-view-overrides.md) 引入 `view` 的 `field` 段。
 
 | 位 | 什么时候动 | 动它意味着 |
 |---|---|---|
@@ -712,6 +712,11 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
 ### 13.4 版本沿革
 
 语言的每次版本变化在这里留一条，最新的在前。每条写明改了什么，并指向决定它的那份记录。
+
+#### 0.10.0 — Schematic field overrides（2026-11-01）
+
+- The `view` description gains an optional `field` section for per-instance `Reference` and `Value` positions. Rows are symbol-local overrides; omitted rows select deterministic renderer placement. The construct is defined by [ADR-0055](../docs/adr/09-view/0055-schematic-fields-are-view-overrides.md).
+- A `0.9.2` file remains valid when it uses no `field` section, but a `0.9.2` file containing `field` is rejected. The IR contract for the new optional array is **v0.15**; **v0.14** is unchanged.
 
 #### 0.9.2 — 资产目录变成分类目录（2026-10-30）
 

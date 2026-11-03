@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.14",
+  "ir_version": "0.15",
   "project": {
     "description": "Case 5 of the ten: a declared net tie between two nets",
     "format": "0.9.1",

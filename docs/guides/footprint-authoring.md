@@ -101,7 +101,7 @@ bun run fmt:teda --check assets/footprints              # CI：不是 canonical 
 bun run compile:footprint assets/footprints/sot/sot-23-5.teda --out dist/ir/footprints/sot/sot-23-5.json
 ```
 
-IR 是 `footprint` kind（契约 `schemas/ir/v0.14/footprint.schema.json`），单位全是整数纳米/毫度/百万分比。`footprint.library` 取的是文件所在的分类目录（`sot`）。
+IR 是 `footprint` kind（契约 `schemas/ir/v0.15/footprint.schema.json`），单位全是整数纳米/毫度/百万分比。`footprint.library` 取的是文件所在的分类目录（`sot`）。
 
 ### 4. 导出成 KiCad 产物
 

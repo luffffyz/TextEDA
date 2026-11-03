@@ -2,8 +2,8 @@
 
 Status: Accepted
 Date: 2026-10-22
-Scope: Decides: that the view is an independent description type with its own file, schema and shard, and that it is a drawing that never becomes a build input. Does not decide: how the view is rendered — see ADR-0036.
-Related: [ADR-0004](../01-language/0004-source-spans.md), [ADR-0012](../04-schematic/0012-one-flat-schematic-per-board.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0037](0037-review-records-and-attribution.md)
+Scope: Decides: that the view is an independent description type with its own file, schema and shard, that it is a drawing rather than a build input, and that deterministic `Reference` / `Value` field placement is the renderer's limited automatic-placement exception. Does not decide: the renderer's full implementation or other layout policy — see ADR-0036 and ADR-0055.
+Related: [ADR-0004](../01-language/0004-source-spans.md), [ADR-0012](../04-schematic/0012-one-flat-schematic-per-board.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0037](0037-review-records-and-attribution.md), [ADR-0055](0055-schematic-fields-are-view-overrides.md)
 Impact: `spec/schematic-view.md`; `packages/parser` (the `view` description type); `packages/viewer/**`; `packages/cli` (the `review` command); `schemas/ir/**` (the view shard)
 
 ## Background
@@ -175,22 +175,29 @@ changes both.
 - A review record that cites a drawing cites the page's `source_hash`; a manufacturing record
   cites the board hash. The two do not have to move together.
 
-### D6. The renderer reads the view; it never places anything
+### D6. The renderer reads the view and may place only unoverridden symbol fields
 
-`renderSchematic(logicalIr, viewIr)` draws. It does not lay out, and it has no fallback "if no
-view exists, arrange it for me". Two reasons:
+`renderSchematic(logicalIr, viewIr)` draws the stored view. It does not lay out symbols, route
+wires, place labels or ports, or arrange any other drawing object. The one narrow exception is the
+deterministic placement of the logical `Reference` and `Value` fields of a symbol when that field
+has no local override in the view. Those fields are renderer-owned defaults, not a general layout
+engine: the algorithm is fixed, pure and derived from painted symbol geometry.
 
-- **A generated layout is not reviewable.** If the renderer chooses the positions, every run
-  produces a different drawing, the human cannot move an overlapping label out of the way, and the
-  readability checks measure nothing (the overlap is decided at render time, not stored).
-  "Re-render must not overwrite manual adjustment" presumes there is a stored adjustment.
-- **Layout solving is out of scope.** Auto-routing and auto-placement are excluded; a renderer
-  that places symbols is a layout engine with extra steps.
+When a view contains a `field` row, that row wins over the automatic position. The row is stored in
+symbol-local coordinates, so moving or rotating the symbol carries the override with it. Removing
+the row returns the field to the deterministic automatic position. The source of the field identity
+and text remains the schematic instance; the view stores only drawing overrides.
 
-Consequence: a board with a logical description but no view file has **no drawing**. That is a
-legitimate state — the logical design is still valid, still checkable, still exportable to a
-netlist — and the reviewer is told "no view for this page", not handed a picture that silently
-invents a layout.
+The exception does not change the no-view rule. A board with a logical description but no view file
+still has no drawing, and the renderer has no fallback arrangement for symbols or wires. Layout
+solving remains out of scope.
+
+The previous rule's reasons still apply to every other object:
+
+- **A generated layout is not reviewable.** Symbol positions, wires, labels and ports remain stored
+  source so a human can inspect and adjust them and readability checks measure the authored drawing.
+- **Layout solving is out of scope.** Auto-routing and auto-placement are excluded; automatic field
+  defaults are a bounded text-placement convention, not a layout solver.
 
 ### D7. The review UI is a browser app served by the CLI; the desktop shell is deferred
 

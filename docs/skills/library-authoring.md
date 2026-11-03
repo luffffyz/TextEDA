@@ -105,22 +105,12 @@ The coordinate is the connection point. The body is on the pin's inner side. Use
 
 #### Symbol house style
 
-Apply these rules when placing new symbol pins and reviewing the rendered result:
+Use the symbol source for pin connection points, directions, lengths, styles, body geometry, and visibility only. Pin-label positions and rotations are computed by the renderer; the symbol source cannot set or control them. `.teda` has no independent per-pin text-position or text-rotation field. Do not add unsupported text keys or move pins/body solely to chase renderer label placement.
 
-1. **Pin-number placement**: for a horizontal pin, place the pin number above the pin; for a vertical pin, place it on the right. Keep the number clear of the pin line and body outline.
-2. **Pin-label collision**: if a pin-label text would overlap another label, body geometry, or a nearby pin, rotate that text by 90 degrees so it is vertical rather than leaving the overlap.
-3. **Symbol pin pitch**: use `1.25 mm` spacing for new regular pin rows. Do not use `1.27 mm` as a symbol pin pitch.
-4. **Geometry grid**: use `0.05 mm` as the minimum authoring increment for library artwork. Symbol pin/body coordinates and non-dimensional footprint graphics should use exact multiples of `0.05 mm`. Physical footprint pad centers and sizes must preserve datasheet values, even when they fall off-grid.
-5. **Legibility wins**: move the pin or body only when that preserves the electrical pin order and the intended symbol meaning. Do not make a visually neat symbol by changing the datasheet's pin identity.
-
-The current `.teda` symbol contract has no per-pin text-position or text-rotation field. The reference renderer currently generates pin numbers outside the connection point along the pin axis and uses the fixed `1.27 mm` number-text offset documented in [ADR-0036](../adr/09-view/0036-our-own-reference-renderer.md). That offset is **not pin pitch**. Therefore:
-
-- Do not move a pin by `1.27 mm` merely to match the renderer's number-text offset.
-- Do not invent unsupported `rotate` or text-position keys in a symbol file.
-- Treat the above house style as a visual acceptance rule until the source format and renderer support the placement directly.
-- If exact rotated or offset pin text is a release requirement, record it as a renderer/spec gap or use an explicitly documented downstream KiCad override; do not claim that the `.teda` source expresses it.
-
-The same limitation applies to the 90-degree collision rule: first fix the symbol geometry and spacing where possible; if the text still requires independent rotation, the current `.teda` source cannot encode that rotation. Do not hide a label just to make the preview pass unless hiding it is an intentional symbol decision.
+1. **Pin lattice**: a pin's connection point *and* its inner end are exact multiples of `0.5 mm`, so `length` is one too ([ADR-0057](../../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D1). The review app snaps placement to the same `0.5 mm` grid, so a symbol dropped on the grid keeps every pin reachable by an axis-aligned wire.
+2. **Symbol pin pitch**: `2.0 mm` for new regular pin rows. `2.0` is the smallest pitch that is both a multiple of `0.5` and even, so an even pin count on a side centres symmetrically. Use `2.5 mm` only where pin numbers would otherwise collide (the 100-pin MCU and the 12/9-pin sides of a wide controller), and `1.0 mm` only for two pins that must sit close together. Do not use `1.27 mm` as a symbol pin pitch.
+3. **Body frame and artwork**: a visible `rect` body's edge is where the pin tails end, so its coordinates are on the lattice too. Decorative artwork that is not a frame (the resistor rectangle, inductor humps, diode triangles) keeps its shape; only the pin rows and tails move onto the lattice.
+4. **Footprints are physical**: pad centres and sizes keep the datasheet's values even when they fall off the `0.5 mm` lattice. A symbol's lattice never propagates into a pad's coordinates.
 
 ### 4.3 Write the footprint
 
@@ -131,7 +121,7 @@ pads
   <number>  <type>  <shape>  <x>  <y>  <w>  <h>  [key=value ...]
 ```
 
-Preserve the datasheet's physical values. The `1.25 mm` rule above is a symbol authoring convention; it does not override a package's actual pad pitch. Never change pad centers or sizes to force a convenient grid when that would change the land pattern. If a datasheet value is not on the `0.05 mm` grid, keep the exact representable value and call out the grid exception in review.
+Preserve the datasheet's physical values. The `2.0 mm` pin-pitch rule above is a symbol authoring convention; it does not override a package's actual pad pitch. Never change pad centers or sizes to force a convenient grid when that would change the land pattern. If a datasheet value is not on the `0.5 mm` lattice, keep the exact representable value: the lattice governs symbol artwork, not physical geometry.
 
 Apply these checks:
 
@@ -146,7 +136,7 @@ Apply these checks:
 
 ## 5. Format and preview before verification
 
-Preview is mandatory for visual work. Contract checks cannot detect a reversed pin, a label collision, a missing polarity mark, or an undersized courtyard.
+Preview is mandatory for visual work. Contract checks cannot detect a reversed pin, a missing polarity mark, or an undersized courtyard.
 
 From the TextEDA repository root, use the project that owns the assets:
 
@@ -169,7 +159,7 @@ The default output is under `/tmp/texteda-preview/<id>/`; the command prints the
 
 Inspect the actual SVG, not only the command exit status:
 
-- Symbol pin sides, order, lengths, styles, body bounds, fields, pin-number placement, and pin-label clearance.
+- Symbol pin sides, order, lengths, styles, body bounds, and fields.
 - Footprint pad numbering, pitch, orientation, pad sizes, thermal pad, courtyard, fab outline, silkscreen, reference mark, and fields.
 - Component preview: symbol pin numbers and names agree with the matching footprint pad numbers.
 
@@ -210,8 +200,6 @@ bun run check:links
 | Symbol pin mismatch | Component and symbol number sets differ | Compare pin rows by number; fix the owner that is factually wrong, then rerun `lib:verify <project-dir>` |
 | Pad mismatch or unconnected exposed pad | Footprint pad number or component pin fact is wrong | Reconcile the datasheet, component table, symbol, and pad table; do not add a duplicate alias; rerun `lib:verify <project-dir>` |
 | Symbol appears upside down | Symbol `+y` convention was confused with footprint `+y` | Recompute symbol pin coordinates and rotations using [spec/symbol.md](../../spec/symbol.md); do not mirror the footprint blindly |
-| Pin label or number overlaps | Insufficient symbol spacing or a required text rotation is not representable | Adjust pin/body geometry first; preview again; do not add unsupported text keys or silently hide the label |
-| `1.27 mm` appears in a symbol review | Renderer number-text offset was confused with pin pitch | Keep the regular pin row at `1.25 mm`; the current renderer's `1.27 mm` value is a separate text offset |
 | Precision diagnostic | A value cannot be represented as the required integer nanometers or millidegrees | Use an exact representable datasheet value; never rely on rounding |
 | Silkscreen covers a pad | Graphics were reviewed only as geometry, not as a rendered package | Move or shorten the silk, preview at high scale, then run the KiCad smoke/DRC check when available |
 | Courtyard is too small | Body or assembly clearance was omitted | Re-read the package drawing and enlarge the courtyard; do not shrink pads or body geometry |
@@ -224,8 +212,7 @@ A library change is complete only when all applicable items are true:
 - Component, symbol, and footprint ownership is unambiguous.
 - Classification paths and `<classification>:<id>` references resolve.
 - Component pin numbers equal symbol pin numbers, and required pads cover the component pins.
-- New symbol pin rows use `1.25 mm` regular spacing and keep pin/body coordinates and graphical geometry on the `0.05 mm` grid. Keep non-dimensional footprint artwork on the same grid; do not round physical pad geometry to fit it.
-- Pin-number placement and any 90-degree label rotation were compared against the rendered output; unsupported source-format limitations are recorded, not hidden.
+- Every symbol pin's connection point and inner end are multiples of `0.5 mm`, new regular pin rows use `2.0 mm` spacing, and a visible body frame sits on the same lattice. Do not round physical footprint pad geometry to fit it.
 - Footprint pad geometry matches the datasheet, independent of symbol spacing conventions.
 - Both symbol and footprint previews were inspected at a useful scale.
 - `fmt:teda --check`, `lib:verify`, and the project `check` pass.

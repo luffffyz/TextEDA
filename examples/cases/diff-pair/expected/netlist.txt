@@ -1,4 +1,4 @@
-# netlist can-node (ir 0.14)
+# netlist can-node (ir 0.15)
 CANH: J1.1 R1.1 U1.7
 CANL: J1.2 R2.1 U1.6
 CAN_RX: U1.4

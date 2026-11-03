@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.14",
+  "ir_version": "0.15",
   "source": {
     "file": "assets/symbols/analog/opa2333.teda",
     "line": 1
@@ -10,20 +10,20 @@
         "kind": "poly",
         "points": [
           {
-            "x_nm": -2540000,
-            "y_nm": -2540000
+            "x_nm": -2500000,
+            "y_nm": -2500000
           },
           {
-            "x_nm": 2540000,
+            "x_nm": 2500000,
             "y_nm": 0
           },
           {
-            "x_nm": -2540000,
-            "y_nm": 2540000
+            "x_nm": -2500000,
+            "y_nm": 2500000
           },
           {
-            "x_nm": -2540000,
-            "y_nm": -2540000
+            "x_nm": -2500000,
+            "y_nm": -2500000
           }
         ],
         "unit": 1,
@@ -33,20 +33,20 @@
         "kind": "poly",
         "points": [
           {
-            "x_nm": -2540000,
-            "y_nm": -2540000
+            "x_nm": -2500000,
+            "y_nm": -2500000
           },
           {
-            "x_nm": 2540000,
+            "x_nm": 2500000,
             "y_nm": 0
           },
           {
-            "x_nm": -2540000,
-            "y_nm": 2540000
+            "x_nm": -2500000,
+            "y_nm": 2500000
           },
           {
-            "x_nm": -2540000,
-            "y_nm": -2540000
+            "x_nm": -2500000,
+            "y_nm": -2500000
           }
         ],
         "unit": 2,
@@ -54,13 +54,13 @@
       },
       {
         "end": {
-          "x_nm": 1270000,
-          "y_nm": 2540000
+          "x_nm": 1500000,
+          "y_nm": 2500000
         },
         "kind": "rect",
         "start": {
-          "x_nm": -1270000,
-          "y_nm": -2540000
+          "x_nm": -1500000,
+          "y_nm": -2500000
         },
         "unit": 3,
         "width_nm": 254000
@@ -71,7 +71,7 @@
       {
         "at": {
           "x_nm": 0,
-          "y_nm": 7620000
+          "y_nm": 11000000
         },
         "name": "Reference",
         "value": "U"
@@ -79,7 +79,7 @@
       {
         "at": {
           "x_nm": 0,
-          "y_nm": -7620000
+          "y_nm": -11000000
         },
         "name": "Value",
         "value": "opa2333"
@@ -96,10 +96,10 @@
       {
         "at": {
           "rotation_mdeg": 180000,
-          "x_nm": 5080000,
+          "x_nm": 5000000,
           "y_nm": 0
         },
-        "length_nm": 2540000,
+        "length_nm": 2500000,
         "number": "1",
         "style": "line",
         "unit": 1
@@ -107,10 +107,10 @@
       {
         "at": {
           "rotation_mdeg": 0,
-          "x_nm": -5080000,
-          "y_nm": -1270000
+          "x_nm": -5000000,
+          "y_nm": -1000000
         },
-        "length_nm": 2540000,
+        "length_nm": 2500000,
         "number": "2",
         "style": "line",
         "unit": 1
@@ -118,10 +118,10 @@
       {
         "at": {
           "rotation_mdeg": 0,
-          "x_nm": -5080000,
-          "y_nm": 1270000
+          "x_nm": -5000000,
+          "y_nm": 1000000
         },
-        "length_nm": 2540000,
+        "length_nm": 2500000,
         "number": "3",
         "style": "line",
         "unit": 1
@@ -129,10 +129,10 @@
       {
         "at": {
           "rotation_mdeg": 0,
-          "x_nm": -5080000,
-          "y_nm": 1270000
+          "x_nm": -5000000,
+          "y_nm": -1000000
         },
-        "length_nm": 2540000,
+        "length_nm": 2500000,
         "number": "5",
         "style": "line",
         "unit": 2
@@ -140,22 +140,11 @@
       {
         "at": {
           "rotation_mdeg": 0,
-          "x_nm": -5080000,
-          "y_nm": -1270000
+          "x_nm": -5000000,
+          "y_nm": 1000000
         },
-        "length_nm": 2540000,
+        "length_nm": 2500000,
         "number": "6",
-        "style": "line",
-        "unit": 2
-      },
-      {
-        "at": {
-          "rotation_mdeg": 180000,
-          "x_nm": 5080000,
-          "y_nm": 0
-        },
-        "length_nm": 2540000,
-        "number": "7",
         "style": "line",
         "unit": 2
       },
@@ -163,10 +152,21 @@
         "at": {
           "rotation_mdeg": 90000,
           "x_nm": 0,
-          "y_nm": -7620000
+          "y_nm": -7500000
         },
-        "length_nm": 2540000,
+        "length_nm": 2500000,
         "number": "4",
+        "style": "line",
+        "unit": 3
+      },
+      {
+        "at": {
+          "rotation_mdeg": 180000,
+          "x_nm": 5000000,
+          "y_nm": 0
+        },
+        "length_nm": 2500000,
+        "number": "7",
         "style": "line",
         "unit": 3
       },
@@ -174,9 +174,9 @@
         "at": {
           "rotation_mdeg": 270000,
           "x_nm": 0,
-          "y_nm": 7620000
+          "y_nm": 7500000
         },
-        "length_nm": 2540000,
+        "length_nm": 2500000,
         "number": "8",
         "style": "line",
         "unit": 3

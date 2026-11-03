@@ -6,15 +6,16 @@ tags inductor passive
 pin_numbers hide
 pin_names hide
 # Generic inductor view: four semicircular humps along the pin axis. Shared by several components (15uH / 6.8uH etc.).
-field Reference at=0,2.54 U
-field Value at=0,-2.54 l
+# Pin connection points, pin tails, and the body frame sit on the 0.5 mm placement lattice (ADR-0057).
+field Reference at=0,2.5 U
+field Value at=0,-2.5 l
 
 pins
-  1  -3.81  0  0    length=1.27
-  2  3.81   0  180  length=1.27
+  1  -4  0  0    length=1.5
+  2  4   0  180  length=1.5
 
 body
-  arc  -1.27,0,-0.635,0.635,0,0      width=0.254
-  arc  -2.54,0,-1.905,0.635,-1.27,0  width=0.254
-  arc  0,0,0.635,0.635,1.27,0        width=0.254
-  arc  1.27,0,1.905,0.635,2.54,0     width=0.254
+  arc  -1.25,0,-0.625,0.625,0,0     width=0.25
+  arc  -2.5,0,-1.875,0.625,-1.25,0  width=0.25
+  arc  0,0,0.625,0.625,1.25,0       width=0.25
+  arc  1.25,0,1.875,0.625,2.5,0     width=0.25

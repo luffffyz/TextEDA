@@ -50,18 +50,19 @@ symbol bq24610rger
 
 description 24V synchronous buck battery charger controller
 tags battery charger
-field Reference at=-6.35,17.78 U
-field Value at=0,-21.59 bq24610rger
+pin_name_offset 1.25
+field Reference at=-6.5,20 U
+field Value at=0,-20 bq24610rger
 
 pins
-  1   -12.7  13.97   0
-  2   -12.7  11.43   0
-  3    12.7   6.35   180
+  1   -12.5  -11  0    length=2.5
+  2   -12.5  -9   0    length=2.5
+  3    12.5   -8  180  length=2.5
   ...
-  25   2.54 -19.05   90
+  25   1     -19  90   length=2.5
 
 body
-  rect  -10.16,-16.51,10.16,16.51  fill=background  width=0.254
+  rect  -10,-16.5,10,16.5  fill=background  width=0.25
 ```
 
 要点：
@@ -69,6 +70,7 @@ body
 - 长度默认 **mm**，可写 `0.95mm` / `10mil` / `1in`；角度默认度。单位换算在编译期做，**结果不是整数纳米就报错**（不四舍五入）。
 - `pins` 行固定 4 列 `number x y rot`，后面接 `key=value` 尾列（`length` / `unit` / `style`）。
 - `body` 行 2 列：`kind geometry`；`geometry` 单元格内逗号写坐标（`line`/`rect` 4 个数、`arc` 6 个、`circle` 3 个、`poly` 偶数个）。
+- **引脚落在 `0.5 mm` 晶格上**：连接点与内端都是 `0.5 mm` 的整数倍（`length` 因此也是），常规引脚行间距 `2.0 mm`；例外仍须是 `0.5` 的整数倍。理由与例外清单见 `spec/symbol.md` §4.1 与 [ADR-0057](../adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)。焊盘坐标不跟着这个晶格走——那是 `footprint` 的事。
 - **符号没有层**：`field` 不接受 `layer`（那是封装的概念）。
 - **缺省值不写**：`length=2.54`、`unit=1`、`style=line`、`units 1`、`pin_numbers show` 等一律省略（`spec/symbol.md` §8）。
 - 不支持：文字标注（极性、功能名）、图片、贝塞尔。缺口不硬塞：可以在库里放手写 `.kicad_sym` 兜底（不受 schema 管）。
@@ -103,7 +105,7 @@ pins
 bun run compile:symbol assets/symbols/power/bq24610rger.teda --out dist/ir/symbols/power/bq24610rger.json
 ```
 
-IR 是 `symbol` kind（契约 `schemas/ir/v0.14/symbol.schema.json`），单位全是整数纳米/毫度。`symbol.library` 取的是文件所在的分类目录（`power`），派生它不需要 `--library`；只有目录名不是分类名时才需要覆盖。
+IR 是 `symbol` kind（契约 `schemas/ir/v0.15/symbol.schema.json`），单位全是整数纳米/毫度。`symbol.library` 取的是文件所在的分类目录（`power`），派生它不需要 `--library`；只有目录名不是分类名时才需要覆盖。
 
 ### 5. 导出成 KiCad 产物
 

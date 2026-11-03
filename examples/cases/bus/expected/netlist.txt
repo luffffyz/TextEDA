@@ -1,4 +1,4 @@
-# netlist sensor-hub (ir 0.14)
+# netlist sensor-hub (ir 0.15)
 i2c0.scl: H1.4 J1.4 J2.4 J3.4 J4.4 J5.4 J6.4 J7.4 J8.4 J9.4 J10.4 J11.4 J12.4 J13.4 J14.4
 i2c0.sda: H1.3 J1.3 J2.3 J3.3 J4.3 J5.3 J6.3 J7.3 J8.3 J9.3 J10.3 J11.3 J12.3 J13.3 J14.3
 pwr.gnd: H1.1 J1.1 J2.1 J3.1 J4.1 J5.1 J6.1 J7.1 J8.1 J9.1 J10.1 J11.1 J12.1 J13.1 J14.1
