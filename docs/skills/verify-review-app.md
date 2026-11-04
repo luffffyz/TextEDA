@@ -45,18 +45,23 @@ drawing.
 
 ## 3. The bundled Chromium does not run here
 
-The managed browser at `/home/tz/.omp/puppeteer/chrome/.../chrome` exits 127 with
-`libglib-2.0.so.0: not found` — NixOS has no FHS loader path for it. Pass the **system** browser
-explicitly:
+The **managed** browser — the one the harness bundles under its own cache directory — exits
+127 with `libglib-2.0.so.0: not found` on a NixOS host: there is no FHS loader path for it. Pass
+the **system** browser explicitly instead. On this class of host it lives under the per-user
+profile's `bin/`, so resolve it rather than hard-coding it:
 
 ```js
 const tab = await browser.open({
   name: "review-grid",
   url: "http://127.0.0.1:4791/",
   viewport: { width: 1400, height: 1000 },
-  app: { path: "/etc/profiles/per-user/tz/bin/chromium", relay: false, tern: false },
+  app: { path: SYSTEM_CHROMIUM, relay: false, tern: false },
 });
 ```
+
+`SYSTEM_CHROMIUM` is whatever `which chromium` (or the host's equivalent) resolves to. The point
+is that the bundled browser does not run here, so the path has to be supplied — the exact path is
+this host's, and it is not written down in the repository.
 
 ## 4. Driving the app
 
