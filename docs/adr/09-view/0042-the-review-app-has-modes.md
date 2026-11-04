@@ -3,8 +3,8 @@
 Status: Accepted
 Date: 2026-10-28
 Scope: Decides: that the review app has three modes — `review`, `layout`, `edit` — that share one highlight-and-jump path, that `layout` writes only the print page's `place` rows plus the bends of the nets it disturbed, and that the app never writes `design/**`. Does not decide: what a print page is or how it is drawn — see ADR-0035 and ADR-0036; how PCB placement and copper routing are produced — see ADR-0017.
-Related: [ADR-0004](../01-language/0004-source-spans.md), [ADR-0017](../05-pcb/0017-layout-and-routing-are-agent-driven.md), [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0048](0048-the-review-app-shows-drawings.md), [ADR-0056](0056-the-review-app-has-one-interaction-surface.md)
-Impact: `packages/viewer/**`; `packages/cli` (the `review` command); `packages/renderer`; `packages/core`; `docs/guides/review-app.md`; `docs/backlog.md` (F34)
+Related: [ADR-0004](../01-language/0004-source-spans.md), [ADR-0017](../05-pcb/0017-layout-and-routing-are-agent-driven.md), [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0048](0048-the-review-app-shows-drawings.md), [ADR-0056](0056-the-review-app-has-one-interaction-surface.md), [ADR-0062](0062-a-run-may-end-at-a-port.md), [ADR-0063](0063-a-run-is-shortened-only-along-the-lines-it-was-drawn-on.md).
+Impact: `packages/viewer/**`; `packages/cli` (the `review` command); `packages/renderer`; `packages/core`; `docs/guides/review-app.md`; `docs/backlog.md` (F34) `packages/core/src/view/reroute.ts`;
 > **Current interaction contract (2026-11-03):** the three-mode rule in this record is superseded by [ADR-0056](0056-the-review-app-has-one-interaction-surface.md). The view-only write boundary, canonical host path, and standalone re-anchor decisions remain where they are not changed by that record.
 
 ## Background
@@ -128,6 +128,12 @@ re-attached to the pins that moved.
 
 A wire that was a single straight run and whose endpoints are no longer aligned cannot keep that
 shape; it becomes one elbow, with the first segment keeping the direction it had.
+
+"Preserved" refers to a shape that was **simple** — one that does not cross itself. A move can
+leave the old corners on the far side of the run that reaches them, so the path would pass over its
+own first leg; keeping it would draw a crossing nobody drew. A path that would cross itself is not
+a shape to keep: it is rebuilt as one elbow (or a straight line when its two ends share an axis) and
+reported as a conflict, like any other lost shape.
 
 This is deliberately not obstacle avoidance. A re-anchor does not know about symbols, clearance or
 courtyards, and does not pretend to. A wire that now runs across the body of the symbol it was

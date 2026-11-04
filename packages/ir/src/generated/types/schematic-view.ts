@@ -136,6 +136,13 @@ export type Slug = string;
  * via the `definition` "view_pin_ref".
  */
 export type ViewPinRef = string;
+/**
+ * An end of a drawn run: a board-level pin reference in numbered form (<instance_id>.<pin_number>, e.g. U1.5 or M1.U1.5), or the id of a board port this page draws. A pin's connection point comes from the symbol; a port's comes from the page's own `port` row, so a run can end at the board's edge. Both are matched against the board by the same strings the view already speaks.
+ *
+ * This interface was referenced by `SchematicView`'s JSON-Schema
+ * via the `definition` "view_endpoint_ref".
+ */
+export type ViewEndpointRef = string;
 
 /**
  * The view (S1) of one print page of a board: where the symbols sit, how the wires run, where the labels and board ports are. This layer carries no electrical facts — it references the board's logical schematic by instance id, pin number and net id, and the two must agree. Lengths are integer nanometers, angles integer millidegrees (ADR-0006). The origin is the sheet's upper-left corner, +x right, +y down. See ADR-0035, ADR-0012.
@@ -271,11 +278,11 @@ export interface Wire {
    */
   net: string;
   /**
-   * Start pin; its connection point comes from the symbol, not from this file.
+   * Start of the run: a pin, whose connection point comes from the symbol, or a port this page draws, whose point comes from the page's `port` row. Named `from_pin` because a wire has always started at a pin; a port ending is the same column with a different kind of end.
    */
   from_pin: string;
   /**
-   * End pin; its connection point comes from the symbol, not from this file.
+   * End of the run, with the same two kinds of end as `from_pin`.
    */
   to_pin: string;
   /**

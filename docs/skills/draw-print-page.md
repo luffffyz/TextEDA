@@ -121,7 +121,10 @@ Procedure:
      is not the review artifact.
 2. **Route from logic.** For each net with two or more members, read the member pins and their
    connection points from the symbols, then write `wire` rows:
-   - `<net> <from_pin> <to_pin> [bend_x bend_y ...]`; both endpoints must be members of the net;
+   - `<net> <end> <end> [bend_x bend_y ...]`; an end is a pin reference (`U1.5`) or a port this
+     page draws (`GND`). A pin end must be a member of the net; a port end takes its point from the
+     page's `port` row, so that row has to exist (`view.port-not-drawn`), and moving the row moves
+     the run's end with it;
    - every segment is horizontal or vertical (`view.wire-diagonal` forbids slants);
    - route around symbol bodies (`view.wire-crosses-symbol`) and foreign pin connection points
      (`view.wire-crosses-pin`). A plain crossing of another net is legal: no dot means "not

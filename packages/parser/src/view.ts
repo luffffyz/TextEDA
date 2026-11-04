@@ -35,6 +35,12 @@ const NET_ID_RE = /^[A-Za-z0-9_+-]+(\.[A-Za-z0-9_+-]+)*$/;
 /** Board-level pin reference in numbered form: `<instance_id>.<pin_number>`, e.g. `U1.5`, `M1.U1.5`. */
 const PIN_REF_RE = /^([A-Z]+[0-9]+\.)?[A-Z]+[0-9]+\.[A-Za-z0-9_+-]+$/;
 /**
+ * A board port's id, as `spec/teda.md` §7.5 writes it. A run may end at a port this page draws:
+ * the port's point comes from the page's own `port` row, and the board's `ports` section says which
+ * net it names. The form differs from a pin reference — no dot — so the two cannot be confused.
+ */
+const PORT_ID_RE = /^[A-Za-z0-9_+-]+$/;
+/**
  * `view` was introduced in language version 0.6 (teda.md §13); since 0.7 it names board-level ids
  * (ADR-0012), so a 0.6 view file is no longer accepted.
  */
@@ -357,12 +363,14 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
         }
         const fromPin = cells[1]!.text;
         const toPin = cells[2]!.text;
-        if (!PIN_REF_RE.test(fromPin)) {
-          collector.error(file, line.number, cells[1]!.col, "syntax.invalid-ref", `not a valid pin reference: ${fromPin}`);
-          continue;
-        }
-        if (!PIN_REF_RE.test(toPin)) {
-          collector.error(file, line.number, cells[2]!.col, "syntax.invalid-ref", `not a valid pin reference: ${toPin}`);
+        // A run ends at a pin or at a port this page draws. A pin reference has the form
+        // `<instance>.<pin>`; a port id is a bare name from the board's `ports` section, and the
+        // page's own `port` row carries its point. The two spaces cannot collide: a pin reference
+        // always contains a dot.
+        const ends = [[1, fromPin], [2, toPin]] as const;
+        const badEnd = ends.find(([, end]) => !PIN_REF_RE.test(end) && !PORT_ID_RE.test(end));
+        if (badEnd !== undefined) {
+          collector.error(file, line.number, cells[badEnd[0]]!.col, "syntax.invalid-ref", `not a valid pin reference or port id: ${badEnd[1]}`);
           continue;
         }
         const tail = cells.slice(3);
@@ -452,8 +460,12 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
 
   // Cross-checks the file can answer on its own.
   const placed = new Set(place.map((p) => p.instance_id));
+  const drawnPorts = new Set(port.map((item) => item.id));
   for (const item of wire) {
     for (const ref of [item.from_pin, item.to_pin]) {
+      // An end is a pin or a port this page draws. A port's id has no dot; a pin reference always
+      // does, so the kind is read off the string.
+      if (!ref.includes(".")) continue;
       // The instance id may be module-qualified (`M1.U1`), so the split is at the last dot.
       const instanceId = ref.slice(0, ref.lastIndexOf("."));
       if (!placed.has(instanceId)) {
@@ -465,6 +477,20 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
           `the instance ${instanceId} of pin ${ref} is not in the place section`,
         );
       }
+    }
+  }
+  // A run that ends at a port has to end at a port this page draws: the page's `port` row is where
+  // the point comes from, so a run naming a port the page does not draw has nowhere to end.
+  for (const item of wire) {
+    for (const ref of [item.from_pin, item.to_pin]) {
+      if (ref.includes(".") || drawnPorts.has(ref)) continue;
+      collector.error(
+        file,
+        at.get(item) ?? 1,
+        1,
+        "view.port-not-drawn",
+        `the run ${item.net} ${item.from_pin} → ${item.to_pin} ends at port ${ref}, which this page does not draw`,
+      );
     }
   }
   for (const item of fields) {

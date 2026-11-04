@@ -216,13 +216,15 @@ export function buildViewRewire(options: ViewRewireOptions): VerbResult<ViewRewi
     },
   );
   const geometry = schematicGeometry(view.ir, instances);
+  // A run may end at a port this page draws; the port's own row carries the point.
+  const portPoints = new Map((view.ir.port ?? []).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }]));
 
   const rewired: string[] = [];
   const conflicts: string[] = [];
   const changed: { index: number; wire: NonNullable<typeof view.ir.wire>[number] }[] = [];
   (view.ir.wire ?? []).forEach((wire, index) => {
-    const from = pinPoint(geometry, wire.from_pin);
-    const to = pinPoint(geometry, wire.to_pin);
+    const from = pinPoint(geometry, wire.from_pin, portPoints);
+    const to = pinPoint(geometry, wire.to_pin, portPoints);
     if (!from || !to) {
       conflicts.push(`${wire.net} ${wire.from_pin} → ${wire.to_pin}: the pin is not on this page`);
       return;

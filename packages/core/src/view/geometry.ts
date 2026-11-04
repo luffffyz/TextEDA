@@ -14,14 +14,22 @@ export interface Point {
 /** A point counts as "on" a line when it is this close; drawings are exact, so the tolerance is tiny. */
 export const ON_LINE_NM = 1_000;
 
-/** The polyline a wire draws: endpoints are pins (the geometry knows where they are), plus the view's bend points. */
+/**
+ * The polyline a wire draws: its ends are pins or ports (the geometry knows where they are), plus
+ * the view's bend points.
+ *
+ * A pin reference has a dot and resolves through the symbol; a port id has none and resolves
+ * through the page's own port rows. A port the caller did not pass has no point, and the run is
+ * unreadable — the parser already reports a run ending at a port the page does not draw.
+ */
 export function wirePath(
   wire: NonNullable<SchematicView["wire"]>[number],
   symbols: ReadonlyMap<string, ReadabilitySymbol>,
+  ports?: ReadonlyMap<string, Point>,
 ): Point[] | null {
   const pointOf = (ref: string): Point | null => {
     const dot = ref.lastIndexOf(".");
-    if (dot <= 0) return null;
+    if (dot <= 0) return ports?.get(ref) ?? null;
     return symbols.get(ref.slice(0, dot))?.pins.get(ref.slice(dot + 1)) ?? null;
   };
   const from = pointOf(wire.from_pin);

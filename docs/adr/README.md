@@ -135,6 +135,8 @@ that was meant for it, and by nothing else.
 | [ADR-0058](08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md) | Pin Rows on a Number-Bearing Symbol Are at Least 2.5 mm Apart, and Every Pin Point Is Anchored on Both Axes | Accepted | 2026-11-03 |
 | [ADR-0059](09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) | Print Page Coordinates Anchor on the 0.5 mm Lattice | Accepted | 2026-11-04 |
 | [ADR-0061](09-view/0061-a-move-carries-only-what-belonged-to-the-net.md) | A Move Carries Only What Belonged to the Net | Accepted | 2026-11-04 |
+| [ADR-0062](09-view/0062-a-run-may-end-at-a-port.md) | A Run May End at a Port | Accepted | 2026-11-04 |
+| [ADR-0063](09-view/0063-a-run-is-shortened-only-along-the-lines-it-was-drawn-on.md) | A Run Is Shortened Only Along the Lines It Was Drawn On | Accepted | 2026-11-04 |
 
 ## Process
 

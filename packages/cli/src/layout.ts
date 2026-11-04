@@ -32,7 +32,16 @@ import {
   type Cell,
   type Line,
 } from "@texteda/parser";
-import { nearestOnPath, ON_NET_NM, reanchorWire, reseatOnNet, type WireCorners } from "@texteda/core";
+import {
+  nearestOnPath,
+  ON_NET_NM,
+  reanchorWire,
+  reseatOnNet,
+  simplifyRun,
+  type ObstacleSymbol,
+  type RunObstacles,
+  type WireCorners,
+} from "@texteda/core";
 import { loadComponents, loadModules } from "./project.ts";
 import { LAYOUT } from "./paths.ts";
 import { loadSymbolLibrary, schematicInstances, type SchematicInstances } from "./symbols.ts";
@@ -382,7 +391,24 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
   const { places: newPlaces, moved } = computePlacements(view, request, file);
   const plannedFields = computeFields(view, request, file);
   const plannedTexts = computeTexts(view, request, file);
-  if (moved.size === 0) {
+  // A port move is a wire end move: a run that ends at the port has to follow it, so a move of a
+  // drawn port goes through the re-anchor path even when no symbol moved. A page with no run
+  // ending at that port needs no re-anchor, and keeps the cheaper path.
+  const portEndsMoved =
+    plannedTexts.portsChanged.length > 0 &&
+    (() => {
+      const before = new Map((view.port ?? []).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }]));
+      const after = new Map(plannedTexts.ports.map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }]));
+      return (view.wire ?? []).some((wire) =>
+        [wire.from_pin, wire.to_pin].some((end) => {
+          if (end.includes(".")) return false;
+          const from = before.get(end);
+          const to = after.get(end);
+          return from !== undefined && to !== undefined && (from.x_nm !== to.x_nm || from.y_nm !== to.y_nm);
+        }),
+      );
+    })();
+  if (moved.size === 0 && !portEndsMoved) {
     if (!plannedFields.changed && !plannedTexts.changed) {
       const drawn = drawPage(view, facts.instances);
       return { file, text, changed: false, conflicts: [], reseated: [], ...drawn };
@@ -406,13 +432,18 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
   const before = schematicGeometry(view, facts.instances);
   const after = schematicGeometry({ ...view, place: newPlaces }, facts.instances);
 
+  // Where each port sits: a run may end at a port, and the port's own row is where its point is.
+  // The moved row is used, so a run that ends at a port follows the port.
+  const portsBefore = new Map((view.port ?? []).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }]));
+  const portsAfter = new Map(plannedTexts.ports.map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }]));
+
   // The wires whose pins moved are re-anchored; every other wire is left byte-identical.
   const conflicts: string[] = [];
   const newWires = (view.wire ?? []).map((wire) => {
-    const fromBefore = pinPoint(before, wire.from_pin);
-    const toBefore = pinPoint(before, wire.to_pin);
-    const fromAfter = pinPoint(after, wire.from_pin);
-    const toAfter = pinPoint(after, wire.to_pin);
+    const fromBefore = pinPoint(before, wire.from_pin, portsBefore);
+    const toBefore = pinPoint(before, wire.to_pin, portsBefore);
+    const fromAfter = pinPoint(after, wire.from_pin, portsAfter);
+    const toAfter = pinPoint(after, wire.to_pin, portsAfter);
     if (!fromBefore || !toBefore || !fromAfter || !toAfter) return wire;
     const still =
       fromBefore.x_nm === fromAfter.x_nm &&
@@ -435,7 +466,13 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
         `${wire.net} ${wire.from_pin} → ${wire.to_pin}: the wire's shape could not be kept (${result.conflict})`,
       );
     }
-    return { ...wire, points: result.points.map((point) => ({ x_nm: point.x_nm, y_nm: point.y_nm })) };
+    const kept = result.points.map((point) => ({ x_nm: point.x_nm, y_nm: point.y_nm }));
+    // Re-anchoring keeps the shape, and a shape can be longer than the shortest drawing of the same
+    // run: a corner that was needed before the move may be unnecessary after it. The shorter
+    // drawing is used only when it is legal by the same rules the readability check applies, so a
+    // detour drawn around something on purpose survives.
+    const simplified = simplifyRun([fromAfter, ...kept, toAfter], obstaclesFor(wire, after));
+    return { ...wire, points: simplified.path.slice(1, -1) };
   });
   const disturbed = new Set(
     (view.wire ?? [])
@@ -454,8 +491,8 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
   // single move.
   const pathsByNet = new Map<string, WireCorners[][]>();
   for (const wire of newWires) {
-    const from = pinPoint(after, wire.from_pin);
-    const to = pinPoint(after, wire.to_pin);
+    const from = pinPoint(after, wire.from_pin, portsAfter);
+    const to = pinPoint(after, wire.to_pin, portsAfter);
     if (from === undefined || to === undefined) continue;
     const bends = (wire.points ?? []).map((point) => ({ x_nm: point.x_nm, y_nm: point.y_nm }));
     const paths = pathsByNet.get(wire.net);
@@ -468,8 +505,8 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
   // move elsewhere on the page is no reason to pick it up and carry it to the wire.
   const oldPathsByNet = new Map<string, WireCorners[][]>();
   for (const wire of view.wire ?? []) {
-    const from = pinPoint(before, wire.from_pin);
-    const to = pinPoint(before, wire.to_pin);
+    const from = pinPoint(before, wire.from_pin, portsBefore);
+    const to = pinPoint(before, wire.to_pin, portsBefore);
     if (from === undefined || to === undefined) continue;
     const bends = (wire.points ?? []).map((point) => ({ x_nm: point.x_nm, y_nm: point.y_nm }));
     const paths = oldPathsByNet.get(wire.net);
@@ -614,7 +651,9 @@ function staleNets(view: SchematicView, moved: ReadonlySet<string>): string[] {
   const stale = new Set<string>();
   for (const wire of view.wire ?? []) {
     for (const ref of [wire.from_pin, wire.to_pin]) {
-      if (ref !== "" && moved.has(ref.slice(0, ref.lastIndexOf(".")))) stale.add(wire.net);
+      // A port end has no dot, so it names no instance: a moved symbol never made it stale.
+      const dot = ref.lastIndexOf(".");
+      if (dot > 0 && moved.has(ref.slice(0, dot))) stale.add(wire.net);
     }
   }
   return [...stale].sort();
@@ -778,13 +817,32 @@ function loadBoardFile(root: string, board: string): { file: string; text: strin
   return { file, text: readFileSync(path, "utf8") };
 }
 
-/** Where a pin's connection point sits on the sheet. */
+/**
+ * What a run must not run through, for the simplification pass.
+ *
+ * Every placed symbol is an obstacle: its body, and the stroke of each pin other than the run's own
+ * ends. The candidate paths are axis-parallel, so one pass over the symbols answers the question the
+ * readability check would otherwise answer after a write.
+ */
+function obstaclesFor(
+  wire: NonNullable<SchematicView["wire"]>[number],
+  geometry: SheetGeometry,
+): RunObstacles {
+  // A port end is not a pin, so it never needs exempting: the run's own pins are named here, and a
+  // port's point is not in any symbol's pin map.
+  const ends = [wire.from_pin, wire.to_pin].filter((ref) => ref.includes("."));
+  return { symbols: geometry.symbols, ends };
+}
+
+/** Where a run's end sits on the sheet: a pin's connection point, or a port the page draws. */
 export function pinPoint(
   geometry: SheetGeometry,
   ref: string,
+  ports?: ReadonlyMap<string, { x_nm: number; y_nm: number }>,
 ): { x_nm: number; y_nm: number } | undefined {
   const dot = ref.lastIndexOf(".");
-  if (dot <= 0) return undefined;
+  // A port id has no dot; a pin reference always does (spec/teda.md §4.2, §7.5).
+  if (dot <= 0) return ports?.get(ref);
   const instance = geometry.symbols.find((symbol) => symbol.instance_id === ref.slice(0, dot));
   return instance?.pins.get(ref.slice(dot + 1));
 }

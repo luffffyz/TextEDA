@@ -81,6 +81,11 @@ anchors, wire bends, labels, ports, notes — not just the ones the app can move
 D1). Free placement is not admitted today. `bun run view:verify <project>` is the gate that says
 so.
 
+A port can also be the **end of a run** (`wire` rows name it instead of a pin). Moving that port
+extends or shortens the run to reach it, so the port stays on the wire
+([ADR-0062](../adr/09-view/0062-a-run-may-end-at-a-port.md) D4). When the port only sits *near* a
+run, moving it off the net is the case below.
+
 A moved label or port that lands off its net is **reported, not snapped back**: `check` says
 `view.label-not-on-net` / `view.port-not-on-net` and the status line carries the distance. An
 explicit position is a decision (ADR-0056 D6); the automatic reseat that a symbol move triggers

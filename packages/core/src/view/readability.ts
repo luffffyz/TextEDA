@@ -68,11 +68,13 @@ export interface ReadabilityFacts {
  */
 export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
-  const { file, schematic, geometry } = facts;
+  const { file, schematic, geometry, view } = facts;
   const page = facts.view.page;
   const wires = facts.view.wire ?? [];
   const nets = new Map(schematic.nets.map((net) => [net.id, net]));
   const symbols = new Map(geometry.symbols.map((symbol) => [symbol.instance_id, symbol]));
+  // A run may end at a port this page draws: its end point is the page's own port row.
+  const portPoints = new Map((view.port ?? []).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }]));
   const portNet = new Map((schematic.ports ?? []).map((port) => [port.id, port.net]));
   /** Where a page record was written: the IR names the record, the parse's map gives the line. */
   const at = (irPath: string | undefined): DiagnosticLocation =>
@@ -83,7 +85,7 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
     let best = Number.POSITIVE_INFINITY;
     for (const [index, wire] of wires.entries()) {
       if (wire.net !== netId) continue;
-      const path = wirePath(wire, symbols);
+      const path = wirePath(wire, symbols, portPoints);
       if (path && path.length >= 2) best = Math.min(best, distanceToPolyline(point, path));
     }
     for (const member of nets.get(netId)?.members ?? []) {
@@ -194,7 +196,7 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
       // A label or a port sits on the wire it names by construction; a field is exempt from nothing
       // — the symbol put it there, and no run has a reason to cross it.
       if (text.ownNet !== undefined && text.ownNet === wire.net) continue;
-      const path = wirePath(wire, symbols);
+      const path = wirePath(wire, symbols, portPoints);
       if (!path || path.length < 2) continue;
       const through = lengthInBox(path, text.box);
       if (through <= ON_LINE_NM) continue;
@@ -217,7 +219,7 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
   }
 
   for (const [index, wire] of wires.entries()) {
-    const path = wirePath(wire, symbols);
+    const path = wirePath(wire, symbols, portPoints);
     if (!path || path.length < 2) continue;
     for (const symbol of geometry.symbols) {
       let through = 0;
@@ -246,7 +248,7 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
   // that is the connection it declares — but not from the line test: a run that approaches the pin
   // from the wrong side still crosses the line the reader sees.
   for (const [index, wire] of wires.entries()) {
-    const path = wirePath(wire, symbols);
+    const path = wirePath(wire, symbols, portPoints);
     if (!path || path.length < 2) continue;
     for (const symbol of geometry.symbols) {
       for (const [pinNumber, pin] of symbol.pins) {
@@ -303,7 +305,7 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
   // angle reads as a leader or a note, and its two ends are two connections whose relationship the
   // reader has to work out. The repair is always local — put a corner where the two ends meet.
   for (const [index, wire] of wires.entries()) {
-    const path = wirePath(wire, symbols);
+    const path = wirePath(wire, symbols, portPoints);
     if (!path || path.length < 2) continue;
     let slanted = 0;
     let firstX = 0;

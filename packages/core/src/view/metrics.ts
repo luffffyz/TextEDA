@@ -82,12 +82,14 @@ export function viewMetrics(facts: {
 }): ViewMetrics {
   const { view, schematic, geometry } = facts;
   const symbols = new Map(geometry.symbols.map((symbol) => [symbol.instance_id, symbol]));
+  // A run may end at a port this page draws: its end point is the page's own port row.
+  const portPoints = new Map((view.port ?? []).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }]));
   const wires = view.wire ?? [];
   const portNet = new Map((schematic.ports ?? []).map((port) => [port.id, port.net]));
   const nets = new Map(schematic.nets.map((net) => [net.id, net]));
 
   const paths = wires
-    .map((wire) => ({ net: wire.net, path: wirePath(wire, symbols) }))
+    .map((wire) => ({ net: wire.net, path: wirePath(wire, symbols, portPoints) }))
     .filter((entry): entry is { net: string; path: Point[] } => entry.path !== null && entry.path.length >= 2);
 
   const distanceToNet = (netId: string, point: Point): number => {

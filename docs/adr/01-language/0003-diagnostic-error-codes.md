@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-21
 Scope: Decides: that diagnostics carry a `domain.slug` code from a closed domain vocabulary, that the registry is the single source of truth, and that a shipped code is frozen. Does not decide: the wording of a message, nor the severity of a given check — severity is a property of the registry entry, and the wording belongs to the call site.
-Related: [ADR-0004](0004-source-spans.md), [ADR-0038](../10-process/0038-implementation-stack-and-agent-entry.md), [ADR-0041](../10-process/0041-documentation-has-one-authority-per-fact.md)
+Related: [ADR-0004](0004-source-spans.md), [ADR-0038](../10-process/0038-implementation-stack-and-agent-entry.md), [ADR-0041](../10-process/0041-documentation-has-one-authority-per-fact.md), [ADR-0062](../09-view/0062-a-run-may-end-at-a-port.md).
 Impact: `packages/ir/src/diagnostics/**`, `packages/parser/src/**`, `packages/cli/**`, `docs/error-codes.md`
 
 ## Background

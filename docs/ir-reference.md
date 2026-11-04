@@ -714,10 +714,10 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `from_pin` | view_pin_ref | yes | — | Start pin; its connection point comes from the symbol, not from this file. |
+| `from_pin` | view_endpoint_ref | yes | — | Start of the run: a pin, whose connection point comes from the symbol, or a port this page draws, whose point comes from the page's `port` row. Named `from_pin` because a wire has always started at a pin; a port ending is the same column with a different kind of end. |
 | `net` | net_id | yes | — | The net this wire draws; both endpoints must be members of it in the board's nets. |
 | `points` | array<point> | no | — | Bend points in the order they are traversed. Omitted means a straight wire. |
-| `to_pin` | view_pin_ref | yes | — | End pin; its connection point comes from the symbol, not from this file. |
+| `to_pin` | view_endpoint_ref | yes | — | End of the run, with the same two kinds of end as `from_pin`. |
 
 ## `schematic`
 

@@ -1191,6 +1191,13 @@ export const DIAGNOSTIC_CODES = {
     hint: "Place the port's tip on the wire or pin of its net",
     spec: ["spec/schematic-view.md §9.2"],
   },
+  "view.port-not-drawn": {
+    domain: "view",
+    severity: "error",
+    summary: "A wire ends at a port this page does not draw",
+    hint: "A run that ends at a port takes its end point from the page's port row, so that row has to exist; add the port or end the run at a pin",
+    spec: ["spec/schematic-view.md §9.1"],
+  },
   "view.wire-crossing": {
     domain: "view",
     severity: "warning",

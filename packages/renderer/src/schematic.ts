@@ -255,13 +255,18 @@ export function renderSchematic(
     placed.set(place.instance_id, { place, instance });
   }
 
+  // A run may end at a port this page draws: the port's own anchor is the end point. The row's
+  // coordinates are nanometres; the drawing works in millimetres.
+  const portPoints = new Map<string, Point>();
+  for (const port of view.port ?? []) portPoints.set(port.id, { x: port.x_nm / 1_000_000, y: port.y_nm / 1_000_000 });
+
   // Wires first: they run underneath the symbols, so a wire that ends on a pin is covered by the pin line.
   const runs: { net: string; points: Point[] }[] = [];
   for (const wire of view.wire ?? []) {
     const points = [
-      wireEndpoint(placed, wire.from_pin, "from_pin"),
+      wireEndpoint(placed, portPoints, wire.from_pin, "from_pin"),
       ...(wire.points ?? []).map((p) => ({ x: p.x_nm, y: p.y_nm })),
-      wireEndpoint(placed, wire.to_pin, "to_pin"),
+      wireEndpoint(placed, portPoints, wire.to_pin, "to_pin"),
     ];
     if (points.length < 2) continue;
     runs.push({ net: wire.net, points });
@@ -407,9 +412,18 @@ function gcd(a: number, b: number): number {
 
 function wireEndpoint(
   placed: ReadonlyMap<string, { place: Place; instance: SchematicInstance }>,
+  ports: ReadonlyMap<string, Point>,
   ref: string,
   column: string,
 ): Point {
+  // A port id has no dot; a pin reference always does (spec/teda.md §4.2, §7.5).
+  if (!ref.includes(".")) {
+    const at = ports.get(ref);
+    if (at === undefined) {
+      throw new Error(`schematic view: wire ${column} ${ref} ends at a port this page does not draw`);
+    }
+    return at;
+  }
   const { instance: instanceId, pin } = splitPinRef(ref);
   const entry = placed.get(instanceId);
   if (!entry) {

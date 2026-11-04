@@ -10,6 +10,7 @@ import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { formatView, parseView } from "@texteda/parser";
 import { applyLayout, LayoutError, planLayout, renderPageSource } from "../src/layout.ts";
+import { checkProject } from "../src/check.ts";
 import { buildReviewModel } from "../src/review-model.ts";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
@@ -613,5 +614,111 @@ describe("a move changes the rows it touches and nothing else", () => {
     expect(plan.text.split("\n").filter((line) => line.startsWith("  M2.VFB"))).toEqual(
       before.filter((line) => line.startsWith("  M2.VFB")),
     );
+  });
+});
+
+/** The junction dots in a page's drawing, as `x,y` in millimetres: what the reader sees as a join. */
+function junctionDots(svg: string): Set<string> {
+  const dots = new Set<string>();
+  for (const match of svg.matchAll(/<circle cx="([^"]+)" cy="([^"]+)" r="0.4572"/g)) {
+    dots.add(`${match[1]},${match[2]}`);
+  }
+  return dots;
+}
+
+describe("the layout Apply keeps the drawing honest", () => {
+  test("moving a pin past its corner adds no junction dot", () => {
+    // The VFB run already carried a duplicated bend. Moving R2 up put the pin above the corner,
+    // and keeping that corner drew a zero-length segment plus a reversal: three arms at one point,
+    // which the renderer reads as a join. The dot was an artefact of the move, not a connection.
+    const dir = scratch();
+    const before = planLayout(dir, { board: "charger-buck", page: "buck-5v", places: [] });
+    const after = planLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.R2", x: 200.5, y: 109.5, rot: 90 }],
+    });
+    const added = [...junctionDots(after.svg)].filter((dot) => !junctionDots(before.svg).has(dot));
+    expect(added).toEqual([]);
+  });
+
+  test("a run that ends at a port follows the port", () => {
+    // A port is a wire end here: its point comes from the page's own port row, so moving the port
+    // extends or shortens the run instead of leaving the two apart.
+    const dir = scratch();
+    const file = join(dir, "views", "charger-buck", "buck-5v.view.teda");
+    const text = readFileSync(file, "utf8").replace(
+      "  GND      M2.U1.6  M2.U1.9  139.0 121.0  141.5 121.0",
+      "  GND      M2.U1.6  GND        139.0 121.0",
+    );
+    writeFileSync(file, text);
+    // The port is moved off the line the run was drawn on: the run has to grow a bend to reach it.
+    const plan = planLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [],
+      texts: [{ kind: "port", id: "GND", x: 120, y: 115 }],
+    });
+    expect(plan.changed).toBe(true);
+    const run = plan.text.split("\n").find((line) => line.startsWith("  GND      M2.U1.6  GND"));
+    expect(run).toContain("139.0 115.0");
+    expect(plan.conflicts).toEqual([]);
+    // The page still reads clean: the port sits on the run it names.
+    const parsed = parseView(plan.text, { file: "views/charger-buck/buck-5v.view.teda", board: "charger-buck" });
+    expect(parsed.ir).toBeDefined();
+  });
+
+  test("moving a part shortens the runs it no longer needs a detour for", () => {
+    // L1's output went out to x = 214.5 and came back; that detour was there because the pin sat
+    // left of C3. Once the pin is on C3's own column, the detour is a corner the run does not need.
+    const dir = scratch();
+    const before = planLayout(dir, { board: "charger-buck", page: "buck-5v", places: [] });
+    const after = planLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.L1", x: 193, y: 92.5, rot: 0 }],
+    });
+    const runOf = (text: string, from: string) =>
+      text.split("\n").find((line) => line.includes(from) && line.trim().startsWith("VOUT"));
+    expect(runOf(before.text, "M2.L1.2")).toContain("214.5 95.0");
+    expect(runOf(after.text, "M2.L1.2")).not.toContain("214.5");
+    // The run shrank; it did not disappear.
+    expect(runOf(after.text, "M2.L1.2")).toContain("211.0 92.5");
+    expect(after.conflicts).toEqual([]);
+    applyLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.L1", x: 193, y: 92.5, rot: 0 }],
+    });
+    const warnings = checkProject(dir).diagnostics.filter(
+      (d) => d.code.startsWith("view.") && d.code !== "view.nets-not-drawn",
+    );
+    // The write introduces no readability finding on the run it shortened.
+    expect(warnings.filter((d) => d.code === "view.wire-diagonal")).toEqual([]);
+  });
+
+  test("a bus keeps its line: a shortcut that would move it is refused", () => {
+    // C1 moves by half a millimetre; the GND bus it hangs from stays at y = 121 rather than being
+    // pulled up to the pin at y = 112.5, because that would be a different line, not a shorter one.
+    const dir = scratch();
+    const plan = planLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 90 }],
+    });
+    const run = plan.text.split("\n").find((line) => line.startsWith("  GND      M2.C1.2"));
+    expect(run).toContain("118.0 121.0");
+    expect(run).toContain("139.0 121.0");
+    expect(run).not.toContain("112.5");
+  });
+
+  test("a port this page does not draw cannot end a run", () => {
+    // The run's end point comes from the port row; with no row there is nowhere to end, and the
+    // parser says so instead of drawing a run to an invented point.
+    const parsed = parseView(
+      "version 0.10.0\nview buck-5v\nsheet 297 210\nplace\n  U1  10.0  10.0\nwire\n  GND  U1.1  NOPE\n",
+      { file: "views/charger-buck/buck-5v.view.teda", board: "charger-buck" },
+    );
+    expect(parsed.diagnostics.map((diagnostic) => diagnostic.code)).toContain("view.port-not-drawn");
   });
 });

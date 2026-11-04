@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-11-04
 Scope: Decides: what a placement change in the review app may move besides the symbol that was dragged — a label or a port follows its net only when it was already on that net's wiring, and a label the person placed freely stays where it was put. Does not decide: what a print page contains or how it is rendered — see [ADR-0035](0035-the-view-layer-is-a-drawing.md); the app's interaction surface — see [ADR-0056](0056-the-review-app-has-one-interaction-surface.md).
-Related: [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0056](0056-the-review-app-has-one-interaction-surface.md), [ADR-0059](0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md), [ADR-0060](../03-project/0060-a-write-keeps-the-bytes-it-replaced.md).
+Related: [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0056](0056-the-review-app-has-one-interaction-surface.md), [ADR-0059](0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md), [ADR-0060](../03-project/0060-a-write-keeps-the-bytes-it-replaced.md), [ADR-0062](0062-a-run-may-end-at-a-port.md).
 Impact: `packages/cli/src/layout.ts`; `packages/cli/test/review-layout.test.ts`; `packages/cli/test/benchmark-apply.test.ts`; `scripts/benchmark-apply.ts`; `docs/guides/review-app.md`
 
 ## Context

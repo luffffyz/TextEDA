@@ -102,6 +102,9 @@ export function checkViews(facts: ViewFacts): Diagnostic[] {
       drawn.add(net.id);
       const members = new Set(net.members);
       for (const pin of [wire.from_pin, wire.to_pin]) {
+        // A run may end at a port this page draws. That end names the board's port, not a pin, and
+        // the port's own row carries its point; the port's net is checked with the `port` rows.
+        if (!pin.includes(".")) continue;
         if (members.has(pin)) continue;
         const instance = pin.slice(0, pin.lastIndexOf("."));
         const reason = instances.has(instance)
