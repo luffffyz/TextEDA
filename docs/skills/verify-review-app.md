@@ -89,12 +89,56 @@ this host's, and it is not written down in the repository.
 2. `page.keyboard.press("m")` → the status becomes
    `move preview: click to keep it, Escape to cancel`.
 3. Move the pointer → the status becomes `M2.C1 → x, y mm · not applied yet`.
-4. Mouse up → `move kept locally; Apply to write it`.
+4. Mouse up → `move kept locally; Apply to write it`, and the moved symbol **stays selected**.
 5. Press **Apply** → `applied: N symbols moved, … written`.
 
 `Escape` cancels the transaction and restores the move without touching the unrelated pending
 edits. **Until `Apply`, nothing is written** — the page's old wires keep their now-stale bends,
 which is why `view.wire-diagonal` / `view.wire-crosses-pin` appear after the write.
+
+### 4.2 A completed move keeps its object selected
+
+This is the check that catches the move that cannot be moved again. After the mouse-up, the
+selection must survive, and a second `m` must open a second transaction:
+
+```js
+const afterMove = await page.evaluate(() => ({
+  selected: document.querySelector(".selected")?.getAttribute("data-ref") ?? null,
+  moving: document.querySelector(".stage")?.classList.contains("moving") ?? null,
+}));
+await page.keyboard.press("m");
+const secondMove = await page.evaluate(() =>
+  document.querySelector(".stage")?.classList.contains("moving") ?? null,
+);
+```
+
+After the mouse-up: `selected` is the moved object and `moving` is `false`. After the second `m`:
+`moving` is `true`. If `selected` came back `null` after the mouse-up, the second `m` did nothing
+— the selection was cleared and the object can no longer be moved (ADR-0056 D5).
+
+### 4.3 The keyboard hint is up without asking for it
+
+The hint sits in the sheet's top-left corner and is **resident**: it is there on load, before any
+key is pressed. Read it straight from the DOM:
+
+```js
+const hint = await page.evaluate(() => {
+  const box = document.querySelector(".keys-hint");
+  return {
+    visible: box !== null && getComputedStyle(box).display !== "none",
+    radius: box === null ? null : getComputedStyle(box).borderRadius,
+    rows: document.querySelectorAll(".key-row").length,
+    keys: Array.from(document.querySelectorAll(".key-cap")).map((cap) => cap.textContent),
+  };
+});
+```
+
+`visible` is `true` on load and `radius` is a rounded value (`8px`). `?` folds it away and brings
+it back. The rows name the keys that answer *now*: with nothing selected there is no `M`, `R` or
+`Enter`; with a symbol selected all three are there (ADR-0056 D6).
+
+The hint's content is derived, so it must be re-read after the state changes — a hint that still
+names `M` while a move is in flight is wrong.
 
 ## 5. Proving the snap grid numerically
 
@@ -134,6 +178,21 @@ bun run texteda check /tmp/texteda-review-smoke
 A moved symbol must not introduce a `view.*` finding. `view metrics` reports
 `No wire needed re-anchoring.` when nothing is stale.
 
+### 6.1 The bytes the write replaced are kept
+
+The write keeps what it replaced under `dist/backups/`, mirroring the page's own path. After the
+Apply above:
+
+```sh
+ls /tmp/texteda-review-smoke/dist/backups/views/charger-buck/
+diff /tmp/texteda-review-smoke/dist/backups/views/charger-buck/buck-5v.view.teda \
+     examples/reference-project/views/charger-buck/buck-5v.view.teda
+```
+
+The backup holds the page **as it was before the write**, so the diff against the original shows
+no change. The backup is a local undo, not a source: it lives under `dist/`, which is gitignored
+(ADR-0060).
+
 ## 7. Clean up
 
 Never leave the server running.
@@ -157,7 +216,9 @@ Close the tab with `browser.close({ name })` so the spawned Chromium does not st
 - [`docs/guides/review-app.md`](../guides/review-app.md): the app's bindings, the one-surface rule,
   and what the app may write.
 - [ADR-0056](../adr/09-view/0056-the-review-app-has-one-interaction-surface.md): one interaction
-  surface.
+  surface; D5 a completed move keeps its object selected, D6 the keyboard hint is resident.
 - [ADR-0059](../adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1:
   every stored coordinate is a `0.5 mm` lattice point.
+- [ADR-0060](../adr/03-project/0060-a-write-keeps-the-bytes-it-replaced.md): a write keeps the bytes
+  it replaced, under `dist/backups/`.
 - [`docs/skills/README.md`](README.md): the index of the procedures.

@@ -63,6 +63,7 @@ that was meant for it, and by nothing else.
 | [ADR-0009](03-project/0009-board-linking.md) | How Boards Are Linked Together | Accepted | 2026-10-20 |
 | [ADR-0010](03-project/0010-instance-identity-is-a-uid.md) | Instance Identity Is a Stable Project-Local UID, Not the Refdes | Accepted | 2026-10-25 |
 | [ADR-0011](03-project/0011-renumbering-is-a-code-executed-rename.md) | Renumbering Is a Code-Executed Global Rename, Not an Agent Edit | Accepted | 2026-10-25 |
+| [ADR-0060](03-project/0060-a-write-keeps-the-bytes-it-replaced.md) | A Write Keeps the Bytes It Replaced | Accepted | 2026-11-04 |
 
 ## Schematic
 

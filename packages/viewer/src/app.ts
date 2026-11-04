@@ -34,7 +34,7 @@ import type {
  * in the language places one. Keeping the kind lets `m` answer for a label or a port and stay silent
  * for a note.
  */
-interface Highlight {
+export interface Highlight {
   readonly kind: "symbol" | "field" | "label" | "port" | "text";
   readonly id: string;
 }
@@ -134,9 +134,10 @@ interface AppState {
   /**
    * Whether the keyboard hint is showing over the sheet's top-left corner.
    *
-   * Held down rather than toggled: the hint names the keys that are live *right now*, and a mode
-   * that stays up after the hands leave the keyboard would be stale the moment the selection
-   * changed. Revealed by holding the hint key, hidden on release.
+   * Resident rather than summoned: the hint names the keys that are live *right now*, and a reader
+   * who does not know a key exists cannot ask for the list that would tell them. It is therefore up
+   * from the start, and `?` folds it away for the moments when it covers the sheet. The list itself
+   * is still derived from the state, so it never names a key that does not answer.
    */
   keysOpen: boolean;
 }
@@ -153,7 +154,7 @@ function initialState(): AppState {
     folded: new Set<string>(),
     adjusted: false,
     sidebarOpen: false,
-    keysOpen: false,
+    keysOpen: true,
     sourceOpen: false,
     pending: new Map<string, PendingPlace>(),
     pendingFields: new Map<string, PendingField>(),
@@ -865,9 +866,31 @@ function setStatus(text: string): void {
 }
 
 /** One key in the hint: the glyph in its box, and what it does in the current state. */
-interface KeyHint {
+export interface KeyHint {
   key: string;
   what: string;
+}
+
+/**
+ * The state the keyboard hint is derived from.
+ *
+ * Everything the hint decides is here, so the decision can be tested without a browser: which
+ * drawing is on screen, what is selected, whether a move is in flight, whether this host may write,
+ * whether the selected field carries an override, and whether the hint itself is up.
+ */
+export interface KeyHintState {
+  /** The kind of drawing on screen, or `undefined` when there is none. */
+  drawingKind: "sch" | "pcb" | "symbol" | "footprint" | undefined;
+  /** What is selected, if anything. */
+  selected: Highlight | null;
+  /** Whether a move transaction is in flight. */
+  moving: boolean;
+  /** Whether this host grants writes beyond the places-only boundary. */
+  canWriteFull: boolean;
+  /** Whether the selected field carries an override that a restore would drop. */
+  fieldIsManual: boolean;
+  /** Whether the hint is up; the hint's own key says which way it toggles. */
+  keysOpen: boolean;
 }
 
 /**
@@ -875,32 +898,23 @@ interface KeyHint {
  *
  * The hint is state-derived rather than a fixed list: with nothing selected `m`/`r`/`Enter` would
  * be dead, and a hint that names dead keys teaches the wrong thing. Each entry is a key the
- * handler below actually accepts in this state, so the two cannot drift apart silently.
+ * handler actually accepts in this state, so the two cannot drift apart silently.
  */
-function liveKeyHints(): KeyHint[] {
+export function keyHints(state: KeyHintState): KeyHint[] {
   const hints: KeyHint[] = [];
-  const current = drawing();
+  const current = state.drawingKind;
   const selected = state.selected;
-  const moving = moveTransaction !== null;
-  if (moving) {
+  if (state.moving) {
     hints.push({ key: "Enter", what: "keep the move" }, { key: "Esc", what: "cancel it" });
     return hints;
   }
   if (selected !== null && selected.kind === "field") {
-    const field = fieldForKey(selected.id);
-    const identity = splitFieldKey(selected.id);
-    const manual =
-      field !== undefined &&
-      identity !== undefined &&
-      (state.removeFields.has(fieldKey(identity.instance_id, identity.name)) ||
-        state.pendingFields.has(fieldKey(identity.instance_id, identity.name)) ||
-        field.manual);
-    if (manual) hints.push({ key: "Backspace", what: "restore automatic placement" });
+    if (state.fieldIsManual) hints.push({ key: "Backspace", what: "restore automatic placement" });
   } else if (selected !== null) {
     hints.push({ key: "Enter", what: "open its source" });
-    if (current?.kind === "sch" && canWriteFull()) hints.push({ key: "M", what: "preview a snapped move" });
+    if (current === "sch" && state.canWriteFull) hints.push({ key: "M", what: "start a snapped move" });
   }
-  if (current?.kind === "sch" && selected?.kind === "symbol") hints.push({ key: "R", what: "rotate the selection" });
+  if (current === "sch" && selected?.kind === "symbol") hints.push({ key: "R", what: "rotate the selection" });
   hints.push(
     { key: "0", what: "fit the sheet" },
     { key: "+", what: "zoom in" },
@@ -908,16 +922,54 @@ function liveKeyHints(): KeyHint[] {
     { key: "←/→", what: "next or previous drawing" },
   );
   if (selected !== null) hints.push({ key: "Esc", what: "clear the selection" });
-  hints.push({ key: "?", what: "this list" });
+  hints.push({ key: "?", what: state.keysOpen ? "hide this list" : "show this list" });
   return hints;
+}
+
+/**
+ * What the status line says after a move.
+ *
+ * The line answers two things at once: which object is still selected, and that the move is local
+ * until Apply. The object comes first, so the notice does not bury it.
+ */
+export function moveStatus(highlight: Highlight, moved: boolean, symbolName: string | undefined): string {
+  const kept = moved ? "move kept locally; Apply to write it" : "move completed without changes";
+  if (highlight.kind !== "symbol") return kept;
+  const label = symbolName === undefined ? highlight.id : `${highlight.id} · ${symbolName}`;
+  return `${label} · ${kept}`;
+}
+
+/** The keys that do something right now, read from the app's own state. */
+function liveKeyHints(): KeyHint[] {
+  const selected = state.selected;
+  let fieldIsManual = false;
+  if (selected !== null && selected.kind === "field") {
+    const field = fieldForKey(selected.id);
+    const identity = splitFieldKey(selected.id);
+    fieldIsManual =
+      field !== undefined &&
+      identity !== undefined &&
+      (state.removeFields.has(fieldKey(identity.instance_id, identity.name)) ||
+        state.pendingFields.has(fieldKey(identity.instance_id, identity.name)) ||
+        field.manual);
+  }
+  return keyHints({
+    drawingKind: drawing()?.kind,
+    selected,
+    moving: moveTransaction !== null,
+    canWriteFull: canWriteFull(),
+    fieldIsManual,
+    keysOpen: state.keysOpen,
+  });
 }
 
 /**
  * Paint the keyboard hint, or clear it.
  *
- * `state.keysOpen` is held, not toggled: the hint is a momentary reminder that follows the state it
- * describes, so it is shown while the key is held and cleared a moment after release. A hint that
- * outlived the state would keep claiming keys that no longer answer.
+ * The hint is resident: it is up from the start, because a reader who does not know that a key
+ * exists cannot ask for the list that would tell them. `?` folds it away. The list is still derived
+ * from the state every time it is painted, so what it claims is what the keys answer right now —
+ * a resident hint does not become a stale one.
  */
 function renderKeysHint(): void {
   const box = frame.keysHint;
@@ -932,20 +984,6 @@ function renderKeysHint(): void {
     list.append(row);
   }
   box.append(list);
-}
-
-/** How long the hint stays up after the key is released, in milliseconds. */
-const KEYS_HINT_HOLD_MS = 1600;
-let keysHideTimer: number | undefined;
-
-/** Clear the hint after a short hold, so it never outlives the state it describes. */
-function scheduleKeysHide(): void {
-  if (keysHideTimer !== undefined) window.clearTimeout(keysHideTimer);
-  keysHideTimer = window.setTimeout(() => {
-    keysHideTimer = undefined;
-    state.keysOpen = false;
-    renderKeysHint();
-  }, KEYS_HINT_HOLD_MS);
 }
 
 /**
@@ -1715,6 +1753,8 @@ type MoveTransaction =
   | {
       kind: "symbol";
       id: string;
+      /** The object this move is about, so the selection can outlive the move (see `stopDrag`). */
+      highlight: Highlight;
       from: ReviewPlace;
       originalPending: PendingPlace | undefined;
       start: { x: number; y: number };
@@ -1723,6 +1763,8 @@ type MoveTransaction =
   | {
       kind: "field";
       id: string;
+      /** The object this move is about, so the selection can outlive the move (see `stopDrag`). */
+      highlight: Highlight;
       name: ReviewField["name"];
       from: ReviewPlace;
       x: number;
@@ -1738,6 +1780,8 @@ type MoveTransaction =
       kind: "text";
       /** The net a label names, or the `port_id` a port tag shows. */
       id: string;
+      /** The object this move is about, so the selection can outlive the move (see `stopDrag`). */
+      highlight: Highlight;
       textKind: "label" | "port";
       /** Where the text is drawn now, before the drag. */
       from: { x: number; y: number };
@@ -1806,6 +1850,7 @@ function beginMove(): boolean {
     moveTransaction = {
       kind: "symbol",
       id: selected.id,
+      highlight: selected,
       from: { instance_id: from.instance_id, x: from.x, y: from.y, rot: from.rot },
       originalPending: originalPending === undefined ? undefined : clonePendingPlace(originalPending),
       start: selectionAnchor ?? lastSheetPoint ?? { x: from.x, y: from.y },
@@ -1832,6 +1877,7 @@ function beginMove(): boolean {
     moveTransaction = {
       kind: "field",
       id: identity.instance_id,
+      highlight: selected,
       name: identity.name,
       from: { instance_id: from.instance_id, x: from.x, y: from.y, rot: from.rot },
       x,
@@ -1853,6 +1899,7 @@ function beginMove(): boolean {
     moveTransaction = {
       kind: "text",
       id: selected.id,
+      highlight: selected,
       textKind: selected.kind,
       from: { x, y },
       offsetX: start.x - x,
@@ -2045,10 +2092,21 @@ const stopDrag = (event: PointerEvent): void => {
     }
     moveTransaction = null;
     frame.stage.classList.remove("moving");
-    clearSelection();
+    // The move keeps the object it moved selected. Clearing the selection here would strand the
+    // reviewer: the symbol is where they just put it, but `m` would have nothing to move and the
+    // sheet would show no selection at all. Keeping it means the next `m` nudges the same object,
+    // which is what a second placement is (ADR-0056 — one surface, one selection).
+    state.selected = move.highlight;
+    selectionAnchor = point ?? lastSheetPoint;
+    paintHighlights(move.highlight);
+    renderTree();
+    renderKeysHint();
     updateActions();
     lastPress = null;
-    setStatus(move.moved ? "move kept locally; Apply to write it" : "move completed without changes");
+    // The status line says both things the reviewer needs: which object is still selected, and that
+    // the move is local until Apply. The object comes first so it is not lost behind the notice.
+    const facts = move.highlight.kind === "symbol" ? instanceOf(move.highlight.id) : undefined;
+    setStatus(moveStatus(move.highlight, move.moved, facts?.symbol));
     return;
   }
   const selection = pressed;
@@ -2199,10 +2257,9 @@ function onKeyDown(event: KeyboardEvent): void {
     // a selected field override needs a key that drops it, and Backspace is the drop gesture.
     if (restoreSelectedField()) event.preventDefault();
   } else if (event.key === "?") {
-    // Held, not toggled: the hint describes the state it was shown in, so it clears itself.
-    state.keysOpen = true;
+    // The hint is resident; this folds it away when it covers the sheet, and brings it back.
+    state.keysOpen = !state.keysOpen;
     renderKeysHint();
-    scheduleKeysHide();
     event.preventDefault();
   } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
     // The arrows walk the drawings of the same kind: print pages among themselves and library

@@ -5,7 +5,7 @@
 // written bytes are the formatter's, the staleness is reported (and visible in the project's own
 // check), refusals still refuse like the layout path, and the standalone app's write is untouched.
 import { describe, expect, test } from "bun:test";
-import { cpSync, mkdtempSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -38,14 +38,22 @@ function content(root: string, relativePath: string): string {
   return readFileSync(join(root, relativePath), "utf8");
 }
 
-/** Every file below a root, as absolute paths, sorted: the reference project's views nest under `views/<board>/`. */
+/**
+ * Every source file below a root, as absolute paths, sorted.
+ *
+ * `dist/` is skipped: it holds derived artifacts (the IR shard tree, the write backups), not the
+ * project's own files. A test that asks "did the write touch anything it should not" is asking
+ * about the sources, and the backups are covered by their own test.
+ */
 function allFiles(root: string): string[] {
   const files: string[] = [];
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir).sort()) {
       const path = join(dir, entry);
-      if (statSync(path).isDirectory()) walk(path);
-      else files.push(path);
+      if (statSync(path).isDirectory()) {
+        if (relative(root, path) === "dist") continue;
+        walk(path);
+      } else files.push(path);
     }
   };
   walk(root);
@@ -145,6 +153,64 @@ describe("layout-places: the places-only write path", () => {
       .filter((path) => readFileSync(path, "utf8") !== before.get(path))
       .map((path) => relative(dir, path));
     expect(changed).toEqual(["views/charger-buck/buck-5v.view.teda"]);
+  });
+
+  test("the bytes the write replaced are kept, so a wrong move can be put back", () => {
+    const dir = scratch();
+    cpSync(REFERENCE, dir, { recursive: true });
+    const file = pageFile("charger-buck", "buck-5v");
+    const before = content(dir, file);
+    const backup = join(dir, "dist", "backups", file);
+
+    applyPlaces(dir, REQUEST);
+
+    // The backup keeps the page as it was, at the path that mirrors where the page lives.
+    expect(existsSync(backup)).toBe(true);
+    expect(readFileSync(backup, "utf8")).toBe(before);
+    // and the page itself now holds the move
+    expect(content(dir, file)).not.toBe(before);
+  });
+
+  test("a second write backs up the first write's result, not the original", () => {
+    const dir = scratch();
+    cpSync(REFERENCE, dir, { recursive: true });
+    const file = pageFile("charger-buck", "buck-5v");
+    const backup = join(dir, "dist", "backups", file);
+
+    applyPlaces(dir, REQUEST);
+    const afterFirst = content(dir, file);
+    applyPlaces(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.U1", x: 160, y: 105, rot: 90 }],
+    });
+
+    // The backup is the most recent state, so one step back is always available.
+    expect(readFileSync(backup, "utf8")).toBe(afterFirst);
+    expect(readFileSync(backup, "utf8")).not.toBe(content(dir, file));
+  });
+
+  test("a write that changes nothing leaves no backup behind", () => {
+    const dir = scratch();
+    cpSync(REFERENCE, dir, { recursive: true });
+    const file = pageFile("charger-buck", "buck-5v");
+    const before = content(dir, file);
+
+    // The request asks for the position and rotation the symbol already has.
+    const plan = planPlaces(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.U1", x: 140, y: 105, rot: 0 }],
+    });
+    applyPlaces(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.U1", x: 140, y: 105, rot: 0 }],
+    });
+
+    expect(content(dir, file)).toBe(before);
+    expect(plan.changed).toBe(false);
+    expect(existsSync(join(dir, "dist", "backups", file))).toBe(false);
   });
 
   test("the written bytes are the formatter's", () => {

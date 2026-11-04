@@ -53,13 +53,19 @@ duplicated the source entry and took width from the drawing.
 
 ## The key hint
 
-Pressing `?` shows the keys that answer **in the current state**, in the sheet's top-left corner,
-each in a rounded box: `Enter` opens the selected object's source, `M` previews a snapped move,
-`R` rotates a selected symbol, `Backspace` restores a selected field's automatic placement, `0` / `+` /
-`-` fit and zoom, `←/→` walk the drawings, `Esc` clears the selection. The list is derived from the
-state, not fixed: while a move is in flight it shows only the two keys that end it, and a field with
-no override offers no `Backspace`. It clears itself 1.6 s after `?`, because a hint outliving the
-state would advertise keys that no longer answer.
+The sheet's top-left corner carries the keys that answer **in the current state**, each in a rounded
+box: `Enter` opens the selected object's source, `M` starts a snapped move, `R` rotates a selected
+symbol, `Backspace` restores a selected field's automatic placement, `0` / `+` / `-` fit and zoom,
+`←/→` walk the drawings, `Esc` clears the selection.
+
+The hint is **resident**: it is up from the start, because a reader who does not know that a key
+exists cannot ask for the list that would tell them. `?` folds it away for the moments when it
+covers the sheet, and brings it back.
+
+The list is derived from the state, not fixed: while a move is in flight it shows only the two keys
+that end it, a field with no override offers no `Backspace`, a host that may not write offers no
+`M`, and a PCB drawing offers neither `M` nor `R`. A resident hint does not become a stale one —
+it is repainted whenever the state it describes changes.
 
 ## What `M` can move
 
@@ -148,8 +154,9 @@ placements but cannot edit fields or source.
 - **`m` starts movement** only after a schematic symbol or permitted field is selected. The preview
   uses the existing `snapPlacement()` path and its 0.5 mm grid (ADR-0057). Pointer movement changes the local
   preview; it does not write a file.
-- **Left-click completes the local move preview.** The result remains pending until `Apply` or
-  `Ctrl+Enter` sends a commit to `POST /api/layout`.
+- **Left-click completes the local move preview.** The object stays selected afterwards, so the
+  next `m` nudges the same object — a placement is often a second nudge, not a second selection.
+  The result remains pending until `Apply` or `Ctrl+Enter` sends a commit to `POST /api/layout`.
 - **`Escape` during a move cancels that transaction only.** It restores the symbol or field's
   original placement and preserves unrelated pending edits. It does not commit anything.
 - **`r` queues a clockwise 90-degree rotation** for the selected schematic symbol. Rotation is a
@@ -162,7 +169,10 @@ placements but cannot edit fields or source.
 
 The browser never writes files. The server owns canonical parsing and writing, and these actions
 write only `views/<board_id>/<page_id>.view.teda`; they do not write `design/**`, IR shards, project
-hashes or build hashes. The standalone server's full capability accepts fields and source. The DSH
+hashes or build hashes. The write goes through a temporary name and an atomic rename, so a reader
+sees either the old page or the new one — never half of each — and the bytes the write replaced are
+kept under `dist/backups/`, so a page that was moved by mistake can be put back. The standalone
+server's full capability accepts fields and source. The DSH
 places-only host rejects `fields`, `remove_fields` and `text` payload keys instead of ignoring them.
 The app does not route wires during a move or solve placement; stale or conflicting wires are
 reported for the CLI/agent workflow.

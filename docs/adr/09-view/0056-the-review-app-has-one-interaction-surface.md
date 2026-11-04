@@ -2,8 +2,8 @@
 
 Status: Accepted
 Date: 2026-11-03
-Scope: Decides: that the review app has one interaction surface rather than review/layout/edit modes; that selection, movement, rotation, source editing, host capabilities, and commit/cancel semantics are explicit actions on the current drawing; and that PCB drawings remain read-only. Does not decide: what a view description contains or how it is rendered — see [ADR-0035](0035-the-view-layer-is-a-drawing.md) and [ADR-0036](0036-our-own-reference-renderer.md); how PCB placement and routing are produced — see [ADR-0017](../05-pcb/0017-layout-and-routing-are-agent-driven.md).
-Related: [ADR-0042](0042-the-review-app-has-modes.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0048](0048-the-review-app-shows-drawings.md), [ADR-0057](../08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md), [ADR-0059](0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md)
+Scope: Decides: that the review app has one interaction surface rather than review/layout/edit modes; that selection, movement, rotation, source editing, host capabilities, and commit/cancel semantics are explicit actions on the current drawing; that a completed move keeps its object selected; that the keyboard hint is resident; and that PCB drawings remain read-only. Does not decide: what a view description contains or how it is rendered — see [ADR-0035](0035-the-view-layer-is-a-drawing.md) and [ADR-0036](0036-our-own-reference-renderer.md); how PCB placement and routing are produced — see [ADR-0017](../05-pcb/0017-layout-and-routing-are-agent-driven.md).
+Related: [ADR-0042](0042-the-review-app-has-modes.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0048](0048-the-review-app-shows-drawings.md), [ADR-0057](../08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md), [ADR-0059](0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md), [ADR-0060](../03-project/0060-a-write-keeps-the-bytes-it-replaced.md)
 Impact: `packages/viewer/**`; `packages/cli/src/review.ts`; `packages/cli/src/review-model.ts`; `packages/cli/src/layout.ts`; `plugins/dsh-texteda/**`; `docs/guides/review-app.md`; `docs/backlog.md` (F34)
 
 ## Context
@@ -74,6 +74,27 @@ surface. This decision changes interaction semantics, not ownership: the print p
 independent view description, the PCB remains a physical description, and the renderer remains
 read-only.
 
+### D5. A completed move keeps its object selected
+
+The click that completes a move transaction leaves the moved object selected. A placement is often
+a second nudge rather than a second selection, so clearing the selection would make the second nudge
+impossible: `m` would have no target, and the sheet would show no selection at all.
+
+The selection a move leaves behind is the object it moved, not whatever the pointer happened to land
+on. The status line names it, so the reviewer can see what a further `m` would move.
+
+### D6. The keyboard hint is resident
+
+The sheet's top-left corner carries the keys that answer in the current state, in rounded boxes. The
+hint is up from the start rather than summoned by a key: a reader who does not know that a key
+exists cannot ask for the list that would tell them, and a hint that appears only for a moment is
+missed. `?` folds the hint away for the moments when it covers the sheet, and brings it back.
+
+The list is derived from the state every time it is painted, so a resident hint does not become a
+stale one: it names the keys that answer *now* — while a move is in flight only the two keys that
+end it, a field with no override no `Backspace`, a host that may not write no `M`, and a PCB drawing
+neither `M` nor `R`.
+
 ## Consequences
 
 - There is one keyboard and pointer contract to document and test; no mode-switch state can drift
@@ -85,3 +106,5 @@ read-only.
 - Standalone hosts can edit view source only through the explicit Source panel and full capability.
   DSH can place symbols but cannot edit fields or source.
 - The review app still does not solve layout or routing. PCB edits remain in the agent/CLI workflow.
+- The hint covers the sheet's top-left corner while it is up. It never takes a pointer, so it cannot
+  shadow a hotspot there, and `?` folds it away when the corner matters.

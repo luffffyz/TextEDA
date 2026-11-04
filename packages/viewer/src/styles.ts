@@ -218,13 +218,14 @@ export const APP_STYLES = `
 .teda-review .definitions-toggle:hover { color: var(--fg); background: #23262c; }
 /*
  * The keyboard hint sits in the sheet's own top-left corner and never takes a slice of the frame:
- * it is an overlay on the stage, not a fourth grid track. Hidden until asked for, it also must not
- * catch a pointer while hidden, or it would shadow the sheet's own hotspot in that corner.
+ * it is an overlay on the stage, not a fourth grid track. It is resident, so it stays legible over
+ * whatever the sheet draws there: the panel is nearly opaque, but the ink under it still shows
+ * through, and the hint never catches a pointer, so it cannot shadow the sheet's own hotspot.
  */
 .teda-review .keys-hint {
   position: absolute; left: 12px; top: 12px; z-index: 2; display: none;
   padding: 10px 12px; border-radius: 8px;
-  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
   border: 1px solid var(--line); box-shadow: 0 6px 24px #00000066;
   pointer-events: none;
 }

@@ -16,8 +16,8 @@
 // The re-anchor itself is not a route: the wires whose pins moved keep their shape and get their
 // corners back (see `packages/core/src/view/reroute.ts`). The wires of every other net, and every
 // hand-made corner, are left exactly as they were.
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, relative } from "node:path";
 import { spanOf, type SourceMap } from "@texteda/ir";
 import type { Schematic } from "@texteda/ir/schematic";
 import type { SchematicView } from "@texteda/ir/schematic-view";
@@ -953,10 +953,21 @@ function samePoints(
   return a.length === b.length && a.every((point, index) => point.x_nm === b[index]!.x_nm && point.y_nm === b[index]!.y_nm);
 }
 
-/** Write a file through a temporary name, so a crash cannot leave a half-written page. */
+/**
+ * Write a file through a temporary name, so a crash cannot leave a half-written page.
+ *
+ * The temporary name is an implementation detail, not a draft: it is gone the moment the rename
+ * lands, and the reader never sees a page that is not yet applied. The rename is what makes the
+ * write atomic — a reader sees either the old page or the new one, never a half of each.
+ *
+ * The previous bytes are kept under `dist/backups/`, so a page that was applied by mistake can be
+ * put back. The backup is a derived artifact: it is gitignored, it is not part of the project's
+ * identity, and nothing reads it but the person who undoes their own change.
+ */
 function writeFile(root: string, file: string, text: string): void {
   const path = join(root, file);
   mkdirSync(dirname(path), { recursive: true });
+  keepBackup(root, path);
   const temp = join(dirname(path), `.${basename(path)}.texteda-${process.pid}.tmp`);
   try {
     writeFileSync(temp, text);
@@ -966,6 +977,33 @@ function writeFile(root: string, file: string, text: string): void {
       unlinkSync(temp);
     } catch {
       // The temporary file may already be gone; the original is untouched either way.
+    }
+    throw error;
+  }
+}
+
+/**
+ * Keep the bytes a write is about to replace, under `dist/backups/`.
+ *
+ * The backup mirrors the file's own path under `dist/backups/`, so a page keeps its place in the
+ * tree rather than piling into one directory. A file that does not exist yet has nothing to keep.
+ * The write of the backup is itself atomic, so a crash during it cannot leave a torn backup that
+ * would be restored over a good file.
+ */
+function keepBackup(root: string, path: string): void {
+  if (!existsSync(path)) return;
+  const fromRoot = relative(root, path);
+  const backup = join(root, "dist", "backups", fromRoot);
+  mkdirSync(dirname(backup), { recursive: true });
+  const temp = join(dirname(backup), `.${basename(backup)}.texteda-${process.pid}.tmp`);
+  try {
+    copyFileSync(path, temp);
+    renameSync(temp, backup);
+  } catch (error) {
+    try {
+      unlinkSync(temp);
+    } catch {
+      // The temporary backup may already be gone; the page itself is untouched either way.
     }
     throw error;
   }

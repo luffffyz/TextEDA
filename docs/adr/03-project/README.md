@@ -14,7 +14,8 @@ The project as a container: the ownership model of its tree, how boards are link
 1. [0008](0008-project-tree-has-owners.md) — the tree says who owns what.
 2. [0009](0009-board-linking.md) — boards are linked in a `system` description.
 3. [0010](0010-instance-identity-is-a-uid.md) — an instance's identity is a uid, not its refdes.
-4. [0011](0011-renumbering-is-a-code-executed-rename.md) — renumbering is a rename the code performs.
+4. [0011](0011-renumbering-is-a-code-executed-rename.md) — a renumbering is a rename the code performs.
+5. [0060](0060-a-write-keeps-the-bytes-it-replaced.md) — a write keeps what it replaced.
 
 ## Records
 
@@ -24,3 +25,4 @@ The project as a container: the ownership model of its tree, how boards are link
 | [ADR-0009](0009-board-linking.md) | How Boards Are Linked Together | Accepted | 2026-10-20 |
 | [ADR-0010](0010-instance-identity-is-a-uid.md) | Instance Identity Is a Stable Project-Local UID, Not the Refdes | Accepted | 2026-10-25 |
 | [ADR-0011](0011-renumbering-is-a-code-executed-rename.md) | Renumbering Is a Code-Executed Global Rename, Not an Agent Edit | Accepted | 2026-10-25 |
+| [ADR-0060](0060-a-write-keeps-the-bytes-it-replaced.md) | A Write Keeps the Bytes It Replaced | Accepted | 2026-11-04 |
