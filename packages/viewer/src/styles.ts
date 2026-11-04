@@ -24,7 +24,7 @@ export const APP_STYLES = `
   --note: #7f8a99;
 
   display: grid;
-  grid-template-columns: 260px 1fr 300px;
+  grid-template-columns: var(--sidebar-w, 260px) minmax(0, 1fr);
   height: 100%;
   min-height: 320px;
   background: var(--bg);
@@ -32,10 +32,18 @@ export const APP_STYLES = `
   font: 13px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   overflow: hidden;
 }
+/*
+ * A folded panel is hidden outright, and every column is placed explicitly. Hiding a grid child
+ * alone would pull the remaining ones into the empty track — the sheet would land in the sidebar's
+ * zero-width column — so the children name their track instead of relying on source order.
+ */
+.teda-review.sidebar-hidden { --sidebar-w: 0px; }
+.teda-review > .sidebar { grid-column: 1; }
+.teda-review > .stage-wrap { grid-column: 2; }
+.teda-review.sidebar-hidden > .sidebar { display: none; }
 .teda-review *, .teda-review *::before, .teda-review *::after { box-sizing: border-box; }
 .teda-review aside { background: var(--panel); overflow: auto; }
 .teda-review .sidebar { border-right: 1px solid var(--line); padding: 12px; }
-.teda-review .inspector { border-left: 1px solid var(--line); padding: 12px; }
 .teda-review .project-name { font-weight: 600; font-size: 14px; }
 .teda-review .project-hash { color: var(--muted); font: 11px ui-monospace, monospace; margin-bottom: 12px; }
 .teda-review .page-name {
@@ -195,10 +203,6 @@ export const APP_STYLES = `
   border-top: 1px solid var(--line); padding: 6px 10px; color: var(--muted);
   font: 11px ui-monospace, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.teda-review .inspector h2 {
-  margin-top: 0; color: var(--fg); text-transform: none; font-size: 15px; letter-spacing: 0;
-}
-.teda-review .inspector-body { font-size: 12px; }
 .teda-review .muted { color: var(--muted); }
 .teda-review .definition { display: grid; grid-template-columns: 64px 1fr; gap: 2px 8px; margin-bottom: 10px; }
 .teda-review .definition .label { color: var(--muted); }
@@ -212,16 +216,31 @@ export const APP_STYLES = `
   color: var(--muted); font: inherit; font-size: 11px; cursor: pointer;
 }
 .teda-review .definitions-toggle:hover { color: var(--fg); background: #23262c; }
-.teda-review .definitions { list-style: none; margin: 4px 0 0; padding: 0; }
-.teda-review .definitions li { border-bottom: 1px solid var(--line); }
-.teda-review .definition-open {
-  display: grid; grid-template-columns: 1fr auto; gap: 8px; width: 100%;
-  padding: 4px 2px; background: none; border: 0; color: var(--fg);
-  font: inherit; font-size: 11px; text-align: left; cursor: pointer;
+/*
+ * The keyboard hint sits in the sheet's own top-left corner and never takes a slice of the frame:
+ * it is an overlay on the stage, not a fourth grid track. Hidden until asked for, it also must not
+ * catch a pointer while hidden, or it would shadow the sheet's own hotspot in that corner.
+ */
+.teda-review .keys-hint {
+  position: absolute; left: 12px; top: 12px; z-index: 2; display: none;
+  padding: 10px 12px; border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  border: 1px solid var(--line); box-shadow: 0 6px 24px #00000066;
+  pointer-events: none;
 }
-.teda-review .definition-open:hover, .teda-review .definition-open:focus-visible { color: var(--accent); outline: none; }
-.teda-review .definition-kind { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.teda-review .definition-where { color: var(--muted); font: 10px ui-monospace, monospace; }
+.teda-review .keys-hint.on { display: block; }
+.teda-review .keys { display: grid; gap: 4px 10px; }
+.teda-review .key-row { display: flex; align-items: center; gap: 8px; }
+/* The cap is the box: a rounded key, uppercase glyph, sized so a short key is a square and an
+   arrow pair stays one box instead of three separate squares. */
+.teda-review .key-cap {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 22px; padding: 0 5px;
+  border: 1px solid var(--line); border-radius: 5px;
+  background: #23262c; color: var(--fg);
+  font: 600 12px ui-monospace, SFMono-Regular, monospace; letter-spacing: 0.02em;
+}
+.teda-review .key-what { color: var(--muted); font-size: 11px; }
 `;
 
 /** The class the mount puts on the root element; every rule above is scoped to it. */

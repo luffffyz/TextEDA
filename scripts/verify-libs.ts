@@ -34,6 +34,7 @@ import {
   parseSymbol,
   readComponentFacts,
 } from "@texteda/parser";
+import { symbolHouseStyleProblems } from "./lib/symbol-style.ts";
 
 const useKicad = process.argv.includes("--kicad");
 const positional = process.argv.slice(2).filter((a) => !a.startsWith("--"));
@@ -176,6 +177,7 @@ for (const file of symbolFiles) {
     fail(`${name}: contract validation failed ${JSON.stringify(check.errors)}`);
     continue;
   }
+  for (const problem of symbolHouseStyleProblems(name, parsed.ir.symbol)) fail(problem);
   writeFileSync(join(work, `${name}.json`), canonicalJson(parsed.ir));
 
   const users = symbolUsers.get(name);

@@ -23,7 +23,7 @@ describe("example symbol", () => {
     const sym = result.ir!.symbol;
     expect(sym.pins.length).toBe(25);
     const pin1 = sym.pins.find((p) => p.number === "1")!;
-    expect(pin1.at).toEqual({ x_nm: -12500000, y_nm: -11000000, rotation_mdeg: 0 });
+    expect(pin1.at).toEqual({ x_nm: -12500000, y_nm: -13500000, rotation_mdeg: 0 });
     expect(pin1.length_nm).toBe(2500000);
     expect(pin1.unit).toBe(1);
     expect(pin1.style).toBe("line");

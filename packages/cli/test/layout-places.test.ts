@@ -25,7 +25,7 @@ const REQUEST = {
 const NO_MOVE_REQUEST = {
   board: "charger-buck",
   page: "buck-5v",
-  places: [{ instance_id: "M2.C1", x: 120, y: 95, rot: 90 }],
+  places: [{ instance_id: "M2.C1", x: 117.5, y: 96.5, rot: 90 }],
 };
 
 /** A scratch project: the reference project, copied so the tests write to a copy only. */

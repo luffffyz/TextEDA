@@ -52,7 +52,7 @@
         "at": {
           "rotation_mdeg": 0,
           "x_nm": -7000000,
-          "y_nm": -4000000
+          "y_nm": -5000000
         },
         "length_nm": 2500000,
         "number": "1",
@@ -63,7 +63,7 @@
         "at": {
           "rotation_mdeg": 180000,
           "x_nm": 7000000,
-          "y_nm": -4000000
+          "y_nm": -5000000
         },
         "length_nm": 2500000,
         "number": "2",
@@ -74,7 +74,7 @@
         "at": {
           "rotation_mdeg": 0,
           "x_nm": -7000000,
-          "y_nm": -2000000
+          "y_nm": -2500000
         },
         "length_nm": 2500000,
         "number": "3",
@@ -85,7 +85,7 @@
         "at": {
           "rotation_mdeg": 180000,
           "x_nm": 7000000,
-          "y_nm": -2000000
+          "y_nm": -2500000
         },
         "length_nm": 2500000,
         "number": "4",
@@ -118,7 +118,7 @@
         "at": {
           "rotation_mdeg": 0,
           "x_nm": -7000000,
-          "y_nm": 2000000
+          "y_nm": 2500000
         },
         "length_nm": 2500000,
         "number": "7",
@@ -129,7 +129,7 @@
         "at": {
           "rotation_mdeg": 180000,
           "x_nm": 7000000,
-          "y_nm": 2000000
+          "y_nm": 2500000
         },
         "length_nm": 2500000,
         "number": "8",
@@ -140,7 +140,7 @@
         "at": {
           "rotation_mdeg": 0,
           "x_nm": -7000000,
-          "y_nm": 4000000
+          "y_nm": 5000000
         },
         "length_nm": 2500000,
         "number": "9",
@@ -151,7 +151,7 @@
         "at": {
           "rotation_mdeg": 180000,
           "x_nm": 7000000,
-          "y_nm": 4000000
+          "y_nm": 5000000
         },
         "length_nm": 2500000,
         "number": "10",

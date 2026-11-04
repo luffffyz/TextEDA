@@ -45,10 +45,11 @@ export const DEFAULT_SHEET_HEIGHT_NM = 210_000_000;
 /**
  * The view's coordinates are kept on a 0.01 mm grid, so the canonical form is lossless.
  *
- * 0.01 mm, not 0.1: wiring is drawn at right angles only (spec/schematic-view.md §5), and a wire
- * leaving a pin must start on that pin's own column or row. Pin offsets are multiples of 1.27 mm
- * (0.05 in), which the 0.1 mm grid cannot represent, so the grid has to be finer than the pitch it
- * must land on. 1.27 mm is 127 steps of 0.01 mm exactly.
+ * Resolution is not the drawing lattice. Drawings are laid out on the `0.5 mm` lattice (ADR-0057
+ * D4) — pin connection points, pin inner ends and wire bends all land on it. The format stays
+ * finer than the lattice so historical files and hand nudges remain expressible, and so tightening
+ * the lattice never has to rewrite every stored coordinate. `VIEW_GRID_NM` is therefore the
+ * expressible precision, and canonical form prints any multiple of it back unchanged.
  */
 export const VIEW_GRID_NM = 10_000;
 /** v0.1 supports right angles only. */

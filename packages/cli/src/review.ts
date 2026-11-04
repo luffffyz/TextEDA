@@ -21,6 +21,7 @@ import {
   type LayoutField,
   type LayoutFieldRemoval,
   type LayoutPlace,
+  type LayoutText,
 } from "./layout.ts";
 import { buildReviewModel, reviewGeometry } from "./review-model.ts";
 
@@ -105,6 +106,38 @@ function parseLayoutFields(value: unknown, key: "fields" | "remove_fields"): Lay
     return { instance_id, name, x: object["x"], y: object["y"] } as LayoutField;
   });
 }
+
+/**
+ * Validate a `texts` array: the labels and ports the app moved.
+ *
+ * The shape is closed on purpose. A label is named by the net it carries and a port by its
+ * `port_id`, and a row that carries anything else is a request the write path cannot answer.
+ */
+function parseLayoutTexts(value: unknown, key: "texts"): LayoutText[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new LayoutError(`${key} must be an array`);
+  return value.map((entry, index) => {
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new LayoutError(`${key}[${index}] must be an object`);
+    }
+    const object = entry as Record<string, unknown>;
+    const expected = ["id", "kind", "x", "y"];
+    if (Object.keys(object).some((property) => !expected.includes(property)) || expected.some((property) => !(property in object))) {
+      throw new LayoutError(`${key}[${index}] must contain exactly ${expected.join(", ")}`);
+    }
+    if (typeof object["id"] !== "string" || object["id"].length === 0) {
+      throw new LayoutError(`${key}[${index}].id must be a non-empty string`);
+    }
+    if (object["kind"] !== "label" && object["kind"] !== "port") {
+      throw new LayoutError(`${key}[${index}].kind must be label or port`);
+    }
+    if (typeof object["x"] !== "number" || !Number.isFinite(object["x"]) || typeof object["y"] !== "number" || !Number.isFinite(object["y"])) {
+      throw new LayoutError(`${key}[${index}].x and .y must be finite numbers`);
+    }
+    return { id: object["id"], kind: object["kind"], x: object["x"], y: object["y"] } as LayoutText;
+  });
+}
+
 /**
  * The whole app as one document: styles, the model, the script.
  *
@@ -190,6 +223,8 @@ async function handleApi(
       const request = { board: board.id, page: pageId, places, ...draft } as Parameters<typeof planLayout>[1];
       if (fields !== undefined) request.fields = fields as LayoutField[];
       if (remove_fields !== undefined) request.remove_fields = remove_fields as LayoutFieldRemoval[];
+      const texts = parseLayoutTexts(body["texts"], "texts");
+      if (texts !== undefined) request.texts = texts as LayoutText[];
       const plan = planLayout(root, request);
       if (body["commit"] === true) {
         commitPlan(root, plan);

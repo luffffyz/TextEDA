@@ -33,6 +33,9 @@ export interface ReviewText {
   text: string;
   /** The net a label names or the port id a tag shows; absent for a note. */
   subject?: string;
+  /** The anchor the row stores, in sheet millimetres: where the label sits, the port's tip. */
+  x: number;
+  y: number;
   box: ReviewBox;
 }
 

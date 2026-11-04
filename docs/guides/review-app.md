@@ -33,13 +33,52 @@ A static `--out` document has no server behind it, so it has no write routes: th
 `Save` buttons are disabled and say "this document cannot write". The same drawing, selection,
 navigation, and read-only PCB behavior remain available.
 
-## The three columns
+## Two columns, and the keys where the eye already is
+
+The frame is two columns — the drawing list and the sheet — and **the list starts folded**. The
+sheet is what a reviewer reads; a fixed 260 px of chrome takes a third of a narrow window
+([ADR-0056](../adr/09-view/0056-the-review-app-has-one-interaction-surface.md)). The action bar
+carries `Contents` to open it, and folding it gives the whole width back to the sheet and re-fits
+the drawing.
 
 | Column | What it is |
 |---|---|
-| left | The project and its build hash, the drawings grouped by kind (print pages, board canvases, library symbols, library footprints), what the current print page measures, then the findings from `texteda check` (errors, then warnings, then notes). The first five show; "show all N" opens the rest. A finding that names an object carries a **show** button: it takes the reviewer to that object on the drawing. |
-| middle | The current drawing with explicit actions above it, a status line naming the source file, the size, and what the drawing is made of. |
-| right | The facts about whatever is under the pointer or was selected: instance id, device, symbol, footprint, spec, source file, and the nets its pins land on with those pins listed. The selected identity also has a **definitions** button; `Enter` or a double-click opens it. |
+| left | Folded by default. The project and its build hash, the drawings grouped by kind (print pages, board canvases, library symbols, library footprints), what the current print page measures, then the findings from `texteda check` (errors, then warnings, then notes). The first five show; "show all N" opens the rest. A finding that names an object carries a **show** button: it takes the reviewer to that object on the drawing. |
+| right | The current drawing with explicit actions above it, and a status line naming the source file, the size, and what the drawing is made of. It also reports what the selection is: its instance id, device, and the nets its pins land on. |
+
+There is no details panel. A selection's facts are the ones the status line already prints, and
+everything else a reviewer wants — the symbol, the footprint, the spec — is one `Enter` away in the
+editor, where it can be read next to the source that produces it. A panel that restated those facts
+duplicated the source entry and took width from the drawing.
+
+## The key hint
+
+Pressing `?` shows the keys that answer **in the current state**, in the sheet's top-left corner,
+each in a rounded box: `Enter` opens the selected object's source, `M` previews a snapped move,
+`R` rotates a selected symbol, `Backspace` restores a selected field's automatic placement, `0` / `+` /
+`-` fit and zoom, `←/→` walk the drawings, `Esc` clears the selection. The list is derived from the
+state, not fixed: while a move is in flight it shows only the two keys that end it, and a field with
+no override offers no `Backspace`. It clears itself 1.6 s after `?`, because a hint outliving the
+state would advertise keys that no longer answer.
+
+## What `M` can move
+
+A symbol, a field override, a net label, and a board port all move on the sheet the same way:
+select, press `M`, drag, and the offset snaps to the `0.5 mm` lattice. A label is addressed by the
+net it names and a port by its `port_id`, and the write stores the position the app sends
+(ADR-0056 D2). A note — a free `text` row — does not move: nothing in the language says what a
+paragraph's position means, so the app offers no move for it.
+
+The lattice is the drawing convention for **every** coordinate a page stores — placements, field
+anchors, wire bends, labels, ports, notes — not just the ones the app can move
+([ADR-0059](../adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md)
+D1). Free placement is not admitted today. `bun run view:verify <project>` is the gate that says
+so.
+
+A moved label or port that lands off its net is **reported, not snapped back**: `check` says
+`view.label-not-on-net` / `view.port-not-on-net` and the status line carries the distance. An
+explicit position is a decision (ADR-0056 D6); the automatic reseat that a symbol move triggers
+abstains from rows the person placed by hand.
 
 ## What the app shows
 

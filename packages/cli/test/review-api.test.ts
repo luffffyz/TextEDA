@@ -223,7 +223,9 @@ describe("the review app's write routes", () => {
         manual: true,
       });
       const parsed = parseView(readFileSync(join(dir, pageFile), "utf8"), { file: pageFile, board: "charger-buck" });
-      expect(parsed.ir?.field).toEqual([{ instance_id: "M2.C1", name: "Value", x_nm: 0, y_nm: 0 }]);
+      expect(parsed.ir?.field?.filter((field) => field.instance_id === "M2.C1")).toEqual([
+        { instance_id: "M2.C1", name: "Value", x_nm: 0, y_nm: 0 },
+      ]);
     } finally {
       server.stop();
     }
@@ -292,7 +294,7 @@ describe("the review app's write routes", () => {
     const dir = scratch();
     const text = readFileSync(join(dir, pageFile), "utf8");
     const draft = text.replace(
-      /^([ \t]*)M2\.C1[ \t]+120\.0[ \t]+95\.0[ \t]+90$/m,
+      /^([ \t]*)M2\.C1[ \t]+117\.5[ \t]+96\.5[ \t]+90$/m,
       "$1M2.C1 118.0 95.0 90",
     );
     expect(draft).not.toBe(text);

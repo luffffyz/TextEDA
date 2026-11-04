@@ -51,6 +51,9 @@ jobs:
       - name: Library closure (zero external dependencies)
         run: bun run lib:verify
 
+      - name: Print-page house style (zero external dependencies)
+        run: bun run view:verify
+
       - name: Cross-references resolve
         run: bun run check:links
 

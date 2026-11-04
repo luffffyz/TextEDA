@@ -10,7 +10,7 @@ One flat counter, handed out in the order the records are written, starting at
 `0001`. A number names one record and nothing else: what a record is about is said by
 its folder, not by its number. A number is **never changed and never reused** — a link
 to `ADR-0006` names the same decision forever — so a new record takes the next free
-number and disturbs nothing that already exists. The next free number is `0058`.
+number and disturbs nothing that already exists. The next free number is `0059`.
 The sequence is not contiguous; gaps are normal.
 
 ## Retired
@@ -131,6 +131,8 @@ that was meant for it, and by nothing else.
 | [ADR-0055](09-view/0055-schematic-fields-are-view-overrides.md) | Schematic `Reference` and `Value` Fields Are Per-Instance View Overrides | Accepted | 2026-11-01 |
 | [ADR-0056](09-view/0056-the-review-app-has-one-interaction-surface.md) | The Review App Has One Interaction Surface | Accepted | 2026-11-03 |
 | [ADR-0057](08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) | Symbol Pin Connection Points Sit on a 0.5 mm Lattice | Accepted | 2026-11-03 |
+| [ADR-0058](08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md) | Pin Rows on a Number-Bearing Symbol Are at Least 2.5 mm Apart, and Every Pin Point Is Anchored on Both Axes | Accepted | 2026-11-03 |
+| [ADR-0059](09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) | Print Page Coordinates Anchor on the 0.5 mm Lattice | Accepted | 2026-11-04 |
 
 ## Process
 

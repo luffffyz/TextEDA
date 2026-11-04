@@ -128,7 +128,7 @@ describe("texteda view rewire", () => {
     // An interior corner kept its place and only the ends moved: the rewire rewrites the ends and
     // leaves the bends where the author put them.
     const gnd = parsed.ir?.wire?.find((wire) => wire.net === "GND" && wire.from_pin === "M2.C1.2");
-    expect(gnd?.points?.[0]).toEqual({ x_nm: 120_000_000, y_nm: 121_000_000 });
+    expect(gnd?.points?.[0]).toEqual({ x_nm: 117_500_000, y_nm: 121_000_000 });
     expect(gnd?.points?.[1]).toEqual({ x_nm: 149_000_000, y_nm: 121_000_000 });
     expect(gnd?.points?.length).toBe(2);
   });

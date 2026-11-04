@@ -48,12 +48,12 @@
     },
     {
       "path": "symbols/connectors/hdr-1x3.json",
-      "sha256": "c90d74fb56bd3fe77d987ded5d8873e2025505817748c496bb9bf02c307a1aa6",
+      "sha256": "ea494f4d4c49495418e398d8cb4692d51629194218771a3937c4337fabade2c7",
       "normative": true
     },
     {
       "path": "symbols/interface/sn65hvd230.json",
-      "sha256": "c2e0a762d2552d447cb838db01d230091eda51e34a3141c4a80005b4513889e8",
+      "sha256": "42d075d13f8cea36b1bb2588b37d2b6685bf0f861eeadcb0104a4ab6e2c3dbbc",
       "normative": true
     },
     {
@@ -67,5 +67,5 @@
       "normative": true
     }
   ],
-  "source_hash": "743035ffe7aa0918054756882a2ec2838be0d873b5c59f43a5ad5e0c2703cc76"
+  "source_hash": "7e058bc8f936afa15ed8236be6777f4054cee7837d4c60a41f5fd4bcdb5393b4"
 }

@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-11-03
 Scope: Decides: that the review app has one interaction surface rather than review/layout/edit modes; that selection, movement, rotation, source editing, host capabilities, and commit/cancel semantics are explicit actions on the current drawing; and that PCB drawings remain read-only. Does not decide: what a view description contains or how it is rendered — see [ADR-0035](0035-the-view-layer-is-a-drawing.md) and [ADR-0036](0036-our-own-reference-renderer.md); how PCB placement and routing are produced — see [ADR-0017](../05-pcb/0017-layout-and-routing-are-agent-driven.md).
-Related: [ADR-0042](0042-the-review-app-has-modes.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0048](0048-the-review-app-shows-drawings.md), [ADR-0057](../08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)
+Related: [ADR-0042](0042-the-review-app-has-modes.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0048](0048-the-review-app-shows-drawings.md), [ADR-0057](../08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md), [ADR-0059](0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md)
 Impact: `packages/viewer/**`; `packages/cli/src/review.ts`; `packages/cli/src/review-model.ts`; `packages/cli/src/layout.ts`; `plugins/dsh-texteda/**`; `docs/guides/review-app.md`; `docs/backlog.md` (F34)
 
 ## Context

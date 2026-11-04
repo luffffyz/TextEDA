@@ -72,7 +72,7 @@
 
 - **sch 的逻辑 IR 仍然没有坐标**（`instances` / `nets` / `ports` 只有身份与成员），画在独立的 `view` IR 里；渲染器的输入因此是 `view` + 调用方解析好的符号事实（符号 IR、器件引脚事实），仍然不碰文件系统。
 - **S1 视图层已闭环到渲染**：`spec/schematic-view.md`、`schemas/ir/v0.3/schematic-view.schema.json`、`packages/parser` 的 `view` 解析与 canonical `fmt`（语言版本 0.7）、`packages/renderer` 的 `renderSchematic`、`preview view`、参考工程两份打印页。**下一步**：`packages/core` 的板 ↔ 打印页交叉校验（视图引用的实例 / net / port 是否存在、端点引脚是否属于该 net），再把可读性检查与 round-trip 反解补上。
-- **口径已澄清（[ADR-0057](adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)）**：两件事不再混为一谈。`VIEW_GRID_NM = 10_000` 是**视图文件能表达的坐标分辨率**（`0.01 mm`），不是绘制网格；符号的编写晶格是**引脚连接点与内端都是 `0.5 mm` 的整数倍**、常规间距 `2.0 mm`，评审 app 的拖动吸附同为 `0.5 mm`。于是一条标签既可以落在引脚连接点上（本仓库现有的符号库全部满足），也可以落在走线的晶格折点上，两者都合法；旧的「标准符号不在 `0.1mm` 栅格上、标签只能落在折点」的冲突已消失。参考工程的 `buck-5v` 仍把 GND 走成位总线、标签落在总线上，那是排版选择，不是规则要求。
+- **口径已澄清（[ADR-0057](adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)）**：两件事不再混为一谈。`VIEW_GRID_NM = 10_000` 是**视图文件能表达的坐标分辨率**（`0.01 mm`），不是绘制网格；符号的编写晶格是**引脚连接点与内端都是 `0.5 mm` 的整数倍**（逐引脚、两个轴），画号码的符号同侧相邻脚至少 `2.5 mm`（[ADR-0058](adr/08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md)），评审 app 的拖动吸附同为 `0.5 mm`。于是一条标签既可以落在引脚连接点上（本仓库现有的符号库全部满足），也可以落在走线的晶格折点上，两者都合法；旧的「标准符号不在 `0.1mm` 栅格上、标签只能落在折点」的冲突已消失。参考工程的 `buck-5v` 仍把 GND 走成位总线、标签落在总线上，那是排版选择，不是规则要求。
 - 布局不自动排版：sch 的坐标来自 IR，渲染器只画。多单元器件（双运放）要按 `unit` 选对符号视图。
 - 不要顺手做自动排版——S1 打印页的自动排版仍明确不做（每次渲染都变，可读性检查就失去意义）。B0 的 agent 驱动布局布线是另一条线，见 [ADR-0017](adr/05-pcb/0017-layout-and-routing-are-agent-driven.md) 与 F48。
 

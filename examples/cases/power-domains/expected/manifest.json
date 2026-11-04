@@ -48,9 +48,9 @@
     },
     {
       "path": "symbols/regulators/ldo-sot23-5.json",
-      "sha256": "50eda4eca0dfbffb91f1987b7d8501c6ab8f49292eceb8e123cbe75c8d7c183e",
+      "sha256": "c761ab4a58417be243d4a3e64b2198c55f46baaf535bd04b6db9b5adaa5fe958",
       "normative": true
     }
   ],
-  "source_hash": "d6bb956370b88a4dd0790e70ed28fffb276e723d04da44e33c852a201041f997"
+  "source_hash": "82459ebbfb95a1b26ad16daf1363d8361a8d19515dac6998e558f1d6733e748c"
 }

@@ -25,6 +25,7 @@
     "migrate:0.9": "bun run scripts/migrate-0.9.ts",
     "lib:verify": "bun run scripts/verify-libs.ts",
     "lib:verify:kicad": "bun run scripts/verify-libs.ts --kicad",
+    "view:verify": "bun run scripts/verify-views.ts",
     "export:footprint": "bun run packages/exporter/scripts/export-footprint.ts",
     "smoke:footprint": "bun run scripts/smoke-footprint.ts",
     "compile:footprint": "bun run packages/parser/scripts/compile-footprint.ts",

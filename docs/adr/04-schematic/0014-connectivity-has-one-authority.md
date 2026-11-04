@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-22
 Scope: Decides: that the schematic is the single authority on connectivity, that the deviation whitelist is closed, and that there is no pcb-only mode. Does not decide: how copper implements a connection — see ADR-0020.
-Related: [ADR-0009](../03-project/0009-board-linking.md), [ADR-0012](0012-one-flat-schematic-per-board.md), [ADR-0016](../05-pcb/0016-agent-first-pcb-description.md), [ADR-0020](../05-pcb/0020-connect-pairs-need-copper.md)
+Related: [ADR-0009](../03-project/0009-board-linking.md), [ADR-0012](0012-one-flat-schematic-per-board.md), [ADR-0016](../05-pcb/0016-agent-first-pcb-description.md), [ADR-0020](../05-pcb/0020-connect-pairs-need-copper.md), [ADR-0059](../09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md)
 Impact: `spec/pcb.md` §5.1, §5.2; `packages/core/src/bind/**`; `docs/backlog.md` F21, F36
 
 ## Background

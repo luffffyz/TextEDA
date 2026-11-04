@@ -33,7 +33,7 @@
     },
     {
       "path": "symbols/connectors/hdr-2x5.json",
-      "sha256": "7fc3afaa18a55fcdcc301326091f33975716fac452e3f346c28589ce82cf1152",
+      "sha256": "8e6bdeadd063a40d37f4903bb805b18a1a8bc44698f0bed6e5dd06f8e47540b0",
       "normative": true
     },
     {
@@ -42,5 +42,5 @@
       "normative": true
     }
   ],
-  "source_hash": "5ae3b2edaea2ce8af9b0f1107111250cd1814ca5ce05c976800835ee03e3b1ff"
+  "source_hash": "75ee1e41f7e5a8e5992e7b20b15a5bd766bf7e213a123d60f22c653a43e1ab47"
 }

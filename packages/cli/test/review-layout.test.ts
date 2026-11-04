@@ -4,7 +4,7 @@
 // bytes written are the formatter's, the wires that lost their pins are re-anchored, and every
 // other net is left exactly as it was.
 import { describe, expect, test } from "bun:test";
-import { cpSync, mkdtempSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -235,7 +235,7 @@ describe("the layout Apply", () => {
     const outcome = applyLayout(dir, {
       board: "charger-buck",
       page: "buck-5v",
-      places: [{ instance_id: "M2.C1", x: 120, y: 95, rot: 90 }],
+      places: [{ instance_id: "M2.C1", x: 117.5, y: 96.5, rot: 90 }],
     });
     expect(outcome.changed).toBe(false);
     expect(statSync(file).mtimeMs).toBe(before);
@@ -320,6 +320,76 @@ describe("the layout Apply", () => {
     expect(canonical.ok).toBe(true);
     expect(canonical.text).toBe(written);
   });
+
+  test("a field override on a page below the field version raises the page's version", () => {
+    const dir = scratch();
+    const file = "views/charger-buck/buck-5v.view.teda";
+    // The page as it stood before field overrides existed: the writer must raise a page it is
+    // adding a field row to, and the only way to say that is a page that has no field section.
+    const original = content(dir, file)
+      .replace(/^version .*$/m, "version 0.9.2")
+      .replace(/\nfield\n(?:  .*\n)*/, "");
+    writeFileSync(join(dir, file), original);
+    expect(original.startsWith("version 0.9.2")).toBe(true);
+    expect(original).not.toContain("\nfield\n");
+
+    // No draft: the request is the file as it stands, which is 0.9.2 and has no field section. Writing
+    // a field row under that version would produce a page the parser has to reject (ADR-0005), so the
+    // writer raises the version it is writing.
+    const plan = planLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [],
+      fields: [{ instance_id: "M2.C1", name: "Value", x: 0, y: 0 }],
+    });
+    expect(plan.text.startsWith("version 0.10")).toBe(true);
+    const parsed = parseView(plan.text, { file, board: "charger-buck" });
+    expect(parsed.ok).toBe(true);
+    expect(parsed.ir?.field?.filter((field) => field.instance_id === "M2.C1")).toEqual([
+      { instance_id: "M2.C1", name: "Value", x_nm: 0, y_nm: 0 },
+    ]);
+
+    applyLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [],
+      fields: [{ instance_id: "M2.C1", name: "Value", x: 0, y: 0 }],
+    });
+    const written = content(dir, file);
+    expect(written.startsWith("version 0.10")).toBe(true);
+    expect(formatView(written, { file }).text).toBe(written);
+    // Everything after the new `field` section is the file's own: no place moved, no wire changed.
+    expect(written.slice(written.indexOf("wire\n"))).toBe(original.slice(original.indexOf("wire\n")));
+  });
+
+  test("a page that already carries the field version keeps it, and removing the last override never lowers it", () => {
+    const dir = scratch();
+    const file = "views/charger-buck/buck-5v.view.teda";
+    const raised = content(dir, file).replace("version 0.9.2", "version 0.10");
+    planLayout(dir, { board: "charger-buck", page: "buck-5v", places: [], text: raised, fields: [] });
+    applyLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [],
+      text: raised,
+      fields: [{ instance_id: "M2.C1", name: "Value", x: 0, y: 0 }],
+    });
+    const withField = content(dir, file);
+    expect(withField.startsWith("version 0.10")).toBe(true);
+    applyLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [],
+      remove_fields: [{ instance_id: "M2.C1", name: "Value" }],
+    });
+    const restored = content(dir, file);
+    expect(
+      parseView(restored, { file, board: "charger-buck" }).ir?.field?.some((field) => field.instance_id === "M2.C1"),
+    ).toBe(false);
+    // The version stays: it is the page's statement of what a reader must understand, and lowering it
+    // would be a claim this writer cannot verify.
+    expect(restored.startsWith("version 0.10")).toBe(true);
+  });
   test("field-only Apply writes local overrides without repairing any wiring", () => {
     const dir = scratch();
     const file = "views/charger-buck/buck-5v.view.teda";
@@ -347,7 +417,7 @@ describe("the layout Apply", () => {
     const after = parseView(plan.text, { file, board: "charger-buck" });
     expect(after.ok).toBe(true);
     expect(after.ir?.wire).toEqual(beforeWires);
-    expect(after.ir?.field).toEqual([
+    expect(after.ir?.field?.filter((field) => field.instance_id === "M2.C1")).toEqual([
       { instance_id: "M2.C1", name: "Reference", x_nm: -10_000, y_nm: 10_000 },
       { instance_id: "M2.C1", name: "Value", x_nm: 0, y_nm: 0 },
     ]);
@@ -369,7 +439,9 @@ describe("the layout Apply", () => {
       fields: [{ instance_id: "M2.C1", name: "Value", x: 0, y: 0 }],
     });
     const overridden = parseView(content(dir, file), { file, board: "charger-buck" });
-    expect(overridden.ir?.field).toEqual([{ instance_id: "M2.C1", name: "Value", x_nm: 0, y_nm: 0 }]);
+    expect(overridden.ir?.field?.filter((field) => field.instance_id === "M2.C1")).toEqual([
+      { instance_id: "M2.C1", name: "Value", x_nm: 0, y_nm: 0 },
+    ]);
     const restored = planLayout(dir, {
       board: "charger-buck",
       page: "buck-5v",
@@ -377,7 +449,9 @@ describe("the layout Apply", () => {
       remove_fields: [{ instance_id: "M2.C1", name: "Value" }],
     });
     expect(restored.changed).toBe(true);
-    expect(parseView(restored.text, { file, board: "charger-buck" }).ir?.field).toBeUndefined();
+    expect(
+      parseView(restored.text, { file, board: "charger-buck" }).ir?.field?.some((field) => field.instance_id === "M2.C1"),
+    ).toBe(false);
     expect(restored.geometry.fields).toEqual(automatic);
     applyLayout(dir, {
       board: "charger-buck",
@@ -385,7 +459,11 @@ describe("the layout Apply", () => {
       places: [],
       remove_fields: [{ instance_id: "M2.C1", name: "Value" }],
     });
-    expect(parseView(content(dir, file), { file, board: "charger-buck" }).ir?.field).toBeUndefined();
+    expect(
+      parseView(content(dir, file), { file, board: "charger-buck" }).ir?.field?.some(
+        (field) => field.instance_id === "M2.C1",
+      ),
+    ).toBe(false);
   });
 
   test("a mixed symbol move still reanchors its wires and saves local fields", () => {
@@ -401,10 +479,69 @@ describe("the layout Apply", () => {
     });
     expect(outcome.conflicts).toEqual([]);
     const saved = parseView(content(dir, file), { file, board: "charger-buck" });
-    expect(saved.ir?.field).toEqual([{ instance_id: "M2.C1", name: "Reference", x_nm: 4_250_000, y_nm: -2_500_000 }]);
+    expect(saved.ir?.field?.filter((field) => field.instance_id === "M2.C1")).toEqual([
+      { instance_id: "M2.C1", name: "Reference", x_nm: 4_250_000, y_nm: -2_500_000 },
+    ]);
     expect(saved.ir?.wire?.find((wire) => wire.net === "SYS" && wire.from_pin === "M2.C1.1")?.points?.[0]).toEqual({
       x_nm: 118_000_000,
       y_nm: 86_000_000,
     });
+  });
+});
+
+describe("a label or a port move", () => {
+  const file = "views/charger-buck/buck-5v.view.teda";
+  const base = { board: "charger-buck", page: "buck-5v", places: [] };
+
+  test("writes the row's position and leaves every other fact alone", () => {
+    const dir = scratch();
+    const before = content(dir, file);
+    const plan = planLayout(dir, {
+      ...base,
+      texts: [{ id: "VOUT_5V", kind: "port", x: 208.0, y: 95.0 }],
+    });
+    expect(plan.changed).toBe(true);
+    expect(formatView(plan.text, { file }).text).toBe(plan.text);
+    const saved = parseView(plan.text, { file, board: "charger-buck" });
+    expect(saved.ir?.port?.find((port) => port.id === "VOUT_5V")).toMatchObject({
+      x_nm: 208_000_000,
+      y_nm: 95_000_000,
+    });
+    // The wires are the file's own: nothing moved a pin.
+    expect(saved.ir?.wire).toEqual(parseView(before, { file, board: "charger-buck" }).ir?.wire);
+  });
+
+  test("a row already at the requested position is not a change", () => {
+    const dir = scratch();
+    const plan = planLayout(dir, {
+      ...base,
+      texts: [{ id: "VOUT", kind: "label", x: 196.0, y: 91.5 }],
+    });
+    expect(plan.changed).toBe(false);
+    expect(content(dir, file)).toBe(content(dir, file));
+  });
+
+  test("the write rejects coordinates finer than the format's resolution", () => {
+    const dir = scratch();
+    expect(() =>
+      planLayout(dir, { ...base, texts: [{ id: "VOUT", kind: "label", x: 196.005, y: 91.5 }] }),
+    ).toThrow(/limited to 0\.01 mm resolution/);
+  });
+
+  test("the write refuses a net the page does not label and a port it does not draw", () => {
+    const dir = scratch();
+    expect(() => planLayout(dir, { ...base, texts: [{ id: "NOPE", kind: "label", x: 1, y: 1 }] })).toThrow(
+      /no label for net NOPE/,
+    );
+    expect(() => planLayout(dir, { ...base, texts: [{ id: "NOPE", kind: "port", x: 1, y: 1 }] })).toThrow(
+      /does not draw port NOPE/,
+    );
+  });
+
+  test("two labels of one net are refused, because the net does not name one row", () => {
+    const dir = scratch();
+    expect(() =>
+      planLayout(dir, { ...base, texts: [{ id: "GND", kind: "label", x: 1, y: 1 }] }),
+    ).toThrow(/has 4 labels on this page/);
   });
 });

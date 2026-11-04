@@ -70,7 +70,7 @@ body
 - 长度默认 **mm**，可写 `0.95mm` / `10mil` / `1in`；角度默认度。单位换算在编译期做，**结果不是整数纳米就报错**（不四舍五入）。
 - `pins` 行固定 4 列 `number x y rot`，后面接 `key=value` 尾列（`length` / `unit` / `style`）。
 - `body` 行 2 列：`kind geometry`；`geometry` 单元格内逗号写坐标（`line`/`rect` 4 个数、`arc` 6 个、`circle` 3 个、`poly` 偶数个）。
-- **引脚落在 `0.5 mm` 晶格上**：连接点与内端都是 `0.5 mm` 的整数倍（`length` 因此也是），常规引脚行间距 `2.0 mm`；例外仍须是 `0.5` 的整数倍。理由与例外清单见 `spec/symbol.md` §4.1 与 [ADR-0057](../adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)。焊盘坐标不跟着这个晶格走——那是 `footprint` 的事。
+- **引脚落在 `0.5 mm` 晶格上**：连接点与内端都是 `0.5 mm` 的整数倍（`length` 因此也是），而且**逐个引脚、两个轴**都落格——不要求一行关于原点对称，打印页是引脚到引脚连线。画引脚号的符号，同侧相邻两脚至少 `2.5 mm`，常规就是 `2.5 mm`；只有三位数号码这类具体理由才放宽到 `3.0 mm`，隐藏引脚号的器件图形不受这个下限。理由与例外清单见 `spec/symbol.md` §4.1、[ADR-0057](../adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) 与 [ADR-0058](../adr/08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md)。焊盘坐标不跟着这个晶格走——那是 `footprint` 的事。
 - **符号没有层**：`field` 不接受 `layer`（那是封装的概念）。
 - **缺省值不写**：`length=2.54`、`unit=1`、`style=line`、`units 1`、`pin_numbers show` 等一律省略（`spec/symbol.md` §8）。
 - 不支持：文字标注（极性、功能名）、图片、贝塞尔。缺口不硬塞：可以在库里放手写 `.kicad_sym` 兜底（不受 schema 管）。

@@ -26,8 +26,16 @@ import type {
   ReviewText,
 } from "./types.ts";
 
+/**
+ * The object under the pointer, as the app selects it.
+ *
+ * A printed text is its own kind rather than one `text` bucket: a label names a net and a port names
+ * a board port, and only those two can be moved on the sheet — a free note cannot, because nothing
+ * in the language places one. Keeping the kind lets `m` answer for a label or a port and stay silent
+ * for a note.
+ */
 interface Highlight {
-  readonly kind: "symbol" | "text" | "field";
+  readonly kind: "symbol" | "field" | "label" | "port" | "text";
   readonly id: string;
 }
 
@@ -64,6 +72,15 @@ interface PendingField {
   y: number;
 }
 
+/** A label or a port moved locally but not yet committed. */
+interface PendingText {
+  /** The net a label names, or the `port_id` a port tag shows. */
+  id: string;
+  kind: "label" | "port";
+  x: number;
+  y: number;
+}
+
 /** The action bar's buttons follow the current drawing and pending changes. */
 let applyButton: HTMLButtonElement | undefined;
 let revertButton: HTMLButtonElement | undefined;
@@ -82,7 +99,6 @@ interface AppState {
   /** The next ordinary click only dismisses a just-queued rotation. */
   rotationPendingId: string | null;
   /** The definition menu is open for the current selection. */
-  definitionsOpen: boolean;
   /**
    * The kind blocks the person folded, by key (`kind/symbol`).
    *
@@ -93,6 +109,13 @@ interface AppState {
   folded: Set<string>;
   /** Set once the reviewer pans or zooms: a window resize must not undo their framing. */
   adjusted: boolean;
+  /**
+   * Whether the drawing list is showing.
+   *
+   * The drawing is what a reviewer reads; the list is reference. A fixed 260px of chrome takes a
+   * real bite out of a narrow window, so it starts folded and the action bar carries the toggle.
+   */
+  sidebarOpen: boolean;
   /** Whether the current schematic page's source panel is open. */
   sourceOpen: boolean;
   /** The instance id → where the user put it. */
@@ -101,11 +124,21 @@ interface AppState {
   pendingFields: Map<string, PendingField>;
   /** Explicit field removals, kept separate so `(0, 0)` remains a real coordinate. */
   removeFields: Set<string>;
+  /** Label and port positions keyed by `kind:id`: a net names a label, a port_id names a port. */
+  pendingTexts: Map<string, PendingText>;
   /** The page source, when it differs from the file. */
   draft: string | null;
   /** The rendered draft. */
   draftSvg: string;
   draftErrors: string[];
+  /**
+   * Whether the keyboard hint is showing over the sheet's top-left corner.
+   *
+   * Held down rather than toggled: the hint names the keys that are live *right now*, and a mode
+   * that stays up after the hands leave the keyboard would be stale the moment the selection
+   * changed. Revealed by holding the hint key, hidden on release.
+   */
+  keysOpen: boolean;
 }
 
 /** The state a mount starts in: the first drawing, zoom 1, no selection or pending changes. */
@@ -117,13 +150,15 @@ function initialState(): AppState {
     panY: 0,
     selected: null,
     rotationPendingId: null,
-    definitionsOpen: false,
     folded: new Set<string>(),
     adjusted: false,
+    sidebarOpen: false,
+    keysOpen: false,
     sourceOpen: false,
     pending: new Map<string, PendingPlace>(),
     pendingFields: new Map<string, PendingField>(),
     removeFields: new Set<string>(),
+    pendingTexts: new Map<string, PendingText>(),
     draft: null,
     draftSvg: "",
     draftErrors: [],
@@ -193,6 +228,20 @@ function renderActions(): void {
   applyButton = undefined;
   revertButton = undefined;
   saveButton = undefined;
+  // The drawing list is chrome; the sheet is what gets read, so it starts folded and the action bar
+  // carries the toggle. The selection's own facts live in the status line and the hint instead of
+  // a second panel.
+  const toggle = el("button", "action", "Contents");
+  toggle.type = "button";
+  toggle.title = "show or hide the drawing list";
+  toggle.classList.toggle("active", state.sidebarOpen);
+  toggle.addEventListener("click", () => {
+    state.sidebarOpen = !state.sidebarOpen;
+    renderPanelVisibility();
+    renderActions();
+    fit();
+  });
+  frame.actionBar.append(toggle);
   const current = drawing();
   if (current?.kind === "sch" && capabilityAllowsFull(model.capability)) {
     const source = el("button", "action", "Source");
@@ -268,9 +317,9 @@ function updateActions(): void {
  * draw into a frame the first still owned.
  */
 interface Frame {
+  root: HTMLElement;
   sidebar: HTMLElement;
   stageWrap: HTMLElement;
-  inspector: HTMLElement;
   projectName: HTMLElement;
   projectHash: HTMLElement;
   boardList: HTMLElement;
@@ -284,8 +333,8 @@ interface Frame {
   sourcePane: HTMLElement;
   sourceText: HTMLTextAreaElement;
   status: HTMLElement;
-  inspectorTitle: HTMLElement;
-  inspectorBody: HTMLElement;
+  /** The keyboard hint over the sheet's top-left corner. */
+  keysHint: HTMLElement;
 }
 
 /** The frame of the current mount; `buildShell` sets it. Nothing reads it before then. */
@@ -300,7 +349,6 @@ let frame = undefined as unknown as Frame;
 function buildShell(): void {
   const sidebar = el("aside", "sidebar");
   const stageWrap = el("main", "stage-wrap");
-  const inspector = el("aside", "inspector");
 
   const projectName = el("div", "project-name", model.project.name);
   const projectHash = el(
@@ -325,6 +373,9 @@ function buildShell(): void {
   const stage = el("div", "stage");
   const canvas = el("div", "canvas");
   stage.append(canvas);
+  // The keyboard hint floats over the sheet's own corner, so it never takes a slice of the frame.
+  const keysHint = el("div", "keys-hint");
+  stage.append(keysHint);
 
   // The action bar exposes explicit actions; the source pane is an optional schematic panel.
   const actionBar = el("div", "actions");
@@ -339,16 +390,12 @@ function buildShell(): void {
   const status = el("div", "status");
   stageWrap.append(status);
 
-  const inspectorTitle = el("h2", undefined, "Nothing selected");
-  const inspectorBody = el("div", "inspector-body", "Point at a symbol, a label or a port.");
-  inspector.append(inspectorTitle, inspectorBody);
-
   root.textContent = "";
-  root.append(sidebar, stageWrap, inspector);
+  root.append(sidebar, stageWrap);
   frame = {
+    root,
     sidebar,
     stageWrap,
-    inspector,
     projectName,
     projectHash,
     boardList,
@@ -362,8 +409,7 @@ function buildShell(): void {
     sourcePane,
     sourceText,
     status,
-    inspectorTitle,
-    inspectorBody,
+    keysHint,
   };
   wireStage();
 }
@@ -551,9 +597,9 @@ function renderTree(): void {
       }
       item.addEventListener("click", () => {
         state.selected = { kind: "symbol", id: instance.id };
-        state.definitionsOpen = false;
         renderTree();
-        renderInspector();
+        renderKeysHint();
+        reportSelection(instance.id);
       });
       list.append(item);
     }
@@ -630,8 +676,8 @@ function highlightFor(key: string, kind: string): Highlight | undefined {
   const slash = rest.indexOf("/");
   const id = slash < 0 ? rest : rest.slice(slash + 1);
   if (namespace === "instance") return { kind: "symbol", id };
-  if (namespace === "net" && kind === "view-label") return { kind: "text", id };
-  if (namespace === "port" && kind === "view-port") return { kind: "text", id };
+  if (namespace === "net" && kind === "view-label") return { kind: "label", id };
+  if (namespace === "port" && kind === "view-port") return { kind: "port", id };
   return undefined;
 }
 
@@ -644,7 +690,8 @@ function holderOf(key: string, highlight: Highlight): ReviewDrawing | undefined 
     if (drawing === undefined) continue;
     const holds =
       (highlight.kind === "symbol" && drawing.symbols.some((symbol) => symbol.id === highlight.id)) ||
-      (highlight.kind === "text" && drawing.texts.some((text) => (text.subject ?? text.text) === highlight.id));
+      ((highlight.kind === "label" || highlight.kind === "port") &&
+        drawing.texts.some((text) => (text.subject ?? text.text) === highlight.id));
     if (holds) return drawing;
   }
   return undefined;
@@ -703,11 +750,10 @@ function renderDiagnostics(): void {
         state.drawing = target.drawing;
         revealDrawing(target.drawing);
         resetDraft();
+        state.selected = target.highlight;
         fit();
         renderAll();
-        state.selected = target.highlight;
         paintHighlights(target.highlight);
-        renderInspector();
       });
       row.append(jump);
     }
@@ -798,12 +844,128 @@ function fit(): void {
   applyTransform();
 }
 
+/**
+ * Show or hide the drawing list.
+ *
+ * The grid's side track follows a class on the root rather than a width on the panel: with the
+ * track at `0` the sheet gets the whole frame, and the folded panel keeps no border either.
+ * Hiding the panel alone would leave its track behind and the sheet would still be short.
+ */
+function renderPanelVisibility(): void {
+  frame.root.classList.toggle("sidebar-hidden", !state.sidebarOpen);
+  frame.sidebar.classList.toggle("hidden", !state.sidebarOpen);
+}
+
 /** What the frame.status line says about the page itself; hover replaces it and moving away restores it. */
 let pageStatus = "";
 
 function setStatus(text: string): void {
   pageStatus = text;
   frame.status.textContent = text;
+}
+
+/** One key in the hint: the glyph in its box, and what it does in the current state. */
+interface KeyHint {
+  key: string;
+  what: string;
+}
+
+/**
+ * The keys that do something right now.
+ *
+ * The hint is state-derived rather than a fixed list: with nothing selected `m`/`r`/`Enter` would
+ * be dead, and a hint that names dead keys teaches the wrong thing. Each entry is a key the
+ * handler below actually accepts in this state, so the two cannot drift apart silently.
+ */
+function liveKeyHints(): KeyHint[] {
+  const hints: KeyHint[] = [];
+  const current = drawing();
+  const selected = state.selected;
+  const moving = moveTransaction !== null;
+  if (moving) {
+    hints.push({ key: "Enter", what: "keep the move" }, { key: "Esc", what: "cancel it" });
+    return hints;
+  }
+  if (selected !== null && selected.kind === "field") {
+    const field = fieldForKey(selected.id);
+    const identity = splitFieldKey(selected.id);
+    const manual =
+      field !== undefined &&
+      identity !== undefined &&
+      (state.removeFields.has(fieldKey(identity.instance_id, identity.name)) ||
+        state.pendingFields.has(fieldKey(identity.instance_id, identity.name)) ||
+        field.manual);
+    if (manual) hints.push({ key: "Backspace", what: "restore automatic placement" });
+  } else if (selected !== null) {
+    hints.push({ key: "Enter", what: "open its source" });
+    if (current?.kind === "sch" && canWriteFull()) hints.push({ key: "M", what: "preview a snapped move" });
+  }
+  if (current?.kind === "sch" && selected?.kind === "symbol") hints.push({ key: "R", what: "rotate the selection" });
+  hints.push(
+    { key: "0", what: "fit the sheet" },
+    { key: "+", what: "zoom in" },
+    { key: "-", what: "zoom out" },
+    { key: "←/→", what: "next or previous drawing" },
+  );
+  if (selected !== null) hints.push({ key: "Esc", what: "clear the selection" });
+  hints.push({ key: "?", what: "this list" });
+  return hints;
+}
+
+/**
+ * Paint the keyboard hint, or clear it.
+ *
+ * `state.keysOpen` is held, not toggled: the hint is a momentary reminder that follows the state it
+ * describes, so it is shown while the key is held and cleared a moment after release. A hint that
+ * outlived the state would keep claiming keys that no longer answer.
+ */
+function renderKeysHint(): void {
+  const box = frame.keysHint;
+  box.textContent = "";
+  box.classList.toggle("on", state.keysOpen);
+  if (!state.keysOpen) return;
+  const list = el("div", "keys");
+  for (const hint of liveKeyHints()) {
+    const row = el("div", "key-row");
+    const cap = el("kbd", "key-cap", hint.key.toUpperCase());
+    row.append(cap, el("span", "key-what", hint.what));
+    list.append(row);
+  }
+  box.append(list);
+}
+
+/** How long the hint stays up after the key is released, in milliseconds. */
+const KEYS_HINT_HOLD_MS = 1600;
+let keysHideTimer: number | undefined;
+
+/** Clear the hint after a short hold, so it never outlives the state it describes. */
+function scheduleKeysHide(): void {
+  if (keysHideTimer !== undefined) window.clearTimeout(keysHideTimer);
+  keysHideTimer = window.setTimeout(() => {
+    keysHideTimer = undefined;
+    state.keysOpen = false;
+    renderKeysHint();
+  }, KEYS_HINT_HOLD_MS);
+}
+
+/**
+ * Say what the selected object is, in the status line.
+ *
+ * The details panel used to answer this. Its facts are one line and they belong where the reviewer
+ * already looks for the drawing's state — the status line — so nothing the panel showed is lost
+ * with the panel.
+ */
+function reportSelection(id: string): void {
+  const facts = instanceOf(id);
+  if (facts === undefined) {
+    frame.status.textContent = `${id} · not listed on the board`;
+    return;
+  }
+  const parts = [facts.id, facts.component];
+  if (facts.symbol !== undefined) parts.push(facts.symbol);
+  if (facts.footprint !== undefined) parts.push(facts.footprint);
+  if (facts.params.length > 0) parts.push(facts.params.join(" "));
+  frame.status.textContent = `${parts.join(" · ")} · ${facts.nets.join(" ") || "no nets"}`;
 }
 
 /** The last drawing rendered without preserving selection, for transition cleanup. */
@@ -819,7 +981,6 @@ function renderStage(keepSelection = false): void {
   if (!keepSelection) {
     state.selected = null;
     state.rotationPendingId = null;
-    state.definitionsOpen = false;
     selectionAnchor = null;
   }
   frame.status.classList.remove("error");
@@ -834,7 +995,7 @@ function renderStage(keepSelection = false): void {
     frame.stage.classList.add("empty");
     frame.stage.dataset["empty"] = `${board()?.id ?? "this project"}\n${note}`;
     setStatus(note);
-    renderInspector();
+    renderKeysHint();
     return;
   }
   frame.stage.classList.remove("empty");
@@ -842,7 +1003,7 @@ function renderStage(keepSelection = false): void {
 
   if (current.problems.length > 0) {
     setStatus(`this drawing has no ink: ${current.problems.join("; ")}`);
-    renderInspector();
+    renderKeysHint();
     return;
   }
 
@@ -872,7 +1033,7 @@ function renderStage(keepSelection = false): void {
   applyPending(svg);
   if (keepSelection) paintHighlights(state.selected);
   applyTransform();
-  const pending = state.pending.size + state.pendingFields.size + state.removeFields.size;
+  const pending = state.pending.size + state.pendingFields.size + state.removeFields.size + state.pendingTexts.size;
   setStatus(
     `${current.file} · ${shown.sheet.w} × ${shown.sheet.h} mm · ${drawnCount(current, shown)}` +
       (pending === 0 ? "" : ` · ${pending} layout change${pending === 1 ? "" : "s"}, not applied`),
@@ -917,6 +1078,18 @@ function applyPending(svg: SVGSVGElement): void {
     for (const node of svg.querySelectorAll<SVGElement>("[data-ref]")) {
       if (node.getAttribute("data-ref") === ref) node.setAttribute("transform", matrix);
     }
+  }
+
+  // A label or a port is drawn where its `data-ref` group says it is; a pending move is a plain
+  // offset on that group, because the row carries only a position and the text itself is unchanged.
+  for (const text of drawing()?.texts ?? []) {
+    if (text.kind !== "label" && text.kind !== "port") continue;
+    const id = text.subject ?? text.text;
+    const pending = state.pendingTexts.get(`${text.kind}:${id}`);
+    if (pending === undefined) continue;
+    const group = svg.querySelector<SVGElement>(`[data-ref="${text.kind}:${id}"]`);
+    if (group === null) continue;
+    group.setAttribute("transform", `translate(${pending.x - text.x} ${pending.y - text.y})`);
   }
 }
 
@@ -973,7 +1146,7 @@ function fieldKey(instanceId: string, name: ReviewField["name"]): string {
 }
 
 function hasPendingEdits(): boolean {
-  return state.pending.size > 0 || state.pendingFields.size > 0 || state.removeFields.size > 0;
+  return state.pending.size > 0 || state.pendingFields.size > 0 || state.removeFields.size > 0 || state.pendingTexts.size > 0;
 }
 
 function splitFieldKey(key: string): { instance_id: string; name: ReviewField["name"] } | undefined {
@@ -1011,6 +1184,32 @@ function restoreAutomaticField(instanceId: string, name: ReviewField["name"]): v
   else state.removeFields.delete(key);
   updateActions();
   renderStage(true);
+}
+
+/**
+ * Drop the selected field's manual anchor, restoring the renderer's own placement.
+ *
+ * The details panel used to carry this as a button. With that panel gone the operation needs its
+ * own entry, and it is a destructive edit of one field, so it answers whether it did anything —
+ * the key handler only swallows Backspace when there was something to restore.
+ */
+function restoreSelectedField(): boolean {
+  const selected = state.selected;
+  if (selected === null || selected.kind !== "field") return false;
+  const identity = splitFieldKey(selected.id);
+  if (identity === undefined) return false;
+  const field = fieldForKey(selected.id);
+  if (field === undefined) return false;
+  const key = fieldKey(identity.instance_id, identity.name);
+  const pendingSet = state.pendingFields.has(key);
+  const pendingRemoval = state.removeFields.has(key);
+  if (!pendingRemoval && !pendingSet && !field.manual) {
+    setStatus(`${field.name} is already placed automatically`);
+    return false;
+  }
+  restoreAutomaticField(identity.instance_id, identity.name);
+  setStatus(`${field.name} restored to automatic placement`);
+  return true;
 }
 
 /** Where the page places each instance, as the page says it. */
@@ -1133,7 +1332,7 @@ function overlay(svg: SVGSVGElement, symbols: ReviewSymbol[], texts: ReviewText[
 
   const rows: SVGRectElement[] = [];
   for (const symbol of symbols) rows.push(hotspot(symbol.box, { kind: "symbol", id: symbol.id }));
-  for (const text of texts) rows.push(hotspot(text.box, { kind: "text", id: text.subject ?? text.text }));
+  for (const text of texts) rows.push(hotspot(text.box, { kind: text.kind, id: text.subject ?? text.text }));
   for (const field of fields) {
     rows.push(hotspot(field.box, { kind: "field", id: fieldKey(field.instance_id, field.name) }));
   }
@@ -1177,8 +1376,12 @@ function hover(highlight: Highlight): void {
       field === undefined
         ? highlight.id
         : `${field.name} · ${field.text} · ${field.instance_id} · ${field.manual ? "manual" : "automatic"}`;
+  } else if (highlight.kind === "label") {
+    frame.status.textContent = `label · net ${highlight.id}`;
+  } else if (highlight.kind === "port") {
+    frame.status.textContent = `port ${highlight.id}`;
   } else {
-    frame.status.textContent = `net ${highlight.id}`;
+    frame.status.textContent = `note · ${highlight.id}`;
   }
 
 }
@@ -1210,15 +1413,19 @@ function awayFromStage(event: PointerEvent): void {
   frame.status.textContent = pageStatus;
 }
 
-/** Drop the selection and its visual/inspector state. */
+/**
+ * Drop the selection.
+ *
+ * There is no details panel to reset: the facts a selected object has are reported in the status
+ * line (the hover line already does it) and in the keyboard hint.
+ */
 function clearSelection(): void {
   state.selected = null;
   state.rotationPendingId = null;
-  state.definitionsOpen = false;
   selectionAnchor = null;
   paintHighlights(null);
   renderTree();
-  renderInspector();
+  renderKeysHint();
 }
 
 function locationsFor(selected: Highlight): ReviewSourceLocation[] {
@@ -1243,129 +1450,31 @@ function openLocation(location: ReviewSourceLocation): void {
   setStatus(`opening ${location.file}:${location.line}:${location.col}`);
 }
 
-function showDefinitions(): void {
-  if (state.selected === null || state.selected.kind === "field") return;
-  state.definitionsOpen = true;
-  renderInspector();
-  frame.inspectorBody.querySelector<HTMLButtonElement>(".definition-open")?.focus();
-}
-
-/** The definition menu: one row per place the selected identity appears. */
-function appendDefinitions(selected: Highlight): void {
-  const toggle = el(
-    "button",
-    "definitions-toggle",
-    state.definitionsOpen ? "hide definitions" : "definitions (Enter)",
-  );
-  toggle.type = "button";
-  toggle.addEventListener("click", () => {
-    state.definitionsOpen = !state.definitionsOpen;
-    renderInspector();
-  });
-  frame.inspectorBody.append(toggle);
-  if (!state.definitionsOpen) return;
-
+/**
+ * Take the selection to its own source.
+ *
+ * The details panel used to list every place an identity appears and let the reviewer pick one. The
+ * panel is gone, so the first location is the one Enter and a double-click open: it is the identity's
+ * own row, which is what a reviewer clicking a symbol on the sheet wants (ADR-0048 D5). A selection
+ * with several locations says how many remain, so the shortcut never silently hides the others.
+ */
+function revealSelectedSource(): void {
+  const selected = state.selected;
+  if (selected === null || selected.kind === "field") return;
   const locations = locationsFor(selected);
   if (locations.length === 0) {
-    frame.inspectorBody.append(el("div", "muted", "no source location recorded for this identity"));
+    setStatus("no source location recorded for this identity");
     return;
   }
-  const list = el("ul", "definitions");
-  for (const location of locations) {
-    const item = el("li");
-    const open = el("button", "definition-open");
-    open.type = "button";
-    open.title = `open ${location.file}:${location.line}:${location.col}`;
-    open.append(el("span", "definition-kind", location.label));
-    open.append(el("span", "definition-where", `${location.file}:${location.line}`));
-    open.addEventListener("click", () => openLocation(location));
-    item.append(open);
-    list.append(item);
-  }
-  frame.inspectorBody.append(list);
-}
-
-function renderInspector(): void {
-  frame.inspectorBody.textContent = "";
-  const selected = state.selected;
-  if (selected === null) {
-    frame.inspectorTitle.textContent = "Nothing selected";
-    frame.inspectorBody.append(el("div", "muted", "Click a symbol, a label or a port."));
-    return;
-  }
-  if (selected.kind === "field") {
-    const field = fieldForKey(selected.id);
-    const identity = splitFieldKey(selected.id);
-    frame.inspectorTitle.textContent = field === undefined ? selected.id : `${field.name} · ${field.instance_id}`;
-    if (field === undefined || identity === undefined) {
-      frame.inspectorBody.append(el("div", "muted", "the drawing field is unavailable"));
-      return;
-    }
-    const key = fieldKey(identity.instance_id, identity.name);
-    const pendingSet = state.pendingFields.has(key);
-    const pendingRemoval = state.removeFields.has(key);
-    const isManual = !pendingRemoval && (pendingSet || field.manual);
-    frame.inspectorBody.append(
-      el("div", "definition", `${field.text} · ${isManual ? "manual override" : "automatic placement"}`),
-      el("div", "muted", `symbol-local anchor ${field.x.toFixed(2)}, ${field.y.toFixed(2)} mm`),
+  const first = locations[0];
+  if (first === undefined) return;
+  openLocation(first);
+  if (locations.length > 1) {
+    setStatus(
+      `opening ${first.file}:${first.line}:${first.col} · ${locations.length - 1} more location` +
+        `${locations.length === 2 ? "" : "s"}`,
     );
-    if (isManual) {
-      const restore = el("button", "action", "Restore automatic placement");
-      restore.type = "button";
-      restore.disabled = !canWriteFields();
-      restore.title = canWriteFields() ? "remove this field override" : "this host cannot write field overrides";
-      restore.addEventListener("click", () => restoreAutomaticField(identity.instance_id, identity.name));
-      frame.inspectorBody.append(restore);
-    }
-    return;
   }
-  if (selected.kind === "text") {
-    const net = board()?.nets.find((candidate) => candidate.id === selected.id);
-    frame.inspectorTitle.textContent = `net ${selected.id}`;
-    if (net === undefined) {
-      frame.inspectorBody.append(el("div", "muted", "this text names nothing on the board"));
-      return;
-    }
-    const list = el("ul", "members");
-    for (const member of net.members) {
-      const item = el("li");
-      const [refdes, ...pins] = member.split(".");
-      const instance = instanceOf(refdes ?? "");
-      item.append(el("span", "refdes", refdes ?? member));
-      item.append(el("span", "pins", pins.join(".")));
-      if (instance !== undefined) item.append(el("span", "component", instance.component));
-      list.append(item);
-    }
-    frame.inspectorBody.append(el("div", "muted", `${net.members.length} pins`), list);
-    appendDefinitions(selected);
-    return;
-  }
-
-  frame.inspectorTitle.textContent = selected.id;
-  const facts = instanceOf(selected.id);
-  if (facts === undefined) {
-    frame.inspectorBody.append(el("div", "muted", "the drawing places an instance the board does not list"));
-    appendDefinitions(selected);
-    return;
-  }
-  const definition = el("div", "definition");
-  definition.append(el("span", "label", "device"), el("span", "value", facts.component));
-  if (facts.symbol !== undefined) definition.append(el("span", "label", "symbol"), el("span", "value", facts.symbol));
-  if (facts.footprint !== undefined) definition.append(el("span", "label", "footprint"), el("span", "value", facts.footprint));
-  if (facts.params.length > 0) definition.append(el("span", "label", "spec"), el("span", "value", facts.params.join(" ")));
-  definition.append(el("span", "label", "source"), el("span", "value", facts.file));
-  frame.inspectorBody.append(definition);
-
-  const nets = el("ul", "members");
-  for (const netId of facts.nets) {
-    const net = board()?.nets.find((candidate) => candidate.id === netId);
-    const item = el("li");
-    item.append(el("span", "net-name", netId));
-    item.append(el("span", "pins", (net?.members ?? []).filter((m) => m.startsWith(`${facts.id}.`)).join(" ")));
-    nets.append(item);
-  }
-  frame.inspectorBody.append(el("h3", undefined, "nets"), nets.children.length === 0 ? el("div", "muted", "no nets") : nets);
-  appendDefinitions(selected);
 }
 
 // --- the server ------------------------------------------------------------------------------
@@ -1421,17 +1530,18 @@ async function applyPendingMoves(): Promise<void> {
     const identity = splitFieldKey(key);
     return identity === undefined ? [] : [identity];
   });
+  const texts = [...state.pendingTexts.values()].map(({ id, kind, x, y }) => ({ id, kind, x, y }));
   const current = drawing();
   if (current === undefined) return;
   const draft = unsavedDraft(current);
-  if (places.length === 0 && fields.length === 0 && remove_fields.length === 0 && draft === undefined) {
+  if (places.length === 0 && fields.length === 0 && remove_fields.length === 0 && texts.length === 0 && draft === undefined) {
     setStatus("nothing to apply");
     return;
   }
   if (
     !canWrite() ||
-    ((fields.length > 0 || remove_fields.length > 0 || draft !== undefined) && !canWriteFull()) ||
-    ((fields.length > 0 || remove_fields.length > 0) && !canWriteFields())
+    ((fields.length > 0 || remove_fields.length > 0 || texts.length > 0 || draft !== undefined) && !canWriteFull()) ||
+    ((fields.length > 0 || remove_fields.length > 0 || texts.length > 0) && !canWriteFields())
   ) {
     setStatus("this host cannot write these view changes");
     return;
@@ -1444,6 +1554,7 @@ async function applyPendingMoves(): Promise<void> {
       commit: true,
       ...(fields.length === 0 ? {} : { fields }),
       ...(remove_fields.length === 0 ? {} : { remove_fields }),
+      ...(texts.length === 0 ? {} : { texts }),
       ...(draft === undefined ? {} : { text: draft }),
     });
     const next = payload["model"];
@@ -1454,6 +1565,7 @@ async function applyPendingMoves(): Promise<void> {
     state.pending.clear();
     state.pendingFields.clear();
     state.removeFields.clear();
+    state.pendingTexts.clear();
     if (draft !== undefined) {
       state.draft = null;
       state.draftSvg = "";
@@ -1487,9 +1599,9 @@ function revertPendingMoves(): void {
   state.pending.clear();
   state.pendingFields.clear();
   state.removeFields.clear();
+  state.pendingTexts.clear();
   updateActions();
   renderStage(true);
-  renderInspector();
   setStatus("the pending edits were dropped");
 }
 
@@ -1621,6 +1733,19 @@ type MoveTransaction =
       originalRemoval: boolean;
       start: { x: number; y: number };
       moved: boolean;
+    }
+  | {
+      kind: "text";
+      /** The net a label names, or the `port_id` a port tag shows. */
+      id: string;
+      textKind: "label" | "port";
+      /** Where the text is drawn now, before the drag. */
+      from: { x: number; y: number };
+      offsetX: number;
+      offsetY: number;
+      originalPending: PendingText | undefined;
+      start: { x: number; y: number };
+      moved: boolean;
     };
 
 /** A move is entered with `m`; pointer-up keeps its local preview. */
@@ -1718,16 +1843,65 @@ function beginMove(): boolean {
       start,
       moved: false,
     };
+  } else if (selected.kind === "label" || selected.kind === "port") {
+    const text = textFor(selected.kind, selected.id);
+    if (text === undefined) return true;
+    const pending = state.pendingTexts.get(`${selected.kind}:${selected.id}`);
+    const x = pending?.x ?? text.x;
+    const y = pending?.y ?? text.y;
+    const start = selectionAnchor ?? lastSheetPoint ?? { x, y };
+    moveTransaction = {
+      kind: "text",
+      id: selected.id,
+      textKind: selected.kind,
+      from: { x, y },
+      offsetX: start.x - x,
+      offsetY: start.y - y,
+      originalPending: pending === undefined ? undefined : { ...pending },
+      start,
+      moved: false,
+    };
   } else {
     return false;
   }
-  state.definitionsOpen = false;
   state.rotationPendingId = null;
   dragging = null;
   pressed = null;
   frame.stage.classList.add("moving");
   setStatus("move preview: click to keep it, Escape to cancel");
   return true;
+}
+
+/**
+ * Where a label or a port sits right now: the row's own position, keyed by kind.
+ *
+ * A label is keyed by the net it names and a port by its `port_id`; the two id spaces could collide,
+ * so the kind is part of the lookup.
+ */
+function textFor(kind: "label" | "port", id: string): ReviewText | undefined {
+  return (drawing()?.texts ?? []).find((text) => text.kind === kind && (text.subject ?? text.text) === id);
+}
+
+function updateTextMove(move: Extract<MoveTransaction, { kind: "text" }>, point: { x: number; y: number }): void {
+  const dx = point.x - move.start.x;
+  const dy = point.y - move.start.y;
+  if (!move.moved && Math.hypot(dx, dy) * PX_PER_MM * state.zoom <= DRAG_SLOP) return;
+  move.moved = true;
+  const x = snapPlacement(move.from.x + dx);
+  const y = snapPlacement(move.from.y + dy);
+  const key = `${move.textKind}:${move.id}`;
+  if (x === move.from.x && y === move.from.y) {
+    if (move.originalPending === undefined) state.pendingTexts.delete(key);
+    else state.pendingTexts.set(key, { ...move.originalPending });
+  } else {
+    state.pendingTexts.set(key, { id: move.id, kind: move.textKind, x, y });
+  }
+  applyPendingToCanvas();
+  updateActions();
+  const current = state.pendingTexts.get(key);
+  setStatus(current === undefined
+    ? `${move.textKind} ${move.id} · unchanged · not applied`
+    : `${move.textKind} ${move.id} → ${current.x.toFixed(2)}, ${current.y.toFixed(2)} mm · not applied yet`);
 }
 
 function updateSymbolMove(move: Extract<MoveTransaction, { kind: "symbol" }>, point: { x: number; y: number }): void {
@@ -1781,6 +1955,12 @@ function restoreMove(move: MoveTransaction): void {
     else state.pending.set(move.id, clonePendingPlace(move.originalPending));
     return;
   }
+  if (move.kind === "text") {
+    const key = `${move.textKind}:${move.id}`;
+    if (move.originalPending === undefined) state.pendingTexts.delete(key);
+    else state.pendingTexts.set(key, { ...move.originalPending });
+    return;
+  }
   const key = fieldKey(move.id, move.name);
   if (move.originalPending === undefined) state.pendingFields.delete(key);
   else state.pendingFields.set(key, clonePendingField(move.originalPending));
@@ -1826,7 +2006,8 @@ function onStagePointerMove(event: PointerEvent): void {
   if (moveTransaction !== null) {
     if (point === undefined) return;
     if (moveTransaction.kind === "symbol") updateSymbolMove(moveTransaction, point);
-    else updateFieldMove(moveTransaction, point);
+    else if (moveTransaction.kind === "field") updateFieldMove(moveTransaction, point);
+    else updateTextMove(moveTransaction, point);
     return;
   }
   if (dragging === null) return;
@@ -1859,7 +2040,8 @@ const stopDrag = (event: PointerEvent): void => {
     const point = sheetPoint(event);
     if (point !== undefined) {
       if (move.kind === "symbol") updateSymbolMove(move, point);
-      else updateFieldMove(move, point);
+      else if (move.kind === "field") updateFieldMove(move, point);
+      else updateTextMove(move, point);
     }
     moveTransaction = null;
     frame.stage.classList.remove("moving");
@@ -1904,12 +2086,13 @@ const stopDrag = (event: PointerEvent): void => {
   lastPress = { kind: selection.kind, id: selection.id, at: now };
   selectionAnchor = sheetPoint(event) ?? lastSheetPoint;
   state.selected = selection;
-  state.definitionsOpen = false;
-  hover(selection);
   paintHighlights(selection);
   renderTree();
-  renderInspector();
-  if (double) showDefinitions();
+  renderKeysHint();
+  // Selecting reports through the status line; a double press takes the same object to its source.
+  if (selection.kind === "symbol") reportSelection(selection.id);
+  else hover(selection);
+  if (double) revealSelectedSource();
 };
 
 
@@ -2002,20 +2185,24 @@ function onKeyDown(event: KeyboardEvent): void {
     rotateSelected();
     event.preventDefault();
   } else if (event.key === "Enter") {
-    // A focused button owns Enter: the definition row must open its own file, not reopen the menu.
+    // A focused button owns Enter: it must activate itself, not navigate away from the page.
     if (event.target instanceof HTMLElement && event.target.closest("button") !== null) return;
     if (state.selected === null) return;
-    showDefinitions();
+    revealSelectedSource();
     event.preventDefault();
   } else if (event.key === "Escape") {
-    if (moveTransaction !== null) {
-      cancelMove();
-    } else if (state.definitionsOpen) {
-      state.definitionsOpen = false;
-      renderInspector();
-    } else {
-      clearSelection();
-    }
+    if (moveTransaction !== null) cancelMove();
+    else clearSelection();
+    event.preventDefault();
+  } else if (event.key === "Backspace") {
+    // The details panel's "restore automatic placement" button moved here: with the panel gone,
+    // a selected field override needs a key that drops it, and Backspace is the drop gesture.
+    if (restoreSelectedField()) event.preventDefault();
+  } else if (event.key === "?") {
+    // Held, not toggled: the hint describes the state it was shown in, so it clears itself.
+    state.keysOpen = true;
+    renderKeysHint();
+    scheduleKeysHide();
     event.preventDefault();
   } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
     // The arrows walk the drawings of the same kind: print pages among themselves and library
@@ -2044,12 +2231,13 @@ function onResize(): void {
 }
 
 function renderAll(): void {
+  renderPanelVisibility();
   renderTree();
   renderMetrics();
   renderDiagnostics();
   renderActions();
   renderStage();
-  renderInspector();
+  renderKeysHint();
 }
 
 // --- mounting --------------------------------------------------------------------------------

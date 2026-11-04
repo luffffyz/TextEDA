@@ -119,7 +119,7 @@
         "at": {
           "rotation_mdeg": 0,
           "x_nm": -5000000,
-          "y_nm": 1000000
+          "y_nm": 1500000
         },
         "length_nm": 2500000,
         "number": "3",
@@ -141,7 +141,7 @@
         "at": {
           "rotation_mdeg": 0,
           "x_nm": -5000000,
-          "y_nm": 1000000
+          "y_nm": 1500000
         },
         "length_nm": 2500000,
         "number": "6",

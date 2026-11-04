@@ -21,7 +21,17 @@ import { basename, dirname, join } from "node:path";
 import { spanOf, type SourceMap } from "@texteda/ir";
 import type { Schematic } from "@texteda/ir/schematic";
 import type { SchematicView } from "@texteda/ir/schematic-view";
-import { formatView, lex, parseSchematic, parseView, type Cell, type Line } from "@texteda/parser";
+import {
+  compareVersions,
+  formatView,
+  lex,
+  parseSchematic,
+  parseVersion,
+  parseView,
+  VIEW_FIELD_VERSION,
+  type Cell,
+  type Line,
+} from "@texteda/parser";
 import { nearestOnPath, reanchorWire, reseatOnNet, type WireCorners } from "@texteda/core";
 import { loadComponents, loadModules } from "./project.ts";
 import { LAYOUT } from "./paths.ts";
@@ -51,6 +61,21 @@ export interface LayoutFieldRemoval {
   name: "Reference" | "Value";
 }
 
+/**
+ * A label or a port the app moved, in millimetres and sheet coordinates.
+ *
+ * They are placed, not wired: a label names a net and a port names a board port, and both have to
+ * sit on that net's drawn wiring to be read (spec/schematic-view.md §6, §7). The write stores the
+ * coordinates the app sends; `planLayout` reports one that lands off its net rather than silently
+ * snapping it somewhere the person did not pick.
+ */
+export interface LayoutText {
+  /** The net a label names, or the port id a port tag shows. */
+  id: string;
+  kind: "label" | "port";
+  x: number;
+  y: number;
+}
 
 export interface LayoutRequest {
   board: string;
@@ -60,6 +85,8 @@ export interface LayoutRequest {
   fields?: LayoutField[];
   /** Field overrides to remove; `(instance_id, name)` is the identity. */
   remove_fields?: LayoutFieldRemoval[];
+  /** Labels and ports the app moved, in millimetres and sheet coordinates. */
+  texts?: LayoutText[];
 
   /**
    * The page's source as it stands in the explicit Source panel, when the panel holds one.
@@ -250,6 +277,87 @@ function computeFields(view: SchematicView, request: LayoutRequest, file: string
   return { fields: fields.length === 0 ? undefined : fields, changed: plannedSet.length > 0 || plannedRemove.length > 0, set: plannedSet, remove: plannedRemove };
 }
 
+interface PlannedTexts {
+  labels: NonNullable<SchematicView["label"]>;
+  ports: NonNullable<SchematicView["port"]>;
+  /** The rows whose coordinates changed, with the index they came from. */
+  labelsChanged: { index: number; label: NonNullable<SchematicView["label"]>[number] }[];
+  portsChanged: { index: number; port: NonNullable<SchematicView["port"]>[number] }[];
+  changed: boolean;
+}
+
+/**
+ * Apply the label and port positions the app sends, without touching any other view fact.
+ *
+ * A label is identified by the net it names and a port by its `port_id`. Repeats are rejected rather
+ * than resolved: two labels of one net sit at two places on the sheet, so "the label of net VOUT"
+ * does not name one row, and a write that guessed would move the wrong one.
+ */
+function computeTexts(view: SchematicView, request: LayoutRequest, file: string): PlannedTexts {
+  const asks = request.texts ?? [];
+  const labels = view.label ?? [];
+  const ports = view.port ?? [];
+  if (asks.length === 0) return { labels, ports, labelsChanged: [], portsChanged: [], changed: false };
+
+  const byNet = new Map<string, number[]>();
+  labels.forEach((label, index) => {
+    const list = byNet.get(label.net);
+    if (list === undefined) byNet.set(label.net, [index]);
+    else list.push(index);
+  });
+  const portIds = new Set(ports.map((port) => port.id));
+  const seen = new Set<string>();
+  for (const ask of asks) {
+    if (ask.kind !== "label" && ask.kind !== "port") {
+      throw new LayoutError(`${file}: a text row is a label or a port: ${String(ask.kind)}`);
+    }
+    const key = `${ask.kind}\u0000${ask.id}`;
+    if (seen.has(key)) throw new LayoutError(`${file}: duplicate ${ask.kind} move for ${ask.id}`);
+    seen.add(key);
+    if (!Number.isFinite(ask.x) || !Number.isFinite(ask.y)) {
+      throw new LayoutError(`${file}: ${ask.kind} ${ask.id} coordinates must be finite`);
+    }
+    const x_nm = Math.round(ask.x * 1_000_000);
+    const y_nm = Math.round(ask.y * 1_000_000);
+    if (x_nm % 10_000 !== 0 || y_nm % 10_000 !== 0) {
+      throw new LayoutError(`${file}: ${ask.kind} ${ask.id} coordinates are limited to 0.01 mm resolution`);
+    }
+    if (ask.kind === "port") {
+      if (!portIds.has(ask.id)) throw new LayoutError(`${file}: the page does not draw port ${ask.id}`);
+      continue;
+    }
+    const rows = byNet.get(ask.id) ?? [];
+    if (rows.length === 0) throw new LayoutError(`${file}: the page has no label for net ${ask.id}`);
+    if (rows.length > 1) {
+      throw new LayoutError(`${file}: net ${ask.id} has ${rows.length} labels on this page; a label is moved by its row, not by its net`);
+    }
+  }
+
+  const nextLabels = labels.map((label) => {
+    const ask = asks.find((candidate) => candidate.kind === "label" && candidate.id === label.net);
+    if (ask === undefined) return label;
+    return { ...label, x_nm: Math.round(ask.x * 1_000_000), y_nm: Math.round(ask.y * 1_000_000) };
+  });
+  const nextPorts = ports.map((port) => {
+    const ask = asks.find((candidate) => candidate.kind === "port" && candidate.id === port.id);
+    if (ask === undefined) return port;
+    return { ...port, x_nm: Math.round(ask.x * 1_000_000), y_nm: Math.round(ask.y * 1_000_000) };
+  });
+  const labelsChanged = nextLabels
+    .map((label, index) => ({ index, label }))
+    .filter(({ index, label }) => label.x_nm !== labels[index]!.x_nm || label.y_nm !== labels[index]!.y_nm);
+  const portsChanged = nextPorts
+    .map((port, index) => ({ index, port }))
+    .filter(({ index, port }) => port.x_nm !== ports[index]!.x_nm || port.y_nm !== ports[index]!.y_nm);
+  return {
+    labels: nextLabels,
+    ports: nextPorts,
+    labelsChanged,
+    portsChanged,
+    changed: labelsChanged.length > 0 || portsChanged.length > 0,
+  };
+}
+
 /**
  * What a placement change would do, without doing it.
  *
@@ -273,8 +381,9 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
 
   const { places: newPlaces, moved } = computePlacements(view, request, file);
   const plannedFields = computeFields(view, request, file);
+  const plannedTexts = computeTexts(view, request, file);
   if (moved.size === 0) {
-    if (!plannedFields.changed) {
+    if (!plannedFields.changed && !plannedTexts.changed) {
       const drawn = drawPage(view, facts.instances);
       return { file, text, changed: false, conflicts: [], reseated: [], ...drawn };
     }
@@ -285,10 +394,13 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
       fields: plannedFields.set,
       remove_fields: plannedFields.remove,
       wires: [],
-      labels: [],
-      ports: [],
+      labels: plannedTexts.labelsChanged,
+      ports: plannedTexts.portsChanged,
     });
-    const drawn = drawPage(withFields(view, plannedFields.fields), facts.instances);
+    const drawn = drawPage(
+      withTexts(withFields(view, plannedFields.fields), plannedTexts),
+      facts.instances,
+    );
     return { file, text: edited, changed: edited !== text, conflicts: [], reseated: [], ...drawn };
   }
   const before = schematicGeometry(view, facts.instances);
@@ -331,8 +443,12 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
       .map((wire) => wire.net),
   );
 
-  // A label or a port that the move left in the air is put back on the net it names.
+  // A label or a port that the move left in the air is put back on the net it names — except the
+  // ones the person placed by hand: an explicit position is a decision, and `reseatOnNet` is a
+  // repair for an accident, not a preference over the author.
   const reseated: string[] = [];
+  const placedLabels = new Set(plannedTexts.labelsChanged.map(({ label }) => label.net));
+  const placedPorts = new Set(plannedTexts.portsChanged.map(({ port }) => port.id));
   const pathsOf = (net: string): WireCorners[][] =>
     newWires
       .filter((wire) => wire.net === net)
@@ -343,14 +459,16 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
         return from && to ? [from, ...bends, to] : [];
       })
       .filter((path) => path.length >= 2);
-  const newLabels = (view.label ?? []).map((label) => {
+  const newLabels = plannedTexts.labels.map((label) => {
+    if (placedLabels.has(label.net)) return label;
     if (!disturbed.has(label.net)) return label;
     const moved2 = reseatOnNet(pathsOf(label.net), { x_nm: label.x_nm, y_nm: label.y_nm });
     if (!moved2) return label;
     reseated.push(`label ${label.net}`);
     return { ...label, x_nm: moved2.x_nm, y_nm: moved2.y_nm };
   });
-  const newPorts = (view.port ?? []).map((port) => {
+  const newPorts = plannedTexts.ports.map((port) => {
+    if (placedPorts.has(port.id)) return port;
     const net = facts.portNets.get(port.id);
     if (net === undefined || !disturbed.has(net)) return port;
     const moved2 = reseatOnNet(pathsOf(net), { x_nm: port.x_nm, y_nm: port.y_nm });
@@ -476,6 +594,16 @@ function withFields(view: SchematicView, fields: SchematicView["field"]): Schema
   delete withoutFields.field;
   return withoutFields;
 }
+
+/** The view with the planned label and port positions, leaving every other fact alone. */
+function withTexts(view: SchematicView, planned: PlannedTexts): SchematicView {
+  if (!planned.changed) return view;
+  const next = { ...view };
+  if (planned.labelsChanged.length > 0) next.label = planned.labels;
+  if (planned.portsChanged.length > 0) next.port = planned.ports;
+  return next;
+}
+
 /** The page as it is drawn: the renderer's SVG and the geometry it was drawn from. */
 function drawPage(
   view: SchematicView,
@@ -713,7 +841,13 @@ export function rewritePage(
 
   let edited = applyEdits(lines, edits);
   const newFields = (changed.fields ?? []).filter(({ index }) => index === undefined).map(({ field }) => field);
-  if (newFields.length > 0) edited = insertFieldRows(edited, newFields);
+  if (newFields.length > 0) {
+    // A `field` section exists only from language 0.10 on (spec/schematic-view.md §4.1), so a page
+    // that gains one has to gain the version too. Raising the floor is the writer's job: an earlier
+    // version with a `field` row is a file no reader accepts.
+    edited = raiseToFieldVersion(edited);
+    edited = insertFieldRows(edited, newFields);
+  }
   const formatted = formatView(edited, { file: changed.file });
   if (formatted.text === undefined) {
     const first = formatted.diagnostics.find((diagnostic) => diagnostic.severity === "error");
@@ -741,7 +875,34 @@ function insertFieldRows(text: string, fields: readonly ViewField[]): string {
   return lines.join("\n");
 }
 
-/** An edit that replaces a row with new text. */
+/**
+ * Raise the page's `version` to the language version a `field` section needs, if it is below it.
+ *
+ * The version line is the page's own statement of what a reader has to understand, so writing a
+ * `field` row under an older version would hand the reader a file it must reject. Raising it is the
+ * only edit this function makes; a page already at or above the floor is returned unchanged, and the
+ * version is never lowered, because the page may use other constructs of the newer language.
+ */
+function raiseToFieldVersion(text: string): string {
+  const lines = text.split("\n");
+  const versionLine = lex(text).find((line) => line.cells[0]?.text === "version");
+  const cell = versionLine?.cells[1];
+  if (versionLine === undefined || cell === undefined) return text;
+  const parsed = parseVersion(cell.text);
+  // A malformed version is the parser's finding, not this writer's: leave the line to be reported.
+  if (parsed === null || compareVersions(parsed, VIEW_FIELD_VERSION) >= 0) return text;
+  const index = versionLine.number - 1;
+  const line = lines[index];
+  if (line === undefined) return text;
+  lines[index] = line.slice(0, cell.col - 1) + canonicalVersion(VIEW_FIELD_VERSION);
+  return lines.join("\n");
+}
+
+/** The canonical spelling: `MAJOR.MINOR`, with the patch only when it is not zero. */
+function canonicalVersion(version: { major: number; minor: number; patch: number }): string {
+  return version.patch === 0 ? `${version.major}.${version.minor}` : `${version.major}.${version.minor}.${version.patch}`;
+}
+
 function rowEdit(row: ViewRow, lines: string[], next: string): { line: number; col: number; old: string; new: string } {
   const first = row.cells[0]!;
   const original = lines[row.line.number - 1] ?? "";

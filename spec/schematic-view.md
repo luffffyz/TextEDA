@@ -75,8 +75,8 @@ view main
 
 ### 2.1 坐标系
 
-- 单位 **mm**，分辨率 **0.01 mm**（2026-10-25 起；此前是 0.1 mm）。
-  为什么必须细到这个量级：走线**只能走 90 度**（§5），而一条离开引脚的线必须先在**引脚自己的那一行或那一列**上，再拐弯；引脚的偏置是 1.27 mm（0.05 in）的整数倍，0.1 mm 网格表达不了 1.27（12.7 格），于是"正交出线"在看到第一根引脚时就不可能。0.01 mm 下 1.27 mm 正好是 127 格，任何引脚落点都能被折点对齐。超出网格仍报 `value.length-invalid`。
+- 单位 **mm**，分辨率 **0.01 mm**（2026-10-25 起；此前是 0.1 mm）。这是**格式能表达的精度**，不是绘制网格。绘制网格是 `0.5 mm` 晶格（[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1）：**打印页存的每一个坐标**都锚在它上面——`place` 的符号原点、`field` 的字段锚点（符号局部系）、`wire` 的折点、`label` 的标签位置、`port` 的端口位置、`text` 的注释位置，两个轴都是。符号侧的引脚连接点与引脚内端同样在这张晶格上（`spec/symbol.md` §4.1，[ADR-0057](../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D1），摆位吸附也是 `0.5 mm`（同一条记录 D4）。**目前不允许自由摆位**（[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D5）。格式比晶格细一档，是为了让历史文件与手工微调仍能表达；把分辨率调粗到 `0.5 mm` 会改变 canonical form，并让长度诊断改写每一条旧坐标。超出这个分辨率仍报 `value.length-invalid`。
+- 晶格是**作图约定**，不是新的诊断码：跑偏了由既有的 `view.wire-diagonal` / `view.wire-crosses-pin` 这些码说话，仓库的门禁另外查（[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D2）。
 - 原点 = **图幅的左上角**；**+x 向右，+y 向下**（与 SVG 的坐标系一致，渲染器不需要翻转）。
 - 旋转角度单位为度，**顺时针为正**，缺省 `0`。
 - IR 里长度一律是整数纳米（`_nm`）、角度是整数毫度（`_mdeg`），见 `AGENTS.md` §2 第 18 条与 `docs/adr/02-ir/0006-ir-shards-and-hashes.md` decision 7。
@@ -122,6 +122,7 @@ place
 | `unit` | 多单元器件画哪一个单元（`1` 起）；缺省 `1`。取值必须 ≤ 该器件的单元数 |
 
 - 符号画成什么样**不在视图里**：由 `component.symbol` → 符号库决定，渲染器自己去查。视图只说"这个实例摆在哪儿、朝哪儿"。
+- `x` `y` 锚在 `0.5 mm` 晶格上（§2.1，[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1）。摆位吸附也是这张晶格（[ADR-0057](../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D4）。
 - 引脚的连接点坐标 = 符号原点 + 旋转后的引脚偏移（符号的几何事实，见 `spec/symbol.md`）。因此**符号改了引脚位置，视图里的线自动跟着走**，视图不需要跟着改。
 - 一个打印页只摆它要画的实例；板上的其它实例不出现在这个打印页里（不是错误）。
 
@@ -137,7 +138,9 @@ field
   U1  Value     -0.50 -2.00
 ```
 
-Each row is `<instance_id> <name> <x> <y>`. The vocabulary is closed to exactly `Reference` and `Value`; each `(instance_id, name)` pair occurs at most once. The instance must occur in this page's `place` section. Coordinates use the view's `0.01 mm` grid, are relative to the symbol origin, and are not checked against sheet bounds. In this local frame, `+x` points right and `+y` points up. The renderer applies the symbol's right-angle rotation when projecting a field to sheet coordinates; moving or rotating the symbol therefore carries the override with it.
+Each row is `<instance_id> <name> <x> <y>`. The vocabulary is closed to exactly `Reference` and `Value`; each `(instance_id, name)` pair occurs at most once. The instance must occur in this page's `place` section. The coordinates are relative to the symbol origin and are not checked against sheet bounds. In this local frame, `+x` points right and `+y` points up. The renderer applies the symbol's right-angle rotation when projecting a field to sheet coordinates; moving or rotating the symbol therefore carries the override with it.
+
+Two coordinate facts apply, and they are different questions (§2.1): the coordinates are written with the view file's `0.01 mm` **resolution** — the finest value the format can express, and the limit a writer is checked against — while the **drawing lattice** is `0.5 mm`. A field anchor is a lattice point in both axes ([ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1), and the review app snaps it there like a symbol placement. The file format does not *reject* a non-lattice value — `0.01 mm` resolution is what the format promises — but the drawing convention does not admit one, and the repository's view-style gate reports it.
 
 The text is taken from the schematic instance: `Reference` is its instance id and `Value` is its instance value. If the instance has no value, the renderer retains the symbol library's `Value` placeholder. A field row overrides its automatic position; deleting the row restores automatic placement. There are no `automatic` rows or tombstones.
 
@@ -165,7 +168,7 @@ wire
 | `bend_x` `bend_y` | 折点坐标（mm），可为零个或多个，按顺序经过 |
 
 - 走线的几何 = 起点引脚连接点 → 依次经过各折点 → 终点引脚连接点。**没有折点就是直线**。
-- 折点是唯一的"自由坐标"：引脚端点用**引脚引用**而不是坐标，就是为了让视图不复制符号几何（引脚挪了，线自动跟上）。
+- 折点是唯一的"自由坐标"：引脚端点用**引脚引用**而不是坐标，就是为了让视图不复制符号几何（引脚挪了，线自动跟上）。折点锚在 `0.5 mm` 晶格上（§2.1，[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1）——折点必须够得到引脚连接点，而引脚连接点在晶格上（[ADR-0057](../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D1），所以折点也在晶格上时，这条线才画得出来。
 - **一条线一个 net**：同一 net 可以有多条 `wire` 行（分叉、绕行都靠多行表达）。
 - 端点引脚必须属于该 net：`from_pin` / `to_pin` 必须在板 `nets` 段里被声明为该 net 的成员。不一致即报错（`view.pin-net-mismatch`）——这是"视图不重复电气事实"的兑现：视图引用了逻辑层的事实，就必须对得上。
 - 不支持圆弧，只支持折线（与 `pcb` 的 `trace` 一致）。
@@ -196,6 +199,7 @@ label
 
 - 标签画的就是 **net id 本身**，**不允许改写显示文字**。标签若能显示与 net id 不同的东西（比如 net 叫 `VDD`、标签写 `3.3V`），图上就会出现"看起来叫 3.3V 的网络"——人读图时会误判网络名。想要 `3.3V` 这个名字，就把 net 命名为 `3.3V`。
 - 标签位置必须落在**该 net 的某条走线上**，或落在**该 net 某个引脚的连接点**上；否则报 `view.label-not-on-net`（**警告**，不是错误：视图是给人看的图，位置偏了要提示，但不该让整张图不可用）。
+- 标签锚点锚在 `0.5 mm` 晶格上（§2.1，[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1）。
 - 同一个 net 可以有多个标签（例如一页上多处标 `GND`）。
 
 ---
@@ -211,6 +215,7 @@ port
 
 - `port_id` 必须是**板**的端口，必须在板文件的 `ports` 段里存在（`teda.md` §7.5）。
 - 端口符号**不创建连接**，它只是给一个已存在的 net 起个对外的名字。视图里画端口符号，位置必须落在该 net 的走线或引脚连接点上（同 `label`，不一致报 `view.port-not-on-net`，警告）。
+- 端口锚点锚在 `0.5 mm` 晶格上（§2.1，[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1）。
 - `rot` 单位度、顺时针为正、缺省 `0`。
 - 画在哪个打印页上都可以：一个板端口可以在多个打印页里各画一次。
 
@@ -226,6 +231,7 @@ text
 列：`<x> <y> <text…>`。
 
 - 第三列起是**行尾剩余文本**（与标量同一约定，`teda.md` §4.4），允许空格。
+- 注释锚点锚在 `0.5 mm` 晶格上（§2.1，[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1）。
 - 纯注释，不带任何电气含义，不参与任何校验（除了"文字重叠"这类可读性检查）。
 
 ---

@@ -33,14 +33,14 @@
     },
     {
       "path": "symbols/connectors/hdr-1x4.json",
-      "sha256": "6938e7ef5ba1b10a103cd8cb72d3bf3d7042c24a4c9b84de14b4c7d5f225f3b3",
+      "sha256": "e7b203eb54fb3fb34c4d6252c9542a4b6a3cb0a135b3f2e054bff53393437920",
       "normative": true
     },
     {
       "path": "symbols/connectors/jst-sh-4.json",
-      "sha256": "ba9e0963d204a84e8ffdf854ddf1b02b45636ee99b4c86528b3cc6bbb45878b1",
+      "sha256": "ea8cee6071462d7cea7a712ab136771cb596ad593c6b3f38a4934b49916adb2f",
       "normative": true
     }
   ],
-  "source_hash": "d952ddb123ef12f5c4559bf5d689de3efb51d8e47f740e09c10e3f3121506b18"
+  "source_hash": "0ff8ec5c2f7c51864e9f314e70be31b345339c7089958364e10df8d81cb45630"
 }

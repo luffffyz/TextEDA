@@ -369,6 +369,8 @@ export function reviewGeometry(geometry: SheetGeometry): {
       kind: text.kind,
       text: text.text,
       ...(text.subject === undefined ? {} : { subject: text.subject }),
+      x: mm(text.x_nm),
+      y: mm(text.y_nm),
       box: box(text.box.min_x_nm, text.box.min_y_nm, text.box.max_x_nm, text.box.max_y_nm),
     })),
     fields: geometry.fields.map((field) => ({
