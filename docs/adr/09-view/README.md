@@ -25,6 +25,7 @@ What a person looks at: the view as an independent description and a drawing, th
 12. [0048](0048-the-review-app-shows-drawings.md) — the app shows drawings, not boards: print pages, board canvases, symbols and footprints; its mode-switch rule is superseded by [ADR-0056](0056-the-review-app-has-one-interaction-surface.md).
 13. [0056](0056-the-review-app-has-one-interaction-surface.md) — one interaction surface with explicit move, rotate, source and commit actions.
 14. [0059](0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) — every coordinate a print page stores is anchored on the `0.5 mm` lattice; free placement is not admitted today.
+15. [0061](0061-a-move-carries-only-what-belonged-to-the-net.md) — a move carries only what belonged to the net, and its cost grows with the page, not faster.
 
 ## Records
 
@@ -44,3 +45,4 @@ What a person looks at: the view as an independent description and a drawing, th
 | [ADR-0054](0054-vertical-pin-name-labels-use-collision-aware-rotation.md) | Vertical Pin-Name Labels Always Rotate Toward Their Pins | Accepted | 2026-11-01 |
 | [ADR-0055](0055-schematic-fields-are-view-overrides.md) | Schematic `Reference` and `Value` Fields Are Per-Instance View Overrides | Accepted | 2026-11-01 |
 | [ADR-0059](0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) | Print Page Coordinates Anchor on the 0.5 mm Lattice | Accepted | 2026-11-04 |
+| [ADR-0061](0061-a-move-carries-only-what-belonged-to-the-net.md) | A Move Carries Only What Belonged to the Net | Accepted | 2026-11-04 |

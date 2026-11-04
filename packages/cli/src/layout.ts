@@ -32,7 +32,7 @@ import {
   type Cell,
   type Line,
 } from "@texteda/parser";
-import { nearestOnPath, reanchorWire, reseatOnNet, type WireCorners } from "@texteda/core";
+import { nearestOnPath, ON_NET_NM, reanchorWire, reseatOnNet, type WireCorners } from "@texteda/core";
 import { loadComponents, loadModules } from "./project.ts";
 import { LAYOUT } from "./paths.ts";
 import { loadSymbolLibrary, schematicInstances, type SchematicInstances } from "./symbols.ts";
@@ -449,21 +449,50 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
   const reseated: string[] = [];
   const placedLabels = new Set(plannedTexts.labelsChanged.map(({ label }) => label.net));
   const placedPorts = new Set(plannedTexts.portsChanged.map(({ port }) => port.id));
-  const pathsOf = (net: string): WireCorners[][] =>
-    newWires
-      .filter((wire) => wire.net === net)
-      .map((wire) => {
-        const from = pinPoint(after, wire.from_pin);
-        const to = pinPoint(after, wire.to_pin);
-        const bends = (wire.points ?? []).map((point) => ({ x_nm: point.x_nm, y_nm: point.y_nm }));
-        return from && to ? [from, ...bends, to] : [];
-      })
-      .filter((path) => path.length >= 2);
+  // Where each net runs, gathered in one pass. Asking per label would rescan every wire on the
+  // page each time, which turns a page with many labels on one net into quadratic work for a
+  // single move.
+  const pathsByNet = new Map<string, WireCorners[][]>();
+  for (const wire of newWires) {
+    const from = pinPoint(after, wire.from_pin);
+    const to = pinPoint(after, wire.to_pin);
+    if (from === undefined || to === undefined) continue;
+    const bends = (wire.points ?? []).map((point) => ({ x_nm: point.x_nm, y_nm: point.y_nm }));
+    const paths = pathsByNet.get(wire.net);
+    if (paths === undefined) pathsByNet.set(wire.net, [[from, ...bends, to]]);
+    else paths.push([from, ...bends, to]);
+  }
+  const pathsOf = (net: string): WireCorners[][] => pathsByNet.get(net) ?? [];
+  // Where each net ran before the move. A label that was already on its net's wiring belongs to
+  // that net and follows it; a label the person put somewhere else is a free placement, and a
+  // move elsewhere on the page is no reason to pick it up and carry it to the wire.
+  const oldPathsByNet = new Map<string, WireCorners[][]>();
+  for (const wire of view.wire ?? []) {
+    const from = pinPoint(before, wire.from_pin);
+    const to = pinPoint(before, wire.to_pin);
+    if (from === undefined || to === undefined) continue;
+    const bends = (wire.points ?? []).map((point) => ({ x_nm: point.x_nm, y_nm: point.y_nm }));
+    const paths = oldPathsByNet.get(wire.net);
+    if (paths === undefined) oldPathsByNet.set(wire.net, [[from, ...bends, to]]);
+    else paths.push([from, ...bends, to]);
+  }
+  /** Whether a point was sitting on the net's own wiring before the move. */
+  const wasOnNet = (net: string, point: { x_nm: number; y_nm: number }): boolean => {
+    for (const path of oldPathsByNet.get(net) ?? []) {
+      const foot = nearestOnPath(path, point);
+      if (foot !== undefined && Math.hypot(foot.x_nm - point.x_nm, foot.y_nm - point.y_nm) <= ON_NET_NM) {
+        return true;
+      }
+    }
+    return false;
+  };
   const newLabels = plannedTexts.labels.map((label) => {
     if (placedLabels.has(label.net)) return label;
     if (!disturbed.has(label.net)) return label;
-    const moved2 = reseatOnNet(pathsOf(label.net), { x_nm: label.x_nm, y_nm: label.y_nm });
-    if (!moved2) return label;
+    const point = { x_nm: label.x_nm, y_nm: label.y_nm };
+    if (!wasOnNet(label.net, point)) return label;
+    const moved2 = reseatOnNet(pathsOf(label.net), point);
+    if (moved2 === undefined) return label;
     reseated.push(`label ${label.net}`);
     return { ...label, x_nm: moved2.x_nm, y_nm: moved2.y_nm };
   });
@@ -471,8 +500,10 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
     if (placedPorts.has(port.id)) return port;
     const net = facts.portNets.get(port.id);
     if (net === undefined || !disturbed.has(net)) return port;
-    const moved2 = reseatOnNet(pathsOf(net), { x_nm: port.x_nm, y_nm: port.y_nm });
-    if (!moved2) return port;
+    const point = { x_nm: port.x_nm, y_nm: port.y_nm };
+    if (!wasOnNet(net, point)) return port;
+    const moved2 = reseatOnNet(pathsOf(net), point);
+    if (moved2 === undefined) return port;
     reseated.push(`port ${port.id}`);
     return { ...port, x_nm: moved2.x_nm, y_nm: moved2.y_nm };
   });
@@ -787,10 +818,13 @@ export function rewritePage(
 ): string {
   const lines = text.split("\n");
   const edits: { line: number; col: number; old: string; new: string }[] = [];
+  // The page is lexed once, not once per changed row: a move that touches many rows would
+  // otherwise rescan the whole file for each of them, which is quadratic in the page's size.
+  const lexed = new Map(lex(text).map((line) => [line.number, line]));
   const rowOf = (path: string): ViewRow | undefined => {
     const span = spanOf(changed.sources, path);
     if (span === undefined) return undefined;
-    const line = lex(text).find((candidate) => candidate.number === span.line);
+    const line = lexed.get(span.line);
     if (line === undefined || line.cells.length === 0) return undefined;
     return { line, cells: line.cells };
   };

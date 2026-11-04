@@ -5,8 +5,8 @@
 // back and what lands on disk: a plan that writes nothing, a commit that writes exactly one file,
 // a draft that is drawn without being written, a save that refuses a source that does not parse,
 // and a request for a page the project does not have.
-import { describe, expect, test } from "bun:test";
-import { cpSync, mkdtempSync, readFileSync } from "node:fs";
+import { afterAll, describe, expect, test } from "bun:test";
+import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,12 +18,20 @@ const cli = join(repoRoot, "packages", "cli", "scripts", "texteda.ts");
 
 const pageFile = "views/charger-buck/buck-5v.view.teda";
 
+/** The scratch copies this file made, so they can be taken away when it is done. */
+const scratches: string[] = [];
+
 /** A copy of the reference project, so a test can write into it. */
 function scratch(): string {
   const dir = mkdtempSync(join(tmpdir(), "texteda-review-api-test-"));
   cpSync(referenceProject, dir, { recursive: true });
+  scratches.push(dir);
   return dir;
 }
+
+afterAll(() => {
+  for (const dir of scratches) rmSync(dir, { recursive: true, force: true });
+});
 
 function expectC1At118(text: string): void {
   const parsed = parseView(text, { file: pageFile, board: "charger-buck" });

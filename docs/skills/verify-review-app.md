@@ -193,6 +193,38 @@ The backup holds the page **as it was before the write**, so the diff against th
 no change. The backup is a local undo, not a source: it lives under `dist/`, which is gitignored
 (ADR-0060).
 
+### 6.2 Only the rows that changed were written
+
+The Apply recomputes the page, but it must not rewrite the whole drawing. Check which rows
+actually moved:
+
+```sh
+diff examples/reference-project/views/charger-buck/buck-5v.view.teda \
+     /tmp/texteda-review-smoke/views/charger-buck/buck-5v.view.teda
+```
+
+For a single moved symbol on the reference page this shows four rows: the symbol's own `place`
+row, the first endpoint of each wire that hangs on it, and a port that was sitting on that net's
+wiring. The wires keep their shape — same segment count, same directions, only the endpoints
+follow the pins. Every other row is byte-identical.
+
+A label the reviewer placed **away** from the wiring must not be carried onto it by a move
+elsewhere on the same net (ADR-0061 D1). If a diff shows a label jumping to the wire, the page
+had a label that was on the wiring and the reviewer did not intend it to move — check the
+`reseated` list the app reports.
+
+### 6.3 The cost grows with the page, not faster
+
+A move on a big page must not cost the square of a move on a small one. The benchmark builds the
+shape that shows it — one net carrying many wires and many labels, so one move changes many rows:
+
+```sh
+bun test packages/cli/test/benchmark-apply.test.ts
+```
+
+The test asserts the *growth rate*, not an absolute time, because a slower machine is allowed to
+be slower. It fails if the page is rescanned once per changed row.
+
 ## 7. Clean up
 
 Never leave the server running.
@@ -221,4 +253,6 @@ Close the tab with `browser.close({ name })` so the spawned Chromium does not st
   every stored coordinate is a `0.5 mm` lattice point.
 - [ADR-0060](../adr/03-project/0060-a-write-keeps-the-bytes-it-replaced.md): a write keeps the bytes
   it replaced, under `dist/backups/`.
+- [ADR-0061](../adr/09-view/0061-a-move-carries-only-what-belonged-to-the-net.md): a move carries
+  only what belonged to the net; its cost grows with the page, not faster.
 - [`docs/skills/README.md`](README.md): the index of the procedures.

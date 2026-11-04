@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-11-04
 Scope: Decides: that a write to a source file keeps the bytes it replaced, under `dist/backups/`, mirroring the file's own path. Does not decide: what a print page contains or how it is rendered — see [ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md); which files the review app may write — see [ADR-0056](../09-view/0056-the-review-app-has-one-interaction-surface.md).
-Related: [ADR-0008](0008-project-tree-has-owners.md), [ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md), [ADR-0056](../09-view/0056-the-review-app-has-one-interaction-surface.md), [ADR-0043](../09-view/0043-the-review-app-is-a-plugin-of-the-agent-workbench.md).
+Related: [ADR-0008](0008-project-tree-has-owners.md), [ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md), [ADR-0056](../09-view/0056-the-review-app-has-one-interaction-surface.md), [ADR-0061](../09-view/0061-a-move-carries-only-what-belonged-to-the-net.md), [ADR-0043](../09-view/0043-the-review-app-is-a-plugin-of-the-agent-workbench.md).
 Impact: `packages/cli/src/layout.ts`; `docs/guides/review-app.md`
 
 ## Context

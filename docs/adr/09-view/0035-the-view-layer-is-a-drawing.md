@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-22
 Scope: Decides: that the view is an independent description type with its own file, schema and shard, that it is a drawing rather than a build input, and that deterministic `Reference` / `Value` field placement is the renderer's limited automatic-placement exception. Does not decide: the renderer's full implementation or other layout policy — see ADR-0036 and ADR-0055.
-Related: [ADR-0004](../01-language/0004-source-spans.md), [ADR-0012](../04-schematic/0012-one-flat-schematic-per-board.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0037](0037-review-records-and-attribution.md), [ADR-0055](0055-schematic-fields-are-view-overrides.md), [ADR-0059](0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md), [ADR-0060](../03-project/0060-a-write-keeps-the-bytes-it-replaced.md)
+Related: [ADR-0004](../01-language/0004-source-spans.md), [ADR-0012](../04-schematic/0012-one-flat-schematic-per-board.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0037](0037-review-records-and-attribution.md), [ADR-0055](0055-schematic-fields-are-view-overrides.md), [ADR-0059](0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md), [ADR-0060](../03-project/0060-a-write-keeps-the-bytes-it-replaced.md), [ADR-0061](0061-a-move-carries-only-what-belonged-to-the-net.md)
 Impact: `spec/schematic-view.md`; `packages/parser` (the `view` description type); `packages/viewer/**`; `packages/cli` (the `review` command); `schemas/ir/**` (the view shard)
 
 ## Background

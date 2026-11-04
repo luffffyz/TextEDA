@@ -167,6 +167,22 @@ placements but cannot edit fields or source.
   explicit **Source** action to preview and save source text; source editing is never entered by a
   drawing click.
 
+### What the Apply writes
+
+The page is recomputed, but only the rows that changed are written back. Moving one symbol on the
+reference page changes four rows: the symbol's own `place` row, the first endpoint of each wire
+that hangs on it, and whatever was sitting on that net's wiring. The wires keep their shape, their
+bends and their directions — only their endpoints follow the pins. Every other row of the page
+stays byte-identical.
+
+A label or a port **follows its net only when it was already on that net's wiring**. A label the
+reviewer placed freely — 9 mm below the bus it names, because that is where the text reads
+clearly — stays where it was put; a move elsewhere on that net is no reason to pick it up
+(ADR-0061 D1). What did follow is named in the report the app shows.
+
+The recomputation costs a scan of the page, not a scan per row, so it grows with the page rather
+than with its square (ADR-0061 D3).
+
 The browser never writes files. The server owns canonical parsing and writing, and these actions
 write only `views/<board_id>/<page_id>.view.teda`; they do not write `design/**`, IR shards, project
 hashes or build hashes. The write goes through a temporary name and an atomic rename, so a reader

@@ -3,8 +3,8 @@
 // The contract is narrow on purpose: a drawing change touches the drawing and nothing else, the
 // bytes written are the formatter's, the wires that lost their pins are re-anchored, and every
 // other net is left exactly as it was.
-import { describe, expect, test } from "bun:test";
-import { cpSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { afterAll, describe, expect, test } from "bun:test";
+import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,12 +15,20 @@ import { buildReviewModel } from "../src/review-model.ts";
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const referenceProject = join(repoRoot, "examples", "reference-project");
 
+/** The scratch copies this file made, so they can be taken away when it is done. */
+const scratches: string[] = [];
+
 /** A copy of the reference project, so a test can write into it. */
 function scratch(): string {
   const dir = mkdtempSync(join(tmpdir(), "texteda-layout-test-"));
   cpSync(referenceProject, dir, { recursive: true });
+  scratches.push(dir);
   return dir;
 }
+
+afterAll(() => {
+  for (const dir of scratches) rmSync(dir, { recursive: true, force: true });
+});
 
 /** Every file under a directory, relative to it. */
 function tree(dir: string): string[] {
@@ -543,5 +551,67 @@ describe("a label or a port move", () => {
     expect(() =>
       planLayout(dir, { ...base, texts: [{ id: "GND", kind: "label", x: 1, y: 1 }] }),
     ).toThrow(/has 4 labels on this page/);
+  });
+});
+
+describe("a move changes the rows it touches and nothing else", () => {
+  const file = "views/charger-buck/buck-5v.view.teda";
+
+  test("a label the person placed away from the wiring stays where it was put", () => {
+    const dir = scratch();
+    // Put the GND label 9 mm below the bus it names: a free placement, not a label on the wire.
+    const page = join(dir, file);
+    const original = readFileSync(page, "utf8");
+    const moved = original.replace("  GND      130.0  121.0\n", "  GND      130.0  130.0\n");
+    expect(moved).not.toBe(original);
+    writeFileSync(page, moved);
+
+    const plan = planLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.C1", x: 130.0, y: 96.5, rot: 90 }],
+    });
+
+    // The net moved, but the label was never on it, so nothing carried the label along. (The GND
+    // port was on the bus, so it did follow — the reseat report names what moved.)
+    expect(plan.reseated).not.toContain("label GND");
+    expect(plan.text).toContain("  GND      130.0  130.0\n");
+  });
+
+  test("a label that was on the wiring follows the wiring", () => {
+    const dir = scratch();
+    const plan = planLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.C1", x: 130.0, y: 96.5, rot: 90 }],
+    });
+
+    // The GND port sat on the bus, so the bus moving carried it along.
+    expect(plan.reseated).toContain("port GND");
+    expect(plan.text).toContain("  GND      130.0  121.0  180\n");
+  });
+
+  test("the rows the move did not touch are byte-identical", () => {
+    const dir = scratch();
+    const before = readFileSync(join(dir, file), "utf8").split("\n");
+    const plan = planLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.C1", x: 130.0, y: 96.5, rot: 90 }],
+    });
+    const after = plan.text.split("\n");
+
+    // The moved symbol's own row and the rows of what hangs on it change; the rest does not.
+    const changed: number[] = [];
+    for (let i = 0; i < Math.max(before.length, after.length); i++) {
+      if (before[i] !== after[i]) changed.push(i + 1);
+    }
+    expect(changed.length).toBeLessThan(before.length / 4);
+    expect(plan.text.split("\n").filter((line) => line.startsWith("  M2.D1"))).toEqual(
+      before.filter((line) => line.startsWith("  M2.D1")),
+    );
+    expect(plan.text.split("\n").filter((line) => line.startsWith("  M2.VFB"))).toEqual(
+      before.filter((line) => line.startsWith("  M2.VFB")),
+    );
   });
 });
