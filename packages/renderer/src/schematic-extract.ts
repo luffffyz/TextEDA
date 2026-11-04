@@ -181,6 +181,9 @@ export function schematicProjection(
 ): SchematicProjection {
   const placed = new Map<string, { place: Place; instance: SchematicInstance }>();
   for (const place of view.place) placed.set(place.instance_id, { place, instance: instances.get(place.instance_id)! });
+  // Where each port the page draws sits: a run may end at one (ADR-0062), and its point is the
+  // page's own `port` row.
+  const portPoints = new Map((view.port ?? []).map((port) => [port.id, { x: port.x_nm, y: port.y_nm }]));
 
   const pins: SchematicPinProjection[] = [];
   const texts: SchematicTextProjection[] = [];
@@ -288,7 +291,7 @@ export function schematicProjection(
   }
 
   for (const wire of view.wire ?? []) {
-    shapes.push({ kind: "polyline", layer: "wire", points: wirePoints(wire, placed).map((p) => ({ x_nm: p.x, y_nm: p.y })) });
+    shapes.push({ kind: "polyline", layer: "wire", points: wirePoints(wire, placed, portPoints).map((p) => ({ x_nm: p.x, y_nm: p.y })) });
   }
   for (const label of view.label ?? []) {
     texts.push({ layer: "label", role: "text", text: label.net, x_nm: label.x_nm, y_nm: label.y_nm });
@@ -318,8 +321,19 @@ function splitPinRef(ref: string): { instance: string; pin: string } {
   return { instance: ref.slice(0, dot), pin: ref.slice(dot + 1) };
 }
 
-function wirePoints(wire: Wire, placed: ReadonlyMap<string, { place: Place; instance: SchematicInstance }>): { x: number; y: number }[] {
+function wirePoints(
+  wire: Wire,
+  placed: ReadonlyMap<string, { place: Place; instance: SchematicInstance }>,
+  ports: ReadonlyMap<string, { x: number; y: number }>,
+): { x: number; y: number }[] {
   const endpoint = (ref: string): { x: number; y: number } => {
+    // An end is a pin reference or a port the page itself draws (ADR-0062). A bare id is a port;
+    // its point is the page's own `port` row, not any symbol.
+    if (!ref.includes(".")) {
+      const port = ports.get(ref);
+      if (!port) throw new Error(`schematic view: wire endpoint ${ref} names a port the page does not draw`);
+      return { x: port.x, y: port.y };
+    }
     const { instance: id, pin } = splitPinRef(ref);
     const entry = placed.get(id);
     if (!entry) throw new Error(`schematic view: wire endpoint ${ref} refers to an instance that is not placed`);

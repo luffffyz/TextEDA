@@ -255,10 +255,10 @@ export function renderSchematic(
     placed.set(place.instance_id, { place, instance });
   }
 
-  // A run may end at a port this page draws: the port's own anchor is the end point. The row's
-  // coordinates are nanometres; the drawing works in millimetres.
+  // A run may end at a port this page draws: the port's own anchor is the end point. Every point
+  // on a sheet is nanometres here, the millimetre conversion happens when the drawing is written.
   const portPoints = new Map<string, Point>();
-  for (const port of view.port ?? []) portPoints.set(port.id, { x: port.x_nm / 1_000_000, y: port.y_nm / 1_000_000 });
+  for (const port of view.port ?? []) portPoints.set(port.id, { x: port.x_nm, y: port.y_nm });
 
   // Wires first: they run underneath the symbols, so a wire that ends on a pin is covered by the pin line.
   const runs: { net: string; points: Point[] }[] = [];

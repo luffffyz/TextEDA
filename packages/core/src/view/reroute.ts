@@ -366,6 +366,9 @@ function elbow(from: WireCorners, to: WireCorners, vertical: boolean): WireCorne
  * A label or a port has to sit on the net it names; when a move leaves it in the air, the nearest
  * point of the net's wiring is where it belongs. The nearest point of a segment is its
  * perpendicular foot, clamped to the segment's ends.
+ *
+ * A path of one point is a point, not a line: that is how a net's member pin enters the search
+ * (a label may sit on a pin, spec/schematic-view.md §6).
  */
 export function nearestOnPath(
   path: readonly WireCorners[],
@@ -373,6 +376,7 @@ export function nearestOnPath(
 ): WireCorners | undefined {
   let best: WireCorners | undefined;
   let bestDistance = Number.POSITIVE_INFINITY;
+  if (path.length === 1) return path[0]!;
   for (let i = 0; i + 1 < path.length; i += 1) {
     const a = path[i]!;
     const b = path[i + 1]!;

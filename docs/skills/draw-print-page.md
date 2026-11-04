@@ -229,10 +229,10 @@ Expected shape (the numbers move with the page):
 
 ```
 charger-buck/buck-5v — 297.0 × 210.0 mm sheet
-content   x 20.0..230.0  y 14.0..121.6 mm  (36.2% of the sheet)
-counts    9 instances, 9 labels, 2 ports, 1 notes, 16 wires, 30 nets undrawn
-spacing   label min gap 4.7 mm, text min gap 4.7 mm
-wires     508.5 mm total, 6 crossings of other nets, 0 through a body
+content   x 20.0..241.5  y 14.0..121.6 mm  (38.2% of the sheet)
+counts    9 instances, 10 labels, 2 ports, 1 notes, 17 wires, 30 nets undrawn
+spacing   label min gap 5.7 mm, text min gap 5.7 mm
+wires     422.5 mm total, 0 crossings of other nets, 0 through a body
 net texts all sit on their nets
 ```
 

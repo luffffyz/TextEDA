@@ -233,7 +233,7 @@ describe("layout-places: the places-only write path", () => {
 
     const outcome = applyPlaces(dir, REQUEST);
     expect(outcome.changed).toBe(true);
-    expect(outcome.stale).toEqual(["GND", "M2.BOOT", "M2.PH", "M2.VFB", "SYS"]);
+    expect(outcome.stale).toEqual(["GND", "M2.BOOT", "M2.PH", "SYS"]);
 
     // the project's own check sees the same nets, through the same entry point check.ts uses
     const findings = checkProject(dir).diagnostics.filter((d) => d.code === "view.wire-diagonal" || d.code === "view.wire-crosses-pin");

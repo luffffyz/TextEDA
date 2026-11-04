@@ -14,9 +14,9 @@ from the symbol, and the view only says which pin it is.
 
 That worked while every run ran from pin to pin. It stops working at the board's edge. A port
 (`spec/teda.md` §7.5) names a net for the outside world; the page draws it as a symbol whose
-**anchor sits wherever the person put it**. In the reference project the `GND` port is at
-`(120, 121)`, in the middle of the bus that runs from `117.5` to `139` — not at either end of it.
-The `VOUT_5V` port is 9.19 mm away from the nearest `VOUT` run.
+**anchor sits wherever the person put it**. When this record was written, the reference project's
+`GND` port sat at `(120, 121)`, in the middle of the bus that ran from `117.5` to `139` — not at
+either end of it. The `VOUT_5V` port was 9.19 mm away from the nearest `VOUT` run.
 
 So a port is not an end of a run. It is a symbol the person places **near** one. Three things
 followed from that, and the third is the reason for this record:

@@ -494,6 +494,20 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
       .filter((wire, index) => newWires[index] !== wire)
       .map((wire) => wire.net),
   );
+  // A net whose member pin moved is a net whose drawing moved, even when none of its wires did:
+  // a label may sit on that pin instead of on a wire (spec/schematic-view.md §6), and it has to
+  // travel with the pin it named.
+  const membersOf = new Map<string, string[]>();
+  for (const net of facts.schematic.nets ?? []) membersOf.set(net.id, net.members ?? []);
+  for (const [net, members] of membersOf) {
+    for (const member of members) {
+      const dot = member.lastIndexOf(".");
+      if (dot <= 0) continue;
+      if (!moved.has(member.slice(0, dot))) continue;
+      disturbed.add(net);
+      break;
+    }
+  }
 
   // A label or a port that the move left in the air is put back on the net it names — except the
   // ones the person placed by hand: an explicit position is a decision, and `reseatOnNet` is a
@@ -514,6 +528,24 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
     if (paths === undefined) pathsByNet.set(wire.net, [[from, ...bends, to]]);
     else paths.push([from, ...bends, to]);
   }
+  // A net's member pins are part of its drawing: a label may sit on a pin instead of on a wire
+  // (spec/schematic-view.md §6), so a move that takes the pin away has to carry the label with it.
+  // Only the nets this page draws are completed this way — a page that leaves a net out is a
+  // sketch, and the checker says so in its own words.
+  const addMemberPins = (
+    paths: Map<string, WireCorners[][]>,
+    geometry: SheetGeometry,
+    ports: ReadonlyMap<string, { x_nm: number; y_nm: number }>,
+  ): void => {
+    for (const [net, drawn] of paths) {
+      for (const member of membersOf.get(net) ?? []) {
+        const at = pinPoint(geometry, member, ports);
+        if (at === undefined) continue;
+        drawn.push([at]);
+      }
+    }
+  };
+  addMemberPins(pathsByNet, after, portsAfter);
   const pathsOf = (net: string): WireCorners[][] => pathsByNet.get(net) ?? [];
   // Where each net ran before the move. A label that was already on its net's wiring belongs to
   // that net and follows it; a label the person put somewhere else is a free placement, and a
@@ -528,6 +560,7 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
     if (paths === undefined) oldPathsByNet.set(wire.net, [[from, ...bends, to]]);
     else paths.push([from, ...bends, to]);
   }
+  addMemberPins(oldPathsByNet, before, portsBefore);
   /** Whether a point was sitting on the net's own wiring before the move. */
   const wasOnNet = (net: string, point: { x_nm: number; y_nm: number }): boolean => {
     for (const path of oldPathsByNet.get(net) ?? []) {

@@ -3,24 +3,27 @@ symbol dc-dc-soic8
 
 description 8-pin step-down converter with exposed pad in SOIC-8
 tags buck dc-dc regulator
-# Placement rules: 4/5 on the left, 1/2/3/8 on the right, 7 on top, 6/9 on bottom; pin connection points sit 2.5 outside the body edge.
+# Placement rules: 4/5 on the left, 1/2/3/8 on the right, 7 on top, 6/9 on bottom.
 # Same-side pins follow natural pin-number order: right side bottom to top 1, 2, 3, 8; left side bottom to top 4, 5; bottom side left to right 6, 9.
-# Body width is 25 mm to leave clearance for long pin names like VSENSE and for the vertical pin names of GND/PAD below.
+# Body width is 16 mm to leave clearance for long pin names like VSENSE and for the vertical pin names of GND/PAD below.
+# The bottom pins sit half a millimetre right of centre so the vertical name of GND clears VSENSE.
+# The side tails are 7 mm long so a net label can sit on a pin: a label is about 5.5 mm wide and is drawn inside the body
+# (spec/symbol.md), so the tail must be long enough to carry it between the connection point and the body edge.
 # Pin connection points sit on the 0.5 mm placement lattice (ADR-0057) in both coordinates; rows are 2.5 mm apart (ADR-0058).
 pin_name_offset 1.25
 field Reference at=12,11 U
 field Value at=12,-11 dc-dc-soic8
 
 pins
-  1  15   -3.5  180  length=2.5
-  2  15   -1    180  length=2.5
-  3  15   1.5   180  length=2.5
-  4  -15  -1    0    length=2.5
-  5  -15  1.5   0    length=2.5
-  6  -1   -7.5  90   length=2.5
-  7  0    7.5   270  length=2.5
-  8  15   4     180  length=2.5
-  9  1.5  -7.5  90   length=2.5
+  1  15    -3.5  180  length=7
+  2  15    -1    180  length=7
+  3  15    1.5   180  length=7
+  4  -15   -1    0    length=7
+  5  -15   1.5   0    length=7
+  6  -0.5  -7.5  90   length=2.5
+  7  0     7.5   270  length=2.5
+  8  15    4     180  length=7
+  9  2     -7.5  90   length=2.5
 
 body
-  rect  -12.5,-5,12.5,5  fill=background  width=0.25
+  rect  -8,-5,8,5  fill=background  width=0.25

@@ -15,12 +15,12 @@ starts and ends where its ends are, and the segment leaving each end stays on th
 It says nothing about the corners in between.
 
 That is enough for the run, and not enough for the drawing. A run's corners frequently exist
-**because** a pin used to sit somewhere else. In the reference project the `VOUT` run from `L1.2`
-to `C3.1` went out to `x = 214.5` and came back at `x = 211`: two corners that moved the wire
-around a pin sitting to the left of `C3`. Move the pin onto `C3`'s own column and those corners
-have nothing left to do — but a re-anchor keeps them, because they are still on the axes. The
-person sees a run with three bends where one would do, on the sheet they just moved a part on,
-and has to redraw it by hand.
+**because** a pin used to sit somewhere else. When this record was written, the reference project's
+`VOUT` run from `L1.2` to `C3.1` went out to `x = 214.5` and came back at `x = 211`: two corners
+that moved the wire around a pin sitting to the left of `C3`. Move the pin onto `C3`'s own column
+and those corners have nothing left to do — but a re-anchor keeps them, because they are still on
+the axes. The person sees a run with three bends where one would do, on the sheet they just moved
+a part on, and has to redraw it by hand.
 
 So the gap is: a run that has lost its reason for a corner should lose the corner too. The hard
 part is that "the corner is not needed" is not the same as "there is a shorter legal path". The
@@ -85,8 +85,9 @@ target that licenses finding a new line.
 
 ## What follows
 
-- A move that used to leave a redundant detour now leaves a straight run: `L1.2 → C3.1` loses
-  its there-and-back and keeps the corner that joins its ends.
+- A move that used to leave a redundant detour now leaves a straight run: `L1.2 → C3.1` lost its
+  there-and-back and kept the corner that joins its ends — the shape the reference project carries
+  today.
 - A run that ends beside its other end on the same row keeps its bus and loses only the leg that
   no longer reaches anything: `C3.2 → C4.2` goes from two corners to one when `C4` moves along
   `y = 121`, and keeps both when it moves off the row.

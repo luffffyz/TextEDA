@@ -36,7 +36,7 @@ describe("texteda view metrics", () => {
     const metrics = JSON.parse(result.stdout) as Metrics;
     expect(metrics.board).toBe("charger-buck");
     expect(metrics.page).toBe("buck-5v");
-    expect(metrics.counts.labels).toBe(9);
+    expect(metrics.counts.labels).toBe(10);
     expect(metrics.wire_total_nm).toBeGreaterThan(0);
     expect(metrics.content_fill_ppm).toBeGreaterThan(0);
     expect(metrics.content_fill_ppm).toBeLessThan(1_000_000);
@@ -129,7 +129,7 @@ describe("texteda view rewire", () => {
     // leaves the bends where the author put them.
     const gnd = parsed.ir?.wire?.find((wire) => wire.net === "GND" && wire.from_pin === "M2.C1.2");
     expect(gnd?.points?.[0]).toEqual({ x_nm: 117_500_000, y_nm: 121_000_000 });
-    expect(gnd?.points?.[1]).toEqual({ x_nm: 149_000_000, y_nm: 121_000_000 });
+    expect(gnd?.points?.[1]).toEqual({ x_nm: 149_500_000, y_nm: 121_000_000 });
     expect(gnd?.points?.length).toBe(2);
   });
 
