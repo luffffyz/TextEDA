@@ -628,9 +628,12 @@ function junctionDots(svg: string): Set<string> {
 
 describe("the layout Apply keeps the drawing honest", () => {
   test("moving a pin past its corner adds no junction dot", () => {
-    // The VFB run already carried a duplicated bend. Moving R2 up put the pin above the corner,
-    // and keeping that corner drew a zero-length segment plus a reversal: three arms at one point,
-    // which the renderer reads as a join. The dot was an artefact of the move, not a connection.
+    // Two things are checked, and they are the two halves of "no dot the drawing did not have":
+    // the number of joins is unchanged, and the one join whose point the move carries with it
+    // (the two GND runs meeting at R2.2) is the only one that moves. The VFB run already carried
+    // a duplicated bend, and moving R2 up put the pin above the corner: keeping that corner drew a
+    // zero-length segment plus a reversal, three arms at one point, and the renderer read it as a
+    // join. That dot was an artefact of the move, not a connection, and it is gone.
     const dir = scratch();
     const before = planLayout(dir, { board: "charger-buck", page: "buck-5v", places: [] });
     const after = planLayout(dir, {
@@ -638,8 +641,13 @@ describe("the layout Apply keeps the drawing honest", () => {
       page: "buck-5v",
       places: [{ instance_id: "M2.R2", x: 200.5, y: 109.5, rot: 90 }],
     });
+    expect([...junctionDots(after.svg)]).toHaveLength([...junctionDots(before.svg)].length);
     const added = [...junctionDots(after.svg)].filter((dot) => !junctionDots(before.svg).has(dot));
-    expect(added).toEqual([]);
+    // A join that moved with its pin: the two GND runs meet at R2.2, and R2.2 moved 3.5 mm right.
+    expect(added).toEqual(["200.5,121"]);
+    // The VFB artefact is gone, not merely moved: no join is left anywhere near that corner.
+    expect(junctionDots(after.svg).has("198.5,105.5")).toBe(false);
+    expect(junctionDots(after.svg).has("198.5,109.5")).toBe(false);
   });
 
   test("a run that ends at a port follows the port", () => {
@@ -695,6 +703,40 @@ describe("the layout Apply keeps the drawing honest", () => {
     );
     // The write introduces no readability finding on the run it shortened.
     expect(warnings.filter((d) => d.code === "view.wire-diagonal")).toEqual([]);
+  });
+
+  test("moving C4 along the bus shortens the leg, and the bus stays on its line", () => {
+    // The GND run between C3 and C4 was drawn as a Z: down to the bus at y = 121, across, and up to
+    // C4. Moving C4 1.5 mm right makes the last leg redundant — the run reaches the pin from the
+    // bus now — while the bus itself is where the GND labels sit and stays where it is.
+    const dir = scratch();
+    const before = planLayout(dir, { board: "charger-buck", page: "buck-5v", places: [] });
+    const after = planLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.C4", x: 226.5, y: 106.5, rot: 90 }],
+    });
+    const runOf = (text: string) =>
+      text.split("\n").find((line) => line.includes("M2.C4.2") && line.trim().startsWith("GND"));
+    expect(runOf(before.text)).toContain("230.0 121.0  230.0 110.5");
+    expect(runOf(after.text)).toContain("211.0 121.0  226.5 121.0");
+    expect(runOf(after.text)).not.toContain("230.0");
+    expect(after.conflicts).toEqual([]);
+  });
+
+  test("moving C4 up keeps the Z, because the ends are no longer on one line", () => {
+    // The same run, moved straight up: the pin is now above the bus and the two ends no longer
+    // share a row. The Z is not redundant here — the run has to come down to the bus and back up —
+    // so only the length of the reaching leg changes.
+    const dir = scratch();
+    const after = planLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.C4", x: 225, y: 104, rot: 90 }],
+    });
+    const runOf = (text: string) =>
+      text.split("\n").find((line) => line.includes("M2.C4.2") && line.trim().startsWith("GND"));
+    expect(runOf(after.text)).toContain("211.0 121.0  225.0 121.0");
   });
 
   test("a bus keeps its line: a shortcut that would move it is refused", () => {

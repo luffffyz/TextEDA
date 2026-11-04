@@ -452,6 +452,16 @@ export interface RunObstacles {
   readonly symbols: readonly ObstacleSymbol[];
   /** The ends of the run: a pin of this run is the connection it declares, not an obstacle. */
   readonly ends: readonly string[];
+  /**
+   * The labels and ports the drawing anchors to this run.
+   *
+   * A label names a net and sits on that net's wiring; a port is where a run leaves the page. Both
+   * are placed where they are because the line they sit on is there, so a shortening that takes
+   * that line away leaves them in the air — and the page then reports them, or carries them to
+   * whatever line is left. They are therefore part of what a legal shortening has to keep, and the
+   * reason a bus at one `y` stays at that `y`: the labels on it have nowhere else to go.
+   */
+  readonly anchors?: readonly { readonly point: WireCorners; readonly slack_nm: number }[];
 }
 
 /**
@@ -467,6 +477,17 @@ export interface RunObstacles {
  */
 export function isLegalRun(path: readonly WireCorners[], obstacles: RunObstacles): boolean {
   if (path.length < 2) return false;
+  // An anchored label or port has to stay with the run: shortening may not slide out from under
+  // it. The slack is how far the run's own ends moved — a label follows a run that moved, and
+  // straightening a detour next to it is the same move. What is refused is the case where the
+  // shortening would strand the label somewhere the move never went.
+  for (const anchor of obstacles.anchors ?? []) {
+    let near = false;
+    for (let i = 0; i + 1 < path.length && !near; i += 1) {
+      near = distanceToSegment(anchor.point, path[i]!, path[i + 1]!) <= ON_LINE_NM + anchor.slack_nm;
+    }
+    if (!near) return false;
+  }
   for (let i = 0; i + 1 < path.length; i += 1) {
     const a = path[i]!;
     const b = path[i + 1]!;
@@ -487,38 +508,30 @@ export function isLegalRun(path: readonly WireCorners[], obstacles: RunObstacles
   return true;
 }
 
-/** Whether two paths have a segment in common (the same pair of ends, in either order). */
-function sharesSegment(a: readonly WireCorners[], b: readonly WireCorners[]): boolean {
-  const key = (p: WireCorners, q: WireCorners): string =>
-    p.x_nm < q.x_nm || (p.x_nm === q.x_nm && p.y_nm < q.y_nm)
-      ? `${p.x_nm},${p.y_nm}-${q.x_nm},${q.y_nm}`
-      : `${q.x_nm},${q.y_nm}-${p.x_nm},${p.y_nm}`;
-  const segments = new Set<string>();
-  for (let i = 0; i + 1 < b.length; i += 1) segments.add(key(b[i]!, b[i + 1]!));
-  for (let i = 0; i + 1 < a.length; i += 1) {
-    if (segments.has(key(a[i]!, a[i + 1]!))) return true;
-  }
-  return false;
-}
-
 /**
  * The same run with the corners it does not need.
  *
- * The run's ends are fixed — they are the pins (or the port) the row names. Everything between
- * them is a corner, and a corner is unnecessary when the drawing is still legal without it.
+ * The run's ends are fixed — they are the pins (or the port) the row names. What may change is the
+ * corners between them, and only two ways, both of which keep the drawing on coordinates it already
+ * uses:
  *
- * Two removals are tried, in order:
+ * 1. **Drop a corner the ends no longer need.** The remaining corners must still share one line
+ *    (or be none at all). Sharing a line is what a bus is, and a bus keeps its line: the labels and
+ *    ports sitting on it have nowhere else to go ({@link RunObstacles.anchors} makes that a rule,
+ *    not a convention). A removal that would leave the corners scattered over the sheet rebuilt the
+ *    run instead of shortening it.
+ * 2. **Keep the one corner that joins the two ends.** When a corner sits where the ends' own lines
+ *    meet — `(from.x, to.y)` or `(to.x, from.y)` — and the drawing already has it, the run between
+ *    them needs nothing else. This pass does not invent the corner; it keeps one that is there.
  *
- * 1. **Drop a corner.** The segments around it may be replaced by one straight segment. This is the
- *    cheap case: two collinear corners become one, or a detour that was never needed goes away.
- * 2. **Replace a run of corners with one elbow.** The elbow leaves the first end on the axis the
- *    run was drawn on, and the candidate is accepted only when it **shares a segment with the
- *    drawing**. That is what stops this from being a router: the shortened line sits on a line the
- *    person drew, so a bus at `y = 121` stays at `y = 121` instead of drifting onto a nearby pin.
+ * A leg that reaches an end moves with that end: when a removal leaves the first or last segment
+ * slanted, the corner next to it is put onto the end's line — **one** correction, never two,
+ * because moving both legs is a rebuild.
  *
- * Every candidate is accepted only when it passes {@link isLegalRun}, the same rules the
- * readability check applies to a drawn run. A detour drawn around something on purpose survives,
- * because the shorter drawing runs through what the detour went around.
+ * Every candidate must pass {@link isLegalRun}, the same rules the readability check applies to a
+ * drawn run. This is not a router: no search, no cost function, and a detour drawn around
+ * something on purpose survives, because removing its corner runs the wire through what it went
+ * around.
  */
 export function simplifyRun(
   path: readonly WireCorners[],
@@ -526,46 +539,165 @@ export function simplifyRun(
 ): { path: WireCorners[]; changed: boolean } {
   if (path.length <= 2) return { path: [...path], changed: false };
   const points = path.map((point) => ({ x_nm: point.x_nm, y_nm: point.y_nm }));
-  let changed = false;
-
-  // Pass 1: drop a corner whose neighbours can be joined by one axis-parallel segment.
-  for (let removed = true; removed; ) {
-    removed = false;
-    for (let i = 1; i + 1 < points.length; i += 1) {
-      const before = points[i - 1]!;
-      const after = points[i + 1]!;
-      if (before.x_nm !== after.x_nm && before.y_nm !== after.y_nm) continue;
-      const candidate = [...points.slice(0, i), ...points.slice(i + 1)];
-      if (!isLegalRun(candidate, obstacles)) continue;
-      points.splice(i, 1);
-      changed = true;
-      removed = true;
-      break;
-    }
-  }
-
-  // Pass 2: replace everything between the ends with one elbow, but only when the shorter line
-  // still uses a segment the person drew. That is the difference between shortening a run and
-  // moving it: a shortcut that shares no segment is a different line on the sheet, and a bus at
-  // `y = 121` must not silently become a line at `y = 112.5`.
   const from = points[0]!;
   const to = points[points.length - 1]!;
-  if (points.length > 3 && from.x_nm !== to.x_nm && from.y_nm !== to.y_nm) {
-    // The elbow leaves the first end the way the run was drawn: the drawn shape's first direction.
-    const firstVertical = from.x_nm === points[1]!.x_nm;
-    const candidates = firstVertical
-      ? [{ x_nm: from.x_nm, y_nm: to.y_nm }, { x_nm: to.x_nm, y_nm: from.y_nm }]
-      : [{ x_nm: to.x_nm, y_nm: from.y_nm }, { x_nm: from.x_nm, y_nm: to.y_nm }];
-    for (const elbow of candidates) {
-      if (elbow.x_nm === from.x_nm && elbow.y_nm === from.y_nm) continue;
-      if (elbow.x_nm === to.x_nm && elbow.y_nm === to.y_nm) continue;
-      const candidate = [from, elbow, to];
-      if (!sharesSegment(candidate, points)) continue;
+  let changed = false;
+
+  // Rule 2 first: the one corner that joins both ends, when the drawing already has it.
+  if (points.length > 3) {
+    const joins = [
+      { x_nm: from.x_nm, y_nm: to.y_nm },
+      { x_nm: to.x_nm, y_nm: from.y_nm },
+    ];
+    for (const join of joins) {
+      if (join.x_nm === from.x_nm && join.y_nm === from.y_nm) continue;
+      if (join.x_nm === to.x_nm && join.y_nm === to.y_nm) continue;
+      const at = points.findIndex(
+        (point, index) =>
+          index > 0 && index + 1 < points.length && point.x_nm === join.x_nm && point.y_nm === join.y_nm,
+      );
+      if (at < 0) continue;
+      const candidate = [from, join, to];
+      if (!sharesLine(candidate, points)) continue;
       if (!isLegalRun(candidate, obstacles)) continue;
       return { path: candidate, changed: true };
     }
   }
 
+  // Rule 1: drop corners, one at a time, while the rest still share one line. Several removals
+  // can be legal at once — both ends are fixed, so a corner may be dropped on either side of what
+  // is left — and the one that keeps the most corners where the person drew them is the shorter
+  // drawing of the same run that changes the least.
+  while (points.length > 2) {
+    let best: WireCorners[] | undefined;
+    let bestKept = -1;
+    for (let index = 1; index + 1 < points.length; index += 1) {
+      const kept = [...points.slice(0, index), ...points.slice(index + 1)];
+      const candidate = bendOneEnd(kept, points);
+      if (candidate === undefined) continue;
+      if (hasZeroLengthSegment(candidate)) continue;
+      if (!interiorShareOneLine(candidate)) continue;
+      if (!isLegalRun(candidate, obstacles)) continue;
+      const score = keptCorners(candidate, path);
+      if (score < bestKept) continue;
+      bestKept = score;
+      best = candidate;
+    }
+    if (best === undefined) break;
+    points.length = 0;
+    points.push(...best);
+    changed = true;
+  }
+
   return { path: points, changed };
+}
+
+/**
+ * Whether the corners between the ends still sit on one line.
+ *
+ * Corners on one line are a bus, and a bus keeps its line. A run whose corners are scattered over
+ * the sheet is a shape somebody drew for a reason — a detour around a body, a staircase — and
+ * shortening it would have to invent lines. One corner is the join rule's business, not this one: a
+ * run left with a single corner after a removal has had its whole shape replaced.
+ */
+function interiorShareOneLine(path: readonly WireCorners[]): boolean {
+  const corners = path.slice(1, -1);
+  if (corners.length < 2) return false;
+  const sameY = corners.every((corner) => corner.y_nm === corners[0]!.y_nm);
+  const sameX = corners.every((corner) => corner.x_nm === corners[0]!.x_nm);
+  return sameY || sameX;
+}
+
+/**
+ * The corners left after a removal, with the one slanted end joined up.
+ *
+ * Removing a corner can leave the first or the last segment slanted: the leg that reaches a pin
+ * still has to reach it, and the pin is where it is. The corner next to that end is put onto the
+ * end's line — one axis, on the axis the drawn end segment used — which is the same correction the
+ * re-anchor makes for a shape it could not keep.
+ *
+ * Returns `undefined` when the slant cannot be fixed, or when **both** ends slant: a removal that
+ * would move both legs is a rebuild, not a shortening.
+ */
+function bendOneEnd(kept: readonly WireCorners[], drawn: readonly WireCorners[]): WireCorners[] | undefined {
+  void drawn;
+  const candidate = kept.map((point) => ({ x_nm: point.x_nm, y_nm: point.y_nm }));
+  if (candidate.length < 2) return undefined;
+  const slants = (list: readonly WireCorners[], index: number): boolean =>
+    list[index]!.x_nm !== list[index + 1]!.x_nm && list[index]!.y_nm !== list[index + 1]!.y_nm;
+
+  if (slants(candidate, 0)) {
+    if (candidate.length < 3) return undefined;
+    const start = candidate[0]!;
+    const corner = candidate[1]!;
+    // The corner's other side is unchanged, so it already pins one of the corner's axes: a
+    // horizontal next segment pins the y, a vertical one pins the x. Only the free axis moves, and
+    // it moves onto the end's own coordinate.
+    const next = candidate[2]!;
+    if (next.y_nm === corner.y_nm) candidate[1] = { x_nm: start.x_nm, y_nm: corner.y_nm };
+    else candidate[1] = { x_nm: corner.x_nm, y_nm: start.y_nm };
+    // The head fix may have slanted the other end; that is a second correction, so refuse.
+    if (slants(candidate, candidate.length - 2)) return undefined;
+  }
+  if (slants(candidate, candidate.length - 2)) {
+    if (candidate.length < 3) return undefined;
+    const last = candidate.length - 1;
+    const end = candidate[last]!;
+    const corner = candidate[last - 1]!;
+    // The same rule from the other end: the segment the corner still has pins one axis.
+    const previous = candidate[last - 2]!;
+    if (previous.y_nm === corner.y_nm) candidate[last - 1] = { x_nm: end.x_nm, y_nm: corner.y_nm };
+    else candidate[last - 1] = { x_nm: corner.x_nm, y_nm: end.y_nm };
+  }
+  return candidate;
+}
+
+/**
+ * Whether a candidate run still runs on a line the drawing used.
+ *
+ * Collinear and overlapping, not "the same pair of ends": shortening a segment moves one of its
+ * ends, and the shortened segment is still on the line the person drew.
+ */
+function sharesLine(candidate: readonly WireCorners[], drawn: readonly WireCorners[]): boolean {
+  for (let i = 0; i + 1 < candidate.length; i += 1) {
+    const [p, q] = [candidate[i]!, candidate[i + 1]!];
+    for (let j = 0; j + 1 < drawn.length; j += 1) {
+      if (overlapsOnLine(p, q, drawn[j]!, drawn[j + 1]!)) return true;
+    }
+  }
+  return false;
+}
+
+/** Whether two axis-parallel segments lie on the same line and share more than a point. */
+function overlapsOnLine(p: WireCorners, q: WireCorners, r: WireCorners, s: WireCorners): boolean {
+  const horizontal = p.y_nm === q.y_nm;
+  if (horizontal !== (r.y_nm === s.y_nm)) return false;
+  if (horizontal) {
+    if (p.y_nm !== r.y_nm) return false;
+    const [a1, a2] = p.x_nm < q.x_nm ? [p.x_nm, q.x_nm] : [q.x_nm, p.x_nm];
+    const [b1, b2] = r.x_nm < s.x_nm ? [r.x_nm, s.x_nm] : [s.x_nm, r.x_nm];
+    return Math.min(a2, b2) > Math.max(a1, b1);
+  }
+  if (p.x_nm !== r.x_nm) return false;
+  const [a1, a2] = p.y_nm < q.y_nm ? [p.y_nm, q.y_nm] : [q.y_nm, p.y_nm];
+  const [b1, b2] = r.y_nm < s.y_nm ? [r.y_nm, s.y_nm] : [s.y_nm, r.y_nm];
+  return Math.min(a2, b2) > Math.max(a1, b1);
+}
+
+/** How many of a candidate's corners sit where the drawing already had a corner. */
+function keptCorners(candidate: readonly WireCorners[], drawn: readonly WireCorners[]): number {
+  let kept = 0;
+  for (const point of candidate.slice(1, -1)) {
+    if (drawn.some((other) => other.x_nm === point.x_nm && other.y_nm === point.y_nm)) kept += 1;
+  }
+  return kept;
+}
+
+/** Whether a path has a segment of zero length, which is no drawing of anything. */
+function hasZeroLengthSegment(path: readonly WireCorners[]): boolean {
+  for (let i = 0; i + 1 < path.length; i += 1) {
+    if (path[i]!.x_nm === path[i + 1]!.x_nm && path[i]!.y_nm === path[i + 1]!.y_nm) return true;
+  }
+  return false;
 }
 

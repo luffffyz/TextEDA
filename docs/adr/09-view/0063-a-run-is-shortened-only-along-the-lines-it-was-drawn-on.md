@@ -39,19 +39,33 @@ this order, and accepts a candidate only when it passes `isLegalRun`:
 (a pin, or a port — [ADR-0062](0062-a-run-may-end-at-a-port.md)). Nothing here may change them;
 it only removes points between them.
 
-**D2. A corner goes when the drawing is still legal without it.** The segments around it become
-one straight segment. This is the ordinary case: two collinear corners become one, or a bend that
-was never needed goes away. A corner whose removal would leave a slanted segment is not a
-candidate at all — no run on the sheet has one
+**D2. A corner goes only when the corners left still share one line.** Removing a corner joins
+the segments around it; the drawing is accepted only when the corners that remain sit on one
+line, or when none remain. Corners on one line *are* a bus, and a bus is a fact about the sheet,
+not a redundancy: the `GND` line at `y = 121` is where four labels and a port are anchored, and
+that is why it stays at `y = 121`. A removal that would leave corners scattered over the sheet
+rebuilt the run instead of shortening it, and is refused. A corner whose removal would leave a
+slanted segment is not a candidate at all — no run on the sheet has one
 ([ADR-0059](0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1).
 
-**D3. A whole run of corners may be replaced by one elbow, but only when the shorter line shares
-a segment with the drawing.** This is the rule that keeps this from being a router. The elbow
-leaves the first end on the axis the run was drawn on, and the candidate must reuse a segment
-that is already there. A shortcut that shares no segment is refused **even when it is legal and
-shorter**: the GND bus at `y = 121` stays at `y = 121` rather than drifting up to a pin at
-`y = 112.5`, because the second line is a different line — one the person did not draw — and
-moving it would carry its label and port along with it.
+**D3. A leg that reaches an end moves with that end, and one correction is the limit.** Removing
+a corner can leave the first or last segment slanted, because the pin or port it reaches has
+moved and the run still has to reach it. The corner next to that end is then put onto the end's
+own line, on the one axis the corner's other side leaves free. Both ends are never corrected at
+once: that is a rebuild, not a shortening, and it is refused.
+
+**D3a. The corner that joins the two ends may be the only corner left — but only if the drawing
+already has it.** When `(from.x, to.y)` or `(to.x, from.y)` is a corner in the run as drawn, the
+run between the ends needs nothing else, and every other corner goes. The corner is kept because
+the person put it there; this rule never invents one.
+
+**D3b. A label or port anchored to the run stays with it.** A label names a net and sits on that
+net's wiring; a port is where a run leaves the page. Both are placed where they are because the
+line under them is there, so a shortening that takes that line away leaves them in the air — and
+the reseat then carries them to whatever line is left, which is a different drawing. The anchors
+are therefore passed into `isLegalRun` and must remain on the shortened run. They are read with
+the slack the move itself created: a label follows a run whose ends moved, and straightening a
+detour beside it is the same move; what is refused is stranding one where the move never went.
 
 **D4. Legality is the reader's legality, not a second opinion about it.** `isLegalRun` decides
 with the same primitives the readability check uses — `pinStroke`, `segmentInBox`,
@@ -59,7 +73,9 @@ with the same primitives the readability check uses — `pinStroke`, `segmentInB
 check will accept, and a corner it removes is one the check would have complained about. A
 checker that re-derived a pin stroke would drift from what the reader sees
 ([ADR-0042](0042-the-review-app-has-modes.md) D5, [ADR-0035](0035-the-view-layer-is-a-drawing.md)).
-The run's own two ends are exempt, because a run always touches the pins it connects.
+The run's own two ends are exempt, because a run always touches the pins it connects. The
+anchors of D3b are the one entry here that is not a readability finding: a stranded label is
+reported only once it is stranded, so the shortening has to refuse it itself.
 
 **D5. This is not a router and has no objective.** No search, no cost function, no candidate
 generation beyond the run's own corners and their coordinates. A detour drawn on purpose survives
@@ -69,8 +85,11 @@ target that licenses finding a new line.
 
 ## What follows
 
-- A move that used to leave a redundant detour now leaves a straight run: `L1.2 → C3.1` goes from
-  four corners to one.
+- A move that used to leave a redundant detour now leaves a straight run: `L1.2 → C3.1` loses
+  its there-and-back and keeps the corner that joins its ends.
+- A run that ends beside its other end on the same row keeps its bus and loses only the leg that
+  no longer reaches anything: `C3.2 → C4.2` goes from two corners to one when `C4` moves along
+  `y = 121`, and keeps both when it moves off the row.
 - A move that leaves a bus where it was leaves the bus where it was — its coordinates, its label,
   and its port all stay put.
 - `texteda view rewire` and the review app's `Apply` share the pass, because it is a property of a
@@ -84,6 +103,12 @@ target that licenses finding a new line.
 - **Find the shortest legal path between the ends.** Legal, and wrong: it produces a line the
   person did not draw (measured: the GND bus moved from `y = 121` to `y = 112.5`, carrying a
   label and a port, with no finding raised to say so).
+- **Require a segment the drawing contains, byte for byte.** The first version of D3 did this,
+  and it is the defect this record was written to fix: shortening moves one end of a segment
+  (`230 → 226.5`), so the shortened segment lies on the drawn line but never matches it.
+- **Accept any collinear overlap and nothing else.** The other extreme: it kept one leg on the
+  drawn bus and put the rest on a new line, and the bus drifted from `y = 121` to `y = 112.5`
+  with a label and a port riding along. Withdrawn in favour of D2 plus D3b.
 - **Only remove collinear corners** (what `tidy` already did before this record). Safe, and
   insufficient: the `VOUT` detour's corners are not collinear, they are a there-and-back that
   only the pin's old position justified.

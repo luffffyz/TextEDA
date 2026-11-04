@@ -33,7 +33,9 @@ import {
   type Line,
 } from "@texteda/parser";
 import {
+  distanceToSegment,
   nearestOnPath,
+  ON_LINE_NM,
   ON_NET_NM,
   reanchorWire,
   reseatOnNet,
@@ -471,7 +473,20 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
     // run: a corner that was needed before the move may be unnecessary after it. The shorter
     // drawing is used only when it is legal by the same rules the readability check applies, so a
     // detour drawn around something on purpose survives.
-    const simplified = simplifyRun([fromAfter, ...kept, toAfter], obstaclesFor(wire, after));
+    const simplified = simplifyRun(
+      [fromAfter, ...kept, toAfter],
+      {
+        ...obstaclesFor(wire, after),
+        // Anchors are read off the run as it was drawn: where the labels and ports sat before the
+        // move. They are the reason a bus keeps its line.
+        anchors: anchorsFor(wire, [fromBefore, ...(wire.points ?? []).map((point) => ({ x_nm: point.x_nm, y_nm: point.y_nm })), toBefore], {
+          labels: view.label ?? [],
+          ports: view.port ?? [],
+          portNets: facts.portNets,
+          moved: { from: fromBefore, newFrom: fromAfter, to: toBefore, newTo: toAfter },
+        }),
+      },
+    );
     return { ...wire, points: simplified.path.slice(1, -1) };
   });
   const disturbed = new Set(
@@ -834,6 +849,52 @@ function obstaclesFor(
   return { symbols: geometry.symbols, ends };
 }
 
+/**
+ * The labels and ports the drawing sits on a net's runs.
+ *
+ * They are the anchors a shortening has to keep: a label names a net and lies on that net's wiring,
+ * so a shortening that takes the line away from underneath it would either leave it in the air or
+ * carry it to whatever line is left. The label at the far end of a bus is exactly what a bus is
+ * for, and this is the fact that tells a bus apart from a redundant detour when the two are the
+ * same shape on the sheet.
+ */
+function anchorsFor(
+  wire: NonNullable<SchematicView["wire"]>[number],
+  drawn: readonly WireCorners[],
+  texts: {
+    labels: readonly NonNullable<SchematicView["label"]>[number][];
+    ports: readonly NonNullable<SchematicView["port"]>[number][];
+    portNets: ReadonlyMap<string, string>;
+    moved: { from: WireCorners; newFrom: WireCorners; to: WireCorners; newTo: WireCorners };
+  },
+): { point: WireCorners; slack_nm: number }[] {
+  const on = (point: { x_nm: number; y_nm: number }): boolean => {
+    for (let i = 0; i + 1 < drawn.length; i += 1) {
+      if (distanceToSegment(point, drawn[i]!, drawn[i + 1]!) <= ON_LINE_NM) return true;
+    }
+    return false;
+  };
+  const slack = Math.max(
+    Math.abs(texts.moved.from.x_nm - texts.moved.newFrom.x_nm),
+    Math.abs(texts.moved.from.y_nm - texts.moved.newFrom.y_nm),
+    Math.abs(texts.moved.to.x_nm - texts.moved.newTo.x_nm),
+    Math.abs(texts.moved.to.y_nm - texts.moved.newTo.y_nm),
+  );
+  const anchors: { point: WireCorners; slack_nm: number }[] = [];
+  for (const label of texts.labels) {
+    if (label.net !== wire.net) continue;
+    if (on(label)) anchors.push({ point: { x_nm: label.x_nm, y_nm: label.y_nm }, slack_nm: slack });
+  }
+  for (const port of texts.ports) {
+    // A port belongs to a net through the board's ports, not through its own row. A run that ends
+    // at the port already has it as an end, and the end is exempt; the ones that matter are the
+    // ports of the net that sit on this run.
+    const net = texts.portNets.get(port.id);
+    if (net !== wire.net) continue;
+    if (on(port)) anchors.push({ point: { x_nm: port.x_nm, y_nm: port.y_nm }, slack_nm: slack });
+  }
+  return anchors;
+}
 /** Where a run's end sits on the sheet: a pin's connection point, or a port the page draws. */
 export function pinPoint(
   geometry: SheetGeometry,
