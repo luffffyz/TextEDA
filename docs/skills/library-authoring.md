@@ -4,6 +4,8 @@
 > **Scope**: the `assets/` library, its `component` facts, previews, and verification. This is an operating procedure, not a replacement for the language specifications.
 > **Authority**: use [symbol-authoring.md](../guides/symbol-authoring.md), [footprint-authoring.md](../guides/footprint-authoring.md), [spec/symbol.md](../../spec/symbol.md), and [spec/footprint.md](../../spec/footprint.md) for syntax and contract details.
 
+Index: [`docs/skills/README.md`](README.md) lists the procedures and when to read which.
+
 ## 1. Non-negotiable ownership rules
 
 A library entry is not a second schematic or PCB description. Keep each fact at its owner:
@@ -107,8 +109,8 @@ The coordinate is the connection point. The body is on the pin's inner side. Use
 
 Use the symbol source for pin connection points, directions, lengths, styles, body geometry, and visibility only. Pin-label positions and rotations are computed by the renderer; the symbol source cannot set or control them. `.teda` has no independent per-pin text-position or text-rotation field. Do not add unsupported text keys or move pins/body solely to chase renderer label placement.
 
-1. **Pin lattice**: a pin's connection point *and* its inner end are exact multiples of `0.5 mm`, so `length` is one too ([ADR-0057](../../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D1). The review app snaps placement to the same `0.5 mm` grid, so a symbol dropped on the grid keeps every pin reachable by an axis-aligned wire.
-2. **Symbol pin pitch**: `2.0 mm` for new regular pin rows. `2.0` is the smallest pitch that is both a multiple of `0.5` and even, so an even pin count on a side centres symmetrically. Use `2.5 mm` only where pin numbers would otherwise collide (the 100-pin MCU and the 12/9-pin sides of a wide controller), and `1.0 mm` only for two pins that must sit close together. Do not use `1.27 mm` as a symbol pin pitch.
+1. **Pin lattice**: a pin's connection point *and* its inner end are exact multiples of `0.5 mm`, so `length` is one too ([ADR-0057](../../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D1). The anchor is the pin on **both** axes, not a row forced symmetric about the origin: a page connects pin to pin, so two pins admit an axis-aligned route only when each one's `x` and `y` are lattice points regardless of which row they came from ([ADR-0058](../../docs/adr/08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md) §2). The review app snaps placement to the same `0.5 mm` grid.
+2. **Symbol pin pitch**: `2.5 mm` between adjacent pins on one side of a symbol that draws its pin numbers, and a wider row only for a concrete reason — a three-character number such as `"100"` needs `3.0 mm`. That floor is measured from the painted ink of the numbers, so `2.0 mm` leaves two digits `0.192 mm` apart, and a symbol that hides its numbers has no floor at all (a tight pair that describes one terminal hides them instead). Do not use `1.27 mm` as a symbol pin pitch. [ADR-0058](../../docs/adr/08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md) §1, §3, §4.
 3. **Body frame and artwork**: a visible `rect` body's edge is where the pin tails end, so its coordinates are on the lattice too. Decorative artwork that is not a frame (the resistor rectangle, inductor humps, diode triangles) keeps its shape; only the pin rows and tails move onto the lattice.
 4. **Footprints are physical**: pad centres and sizes keep the datasheet's values even when they fall off the `0.5 mm` lattice. A symbol's lattice never propagates into a pad's coordinates.
 
@@ -121,7 +123,7 @@ pads
   <number>  <type>  <shape>  <x>  <y>  <w>  <h>  [key=value ...]
 ```
 
-Preserve the datasheet's physical values. The `2.0 mm` pin-pitch rule above is a symbol authoring convention; it does not override a package's actual pad pitch. Never change pad centers or sizes to force a convenient grid when that would change the land pattern. If a datasheet value is not on the `0.5 mm` lattice, keep the exact representable value: the lattice governs symbol artwork, not physical geometry.
+Preserve the datasheet's physical values. The `2.5 mm` pin-pitch floor above is a symbol authoring convention; it does not override a package's actual pad pitch. Never change pad centers or sizes to force a convenient grid when that would change the land pattern. If a datasheet value is not on the `0.5 mm` lattice, keep the exact representable value: the lattice governs symbol artwork, not physical geometry.
 
 Apply these checks:
 
@@ -212,7 +214,7 @@ A library change is complete only when all applicable items are true:
 - Component, symbol, and footprint ownership is unambiguous.
 - Classification paths and `<classification>:<id>` references resolve.
 - Component pin numbers equal symbol pin numbers, and required pads cover the component pins.
-- Every symbol pin's connection point and inner end are multiples of `0.5 mm`, new regular pin rows use `2.0 mm` spacing, and a visible body frame sits on the same lattice. Do not round physical footprint pad geometry to fit it.
+- Every symbol pin's connection point and inner end are multiples of `0.5 mm` on both axes, adjacent pins on a numbered symbol sit at least `2.5 mm` apart, and a visible body frame sits on the same lattice. Do not round physical footprint pad geometry to fit it.
 - Footprint pad geometry matches the datasheet, independent of symbol spacing conventions.
 - Both symbol and footprint previews were inspected at a useful scale.
 - `fmt:teda --check`, `lib:verify`, and the project `check` pass.

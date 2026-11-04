@@ -8,6 +8,8 @@
 This file is English on purpose: a skill is an operating manual for an agent, not a design document
 (see AGENTS.md §12).
 
+Index: [`docs/skills/README.md`](README.md) lists the procedures and when to read which.
+
 ## 0. What this skill is for
 
 Where a new project starts, what each file looks like, how the commands chain, and **which

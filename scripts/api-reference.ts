@@ -364,7 +364,7 @@ function renderApiIndex(root: string, groups: PackageGroup[]): string {
     "| CLI command syntax and dispatch | [`packages/cli/scripts/texteda.ts`](../../packages/cli/scripts/texteda.ts) |",
     "| Machine-readable verb catalogue | [`packages/cli/src/tools.ts`](../../packages/cli/src/tools.ts); inspect with `bun run texteda tools --json` |",
     "| MCP stdio adapter | [`packages/cli/src/mcp.ts`](../../packages/cli/src/mcp.ts); [ADR-0045](../adr/10-process/0045-the-mcp-server-is-a-slice-we-write-ourselves.md) |",
-    "| Agent workflows | [`docs/skills/`](../skills/) |",
+    "| Agent workflows | [`docs/skills/README.md`](../skills/README.md) — the index of the procedures |",
     "",
     "## TypeScript package APIs",
     "",

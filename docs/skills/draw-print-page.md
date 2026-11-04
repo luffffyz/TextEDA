@@ -1,13 +1,17 @@
 # Skill: Draw and Review a Print Page (S1)
 
-> **Status**: first draft (2026-10-25). The commands below were run on
-> `examples/reference-project`.
+> **Status**: the commands and expected outputs below were run on
+> `examples/reference-project` on 2026-11-04.
 > **Audience**: agents (humans can follow it too).
 > **Scope**: `views/<board_id>/<page_id>.view.teda` only. A drawing never changes
 > `design/**`, `assets/**`, the netlist, the BOM or the PCB.
+> **Not in scope**: diagnosing a page that already exists and is wrong — that is
+> [`repair-print-page.md`](repair-print-page.md).
 
 This file is English on purpose: a skill is an operating manual for an agent, not a design
 document (see `AGENTS.md` §12).
+
+Index: [`docs/skills/README.md`](README.md) lists the procedures and when to read which.
 
 ## 0. What this skill is for
 
@@ -47,6 +51,16 @@ The page needs two inputs:
    wires.
 
 A board with no view file has no drawing. That is legal; do not invent one.
+
+**Every coordinate the page stores is anchored on the `0.5 mm` lattice**, in both axes: a `place`
+origin, a `field` anchor (symbol-local), a `wire` bend, a `label` position, a `port` position, a
+`text` position ([ADR-0059](../adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md)
+D1). Free placement is not admitted today (same record, D5). The reason is constructive: a wire
+leaves a **pin**, whose connection point is a lattice point, and turns at a **bend**; when both
+sides are on the lattice, an axis-aligned run between them always exists. The file's `0.01 mm`
+**resolution** is a different question — it is what the format can express, and it stays finer than
+the lattice so a historical file or a hand nudge remains expressible
+([spec/schematic-view.md](../../spec/schematic-view.md) §2.1).
 
 ## 2. Two ways to seed a layout, one way to finish it
 
@@ -158,18 +172,34 @@ does edit a wire by hand, that edit is source: do not run a wholesale regenerato
 request and show the diff.
 
 The review app has one interaction surface: select a schematic symbol, press `m` to start an
-explicit move transaction, or press `r` to queue a clockwise 90-degree rotation. Selection does not
+explicit move transaction, or press `r` to queue a clockwise 90-degree rotation. A label or a port
+is movable too: select it and press `m` to place it by hand. Selection does not
 navigate: a single click only selects; `Enter` or a double-click opens the definition menu. The move
 preview uses the 0.5 mm placement grid (ADR-0057); a left-click completes only the local preview, and `Escape`
 restores that move transaction without reverting unrelated pending edits. `Apply` writes the pending
 view changes and **re-anchors** affected wires — same segment count, same directions, only the corners
 the moved pin positions require. Until `Apply` the page is local state: the old wires stay with stale
 bends, and `view.wire-diagonal` / `view.wire-crosses-pin` are the signal. A move can therefore create
-a readability finding; `texteda check` reports it after `Apply`, and the app shows it in the findings
-column. Do not run a router on every drag frame. The PCB, symbol and footprint drawings are
-read-only; source edits use the explicit Source panel. Built per [ADR-0056](../adr/09-view/0056-the-review-app-has-one-interaction-surface.md).
+a readability finding; `texteda check` reports it after `Apply`, and the app shows it in the left
+column beside the page's measurements. Do not run a router on every drag frame. The PCB, symbol and
+footprint drawings are read-only. Built per [ADR-0056](../adr/09-view/0056-the-review-app-has-one-interaction-surface.md).
 
 ## 3. The command loop
+
+### 3.0 Check the page's house style
+
+```sh
+bun run view:verify examples/reference-project
+```
+
+Expected:
+
+```
+view:verify ok — 2 print page(s) on the 0.5 mm lattice
+```
+
+This is the gate for the lattice rule (§1). It reports every coordinate that is off the lattice,
+naming the record and the value. Run it after editing a page, before the project check.
 
 ### 3.1 Check the project
 
@@ -177,10 +207,10 @@ read-only; source edits use the explicit Source panel. Built per [ADR-0056](../a
 bun run texteda check examples/reference-project
 ```
 
-Expected tail:
+Expected tail (the counts move with the project):
 
 ```
-Checked 2 boards: 0 errors, 135 warnings (stages: parse 47 · contract 0 · design 93)
+Checked 2 boards: 0 errors, 136 warnings (stages: parse 47 · contract 0 · design 94)
 ```
 
 Errors block the build; warnings do not. `view.*` warnings are drawing findings, not circuit
@@ -196,10 +226,10 @@ Expected shape (the numbers move with the page):
 
 ```
 charger-buck/buck-5v — 297.0 × 210.0 mm sheet
-content   x 20.0..254.5  y 14.0..173.8 mm  (60.1% of the sheet)
-counts    9 instances, 9 labels, 2 ports, 1 notes, 15 wires, 30 nets undrawn
-spacing   label min gap 6.7 mm, text min gap 6.7 mm
-wires     798.5 mm total, 1 crossings of other nets, 0 through a body
+content   x 20.0..230.0  y 14.0..121.6 mm  (36.2% of the sheet)
+counts    9 instances, 9 labels, 2 ports, 1 notes, 16 wires, 30 nets undrawn
+spacing   label min gap 4.7 mm, text min gap 4.7 mm
+wires     508.5 mm total, 6 crossings of other nets, 0 through a body
 net texts all sit on their nets
 ```
 
@@ -239,6 +269,7 @@ Errors first; warnings are triage, not a gate.
 | Code | Meaning | Repair |
 |---|---|---|
 | `ref.unknown-instance` / `ref.unknown-net` / `ref.unknown-port` | The view names an id the board does not have | Fix the id; do not add a second source of truth |
+| `view.pin-not-placed` | A wire names a pin whose instance is not in the `place` section | Place the instance, or drop the wire |
 | `view.pin-net-mismatch` | A wire endpoint pin is not a member of the row's net | Change the endpoint or the net; the logical netlist wins |
 | `view.out-of-sheet` | A record sits outside the sheet | Move it inside |
 | `view.nets-not-drawn` | A net with ≥2 members has no wire and no label on any page | Draw it or put a label on it |
@@ -248,12 +279,39 @@ Errors first; warnings are triage, not a gate.
 | `view.wire-crosses-pin` | A wire passes through a pin connection point that is not its own endpoint | Split the run at the pin, or route around it |
 | `view.text-overlap` / `view.label-collision` | Two pieces of text overlap | Move one; overlap area must be zero |
 | `view.text-on-wire` | A wire runs through text (including a symbol's Reference/Value) | Move the text or reroute the wire |
+| `format.unsupported-version` | The page declares a language older than the section it uses | Raise the `version` line; a `field` section needs language `0.10` |
 
 Definitions and data fields: [`spec/schematic-view.md`](../../spec/schematic-view.md) §9.2 and
 [`spec/schematic-view.md`](../../spec/schematic-view.md) §9.2.1. Do not copy them into this file.
 
+### 4.1 Moving a label or a port
+
+A label is addressed by its **net**; a port by its **port id**. Two rules follow, and both are
+errors rather than warnings when a tool breaks them:
+
+- A net with **more than one** label on the page cannot be moved by net name — the name does not
+  pick a row. Move it by its own row.
+- A label or a port placed by hand is **not reseated** afterwards. The write stores the position
+  the app sent; `texteda check` then reports `view.label-not-on-net` / `view.port-not-on-net`
+  with the distance, if the position is off the net. Snapping back would silently undo a
+  deliberate decision.
+
+### 4.2 Writing a `field` override
+
+The `field` section stores a position for one instance's `Reference` or `Value`, in symbol-local
+mm. Two things bite:
+
+- The section requires language **`0.10`**. A page that still declares `0.9.2` and gains a
+  `field` row is rejected with `format.unsupported-version`. **Raise the `version` line first.**
+- The coordinates are **relative to the symbol origin**, so they follow the symbol when it moves
+  or rotates. They are not sheet coordinates, and they are not the label/port anchor.
+
+An override is how you move an auto-placed field that a wire runs through (`view.text-on-wire`).
+The alternative is moving the wire; the field is usually the cheaper edit.
+
 ## 5. Acceptance checklist
 
+- [ ] `view:verify <project>` passes: every coordinate on the `0.5 mm` lattice (§1).
 - [ ] `texteda check <project>` has **0 errors**; every `view.*` warning is fixed or explicitly
       accepted (a research page can keep `nets-not-drawn`).
 - [ ] `view metrics` says `0 through a body` and both text gaps `> 0`; crossings are reported but
@@ -281,6 +339,15 @@ bun run test packages/cli/test/view-roundtrip.test.ts packages/cli/test/view.tes
 - Do not add a hop, a curve or a diagonal to dodge a crossing: a crossing with no dot is already
   "not connected". Do not use a crossing where a dot is required, either; a join is a dot.
 - Do not write a junction record; the dot is derived.
+- Do not place a coordinate off the `0.5 mm` lattice (§1). There is no free-placement escape hatch
+  today; if a position seems to need one, that is a design question, not a coordinate to invent.
+- Do not read the view file's `0.01 mm` resolution as the drawing grid. They are different
+  questions, and only the lattice is a placement rule.
+- Do not let a router choose the wiring. `texteda view rewire` re-anchors ends onto moved pins
+  and reseats labels; it does not search for a path, avoid bodies or pins, and it can leave a
+  bend off the lattice. It is a repair for a pure placement move, never a substitute for drawing.
+- Do not add a `field` row to a page that declares a language older than `0.10`; raise the
+  `version` line first, or the page stops parsing.
 - Do not overwrite a reviewed view with a regenerated one (ADR-0035).
 - Do not commit vendor datasheet PDFs or screenshots.
 - Do not treat a `view.*` warning as a circuit error, and do not silence one by deleting the
@@ -299,3 +366,4 @@ bun run test packages/cli/test/view-roundtrip.test.ts packages/cli/test/view.tes
   connectivity; geometry never does.
 - [`docs/skills/new-project.md`](new-project.md): the other end of the toolchain (project →
   netlist).
+- [`docs/skills/README.md`](README.md): the index of the procedures.

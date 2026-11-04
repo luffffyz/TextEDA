@@ -71,7 +71,7 @@ bun run texteda init ./my-board        # 生成空工程骨架
 
 `docs/ir-reference.md` 仍是 IR 字段、类型与单位的权威；`docs/error-codes.md` 仍是诊断码查表的权威。语义规则与设计理由仍在 `spec/`、指南和 ADR 中。
 
-手写的一份，给要从零建工程的 agent：[docs/skills/new-project.md](docs/skills/new-project.md)——每一步都是一条命令、预期输出，以及失败时该看哪个诊断码。
+手写的一份，给要在 TextEDA 工程上干活的 agent：[docs/skills/](docs/skills/README.md)——操作流程的索引（从零建工程、写库、看符号渲染、画打印页、修打印页、加诊断码、验证评审 app）。每一步都是一条命令、预期输出，以及失败时该看哪个诊断码。
 
 ## 对比
 
@@ -146,7 +146,7 @@ my-board/
 | `examples/cases/` | 十个困难用例：每个都是完整小工程，用期望 IR 与期望诊断钉住（已写了哪些看目录；`bun run cases:check`） |
 | `docs/adr/` | 决策记录（ADR）（[完整索引](docs/adr/README.md)） |
 | `docs/guides/` | 上手指南：造符号、造封装、导入外部库、记评审记录、多角色评审、开评审 app、读 KiCad 板文件、位号重编号 |
-| `docs/skills/` | 给 agent 的操作手册：每步 = 命令 + 预期输出 + 出错看哪个诊断码 |
+| `docs/skills/` | 给 agent 的操作流程：每步 = 命令 + 预期输出 + 出错看哪个诊断码（[索引](docs/skills/README.md)） |
 | `docs/trial-run/` | 历史快照：KiCad 端到端试跑，pcb 描述 → `.kicad_pcb` → DRC + Gerber（早于自建库落地） |
 | `docs/assets/` | 品牌资产（标志、图标、生成脚本）；字体二进制不入库 |
 | `docs/backlog.md` | 待办清单 |
