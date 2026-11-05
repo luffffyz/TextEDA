@@ -146,6 +146,13 @@ The text is taken from the schematic instance: `Reference` is its instance id an
 
 Without an override, a symbol with visible painted body geometry places `Reference` above and `Value` below the body, centered on its horizontal bounds with `1 mm` clearance from painted text ink. Geometry from the selected unit and shared visible symbol geometry both count. A bodyless symbol retains its library field positions and existing quarter-turn field anchoring. This is renderer-owned default text placement; it does not place symbols or change the drawing's connectivity.
 
+An override is for a position the author *wants*, not for one they need. An automatic field is
+recomputed every time the page is rendered, so it follows its symbol through an Apply; an override
+does not, and a row written to dodge a collision goes stale the moment the parts around it move.
+Re-space the symbols so the automatic positions clear each other instead of writing the row. The
+review app reports `manual` versus `automatic` on every field, which is how a reviewer tells the
+two apart.
+
 A `field` section requires language `0.10` (canonical spelling; equivalent to `0.10.0`). A `0.9.2` file containing `field` is rejected with `format.unsupported-version`; a `0.9.2` file without it remains valid. Unknown field names are invalid literals, duplicate pairs report `value.duplicate-field`, and an unknown instance reports `ref.unknown-instance`.
 
 ---

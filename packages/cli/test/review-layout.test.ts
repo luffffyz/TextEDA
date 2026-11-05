@@ -393,9 +393,9 @@ describe("the layout Apply", () => {
       remove_fields: [{ instance_id: "M2.C1", name: "Value" }],
     });
     const restored = content(dir, file);
-    expect(
-      parseView(restored, { file, board: "charger-buck" }).ir?.field?.some((field) => field.instance_id === "M2.C1"),
-    ).toBe(false);
+    const restoredRows = parseView(restored, { file, board: "charger-buck" }).ir?.field ?? [];
+    expect(restoredRows.filter((field) => field.instance_id === "M2.C1")).toEqual([]);
+
     // The version stays: it is the page's statement of what a reader must understand, and lowering it
     // would be a claim this writer cannot verify.
     expect(restored.startsWith("version 0.10")).toBe(true);
@@ -460,8 +460,10 @@ describe("the layout Apply", () => {
     });
     expect(restored.changed).toBe(true);
     expect(
-      parseView(restored.text, { file, board: "charger-buck" }).ir?.field?.some((field) => field.instance_id === "M2.C1"),
-    ).toBe(false);
+      (parseView(restored.text, { file, board: "charger-buck" }).ir?.field ?? []).filter(
+        (field) => field.instance_id === "M2.C1",
+      ),
+    ).toEqual([]);
     expect(restored.geometry.fields).toEqual(automatic);
     applyLayout(dir, {
       board: "charger-buck",
@@ -470,10 +472,10 @@ describe("the layout Apply", () => {
       remove_fields: [{ instance_id: "M2.C1", name: "Value" }],
     });
     expect(
-      parseView(content(dir, file), { file, board: "charger-buck" }).ir?.field?.some(
-        (field) => field.instance_id === "M2.C1",
-      ),
-    ).toBe(false);
+      (
+        parseView(content(dir, file), { file, board: "charger-buck" }).ir?.field ?? []
+      ).filter((field) => field.instance_id === "M2.C1"),
+    ).toEqual([]);
   });
 
   test("a mixed symbol move still reanchors its wires and saves local fields", () => {
@@ -496,6 +498,44 @@ describe("the layout Apply", () => {
       x_nm: 118_000_000,
       y_nm: 86_000_000,
     });
+  });
+
+  test("every automatic field sits against its own body, and Apply keeps it there", () => {
+    // The complaint this guards: field rows hand-placed to dodge a collision survive a later
+    // respacing of the page, so the value floats far from the part it names. An automatic field
+    // is renderer-owned, so moving the part must carry the text with it, and no field may sit
+    // further from its body than the renderer's own clearance rule allows.
+    const dir = scratch();
+    const file = "views/charger-buck/buck-5v.view.teda";
+    const page = { board: "charger-buck", page: "buck-5v", places: [] };
+
+    const fieldGaps = (): { key: string; gap_nm: number }[] => {
+      const geometry = planLayout(dir, page).geometry;
+      const bodies = new Map(geometry.symbols.map((symbol) => [symbol.instance_id, symbol.box]));
+      const gaps: { key: string; gap_nm: number }[] = [];
+      for (const field of geometry.fields) {
+        const body = bodies.get(field.instance_id);
+        if (body === undefined) continue;
+        const dx = Math.max(body.min_x_nm - field.box.max_x_nm, field.box.min_x_nm - body.max_x_nm, 0);
+        const dy = Math.max(body.min_y_nm - field.box.max_y_nm, field.box.min_y_nm - body.max_y_nm, 0);
+        gaps.push({ key: `${field.instance_id}:${field.name}`, gap_nm: Math.hypot(dx, dy) });
+      }
+      return gaps;
+    };
+
+    const moved = { instance_id: "M2.C1", x: 121.5, y: 95, rot: 90 };
+    const plan = planLayout(dir, { ...page, places: [moved] });
+    // Apply writes no override row for a symbol it moved: the renderer owns the position, so a
+    // later move cannot leave a stale anchor behind on the page.
+    const rows = parseView(plan.text, { file, board: "charger-buck" }).ir?.field ?? [];
+    expect(rows.filter((row) => row.instance_id === "M2.C1")).toEqual([]);
+
+    applyLayout(dir, { ...page, places: [moved] });
+    const gaps = fieldGaps();
+    expect(gaps.length).toBeGreaterThan(0);
+    // Automatic fields hug their body: the renderer's clearance is 1 mm, so every field stays
+    // within 2 mm instead of the many-millimetre drift a stale override produces.
+    expect(gaps.filter((field) => field.gap_nm > 2_000_000)).toEqual([]);
   });
 });
 
@@ -522,7 +562,14 @@ describe("a label or a port move", () => {
     const afterWires = saved.ir?.wire ?? [];
     const moved = afterWires.filter((wire, index) => JSON.stringify(wire) !== JSON.stringify(beforeWires[index]));
     expect(moved).toHaveLength(1);
-    expect(moved[0]).toMatchObject({ net: "VOUT", to_pin: "VOUT_5V", points: [{ x_nm: 208_000_000, y_nm: 104_000_000 }] });
+    // The run bends where the pin now sits, then drops to the port: the corner carries the pin's
+    // row, and the last leg reaches the port's own position.
+    expect(moved[0]).toMatchObject({
+      net: "VOUT",
+      from_pin: "M2.C4.1",
+      to_pin: "VOUT_5V",
+      points: [{ x_nm: 208_000_000, y_nm: 101_000_000 }],
+    });
   });
 
   test("a row already at the requested position is not a change", () => {
@@ -756,15 +803,17 @@ describe("the layout Apply keeps the drawing honest", () => {
     const after = planLayout(dir, {
       board: "charger-buck",
       page: "buck-5v",
-      places: [{ instance_id: "M2.C4", x: 225, y: 106.5, rot: 90 }],
+      places: [{ instance_id: "M2.C4", x: 228.5, y: 106.5, rot: 90 }],
     });
     // The run still comes down to the bus and comes back up: both corners are there.
-    expect(runs(before.svg, "GND")).toContain("211,112 211,121 225,121 225,112");
-    expect(runs(after.svg, "GND")).toContain("211,112 211,121 225,121 225,110.5");
-    // The straight run between the two capacitors' top pins cannot keep its shape when one of
-    // them leaves the row, and the person is told rather than left to guess (ADR-0042 D6).
+    expect(runs(before.svg, "GND")).toContain("212,109 212,121 228.5,121 228.5,109");
+    expect(runs(after.svg, "GND")).toContain("212,109 212,121 228.5,121 228.5,110.5");
+    // Two straight runs end on C4's top pin — the one between the capacitors and the one to the
+    // VOUT_5V port — and neither can keep being straight when the pin leaves their row, so both
+    // are reported rather than left to guess (ADR-0042 D6).
     expect(after.conflicts).toEqual([
       "VOUT M2.C3.1 → M2.C4.1: the wire's shape could not be kept (shape-lost)",
+      "VOUT M2.C4.1 → VOUT_5V: the wire's shape could not be kept (shape-lost)",
     ]);
     applyLayout(dir, {
       board: "charger-buck",
