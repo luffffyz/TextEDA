@@ -533,9 +533,10 @@ describe("the layout Apply", () => {
     applyLayout(dir, { ...page, places: [moved] });
     const gaps = fieldGaps();
     expect(gaps.length).toBeGreaterThan(0);
-    // Automatic fields hug their body: the renderer's clearance is 1 mm, so every field stays
-    // within 2 mm instead of the many-millimetre drift a stale override produces.
-    expect(gaps.filter((field) => field.gap_nm > 2_000_000)).toEqual([]);
+    // Automatic fields hug their body: the renderer places a field on the slot it wants or on the
+    // next free slot around the body — 1 mm, 3 mm or 5 mm out. A stale override would leave the
+    // text many millimetres away, which is what this catches.
+    expect(gaps.filter((field) => field.gap_nm > 5_500_000)).toEqual([]);
   });
 });
 
@@ -568,7 +569,7 @@ describe("a label or a port move", () => {
       net: "VOUT",
       from_pin: "M2.C4.1",
       to_pin: "VOUT_5V",
-      points: [{ x_nm: 208_000_000, y_nm: 101_000_000 }],
+      points: [{ x_nm: 208_000_000, y_nm: 100_000_000 }],
     });
   });
 
@@ -806,14 +807,14 @@ describe("the layout Apply keeps the drawing honest", () => {
       places: [{ instance_id: "M2.C4", x: 228.5, y: 106.5, rot: 90 }],
     });
     // The run still comes down to the bus and comes back up: both corners are there.
-    expect(runs(before.svg, "GND")).toContain("212,109 212,121 228.5,121 228.5,109");
-    expect(runs(after.svg, "GND")).toContain("212,109 212,121 228.5,121 228.5,110.5");
-    // Two straight runs end on C4's top pin — the one between the capacitors and the one to the
-    // VOUT_5V port — and neither can keep being straight when the pin leaves their row, so both
-    // are reported rather than left to guess (ADR-0042 D6).
-    expect(after.conflicts).toEqual([
+    expect(runs(before.svg, "GND")).toContain("210,108 210,121 216.5,121 216.5,108");
+    expect(runs(after.svg, "GND")).toContain("210,108 210,121 228.5,121 228.5,110.5");
+// The run between the capacitors is a straight line, and C4's top pin leaves its row when C4
+// moves, so that run cannot keep being straight: it is reported rather than left to guess
+// (ADR-0042 D6). The run to the VOUT_5V port has a corner of its own, and that corner keeps
+// the shape.
+expect(after.conflicts).toEqual([
       "VOUT M2.C3.1 → M2.C4.1: the wire's shape could not be kept (shape-lost)",
-      "VOUT M2.C4.1 → VOUT_5V: the wire's shape could not be kept (shape-lost)",
     ]);
     applyLayout(dir, {
       board: "charger-buck",

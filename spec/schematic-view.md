@@ -146,12 +146,16 @@ The text is taken from the schematic instance: `Reference` is its instance id an
 
 Without an override, a symbol with visible painted body geometry places `Reference` above and `Value` below the body, centered on its horizontal bounds with `1 mm` clearance from painted text ink. Geometry from the selected unit and shared visible symbol geometry both count. A bodyless symbol retains its library field positions and existing quarter-turn field anchoring. This is renderer-owned default text placement; it does not place symbols or change the drawing's connectivity.
 
+The places above are the places a field *wants*. The page decides whether it gets them: the renderer places a page's fields together, in the order the page places its instances. A field keeps the place it wants while that place is free, and otherwise steps to the next free slot around its own body — the side across from the one it wanted, then the two sides at right angles to it, and each of those three again `2 mm` further out, so a field never floats more than `5 mm` from the body it names. A slot is free when the text would cover nothing else on the sheet: no other field, no label, no port tag, no note, no other symbol's painted body, and no wire run. A field's own body is not in that list — the `1 mm` clearance above is the rule that governs it — and a field an override placed by hand is not moved; the automatic fields route around it.
+
+The result is a drawing fact, recomputed on every render like the places above, and it is never written back into the view file: an override decides its own field and nothing else. Two parts drawn close therefore keep readable designators and values, and a page that has no room left says so in the check report (`view.text-overlap`, §9.2) rather than printing one text on top of another.
+
 An override is for a position the author *wants*, not for one they need. An automatic field is
 recomputed every time the page is rendered, so it follows its symbol through an Apply; an override
 does not, and a row written to dodge a collision goes stale the moment the parts around it move.
-Re-space the symbols so the automatic positions clear each other instead of writing the row. The
-review app reports `manual` versus `automatic` on every field, which is how a reviewer tells the
-two apart.
+The renderer routes around a collision on its own, so no row is needed to keep two fields apart:
+write one only where the author wants a field somewhere else. The review app reports `manual`
+versus `automatic` on every field, which is how a reviewer tells the two apart.
 
 A `field` section requires language `0.10` (canonical spelling; equivalent to `0.10.0`). A `0.9.2` file containing `field` is rejected with `format.unsupported-version`; a `0.9.2` file without it remains valid. Unknown field names are invalid literals, duplicate pairs report `value.duplicate-field`, and an unknown instance reports `ref.unknown-instance`.
 
@@ -279,7 +283,7 @@ text
 | `view.wire-crosses-symbol` | 走线穿过某个符号的本体（`AGENTS.md` §6 的可读性检查）；本体取符号**图形**的包围盒，不含文字字段 | 已实现（可读性检查，同上） |
 | `view.wire-diagonal` | 走线有一段**不平行于坐标轴**（§5）：整页横平竖直，唯一的斜线读不出来它的两端是什么关系 | 已实现（可读性检查，同上） |
 | `view.wire-crosses-pin` | 走线穿过某个引脚的连接点（该引脚不是这条走线的端点时），或穿过该引脚从连接点到符号本体的笔画（§5）：读者会把走线读成引脚的一部分，或读成一个没有圆点的连接 | 已实现（可读性检查，同上） |
-| `view.text-overlap` | 两段文字互相压住（**相切不算**，必须有重叠面积） | 已实现（可读性检查，同上） |
+| `view.text-overlap` | 两段文字互相压住（**相切不算**，必须有重叠面积）。**符号画的字段（Reference / Value）也是文字**：字段压字段、字段压标签或注释，同归这条 | 已实现（可读性检查，同上） |
 | `view.label-collision` | 两个标签压在一起（label 与 label 的重叠归这条，其余文字组合归 `view.text-overlap`） | 已实现（可读性检查，同上） |
 | `view.text-on-wire` | 走线从文字**中间**穿过：字还在，词读不出来。标签与端口**豁免它自己命名的那个 net**（标签本来就落在自己的线上），符号画的字段（Reference / Value）与自由注释不豁免 | 已实现（可读性检查，同上） |
 
@@ -291,7 +295,7 @@ text
 >
 > **几何从渲染器来，不从检查器推**。文字宽度、符号本体范围、引脚落点都由 `packages/renderer` 的 `schematicGeometry` 按**实际画法**算出（同一套变换、同一套笔画字体度量），检查器只判断"压没压住""在不在线上"。检查器自己再算一遍就会和读者看到的东西漂移，那正是可读性检查要防的那类错误。
 >
-> **字段也在几何里**：`schematicGeometry` 除了视图自己的记录（`label` / `port` / `text`），还给出每个已放置实例的 `fields`——符号画的 `Reference` / `Value` 在纸上的框（含旋转，按绘制后的矩形取包围盒）。字段的默认位置由渲染器确定，显式 `field` 覆盖由视图作者调整；两者都是视图几何的一部分，但都不改变逻辑事实。可读性检查读取最终字段几何：`view.text-on-wire` 就靠它报出"走线穿过位号"。
+> **字段也在几何里**：`schematicGeometry` 除了视图自己的记录（`label` / `port` / `text`），还给出每个已放置实例的 `fields`——符号画的 `Reference` / `Value` 在纸上的框（含旋转，按绘制后的矩形取包围盒）。字段的默认位置由渲染器确定，显式 `field` 覆盖由视图作者调整；两者都是视图几何的一部分，但都不改变逻辑事实。可读性检查读取最终字段几何：`view.text-on-wire` 就靠它报出"走线穿过位号"，`view.text-overlap` 就靠它报出"两个字段压在一起"。字段在整页上的位置由渲染器按 §4.1 的规则统一安排，所以一页里字段互相压住说明这页已经没有位置可让——检查器把它报出来，作者去把符号挪开。
 
 ### 9.2.1 每条警告带多少
 
@@ -300,7 +304,7 @@ text
 | 码 | `data` |
 |---|---|
 | `view.label-not-on-net` / `view.port-not-on-net` | `page` `net` `kind` `distance_nm`（到该 net 最近走线或引脚的**距离**） |
-| `view.label-collision` / `view.text-overlap` | `page` `first` `second` `overlap_area_nm2`（重叠**面积**） |
+| `view.label-collision` / `view.text-overlap` | `page` `first` `second` `first_kind` `second_kind`（`label` / `port` / `text` / `field`）`overlap_area_nm2`（重叠**面积**） |
 | `view.text-on-wire` | `page` `net` `kind` `text` `through_nm`（在文字框**内部**的长度）；字段另带 `instance` |
 | `view.wire-crosses-symbol` | `page` `net` `instance` `through_nm`（在**本体内部**的长度） |
 | `view.wire-diagonal` | `page` `net` `segments`（斜段**条数**）`x_nm` `y_nm`（第一段斜线的起点）`off_axis_nm`（该段偏出轴线的量 = min(abs(dx), abs(dy))） |

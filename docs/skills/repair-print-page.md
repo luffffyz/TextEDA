@@ -269,11 +269,11 @@ These are the recurring ones on a page that is already wrong.
   A bus drawn straight under a port tag yields `view.text-on-wire` even though the bus misses the
   tag's tip. Read the tag's box from the review payload's `texts` and route around it.
 - **A symbol's `Reference` / `Value` fields are obstacles too.** They come from the **symbol**
-  (`field Reference at=` in the symbol source), not from the page, and they count as text. A
-  vertical drop through a part's value field is `view.text-on-wire`. Fix it in the symbol file by
-  moving `at=` by a body-side offset — there is no per-instance field offset — or route around the
-  box. A `field` override in the page is the cheaper edit when the wire should stay
-  ([`draw-print-page.md`](draw-print-page.md) §4.2).
+  (`field Reference at=` in the symbol source), not from the page, and they count as text. The
+  renderer places a page's automatic fields together, so a field whose place is taken steps aside
+  by itself: a vertical drop through a part's value field is `view.text-on-wire` only when that
+  field was placed by hand (a `field` row) or when the page has no room left. Route around the box,
+  or move the row ([`draw-print-page.md`](draw-print-page.md) §4.2).
 - **Labels draw their text to the right of the anchor**; ports draw theirs on the `rot` side. Keep
   other text, including a port's glyph, clear of that box — the port glyph counts in the same
   `text min gap` number as everything else.

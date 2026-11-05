@@ -95,6 +95,17 @@ describe("check exit codes", () => {
     expect(result.stderr).toContain("errors");
   });
 
+  test("the reference project's pages have no text on top of each other", () => {
+    // The renderer places a page's fields so that they do not cover each other; the checker is
+    // what says so when a page runs out of room.
+    const result = run(["check", "examples/reference-project", "--json"]);
+    expect(result.code).toBe(0);
+    const report = JSON.parse(result.stdout) as {
+      diagnostics: { code: string; severity: string }[];
+    };
+    expect(report.diagnostics.filter((d) => d.code === "view.text-overlap")).toEqual([]);
+  });
+
   test("exit code 1 when there are errors", () => {
     const root = mkdtempSync(join(tmpdir(), "texteda-cli-bad-"));
     try {

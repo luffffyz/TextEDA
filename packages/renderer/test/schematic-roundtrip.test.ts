@@ -106,6 +106,28 @@ describe("schematic round-trip", () => {
     expect(extractSchematic(renderSchematic(v, i))).toEqual(schematicProjection(v, i));
   });
 
+  test("a field that steps aside reverse-extracts into the view's projection", () => {
+    // Two parts six millimetres apart: one of the four fields cannot stay where its symbol wanted
+    // it, so the page moves it. The drawing and the projection place the fields on their own, and
+    // the two ends must still agree on where the field ended up.
+    const v = view({
+      place: [
+        { instance_id: "R1", x_nm: 100_000_000, y_nm: 100_000_000, rot_mdeg: 90_000 },
+        { instance_id: "R2", x_nm: 106_000_000, y_nm: 100_000_000, rot_mdeg: 90_000 },
+      ],
+      wire: [],
+    });
+    const i = instances(["R1", "R2"]);
+    const extracted = extractSchematic(renderSchematic(v, i));
+    const projection = schematicProjection(v, i);
+    expect(extracted.fields).toEqual(projection.fields);
+    expect(extracted.fields).toHaveLength(4);
+    // The symbol wanted its Reference above the body, at (102.54, 100); the page moved it aside.
+    const reference = extracted.fields.find((field) => field.instance_id === "R1" && field.name === "Reference");
+    expect(reference?.x_nm).not.toBe(102_540_000);
+    expect(extracted).toEqual(projection);
+  });
+
   test("the projection is not a no-op: moving, turning or relabelling changes it", () => {
     const base = extractSchematic(renderSchematic(view(), instances(ids)));
 

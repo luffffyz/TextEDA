@@ -19,7 +19,14 @@ export { packagePowerRating, chipResistorPackages } from "./devices/packages.ts"
 
 export { checkViews, type ViewFacts, type ViewPage } from "./view/checks.ts";
 export { viewMetrics, type NetTextMetric, type ViewMetrics } from "./view/metrics.ts";
-export { distanceToSegment, ON_LINE_NM } from "./view/geometry.ts";
+export {
+  boxesOverlap,
+  distanceToSegment,
+  overlapArea,
+  segmentInBox,
+  ON_LINE_NM,
+  type Point,
+} from "./view/geometry.ts";
 export {
   nearestOnPath,
   ON_NET_NM,

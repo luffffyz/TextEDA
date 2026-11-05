@@ -19,6 +19,7 @@ import type { SvgDoc } from "./svg.ts";
 import { renderSymbol } from "./symbol.ts";
 import type { SchematicInstance } from "./schematic.ts";
 import { resolveSchematicFields } from "./field-placement.ts";
+import { pageFacts, placePageFields, type PageProjection } from "./field-layout.ts";
 
 type Place = SchematicView["place"][number];
 type Wire = NonNullable<SchematicView["wire"]>[number];
@@ -123,6 +124,12 @@ function sheetPinRotation(place: Place, pinRotMdeg: number): number {
   return ((quadrantOf(place.rot_mdeg) * 90_000 - local) % 360_000 + 360_000) % 360_000;
 }
 
+/** How the projection turns symbol-local facts into sheet facts. */
+const PROJECTION: PageProjection = {
+  toSheet,
+  quadrant: quadrantOf,
+};
+
 function normalizeRect(points: { x: number; y: number }[]): { x1: number; y1: number; x2: number; y2: number } {
   const xs = points.map((p) => p.x);
   const ys = points.map((p) => p.y);
@@ -189,6 +196,9 @@ export function schematicProjection(
   const texts: SchematicTextProjection[] = [];
   const fields: SchematicFieldProjection[] = [];
   const shapes: SchematicShapeProjection[] = [];
+  // The fields are placed for the page as a whole (ADR-0064); the projection reads the same page
+  // facts through its own transform, so the two ends agree on where a field is drawn.
+  const placements = placePageFields(pageFacts(view, instances, PROJECTION));
 
   for (const place of view.place) {
     const entry = placed.get(place.instance_id)!;
@@ -200,7 +210,10 @@ export function schematicProjection(
       if (primitive.kind === "text" && primitive.role === "field") {
         const resolved = resolvedFields.get(primitive);
         if (!resolved) continue;
-        const at = toSheet(place, resolved.x, resolved.y);
+        const placement = placements.get(`${place.instance_id}:${primitive.name ?? "field"}`);
+        const at = placement === undefined
+          ? toSheet(place, resolved.x, resolved.y)
+          : { x: placement.x_nm, y: placement.y_nm };
         fields.push({
           instance_id: place.instance_id,
           name: primitive.name ?? "field",

@@ -180,6 +180,32 @@ describe("checkReadability", () => {
     );
   });
 
+  test("two fields on top of each other are reported: a field is text on the sheet", () => {
+    // The renderer places a page's fields so that they do not cover each other. When the page has
+    // no room left, the reader is the one who has to see it.
+    const box = { min_x_nm: 20 * MM, min_y_nm: 19 * MM, max_x_nm: 26 * MM, max_y_nm: 21 * MM };
+    const g = geometry({
+      fields: [
+        {
+          instance_id: "R1",
+          name: "Reference",
+          text: "R1",
+          box,
+        },
+        {
+          instance_id: "U1",
+          name: "Value",
+          text: "TPS5430DDAR",
+          box,
+        },
+      ],
+    });
+    const out = checkReadability(facts(view([gndWire], {}), g));
+    expect(out.map((d) => d.code)).toEqual(["view.text-overlap"]);
+    expect(out[0]!.message).toContain("the Reference field of R1");
+    expect(out[0]!.message).toContain("the Value field of U1");
+  });
+
   test("boxes that merely touch do not collide", () => {
     // Off the GND run (y = 20mm): a note sitting on a wire is now `view.text-on-wire`, and this
     // test is about the text-versus-text rule only.

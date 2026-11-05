@@ -124,40 +124,6 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
     });
   }
 
-  for (let i = 0; i < geometry.texts.length; i += 1) {
-    for (let j = i + 1; j < geometry.texts.length; j += 1) {
-      const a = geometry.texts[i]!;
-      const b = geometry.texts[j]!;
-      if (!boxesOverlap(a.box, b.box)) continue;
-      const bothLabels = a.kind === "label" && b.kind === "label";
-      diagnostics.push({
-        code: bothLabels ? "view.label-collision" : "view.text-overlap",
-        severity: "warning",
-        message: `print page ${page}: ${bothLabels ? "labels" : "text"} ${a.text} and ${b.text} overlap by ${mm2(overlapArea(a.box, b.box))} mm²`,
-        hint: "move one of them: overlapping text cannot be read",
-        location: at(a.ir_path),
-        data: { page, first: a.text, second: b.text, overlap_area_nm2: overlapArea(a.box, b.box) },
-      });
-    }
-  }
-
-  /**
-   * How much of a wire path runs inside a box, in nanometres: the part of the stroke the reader
-   * cannot tell apart from the letters.
-   *
-   * Summed over the segments, so a wire that enters, leaves and re-enters — a pad drop on each side
-   * of a value field — counts both runs.
-   */
-  const lengthInBox = (path: readonly Point[], box: ReadabilityBox): number => {
-    let total = 0;
-    for (let i = 0; i + 1 < path.length; i += 1) {
-      const clipped = segmentInBox(path[i]!, path[i + 1]!, box);
-      if (!clipped) continue;
-      total += (clipped[1] - clipped[0]) * Math.hypot(path[i + 1]!.x_nm - path[i]!.x_nm, path[i + 1]!.y_nm - path[i]!.y_nm);
-    }
-    return total;
-  };
-
   // Everything printed on the sheet, view records and symbol fields alike: a reader cannot tell
   // which file a line of text came from, so neither can this loop.
   const printed: {
@@ -190,6 +156,55 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
       ...(field.ir_path === undefined ? {} : { irPath: field.ir_path }),
     })),
   ];
+
+  // Two pieces of text on top of each other cannot be read. The page's own records and a symbol's
+  // fields are both text on the sheet, and a field that lands on a neighbour is the same finding.
+  for (let i = 0; i < printed.length; i += 1) {
+    for (let j = i + 1; j < printed.length; j += 1) {
+      const a = printed[i]!;
+      const b = printed[j]!;
+      if (!boxesOverlap(a.box, b.box)) continue;
+      const bothLabels = a.kind === "label" && b.kind === "label";
+      const fieldInvolved = a.kind === "field" || b.kind === "field";
+      const area = overlapArea(a.box, b.box);
+      diagnostics.push({
+        code: bothLabels ? "view.label-collision" : "view.text-overlap",
+        severity: "warning",
+        message: fieldInvolved
+          ? `print page ${page}: ${a.label} and ${b.label} overlap by ${mm2(area)} mm²`
+          : `print page ${page}: ${bothLabels ? "labels" : "text"} ${a.text} and ${b.text} overlap by ${mm2(area)} mm²`,
+        hint: fieldInvolved
+          ? "move the field or the part apart: two fields on top of each other cannot be read"
+          : "move one of them: overlapping text cannot be read",
+        location: at(a.irPath),
+        data: {
+          page,
+          first: a.text,
+          second: b.text,
+          first_kind: a.kind,
+          second_kind: b.kind,
+          overlap_area_nm2: area,
+        },
+      });
+    }
+  }
+
+  /**
+   * How much of a wire path runs inside a box, in nanometres: the part of the stroke the reader
+   * cannot tell apart from the letters.
+   *
+   * Summed over the segments, so a wire that enters, leaves and re-enters — a pad drop on each side
+   * of a value field — counts both runs.
+   */
+  const lengthInBox = (path: readonly Point[], box: ReadabilityBox): number => {
+    let total = 0;
+    for (let i = 0; i + 1 < path.length; i += 1) {
+      const clipped = segmentInBox(path[i]!, path[i + 1]!, box);
+      if (!clipped) continue;
+      total += (clipped[1] - clipped[0]) * Math.hypot(path[i + 1]!.x_nm - path[i]!.x_nm, path[i + 1]!.y_nm - path[i]!.y_nm);
+    }
+    return total;
+  };
 
   for (const text of printed) {
     for (const wire of wires) {

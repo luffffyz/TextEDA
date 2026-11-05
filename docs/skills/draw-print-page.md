@@ -309,8 +309,10 @@ mm. Two things bite:
 - The coordinates are **relative to the symbol origin**, so they follow the symbol when it moves
   or rotates. They are not sheet coordinates, and they are not the label/port anchor.
 
-An override is how you move an auto-placed field that a wire runs through (`view.text-on-wire`).
-The alternative is moving the wire; the field is usually the cheaper edit.
+An override is for a place the author *wants* a field to sit. The renderer places a page's
+automatic fields together: a field whose place is taken — by a neighbour's body, by another field,
+by a wire — steps aside by itself, so no row is needed to keep two fields apart. Write a row when
+the text belongs somewhere else, and expect it to stay there while its symbol moves.
 
 ## 5. Acceptance checklist
 

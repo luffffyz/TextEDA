@@ -10,7 +10,7 @@ One flat counter, handed out in the order the records are written, starting at
 `0001`. A number names one record and nothing else: what a record is about is said by
 its folder, not by its number. A number is **never changed and never reused** — a link
 to `ADR-0006` names the same decision forever — so a new record takes the next free
-number and disturbs nothing that already exists. The next free number is `0059`.
+number and disturbs nothing that already exists. The next free number is `0065`.
 The sequence is not contiguous; gaps are normal.
 
 ## Retired
@@ -137,6 +137,7 @@ that was meant for it, and by nothing else.
 | [ADR-0061](09-view/0061-a-move-carries-only-what-belonged-to-the-net.md) | A Move Carries Only What Belonged to the Net | Accepted | 2026-11-04 |
 | [ADR-0062](09-view/0062-a-run-may-end-at-a-port.md) | A Run May End at a Port | Accepted | 2026-11-04 |
 | [ADR-0063](09-view/0063-a-run-is-shortened-only-along-the-lines-it-was-drawn-on.md) | A Run Is Shortened Only Along the Lines It Was Drawn On | Accepted | 2026-11-04 |
+| [ADR-0064](09-view/0064-automatic-fields-are-placed-for-the-page.md) | Automatic Fields Are Placed for the Page, Not for One Symbol | Accepted | 2026-11-05 |
 
 ## Process
 

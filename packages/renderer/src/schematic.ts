@@ -8,6 +8,20 @@ import { pinDirection, type SvgDoc, type SvgPrimitive, type SvgText } from "./sv
 import { textAdvance } from "@texteda/core/font";
 import { renderSymbol, type SymbolBody, type SymbolPart } from "./symbol.ts";
 import { resolveSchematicFields } from "./field-placement.ts";
+import {
+  fieldTextAnchor,
+  pageFacts,
+  placePageFields,
+  portTextAnchor,
+  textBox,
+  LABEL_SIZE_NM,
+  NOTE_SIZE_NM,
+  PORT_BODY_NM,
+  PORT_HALF_NM,
+  PORT_SIZE_NM,
+  type FieldPlacement,
+  type PageProjection,
+} from "./field-layout.ts";
  
 /** What the renderer needs to draw one placed instance: the symbol's geometry and the pin facts from `component`. */
 export interface SchematicInstance {
@@ -38,12 +52,6 @@ const WIRE_WIDTH_NM = 152_400;
  */
 const JUNCTION_RADIUS_NM = 457_200;
 const FRAME_WIDTH_NM = 127_000;
-const LABEL_SIZE_NM = 1_270_000;
-const PORT_SIZE_NM = 1_270_000;
-const NOTE_SIZE_NM = 2_000_000;
-/** Port tag: half height and body length, in sheet coordinates. */
-const PORT_HALF_NM = 1_270_000;
-const PORT_BODY_NM = 7_620_000;
 
 interface Point {
   x: number;
@@ -73,6 +81,26 @@ function toSheet(place: Place, x: number, y: number): Point {
       return { x: x0 - y, y: y0 - x };
     default:
       return { x: x0 + x, y: y0 - y };
+  }
+}
+
+/**
+ * Sheet coordinates (+y down) -> symbol coordinates (+y up): the inverse of `toSheet`.
+ *
+ * A field that stepped aside is placed on the sheet, and the symbol's own frame is where a field
+ * row would write it, so the sheet place goes back into the symbol's frame to be drawn.
+ */
+function toLocal(place: Place, x: number, y: number): Point {
+  const { x_nm: x0, y_nm: y0 } = place;
+  switch (rotationOf(place.rot_mdeg)) {
+    case 90:
+      return { x: y - y0, y: x - x0 };
+    case 180:
+      return { x: x0 - x, y: y - y0 };
+    case 270:
+      return { x: y0 - y, y: x0 - x };
+    default:
+      return { x: x - x0, y: y0 - y };
   }
 }
 
@@ -111,7 +139,11 @@ function inUnit(primitive: SvgPrimitive, unit: number): boolean {
 }
 
 /** One symbol primitive, moved from symbol coordinates into sheet coordinates. */
-function placePrimitive(primitive: SvgPrimitive, place: Place): SvgPrimitive {
+function placePrimitive(
+  primitive: SvgPrimitive,
+  place: Place,
+  textAnchor?: "start" | "middle" | "end",
+): SvgPrimitive {
   switch (primitive.kind) {
     case "line": {
       const a = toSheet(place, primitive.x1, primitive.y1);
@@ -150,15 +182,12 @@ function placePrimitive(primitive: SvgPrimitive, place: Place): SvgPrimitive {
       // horizontal and grows away from the part instead: the left field ends where it stands, the
       // right one starts there.
       const quarter = rotationOf(place.rot_mdeg) === 90 || rotationOf(place.rot_mdeg) === 270;
-      const fieldAnchor =
-        primitive.role === "field" && quarter && Math.abs(at.x - place.x_nm) > 1_000
-          ? at.x < place.x_nm
-            ? ("end" as const)
-            : ("start" as const)
-          : undefined;
+      const anchor =
+        textAnchor ??
+        fieldTextAnchor(quarter && primitive.role === "field", at.x, place.x_nm);
       return {
         ...primitive,
-        ...(fieldAnchor === undefined ? {} : { anchor: fieldAnchor }),
+        ...(anchor === undefined ? {} : { anchor }),
         x: at.x,
         y: at.y,
         // Symbol text rotation is expressed in the symbol's +y-up frame. Placement rotation is clockwise
@@ -255,6 +284,10 @@ export function renderSchematic(
     placed.set(place.instance_id, { place, instance });
   }
 
+  // The fields are placed for the page as a whole: a designator that cannot stay where its symbol
+  // wanted it steps aside (ADR-0064).
+  const layout = pageLayout(view, instances);
+
   // A run may end at a port this page draws: the port's own anchor is the end point. Every point
   // on a sheet is nanometres here, the millimetre conversion happens when the drawing is written.
   const portPoints = new Map<string, Point>();
@@ -309,10 +342,9 @@ export function renderSchematic(
     });
   }
 
-  for (const { place, instance } of placed.values()) {
-    const unit = place.unit ?? 1;
+  for (const { place } of placed.values()) {
     const ref = `instance:${place.instance_id}`;
-    for (const primitive of placeSymbol(instance, place, unit, view.field)) {
+    for (const primitive of layout.symbols.get(place.instance_id) ?? []) {
       const identity =
         primitive.kind === "text" && primitive.role === "field" && primitive.name !== undefined
           ? `field:${place.instance_id}:${primitive.name}`
@@ -438,6 +470,7 @@ function placeSymbol(
   place: Place,
   unit: number,
   overrides: SchematicView["field"],
+  placements?: ReadonlyMap<string, FieldPlacement>,
 ): SvgPrimitive[] {
   const symbolDoc = renderSymbol(instance.symbol, instance.part);
   const fieldPositions = resolveSchematicFields(symbolDoc.primitives, place.instance_id, unit, instance.value, overrides, place.rot_mdeg);
@@ -446,13 +479,54 @@ function placeSymbol(
     if (primitive.kind === "text" && primitive.role === "field") {
       const field = fieldPositions.get(primitive);
       if (!field) continue;
-      out.push(placePrimitive({ ...primitive, x: field.x, y: field.y, text: field.text }, place));
+      // The page may have moved this field aside; the sheet place goes back into the symbol's frame
+      // so the field keeps travelling with its symbol (ADR-0064).
+      const placement = placements?.get(`${place.instance_id}:${primitive.name ?? "field"}`);
+      if (placement === undefined) {
+        out.push(placePrimitive({ ...primitive, x: field.x, y: field.y, text: field.text }, place));
+        continue;
+      }
+      const local = toLocal(place, placement.x_nm, placement.y_nm);
+      out.push(placePrimitive({ ...primitive, x: local.x, y: local.y, text: field.text }, place, placement.anchor));
       continue;
     }
     if (!inUnit(primitive, unit)) continue;
     out.push(placePrimitive(primitive, place));
   }
   return out;
+}
+
+/** How the renderer turns symbol-local facts into sheet facts. */
+const RENDERER_PROJECTION: PageProjection = {
+  toSheet,
+  quadrant: (mdeg) => rotationOf(mdeg) / 90,
+};
+
+/**
+ * The page as it is drawn: every placed symbol's primitives, and where each field ended up.
+ *
+ * The field placement is a page-level decision: a field that cannot stay where its symbol wanted it
+ * steps aside, so that two symbols drawn close together still show readable designators and values
+ * (ADR-0064).
+ */
+function pageLayout(
+  view: SchematicView,
+  instances: ReadonlyMap<string, SchematicInstance>,
+): {
+  readonly symbols: ReadonlyMap<string, SvgPrimitive[]>;
+  readonly placements: ReadonlyMap<string, FieldPlacement>;
+} {
+  const placements = placePageFields(pageFacts(view, instances, RENDERER_PROJECTION));
+  const symbols = new Map<string, SvgPrimitive[]>();
+  for (const place of view.place) {
+    const instance = instances.get(place.instance_id);
+    if (!instance) continue;
+    symbols.set(
+      place.instance_id,
+      placeSymbol(instance, place, place.unit ?? 1, view.field, placements),
+    );
+  }
+  return { symbols, placements };
 }
 
 function labelPrimitive(label: Label): SvgPrimitive {
@@ -487,7 +561,7 @@ function portPrimitives(port: Port): SvgPrimitive[] {
     const q = rotateVector(rot, p.x, p.y);
     return { x: port.x_nm + q.x, y: port.y_nm + q.y };
   });
-  const center = rotateVector(rot, PORT_BODY_NM / 2 + PORT_HALF_NM, 0);
+  const center = portTextAnchor(port, rot / 90);
   return [
     {
       kind: "poly",
@@ -499,8 +573,8 @@ function portPrimitives(port: Port): SvgPrimitive[] {
     },
     {
       kind: "text",
-      x: port.x_nm + center.x,
-      y: port.y_nm + center.y,
+      x: center.x_nm,
+      y: center.y_nm,
       text: port.id,
       sizeNm: PORT_SIZE_NM,
       anchor: "middle",
@@ -628,47 +702,6 @@ function graphicsBox(primitives: readonly SvgPrimitive[]): SheetBox | null {
   return { min_x_nm: minX, min_y_nm: minY, max_x_nm: maxX, max_y_nm: maxY };
 }
 
-/** The box a text primitive occupies: the stroke font's advance wide, one cap height about the anchor. */
-function textBox(x: number, y: number, text: string, sizeNm: number, anchor: "start" | "middle" | "end"): SheetBox {
-  const width = textAdvance(text, sizeNm);
-  const left = anchor === "start" ? x : anchor === "end" ? x - width : x - width / 2;
-  const half = sizeNm / 2;
-  return { min_x_nm: left, min_y_nm: y - half, max_x_nm: left + width, max_y_nm: y + half };
-}
-
-/**
- * Box of a text drawn at an angle, as the page shows it: the run keeps its anchor and rotates about
- * it, so the axis-aligned box is the box of the rotated rectangle. Right angles only (a symbol's
- * field rotation is a multiple of 90), which is why the corners give an exact box and not a bound.
- */
-function rotatedTextBox(
-  x: number,
-  y: number,
-  text: string,
-  sizeNm: number,
-  anchor: "start" | "middle" | "end",
-  rotateMdeg: number,
-): SheetBox {
-  const width = textAdvance(text, sizeNm);
-  const half = sizeNm / 2;
-  const left = anchor === "start" ? 0 : anchor === "end" ? -width : -width / 2;
-  const rad = (rotateMdeg * Math.PI) / 180_000;
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
-  const xs: number[] = [];
-  const ys: number[] = [];
-  for (const corner of [
-    { x: left, y: -half },
-    { x: left + width, y: -half },
-    { x: left + width, y: half },
-    { x: left, y: half },
-  ]) {
-    xs.push(x + corner.x * cos - corner.y * sin);
-    ys.push(y + corner.x * sin + corner.y * cos);
-  }
-  return { min_x_nm: Math.min(...xs), min_y_nm: Math.min(...ys), max_x_nm: Math.max(...xs), max_y_nm: Math.max(...ys) };
-}
-
 /**
  * The geometry the readability checks need, computed exactly as the drawing is drawn.
  *
@@ -683,13 +716,12 @@ export function schematicGeometry(
   const texts: SheetText[] = [];
   const fields: SheetField[] = [];
   const symbols: SheetSymbol[] = [];
+  const layout = pageLayout(view, instances);
 
   for (const [index, place] of view.place.entries()) {
     const instance = instances.get(place.instance_id);
     if (!instance) continue; // the cross-check reports a missing instance; geometry cannot invent one
-    const symbolDoc = renderSymbol(instance.symbol, instance.part);
-    const resolvedFields = resolveSchematicFields(symbolDoc.primitives, place.instance_id, place.unit ?? 1, instance.value, view.field, place.rot_mdeg);
-    const drawn = placeSymbol(instance, place, place.unit ?? 1, view.field);
+    const drawn = layout.symbols.get(place.instance_id) ?? [];
     const box = graphicsBox(drawn.filter((p) => p.kind !== "text" && p.kind !== "pin"));
     const pins = new Map<string, { x_nm: number; y_nm: number }>();
     for (const pin of instance.symbol.pins) {
@@ -700,21 +732,18 @@ export function schematicGeometry(
     else symbols.push({ instance_id: place.instance_id, pins, box: { min_x_nm: place.x_nm, min_y_nm: place.y_nm, max_x_nm: place.x_nm, max_y_nm: place.y_nm } });
     for (const primitive of drawn) {
       if (primitive.kind !== "text" || primitive.role !== "field") continue;
-      const source = symbolDoc.primitives.find(
-        (candidate): candidate is SvgText =>
-          candidate.kind === "text" && candidate.role === "field" && candidate.name === primitive.name,
-      );
-      const resolved = source === undefined ? undefined : resolvedFields.get(source);
       const overrideIndex = (view.field ?? []).findIndex(
         (field) => field.instance_id === place.instance_id && field.name === primitive.name,
       );
+      // The field's own frame: the sheet place it was drawn at, turned back into the symbol's.
+      const local = toLocal(place, primitive.x, primitive.y);
       fields.push({
         instance_id: place.instance_id,
         name: primitive.name ?? "field",
         text: primitive.text,
-        local_x_nm: resolved?.x ?? primitive.x,
-        local_y_nm: resolved?.y ?? primitive.y,
-        box: rotatedTextBox(primitive.x, primitive.y, primitive.text, primitive.sizeNm, primitive.anchor, primitive.rotateMdeg ?? 0),
+        local_x_nm: local.x,
+        local_y_nm: local.y,
+        box: textBox(primitive.x, primitive.y, primitive.text, primitive.sizeNm, primitive.anchor, primitive.rotateMdeg ?? 0),
         ir_path: overrideIndex >= 0 ? `/field/${overrideIndex}` : `/place/${index}`,
       });
     }

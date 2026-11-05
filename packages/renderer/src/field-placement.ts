@@ -6,7 +6,8 @@ type FieldOverride = NonNullable<SchematicView["field"]>[number];
 
 const FIELD_CLEARANCE_NM = 1_000_000;
 
-interface Bounds {
+/** A rectangle in symbol-local coordinates, in nanometres. */
+export interface Bounds {
   minX: number;
   minY: number;
   maxX: number;
@@ -17,6 +18,8 @@ interface ResolvedField {
   x: number;
   y: number;
   text: string;
+  /** Whether a `field` row in the view put this field where it stands (ADR-0055 D4). */
+  manual: boolean;
 }
 
 function selectedUnit(primitive: SvgPrimitive, unit: number): boolean {
@@ -57,7 +60,7 @@ function includeArcBounds(
 }
 
 /** Painted outer bounds of only the visible body units, rounded outward to whole nanometres. */
-function bodyBounds(primitives: readonly SvgPrimitive[], unit: number): Bounds | undefined {
+export function bodyBounds(primitives: readonly SvgPrimitive[], unit: number): Bounds | undefined {
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
@@ -197,7 +200,7 @@ export function resolveSchematicFields(
           : visibleBody.minY - FIELD_CLEARANCE_NM - ink.maxY;
       }
     }
-    fields.set(primitive, { x, y, text });
+    fields.set(primitive, { x, y, text, manual: manual !== undefined });
   }
   return fields;
 }

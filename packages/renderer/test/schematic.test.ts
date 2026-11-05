@@ -316,6 +316,38 @@ describe("renderSchematic", () => {
     }
   });
 
+  test("places a page's fields together, so two parts drawn close keep readable fields", () => {
+    // Two parts six millimetres apart: each field wants the side its symbol points at, and the two
+    // wanted places face each other. The page places the fields together — the first keeps the
+    // place it wants, and the other steps aside instead of printing on top of it.
+    const instances = new Map([
+      ["C1", { ...part(), value: "10k" }],
+      ["C2", { ...part(), value: "220uF" }],
+    ]);
+    const v = view({
+      place: [
+        { instance_id: "C1", x_nm: 100_000_000, y_nm: 100_000_000, rot_mdeg: 90_000 },
+        { instance_id: "C2", x_nm: 106_000_000, y_nm: 100_000_000, rot_mdeg: 90_000 },
+      ],
+    });
+    const fields = fieldsOf(renderSchematic(v, instances));
+    expect(fields).toHaveLength(4);
+    const boxes = fields.map((field) => paintedPageTextBounds(field));
+    for (let i = 0; i < boxes.length; i += 1) {
+      for (let j = i + 1; j < boxes.length; j += 1) {
+        const a = boxes[i]!;
+        const b = boxes[j]!;
+        const overX = Math.min(a.maxX, b.maxX) - Math.max(a.minX, b.minX);
+        const overY = Math.min(a.maxY, b.maxY) - Math.max(a.minY, b.minY);
+        expect(overX > 0 && overY > 0).toBe(false);
+      }
+    }
+    // The fields did not all stay where their symbol asked: one of them stepped aside.
+    const reference = fields.find((field) => field.name === "Reference" && field.text === "C1");
+    if (!reference) throw new Error("missing C1 reference field");
+    expect(reference.x).not.toBe(101_635_000);
+  });
+
   test("refuses to draw an instance without symbol facts", () => {
     expect(() => renderSchematic(view(), new Map())).toThrow(/no symbol facts/);
   });
