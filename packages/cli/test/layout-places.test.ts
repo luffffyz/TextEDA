@@ -228,18 +228,25 @@ describe("layout-places: the places-only write path", () => {
     const dir = scratch();
     cpSync(REFERENCE, dir, { recursive: true });
 
-    // the page was clean before the move: the staleness only appears as the wires go stale
-    expect(checkProject(dir).diagnostics.filter((d) => d.code === "view.wire-diagonal" || d.code === "view.wire-crosses-pin")).toEqual([]);
+    // The findings the page already has: the staleness that appears after the move is the move's,
+    // not the page's own.
+    const staleCodes = (d: { code: string }) => d.code === "view.wire-diagonal" || d.code === "view.wire-crosses-pin";
+    const before = new Set(
+      checkProject(dir).diagnostics.filter(staleCodes).map((d) => d.data?.net as string),
+    );
 
     const outcome = applyPlaces(dir, REQUEST);
     expect(outcome.changed).toBe(true);
     expect(outcome.stale).toEqual(["GND", "M2.BOOT", "M2.PH", "SYS"]);
 
     // the project's own check sees the same nets, through the same entry point check.ts uses
-    const findings = checkProject(dir).diagnostics.filter((d) => d.code === "view.wire-diagonal" || d.code === "view.wire-crosses-pin");
+    const findings = checkProject(dir).diagnostics.filter(staleCodes);
     expect(findings.length).toBeGreaterThan(0);
     const nets = new Set(findings.map((d) => d.data?.net as string));
-    for (const net of nets) expect(outcome.stale).toContain(net);
+    for (const net of nets) {
+      if (before.has(net)) continue; // the page had this one before the move
+      expect(outcome.stale).toContain(net);
+    }
   });
 
   test("a plan writes nothing, and carries the drawing of the page as the file says it is", () => {

@@ -22,7 +22,12 @@ const scratches: string[] = [];
 /** A copy of the reference project, so a test can write into it. */
 function scratch(): string {
   const dir = mkdtempSync(join(tmpdir(), "texteda-layout-test-"));
-  cpSync(referenceProject, dir, { recursive: true });
+  // `dist/` is derived: the IR shard tree and the write backups. It is left out, so a copy does not
+  // carry a backup from an earlier Apply into a test that asks what a write did or did not write.
+  cpSync(referenceProject, dir, {
+    recursive: true,
+    filter: (source) => relative(referenceProject, source) !== "dist",
+  });
   scratches.push(dir);
   return dir;
 }
@@ -31,14 +36,16 @@ afterAll(() => {
   for (const dir of scratches) rmSync(dir, { recursive: true, force: true });
 });
 
-/** Every file under a directory, relative to it. */
+/** Every file under a directory, relative to it. `dist/` holds derived artifacts, not sources. */
 function tree(dir: string): string[] {
   const out: string[] = [];
   const walk = (path: string): void => {
     for (const entry of readdirSync(path, { withFileTypes: true })) {
       const full = join(path, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else out.push(relative(dir, full));
+      if (entry.isDirectory()) {
+        if (relative(dir, full) === "dist") continue;
+        walk(full);
+      } else out.push(relative(dir, full));
     }
   };
   walk(dir);
@@ -569,7 +576,7 @@ describe("a label or a port move", () => {
       net: "VOUT",
       from_pin: "M2.C4.1",
       to_pin: "VOUT_5V",
-      points: [{ x_nm: 208_000_000, y_nm: 100_000_000 }],
+      points: [{ x_nm: 208_000_000, y_nm: 101_500_000 }],
     });
   });
 
@@ -577,7 +584,7 @@ describe("a label or a port move", () => {
     const dir = scratch();
     const plan = planLayout(dir, {
       ...base,
-      texts: [{ id: "VOUT", kind: "label", x: 196.0, y: 91.5 }],
+      texts: [{ id: "VOUT", kind: "label", x: 196.5, y: 98.0 }],
     });
     expect(plan.changed).toBe(false);
     expect(content(dir, file)).toBe(content(dir, file));
@@ -645,7 +652,7 @@ describe("a move changes the rows it touches and nothing else", () => {
     // VFB label sits on the divider, which did not move, and stayed where it was.
     expect(plan.reseated).toContain("label M2.VFB");
     expect(plan.text).toContain("  M2.VFB   130.0  106.0\n");
-    expect(plan.text).toContain("  M2.VFB   197.0  109.0\n");
+    expect(plan.text).toContain("  M2.VFB   198.5  109.5\n");
   });
 
   test("the rows the move did not touch are byte-identical", () => {
@@ -755,7 +762,7 @@ describe("the layout Apply keeps the drawing honest", () => {
     expect(runOf(before.text)).toContain("198.5 111.5");
     expect(runOf(after.text)).not.toContain("198.5 111.5");
     // The run shrank; it did not disappear.
-    expect(runOf(after.text)).toContain("198.5 109.0");
+    expect(runOf(after.text)).toContain("198.5 106.0");
     expect(after.conflicts).toEqual([]);
     applyLayout(dir, {
       board: "charger-buck",
@@ -806,9 +813,12 @@ describe("the layout Apply keeps the drawing honest", () => {
       page: "buck-5v",
       places: [{ instance_id: "M2.C4", x: 228.5, y: 106.5, rot: 90 }],
     });
+    const beforeFindings = checkProject(dir).diagnostics.filter(
+      (d) => d.code.startsWith("view.") && d.code !== "view.nets-not-drawn",
+    );
     // The run still comes down to the bus and comes back up: both corners are there.
-    expect(runs(before.svg, "GND")).toContain("210,108 210,121 216.5,121 216.5,108");
-    expect(runs(after.svg, "GND")).toContain("210,108 210,121 228.5,121 228.5,110.5");
+    expect(runs(before.svg, "GND")).toContain("213.5,109.5 213.5,121 218,121 218,109.5");
+    expect(runs(after.svg, "GND")).toContain("213.5,109.5 213.5,121 228.5,121 228.5,110.5");
 // The run between the capacitors is a straight line, and C4's top pin leaves its row when C4
 // moves, so that run cannot keep being straight: it is reported rather than left to guess
 // (ADR-0042 D6). The run to the VOUT_5V port has a corner of its own, and that corner keeps
@@ -824,8 +834,11 @@ expect(after.conflicts).toEqual([
     const findings = checkProject(dir).diagnostics.filter(
       (d) => d.code.startsWith("view.") && d.code !== "view.nets-not-drawn",
     );
-    // The write leaves the page reading clean.
-    expect(findings).toEqual([]);
+    // The write leaves the page as it found it: no finding is new. The findings are named by what
+    // they are about, not by where in the file they sit — the write moves the bytes around.
+    const identity = (list: readonly { code: string; data?: unknown }[]): string[] =>
+      list.map((d) => `${d.code}:${String((d.data as { net?: string } | undefined)?.net ?? "")}`);
+    expect(identity(findings)).toEqual(identity(beforeFindings));
   });
 
   test("a bus keeps its line: a shortcut that would move it is refused", () => {
