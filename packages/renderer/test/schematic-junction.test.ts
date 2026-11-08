@@ -1,5 +1,5 @@
-// Junction dots are drawn only for explicit view junctions (spec/schematic-view.md §5.1).
-// Geometric crossings are never promoted to graph connections.
+// Explicit junctions and perpendicular pin approaches render junction dots; geometric crossings
+// remain unconnected.
 //
 import { describe, expect, test } from "bun:test";
 import { irVersion } from "@texteda/ir";
@@ -8,6 +8,7 @@ import {
   extractSchematic,
   renderSchematic,
   schematicProjection,
+  toSvgText,
   type SchematicInstance,
   type SymbolBody,
 } from "../src/index.ts";
@@ -86,7 +87,26 @@ function dots(
 }
 
 describe("junction dots", () => {
-  test("only declared junctions render dots and connect named wire endpoints", () => {
+  test("a perpendicular wire endpoint on a pin renders a junction dot in SVG", () => {
+    const wires = [{ net: "N1", from_pin: "R1.2", to_pin: "J1" }];
+    const junctions = [{ id: "J1", x_nm: 53_810_000, y_nm: 50_000_000 }];
+    const built = view(wires, {}, junctions);
+    const doc = renderSchematic(built.view, instances(built.ids));
+
+    expect(dots(wires, junctions)).toEqual([
+      { x: 53_810_000, y: 50_000_000 },
+      { x: 53_810_000, y: 40_000_000 },
+    ]);
+    const svg = toSvgText(doc);
+    expect(svg).toContain('data-ref="pin-junction:53810000,40000000"');
+    expect(svg).toContain('<circle cx="53.81" cy="40"');
+  });
+
+  test("a parallel wire endpoint on a pin does not need a junction dot", () => {
+    expect(dots([{ net: "N1", from_pin: "R1.2", to_pin: "R2.1" }], [])).toEqual([]);
+  });
+
+  test("declared junctions render dots and connect named wire endpoints", () => {
     const wires = [
       { net: "N1", from_pin: "R1.2", to_pin: "J1" },
       { net: "N1", from_pin: "J1", to_pin: "R2.1" },

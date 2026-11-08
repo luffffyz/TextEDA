@@ -15,12 +15,15 @@ view buck-5v
 # is a bend inside its own row, not a junction, and a dot is drawn only where one is declared
 # (spec/schematic-view.md §5.1).
 #
-# PH is a two-point bus at y = 98.0: C2.2 sits on it, L1.1 climbs onto it at x = 182.5, and D1.1
-# climbs to it at x = 176.5, where the junction is.
+# PH is a two-point bus at y = 98.0: C2.2 sits on it, L1.1 climbs onto it at x = 181.5 and runs
+# east into the pin along the pin's axis, and D1.1 climbs to it at x = 176.5, where the junction
+# is.
 #
-# VOUT is a chain along y = 101.5 from C3.1 east to C4.1 and on to the port; the divider's top
-# pin and L1's output climb onto it. A pin is a join: two runs that end at one pin read as one
-# node, and no dot is drawn there, because a dot marks a junction and a pin is already visible.
+# VOUT is a chain along y = 101.5 from x = 199.0 east to C3.1, C4.1 and on to the port. L1's
+# output and the divider's top pin meet at R1.1, half a millimetre above that chain, and step
+# onto it east of R1's body. A pin is a join: two runs that end at one pin read as one node. A
+# run that ends on a pin along the pin's axis leaves the pin visible; where three arms meet at a
+# pin, the renderer draws the dot (spec/schematic-view.md §5).
 #
 # Different-net crossings carry no dot and are legal (spec/schematic-view.md §5.1). The feedback
 # run at y = 115 crosses the three GND legs of U1.6, U1.9 and D1.2, and nothing else.
@@ -63,7 +66,7 @@ wire
   GND  M2.U1.6  J_GND_U16
   GND  M2.U1.9  J_GND_U19
   M2.BOOT  M2.C2.1  M2.U1.1  [161.5,108.5]
-  M2.PH  J_PH_D1  M2.L1.1  [182.5,98.0]
+  M2.PH  J_PH_D1  M2.L1.1  [181.5,98.0]  [181.5,95.5]
   M2.PH  M2.C2.2  J_PH_D1
   M2.PH  M2.D1.1  J_PH_D1
   M2.PH  M2.U1.8  M2.C2.2  [158.0,101.0]  [158.0,98.0]
@@ -72,8 +75,8 @@ wire
   SYS  M2.C1.1  M2.U1.7  [117.5,89.5]  [140.0,89.5]
   VOUT  M2.C3.1  M2.C4.1
   VOUT  M2.C4.1  VOUT_5V
-  VOUT  M2.L1.2  M2.R1.1  [197.0,95.5]
-  VOUT  M2.R1.1  M2.C3.1  [197.0,101.5]
+  VOUT  M2.L1.2  M2.R1.1  [193.0,95.5]  [193.0,101.0]
+  VOUT  M2.R1.1  M2.C3.1  [199.0,101.0]  [199.0,101.5]
 
 label
   GND      [160.0,121.5]

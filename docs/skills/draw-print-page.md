@@ -152,8 +152,9 @@ Procedure:
      (`view.wire-crosses-pin`). A plain crossing of another net is legal: no dot means "not
      connected". Keep crossings low for readability, but do not contort a route to avoid one;
    - a pin in the middle of a run is not a junction: split the run into a second `wire` row or
-     route around it;
-   - split a net with more than two pins into several rows. **A dot is declared, not derived**: where
+     route around it. When a wire ends at a pin with a perpendicular final segment, the renderer
+     draws a visual dot at that pin; the pin endpoint identity still supplies the connection;
+   - split a net with more than two pins into several rows. **Graph junctions are declared**: where
      one net genuinely forks, write a `junction` row and end every branch on its id. Two rows that
      merely meet at a point draw no dot, and a row passing through a declared junction of its own net
      without ending there reports `view.wire-gap`;

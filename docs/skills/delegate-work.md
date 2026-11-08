@@ -10,20 +10,6 @@
 
 Index: [`docs/skills/README.md`](README.md) lists the procedures and when to read which.
 
-## 0. What this skill is for
-
-A subagent is a separate session with its own context, its own model, and its own bill. It is good
-for work that is **wide** (many files, one mechanical rule) and bad for work that is **judged**
-(does this prose read well, does this geometry look right). This skill says how to tell the two
-apart, how to write a slice that lands, and how to price it.
-
-Two facts drive everything below:
-
-- **A subagent reporting "green" is not evidence.** Its verdict is a claim about a checkout you
-  have not read. The acceptance step is yours.
-- **A delegated slice that shares a moving gate proves nothing.** "The suite passed" against a
-  gate that changed mid-flight is not a result.
-
 ## 1. Decide: delegate, script, or do it yourself
 
 ### 1.1 Delegate only what a gate can adjudicate
@@ -46,13 +32,8 @@ what deserves delegating. The boundary is the rule you write down — here, this
 
 ### 1.2 Script it if a script can say it
 
-Before dispatching an audit, ask whether the check is mechanical. It usually is. A short script that
-reads an index file and prints the mismatching rows answers the question in seconds, and it
-answers the same question every time. A subagent asked the same question spends minutes and may
-answer a different one.
-
-Delegate the part a script cannot reach: the part that needs judgment, the part that needs reading
-many files side by side, the part that needs a machine to try a change.
+Script deterministic checks first; delegate only the parts that need judgment, cross-file reading, or
+trial changes.
 
 ### 1.3 Split the work by files owned, not by steps
 
@@ -121,55 +102,55 @@ discussed above".
 `scout` cannot edit. Asking it to edit produces a report describing an edit instead of the edit.
 
 ### 3.3 Which model
+Which model a child runs on is decided in this order: an explicit override for that agent (`task.agentModelOverrides`), then the agent definition's own `model:` field, then the parent's active model, then its configured/default fallback. A per-call `model` on the slice replaces the last two steps — but only when `task.perCallModel` is on and the model is approved.
 
-Which model a child runs on is decided in this order: an explicit override for that agent
-(`task.agentModelOverrides`), then the agent definition's own `model:` field, then the **parent's
-active model**, then its configured/default fallback. A per-call `model` on the slice replaces the
-last two steps — but only when `task.perCallModel` is on and the model is approved.
+Before dispatching, inspect the current `task.perCallModel` setting. If it is off, **omit the `model` property entirely** from the task item. Do not pass `model: ""`, `null`, or a default guessed from the role: the harness rejects the call before starting the child. If it is on, pass a model only when an explicit override is needed and the model is approved.
 
-The bundled agents are pinned in their own definition: `task` says `model: "@task"`, `scout` says
-`model: "@smol"`, `reviewer` says `model: "@slow"`, and `security-reviewer` names none, so it
-inherits the parent's model. Read your own roles — this is a snapshot, not the truth:
+`sourceSession` is only for a historical `seance` consultation. Omit it for `task`, `scout`, `reviewer`, `security-reviewer`, and `sonic`; putting it on an ordinary implementation or investigation task is a schema error before dispatch.
 
-```sh
-grep -A12 'modelRoles' ~/.omp/agent/config.yml
-```
+Likewise, omit optional `tools` unless the execution environment explicitly exposes the named tool bindings. Do not list host tools such as `read`, `grep`, `find`, `glob`, `bash`, or `edit` merely because the parent has them; an undefined Eval binding makes the dispatch fail before a child starts.
 
-```
-modelRoles:
-  web: web/exa
-  default: modelflare/gpt-6.1-sol:xhigh
-  task: minimax-code-cn/MiniMax-M3.1-Flash:max
-  judge: dmxapi/jev-latest
-  slow: modelflare/gpt-6.1-sol:xhigh
-  smol: minimax-code-cn/MiniMax-M3.1-Flash:high
-```
-
-The `task` role is a **different model from the main session's**, so a child's output can differ
-in quality from yours for reasons that have nothing to do with the slice. **Check which model
-actually ran before rewriting the slice.** The child's own transcript is the ground truth — it
-records the model in its first `model_change` record:
+A configured role is not evidence of the model that actually ran. Before diagnosing a child's output,
+read its transcript's first `model_change` record:
 
 ```sh
 cd ~/.omp/agent/sessions/<slug>/<session-id>/
 for f in *.jsonl; do printf '%s: ' "${f%.jsonl}"; grep -m1 -o '"model":"[^"]*"' "$f"; done
 ```
 
+### 3.4 Host fallback when `functions.task` is blocked
+
+The host's `functions.task` surface and OMP's native `task` tool are separate paths. In this
+environment, `functions.task` can reject a call before a child starts with:
+
+```text
+Per-call model is disabled for task calls (task.perCallModel: off). Omit model to use the agent's configured model.
 ```
-BridgeGround: "model":"modelflare/gpt-6.1-sol"
-CliTestFixtures: "model":"minimax-code-cn/MiniMax-M3.1-Flash"
-ConfiguredTaskProbeEval: "model":"minimax-code-cn/MiniMax-M3.1-Flash"
+
+If that exact pre-dispatch error persists after one call that omits `model`, **stop retrying
+`functions.task`**. Do not try `model: ""`, `null`, `default`, the configured model name, or
+another placeholder; do not add `sourceSession`; do not put host tools (`read`, `grep`, `find`,
+`glob`, `bash`, `edit`, and so on) in `tools`. Those variants do not repair the host/tool
+boundary and can only fail before a child starts.
+
+Use the Eval agent bridge instead. It is a separate dispatch path and takes the agent's configured
+routing when no per-call model is supplied:
+
+```text
+JavaScript Eval:  h = await agent(prompt, { agent: "task", label: "ShortName" })
+Python Eval:      h = agent(prompt, agent="task", label="ShortName")
 ```
 
-The children ran on three different models, and not all of them on the `task` role: an override or
-an agent definition can pin one, and the `smol` role was a different model again at the time.
-Read the transcript; do not infer the model from the role table.
+For independent work, use `workpool("task", { name, context })` in JavaScript or
+`workpool("task", name=..., context=...)` in Python, then push the complete batch before waiting.
+Read the current Eval helper contract (`xd://eval/agents`) before using it. Pass `tools` only for
+functions explicitly registered in that Eval kernel with `@tool` / `tool(fn)`; Eval's `tools` is
+not the parent host tool catalogue. Never pass `model` or `sourceSession` through this fallback.
 
-Two settings change what a call may do:
-
-- `task.perCallModel` (`off` here) — when it is off, a slice may not name a model; the role decides.
-- `task.prewalk` and `prewalk.enabled` (both off here) — the cheap-model hand-off at the first
-  edit never fires, so a child stays on its own model for the whole run.
+If the Eval bridge is unavailable, continue the work in the parent session rather than repeatedly
+retrying the blocked native path. This is a host-operational fallback, not a change to TextEDA's
+delegation contract. The runtime extension `task-model-normalize.ts` remains useful for the native
+`task` events it actually receives, but it cannot be assumed to intercept `functions.task`.
 
 ## 4. Supervise
 
@@ -309,23 +290,6 @@ for b, t, name in rows:
 python3 cost.py ~/.omp/agent/sessions/<cwd-slug>/<session-id>/
 ```
 
-On the 2026-11-02 TextEDA session it printed:
-
-```
-  billable  turns  agent
-   4691065    301  CliTestFixtures
-   2750763    147  DynamicBeetle
-   1752873    119  ParserTestFixtures
-   1190790     46  ThirdFullRewire
-   1081833     18  SwitchDesignScout
-```
-
-Read the table as a shape, not as a scoreboard. The top line is an order of magnitude over the
-bottom ones, and the driver is **re-reading a large context over many turns**: `CliTestFixtures`
-spent 301 turns with 36.2M cached tokens read, and the cached reads alone are 77% of its billable
-total. A child that needed 300 turns was under-specified or had no budget — either way the next
-slice should be narrower.
-
 ### 6.3 What to change when it is not worth it
 
 - Fewer, larger-but-bounded slices are usually cheaper than many thin ones: each child pays a
@@ -453,36 +417,7 @@ print(f"parallelism {busy/union:.2f}x, peak {peak_c} concurrent")
 python3 payoff.py ~/.omp/agent/sessions/<cwd-slug>/<session-id>/
 ```
 
-On the 2026-11-02 TextEDA session it printed:
-
-```
-main      9311 turns   223627982 billable    24018/turn  peak prompt 404899
-children   847 turns    13779108 billable    16268/turn  cold start 7778-13393
-main edits after a child finished: rework 27, fresh 1223
-parallelism 1.05x, peak 4 concurrent
-```
-
-Read that shape, not those numbers: the children were **cheaper per turn** than the parent, their
-rework was small next to the fresh work they caused, and parallelism was ~1x against a limit of
-32 — the batches serialized on the parent's own turnaround, so the wall-clock win was near zero.
-
-What delegation reliably buys is the parent's **context window**: a child's tool traffic never
-enters the parent's prompt. Compare the parent's peak `promptTokens` against
-`compaction.thresholdTokens` in `~/.omp/agent/config.yml` (200,000 here, with
-`thresholdPercent: 80`) — that gap is the asset delegation protects, and it is the reason to
-delegate even when the token totals are a wash.
-
-## 7. What not to do
-
-- Do not accept a child's "green" without running the gate in the parent session.
-- Do not let a slice share a moving gate with its siblings and then believe the results.
-- Do not dispatch a check that a script can make.
-- Do not delegate prose, geometry, or a taste call.
-- Do not fan out research without a bound; read the two primary documents yourself.
-- Do not diagnose a "bad" result before checking which model ran.
-- Do not count `totalTokens` as the cost.
-
-## 8. References
+## 7. References
 
 - [`docs/skills/README.md`](README.md): the index of the procedures.
 - [`AGENTS.md`](../../AGENTS.md) §12: the repository's working rules for agents.

@@ -177,14 +177,16 @@ What each source is good for:
 | What the checker thinks | `texteda check --json` |
 | How long a run is, how many crossings | `texteda view metrics` |
 
-## 3. A junction is declared, and a dot is drawn only where one is declared
+## 3. Graph junctions are declared; perpendicular pin endpoints also get visual dots
 
-A dot is a claim about connectivity, so it is **written**: a `junction` row gives a drawing node a
-stable id and a sheet position, and `wire` rows name that id as an endpoint
-([`spec/schematic-view.md`](../../spec/schematic-view.md) §5.1). The renderer draws a circle only
-for a declared junction (`packages/renderer/src/schematic.ts`); it derives nothing from the geometry.
+A dot normally claims a drawing-graph connection, so it is **written**: a `junction` row gives a
+drawing node a stable id and a sheet position, and `wire` rows name that id as an endpoint
+([`spec/schematic-view.md`](../../spec/schematic-view.md) §5.1). The renderer also draws a visual
+dot when a wire ends at a pin connection point with a final segment perpendicular to the pin stroke.
+That pin dot does not create a junction graph node; the wire's pin endpoint identity and net remain
+the connection source of truth.
 
-That makes three rules, and the checker enforces all three:
+The checker enforces the graph rules below; the renderer additionally draws the visual pin marker:
 
 - A declared junction must be **used** by the wires of exactly one net, with a degree of 2 to 4 arms
   (`view.junction-isolated`, `view.junction-invalid-degree`, `view.endpoint-wrong-net`).
@@ -199,7 +201,8 @@ there and end every branch row on it. A plain two-arm corner is not a junction: 
 
 | Situation | What the source says | Dot |
 |---|---|---|
-| One wire ending on a pin | no junction row | no |
+| One wire ending on a pin with a perpendicular final segment | no junction row | yes — visual pin dot |
+| One wire ending on a pin with a parallel final segment | no junction row | no |
 | Two rows ending on one declared junction, third row also ending there | `junction` row + three endpoints | yes |
 | Two rows of one net merely meeting at a point | no junction row | no — and adding no dot is correct, not a defect |
 | A row passing through a declared junction of its net without naming it | junction row, row not an endpoint | `view.wire-gap` |
@@ -209,14 +212,17 @@ there and end every branch row on it. A plain two-arm corner is not a junction: 
 says so by omission. `view.wire-crossing` is **deprecated** — it is never emitted, it is kept only
 so old reports parse. Crossings show up as a number in `view metrics`, not as a diagnostic.
 
-To audit the dots on a rendered page, compare them with the page's `junction` rows:
+To audit graph dots on a rendered page, compare `data-ref="junction:*"` with the page's `junction` rows. A
+perpendicular pin endpoint is a visual dot and has a `data-ref="pin-junction:*"`; it is intentionally not
+counted against the `junction` rows.
 
 ```sh
-grep -o 'data-ref="junction:[^"]*"' /tmp/page.svg | wc -l   # one dot per declared junction
+grep -o 'data-ref="junction:[^"]*"' /tmp/page.svg | wc -l   # one graph dot per declared junction
 grep -c '^  [A-Za-z0-9_+-]*  *\[' examples/reference-project/views/charger-buck/buck-5v.view.teda   # rows declared
+```
 
-The two counts agree. A circle with no row is a renderer defect; a row with no circle means the page
-has not been rendered yet.
+The two graph-dot counts agree. A `pin-junction:*` circle without a `junction` row is expected when a
+wire ends perpendicularly on a pin; any other circle with no source rule is a renderer defect.
 
 ## 4. Look at it: crop, do not re-render
 

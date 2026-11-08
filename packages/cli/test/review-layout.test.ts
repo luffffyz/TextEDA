@@ -774,21 +774,20 @@ function runs(svg: string, net: string): string[] {
   return [...group[1]!.matchAll(/<polyline points="([^"]+)"/g)].map((match) => match[1]!);
 }
 
-/** The junction dots in a page's drawing, as `x,y` in millimetres: what the reader sees as a join. */
-function junctionDots(svg: string): Set<string> {
+/** The declared junction dots in a page's drawing, as `x,y` in millimetres. */
+function declaredJunctionDots(svg: string): Set<string> {
   const dots = new Set<string>();
-  for (const match of svg.matchAll(/<circle cx="([^"]+)" cy="([^"]+)" r="0.4572"/g)) {
+  for (const match of svg.matchAll(/<g data-ref="junction:[^"]*">\s*<circle cx="([^"]+)" cy="([^"]+)" r="0.4572"/g)) {
     dots.add(`${match[1]},${match[2]}`);
   }
   return dots;
 }
 
 describe("the layout Apply keeps the drawing honest", () => {
-  test("moving a pin past its corner adds no junction dot", () => {
-    // A join is a junction the page declares: the renderer draws a dot where the page says a
-    // junction is, and nowhere else. A move that carries a pin past its corner does not make a
-    // connection, so it makes no dot; and the junctions the page declares stay where they are,
-    // because a junction is a fact about the drawing and not about where a part sits.
+  test("moving a pin past its corner adds no explicit junction dot", () => {
+    // A declared junction is a graph node the page writes down. The renderer may add a visual
+    // pin-junction marker for a perpendicular pin endpoint, but that marker does not move or add a
+    // declared junction, and it does not make the pin a graph connection.
     const dir = scratch();
     const before = planLayout(dir, { board: "charger-buck", page: "buck-5v", places: [] });
     const after = planLayout(dir, {
@@ -796,11 +795,11 @@ describe("the layout Apply keeps the drawing honest", () => {
       page: "buck-5v",
       places: [{ instance_id: "M2.R2", x: 200.5, y: 109.5, rot: 90 }],
     });
-    expect([...junctionDots(after.svg)]).toHaveLength([...junctionDots(before.svg)].length);
-    const added = [...junctionDots(after.svg)].filter((dot) => !junctionDots(before.svg).has(dot));
+    expect([...declaredJunctionDots(after.svg)]).toHaveLength([...declaredJunctionDots(before.svg)].length);
+    const added = [...declaredJunctionDots(after.svg)].filter((dot) => !declaredJunctionDots(before.svg).has(dot));
     expect(added).toEqual([]);
     // The declared junctions did not move with the pin either.
-    expect([...junctionDots(after.svg)]).toEqual([...junctionDots(before.svg)]);
+    expect([...declaredJunctionDots(after.svg)]).toEqual([...declaredJunctionDots(before.svg)]);
   });
 
   test("moving a port off a bus reports the lost shape and keeps the junction stationary", () => {

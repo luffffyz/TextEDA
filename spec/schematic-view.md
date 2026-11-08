@@ -187,6 +187,7 @@ wire
 - Review App 的 Re-anchor wires 关闭时，移动或旋转引脚不得改写 endpoint identity，也不得改写作者写下的 bends；受影响的 net 报 stale，显式 `view rewire` 才修复。开启时保留 pin identity 并按既有重锚规则让端点跟随。
 - **只走 90 度**：每一段必须平行于坐标轴，违反即报 `view.wire-diagonal`（§9.2）。
 - **走线不得自交**：重锚若保形会使路径自交，则按既有规则重建并报告冲突（[ADR-0042](../docs/adr/09-view/0042-the-review-app-has-modes.md) D5、[ADR-0062](../docs/adr/09-view/0062-a-run-may-end-at-a-port.md)）。
+- **A pin connection point may be the endpoint of a perpendicular wire**: when a wire ends at a pin connection point and its final segment is perpendicular to the pin stroke, the renderer draws a junction dot at that point. The connection still comes from the wire's pin endpoint identity and net; this does not create another junction graph node.
 - 走线不得穿过非本端点的引脚连接点或引脚笔画，违反即报 `view.wire-crosses-pin`（§9.2）。
 
 ### 5.1 `junction` 段
@@ -198,7 +199,7 @@ junction
 
 列：`<junction_id> <point>`，`<point>` 是 `[x,y]`。坐标单位为 mm，使用 view 的 `0.01 mm` 格式分辨率；坐标必须在图幅内，并遵守 `0.5 mm` 绘图晶格门禁（[ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md)、[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md)）。`junction_id` 在本页唯一，且不得与页面 port id 混淆。junction 只属于 view drawing graph，不进入 schematic IR 的 net members。
 
-同一 net 的 junction 可作为多条 wire 的共享节点；不同 net 不得引用同一 junction。junction 的 degree 是图中连接到该 junction 的有效 wire arms 数：低于 2 是 isolated/dangling，高于 4 报 invalid degree。声明的 junction 才绘制 dot；普通二臂折点不绘点。不同 net 的线交叉不生成连接点。
+Junctions of one net may be shared by multiple wire rows; different nets must not reference the same junction. A junction's degree is the number of effective wire arms connected to it: fewer than 2 is isolated/dangling, and more than 4 is invalid. Declared junctions and the perpendicular pin endpoints above draw dots; ordinary two-arm bends do not. Crossings between different nets do not create connection points.
 
 ---
 

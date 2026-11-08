@@ -1070,3 +1070,28 @@ DSH 侧**代码已落地**：宿主合同读的是官方 cookbook（`@deepseek-a
 - One page can place multiple small modules while preserving each module instance's identity and port connections.
 - Existing A4 pages remain valid or have an explicit deterministic migration; no page silently changes size.
 - Invalid sizes, missing module references, duplicate module placements, and stale inter-module connections produce page-local diagnostics.
+
+---
+
+## F62. Repair buck-5v pin junction and wire clearance
+
+**Status**: Implemented. The reference print page `examples/reference-project/views/charger-buck/buck-5v.view.teda` now uses a pin-axis PH approach at L1 and a cleared orthogonal VOUT route around R1; the renderer and schematic connectivity remain unchanged.
+
+**Why now**: The page is the reference evidence for schematic rendering and must not teach an incorrect junction or an unreadable pin approach.
+
+**To do**:
+
+1. Inspect the renderer-owned pin geometry and the rendered SVG around L1 and R1; do not infer coordinates from the source placement rows alone.
+2. Remove or correct the page-local source geometry that causes the L1 junction marker, without weakening the renderer's general perpendicular-pin marker rule or changing schematic connectivity.
+3. Re-route the upper R1/VOUT wire so it does not overlap the R1 symbol or pin stroke, while preserving the VOUT net endpoints and avoiding new crossings or junctions.
+
+**Involved files**: `examples/reference-project/views/charger-buck/buck-5v.view.teda`, `packages/renderer/src/schematic.ts` only if the defect is renderer-wide, and the focused renderer/view tests if a regression is needed.
+
+**Acceptance**:
+
+- The rendered `buck-5v` page has no `pin-junction:*` marker at L1 unless the wire truly approaches that pin perpendicularly under the renderer's defined geometry.
+- The upper wire connected to R1 does not overlap the R1 body or pin stroke in the rendered SVG.
+- The page remains canonical, stays on the 0.5 mm lattice, preserves VOUT endpoint coverage, and introduces no new page-local errors.
+- Existing different-net crossings remain dotless and schematic connectivity is unchanged.
+
+**Note**: This is a reference-view repair, not permission to relax `view.wire-crosses-pin` or to make geometric crossings authoritative.

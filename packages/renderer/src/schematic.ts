@@ -46,9 +46,8 @@ type Note = NonNullable<SchematicView["text"]>[number];
 /** Wire stroke width (0.1524mm, KiCad's 6 mil default). */
 const WIRE_WIDTH_NM = 152_400;
 /**
- * Junction dot radius. A join is drawn, not inferred: the dot says "these runs meet here", and its
- * absence is what tells a reader a crossing is not a connection. KiCad's default diameter (0.9144mm,
- * 36 mil) keeps the dot familiar and visible when a whole page is zoomed out.
+ * Junction dot radius. Explicit graph junctions and perpendicular pin approaches are drawn with
+ * the same familiar marker. The marker is visual only; wire net identity remains authoritative.
  */
 const JUNCTION_RADIUS_NM = 457_200;
 const FRAME_WIDTH_NM = 127_000;
@@ -232,6 +231,52 @@ function pinPoint(place: Place, instance: SchematicInstance, pinNumber: string):
   }
   return toSheet(place, pin.at.x_nm, pin.at.y_nm);
 }
+/** A placed pin's connection point and its inward drawing direction in sheet coordinates. */
+function pinGeometry(
+  placed: ReadonlyMap<string, { place: Place; instance: SchematicInstance }>,
+  ref: string,
+): { point: Point; direction: Point } {
+  const { instance: instanceId, pin: pinNumber } = splitPinRef(ref);
+  const entry = placed.get(instanceId);
+  if (!entry) {
+    throw new Error(`schematic view: wire endpoint ${ref} refers to an instance that is not placed`);
+  }
+  const pin = entry.instance.symbol.pins.find((candidate) => candidate.number === pinNumber);
+  if (!pin) {
+    throw new Error(`schematic view: instance ${instanceId} has no symbol pin ${pinNumber}`);
+  }
+  return {
+    point: toSheet(entry.place, pin.at.x_nm, pin.at.y_nm),
+    direction: pinDirection(toSheetPinRotation(entry.place, pin.at.rotation_mdeg ?? 0)),
+  };
+}
+
+/** Whether the non-zero segment at a wire endpoint is perpendicular to the pin's drawn stroke. */
+function hasPerpendicularApproach(
+  points: Point[],
+  fromStart: boolean,
+  pinDirectionOnSheet: Point,
+): boolean {
+  const endpointIndex = fromStart ? 0 : points.length - 1;
+  const step = fromStart ? 1 : -1;
+  let index = endpointIndex + step;
+  while (index >= 0 && index < points.length) {
+    const dx = points[index]!.x - points[endpointIndex]!.x;
+    const dy = points[index]!.y - points[endpointIndex]!.y;
+    if (dx !== 0 || dy !== 0) {
+      if (dx !== 0 && dy !== 0) return false;
+      const wireIsHorizontal = dy === 0;
+      const pinIsHorizontal = pinDirectionOnSheet.y === 0;
+      return wireIsHorizontal !== pinIsHorizontal;
+    }
+    index += step;
+  }
+  return false;
+}
+
+function pointKey(point: Point): string {
+  return `${point.x},${point.y}`;
+}
 
 /** Rotate a local vector clockwise by a quadrant, in sheet coordinates. */
 function rotateVector(rot: 0 | 90 | 180 | 270, x: number, y: number): Point {
@@ -301,7 +346,7 @@ export function renderSchematic(
   for (const port of view.port ?? []) endpointPoints.set(port.id, { x: port.x_nm, y: port.y_nm });
   for (const junction of view.junction ?? []) endpointPoints.set(junction.id, { x: junction.x_nm, y: junction.y_nm });
   // Wires first: they run underneath the symbols, so a wire that ends on a pin is covered by the pin line.
-  const runs: { net: string; points: Point[] }[] = [];
+  const implicitPinJunctions = new Map<string, Point>();
   for (const wire of view.wire ?? []) {
     const points = [
       wireEndpoint(placed, endpointPoints, wire.from_pin, "from_pin"),
@@ -309,7 +354,6 @@ export function renderSchematic(
       wireEndpoint(placed, endpointPoints, wire.to_pin, "to_pin"),
     ];
     if (points.length < 2) continue;
-    runs.push({ net: wire.net, points });
     primitives.push({
       kind: "polyline",
       points,
@@ -319,10 +363,22 @@ export function renderSchematic(
       ref: `net:${wire.net}`,
       net: wire.net,
     });
+    for (let endpoint = 0; endpoint < 2; endpoint += 1) {
+      const ref = endpoint === 0 ? wire.from_pin : wire.to_pin;
+      if (!ref.includes(".")) continue;
+      const pin = pinGeometry(placed, ref);
+      if (hasPerpendicularApproach(points, endpoint === 0, pin.direction)) {
+        implicitPinJunctions.set(pointKey(pin.point), pin.point);
+      }
+    }
   }
 
-  // Dots are authored graph nodes. Geometric crossings and coincident endpoints do not invent joins.
+  // Explicit junctions remain authored graph nodes. A perpendicular wire endpoint on a pin gets a
+  // visual marker too, because the pin stroke and wire meet at a right angle. Neither marker invents
+  // connectivity: the wire's net and endpoint identity remain the source of truth.
+  const drawnJunctions = new Set<string>();
   for (const junction of view.junction ?? []) {
+    drawnJunctions.add(pointKey({ x: junction.x_nm, y: junction.y_nm }));
     primitives.push({
       kind: "circle",
       cx: junction.x_nm,
@@ -332,6 +388,19 @@ export function renderSchematic(
       fill: "solid",
       layer: "junction",
       ref: `junction:${junction.id}`,
+    });
+  }
+  for (const [key, point] of implicitPinJunctions) {
+    if (drawnJunctions.has(key)) continue;
+    primitives.push({
+      kind: "circle",
+      cx: point.x,
+      cy: point.y,
+      rNm: JUNCTION_RADIUS_NM,
+      widthNm: WIRE_WIDTH_NM,
+      fill: "solid",
+      layer: "junction",
+      ref: `pin-junction:${key}`,
     });
   }
 
