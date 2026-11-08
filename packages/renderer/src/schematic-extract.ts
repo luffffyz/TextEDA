@@ -17,9 +17,9 @@
 import type { SchematicView } from "@texteda/ir/schematic-view";
 import type { SvgDoc } from "./svg.ts";
 import { renderSymbol } from "./symbol.ts";
-import type { SchematicInstance } from "./schematic.ts";
+import type { SchematicInstance, SchematicRenderOptions } from "./schematic.ts";
 import { resolveSchematicFields } from "./field-placement.ts";
-import { pageFacts, placePageFields, type PageProjection } from "./field-layout.ts";
+import { pageFacts, placePageFields, type FieldPlacement, type PageProjection } from "./field-layout.ts";
 
 type Place = SchematicView["place"][number];
 type Wire = NonNullable<SchematicView["wire"]>[number];
@@ -185,20 +185,24 @@ function byFact<T>(facts: T[]): T[] {
 export function schematicProjection(
   view: SchematicView,
   instances: ReadonlyMap<string, SchematicInstance>,
+  options: SchematicRenderOptions = {},
 ): SchematicProjection {
   const placed = new Map<string, { place: Place; instance: SchematicInstance }>();
   for (const place of view.place) placed.set(place.instance_id, { place, instance: instances.get(place.instance_id)! });
   // Where each port the page draws sits: a run may end at one (ADR-0062), and its point is the
   // page's own `port` row.
-  const portPoints = new Map((view.port ?? []).map((port) => [port.id, { x: port.x_nm, y: port.y_nm }]));
+  const endpointPoints = new Map((view.port ?? []).map((port) => [port.id, { x: port.x_nm, y: port.y_nm }]));
+  for (const junction of view.junction ?? []) endpointPoints.set(junction.id, { x: junction.x_nm, y: junction.y_nm });
 
   const pins: SchematicPinProjection[] = [];
   const texts: SchematicTextProjection[] = [];
   const fields: SchematicFieldProjection[] = [];
   const shapes: SchematicShapeProjection[] = [];
-  // The fields are placed for the page as a whole (ADR-0064); the projection reads the same page
-  // facts through its own transform, so the two ends agree on where a field is drawn.
-  const placements = placePageFields(pageFacts(view, instances, PROJECTION));
+  // The field option is shared with rendering: disabling page placement leaves the resolved
+  // symbol-local positions intact, so the projection checks the same drawing policy.
+  const placements: ReadonlyMap<string, FieldPlacement> = options.automaticFields === false
+    ? new Map()
+    : placePageFields(pageFacts(view, instances, PROJECTION));
 
   for (const place of view.place) {
     const entry = placed.get(place.instance_id)!;
@@ -304,7 +308,7 @@ export function schematicProjection(
   }
 
   for (const wire of view.wire ?? []) {
-    shapes.push({ kind: "polyline", layer: "wire", points: wirePoints(wire, placed, portPoints).map((p) => ({ x_nm: p.x, y_nm: p.y })) });
+    shapes.push({ kind: "polyline", layer: "wire", points: wirePoints(wire, placed, endpointPoints).map((p) => ({ x_nm: p.x, y_nm: p.y })) });
   }
   for (const label of view.label ?? []) {
     texts.push({ layer: "label", role: "text", text: label.net, x_nm: label.x_nm, y_nm: label.y_nm });
@@ -340,12 +344,11 @@ function wirePoints(
   ports: ReadonlyMap<string, { x: number; y: number }>,
 ): { x: number; y: number }[] {
   const endpoint = (ref: string): { x: number; y: number } => {
-    // An end is a pin reference or a port the page itself draws (ADR-0062). A bare id is a port;
-    // its point is the page's own `port` row, not any symbol.
+    // A bare id names a page port or declared junction; both resolve on this page.
     if (!ref.includes(".")) {
-      const port = ports.get(ref);
-      if (!port) throw new Error(`schematic view: wire endpoint ${ref} names a port the page does not draw`);
-      return { x: port.x, y: port.y };
+      const point = ports.get(ref);
+      if (!point) throw new Error(`schematic view: wire endpoint ${ref} names a port or junction the page does not draw`);
+      return { x: point.x, y: point.y };
     }
     const { instance: id, pin } = splitPinRef(ref);
     const entry = placed.get(id);
@@ -355,9 +358,9 @@ function wirePoints(
     return toSheet(entry.place, symbolPin.at.x_nm, symbolPin.at.y_nm);
   };
   return [
-    ...(wire.from_pin ? [endpoint(wire.from_pin)] : []),
+    endpoint(wire.from_pin),
     ...(wire.points ?? []).map((p) => ({ x: p.x_nm, y: p.y_nm })),
-    ...(wire.to_pin ? [endpoint(wire.to_pin)] : []),
+    endpoint(wire.to_pin),
   ].map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) }));
 }
 

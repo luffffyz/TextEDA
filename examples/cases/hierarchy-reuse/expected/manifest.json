@@ -3,7 +3,7 @@
   "shards": [
     {
       "path": "boards/sensor-hub/schematic.json",
-      "sha256": "bf51dcd07d10b1f404916ba875ec38e1d50abfeb03848dd6db05315fffd9fd2d",
+      "sha256": "5adc01b4b6984da6700dde2ffabb628bb2ea29805127cb656339b6145b0ade5f",
       "normative": true
     },
     {
@@ -33,7 +33,7 @@
     },
     {
       "path": "project.json",
-      "sha256": "fdb703d098cf59cc9de73ccffc4c0fdacd66b56e40a766c20a013b71100f4d28",
+      "sha256": "ae3bcfdd07ca6fa14881d4675b065b56fdfa2f493af6bb7a89fafa100294d12e",
       "normative": true
     },
     {
@@ -52,5 +52,5 @@
       "normative": true
     }
   ],
-  "source_hash": "3498b896a8312760b536c311b560fcc424d11fd943caaac2a12ffe242f86b5c1"
+  "source_hash": "475201cec6a12be074fab82259ff983f8bac4949f2b0438c896cb34caa7c6b50"
 }

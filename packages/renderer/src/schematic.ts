@@ -247,6 +247,12 @@ function rotateVector(rot: 0 | 90 | 180 | 270, x: number, y: number): Point {
   }
 }
 
+/** Optional page rendering decisions; omitted values preserve the current automatic behavior. */
+export interface SchematicRenderOptions {
+  /** Place Reference/Value fields around the page, or leave them at symbol-local positions. */
+  readonly automaticFields?: boolean;
+}
+
 /**
  * Draw one print page: the sheet frame, every placed symbol, the wire runs, then the labels, ports and notes.
  *
@@ -257,6 +263,7 @@ function rotateVector(rot: 0 | 90 | 180 | 270, x: number, y: number): Point {
 export function renderSchematic(
   view: SchematicView,
   instances: ReadonlyMap<string, SchematicInstance>,
+  options: SchematicRenderOptions = {},
 ): SvgDoc {
   const primitives: SvgPrimitive[] = [];
 
@@ -286,20 +293,20 @@ export function renderSchematic(
 
   // The fields are placed for the page as a whole: a designator that cannot stay where its symbol
   // wanted it steps aside (ADR-0064).
-  const layout = pageLayout(view, instances);
+  const layout = pageLayout(view, instances, options);
 
   // A run may end at a port this page draws: the port's own anchor is the end point. Every point
   // on a sheet is nanometres here, the millimetre conversion happens when the drawing is written.
-  const portPoints = new Map<string, Point>();
-  for (const port of view.port ?? []) portPoints.set(port.id, { x: port.x_nm, y: port.y_nm });
-
+  const endpointPoints = new Map<string, Point>();
+  for (const port of view.port ?? []) endpointPoints.set(port.id, { x: port.x_nm, y: port.y_nm });
+  for (const junction of view.junction ?? []) endpointPoints.set(junction.id, { x: junction.x_nm, y: junction.y_nm });
   // Wires first: they run underneath the symbols, so a wire that ends on a pin is covered by the pin line.
   const runs: { net: string; points: Point[] }[] = [];
   for (const wire of view.wire ?? []) {
     const points = [
-      wireEndpoint(placed, portPoints, wire.from_pin, "from_pin"),
+      wireEndpoint(placed, endpointPoints, wire.from_pin, "from_pin"),
       ...(wire.points ?? []).map((p) => ({ x: p.x_nm, y: p.y_nm })),
-      wireEndpoint(placed, portPoints, wire.to_pin, "to_pin"),
+      wireEndpoint(placed, endpointPoints, wire.to_pin, "to_pin"),
     ];
     if (points.length < 2) continue;
     runs.push({ net: wire.net, points });
@@ -314,31 +321,17 @@ export function renderSchematic(
     });
   }
 
-  // The net each pin belongs to, learned from the runs that end there. A pin named by two nets is
-  // malformed (the cross-check reports it); it gets no dot, so the drawing never invents a join.
-  const pinNets = new Map<string, string | null>();
-  for (const run of runs) {
-    for (const point of [run.points[0], run.points[run.points.length - 1]]) {
-      if (point === undefined) continue;
-      const key = `${point.x},${point.y}`;
-      const known = pinNets.get(key);
-      if (known === undefined) pinNets.set(key, run.net);
-      else if (known !== run.net) pinNets.set(key, null);
-    }
-  }
-
-  // Junction dots, over the wires and under the symbols.
-  for (const dot of junctionDots(runs, pinNets)) {
+  // Dots are authored graph nodes. Geometric crossings and coincident endpoints do not invent joins.
+  for (const junction of view.junction ?? []) {
     primitives.push({
       kind: "circle",
-      cx: dot.x,
-      cy: dot.y,
+      cx: junction.x_nm,
+      cy: junction.y_nm,
       rNm: JUNCTION_RADIUS_NM,
       widthNm: WIRE_WIDTH_NM,
       fill: "solid",
       layer: "junction",
-      ref: `net:${dot.net}`,
-      net: dot.net,
+      ref: `junction:${junction.id}`,
     });
   }
 
@@ -370,89 +363,17 @@ export function renderSchematic(
   };
 }
 
-/**
- * Where three or more arms of one net meet.
- *
- * The view carries no junction records: a connection point is a property of the drawn geometry, so
- * it is derived here and stays out of the IR (a dot that was written down could contradict the runs
- * it sits on). The rule counts **arms**: a run ending on the point is one arm, a run passing through
- * it is two, a pin connection point is one, and three or more is a join -- an L bend between two
- * runs is a corner and a single wire on a pin is a two-arm connection, neither is a junction.
- *
- * Arms are counted per net, so two runs of different nets that merely touch draw no dot: the absence
- * of a dot is the drawing's way of saying "not connected", and drawing one there would be a false
- * claim about connectivity.
- */
-function junctionDots(
-  runs: readonly { net: string; points: Point[] }[],
-  pinNets: ReadonlyMap<string, string | null>,
-): { net: string; x: number; y: number }[] {
-  // A pin connection point is itself one arm: one wire ending there is a two-arm connection (wire
-  // plus pin) and draws no dot, while two wires ending there make three arms and draw one. Arms are
-  // **distinct directions**, not records: two wire rows that overlap along the same line make one
-  // visible arm, so a pin fed by two coincident runs must not gain a dot. A pin belongs to exactly
-  // one net; a run of another net that happens to pass through it is a crossing, not a junction.
-  const seen = new Set<string>();
-  const dots: { net: string; x: number; y: number }[] = [];
-  for (const run of runs) {
-    for (const point of run.points) {
-      const key = `${point.x},${point.y}`;
-      const pinNet = pinNets.get(key);
-      if (pinNet !== undefined && pinNet !== run.net) continue; // a foreign pin is not this net's join
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const arms = new Set<string>();
-      if (pinNet === run.net) arms.add("pin");
-      for (const other of runs) {
-        if (other.net !== run.net) continue;
-        for (let i = 0; i + 1 < other.points.length; i += 1) {
-          for (const arm of armDirections(point, other.points[i]!, other.points[i + 1]!)) arms.add(arm);
-        }
-        if (arms.size >= 3) break;
-      }
-      if (arms.size >= 3) dots.push({ net: run.net, x: point.x, y: point.y });
-    }
-  }
-  return dots;
-}
-
-/** The distinct directions in which a segment leaves a point: none, one (an end) or two (a pass). */
-function armDirections(point: Point, a: Point, b: Point): string[] {
-  const dir = (to: Point): string => {
-    let dx = to.x - point.x;
-    let dy = to.y - point.y;
-    const g = gcd(Math.abs(dx), Math.abs(dy)) || 1;
-    dx /= g;
-    dy /= g;
-    return `${dx},${dy}`;
-  };
-  if ((point.x === a.x && point.y === a.y) && (point.x === b.x && point.y === b.y)) return [];
-  if (point.x === a.x && point.y === a.y) return [dir(b)];
-  if (point.x === b.x && point.y === b.y) return [dir(a)];
-  const cross = (b.x - a.x) * (point.y - a.y) - (b.y - a.y) * (point.x - a.x);
-  if (cross !== 0) return [];
-  const dot = (point.x - a.x) * (b.x - a.x) + (point.y - a.y) * (b.y - a.y);
-  const length = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
-  if (dot <= 0 || dot >= length) return [];
-  return [dir(a), dir(b)];
-}
-
-function gcd(a: number, b: number): number {
-  while (b !== 0) [a, b] = [b, a % b];
-  return a;
-}
-
 function wireEndpoint(
   placed: ReadonlyMap<string, { place: Place; instance: SchematicInstance }>,
-  ports: ReadonlyMap<string, Point>,
+  endpoints: ReadonlyMap<string, Point>,
   ref: string,
   column: string,
 ): Point {
-  // A port id has no dot; a pin reference always does (spec/teda.md §4.2, §7.5).
+  // A bare id names either a page port or a declared view junction.
   if (!ref.includes(".")) {
-    const at = ports.get(ref);
+    const at = endpoints.get(ref);
     if (at === undefined) {
-      throw new Error(`schematic view: wire ${column} ${ref} ends at a port this page does not draw`);
+      throw new Error(`schematic view: wire ${column} ${ref} ends at a port or junction this page does not draw`);
     }
     return at;
   }
@@ -512,11 +433,14 @@ const RENDERER_PROJECTION: PageProjection = {
 function pageLayout(
   view: SchematicView,
   instances: ReadonlyMap<string, SchematicInstance>,
+  options: SchematicRenderOptions = {},
 ): {
   readonly symbols: ReadonlyMap<string, SvgPrimitive[]>;
   readonly placements: ReadonlyMap<string, FieldPlacement>;
 } {
-  const placements = placePageFields(pageFacts(view, instances, RENDERER_PROJECTION));
+  const placements = options.automaticFields === false
+    ? new Map<string, FieldPlacement>()
+    : placePageFields(pageFacts(view, instances, RENDERER_PROJECTION));
   const symbols = new Map<string, SvgPrimitive[]>();
   for (const place of view.place) {
     const instance = instances.get(place.instance_id);
@@ -712,11 +636,12 @@ function graphicsBox(primitives: readonly SvgPrimitive[]): SheetBox | null {
 export function schematicGeometry(
   view: SchematicView,
   instances: ReadonlyMap<string, SchematicInstance>,
+  options: SchematicRenderOptions = {},
 ): SheetGeometry {
   const texts: SheetText[] = [];
   const fields: SheetField[] = [];
   const symbols: SheetSymbol[] = [];
-  const layout = pageLayout(view, instances);
+  const layout = pageLayout(view, instances, options);
 
   for (const [index, place] of view.place.entries()) {
     const instance = instances.get(place.instance_id);

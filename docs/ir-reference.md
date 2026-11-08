@@ -642,6 +642,7 @@
 | `field` | array<field> | no | — | Optional manual positions for the Reference and Value fields, in symbol-local coordinates; rows are sorted by instance_id then name. |
 | `format` | format_version | yes | — | Language version of the .teda file that produced this shard; see teda.md §13. |
 | `ir_version` | ir_version | yes | — | IR contract version, currently always 0.15. |
+| `junction` | array<junction> | no | — | Named drawing-graph junctions, sorted by id. Junctions do not create schematic connectivity. |
 | `label` | array<label> | no | — | Net name labels; the text shown is the net id itself, never an override. |
 | `note` | note | no | — | Free text; canonical JSON has no comments, this is the substitute (ADR-0005 rule 8). |
 | `page` | slug | yes | — | The print page id this view draws, resolved to views/<board_id>/<page_id>.view.teda. A print page is a drawing and print unit, not a logical partition. |
@@ -667,6 +668,14 @@
 | `name` | `Reference` \| `Value` | yes | — | **(missing description)** |
 | `x_nm` | integer | yes | nm | Field anchor x in symbol-local coordinates, nanometres. +x is right. |
 | `y_nm` | integer | yes | nm | Field anchor y in symbol-local coordinates, nanometres. +y is up. |
+
+### junction
+
+| Field | Type | Required | Unit | Description |
+|---|---|---|---|---|
+| `id` | string | yes | — | **(missing description)** |
+| `x_nm` | integer | yes | nm | Junction position, x from the sheet's upper-left corner. |
+| `y_nm` | integer | yes | nm | Junction position, y from the sheet's upper-left corner, increasing downward. |
 
 ### label
 
@@ -714,10 +723,10 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `from_pin` | view_endpoint_ref | yes | — | Start of the run: a pin, whose connection point comes from the symbol, or a port this page draws, whose point comes from the page's `port` row. Named `from_pin` because a wire has always started at a pin; a port ending is the same column with a different kind of end. |
-| `net` | net_id | yes | — | The net this wire draws; both endpoints must be members of it in the board's nets. |
+| `from_pin` | view_endpoint_ref | yes | — | Start endpoint identity: a pin, a port this page draws, or a declared junction. |
+| `net` | net_id | yes | — | The net this wire draws. Pin endpoints must be members of it in the board's nets. |
 | `points` | array<point> | no | — | Bend points in the order they are traversed. Omitted means a straight wire. |
-| `to_pin` | view_endpoint_ref | yes | — | End of the run, with the same two kinds of end as `from_pin`. |
+| `to_pin` | view_endpoint_ref | yes | — | End endpoint identity, with the same endpoint kinds as `from_pin`. |
 
 ## `schematic`
 
@@ -958,9 +967,10 @@
 
 ## Field-description coverage
 
-430/431 fields described (100%). Fields without a description have no citable semantics; agents can only guess when reading them.
+433/435 fields described (100%). Fields without a description have no citable semantics; agents can only guess when reading them.
 
 | Location | Field |
 |---|---|
 | schematic-view.field  | `name` |
+| schematic-view.junction  | `id` |
 

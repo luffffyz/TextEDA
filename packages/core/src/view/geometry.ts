@@ -15,21 +15,19 @@ export interface Point {
 export const ON_LINE_NM = 1_000;
 
 /**
- * The polyline a wire draws: its ends are pins or ports (the geometry knows where they are), plus
- * the view's bend points.
+ * The polyline a wire draws: its ends are pins or declared page endpoints, plus bend points.
  *
- * A pin reference has a dot and resolves through the symbol; a port id has none and resolves
- * through the page's own port rows. A port the caller did not pass has no point, and the run is
- * unreadable — the parser already reports a run ending at a port the page does not draw.
+ * A pin reference resolves through the symbol; a port or junction id resolves through `endpoints`.
+ * An undeclared endpoint remains unresolved.
  */
 export function wirePath(
   wire: NonNullable<SchematicView["wire"]>[number],
   symbols: ReadonlyMap<string, ReadabilitySymbol>,
-  ports?: ReadonlyMap<string, Point>,
+  endpoints?: ReadonlyMap<string, Point>,
 ): Point[] | null {
   const pointOf = (ref: string): Point | null => {
     const dot = ref.lastIndexOf(".");
-    if (dot <= 0) return ports?.get(ref) ?? null;
+    if (dot <= 0) return endpoints?.get(ref) ?? null;
     return symbols.get(ref.slice(0, dot))?.pins.get(ref.slice(dot + 1)) ?? null;
   };
   const from = pointOf(wire.from_pin);

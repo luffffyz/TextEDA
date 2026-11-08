@@ -44,14 +44,28 @@ function ratioText(ppm: number): string {
   return `${sign}${integer}${fraction === "" ? "" : `.${fraction}`}`;
 }
 
+/** Split a `[a,b,…]` cell into components; a non-tuple cell comes back as one component (callers degrade safely). */
+function tupleParts(cell: string): string[] {
+  const match = /^\[(.*)\]$/.exec(cell);
+  return match === null ? [cell] : match[1]!.split(",");
+}
+
+/** One tuple cell with each component re-printed by `format` (ADR-0065: a tuple is one cell). */
+function tuple(cell: string, format: (text: string) => string): string {
+  return `[${tupleParts(cell).map(format).join(",")}]`;
+}
+
 /** Polyline direction normalization: reverse the whole polyline when the start sorts after the end (`spec/pcb.md` §6.2). */
 function orient(points: string[]): string[] {
-  const key = (list: string[]) => Number(list[0]) * 1e12 + Number(list[1]);
-  const last = [points[points.length - 2]!, points[points.length - 1]!];
-  if (key(points) <= key(last)) return points;
-  const pairs: string[] = [];
-  for (let i = points.length - 2; i >= 0; i -= 2) pairs.push(points[i]!, points[i + 1]!);
-  return pairs;
+  const key = (cell: string) => {
+    const [x, y] = tupleParts(cell);
+    return Number(x) * 1e12 + Number(y);
+  };
+  if (points.length < 2) return points;
+  const start = points[0]!;
+  const last = points[points.length - 1]!;
+  if (key(start) <= key(last)) return points;
+  return [...points].reverse();
 }
 
 /** Column alignment: within the same section, align by the widest cell, at least two spaces between columns, no padding for the last column. */
@@ -189,21 +203,14 @@ function sectionBody(name: string, rows: Row[]): string[] {
       return align(cells);
     }
     case "outline": {
-      const points = rows.map((row) => ({ x_nm: 0, y_nm: 0, cells: row.cells }));
-      const ring = normalizeRing(
-        points.map((point) => {
-          const x = parseLengthNm(point.cells[0]!, "fmt", 1, 1, "mm");
-          const y = parseLengthNm(point.cells[1]!, "fmt", 1, 1, "mm");
-          return { x_nm: x.ok ? x.value! : 0, y_nm: y.ok ? y.value! : 0 };
-        }),
-      );
+      const ring = normalizeRing(rows.map((row) => pointOf(row.cells[0]!)));
       return emit(
-        ring.map((point) => [mm(point.x_nm), mm(point.y_nm)]),
+        ring.map((item) => [`[${mm(item.x_nm)},${mm(item.y_nm)}]`]),
         rows.map((row) => row.comments),
       );
     }
     case "place":
-      return sortAndAlign(rows, (row) => row.cells[0]!, (cells) => [cells[0]!, len(cells[1]!), len(cells[2]!), deg(cells[3]!), cells[4]!]);
+      return sortAndAlign(rows, (row) => row.cells[0]!, (cells) => [cells[0]!, point(cells[1]!), deg(cells[2]!), cells[3]!]);
     case "connect":
       return sortAndAlign(
         rows,
@@ -213,24 +220,20 @@ function sectionBody(name: string, rows: Row[]): string[] {
     case "trace":
       return sortAndAlign(
         rows,
-        (_row, cells) => `${cells[0]}|${cells[1]}|${Number(cells[3])},${Number(cells[4])}`,
-        (cells) => {
-          const points: string[] = [];
-          for (let i = 3; i < cells.length; i += 2) points.push(len(cells[i]!), len(cells[i + 1]!));
-          return [cells[0]!, cells[1]!, len(cells[2]!), ...orient(points)];
-        },
+        (row, cells) => `${cells[0]}|${cells[1]}|${tupleParts(cells[3]!).join(",")}`,
+        (cells) => [cells[0]!, cells[1]!, len(cells[2]!), ...orient(cells.slice(3).map((cell) => point(cell)))],
       );
     case "via":
       return sortAndAlign(
         rows,
-        (row) => `${row.cells[0]}|${Number(row.cells[1])}|${Number(row.cells[2])}`,
-        (cells) => cells.map((cell, index) => (index >= 1 && index <= 4 ? len(cell) : cell)),
+        (row) => `${row.cells[0]}|${tupleParts(row.cells[1]!).join(",")}`,
+        (cells) => [cells[0]!, point(cells[1]!), len(cells[2]!), len(cells[3]!), ...cells.slice(4)],
       );
     case "zone":
     case "keepout": {
       const cells = rows.map((row) => {
-        const points = normalizeRing(ringOf(row.cells.slice(2)));
-        return [...row.cells.slice(0, 2), ...points.flatMap((point) => [mm(point.x_nm), mm(point.y_nm)])];
+        const ring = normalizeRing(row.cells.slice(2).map((cell) => pointOf(cell)));
+        return [...row.cells.slice(0, 2), ...ring.map((item) => `[${mm(item.x_nm)},${mm(item.y_nm)}]`)];
       });
       cells.sort((a, b) => byteCompare(a.join("|"), b.join("|")));
       return emit(cells, rows.map((row) => row.comments));
@@ -255,7 +258,7 @@ function sectionBody(name: string, rows: Row[]): string[] {
       return sortAndAlign(
         rows,
         (row) => row.cells[0]!,
-        (cells) => cells.map((cell, index) => (index >= 2 ? len(cell) : cell)),
+        (cells) => [cells[0]!, cells[1]!, point(cells[2]!), ...cells.slice(3).map((cell) => len(cell))],
       );
     case "deviation":
       return sortAndAlign(rows, (row) => row.cells.join("|"), (cells) => cells);
@@ -281,15 +284,21 @@ function sortAndAlign(
   );
 }
 
-/** Coordinate list → point list (parsed in pairs, bad values become 0; only runs when parsing has no errors). */
-function ringOf(cells: string[]): { x_nm: number; y_nm: number }[] {
-  const points: { x_nm: number; y_nm: number }[] = [];
-  for (let i = 0; i + 1 < cells.length; i += 2) {
-    const x = parseLengthNm(cells[i]!, "fmt", 1, 1, "mm");
-    const y = parseLengthNm(cells[i + 1]!, "fmt", 1, 1, "mm");
-    points.push({ x_nm: x.ok ? x.value! : 0, y_nm: y.ok ? y.value! : 0 });
-  }
-  return points;
+/**
+ * One `[x,y]` cell → a point; a non-tuple degrades to `(0,0)`, and bad values become 0 too
+ * (`formatPcb` only runs when parsing has no errors).
+ */
+function pointOf(cell: string): { x_nm: number; y_nm: number } {
+  const [rawX, rawY] = tupleParts(cell);
+  const x = parseLengthNm(rawX ?? "", "fmt", 1, 1, "mm");
+  const y = parseLengthNm(rawY ?? "", "fmt", 1, 1, "mm");
+  return { x_nm: x.ok ? x.value! : 0, y_nm: y.ok ? y.value! : 0 };
+}
+
+/** One `[x,y]` cell → its canonical cell, each component in mm source form. */
+function point(cell: string): string {
+  const [rawX, rawY] = tupleParts(cell);
+  return `[${len(rawX ?? "")},${len(rawY ?? "")}]`;
 }
 
 /** The canonical cells of one `rules` row. */

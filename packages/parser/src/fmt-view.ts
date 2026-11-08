@@ -19,7 +19,7 @@ export interface ViewFormatResult {
   diagnostics: Diagnostic[];
 }
 
-const SECTIONS = ["place", "field", "wire", "label", "port", "text"] as const;
+const SECTIONS = ["place", "field", "junction", "wire", "label", "port", "text"] as const;
 const SECTION_SET = new Set<string>(SECTIONS);
 
 interface Row {
@@ -90,8 +90,22 @@ function walkView(text: string): Walk | null {
   return walk;
 }
 
-/** Compare two coordinate cells numerically when both are plain numbers, else byte order. */
+/** Compare two coordinate cells: tuples component by component, plain numbers numerically, else byte order. */
 function compareCoordinate(a: string, b: string): number {
+  const tuple = (text: string): string[] | undefined => {
+    const match = /^\[(.*)\]$/.exec(text);
+    return match === null ? undefined : match[1]!.split(",");
+  };
+  const left = tuple(a);
+  const right = tuple(b);
+  if (left !== undefined && right !== undefined && left.length === right.length) {
+    for (let i = 0; i < left.length; i += 1) {
+      const order = compareCoordinate(left[i]!, right[i]!);
+      if (order !== 0) return order;
+    }
+    return 0;
+  }
+  if (left !== undefined || right !== undefined) return byteCompare(a, b);
   const na = Number(a);
   const nb = Number(b);
   if (Number.isFinite(na) && Number.isFinite(nb)) return na === nb ? 0 : na < nb ? -1 : 1;
@@ -100,12 +114,7 @@ function compareCoordinate(a: string, b: string): number {
 
 /** Align the given columns of the rows to the widest cell of their column. */
 function alignCells(rows: Row[], count: number, indent: string): string[] {
-  const widths: number[] = [];
-  for (const row of rows) {
-    for (let i = 0; i < count; i += 1) {
-      widths[i] = Math.max(widths[i] ?? 0, row.cells[i]?.length ?? 0);
-    }
-  }
+  const widths = widthsOf(rows, count);
   const lines: string[] = [];
   for (const row of rows) {
     lines.push(...row.comments);
@@ -115,23 +124,25 @@ function alignCells(rows: Row[], count: number, indent: string): string[] {
   return lines;
 }
 
-/** The `place` row: id x y [rot] [unit=N]; the rot column and the key column are separate. */
-function formatPlace(rows: Row[], indent: string): string[] {
-  const widths = widthsOf(rows, 3);
+/** `place` / `port` rows: `<id> <point> [<rot>] [<key=value> …]`; a key never enters the rotation column. */
+function formatIdPoint(rows: Row[], indent: string, keys: boolean): string[] {
+  const widths = widthsOf(rows, 2);
   const rotWidth = rows.reduce((max, row) => {
-    const cell = row.cells[3];
-    if (cell === undefined || cell.includes("=")) return max;
+    const cell = row.cells[2];
+    if (cell === undefined || (keys && cell.includes("="))) return max;
     return Math.max(max, cell.length);
   }, 0);
   const lines: string[] = [];
   for (const row of rows) {
     lines.push(...row.comments);
-    const head = row.cells.slice(0, 3).map((cell, i) => (i === 2 ? cell : cell.padEnd(widths[i]!)));
+    const head = row.cells.slice(0, 2).map((cell, i) => (i === 1 ? cell : cell.padEnd(widths[i]!)));
     const rest: string[] = [];
-    const rot = row.cells[3];
-    if (rot !== undefined && !rot.includes("=")) rest.push(rot.padEnd(rotWidth));
-    const unit = row.cells.slice(3).find((cell) => cell.includes("="));
-    if (unit !== undefined) rest.push(unit);
+    const rot = row.cells[2];
+    if (rot !== undefined && !(keys && rot.includes("="))) rest.push(rot.padEnd(rotWidth));
+    if (keys) {
+      const tailKeys = row.cells.slice(2).filter((cell) => cell.includes("="));
+      if (tailKeys.length > 0) rest.push(tailKeys.join("  "));
+    }
     const tail = rest.length > 0 ? `  ${rest.join("  ").trimEnd()}` : "";
     lines.push(`${indent}${head.join("  ")}${tail}`);
   }
@@ -149,33 +160,12 @@ function widthsOf(rows: Row[], count: number): number[] {
   return widths;
 }
 
-/** The `port` row: port_id x y [rot]; the optional rotation is never dropped. */
-function formatPort(rows: Row[], indent: string): string[] {
-  const widths = widthsOf(rows, 3);
-  const rotWidth = rows.reduce((max, row) => Math.max(max, row.cells[3]?.length ?? 0), 0);
-  const lines: string[] = [];
-  for (const row of rows) {
-    lines.push(...row.comments);
-    const head = row.cells.slice(0, 3).map((cell, i) => (i === 2 ? cell : cell.padEnd(widths[i]!)));
-    const rot = row.cells[3];
-    const tail = rot === undefined ? "" : `  ${rot.padEnd(rotWidth)}`;
-    lines.push(`${indent}${head.join("  ")}${tail}`.trimEnd());
-  }
-  return lines;
-}
-
-/** The `wire` row: net from_pin to_pin [bend pairs]; the bends stay paired (x y, x y). */
+/** `wire` rows: `net from_pin to_pin [<point> …]`; each bend is one cell, so the row is plain columns. */
 function formatWire(rows: Row[], indent: string): string[] {
-  const widths = widthsOf(rows, 3);
   const lines: string[] = [];
   for (const row of rows) {
     lines.push(...row.comments);
-    const head = row.cells.slice(0, 3).map((cell, i) => (i === 2 ? cell : cell.padEnd(widths[i]!)));
-    const tail = row.cells.slice(3);
-    const pairs: string[] = [];
-    for (let i = 0; i < tail.length; i += 2) pairs.push(`${tail[i]} ${tail[i + 1]}`);
-    const suffix = pairs.length > 0 ? `  ${pairs.join("  ")}` : "";
-    lines.push(`${indent}${head.join("  ")}${suffix}`);
+    lines.push(`${indent}${row.cells.join("  ").trimEnd()}`);
   }
   return lines;
 }
@@ -205,6 +195,9 @@ export function formatView(text: string, options: ViewFormatOptions): ViewFormat
     const rows = [...section.rows];
     switch (name) {
       case "place":
+        rows.sort((a, b) => naturalCompare(a.cells[0] ?? "", b.cells[0] ?? ""));
+        break;
+      case "junction":
         rows.sort((a, b) => naturalCompare(a.cells[0] ?? "", b.cells[0] ?? ""));
         break;
       case "field":
@@ -244,27 +237,29 @@ export function formatView(text: string, options: ViewFormatOptions): ViewFormat
     const block: string[] = [...section.comments, name];
     switch (name) {
       case "place":
-        block.push(...formatPlace(rows, "  "));
+        block.push(...formatIdPoint(rows, "  ", true));
+        break;
+      case "junction":
+        block.push(...alignCells(rows, 2, "  "));
         break;
       case "field":
-        block.push(...alignCells(rows, 4, "  "));
+        block.push(...alignCells(rows, 3, "  "));
         break;
       case "wire":
         block.push(...formatWire(rows, "  "));
         break;
       case "label":
-        block.push(...alignCells(rows, 3, "  "));
+        block.push(...alignCells(rows, 2, "  "));
         break;
       case "port":
-        block.push(...formatPort(rows, "  "));
+        block.push(...formatIdPoint(rows, "  ", false));
         break;
       case "text": {
         // The text is the rest of the line: it is the last cell and is never padded.
-        const widths = widthsOf(rows, 2);
+        const widths = widthsOf(rows, 1);
         for (const row of rows) {
           block.push(...row.comments);
-          const head = row.cells.slice(0, 2).map((cell, i) => cell.padEnd(widths[i]!));
-          block.push(`  ${head.join("  ")}  ${row.cells.slice(2).join(" ")}`);
+          block.push(`  ${row.cells[0]!.padEnd(widths[0]!)}  ${row.cells.slice(1).join(" ")}`);
         }
         break;
       }

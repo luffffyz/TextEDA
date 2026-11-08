@@ -1,4 +1,4 @@
-version 0.9.2
+version 0.11
 schematic divider-network
 
 # Two resistive dividers off one reference: a three-leg ladder with two taps, and a plain two-leg

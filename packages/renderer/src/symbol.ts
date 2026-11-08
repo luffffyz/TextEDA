@@ -26,7 +26,7 @@ const DEFAULT_NAME_OFFSET_NM = 508_000;
 const DEFAULT_TEXT_SIZE_NM = 1_270_000;
 const NUMBER_TEXT_SIZE_NM = 1_270_000;
 /** Exact clear distance from pin lines and painted symbol-body bounds to number ink. */
-const NUMBER_TEXT_CLEARANCE_NM = 200_000;
+const NUMBER_TEXT_CLEARANCE_NM = 500_000;
 /** Legacy anchor distance when a symbol has no visible body frame. */
 const NUMBER_TEXT_BODY_FALLBACK_OFFSET_NM = 1_200_000;
 /** Exact clear distance from a visible symbol-body frame to pin-name ink. */
@@ -104,9 +104,9 @@ interface PinNamePlacement {
 
 
 /** Painted bounds relative to a middle-anchored pin-number label's anchor. */
-function pinNumberInkEdges(text: string): TextInkEdges {
-  return textInkEdges(text, NUMBER_TEXT_SIZE_NM, "middle");
-}
+function pinNumberInkEdges(text: string, rotateMdeg: number): TextInkEdges {
+  return textInkEdges(text, NUMBER_TEXT_SIZE_NM, "middle", rotateMdeg);
+ }
 
 
 interface BodyFrameBounds {
@@ -327,8 +327,12 @@ export function renderSymbol(sym: SymbolBody, part: SymbolPart): SvgDoc {
         });
       }
     }
-    if (!sym.pin_numbers_hidden) {
-      const ink = pinNumberInkEdges(pin.number);
+    {
+      // Pin numbers follow the symbol's frame so a rotated C/R body cannot cut through the glyph.
+      // Keep the local text horizontal for horizontal pins and vertical for vertical pins; the
+      // schematic placer then composes this rotation with the instance rotation.
+      const textRotation = horizontal ? 0 : 90_000;
+      const ink = pinNumberInkEdges(pin.number, textRotation);
       const bodySide = bodyBounds
         ? {
             x: dir.x > 0
@@ -353,9 +357,11 @@ export function renderSymbol(sym: SymbolBody, part: SymbolPart): SvgDoc {
         text: pin.number,
         sizeNm: NUMBER_TEXT_SIZE_NM,
         anchor: "middle",
+        rotateMdeg: textRotation,
         role: "pinNumber",
         pin: pin.number,
         unit: pin.unit,
+        ...(sym.pin_numbers_hidden ? { hidden: true } : {}),
       });
     }
   }
@@ -654,7 +660,7 @@ export function extractSymbol(doc: SvgDoc): SymbolProjection {
         break;
       case "text":
         if (p.role === "pinName") pinNamesHidden = false;
-        else if (p.role === "pinNumber") pinNumbersHidden = false;
+        else if (p.role === "pinNumber" && !p.hidden) pinNumbersHidden = false;
         else if (p.role === "field" && p.name !== undefined) {
           fields.push({ name: p.name, value: p.text, x_nm: p.x, y_nm: p.y });
         }

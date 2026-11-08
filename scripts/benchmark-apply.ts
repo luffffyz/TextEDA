@@ -23,21 +23,23 @@ export function benchPage(n: number, w: number, l: number): string {
   });
   for (let i = 0; i < n; i++) {
     const { x, y } = at(i);
-    places.push(`  M2.R${i + 1}  ${x.toFixed(1)}  ${y.toFixed(1)}  0`);
+    places.push(`  M2.R${i + 1}  [${x.toFixed(1)},${y.toFixed(1)}]  0`);
   }
   for (let k = 0; k < w; k++) {
     const a = at(k % n);
     const b = at((k + 1) % n);
-    wires.push(`  NET  M2.R${(k % n) + 1}.1  M2.R${((k + 1) % n) + 1}.1  ${a.x.toFixed(1)} ${a.y.toFixed(1)}  ${b.x.toFixed(1)} ${b.y.toFixed(1)}`);
+    wires.push(
+      `  NET  M2.R${(k % n) + 1}.1  M2.R${((k + 1) % n) + 1}.1  [${a.x.toFixed(1)},${a.y.toFixed(1)}]  [${b.x.toFixed(1)},${b.y.toFixed(1)}]`,
+    );
   }
   for (let k = 0; k < l; k++) {
-    labels.push(`  NET  ${(25 + (k % 30) * 3).toFixed(1)}  ${(35 + Math.floor(k / 30) * 3).toFixed(1)}`);
+    labels.push(`  NET  [${(25 + (k % 30) * 3).toFixed(1)},${(35 + Math.floor(k / 30) * 3).toFixed(1)}]`);
   }
   return [
-    "version 0.10",
+    "version 0.11",
     "view bench",
     "",
-    "sheet 2000 2000",
+    "sheet [2000,2000]",
     "",
     "place",
     ...places,

@@ -15,9 +15,10 @@ import { SourceFile } from "./sources.ts";
 import type { SourceMap } from "@texteda/ir/spans";
 import { byteCompare, naturalCompare, pinRefCompare } from "@texteda/ir/order";
 import { parseAngleMdeg, parseLengthNm } from "./units.ts";
-import { checkVersion, compareVersions, parseVersion, typeRange, VIEW_FIELD_VERSION } from "./version.ts";
+import { checkVersion, typeRange } from "./version.ts";
+import { POINT, SIZE, readTupleCells, tupleShapeText } from "./tuple.ts";
 
-export const VIEW_SECTIONS = ["place", "field", "wire", "label", "port", "text"] as const;
+export const VIEW_SECTIONS = ["place", "field", "junction", "wire", "label", "port", "text"] as const;
 export type ViewSection = (typeof VIEW_SECTIONS)[number];
 
 const SECTION_SET = new Set<string>(VIEW_SECTIONS);
@@ -132,6 +133,37 @@ function parseGridNm(
   return parsed.value;
 }
 
+/**
+ * Read one `[x,y]` cell (ADR-0065 D1) and both its components on the view's `0.01 mm` grid.
+ * The tuple's arity is fixed here, so a row can never supply "one coordinate" and shift the rest.
+ */
+function parsePointCell(
+  cell: Cell,
+  file: string,
+  line: number,
+  collector: Collector,
+): { x_nm: number; y_nm: number } | null {
+  const parts = readTupleCells(cell, POINT, file, line, (diagnostic) => collector.diagnostics.push(diagnostic));
+  if (parts === null) return null;
+  const x = parseGridNm(parts[0]!, file, line, collector);
+  const y = parseGridNm(parts[1]!, file, line, collector);
+  if (x === null || y === null) return null;
+  return { x_nm: x, y_nm: y };
+}
+
+/** Wire endpoint tokens are identities only; anonymous coordinate endpoints are rejected. */
+function parseWireEndpoint(cell: Cell, file: string, line: number, collector: Collector): string | null {
+  if (cell.text.startsWith("@")) {
+    collector.error(file, line, cell.col, "syntax.invalid-ref", `anonymous coordinate endpoints are not allowed: ${cell.text}`, {
+      hint: "declare a named junction at this coordinate and use its id as the endpoint",
+    });
+    return null;
+  }
+  if (PIN_REF_RE.test(cell.text) || PORT_ID_RE.test(cell.text)) return cell.text;
+  collector.error(file, line, cell.col, "syntax.invalid-ref", `not a valid pin reference, port id or junction id: ${cell.text}`);
+  return null;
+}
+
 /** A rotation: right angles only, reduced modulo a full turn. */
 function parseRotation(
   cell: Cell,
@@ -189,11 +221,11 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
   const version = versionLine.cells[1]!.text;
   const verdict = checkVersion(version, VERSION_RANGE, "view");
   if (!verdict.ok) {
-    collector.error(file, versionLine.number, versionLine.cells[1]!.col, verdict.code, verdict.message);
+    collector.error(file, versionLine.number, versionLine.cells[1]!.col, verdict.code, verdict.message, {
+      ...(verdict.hint === undefined ? {} : { hint: verdict.hint }),
+    });
+    return { ok: false, diagnostics: collector.diagnostics };
   }
-  const parsedVersion = parseVersion(version);
-  // A malformed version already has its own diagnostic; do not add a field-specific one on top.
-  const fieldAllowed = parsedVersion === null || compareVersions(parsedVersion, VIEW_FIELD_VERSION) >= 0;
 
   const typeLine = nextMeaningful();
   if (!typeLine || typeLine.cells.length !== 2 || typeLine.cells[0]!.text !== "view") {
@@ -215,6 +247,8 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
   const label: SchematicView["label"] = [];
   const port: SchematicView["port"] = [];
   const texts: SchematicView["text"] = [];
+  const junction: NonNullable<SchematicView["junction"]> = [];
+  const junctionAt = new Map<string, { line: number; col: number }>();
   while (index < lines.length) {
     const line = lines[index]!;
     index += 1;
@@ -222,16 +256,6 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
 
     if (line.cells.length === 1 && SECTION_SET.has(line.cells[0]!.text)) {
       section = line.cells[0]!.text as ViewSection;
-      if (section === "field" && !fieldAllowed) {
-        collector.error(
-          file,
-          line.number,
-          line.cells[0]!.col,
-          "format.unsupported-version",
-          `the field section requires language 0.10 or later: ${version}`,
-          { hint: "write version 0.10 or later, or remove the field section" },
-        );
-      }
       continue;
     }
 
@@ -243,12 +267,14 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
         continue;
       }
       const parts = line.cells.slice(1);
-      if (parts.length !== 2) {
-        collector.error(file, line.number, line.cells[0]!.col, "syntax.row-too-short", "the sheet scalar needs two values: <width> <height>");
+      if (parts.length !== 1) {
+        collector.error(file, line.number, line.cells[0]!.col, "syntax.row-too-short", `the sheet scalar is one cell: sheet ${tupleShapeText(SIZE)}`);
         continue;
       }
-      const width = parseGridNm(parts[0]!, file, line.number, collector);
-      const height = parseGridNm(parts[1]!, file, line.number, collector);
+      const size = readTupleCells(parts[0]!, SIZE, file, line.number, (diagnostic) => collector.diagnostics.push(diagnostic));
+      if (size === null) continue;
+      const width = parseGridNm(size[0]!, file, line.number, collector);
+      const height = parseGridNm(size[1]!, file, line.number, collector);
       if (width === null || height === null) continue;
       if (width <= 0 || height <= 0) {
         collector.error(file, line.number, parts[0]!.col, "value.length-invalid", "the sheet must be larger than zero");
@@ -261,9 +287,32 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
 
     const cells = line.cells;
     switch (section) {
+      case "junction": {
+        if (cells.length !== 2) {
+          collector.error(file, line.number, cells[0]!.col, "syntax.row-too-short", `a junction row has exactly two columns: id ${tupleShapeText(POINT)}`);
+          continue;
+        }
+        const id = cells[0]!.text;
+        if (!VIEW_ID_RE.test(id)) {
+          collector.error(file, line.number, cells[0]!.col, "syntax.invalid-token", `not a valid junction id: ${id}`);
+          continue;
+        }
+        const point = parsePointCell(cells[1]!, file, line.number, collector);
+        if (point === null) continue;
+        const previous = junctionAt.get(id);
+        if (previous) {
+          collector.error(file, line.number, cells[0]!.col, "value.duplicate-id", `duplicate junction id ${id}`, { related: [src.span(previous.line, previous.col)] });
+          continue;
+        }
+        const item = { id, ...point };
+        junction.push(item);
+        junctionAt.set(id, { line: line.number, col: cells[0]!.col });
+        at.set(item, line.number);
+        continue;
+      }
       case "place": {
-        if (cells.length < 3) {
-          collector.error(file, line.number, cells[0]!.col, "syntax.row-too-short", "a place row needs at least 3 columns: instance_id x y");
+        if (cells.length < 2) {
+          collector.error(file, line.number, cells[0]!.col, "syntax.row-too-short", `a place row needs at least 2 columns: instance_id ${tupleShapeText(POINT)}`);
           continue;
         }
         const instanceId = cells[0]!.text;
@@ -271,12 +320,11 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
           collector.error(file, line.number, cells[0]!.col, "syntax.invalid-token", `not a valid instance id: ${instanceId}`);
           continue;
         }
-        const x = parseGridNm(cells[1]!, file, line.number, collector);
-        const y = parseGridNm(cells[2]!, file, line.number, collector);
-        if (x === null || y === null) continue;
+        const point = parsePointCell(cells[1]!, file, line.number, collector);
+        if (point === null) continue;
         let rot: number | undefined;
         let unit: number | undefined;
-        for (const cell of cells.slice(3)) {
+        for (const cell of cells.slice(2)) {
           const eq = cell.text.indexOf("=");
           if (eq <= 0) {
             if (rot === undefined) {
@@ -305,18 +353,18 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
             if (unit === 1) unit = undefined;
           }
         }
-        const placed = { instance_id: instanceId, x_nm: x, y_nm: y, ...(rot === undefined ? {} : { rot_mdeg: rot }), ...(unit === undefined ? {} : { unit }) };
+        const placed = { instance_id: instanceId, ...point, ...(rot === undefined ? {} : { rot_mdeg: rot }), ...(unit === undefined ? {} : { unit }) };
         place.push(placed);
         at.set(placed, line.number);
         continue;
       }
       case "field": {
-        if (cells.length < 4) {
-          collector.error(file, line.number, cells[0]!.col, "syntax.row-too-short", "a field row needs 4 columns: instance_id name x y");
+        if (cells.length < 3) {
+          collector.error(file, line.number, cells[0]!.col, "syntax.row-too-short", `a field row needs 3 columns: instance_id name ${tupleShapeText(POINT)}`);
           continue;
         }
-        if (cells.length > 4) {
-          collector.error(file, line.number, cells[4]!.col, "syntax.invalid-token", "a field row has exactly 4 columns: instance_id name x y");
+        if (cells.length > 3) {
+          collector.error(file, line.number, cells[3]!.col, "syntax.invalid-token", `a field row has exactly 3 columns: instance_id name ${tupleShapeText(POINT)}`);
           continue;
         }
         const instanceId = cells[0]!.text;
@@ -333,9 +381,8 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
           continue;
         }
         const name = nameText as "Reference" | "Value";
-        const x = parseGridNm(cells[2]!, file, line.number, collector);
-        const y = parseGridNm(cells[3]!, file, line.number, collector);
-        if (x === null || y === null) continue;
+        const point = parsePointCell(cells[2]!, file, line.number, collector);
+        if (point === null) continue;
         const key = `${instanceId}\u0000${name}`;
         const previous = fieldAt.get(key);
         if (previous !== undefined) {
@@ -345,7 +392,7 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
           continue;
         }
         fieldAt.set(key, { line: line.number, col: cells[1]!.col });
-        const written = { instance_id: instanceId, name, x_nm: x, y_nm: y };
+        const written = { instance_id: instanceId, name, ...point };
         fields.push(written);
         at.set(written, line.number);
         continue;
@@ -361,33 +408,18 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
           collector.error(file, line.number, cells[0]!.col, "syntax.invalid-token", `not a valid net id: ${net}`);
           continue;
         }
-        const fromPin = cells[1]!.text;
-        const toPin = cells[2]!.text;
-        // A run ends at a pin or at a port this page draws. A pin reference has the form
-        // `<instance>.<pin>`; a port id is a bare name from the board's `ports` section, and the
-        // page's own `port` row carries its point. The two spaces cannot collide: a pin reference
-        // always contains a dot.
-        const ends = [[1, fromPin], [2, toPin]] as const;
-        const badEnd = ends.find(([, end]) => !PIN_REF_RE.test(end) && !PORT_ID_RE.test(end));
-        if (badEnd !== undefined) {
-          collector.error(file, line.number, cells[badEnd[0]]!.col, "syntax.invalid-ref", `not a valid pin reference or port id: ${badEnd[1]}`);
-          continue;
-        }
-        const tail = cells.slice(3);
-        if (tail.length % 2 !== 0) {
-          collector.error(file, line.number, cells[3]!.col, "syntax.row-too-short", "the bend points are coordinate pairs: x y x y");
-          continue;
-        }
+        const endpoints = [cells[1]!, cells[2]!].map((cell) => parseWireEndpoint(cell, file, line.number, collector));
+        if (endpoints.some((endpoint) => endpoint === null)) continue;
+        const [fromPin, toPin] = endpoints as [string, string];
         const points: { x_nm: number; y_nm: number }[] = [];
         let broken = false;
-        for (let i = 0; i < tail.length; i += 2) {
-          const x = parseGridNm(tail[i]!, file, line.number, collector);
-          const y = parseGridNm(tail[i + 1]!, file, line.number, collector);
-          if (x === null || y === null) {
+        for (const cell of cells.slice(3)) {
+          const point = parsePointCell(cell, file, line.number, collector);
+          if (point === null) {
             broken = true;
             break;
           }
-          points.push({ x_nm: x, y_nm: y });
+          points.push(point);
         }
         if (broken) continue;
         const drawn = { net, from_pin: fromPin, to_pin: toPin, ...(points.length > 0 ? { points } : {}) };
@@ -396,8 +428,8 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
         continue;
       }
       case "label": {
-        if (cells.length < 3) {
-          collector.error(file, line.number, cells[0]!.col, "syntax.row-too-short", "a label row needs 3 columns: net x y");
+        if (cells.length !== 2) {
+          collector.error(file, line.number, cells[0]!.col, "syntax.row-too-short", `a label row has exactly 2 columns: net ${tupleShapeText(POINT)}`);
           continue;
         }
         const net = cells[0]!.text;
@@ -405,17 +437,16 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
           collector.error(file, line.number, cells[0]!.col, "syntax.invalid-token", `not a valid net id: ${net}`);
           continue;
         }
-        const x = parseGridNm(cells[1]!, file, line.number, collector);
-        const y = parseGridNm(cells[2]!, file, line.number, collector);
-        if (x === null || y === null) continue;
-        const named = { net, x_nm: x, y_nm: y };
+        const point = parsePointCell(cells[1]!, file, line.number, collector);
+        if (point === null) continue;
+        const named = { net, ...point };
         label.push(named);
         at.set(named, line.number);
         continue;
       }
       case "port": {
-        if (cells.length < 3) {
-          collector.error(file, line.number, cells[0]!.col, "syntax.row-too-short", "a port row needs at least 3 columns: port_id x y");
+        if (cells.length < 2) {
+          collector.error(file, line.number, cells[0]!.col, "syntax.row-too-short", `a port row needs at least 2 columns: port_id ${tupleShapeText(POINT)}`);
           continue;
         }
         const id = cells[0]!.text;
@@ -423,34 +454,32 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
           collector.error(file, line.number, cells[0]!.col, "syntax.invalid-token", `not a valid port id: ${id}`);
           continue;
         }
-        const x = parseGridNm(cells[1]!, file, line.number, collector);
-        const y = parseGridNm(cells[2]!, file, line.number, collector);
-        if (x === null || y === null) continue;
+        const point = parsePointCell(cells[1]!, file, line.number, collector);
+        if (point === null) continue;
         let rot: number | undefined;
-        if (cells.length > 3) {
-          const parsed = parseRotation(cells[3]!, file, line.number, collector);
+        if (cells.length > 2) {
+          const parsed = parseRotation(cells[2]!, file, line.number, collector);
           if (parsed === null) continue;
           rot = parsed === 0 ? undefined : parsed;
         }
-        const printed = { id, x_nm: x, y_nm: y, ...(rot === undefined ? {} : { rot_mdeg: rot }) };
+        const printed = { id, ...point, ...(rot === undefined ? {} : { rot_mdeg: rot }) };
         port.push(printed);
         at.set(printed, line.number);
         continue;
       }
       case "text": {
-        if (cells.length < 3) {
-          collector.error(file, line.number, cells[0]!.col, "syntax.row-too-short", "a text row needs 3 columns: x y text");
+        if (cells.length < 2) {
+          collector.error(file, line.number, cells[0]!.col, "syntax.row-too-short", `a text row needs 2 columns: ${tupleShapeText(POINT)} text`);
           continue;
         }
-        const x = parseGridNm(cells[0]!, file, line.number, collector);
-        const y = parseGridNm(cells[1]!, file, line.number, collector);
-        if (x === null || y === null) continue;
-        const body = restOfLine(line, 2);
+        const point = parsePointCell(cells[0]!, file, line.number, collector);
+        if (point === null) continue;
+        const body = restOfLine(line, 1);
         if (body.length === 0) {
-          collector.error(file, line.number, cells[2]!.col, "syntax.row-too-short", "a text row needs some text");
+          collector.error(file, line.number, cells[1]!.col, "syntax.row-too-short", "a text row needs some text");
           continue;
         }
-        const written = { x_nm: x, y_nm: y, text: body };
+        const written = { ...point, text: body };
         texts.push(written);
         at.set(written, line.number);
         continue;
@@ -458,39 +487,36 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
     }
   }
 
-  // Cross-checks the file can answer on its own.
+  // Cross-check the named endpoints available on this page.
   const placed = new Set(place.map((p) => p.instance_id));
   const drawnPorts = new Set(port.map((item) => item.id));
+  const junctionIds = new Set(junction.map((item) => item.id));
+  for (const item of junction) {
+    if (drawnPorts.has(item.id)) collector.error(file, at.get(item) ?? 1, 1, "value.duplicate-id", `junction id ${item.id} conflicts with a page port id`);
+    checkOnSheet(file, at.get(item) ?? 1, item.x_nm, item.y_nm, sheetWidth, sheetHeight, collector);
+  }
   for (const item of wire) {
     for (const ref of [item.from_pin, item.to_pin]) {
-      // An end is a pin or a port this page draws. A port's id has no dot; a pin reference always
-      // does, so the kind is read off the string.
-      if (!ref.includes(".")) continue;
-      // The instance id may be module-qualified (`M1.U1`), so the split is at the last dot.
-      const instanceId = ref.slice(0, ref.lastIndexOf("."));
-      if (!placed.has(instanceId)) {
+      if (ref.includes(".")) {
+        const instanceId = ref.slice(0, ref.lastIndexOf("."));
+        if (!placed.has(instanceId)) collector.error(file, at.get(item) ?? 1, 1, "view.pin-not-placed", `the instance ${instanceId} of pin ${ref} is not in the place section`);
+      } else if (drawnPorts.has(ref)) {
+        // A run that ends at a port takes its point from the page's own `port` row (ADR-0062 D1).
+        continue;
+      } else if (junctionIds.has(ref)) {
+        // A run that ends at a junction takes its point from the page's own `junction` row.
+        continue;
+      } else {
+        // Neither drawn on this page: there is no point for the run to end at. Whether the id names a
+        // board port or nothing at all is the board cross-check's question, not the page's.
         collector.error(
           file,
           at.get(item) ?? 1,
           1,
-          "view.pin-not-placed",
-          `the instance ${instanceId} of pin ${ref} is not in the place section`,
+          "view.port-not-drawn",
+          `the run ${item.net} ${item.from_pin} → ${item.to_pin} ends at ${ref}, which this page draws neither as a port nor as a junction`,
         );
       }
-    }
-  }
-  // A run that ends at a port has to end at a port this page draws: the page's `port` row is where
-  // the point comes from, so a run naming a port the page does not draw has nowhere to end.
-  for (const item of wire) {
-    for (const ref of [item.from_pin, item.to_pin]) {
-      if (ref.includes(".") || drawnPorts.has(ref)) continue;
-      collector.error(
-        file,
-        at.get(item) ?? 1,
-        1,
-        "view.port-not-drawn",
-        `the run ${item.net} ${item.from_pin} → ${item.to_pin} ends at port ${ref}, which this page does not draw`,
-      );
     }
   }
   for (const item of fields) {
@@ -529,13 +555,9 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
   // spec/schematic-view.md §11 (wire points keep their order — that one is semantic).
   place.sort((a, b) => naturalCompare(a.instance_id, b.instance_id));
   fields.sort((a, b) => naturalCompare(a.instance_id, b.instance_id) || byteCompare(a.name, b.name));
+  junction.sort((a, b) => naturalCompare(a.id, b.id));
 
-  wire.sort(
-    (a, b) =>
-      byteCompare(a.net, b.net) ||
-      pinRefCompare(a.from_pin, b.from_pin) ||
-      pinRefCompare(a.to_pin, b.to_pin),
-  );
+  wire.sort((a, b) => byteCompare(a.net, b.net) || pinRefCompare(a.from_pin, b.from_pin) || pinRefCompare(a.to_pin, b.to_pin));
   label.sort((a, b) => byteCompare(a.net, b.net) || a.x_nm - b.x_nm || a.y_nm - b.y_nm);
   port.sort((a, b) => byteCompare(a.id, b.id));
   texts.sort((a, b) => a.x_nm - b.x_nm || a.y_nm - b.y_nm || byteCompare(a.text, b.text));
@@ -550,6 +572,7 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
     sheet: { width_nm: sheetWidth, height_nm: sheetHeight },
     place,
     ...(fields.length > 0 ? { field: fields } : {}),
+    ...(junction.length > 0 ? { junction } : {}),
 
     ...(wire.length > 0 ? { wire } : {}),
     ...(label.length > 0 ? { label } : {}),
@@ -566,6 +589,7 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
   note("/field", fields);
   note("/wire", wire);
   note("/label", label);
+  note("/junction", junction);
   note("/port", port);
   note("/text", texts);
   sources.set("/sheet", src.span(1));

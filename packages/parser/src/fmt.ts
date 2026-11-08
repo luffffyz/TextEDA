@@ -59,18 +59,25 @@ export function canonValue(text: string, col: number, kind: Kind, file: string, 
       : formatPpm(parsed.value);
 }
 
-/** An `x,y,z` list: normalize each item, then join with `,`. */
-export function canonList(
+/** An `[x,y,z]` tuple: normalize each component, then rejoin inside its brackets. */
+
+/**
+ * One bracketed column or `key=value` payload, canonicalized component-wise: `[10.0,20.0]`.
+ * Formatting only runs on a successful parse, so the brackets are already there; a bare list still
+ * gets wrapped, which keeps `fmt` idempotent on the canonical output instead of depending on input.
+ */
+export function canonTuple(
   text: string,
   col: number,
   kind: Kind,
   file: string,
   line: number,
 ): string {
-  return text
+  const body = text.startsWith("[") && text.endsWith("]") ? text.slice(1, -1) : text;
+  return `[${body
     .split(",")
     .map((part) => canonValue(part, col, kind, file, line))
-    .join(",");
+    .join(",")}]`;
 }
 
 /** Trailing `key=value` columns: sort by key in ASCII byte order; unknown shapes (already reported by validation) are kept as-is. */
@@ -219,12 +226,15 @@ export function emitBlocks(blocks: string[][]): string {
 
 function canonicalFootprintPadRow(row: RawRow, file: string): Row {
   const cells = row.cells;
-  const out = [cells[0]!.text, cells[1]!.text, cells[2]!.text];
-  for (const cell of cells.slice(3, 7)) {
-    out.push(canonValue(cell.text, cell.col, "length", file, row.line));
-  }
+  const out = [
+    cells[0]!.text,
+    cells[1]!.text,
+    cells[2]!.text,
+    canonTuple(cells[3]!.text, cells[3]!.col, "length", file, row.line),
+    canonTuple(cells[4]!.text, cells[4]!.col, "length", file, row.line),
+  ];
   out.push(
-    ...canonKeyValues(cells.slice(7), (key, raw, col) => {
+    ...canonKeyValues(cells.slice(5), (key, raw, col) => {
       if (key === "rot") return canonValue(raw, col, "angle", file, row.line);
       if (key === "rratio") return canonValue(raw, col, "ratio", file, row.line);
       if (key === "layers" || key === "zone") return raw;
@@ -240,7 +250,7 @@ function canonicalFootprintGraphicRow(row: RawRow, file: string): Row {
   const out = [
     cells[0]!.text,
     cells[1]!.text,
-    canonList(geometryCell.text, geometryCell.col, "length", file, row.line),
+    canonTuple(geometryCell.text, geometryCell.col, "length", file, row.line),
   ];
   out.push(
     ...canonKeyValues(cells.slice(3), (key, raw, col) =>
@@ -280,9 +290,9 @@ function canonicalFootprintScalars(walk: SurfaceWalk, file: string): Row[] {
     const path = model.cells[1]!.text;
     const kv = canonKeyValues(model.cells.slice(2), (key, raw, col) => {
       if (!MODEL_KEYS.has(key)) return raw;
-      if (key === "offset") return canonList(raw, col, "length", file, model.line);
-      if (key === "scale") return canonList(raw, col, "ratio", file, model.line);
-      return canonList(raw, col, "angle", file, model.line);
+      if (key === "offset") return canonTuple(raw, col, "length", file, model.line);
+      if (key === "scale") return canonTuple(raw, col, "ratio", file, model.line);
+      return canonTuple(raw, col, "angle", file, model.line);
     });
     rows.push({ comments: model.comments, cells: ["model", path, ...kv] });
   }
@@ -326,7 +336,7 @@ function canonicalFieldRow(row: RawRow, file: string, allowed: Set<string>): Row
       continue;
     }
     if (key === "at" || key === "size") {
-      out.push(`${key}=${canonList(raw, col, "length", file, row.line)}`);
+      out.push(`${key}=${canonTuple(raw, col, "length", file, row.line)}`);
       continue;
     }
     out.push(`${key}=${canonValue(raw, col, "length", file, row.line)}`);
@@ -393,7 +403,7 @@ function dropDefaults(pairs: string[], defaults: Map<string, string>): string[] 
 }
 
 const PIN_DEFAULTS = new Map([
-  ["length", "2.54"],
+  ["length", "2.5"],
   ["unit", "1"],
   ["style", "line"],
 ]);
@@ -405,13 +415,14 @@ const BODY_DEFAULTS = new Map([
 
 function canonicalSymbolPinRow(row: RawRow, file: string): Row {
   const cells = row.cells;
-  const out = [cells[0]!.text];
-  for (const cell of cells.slice(1, 4)) {
-    out.push(canonValue(cell.text, cell.col, "length", file, row.line));
-  }
+  const out = [
+    cells[0]!.text,
+    canonTuple(cells[1]!.text, cells[1]!.col, "length", file, row.line),
+    canonValue(cells[2]!.text, cells[2]!.col, "angle", file, row.line),
+  ];
   out.push(
     ...dropDefaults(
-      canonKeyValues(cells.slice(4), (key, raw, col) => {
+      canonKeyValues(cells.slice(3), (key, raw, col) => {
         if (key === "style" || key === "unit") return raw;
         return canonValue(raw, col, "length", file, row.line);
       }),
@@ -426,7 +437,7 @@ function canonicalSymbolBodyRow(row: RawRow, file: string): Row {
   const geometryCell = cells[1]!;
   const out = [
     cells[0]!.text,
-    canonList(geometryCell.text, geometryCell.col, "length", file, row.line),
+    canonTuple(geometryCell.text, geometryCell.col, "length", file, row.line),
   ];
   out.push(
     ...dropDefaults(

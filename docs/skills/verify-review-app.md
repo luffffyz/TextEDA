@@ -160,14 +160,22 @@ Do not trust that a drag "looked snapped". Measure it.
 4. A single long drag may report only one or two distinct points. **That is correct** for a coarse
    grid; the sweep is what proves the constant.
 
-## 6. Apply is a write — verify the file
+After `Apply`, diff the scratch page against the original. Verify the action-bar controls first:
 
-After `Apply`, diff the scratch page against the original. A correct move:
+- `Auto fields: off` and `Re-anchor wires: off` are the initial labels.
+- Clicking Auto fields changes only that label to `on`; Re-anchor wires remains `off`.
+- Clicking Re-anchor wires then changes only that label to `on`.
+- Reloading the page restores both defaults to `off`.
 
-- changes only the moved `place` row and the endpoints of the wires and ports that touch the
-  moved pin;
-- keeps the same segment count and the same directions;
-- lands both coordinates on the grid.
+A correct move with Re-anchor wires **off** changes the moved `place` row and the affected wire
+endpoint rows. The endpoint rows use visible `@x,y` coordinates at the old pin positions, so the
+wire keeps its segment count, bends and directions. The affected nets are reported stale. A correct
+move with Re-anchor wires **on** keeps pin endpoint references and applies the existing re-anchor
+and path-simplification behavior. Auto fields is independent: with it off, field anchors remain
+symbol-local; with it on, only the page-level field collision placement pass is enabled.
+
+Coordinate endpoints are ordinary source-visible drawing geometry. They do not create or alter
+schematic connectivity and are not pin-membership evidence.
 
 Then re-run the check on the scratch copy:
 
@@ -175,8 +183,9 @@ Then re-run the check on the scratch copy:
 bun run texteda check /tmp/texteda-review-smoke
 ```
 
-A moved symbol must not introduce a `view.*` finding. `view metrics` reports
-`No wire needed re-anchoring.` when nothing is stale.
+A moved symbol must not silently alter the schematic net model. If Re-anchor wires is off, the
+expected stale wire findings are the intentional report for the preserved drawing; if it is on,
+inspect the returned conflicts and the resulting page instead.
 
 ### 6.1 The bytes the write replaced are kept
 
@@ -203,10 +212,10 @@ diff examples/reference-project/views/charger-buck/buck-5v.view.teda \
      /tmp/texteda-review-smoke/views/charger-buck/buck-5v.view.teda
 ```
 
-For a single moved symbol on the reference page this shows four rows: the symbol's own `place`
-row, the first endpoint of each wire that hangs on it, and a port that was sitting on that net's
-wiring. The wires keep their shape — same segment count, same directions, only the endpoints
-follow the pins. Every other row is byte-identical.
+With Re-anchor wires off, a single moved symbol changes its `place` row and the affected wire rows;
+the changed endpoint cells are explicit `@x,y` coordinates at the old pin positions. With
+Re-anchor wires on, the affected wire endpoints remain pin references and the existing re-anchor
+pass decides any bend changes. Every unrelated row is byte-identical.
 
 A label the reviewer placed **away** from the wiring must not be carried onto it by a move
 elsewhere on the same net (ADR-0061 D1). If a diff shows a label jumping to the wire, the page

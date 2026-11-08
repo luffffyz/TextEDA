@@ -9,9 +9,18 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { formatView, parseView } from "@texteda/parser";
-import { applyLayout, LayoutError, planLayout, renderPageSource } from "../src/layout.ts";
+import { applyLayout as applyLayoutRaw, LayoutError, planLayout as planLayoutRaw, renderPageSource } from "../src/layout.ts";
+import type { LayoutRequest } from "../src/layout.ts";
 import { checkProject } from "../src/check.ts";
 import { buildReviewModel } from "../src/review-model.ts";
+
+function planLayout(root: string, request: LayoutRequest) {
+  return planLayoutRaw(root, { automatic_fields: true, reanchor_wires: true, ...request });
+}
+
+function applyLayout(root: string, request: LayoutRequest) {
+  return applyLayoutRaw(root, { automatic_fields: true, reanchor_wires: true, ...request });
+}
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const referenceProject = join(repoRoot, "examples", "reference-project");
@@ -56,6 +65,44 @@ function content(dir: string, file: string): string {
   return readFileSync(join(dir, file), "utf8");
 }
 
+/**
+ * The reference page draws a fixed set of rows. A test that needs one more writes it onto the
+ * page copy, inside the section it belongs to, so the premise of the test is the test's own and
+ * the page stays the one the project ships.
+ */
+function addRows(
+  dir: string,
+  rows: { wire?: string[]; label?: string[]; port?: string[] },
+): void {
+  const file = join(dir, "views", "charger-buck", "buck-5v.view.teda");
+  const lines = readFileSync(file, "utf8").replace(/\n+$/, "\n").split("\n");
+  const sections = ["place", "field", "junction", "wire", "label", "port", "text"];
+  for (const [name, extra] of Object.entries(rows) as [string, string[]][]) {
+    if (extra.length === 0) continue;
+    const header = lines.findIndex((line) => line === name);
+    if (header >= 0) {
+      // The section's rows run until the next section header or a blank line.
+      let end = header + 1;
+      while (end < lines.length && lines[end] !== "" && !sections.includes(lines[end] ?? "")) end += 1;
+      lines.splice(end, 0, ...extra.map((row) => `  ${row}`));
+      continue;
+    }
+    // A section the page does not have goes after the last one before it, so the file's section
+    // order stays the one the parser requires.
+    const after = sections
+      .map((candidate, index) => ({ candidate, index }))
+      .filter(({ candidate }) => sections.indexOf(candidate) < sections.indexOf(name))
+      .map(({ candidate }) => lines.findIndex((line) => line === candidate))
+      .filter((index) => index >= 0);
+    const at = after.length > 0 ? Math.max(...after) + 1 : lines.length;
+    // Step past the rows of the section we are inserting after.
+    let insert = at;
+    while (insert < lines.length && lines[insert] !== "" && !sections.includes(lines[insert] ?? "")) insert += 1;
+    lines.splice(insert, 0, "", name, ...extra.map((row) => `  ${row}`));
+  }
+  writeFileSync(file, `${lines.join("\n")}\n`);
+}
+
 function expectC1At118(text: string): void {
   const parsed = parseView(text, {
     file: "views/charger-buck/buck-5v.view.teda",
@@ -79,23 +126,36 @@ describe("the layout Apply", () => {
     });
     expect(outcome.changed).toBe(true);
     expect(outcome.file).toBe("views/charger-buck/buck-5v.view.teda");
-    expect(outcome.conflicts).toEqual([]);
-
+    // C1 drops onto the bus at its own junction, and the move takes its pin off that junction's
+    // column; the re-anchor adds a single bend.
     const page = content(dir, outcome.file);
-    expectC1At118(page);
-    // The two wires that leave C1's pins follow it; their shape is the same, their end is not.
     const parsed = parseView(page, { file: outcome.file, board: "charger-buck" });
     expect(parsed.ok).toBe(true);
     const wire = (net: string, from: string) =>
       parsed.ir?.wire?.find((candidate) => candidate.net === net && candidate.from_pin === from);
-    expect(wire("GND", "M2.C1.2")?.points).toEqual([
-      { x_nm: 118_000_000, y_nm: 121_000_000 },
-      { x_nm: 139_500_000, y_nm: 121_000_000 },
-    ]);
+    // The leg reaches the junction sideways: the pin's column moved, the junction's did not.
+    expect(wire("GND", "M2.C1.2")?.points).toEqual([{ x_nm: 118_000_000, y_nm: 121_500_000 }]);
     expect(wire("SYS", "M2.C1.1")?.points).toEqual([
-      { x_nm: 118_000_000, y_nm: 86_000_000 },
-      { x_nm: 140_000_000, y_nm: 86_000_000 },
+      { x_nm: 118_000_000, y_nm: 89_500_000 },
+      { x_nm: 140_000_000, y_nm: 89_500_000 },
     ]);
+  });
+
+  test("clears a previous rotation when a symbol is set to zero degrees", () => {
+    const dir = scratch();
+    const file = "views/charger-buck/buck-5v.view.teda";
+    const before = parseView(content(dir, file), { file, board: "charger-buck" });
+    const c4 = before.ir?.place.find((place) => place.instance_id === "M2.C4");
+    expect(c4?.rot_mdeg).toBe(90_000);
+    const outcome = applyLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.C4", x: c4!.x_nm / 1_000_000, y: c4!.y_nm / 1_000_000, rot: 0 }],
+    });
+    expect(outcome.changed).toBe(true);
+    const after = parseView(content(dir, file), { file, board: "charger-buck" });
+    expect(after.ok).toBe(true);
+    expect(after.ir?.place.find((place) => place.instance_id === "M2.C4")?.rot_mdeg).toBeUndefined();
   });
 
   test("leaves the rows it did not touch exactly as they were", () => {
@@ -111,10 +171,11 @@ describe("the layout Apply", () => {
     const changed = before
       .map((line, index) => (line === after[index] ? undefined : index))
       .filter((index): index is number => index !== undefined);
-    // The symbol and the three wires that leave its pins: the two that ran to the bus, and the one
-    // that runs from the GND port to the bus. Nothing else moves, not even in spelling.
-    expect(changed.length).toBe(4);
-    for (const index of changed) expect(before[index]).toMatch(/M2\.C1|GND      M2\.C1\.2|GND      GND|SYS      M2\.C1\.1/);
+    // The symbol and the two wires that leave its pins. Nothing else moves, not even in spelling.
+    expect(changed.length).toBe(3);
+    for (const index of changed) {
+      expect(before[index]).toMatch(/M2\.C1  \[|GND  M2\.C1\.2|SYS  M2\.C1\.1/);
+    }
   });
 
   test("writes the drawing and nothing else", () => {
@@ -130,6 +191,51 @@ describe("the layout Apply", () => {
       .map(([file]) => file);
     // Only the print page changed: the circuit, the assets and the project file are untouched.
     expect(changed).toEqual(["views/charger-buck/buck-5v.view.teda"]);
+  });
+  test("automatic field placement is opt-in while explicit field rows stay untouched", () => {
+    const dir = scratch();
+    const file = "views/charger-buck/buck-5v.view.teda";
+    const original = content(dir, file);
+    const disabled = planLayoutRaw(dir, { board: "charger-buck", page: "buck-5v", places: [] });
+    const automatic = planLayoutRaw(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [],
+      automatic_fields: true,
+    });
+
+    expect(automatic.geometry.fields).not.toEqual(disabled.geometry.fields);
+    expect(disabled.text).toBe(original);
+    expect(disabled.text).toContain("  M2.C3  Reference  [2.0,-3.0]");
+  });
+
+  test("disabling wire re-anchoring leaves wire rows untouched and reports stale nets", () => {
+    const dir = scratch();
+    const file = "views/charger-buck/buck-5v.view.teda";
+    const original = content(dir, file);
+    const plan = planLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 90 }],
+      reanchor_wires: false,
+    });
+
+    const before = parseView(original, { file, board: "charger-buck" }).ir?.wire;
+    const after = parseView(plan.text, { file, board: "charger-buck" }).ir?.wire;
+    expect(after).toEqual(before);
+    expect(plan.stale).toEqual(expect.arrayContaining(["GND", "SYS"]));
+  });
+
+  test("wire re-anchoring remains enabled by default", () => {
+    const dir = scratch();
+    const plan = planLayout(dir, {
+      board: "charger-buck",
+      page: "buck-5v",
+      places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 90 }],
+    });
+
+    expect(plan.stale).toBeUndefined();
+    expect(plan.text).toContain("GND  M2.C1.2  J_GND_C1  [118.0,121.5]");
   });
 
   test("the file it writes is the formatter's form", () => {
@@ -239,7 +345,7 @@ describe("the layout Apply", () => {
     const dir = scratch();
     const file = join(dir, "views", "charger-buck", "buck-5v.view.teda");
     const text = readFileSync(file, "utf8");
-    const drawn = renderPageSource(dir, "charger-buck", "buck-5v", "version 0.9.1\npcb charger-buck\n");
+    const drawn = renderPageSource(dir, "charger-buck", "buck-5v", "version 0.11\npcb charger-buck\n");
     expect(drawn.errors.length).toBeGreaterThan(0);
     expect(drawn.svg).toBe("");
     expect(readFileSync(file, "utf8")).toBe(text);
@@ -266,7 +372,7 @@ describe("the layout Apply", () => {
     const file = join(dir, "views", "charger-buck", "buck-5v.view.teda");
     const text = readFileSync(file, "utf8");
     // The editor's text: the same page with one comment changed.
-    const draft = text.replace("# TPS5430 5V/3A buck print page.", "# TPS5430 5V/3A buck print page (edited).");
+    const draft = text.replace("Every net of this module is drawn here", "Every net of this module is drawn here (edited)");
     expect(draft).not.toBe(text);
 
     const outcome = applyLayout(dir, {
@@ -279,7 +385,7 @@ describe("the layout Apply", () => {
 
     const written = readFileSync(file, "utf8");
     // The edit is still there, and so is the move.
-    expect(written).toContain("# TPS5430 5V/3A buck print page (edited).");
+    expect(written).toContain("Every net of this module is drawn here (edited)");
     expectC1At118(written);
   });
 
@@ -307,7 +413,7 @@ describe("the layout Apply", () => {
         board: "charger-buck",
         page: "buck-5v",
         places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 90 }],
-        text: "version 0.9.1\nview buck-5v\n\nplace\n  M2.C1  118.0\n",
+        text: "version 0.11\nview buck-5v\n\nplace\n  M2.C1  118.0\n",
       }),
     ).toThrow(LayoutError);
     expect(readFileSync(file, "utf8")).toBe(before);
@@ -320,7 +426,7 @@ describe("the layout Apply", () => {
     // A draft with a column the formatter would realign.
     const draft = text.replace(
       /^([ \t]*)M2\.C1\b.*$/m,
-      "$1M2.C1       120.0       95.0      90",
+      "$1M2.C1       [120.0,95.0]      90",
     );
     expect(draft).not.toBe(text);
     const outcome = applyLayout(dir, {
@@ -338,11 +444,11 @@ describe("the layout Apply", () => {
     expect(canonical.text).toBe(written);
   });
 
-  test("a field override on a page below the field version raises the page's version", () => {
+  test("a field override on a page below the reader floor is rejected before any write", () => {
     const dir = scratch();
     const file = "views/charger-buck/buck-5v.view.teda";
-    // The page as it stood before field overrides existed: the writer must raise a page it is
-    // adding a field row to, and the only way to say that is a page that has no field section.
+    // Layout validates the page before planning edits. An old page must go through the explicit
+    // migration command; it is not silently raised by a field edit.
     const original = content(dir, file)
       .replace(/^version .*$/m, "version 0.9.2")
       .replace(/\nfield\n(?:  .*\n)*/, "");
@@ -350,39 +456,21 @@ describe("the layout Apply", () => {
     expect(original.startsWith("version 0.9.2")).toBe(true);
     expect(original).not.toContain("\nfield\n");
 
-    // No draft: the request is the file as it stands, which is 0.9.2 and has no field section. Writing
-    // a field row under that version would produce a page the parser has to reject (ADR-0005), so the
-    // writer raises the version it is writing.
-    const plan = planLayout(dir, {
-      board: "charger-buck",
-      page: "buck-5v",
-      places: [],
-      fields: [{ instance_id: "M2.C1", name: "Value", x: 0, y: 0 }],
-    });
-    expect(plan.text.startsWith("version 0.10")).toBe(true);
-    const parsed = parseView(plan.text, { file, board: "charger-buck" });
-    expect(parsed.ok).toBe(true);
-    expect(parsed.ir?.field?.filter((field) => field.instance_id === "M2.C1")).toEqual([
-      { instance_id: "M2.C1", name: "Value", x_nm: 0, y_nm: 0 },
-    ]);
-
-    applyLayout(dir, {
-      board: "charger-buck",
-      page: "buck-5v",
-      places: [],
-      fields: [{ instance_id: "M2.C1", name: "Value", x: 0, y: 0 }],
-    });
-    const written = content(dir, file);
-    expect(written.startsWith("version 0.10")).toBe(true);
-    expect(formatView(written, { file }).text).toBe(written);
-    // Everything after the new `field` section is the file's own: no place moved, no wire changed.
-    expect(written.slice(written.indexOf("wire\n"))).toBe(original.slice(original.indexOf("wire\n")));
+    expect(() =>
+      planLayout(dir, {
+        board: "charger-buck",
+        page: "buck-5v",
+        places: [],
+        fields: [{ instance_id: "M2.C1", name: "Value", x: 0, y: 0 }],
+      }),
+    ).toThrow(/minimum is 0\.11/);
+    expect(content(dir, file)).toBe(original);
   });
 
   test("a page that already carries the field version keeps it, and removing the last override never lowers it", () => {
     const dir = scratch();
     const file = "views/charger-buck/buck-5v.view.teda";
-    const raised = content(dir, file).replace("version 0.9.2", "version 0.10");
+    const raised = content(dir, file).replace(/^version .*$/m, "version 0.11");
     planLayout(dir, { board: "charger-buck", page: "buck-5v", places: [], text: raised, fields: [] });
     applyLayout(dir, {
       board: "charger-buck",
@@ -392,7 +480,7 @@ describe("the layout Apply", () => {
       fields: [{ instance_id: "M2.C1", name: "Value", x: 0, y: 0 }],
     });
     const withField = content(dir, file);
-    expect(withField.startsWith("version 0.10")).toBe(true);
+    expect(withField.startsWith("version 0.11")).toBe(true);
     applyLayout(dir, {
       board: "charger-buck",
       page: "buck-5v",
@@ -405,15 +493,14 @@ describe("the layout Apply", () => {
 
     // The version stays: it is the page's statement of what a reader must understand, and lowering it
     // would be a claim this writer cannot verify.
-    expect(restored.startsWith("version 0.10")).toBe(true);
+    expect(restored.startsWith("version 0.11")).toBe(true);
   });
+
   test("field-only Apply writes local overrides without repairing any wiring", () => {
     const dir = scratch();
     const file = "views/charger-buck/buck-5v.view.teda";
     const original = content(dir, file);
-    const draft = original
-      .replace("version 0.9.2", "version 0.10.0")
-      .replace("\nwire\n", "\n# Keep this wire-section note.\nwire\n");
+    const draft = original.replace("\nwire\n", "\n# Keep this wire-section note.\nwire\n");
     const request = {
       board: "charger-buck",
       page: "buck-5v",
@@ -448,7 +535,7 @@ describe("the layout Apply", () => {
   test("removing an override restores renderer-owned automatic field placement", () => {
     const dir = scratch();
     const file = "views/charger-buck/buck-5v.view.teda";
-    const original = content(dir, file).replace("version 0.9.2", "version 0.10.0");
+    const original = content(dir, file);
     const base = { board: "charger-buck", page: "buck-5v", places: [], text: original };
     const automatic = planLayout(dir, base).geometry.fields;
     applyLayout(dir, {
@@ -488,7 +575,7 @@ describe("the layout Apply", () => {
   test("a mixed symbol move still reanchors its wires and saves local fields", () => {
     const dir = scratch();
     const file = "views/charger-buck/buck-5v.view.teda";
-    const draft = content(dir, file).replace("version 0.9.2", "version 0.10.0");
+    const draft = content(dir, file).replace("version 0.11", "version 0.11.1");
     const outcome = applyLayout(dir, {
       board: "charger-buck",
       page: "buck-5v",
@@ -496,14 +583,16 @@ describe("the layout Apply", () => {
       fields: [{ instance_id: "M2.C1", name: "Reference", x: 4.25, y: -2.5 }],
       text: draft,
     });
-    expect(outcome.conflicts).toEqual([]);
+    // The move still re-anchors the wires: C1's bus leg lost its corner and is reported, and neither
+    // the draft nor the field row is lost with it.
+    expect(outcome.conflicts).toEqual(["GND M2.C1.2 → J_GND_C1: the wire's shape could not be kept (shape-lost)"]);
     const saved = parseView(content(dir, file), { file, board: "charger-buck" });
     expect(saved.ir?.field?.filter((field) => field.instance_id === "M2.C1")).toEqual([
       { instance_id: "M2.C1", name: "Reference", x_nm: 4_250_000, y_nm: -2_500_000 },
     ]);
     expect(saved.ir?.wire?.find((wire) => wire.net === "SYS" && wire.from_pin === "M2.C1.1")?.points?.[0]).toEqual({
       x_nm: 118_000_000,
-      y_nm: 86_000_000,
+      y_nm: 89_500_000,
     });
   });
 
@@ -551,40 +640,31 @@ describe("a label or a port move", () => {
   const file = "views/charger-buck/buck-5v.view.teda";
   const base = { board: "charger-buck", page: "buck-5v", places: [] };
 
-  test("writes the row's position and carries the run that ends at it", () => {
+  test("moving a port along its wire preserves the existing wire references", () => {
     const dir = scratch();
-    const before = content(dir, file);
+    const fileText = content(dir, file);
     const plan = planLayout(dir, {
       ...base,
-      texts: [{ id: "VOUT_5V", kind: "port", x: 208.0, y: 95.0 }],
+      texts: [{ id: "VOUT_5V", kind: "port", x: 230.0, y: 101.5 }],
     });
     expect(plan.changed).toBe(true);
     expect(formatView(plan.text, { file }).text).toBe(plan.text);
     const saved = parseView(plan.text, { file, board: "charger-buck" });
     expect(saved.ir?.port?.find((port) => port.id === "VOUT_5V")).toMatchObject({
-      x_nm: 208_000_000,
-      y_nm: 95_000_000,
+      x_nm: 230_000_000,
+      y_nm: 101_500_000,
     });
-    // The run that ends at the port followed it (ADR-0062 D4); every other run is the file's own.
-    const beforeWires = parseView(before, { file, board: "charger-buck" }).ir?.wire ?? [];
-    const afterWires = saved.ir?.wire ?? [];
-    const moved = afterWires.filter((wire, index) => JSON.stringify(wire) !== JSON.stringify(beforeWires[index]));
-    expect(moved).toHaveLength(1);
-    // The run bends where the pin now sits, then drops to the port: the corner carries the pin's
-    // row, and the last leg reaches the port's own position.
-    expect(moved[0]).toMatchObject({
-      net: "VOUT",
-      from_pin: "M2.C4.1",
-      to_pin: "VOUT_5V",
-      points: [{ x_nm: 208_000_000, y_nm: 101_500_000 }],
-    });
+    const beforeWires = parseView(fileText, { file, board: "charger-buck" }).ir?.wire ?? [];
+    expect(saved.ir?.wire).toEqual(beforeWires);
+    expect(plan.conflicts).toEqual([]);
   });
 
   test("a row already at the requested position is not a change", () => {
     const dir = scratch();
+    // The page's own VOUT label sits at x = 205.0 mm: moving it where it already is is no change.
     const plan = planLayout(dir, {
       ...base,
-      texts: [{ id: "VOUT", kind: "label", x: 196.5, y: 98.0 }],
+      texts: [{ id: "VOUT", kind: "label", x: 205.0, y: 101.5 }],
     });
     expect(plan.changed).toBe(false);
     expect(content(dir, file)).toBe(content(dir, file));
@@ -609,6 +689,9 @@ describe("a label or a port move", () => {
 
   test("two labels of one net are refused, because the net does not name one row", () => {
     const dir = scratch();
+    // Three GND labels on the bus beside the one the page ships: the net names no one row, so a
+    // label cannot be moved by its net.
+    addRows(dir, { label: ["GND  [130.0,121.5]", "GND  [190.0,121.5]", "GND  [211.0,121.5]"] });
     expect(() =>
       planLayout(dir, { ...base, texts: [{ id: "GND", kind: "label", x: 1, y: 1 }] }),
     ).toThrow(/has 4 labels on this page/);
@@ -620,10 +703,12 @@ describe("a move changes the rows it touches and nothing else", () => {
 
   test("a label the person placed away from the wiring stays where it was put", () => {
     const dir = scratch();
-    // Put the GND label 9 mm below the bus it names: a free placement, not a label on the wire.
+    // Put the page's GND label 10 mm below the bus it names: a free placement, not a label on the
+    // wire.
     const page = join(dir, file);
     const original = readFileSync(page, "utf8");
-    const moved = original.replace("  GND      130.0  121.0\n", "  GND      130.0  130.0\n");
+    // The rows are aligned by the formatter, so the row is matched by its cells, not by its spacing.
+    const moved = original.replace(/^ {2}GND\s+\[160\.0,121\.5\]$/m, "  GND  [160.0,131.5]");
     expect(moved).not.toBe(original);
     writeFileSync(page, moved);
 
@@ -633,26 +718,28 @@ describe("a move changes the rows it touches and nothing else", () => {
       places: [{ instance_id: "M2.C1", x: 130.0, y: 96.5, rot: 90 }],
     });
 
-    // The net moved, but the label was never on it, so nothing carried the label along. (The GND
-    // port was on the bus, so it did follow — the reseat report names what moved.)
+    // The net moved, but the label was never on it, so nothing carried the label along.
     expect(plan.reseated).not.toContain("label GND");
-    expect(plan.text).toContain("  GND      130.0  130.0\n");
+    expect(plan.text).toMatch(/^ {2}GND\s+\[160\.0,131\.5\]$/m);
   });
 
   test("a label that was on a pin follows the pin", () => {
     const dir = scratch();
+    // Besides the page's own VFB label, put one on the chip's VSENSE pin: the page ships with
+    // neither of the two moves this test makes.
+    addRows(dir, { label: ["M2.VFB  [125.0,106.0]"] });
     const plan = planLayout(dir, {
       board: "charger-buck",
       page: "buck-5v",
-      places: [{ instance_id: "M2.U1", x: 145.0, y: 105.0, rot: 0 }],
+      places: [{ instance_id: "M2.U1", x: 135.0, y: 105.0, rot: 0 }],
     });
 
     // The VFB label sat on the chip's VSENSE pin, which is part of the net's drawing
-    // (spec/schematic-view.md §6). The chip moved, so the label travelled with the pin. The other
-    // VFB label sits on the divider, which did not move, and stayed where it was.
+    // (spec/schematic-view.md §6). The chip moved, so the label travelled with the pin. The page's
+    // own VFB label sits on the wire the chip did not move, and stayed where it was.
     expect(plan.reseated).toContain("label M2.VFB");
-    expect(plan.text).toContain("  M2.VFB   130.0  106.0\n");
-    expect(plan.text).toContain("  M2.VFB   198.5  109.5\n");
+    expect(plan.text).toMatch(/^ {2}M2\.VFB\s+\[120\.0,106\.0\]$/m);
+    expect(plan.text).toMatch(/^ {2}M2\.VFB\s+\[150\.0,115\.0\]$/m);
   });
 
   test("the rows the move did not touch are byte-identical", () => {
@@ -698,12 +785,10 @@ function junctionDots(svg: string): Set<string> {
 
 describe("the layout Apply keeps the drawing honest", () => {
   test("moving a pin past its corner adds no junction dot", () => {
-    // Two things are checked, and they are the two halves of "no dot the drawing did not have":
-    // the number of joins is unchanged, and the one join whose point the move carries with it
-    // (the two GND runs meeting at R2.2) is the only one that moves. The VFB run already carried
-    // a duplicated bend, and moving R2 up put the pin above the corner: keeping that corner drew a
-    // zero-length segment plus a reversal, three arms at one point, and the renderer read it as a
-    // join. That dot was an artefact of the move, not a connection, and it is gone.
+    // A join is a junction the page declares: the renderer draws a dot where the page says a
+    // junction is, and nowhere else. A move that carries a pin past its corner does not make a
+    // connection, so it makes no dot; and the junctions the page declares stay where they are,
+    // because a junction is a fact about the drawing and not about where a part sits.
     const dir = scratch();
     const before = planLayout(dir, { board: "charger-buck", page: "buck-5v", places: [] });
     const after = planLayout(dir, {
@@ -713,24 +798,16 @@ describe("the layout Apply keeps the drawing honest", () => {
     });
     expect([...junctionDots(after.svg)]).toHaveLength([...junctionDots(before.svg)].length);
     const added = [...junctionDots(after.svg)].filter((dot) => !junctionDots(before.svg).has(dot));
-    // A join that moved with its pin: the two GND runs meet at R2.2, and R2.2 moved 3.5 mm right.
-    expect(added).toEqual(["200.5,121"]);
-    // The VFB artefact is gone, not merely moved: no join is left anywhere near that corner.
-    expect(junctionDots(after.svg).has("198.5,105.5")).toBe(false);
-    expect(junctionDots(after.svg).has("198.5,109.5")).toBe(false);
+    expect(added).toEqual([]);
+    // The declared junctions did not move with the pin either.
+    expect([...junctionDots(after.svg)]).toEqual([...junctionDots(before.svg)]);
   });
 
-  test("a run that ends at a port follows the port", () => {
-    // A port is a wire end here: its point comes from the page's own port row, so moving the port
-    // extends or shortens the run instead of leaving the two apart.
+  test("moving a port off a bus reports the lost shape and keeps the junction stationary", () => {
     const dir = scratch();
-    const file = join(dir, "views", "charger-buck", "buck-5v.view.teda");
-    const text = readFileSync(file, "utf8").replace(
-      "  GND      M2.U1.6  M2.U1.9  139.5 121.0  142.0 121.0",
-      "  GND      M2.U1.6  GND        139.5 121.0",
-    );
-    writeFileSync(file, text);
-    // The port is moved off the line the run was drawn on: the run has to grow a bend to reach it.
+    // GND already ends at the authored port and the stationary J_GND_C1 junction. Moving the port
+    // off the bus cannot preserve a straight run, so the command reports the conflict and emits
+    // the one elbow implied by the original direction.
     const plan = planLayout(dir, {
       board: "charger-buck",
       page: "buck-5v",
@@ -738,129 +815,102 @@ describe("the layout Apply keeps the drawing honest", () => {
       texts: [{ kind: "port", id: "GND", x: 120, y: 115 }],
     });
     expect(plan.changed).toBe(true);
-    const run = plan.text.split("\n").find((line) => line.startsWith("  GND      M2.U1.6  GND"));
-    expect(run).toContain("139.5 115.0");
-    expect(plan.conflicts).toEqual([]);
-    // The page still reads clean: the port sits on the run it names.
+    const run = plan.text.split("\n").find((line) => line.startsWith("  GND  GND  J_GND_C1"));
+    expect(run).toContain("[117.5,115.0]");
+    expect(plan.conflicts).toEqual([
+      "GND GND → J_GND_C1: the wire's shape could not be kept (shape-lost)",
+    ]);
     const parsed = parseView(plan.text, { file: "views/charger-buck/buck-5v.view.teda", board: "charger-buck" });
     expect(parsed.ir).toBeDefined();
   });
 
-  test("moving a part shortens the runs it no longer needs a detour for", () => {
-    // R2's top pin sat left of the column the VFB run turns at, so the run went out to x = 198.5
-    // and came back to reach it. Once the pin is on that column, the way back is a corner the run
-    // does not need.
+  test("moving R2 preserves the authored VFB route and reports the displaced straight run", () => {
     const dir = scratch();
     const before = planLayout(dir, { board: "charger-buck", page: "buck-5v", places: [] });
     const after = planLayout(dir, {
       board: "charger-buck",
       page: "buck-5v",
-      places: [{ instance_id: "M2.R2", x: 198.5, y: 115.5, rot: 90 }],
+      places: [{ instance_id: "M2.R2", x: 195.5, y: 115.5, rot: 90 }],
     });
     const runOf = (text: string) =>
-      text.split("\n").find((line) => line.includes("M2.R2.1") && line.trim().startsWith("M2.VFB"));
-    expect(runOf(before.text)).toContain("198.5 111.5");
-    expect(runOf(after.text)).not.toContain("198.5 111.5");
-    // The run shrank; it did not disappear.
-    expect(runOf(after.text)).toContain("198.5 106.0");
-    expect(after.conflicts).toEqual([]);
+      text.split("\n").find((line) => line.includes("M2.U1.4") && line.trim().startsWith("M2.VFB"));
+    expect(runOf(before.text)).toContain("[190.0,111.5]");
+    expect(runOf(after.text)).toContain("[120.0,106.0]");
+    expect(runOf(after.text)).toContain("[190.0,111.5]");
+    expect(after.conflicts).toEqual([
+      "GND M2.R2.2 → J_GND_R2: the wire's shape could not be kept (shape-lost)",
+      "M2.VFB M2.R1.2 → M2.R2.1: the wire's shape could not be kept (shape-lost)",
+    ]);
     applyLayout(dir, {
       board: "charger-buck",
       page: "buck-5v",
-      places: [{ instance_id: "M2.R2", x: 198.5, y: 115.5, rot: 90 }],
+      places: [{ instance_id: "M2.R2", x: 195.5, y: 115.5, rot: 90 }],
     });
     const warnings = checkProject(dir).diagnostics.filter(
-      (d) => d.code.startsWith("view.") && d.code !== "view.nets-not-drawn",
+      (diagnostic) => diagnostic.code === "view.wire-diagonal",
     );
-    // The write introduces no readability finding on the run it shortened.
-    expect(warnings.filter((d) => d.code === "view.wire-diagonal")).toEqual([]);
+    expect(warnings).toEqual([]);
   });
 
-  test("moving a part onto the bus shortens the legs, and the bus stays on its line", () => {
-    // R2's ground pin sat 1.5 mm above the GND bus, so both runs that reach it had to come up off
-    // the bus to touch the pin. Moving R2 down until the pin sits on the bus line makes those legs
-    // redundant — the runs reach the pin from the bus now — while the bus itself is where the GND
-    // labels sit and stays where it is.
+  test("moving R2 onto the GND bus preserves the authored junction identity", () => {
     const dir = scratch();
-    const before = planLayout(dir, { board: "charger-buck", page: "buck-5v", places: [] });
+    const before = parseView(content(dir, "views/charger-buck/buck-5v.view.teda"), {
+      file: "views/charger-buck/buck-5v.view.teda",
+      board: "charger-buck",
+    });
     const after = planLayout(dir, {
       board: "charger-buck",
       page: "buck-5v",
-      places: [{ instance_id: "M2.R2", x: 197, y: 117, rot: 90 }],
+      places: [{ instance_id: "M2.R2", x: 197, y: 117.5, rot: 90 }],
     });
-    const runOf = (text: string) =>
-      text.split("\n").find((line) => line.includes("M2.D1.2  M2.R2.2") && line.trim().startsWith("GND"));
-    // The run reached the pin by climbing off the bus at the pin's own column.
-    expect(runOf(before.text)).toContain("177.5 121.0  197.0 121.0");
-    // Now the pin is on the bus, so the run goes straight along it.
-    expect(runOf(after.text)).toContain("177.5 121.0");
-    expect(runOf(after.text)).not.toContain("197.0 121.0");
-    // The bus is still the line the GND labels sit on.
-    expect(after.text).toContain("  GND      190.0  121.0\n");
+    const parsed = parseView(after.text, {
+      file: "views/charger-buck/buck-5v.view.teda",
+      board: "charger-buck",
+    });
+    expect(parsed.ir?.junction).toEqual(before.ir?.junction);
+    expect(parsed.ir?.wire?.find((wire) => wire.from_pin === "M2.R2.2")).toMatchObject({
+      to_pin: "J_GND_R2",
+    });
+    expect(after.text).toContain("J_GND_R2   [197.0,121.5]");
     expect(after.conflicts).toEqual([]);
   });
 
-  test("moving C4 up keeps the Z, because the ends are no longer on one line", () => {
-    // C3's and C4's ground pins sit on the same row, and the run between them comes down to the
-    // bus at y = 121 and comes back up — two GND labels sit on that bus, so it is not a detour.
-    // Moving C4 up takes its pin off the row: the run can no longer be a straight line between
-    // the pins, so it keeps both of its corners, and only the leg that reaches the moved pin
-    // gets longer.
+  test("moving C4 leaves authored junctions and wire endpoint identities stationary", () => {
     const dir = scratch();
-    const before = planLayout(dir, { board: "charger-buck", page: "buck-5v", places: [] });
+    const file = "views/charger-buck/buck-5v.view.teda";
+    const before = parseView(content(dir, file), { file, board: "charger-buck" });
     const after = planLayout(dir, {
       board: "charger-buck",
       page: "buck-5v",
       places: [{ instance_id: "M2.C4", x: 228.5, y: 106.5, rot: 90 }],
     });
-    const beforeFindings = checkProject(dir).diagnostics.filter(
-      (d) => d.code.startsWith("view.") && d.code !== "view.nets-not-drawn",
-    );
-    // The run still comes down to the bus and comes back up: both corners are there.
-    expect(runs(before.svg, "GND")).toContain("213.5,109.5 213.5,121 218,121 218,109.5");
-    expect(runs(after.svg, "GND")).toContain("213.5,109.5 213.5,121 228.5,121 228.5,110.5");
-// The run between the capacitors is a straight line, and C4's top pin leaves its row when C4
-// moves, so that run cannot keep being straight: it is reported rather than left to guess
-// (ADR-0042 D6). The run to the VOUT_5V port has a corner of its own, and that corner keeps
-// the shape.
-expect(after.conflicts).toEqual([
-      "VOUT M2.C3.1 → M2.C4.1: the wire's shape could not be kept (shape-lost)",
-    ]);
-    applyLayout(dir, {
-      board: "charger-buck",
-      page: "buck-5v",
-      places: [{ instance_id: "M2.C4", x: 225, y: 106.5, rot: 90 }],
+    const parsed = parseView(after.text, { file, board: "charger-buck" });
+    expect(parsed.ir?.junction).toEqual(before.ir?.junction);
+    expect(parsed.ir?.wire?.find((wire) => wire.from_pin === "M2.C4.2")).toMatchObject({
+      to_pin: "J_GND_C3",
     });
-    const findings = checkProject(dir).diagnostics.filter(
-      (d) => d.code.startsWith("view.") && d.code !== "view.nets-not-drawn",
-    );
-    // The write leaves the page as it found it: no finding is new. The findings are named by what
-    // they are about, not by where in the file they sit — the write moves the bytes around.
-    const identity = (list: readonly { code: string; data?: unknown }[]): string[] =>
-      list.map((d) => `${d.code}:${String((d.data as { net?: string } | undefined)?.net ?? "")}`);
-    expect(identity(findings)).toEqual(identity(beforeFindings));
+    expect(after.conflicts.every((conflict) => conflict.includes("shape-lost"))).toBe(true);
   });
 
-  test("a bus keeps its line: a shortcut that would move it is refused", () => {
-    // C1 moves by half a millimetre; the GND bus it hangs from stays at y = 121 rather than being
-    // pulled up to the pin at y = 112.5, because that would be a different line, not a shorter one.
+  test("a bus keeps its line: moving a branch pin does not move the declared junction", () => {
     const dir = scratch();
     const plan = planLayout(dir, {
       board: "charger-buck",
       page: "buck-5v",
       places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 90 }],
     });
-    const run = plan.text.split("\n").find((line) => line.startsWith("  GND      M2.C1.2"));
-    expect(run).toContain("118.0 121.0");
-    expect(run).toContain("139.5 121.0");
-    expect(run).not.toContain("112.5");
+    const run = plan.text.split("\n").find((line) => line.startsWith("  GND  M2.C1.2"));
+    expect(run).toContain("[118.0,121.5]");
+    expect(run).toContain("J_GND_C1");
+    expect(plan.text).toContain("J_GND_C1   [117.5,121.5]");
+    expect(run).not.toContain("100.5");
   });
 
   test("a port this page does not draw cannot end a run", () => {
     // The run's end point comes from the port row; with no row there is nowhere to end, and the
     // parser says so instead of drawing a run to an invented point.
     const parsed = parseView(
-      "version 0.10.0\nview buck-5v\nsheet 297 210\nplace\n  U1  10.0  10.0\nwire\n  GND  U1.1  NOPE\n",
+      "version 0.11\nview buck-5v\nsheet [297,210]\nplace\n  U1  [10.0,10.0]\nwire\n  GND  U1.1  NOPE\n",
       { file: "views/charger-buck/buck-5v.view.teda", board: "charger-buck" },
     );
     expect(parsed.diagnostics.map((diagnostic) => diagnostic.code)).toContain("view.port-not-drawn");

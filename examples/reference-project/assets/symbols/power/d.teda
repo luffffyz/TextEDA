@@ -1,4 +1,4 @@
-version 0.9.2
+version 0.11
 symbol d
 
 description Diode, 2-pin generic view
@@ -7,13 +7,13 @@ pin_numbers hide
 pin_names hide
 # Plain diode: anode on the left (pin 1), cathode bar on the right (pin 2).
 # Pin connection points, pin tails, and the body frame sit on the 0.5 mm placement lattice (ADR-0057).
-field Reference at=0,2.5 U
-field Value at=0,-2.5 d
+field Reference at=[0,2.5] U
+field Value at=[0,-2.5] d
 
 pins
-  1  -4  0  0    length=2.5
-  2  4   0  180  length=2.5
+  1  [-4,0]  0
+  2  [4,0]   180
 
 body
-  line  1.5,-1.5,1.5,1.5          width=0.25
-  poly  -1.5,1.5,1.5,0,-1.5,-1.5  width=0.25
+  line  [1.5,-1.5,1.5,1.5]          width=0.25
+  poly  [-1.5,1.5,1.5,0,-1.5,-1.5]  width=0.25

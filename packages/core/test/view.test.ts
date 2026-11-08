@@ -4,6 +4,7 @@ import { describe, expect, test } from "bun:test";
 import { checkViews } from "../src/index.ts";
 import type { Schematic } from "@texteda/ir/schematic";
 import type { SchematicView } from "@texteda/ir/schematic-view";
+import type { ReadabilityGeometry } from "../src/view/facts.ts";
 
 const board = {
   ir_version: irVersion,
@@ -23,7 +24,7 @@ const board = {
 /** A page with the given sections; everything not given is empty. */
 function page(
   pageId: string,
-  sections: Partial<Pick<SchematicView, "place" | "wire" | "label" | "port">> = {},
+  sections: Partial<Pick<SchematicView, "place" | "junction" | "wire" | "label" | "port">> = {},
 ): { file: string; view: SchematicView } {
   return {
     file: `views/b/${pageId}.view.teda`,
@@ -108,6 +109,139 @@ describe("board ↔ print page", () => {
     // The page is where the wrong endpoint is; the nets section is what says it is wrong.
     expect(mismatch.location).toMatchObject({ file: "views/b/main.view.teda" });
     expect(mismatch.related).toEqual([{ file: "design/sch/b.teda", line: 9, col: 3 }]);
+  });
+  test("a named junction connects wire rows without changing the board net", () => {
+    const diagnostics = checkViews({
+      file: "design/sch/b.teda",
+      schematic: board,
+      pages: [page("main", {
+        place: [PLACE_R1, PLACE_R2],
+        junction: [{ id: "J1", x_nm: 10_000_000, y_nm: 10_000_000 }],
+        wire: [WIRE("A", "R1.1", "J1"), WIRE("A", "J1", "R2.1")],
+      })],
+    });
+    expect(diagnostics.filter((diagnostic) => diagnostic.severity === "error")).toEqual([]);
+  });
+
+  test("renderer geometry requires wires to name a junction they pass through", () => {
+    const geometry = {
+      texts: [],
+      fields: [],
+      symbols: [
+        { instance_id: "R1", box: { min_x_nm: -1, min_y_nm: -1, max_x_nm: 1, max_y_nm: 1 }, pins: new Map([["1", { x_nm: 0, y_nm: 0 }]]) },
+        { instance_id: "R2", box: { min_x_nm: 9_999_999, min_y_nm: -1, max_x_nm: 10_000_001, max_y_nm: 1 }, pins: new Map([["1", { x_nm: 10_000_000, y_nm: 0 }]]) },
+      ],
+    } satisfies ReadabilityGeometry;
+    const valid = checkViews({
+      file: "design/sch/b.teda",
+      schematic: board,
+      pages: [{
+        ...page("valid-tree", {
+          place: [PLACE_R1, PLACE_R2],
+          junction: [{ id: "J1", x_nm: 5_000_000, y_nm: 0 }],
+          wire: [WIRE("A", "R1.1", "J1"), WIRE("A", "J1", "R2.1")],
+        }),
+        geometry,
+      }],
+    });
+    expect(valid.filter((diagnostic) => diagnostic.severity === "error")).toEqual([]);
+
+    const gapped = checkViews({
+      file: "design/sch/b.teda",
+      schematic: board,
+      pages: [{
+        ...page("gap", {
+          place: [PLACE_R1, PLACE_R2],
+          junction: [{ id: "J1", x_nm: 5_000_000, y_nm: 0 }],
+          wire: [WIRE("A", "R1.1", "R2.1"), WIRE("A", "R1.1", "J1"), WIRE("A", "J1", "R2.1")],
+        }),
+        geometry,
+      }],
+    });
+    expect(gapped.find((diagnostic) => diagnostic.code === "view.wire-gap")?.data).toMatchObject({ page: "gap", net: "A", junction: "J1" });
+  });
+
+  test("an unresolved rendered pin endpoint is reported as dangling", () => {
+    const diagnostics = checkViews({
+      file: "design/sch/b.teda",
+      schematic: board,
+      pages: [{
+        ...page("dangling", {
+          place: [PLACE_R1, PLACE_R2],
+          wire: [WIRE("A", "R1.99", "R2.1")],
+        }),
+        geometry: {
+          texts: [],
+          fields: [],
+          symbols: [
+            { instance_id: "R1", box: { min_x_nm: -1, min_y_nm: -1, max_x_nm: 1, max_y_nm: 1 }, pins: new Map([["1", { x_nm: 0, y_nm: 0 }]]) },
+            { instance_id: "R2", box: { min_x_nm: 9_999_999, min_y_nm: -1, max_x_nm: 10_000_001, max_y_nm: 1 }, pins: new Map([["1", { x_nm: 10_000_000, y_nm: 0 }]]) },
+          ],
+        },
+      }],
+    });
+    expect(diagnostics.find((diagnostic) => diagnostic.code === "view.wire-dangling-endpoint")?.data)
+      .toMatchObject({ page: "dangling", net: "A", endpoint: "R1.99" });
+  });
+
+  test("an isolated junction and a junction shared by different nets are errors", () => {
+    const diagnostics = checkViews({
+      file: "design/sch/b.teda",
+      schematic: board,
+      pages: [page("main", {
+        place: [PLACE_R1, PLACE_R2],
+        junction: [
+          { id: "J1", x_nm: 10_000_000, y_nm: 10_000_000 },
+          { id: "J2", x_nm: 20_000_000, y_nm: 20_000_000 },
+        ],
+        wire: [WIRE("A", "R1.1", "J1"), WIRE("GND", "R1.2", "J1")],
+      })],
+    });
+    expect(diagnostics.map((diagnostic) => diagnostic.code)).toContain("view.endpoint-wrong-net");
+    expect(diagnostics.map((diagnostic) => diagnostic.code)).toContain("view.junction-isolated");
+  });
+  test("a junction with more than four wire arms is invalid", () => {
+    const overflowBoard = {
+      ...board,
+      instances: Array.from({ length: 5 }, (_, index) => ({ id: `R${index + 1}`, component: "res-0402" })),
+      nets: [{ id: "A", members: Array.from({ length: 5 }, (_, index) => `R${index + 1}.1`) }],
+      ports: [],
+    } as unknown as Schematic;
+    const junction = { id: "J1", x_nm: 10_000_000, y_nm: 10_000_000 };
+    const diagnostics = checkViews({
+      file: "design/sch/b.teda",
+      schematic: overflowBoard,
+      pages: [page("main", {
+        place: Array.from({ length: 5 }, (_, index) => ({ instance_id: `R${index + 1}`, x_nm: index * 1_000_000, y_nm: 0 })),
+        junction: [junction],
+        wire: Array.from({ length: 5 }, (_, index) => WIRE("A", `R${index + 1}.1`, "J1")),
+      })],
+    });
+    const invalid = diagnostics.find((diagnostic) => diagnostic.code === "view.junction-invalid-degree");
+    expect(invalid?.data).toMatchObject({ junction: "J1", degree: 5 });
+  });
+  test("wire rows on one net must belong to one endpoint-connected component", () => {
+    const diagnostics = checkViews({
+      file: "design/sch/b.teda",
+      schematic: board,
+      pages: [page("main", {
+        place: [PLACE_R1, PLACE_R2],
+        wire: [WIRE("A", "R1.1", "R2.1"), WIRE("A", "R1.2", "R2.2")],
+      })],
+    });
+    expect(diagnostics.map((diagnostic) => diagnostic.code)).toContain("view.wire-disconnected");
+  });
+  test("a drawn net must include every member placed on the page", () => {
+    const diagnostics = checkViews({
+      file: "design/sch/b.teda",
+      schematic: board,
+      pages: [page("main", {
+        place: [PLACE_R1, PLACE_R2],
+        wire: [WIRE("A", "R1.1", "R1.1")],
+      })],
+    });
+    const disconnected = diagnostics.find((diagnostic) => diagnostic.code === "view.wire-disconnected");
+    expect(disconnected?.data).toMatchObject({ net: "A", missing_members: "R2.1" });
   });
 
   test("a net drawn on no page is one warning per board, with the names", () => {

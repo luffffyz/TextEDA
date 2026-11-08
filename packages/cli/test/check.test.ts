@@ -609,7 +609,7 @@ describe("a skipped binding check is reported, not assumed (AGENTS.md §4.4 rule
       mkdirSync(join(root, "design/pcb"), { recursive: true });
       writeFileSync(
         join(root, "design/pcb", "b.teda"),
-        "version 0.4\npcb b\n\nboard_thickness 1.6mm\n\nstackup\n  1 copper F.Cu signal 0.035mm\n  2 core   core dielectric 1.53mm\n  3 copper B.Cu signal 0.035mm\n\noutline\n  0mm 0mm\n  50mm 0mm\n  50mm 36mm\n",
+        "version 0.11\npcb b\n\nboard_thickness 1.6mm\n\nstackup\n  1 copper F.Cu signal 0.035mm\n  2 core   core dielectric 1.53mm\n  3 copper B.Cu signal 0.035mm\n\noutline\n  [0,0]\n  [50,0]\n  [50,36]\n",
       );
       // Both descriptions present: nothing is skipped, so there is no such note.
       expect(checkProject(root).diagnostics.filter((d) => d.code === "bind.not-checked")).toEqual([]);
@@ -751,22 +751,22 @@ describe("library curation (ADR-0006: the shard set is the project's content)", 
 // The project's geometry is checked at the layer that reads it: every symbol and footprint file
 // must compile and satisfy its contract. `ir` refuses to write a shard for a broken one, so a check
 // that skipped them would go green while the build is red (ADR-0038 decision 7).
-const SYMBOL = `version 0.5
+const SYMBOL = `version 0.11
 symbol r
 
 pins
-  1  -3.81  0  0
-  2  3.81   0  180
+  1  [-3.81,0]  0
+  2  [3.81,0]   180
 `;
 
-const FOOTPRINT = `version 0.4.1
+const FOOTPRINT = `version 0.11
 footprint chip-0402
 
 package_code 0402
 
 pads
-  1  smd  roundrect  -0.5  0  0.6  0.6  rratio=0.25
-  2  smd  roundrect  0.5   0  0.6  0.6  rratio=0.25
+  1  smd  roundrect  [-0.5,0]  [0.6,0.6]  rratio=0.25
+  2  smd  roundrect  [0.5,0]   [0.6,0.6]  rratio=0.25
 `;
 
 /** Put the two geometry files the board's device names into the project's own library. */
@@ -790,13 +790,12 @@ describe("check: the geometry it reads", () => {
     }
   });
 
-  test("a symbol that does not compile is an error, not a silent skip", () => {
+  test("an incomplete symbol is an error, not a silent skip", () => {
     const root = makeProject(BOARD);
     try {
-      writeGeometry(root, "version 99\nsymbol r\n");
+      writeGeometry(root, "version 0.11\nsymbol r\n");
       const result = checkProject(root);
       const codes = result.diagnostics.filter((d) => d.severity === "error").map((d) => d.code);
-      expect(codes).toContain("format.invalid-version");
       expect(codes).toContain("library.pins-empty");
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -806,7 +805,7 @@ describe("check: the geometry it reads", () => {
   test("a footprint that does not compile is an error, not a silent skip", () => {
     const root = makeProject(BOARD);
     try {
-      writeGeometry(root, undefined, "version 0.4.1\nfootprint chip-0402\npads\n");
+      writeGeometry(root, undefined, "version 0.11\nfootprint chip-0402\npads\n");
       const result = checkProject(root);
       const codes = result.diagnostics.filter((d) => d.severity === "error").map((d) => d.code);
       expect(codes).toContain("library.pads-empty");

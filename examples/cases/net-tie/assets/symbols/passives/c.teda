@@ -1,4 +1,4 @@
-version 0.9.2
+version 0.11
 symbol c
 
 description Non-polarized capacitor, 2-pin generic view
@@ -8,13 +8,13 @@ pin_names hide
 # Generic non-polarized capacitor view: two plates across the pin axis, the pin stubs meeting their outer edges.
 # Shared by several components (0402 / 0603 / 1210 etc.).
 # Pin connection points, pin tails, and the body frame sit on the 0.5 mm placement lattice (ADR-0057).
-field Reference at=0,2.5 U
-field Value at=0,-2.5 c
+field Reference at=[0,2.5] U
+field Value at=[0,-2.5] c
 
 pins
-  1  -4  0  0    length=3
-  2  4   0  180  length=3
+  1  [-4,0]  0    length=3
+  2  [4,0]   180  length=3
 
 body
-  line  -1,-1.5,-1,1.5  width=0.254
-  line  1,-1.5,1,1.5    width=0.254
+  line  [-1,-1.5,-1,1.5]  width=0.254
+  line  [1,-1.5,1,1.5]    width=0.254

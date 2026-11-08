@@ -34,7 +34,7 @@
 | 事实 | 用途 |
 |---|---|
 | 引脚号与功能名的对应 | 写在 `component` 里（**不是**符号里） |
-| 引脚在图上的位置与朝向 | 符号 `pins` 段的 `x y rot` |
+| 引脚在图上的位置与朝向 | 符号 `pins` 段的 `[x,y] rot` |
 | 封装外形的长宽 | 符号 `body` 段的矩形 |
 | 引脚名是否显示、显示多远 | `pin_names` / `pin_name_offset` |
 
@@ -68,11 +68,11 @@ body
 要点：
 
 - 长度默认 **mm**，可写 `0.95mm` / `10mil` / `1in`；角度默认度。单位换算在编译期做，**结果不是整数纳米就报错**（不四舍五入）。
-- `pins` 行固定 4 列 `number x y rot`，后面接 `key=value` 尾列（`length` / `unit` / `style`）。
-- `body` 行 2 列：`kind geometry`；`geometry` 单元格内逗号写坐标（`line`/`rect` 4 个数、`arc` 6 个、`circle` 3 个、`poly` 偶数个）。
+- `pins` 行固定 3 列 `number [x,y] rot`，后面接 `key=value` 尾列（`length` / `unit` / `style`）。连接点是**一格**，不是两列（[ADR-0065](../adr/01-language/0065-a-coordinate-tuple-is-one-cell.md)）。
+- `body` 行 2 列：`kind [geometry]`；`geometry` 是**一格带方括号**的逗号列表（`line`/`rect` 4 个数、`arc` 6 个、`circle` 3 个、`poly` 偶数个），例如 `rect [-10,-16.5,10,16.5]`。
 - **引脚落在 `0.5 mm` 晶格上**：连接点与内端都是 `0.5 mm` 的整数倍（`length` 因此也是），而且**逐个引脚、两个轴**都落格——不要求一行关于原点对称，打印页是引脚到引脚连线。画引脚号的符号，同侧相邻两脚至少 `2.5 mm`，常规就是 `2.5 mm`；只有三位数号码这类具体理由才放宽到 `3.0 mm`，隐藏引脚号的器件图形不受这个下限。理由与例外清单见 `spec/symbol.md` §4.1、[ADR-0057](../adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) 与 [ADR-0058](../adr/08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md)。焊盘坐标不跟着这个晶格走——那是 `footprint` 的事。
 - **符号没有层**：`field` 不接受 `layer`（那是封装的概念）。
-- **缺省值不写**：`length=2.54`、`unit=1`、`style=line`、`units 1`、`pin_numbers show` 等一律省略（`spec/symbol.md` §8）。
+- 缺省值不写：`length=2.5`、`unit=1`、`style=line`、`units 1`、`pin_numbers show` 等一律省略（`spec/symbol.md` §8）。
 - 不支持：文字标注（极性、功能名）、图片、贝塞尔。缺口不硬塞：可以在库里放手写 `.kicad_sym` 兜底（不受 schema 管）。
 
 手写时不必纠结对齐和顺序，写完跑一次：

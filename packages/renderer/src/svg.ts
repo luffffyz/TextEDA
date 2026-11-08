@@ -124,6 +124,8 @@ export interface SvgText extends SvgIdentity {
   /** Pin number (present when role=pinName / pinNumber). */
   pin?: string;
   unit?: number;
+  /** Keep hidden pin-number geometry in the drawing so transient viewers can reveal it. */
+  hidden?: boolean;
 }
 
 /** Symbol pin: connection point + orientation + length + style. Name and electrical type come from `component` (ADR-0031). */
@@ -569,7 +571,7 @@ function primitiveSvg(
         })
         .join("");
       return [
-        `    <g><title>${esc(p.text)}</title>`,
+        `    <g${p.hidden ? ` display="none"` : ""}><title>${esc(p.text)}</title>`,
         `    <path d="${d}" fill="none" stroke="${color}" stroke-width="${mm(width)}" stroke-linecap="round" stroke-linejoin="round"/>`,
         "    </g>",
       ];

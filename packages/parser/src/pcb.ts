@@ -26,6 +26,7 @@ import { SourceFile, recordObjects } from "./sources.ts";
 import type { SourceMap, Span } from "@texteda/ir/spans";
 import { parseAngleMdeg, parseLengthNm } from "./units.ts";
 import { checkVersion, typeRange } from "./version.ts";
+import { POINT, readTupleCells, tupleShapeText } from "./tuple.ts";
 import { parseQuantity } from "./quantities.ts";
 import { byteCompare } from "@texteda/ir/order";
 
@@ -281,7 +282,14 @@ function ratioPpm(cell: Cell, line: Line, diagnostics: Diagnostics, file: string
   return sign * (whole + fraction);
 }
 
-/** Read a run of coordinates (given in pairs) and return a list of points. */
+/** Read one `[x,y]` cell into a point (ADR-0065 D1); a malformed tuple is reported once, at its own column. */
+function pointAt(cell: Cell, line: Line, diagnostics: Diagnostics, file: string): Point {
+  const parts = readTupleCells(cell, POINT, file, line.number, (diagnostic) => diagnostics.items.push(diagnostic));
+  if (parts === null) return { x_nm: 0, y_nm: 0 };
+  return { x_nm: length(parts[0]!, line, diagnostics, file), y_nm: length(parts[1]!, line, diagnostics, file) };
+}
+
+/** Read a run of `[x,y]` cells and return a list of points. */
 function pointList(
   cells: readonly Cell[],
   line: Line,
@@ -289,24 +297,17 @@ function pointList(
   file: string,
   minPoints: number,
 ): Point[] | undefined {
-  if (cells.length % 2 !== 0) {
-    diagnostics.add(
-      "error",
-      "value.invalid-value",
-      "coordinates must come in pairs (x y)",
-      file,
-      line.number,
-      cells[cells.length - 1]!.col,
-    );
-    return undefined;
-  }
   const points: Point[] = [];
-  for (let i = 0; i < cells.length; i += 2) {
-    points.push({
-      x_nm: length(cells[i]!, line, diagnostics, file),
-      y_nm: length(cells[i + 1]!, line, diagnostics, file),
-    });
+  let broken = false;
+  for (const cell of cells) {
+    const parts = readTupleCells(cell, POINT, file, line.number, (diagnostic) => diagnostics.items.push(diagnostic));
+    if (parts === null) {
+      broken = true;
+      continue;
+    }
+    points.push({ x_nm: length(parts[0]!, line, diagnostics, file), y_nm: length(parts[1]!, line, diagnostics, file) });
   }
+  if (broken) return undefined;
   if (points.length < minPoints) {
     diagnostics.add(
       "error",
@@ -475,7 +476,9 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
       file,
       versionLine.number,
       versionLine.cells[1]?.col ?? 1,
+      verdict.hint === undefined ? {} : { hint: verdict.hint },
     );
+    return { ok: false, diagnostics: diagnostics.items };
   }
 
   const typeLine = lines[1];
@@ -600,21 +603,17 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
           break;
         }
         case "outline": {
-          if (!exactColumns(line, 2, diagnostics, file)) break;
-          put(outline, {
-            x_nm: length(c[0]!, line, diagnostics, file),
-            y_nm: length(c[1]!, line, diagnostics, file),
-          }, line);
+          if (!exactColumns(line, 1, diagnostics, file)) break;
+          put(outline, pointAt(c[0]!, line, diagnostics, file), line);
           break;
         }
         case "place": {
-          if (!exactColumns(line, 5, diagnostics, file)) break;
+          if (!exactColumns(line, 4, diagnostics, file)) break;
           put(place, {
             instance_id: c[0]!.text,
-            x_nm: length(c[1]!, line, diagnostics, file),
-            y_nm: length(c[2]!, line, diagnostics, file),
-            rot_mdeg: angle(c[3]!, line, diagnostics, file),
-            side: enumCell(c[4]!, line, diagnostics, file, SIDES, "side") as "top" | "bottom",
+            ...pointAt(c[1]!, line, diagnostics, file),
+            rot_mdeg: angle(c[2]!, line, diagnostics, file),
+            side: enumCell(c[3]!, line, diagnostics, file, SIDES, "side") as "top" | "bottom",
           }, line);
           break;
         }
@@ -627,7 +626,7 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
           break;
         }
         case "trace": {
-          if (!atLeastColumns(line, 6, diagnostics, file, "<net> <layer> <width> <x1> <y1> [<x2> <y2> …]")) break;
+          if (!atLeastColumns(line, 4, diagnostics, file, `<net> <layer> <width> [${tupleShapeText(POINT)} …]`)) break;
           const points = pointList(c.slice(3), line, diagnostics, file, 2);
           if (points === undefined) break;
           put(trace, {
@@ -639,26 +638,26 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
           break;
         }
         case "via": {
-          const ok = c.length === 5 || c.length === 7;
+          const ok = c.length === 4 || c.length === 6;
           if (!ok) {
             diagnostics.add(
               "error",
-              c.length < 5 ? "syntax.row-too-short" : "syntax.column-count",
-              `<net> <x> <y> <size> <drill> [<from_layer> <to_layer>]`,
+              c.length < 4 ? "syntax.row-too-short" : "syntax.column-count",
+              `<net> ${tupleShapeText(POINT)} <size> <drill> [<from_layer> <to_layer>]`,
               file,
               line.number,
               c[0]!.col,
             );
             break;
           }
-          const from = c[5];
-          const to = c[6];
+          const from = c[4];
+          const to = c[5];
+          const point = pointAt(c[1]!, line, diagnostics, file);
           put(via, {
             net: netId(c[0]!),
-            x_nm: length(c[1]!, line, diagnostics, file),
-            y_nm: length(c[2]!, line, diagnostics, file),
-            size_nm: length(c[3]!, line, diagnostics, file),
-            drill_nm: length(c[4]!, line, diagnostics, file),
+            ...point,
+            size_nm: length(c[2]!, line, diagnostics, file),
+            drill_nm: length(c[3]!, line, diagnostics, file),
             ...(from === undefined || to === undefined
               ? {}
               : {
@@ -670,7 +669,7 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
         }
         case "zone":
         case "keepout": {
-          const head = atLeastColumns(line, block.section === "zone" ? 4 : 4, diagnostics, file, block.section === "zone" ? "<net> <layer> <x1> <y1> …" : "<type> <layer> <x1> <y1> …");
+          const head = atLeastColumns(line, 3, diagnostics, file, block.section === "zone" ? `<net> <layer> [${tupleShapeText(POINT)} …]` : `<type> <layer> [${tupleShapeText(POINT)} …]`);
           if (!head) break;
           const points = pointList(c.slice(2), line, diagnostics, file, 3);
           if (points === undefined) break;
@@ -784,51 +783,56 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
         }
         case "physical_only": {
           const kind = c[1]?.text;
-          if (kind === undefined) {
-            diagnostics.add("error", "syntax.row-too-short", "<id> <type> [parameters…]", file, line.number, c[0]!.col);
+          if (c.length < 3) {
+            diagnostics.add(
+              "error",
+              "syntax.row-too-short",
+              `<id> <type> ${tupleShapeText(POINT)} [parameters…]`,
+              file,
+              line.number,
+              c[0]!.col,
+            );
             break;
           }
           enumCell(c[1]!, line, diagnostics, file, PHYSICAL_ONLY_TYPES, "physical entity type");
           const id = c[0]!.text;
           const nm = (i: number) => length(c[i]!, line, diagnostics, file);
+          const point = pointAt(c[2]!, line, diagnostics, file);
           switch (kind) {
             case "mounting":
-              if (!exactColumns(line, 6, diagnostics, file)) break;
+              if (!exactColumns(line, 5, diagnostics, file)) break;
               put(physicalOnly, {
                 type: "mounting",
                 id,
-                x_nm: nm(2),
-                y_nm: nm(3),
+                ...point,
+                size_nm: nm(3),
+                drill_nm: nm(4),
+              }, line);
+              break;
+            case "fiducial":
+              if (!exactColumns(line, 5, diagnostics, file)) break;
+              put(physicalOnly, {
+                type: "fiducial",
+                id,
+                ...point,
+                size_nm: nm(3),
+                layer: copperLayer(c[4]!, line, diagnostics, file),
+              }, line);
+              break;
+            case "stitching":
+              if (!exactColumns(line, 6, diagnostics, file)) break;
+              put(physicalOnly, {
+                type: "stitching",
+                id,
+                ...point,
+                net: netId(c[3]!),
                 size_nm: nm(4),
                 drill_nm: nm(5),
               }, line);
               break;
-            case "fiducial":
-              if (!exactColumns(line, 6, diagnostics, file)) break;
-              put(physicalOnly, {
-                type: "fiducial",
-                id,
-                x_nm: nm(2),
-                y_nm: nm(3),
-                size_nm: nm(4),
-                layer: copperLayer(c[5]!, line, diagnostics, file),
-              }, line);
-              break;
-            case "stitching":
-              if (!exactColumns(line, 7, diagnostics, file)) break;
-              put(physicalOnly, {
-                type: "stitching",
-                id,
-                x_nm: nm(2),
-                y_nm: nm(3),
-                net: netId(c[4]!),
-                size_nm: nm(5),
-                drill_nm: nm(6),
-              }, line);
-              break;
             case "cutout":
-              if (!exactColumns(line, 6, diagnostics, file)) break;
-              put(physicalOnly, { type: "cutout", id, x_nm: nm(2), y_nm: nm(3), w_nm: nm(4), h_nm: nm(5) }, line);
+              if (!exactColumns(line, 5, diagnostics, file)) break;
+              put(physicalOnly, { type: "cutout", id, ...point, w_nm: nm(3), h_nm: nm(4) }, line);
               break;
           }
           break;

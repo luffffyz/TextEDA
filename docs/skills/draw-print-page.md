@@ -96,7 +96,9 @@ Hard limits:
 Procedure:
 
 1. Read the reference and decide a rough arrangement.
-2. Write only the `place` rows (instance id, `x`, `y`, rotation) in the view file. This is an
+2. Write only the `place` rows (instance id, `[x,y]`, rotation) in the view file. Every geometric
+   value is one bracketed cell ([ADR-0065](../adr/01-language/0065-a-coordinate-tuple-is-one-cell.md)),
+   so a point is `[x,y]`, not two numbers. This is an
    intermediate: the page handed over for review is wired (§2.4).
 3. Run `view metrics` to check the sheet is used and parts do not collide.
 4. Route the wires from the logical netlist with Mode B. Do not trace the reference's lines.
@@ -112,18 +114,38 @@ Procedure:
 
 1. **Place.** Write the `place` rows (or accept a proposed placement). The layout grid is 0.5 mm;
    keep physical pin positions from the library rather than deriving them from this placement grid.
-   - **Default:** place, then route (step 2) and hand over a wired draft. The human reviews
-     placement and wiring together.
+   - **Default:** place, then inventory, read geometry, and route (steps 2–4); hand over a wired
+     draft. The human reviews placement and wiring together.
    - **Optional:** when the human explicitly wants to settle positions first, or the rearrangement
      is large, render a placement-only page with `preview view`, ask the human to move parts or
      name coordinates, and route after acceptance. A view with `place` and no `wire` section is
      legal; `view metrics` will report `nets undrawn`, which is expected at this stage. This page
      is not the review artifact.
-2. **Route from logic.** For each net with two or more members, read the member pins and their
+2. **Inventory the flattened nets.** Export the logical board's machine-readable netlist before
+   routing:
+
+   ```sh
+   bun run texteda netlist examples/reference-project --board charger-buck --json
+   ```
+
+   Use each net's `id` and `members` (`<instance>.<pin>`) as the complete pin inventory, including
+   module instances after flattening. The netlist is logical truth, not a page drawing: route only
+   pins belonging to each listed net, and do not infer membership from symbols, labels, or images.
+   The command requires a design without errors; fix logical errors before treating its output as
+   authoritative.
+3. **Read fresh renderer geometry.** After the final placement is settled and before routing, run
+   `bun run texteda review <project> --out /tmp/review.html` and inspect that page's embedded
+   geometry payload. Use its `symbols[].pins` connection points and `symbols[].box` body boxes for
+   real endpoints and clearance; use `texts` and `fields` for text obstacles. This geometry is
+   authoritative for the current placement, unlike guessed coordinates from the `place` row or a
+   stale earlier render. Re-read it whenever placement changes.
+4. **Route from logic.** For each net with two or more members, read the member pins and their
    connection points from the symbols, then write `wire` rows:
-   - `<net> <end> <end> [bend_x bend_y ...]`; an end is a pin reference (`U1.5`) or a port this
-     page draws (`GND`). A pin end must be a member of the net; a port end takes its point from the
-     page's `port` row, so that row has to exist (`view.port-not-drawn`), and moving the row moves
+   - `<net> <end> <end> [[x,y] …]`; an end is a pin reference (`U1.5`), a port this page draws
+     (`GND`), or a junction this page declares. Each bend is its own `[x,y]` cell
+     ([ADR-0065](../adr/01-language/0065-a-coordinate-tuple-is-one-cell.md)). A pin end must be a
+     member of the net; a port end takes its point from the page's `port` row (`view.port-not-drawn`
+     when the page draws neither that port nor a junction of that name), and moving the row moves
      the run's end with it;
    - every segment is horizontal or vertical (`view.wire-diagonal` forbids slants);
    - route around symbol bodies (`view.wire-crosses-symbol`) and foreign pin connection points
@@ -131,18 +153,32 @@ Procedure:
      connected". Keep crossings low for readability, but do not contort a route to avoid one;
    - a pin in the middle of a run is not a junction: split the run into a second `wire` row or
      route around it;
-   - split a net with more than two pins into several rows; junction dots are derived from the
-     geometry (three or more arms of one net), never written;
+   - split a net with more than two pins into several rows. **A dot is declared, not derived**: where
+     one net genuinely forks, write a `junction` row and end every branch on its id. Two rows that
+     merely meet at a point draw no dot, and a row passing through a declared junction of its own net
+     without ending there reports `view.wire-gap`;
    - put labels and ports on their own net (`view.label-not-on-net` /
      `view.port-not-on-net`);
-   - every member pin of a drawn net should be an endpoint of at least one row. The checker
-     reports undrawn **nets** (`view.nets-not-drawn`), not undrawn pins; verify pin coverage on
-     the rendered page.
-3. **Freeze.** The routed rows are source, not a cache. Do not regenerate them over manual
+   - every member pin of every drawn net must be an endpoint of at least one wire row for that net;
+     a wire passing through a pin does not cover it. Endpoint coverage is necessary but not
+     sufficient: verify that each drawn net forms one connected geometric graph containing all
+     page-visible member pins and its intended port, if any. Build an explicit per-net
+     connectivity/edge table from the wire geometry, or inspect the rendered geometry to confirm
+     that all those endpoints belong to one component. Do not infer connection from shared net
+     names or proximity. Check both coverage and connectivity per net against the inventory: the
+     checker reports undrawn **nets** (`view.nets-not-drawn`), not missing member pins or
+     disconnected components.
+5. **Freeze.** The routed rows are source, not a cache. Do not regenerate them over manual
    adjustments; when the placement changes, re-route the affected nets by hand or with a
    deterministic generator and review the diff. If the human has edited a wire, reroute only on an
    explicit request and keep the human edit in the diff.
-4. **Verify** with the command loop in §3.
+6. **Verify** with the command loop in §3.
+
+This is the first route: author wire rows from the flattened inventory and current renderer geometry.
+`texteda view rewire` is not a first-route command or router; use it only when an existing wired
+page's parts have moved and the existing route shape should be re-anchored. It preserves the route's
+segment and direction pattern and does not find a path or avoid obstacles. Review its diff and
+render; if placement changes substantially, design the affected routes anew instead.
 
 Routing determinism matters: for the same `place` rows and the same logical schematic, the same
 wires should come out. If an LLM proposes routes, its output is still a source edit to review;
@@ -217,7 +253,12 @@ Checked 2 boards: 0 errors, 136 warnings (stages: parse 47 · contract 0 · desi
 ```
 
 Errors block the build; warnings do not. `view.*` warnings are drawing findings, not circuit
-errors. Use `--json` when a script needs the payload.
+errors. Use `--json` when a script needs the payload. A project check covers every board and page;
+for this page's gate, inspect only `view.*` diagnostics whose location is this page's view file.
+Exclude `view.nets-not-drawn` from that page-local set: it is a board-level count and may reflect
+nets drawn on another page (or deliberately omitted from a partial research page). Require zero
+other page-local `view.*` warnings, and still fix every project error. Do not mistake unrelated
+pages' warnings for this page's findings.
 
 ### 3.2 Measure the page
 
@@ -253,6 +294,21 @@ bun run preview view charger-buck/buck-5v --project examples/reference-project
 
 The SVG path is printed; open it or embed it. For the interactive review, run
 `bun run texteda review examples/reference-project` and open the printed `127.0.0.1` URL.
+
+For a legible visual review, render the current page and inspect a crop rather than judging a
+whole-sheet image at fit-to-page scale:
+
+```sh
+bun run texteda view render examples/reference-project charger-buck/buck-5v --out /tmp/page.svg
+```
+
+Crop the SVG by changing its root `viewBox` to the region of interest (sheet coordinates in mm)
+and setting a matching larger `width` / `height`; a 40–60 mm window is a useful starting size.
+Open the resulting crop as an image. Inspect the full page for layout, then crops for every dense
+area: trace each net to confirm every inventoried member pin is reached by a wire endpoint, labels
+and ports sit on their nets, every dot sits on a declared `junction` row, and no wire crosses symbol or
+text artwork. A metrics summary or a clean check cannot replace this rendered inspection. See
+[`repair-print-page.md`](repair-print-page.md) §4 for a crop example.
 
 ### 3.4 Format and re-check
 
@@ -316,16 +372,22 @@ the text belongs somewhere else, and expect it to stay there while its symbol mo
 
 ## 5. Acceptance checklist
 
+- [ ] The flattened `texteda netlist --json` inventory was used; every net's member pins are
+      accounted for, and every drawn member pin is a wire endpoint (not merely crossed by a run).
+- [ ] Fresh `texteda review --out` geometry was read after final placement; routes use its pin
+      points and body/text boxes rather than guessed or stale coordinates.
 - [ ] `view:verify <project>` passes: every coordinate on the `0.5 mm` lattice (§1).
-- [ ] `texteda check <project>` has **0 errors**; every `view.*` warning is fixed or explicitly
-      accepted (a research page can keep `nets-not-drawn`).
+- [ ] `texteda check <project>` has **0 errors**; page-local `view.*` findings are filtered by
+      this page's view-file location, with `view.nets-not-drawn` treated as the documented
+      board-level exception and no other page-local warning left unexplained.
 - [ ] `view metrics` says `0 through a body` and both text gaps `> 0`; crossings are reported but
       are not a failure (no dot means not connected).
 - [ ] `fmt:teda --check <project>` passes.
 - [ ] The page is wired before it is handed to a human for review; a placement-only page is not a
       review artifact (a deliberately partial research page is the exception and says so).
-- [ ] The rendered page (`preview view` or `review`) shows every placed instance's Reference and
-      the labels/ports on their nets.
+- [ ] The full render and legible rendered crops show every placed instance's Reference, every
+      inventoried endpoint reached by its net, labels/ports on their nets, and no wire/text/body
+      collision; crop review is not replaced by metrics or diagnostics.
 - [ ] The view file is committed; no generator re-ran over a manual adjustment.
 - [ ] The logical design was not edited by this workflow.
 
@@ -343,7 +405,8 @@ bun run test packages/cli/test/view-roundtrip.test.ts packages/cli/test/view.tes
 - Do not let the renderer choose positions; do not run an auto-placer.
 - Do not add a hop, a curve or a diagonal to dodge a crossing: a crossing with no dot is already
   "not connected". Do not use a crossing where a dot is required, either; a join is a dot.
-- Do not write a junction record; the dot is derived.
+- Do not assume a dot appears where wires merely meet: a dot is drawn only for a declared `junction`
+  row, and a fork with no junction row reads as two separate runs.
 - Do not place a coordinate off the `0.5 mm` lattice (§1). There is no free-placement escape hatch
   today; if a position seems to need one, that is a design question, not a coordinate to invent.
 - Do not read the view file's `0.01 mm` resolution as the drawing grid. They are different

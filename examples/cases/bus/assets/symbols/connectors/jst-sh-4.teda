@@ -1,17 +1,17 @@
-version 0.9.2
+version 0.11
 symbol jst-sh-4
 
 description JST SH 4-pin connector, view only
 tags connector qwiic
 # Rows 2.5 mm apart on the 0.5 mm placement lattice (ADR-0058); the real 1.0 mm pad pitch lives in the footprint.
-field Reference at=0,7.5 J
-field Value at=0,-7.5 jst-sh-4
+field Reference at=[0,7.5] J
+field Value at=[0,-7.5] jst-sh-4
 
 pins
-  1  7  -3.5  180  length=2.5
-  2  7  -1    180  length=2.5
-  3  7  1.5   180  length=2.5
-  4  7  4     180  length=2.5
+  1  [7,-3.5]  180
+  2  [7,-1]    180
+  3  [7,1.5]   180
+  4  [7,4]     180
 
 body
-  rect  -3,-5,4.5,5  fill=background  width=0.254
+  rect  [-3,-5,4.5,5]  fill=background  width=0.254

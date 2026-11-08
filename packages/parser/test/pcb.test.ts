@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test";
 import { parsePcb } from "../src/pcb.ts";
 
-const valid = `version 0.7
+const valid = `version 0.11
 pcb main
 board_thickness 1.6mm
 
@@ -13,14 +13,14 @@ stackup
   B.Cu       copper     0.035mm  signal
 
 outline
-  0.0 0.0
-  40.0 0.0
-  40.0 30.0
-  0.0 30.0
+  [0.0,0.0]
+  [40.0,0.0]
+  [40.0,30.0]
+  [0.0,30.0]
 
 place
-  U1     12.0 12.0  0    top
-  C1     18.0 12.0  90   bottom
+  U1     [12.0,12.0]  0    top
+  C1     [18.0,12.0]  90   bottom
 
 connect
   U1.4  C1.1
@@ -46,7 +46,7 @@ describe("complete file", () => {
     expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
     const ir = result.ir!;
     expect(ir.board).toBe("main");
-    expect(ir.format).toBe("0.7");
+    expect(ir.format).toBe("0.11");
     expect(ir.board_thickness_nm).toBe(1_600_000);
     expect(ir.stackup).toHaveLength(3);
     expect(ir.stackup[1]).toEqual({
@@ -71,14 +71,14 @@ describe("complete file", () => {
 
   test("row order and member order do not affect IR bytes", () => {
     const shuffled = valid
-      .replace("  U1     12.0 12.0  0    top\n  C1     18.0 12.0  90   bottom", "  C1     18.0 12.0  90   bottom\n  U1     12.0 12.0  0    top");
+      .replace("  U1     [12.0,12.0]  0    top\n  C1     [18.0,12.0]  90   bottom", "  C1     [18.0,12.0]  90   bottom\n  U1     [12.0,12.0]  0    top");
     expect(JSON.stringify(parse(shuffled).ir)).toBe(JSON.stringify(parse(valid).ir));
   });
 
   test("board outline normalization: start rotated to the lexicographically smallest vertex, direction unified to positive", () => {
     const reversed = valid.replace(
-      "  0.0 0.0\n  40.0 0.0\n  40.0 30.0\n  0.0 30.0",
-      "  0.0 30.0\n  40.0 30.0\n  40.0 0.0\n  0.0 0.0",
+      "  [0.0,0.0]\n  [40.0,0.0]\n  [40.0,30.0]\n  [0.0,30.0]",
+      "  [0.0,30.0]\n  [40.0,30.0]\n  [40.0,0.0]\n  [0.0,0.0]",
     );
     expect(parse(reversed).ir!.outline).toEqual([
       { x_nm: 0, y_nm: 0 },
@@ -93,18 +93,18 @@ describe("optional sections", () => {
   test("trace / via / zone / keepout / silk / physical_only / deviation", () => {
     const text = `${valid}
 trace
-  VBUS  F.Cu  0.5mm  8.0 6.0  12.0 6.0
+  VBUS  F.Cu  0.5mm  [8.0,6.0]  [12.0,6.0]
 via
-  GND   20.0 14.0 0.6mm 0.3mm
+  GND   [20.0,14.0] 0.6mm 0.3mm
 zone
-  GND  B.Cu  0.0 0.0  40.0 0.0  40.0 30.0
+  GND  B.Cu  [0.0,0.0]  [40.0,0.0]  [40.0,30.0]
 keepout
-  no_place  F.Cu  30.0 20.0  38.0 20.0  38.0 26.0
+  no_place  F.Cu  [30.0,20.0]  [38.0,20.0]  [38.0,26.0]
 silk
   refdes  F.SilkS  1.0mm  show
 physical_only
-  H1  mounting  5  5   3.2mm  2.5mm
-  S1  stitching 10 30  VBUS   0.6mm  0.3mm
+  H1  mounting  [5,5]   3.2mm  2.5mm
+  S1  stitching  [10,30]  VBUS   0.6mm  0.3mm
 deviation
   net_tie  VBUS  VBUS_RAW
 `;
@@ -136,7 +136,7 @@ deviation
     // A test point is a one-pin device in the schematic (ADR-0014 D8/D9), not a pcb entity.
     const result = parse(`${valid}
 physical_only
-  TP1 test_point VBUS  1.0mm
+  TP1 test_point  [0,0]  1.0mm
 `);
     expect(result.diagnostics.map((d) => d.code)).toContain("value.unknown-pcb-type");
     expect(result.ir?.physical_only).toBeUndefined();
@@ -145,7 +145,7 @@ physical_only
   test("a physical entity row without a position is a short row", () => {
     const result = parse(`${valid}
 physical_only
-  H1 mounting 3.2mm 2.5mm
+  H1 mounting
 `);
     expect(result.diagnostics.map((d) => d.code)).toContain("syntax.row-too-short");
   });
@@ -153,9 +153,9 @@ physical_only
   test("same section repeated: rows are concatenated in order of appearance", () => {
     const result = parse(`${valid}
 trace
-  A  F.Cu  0.3mm  1.0 1.0  2.0 1.0
+  A  F.Cu  0.3mm  [1.0,1.0]  [2.0,1.0]
 trace
-  B  F.Cu  0.3mm  3.0 1.0  4.0 1.0
+  B  F.Cu  0.3mm  [3.0,1.0]  [4.0,1.0]
 `);
     expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
     expect(result.ir!.trace!.map((t) => t.net)).toEqual(["A", "B"]);
@@ -183,14 +183,14 @@ describe("errors", () => {
 
   test("board outline self-intersects", () => {
     const self = valid.replace(
-      "  0.0 0.0\n  40.0 0.0\n  40.0 30.0\n  0.0 30.0",
-      "  0.0 0.0\n  40.0 30.0\n  40.0 0.0\n  0.0 30.0",
+      "  [0.0,0.0]\n  [40.0,0.0]\n  [40.0,30.0]\n  [0.0,30.0]",
+      "  [0.0,0.0]\n  [40.0,30.0]\n  [40.0,0.0]\n  [0.0,30.0]",
     );
     expect(codes(self)).toContain("value.outline-invalid");
   });
 
   test("same instance placed twice", () => {
-    expect(codes(valid.replace("  C1     18.0 12.0  90   bottom", "  U1     18.0 12.0  90   bottom"))).toContain("value.duplicate-instance");
+    expect(codes(valid.replace("  C1     [18.0,12.0]  90   bottom", "  U1     [18.0,12.0]  90   bottom"))).toContain("value.duplicate-instance");
   });
 
   test("unknown rule type / unknown section / wrong column count", () => {

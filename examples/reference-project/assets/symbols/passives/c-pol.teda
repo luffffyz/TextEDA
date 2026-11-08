@@ -1,4 +1,4 @@
-version 0.9.2
+version 0.11
 symbol c-pol
 
 description Polarized capacitor, 2-pin generic view
@@ -8,15 +8,15 @@ pin_names hide
 # Polarized capacitor view, US convention: the positive pin (1) ends on a straight plate, the negative pin (2) ends on
 # an arc whose middle leans toward that plate (its ends splay away), and a plus sign sits above the straight plate.
 # Pin connection points, pin tails, and the body frame sit on the 0.5 mm placement lattice (ADR-0057).
-field Reference at=0,2.5 U
-field Value at=0,-2.5 c-pol
+field Reference at=[0,2.5] U
+field Value at=[0,-2.5] c-pol
 
 pins
-  1  -4  0  0    length=3
-  2  4   0  180  length=3.5
+  1  [-4,0]  0    length=3
+  2  [4,0]   180  length=3.5
 
 body
-  arc   1,-1.5,0.5,0,1,1.5     width=0.25
-  line  -1,-1.5,-1,1.5         width=0.25
-  line  -1.5,1.5,-1.5,2        width=0.25
-  line  -1.75,1.75,-1.25,1.75  width=0.25
+  arc   [1,-1.5,0.5,0,1,1.5]     width=0.25
+  line  [-1,-1.5,-1,1.5]         width=0.25
+  line  [-1.5,1.5,-1.5,2]        width=0.25
+  line  [-1.75,1.75,-1.25,1.75]  width=0.25

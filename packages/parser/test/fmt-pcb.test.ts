@@ -5,7 +5,7 @@ import { describe, expect, test } from "bun:test";
 import { formatPcb } from "../src/fmt-pcb.ts";
 import { parsePcb } from "../src/pcb.ts";
 
-const messy = `version 0.7
+const messy = `version 0.11
 # header comment must be kept
 pcb main
 board_thickness 1.6mm
@@ -14,18 +14,18 @@ stackup
   core    dielectric 1.53mm FR4 4.3
   F.Cu    copper     0.035  signal
 outline
-  0.0 30.0
-  40.0 30.0
-  40.0 0.0
-  0.0 0.0
+  [0.0,30.0]
+  [40.0,30.0]
+  [40.0,0.0]
+  [0.0,0.0]
 place
-  U1  12 12  0    top
-  C1  18 12  90   bottom
+  U1  [12,12]  0    top
+  C1  [18,12]  90   bottom
 connect
   C1.1  U1.4
 trace
-  USB_DN F.Cu 0.3mm  8.0 6.0  12.0 6.0
-  USB_DP F.Cu 0.3mm  12.0 4.0  8.0 4.0
+  USB_DN F.Cu 0.3mm  [8.0,6.0]  [12.0,6.0]
+  USB_DP F.Cu 0.3mm  [12.0,4.0]  [8.0,4.0]
 rules
   diff   USB_DP  USB_DN  90Ω  0.2mm
   width  0.25mm
@@ -76,7 +76,7 @@ describe("fmt invariants", () => {
 describe("normalization (spec §6.2)", () => {
   const text = fmt(messy);
   test("board outline: start rotated to the smallest vertex, direction positive", () => {
-    expect(section("outline")).toEqual(["0 0", "40 0", "40 30", "0 30"]);
+    expect(section("outline")).toEqual(["[0,0]", "[40,0]", "[40,30]", "[0,30]"]);
   });
 
   test("connect: pairs sorted by byte order internally, rows sorted by pair", () => {
@@ -84,7 +84,7 @@ describe("normalization (spec §6.2)", () => {
   });
 
   test("trace: reversed as a whole when the start is greater than the end, rows sorted by (net, layer, start)", () => {
-    expect(text).toContain("USB_DP  F.Cu  0.3  8  4  12  4");
+    expect(text).toContain("USB_DP  F.Cu  0.3  [8,4]  [12,4]");
   });
 
   test("rules: fixed type order", () => {

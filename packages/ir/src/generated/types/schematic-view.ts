@@ -137,7 +137,7 @@ export type Slug = string;
  */
 export type ViewPinRef = string;
 /**
- * An end of a drawn run: a board-level pin reference in numbered form (<instance_id>.<pin_number>, e.g. U1.5 or M1.U1.5), or the id of a board port this page draws. A pin's connection point comes from the symbol; a port's comes from the page's own `port` row, so a run can end at the board's edge. Both are matched against the board by the same strings the view already speaks.
+ * A board-level pin reference, a drawn board port id, or a declared junction id. Coordinates are not endpoint identities.
  *
  * This interface was referenced by `SchematicView`'s JSON-Schema
  * via the `definition` "view_endpoint_ref".
@@ -186,6 +186,10 @@ export interface SchematicView {
    * Optional manual positions for the Reference and Value fields, in symbol-local coordinates; rows are sorted by instance_id then name.
    */
   field?: Field[];
+  /**
+   * Named drawing-graph junctions, sorted by id. Junctions do not create schematic connectivity.
+   */
+  junction?: Junction[];
   /**
    * Wire polylines, one per drawn run; several wires may belong to the same net.
    */
@@ -267,22 +271,39 @@ export interface Field {
   y_nm: number;
 }
 /**
- * One polyline of one net, from one pin to another, optionally bending through given points.
+ * A named view-only node in the schematic drawing graph.
+ *
+ * This interface was referenced by `SchematicView`'s JSON-Schema
+ * via the `definition` "junction".
+ */
+export interface Junction {
+  id: string;
+  /**
+   * Junction position, x from the sheet's upper-left corner.
+   */
+  x_nm: number;
+  /**
+   * Junction position, y from the sheet's upper-left corner, increasing downward.
+   */
+  y_nm: number;
+}
+/**
+ * One polyline of one net between named pin, port or junction endpoints, optionally bending through given points.
  *
  * This interface was referenced by `SchematicView`'s JSON-Schema
  * via the `definition` "wire".
  */
 export interface Wire {
   /**
-   * The net this wire draws; both endpoints must be members of it in the board's nets.
+   * The net this wire draws. Pin endpoints must be members of it in the board's nets.
    */
   net: string;
   /**
-   * Start of the run: a pin, whose connection point comes from the symbol, or a port this page draws, whose point comes from the page's `port` row. Named `from_pin` because a wire has always started at a pin; a port ending is the same column with a different kind of end.
+   * Start endpoint identity: a pin, a port this page draws, or a declared junction.
    */
   from_pin: string;
   /**
-   * End of the run, with the same two kinds of end as `from_pin`.
+   * End endpoint identity, with the same endpoint kinds as `from_pin`.
    */
   to_pin: string;
   /**

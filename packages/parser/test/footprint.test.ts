@@ -49,18 +49,18 @@ describe("example footprint", () => {
 describe("IR order depends only on semantics", () => {
   test("pads in natural order, fields by name, graphics by (kind, layer, coordinates)", () => {
     const text = [
-      "version 0.4",
+      "version 0.11",
       "footprint t",
       "",
       "field Value V",
       "field Reference R",
       "pads",
-      "  10  smd  rect  1  1  1  1",
-      "  2   smd  rect  0  0  1  1",
+      "  10  smd  rect  [1,1]  [1,1]",
+      "  2   smd  rect  [0,0]  [1,1]",
       "",
       "graphics",
-      "  rect  F.Fab  0,0,1,1  width=0.1",
-      "  line  F.SilkS  0,0,1,1  width=0.12",
+      "  rect  F.Fab  [0,0,1,1]  width=0.1",
+      "  line  F.SilkS  [0,0,1,1]  width=0.12",
       "",
     ].join("\n");
     const fp = parse(text).ir!.footprint;
@@ -72,7 +72,7 @@ describe("IR order depends only on semantics", () => {
 
 describe("error location", () => {
   test("reports row and column when the file header is wrong", () => {
-    const result = parse("version 0.4\nnot_a_footprint x\n");
+    const result = parse("version 0.11\nnot_a_footprint x\n");
     expect(result.ok).toBe(false);
     expect(formatDiagnostic(result.diagnostics[0]!)).toBe(
       "x.teda:2:1: error syntax.header-invalid: the second line must be footprint <id>",
@@ -81,7 +81,7 @@ describe("error location", () => {
 
   test("through-hole pad missing drill reports an error", () => {
     const result = parse(
-      ["version 0.4", "footprint t", "", "pads", "  1  th  circle  0  0  1.6  1.6"].join("\n"),
+      ["version 0.11", "footprint t", "", "pads", "  1  th  circle  [0,0]  [1.6,1.6]"].join("\n"),
     );
     expect(result.ok).toBe(false);
     expect(result.diagnostics[0]!.code).toBe("value.pad-attribute-invalid");
@@ -90,7 +90,7 @@ describe("error location", () => {
 
   test("unknown key reports an error", () => {
     const result = parse(
-      ["version 0.4", "footprint t", "", "pads", "  1  smd  rect  0  0  1  1  bogus=1"].join("\n"),
+      ["version 0.11", "footprint t", "", "pads", "  1  smd  rect  [0,0]  [1,1]  bogus=1"].join("\n"),
     );
     expect(result.ok).toBe(false);
     expect(result.diagnostics[0]!.code).toBe("syntax.unknown-field");
@@ -98,20 +98,20 @@ describe("error location", () => {
 
   test("finer than nanometer precision reports an error, no rounding", () => {
     const result = parse(
-      ["version 0.4", "footprint t", "", "pads", "  1  smd  rect  0.0000001mm  0  1  1"].join("\n"),
+      ["version 0.11", "footprint t", "", "pads", "  1  smd  rect  [0.0000001mm,0]  [1,1]"].join("\n"),
     );
     expect(result.ok).toBe(false);
     expect(result.diagnostics[0]!.message).toContain("finer than nanometer precision");
   });
 
   test("unknown section reports an error", () => {
-    const result = parse(["version 0.4", "footprint t", "", "wiring"].join("\n"));
+    const result = parse(["version 0.11", "footprint t", "", "wiring"].join("\n"));
     expect(result.ok).toBe(false);
     expect(result.diagnostics[0]!.code).toBe("syntax.unknown-section");
   });
 
   test("version above the supported maximum reports an error", () => {
-    const result = parse(["version 0.11", "footprint t", "", "pads", "  1 smd rect 0 0 1 1"].join("\n"));
+    const result = parse(["version 0.12", "footprint t", "", "pads", "  1 smd rect [0,0] [1,1]"].join("\n"));
     expect(result.ok).toBe(false);
     expect(result.diagnostics[0]!.code).toBe("format.unsupported-version");
   });
@@ -119,7 +119,7 @@ describe("error location", () => {
 
 describe("the file revision", () => {
   test("`rev` is a scalar and reaches the IR", () => {
-    const text = ["version 0.4.2", "footprint f", "rev 2.1.0", "", "pads", "  1  smd  roundrect  0  0  1.1  0.6  rratio=0.25", ""].join("\n");
+    const text = ["version 0.11", "footprint f", "rev 2.1.0", "", "pads", "  1  smd  roundrect  [0,0]  [1.1,0.6]  rratio=0.25", ""].join("\n");
     const result = parse(text);
     expect(result.diagnostics.map(formatDiagnostic)).toEqual([]);
     expect(result.ir!.footprint.rev).toBe("2.1.0");

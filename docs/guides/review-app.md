@@ -75,11 +75,11 @@ net it names and a port by its `port_id`, and the write stores the position the 
 (ADR-0056 D2). A note — a free `text` row — does not move: nothing in the language says what a
 paragraph's position means, so the app offers no move for it.
 
-The lattice is the drawing convention for **every** coordinate a page stores — placements, field
-anchors, wire bends, labels, ports, notes — not just the ones the app can move
-([ADR-0059](../adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md)
-D1). Free placement is not admitted today. `bun run view:verify <project>` is the gate that says
-so.
+The `0.5 mm` lattice applies to placements, field anchors, wire bends, labels, ports and notes
+covered by the view-coordinate rules ([ADR-0059](../adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md)
+D1). Explicit `@x,y` wire endpoints use the `0.01 mm` format resolution instead; they are drawing
+geometry used to preserve existing wire endpoints, not a free-placement mechanism. `bun run
+view:verify <project>` checks the applicable stored-coordinate lattice rules.
 
 A port can also be the **end of a run** (`wire` rows name it instead of a pin). Moving that port
 extends or shortens the run to reach it, so the port stays on the wire
@@ -171,6 +171,16 @@ placements but cannot edit fields or source.
   are written together through the CLI. A full-capability standalone surface may also use the
   explicit **Source** action to preview and save source text; source editing is never entered by a
   drawing click.
+
+The full-write schematic action bar has two independent, default-off preview controls. **Auto fields**
+places only page-level `Reference` and `Value` fields to avoid collisions; it does not move symbols.
+When off, fields stay at their symbol-local anchors and follow symbol translation and rotation; the
+page-level collision placement pass does not run. Turn it on only when the preview should place fields
+to avoid collisions. **Re-anchor wires** controls the moved-endpoint re-anchor and path-simplification
+pass. When off, a moved or rotated pin endpoint keeps its identity and the wire keeps every authored
+bend; the affected net is reported stale until an explicit rewire. When on, pin endpoints follow the
+moved symbols through the existing re-anchor behavior. Neither setting implies the other. Both
+controls are sent to the server for preview and Apply; they do not change the DSH places-only contract.
 
 ### What the Apply writes
 

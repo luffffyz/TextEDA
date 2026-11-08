@@ -129,14 +129,14 @@ describe("renumber mapping and references", () => {
     writeFileSync(
       join(root, "views", "mcu-board", "main.view.teda"),
       [
-        "version 0.7",
+        "version 0.11",
         "view main",
         "",
         "place",
-        "  C1  20  0  0",
-        "  R1  0   20 0",
-        "  R2  0   0  0",
-        "  R3  10  10 0",
+        "  C1  [20,0]  0",
+        "  R1  [0,20]  0",
+        "  R2  [0,0]   0",
+        "  R3  [10,10] 0",
         "",
       ].join("\n"),
     );
@@ -163,7 +163,7 @@ describe("renumber mapping and references", () => {
     mkdirSync(join(root, "views", "mcu-board"), { recursive: true });
     writeFileSync(
       join(root, "views", "mcu-board", "main.view.teda"),
-      ["version 0.7", "view main", "", "place", "  R1  0 0 0", "  R1  10 10 0", ""].join("\n"),
+      ["version 0.11", "view main", "", "place", "  R1  [0,0] 0", "  R1  [10,10] 0", ""].join("\n"),
     );
     const result = run(["renumber", root, "mcu-board", "--policy", "position"]);
     expect(result.code).toBe(1);

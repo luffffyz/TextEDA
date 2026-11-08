@@ -2,7 +2,7 @@
   "ir_version": "0.15",
   "project": {
     "description": "Case 4 of the ten: one module, two instances, one board",
-    "format": "0.9.1",
+    "format": "0.11",
     "name": "hierarchy-reuse",
     "status": "draft",
     "version": "0.1.0"

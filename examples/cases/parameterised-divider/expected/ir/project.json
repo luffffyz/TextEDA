@@ -2,7 +2,7 @@
   "ir_version": "0.15",
   "project": {
     "description": "Case 6 of the ten: two dividers, one ratio the language cannot state",
-    "format": "0.9.1",
+    "format": "0.11",
     "name": "parameterised-divider",
     "status": "draft",
     "version": "0.1.0"

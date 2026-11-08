@@ -35,7 +35,7 @@ role primary
 - `role` is `primary` or `alternatives`, and it must agree with the directory the file is in. The two files have the same grammar; only the role and the
   standing differ.
 - The `procurement` type exists since language **0.9**; a file below 0.9 cannot be a `procurement` file. Every `.teda` file declares the language version
-  (currently `0.9.2`); `procurement`'s floor is 0.9 and the ceiling is the language's current version (`teda.md` §13.1, §13.3).
+  (currently `0.11.0`); `procurement`'s reader floor is 0.9 and the ceiling is the language's current version (`teda.md` §13.1, §13.3).
 
 ## 2. Sections
 

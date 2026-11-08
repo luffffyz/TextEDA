@@ -7,24 +7,24 @@ import { describe, expect, test } from "bun:test";
 import { parseFootprint } from "@texteda/parser";
 import { renderFootprint, toSvgText } from "../src/index.ts";
 
-const TH = `version 0.4.1
+const TH = `version 0.11
 footprint hdr-1x1-254
 
 attr through_hole
 package_code 1x1-2.54
 
 pads
-  1  th  circle  0  0  1.7  1.7  drill=1
+  1  th  circle  [0,0]  [1.7,1.7]  drill=1
 `;
 
-const SMD = `version 0.4.1
+const SMD = `version 0.11
 footprint chip-0402
 
 attr smd
 package_code 0402
 
 pads
-  1  smd  roundrect  -0.5  0  0.6  0.6  rratio=0.25
+  1  smd  roundrect  [-0.5,0]  [0.6,0.6]  rratio=0.25
 `;
 
 function svgOf(text: string): string {

@@ -24,11 +24,11 @@
 ## 1. 文件头
 
 ```
-version 0.9.2
+version 0.11.0
 pcb main
 ```
 
-- 版本行、类型行规则同 `teda.md` §5：版本行写的是**语言版本**，全语言一个号，每种描述类型都写同一个（现行号见 `teda.md` §13.1）。`pcb` 的下界是 `0.7`（该类型由 0.4 引入，0.7 的板扁平化改写了它的形状），上界是语言的当前版本；接受规则见 `teda.md` §13.3。
+- 版本行、类型行规则同 `teda.md` §5：版本行写的是**语言版本**，全语言一个号，每种描述类型都写同一个（现行号见 `teda.md` §13.1）。`pcb` 的 reader 下界是 `0.11`：类型由 0.4 引入，0.7 的板扁平化改写了形状，0.11 的坐标元组改写要求当前 reader 不再接受旧表面。接受规则见 `teda.md` §13.3。
 - **段头独占一行**（整行只有一个单元格）。缩进不表达层级（`AGENTS.md` §2 第 6 条），所以 `via` 这类既是段名又是 `rules` 行首列的词，只能靠列数消歧：规则行至少有 2 列。
 - **同一段可以重复出现**，行按出现顺序拼接（与 `teda.md` 里同名 `net` 行合并同一先例）。`stackup` 的顺序即叠层顺序，重复段就接在后面，不做排序。
 - 文件名必须等于类型行里的 id：`design/pcb/<board_id>.teda` ↔ `pcb main`。
@@ -100,13 +100,13 @@ stackup
 
 ```
 outline
-  0.0 0.0
-  40.0 0.0
-  40.0 30.0
-  0.0 30.0
+  [0.0,0.0]
+  [40.0,0.0]
+  [40.0,30.0]
+  [0.0,30.0]
 ```
 
-- 至少 3 个顶点；不得自交。
+- 每行一个 `[x,y]` 顶点；至少 3 个顶点；不得自交。
 - 只支持折线，**不支持圆弧**（限制，见 §7）。
 - 板内开孔与安装孔进 `physical_only`（`cutout` / `mounting`）。
 
@@ -114,11 +114,11 @@ outline
 
 ```
 place
-  U1    12.0 12.0  0   top
-  P1.R1 18.0 12.0  90  bottom
+  U1    [12.0,12.0]  0   top
+  P1.R1 [18.0,12.0]  90  bottom
 ```
 
-列：`<instance_id> <x> <y> <rot> <side>`。
+列：`<instance_id> <origin> <rot> <side>`，`<origin>` 是 `[x,y]`。
 
 - `instance_id` 是**稳定实例 ID**（板级实例 `R1`，模块实例 `M1.R1`，见 `teda.md` §7.6、`spec/module.md` §5），不是 refdes：refdes 可改名，ID 不变（`AGENTS.md` §2 第 5 条、§4.4）。
 - 必须解析到 `sch` 展平后的实例；未放置的 sch 实例按变体状态处理（DNP 不占位）。
@@ -144,10 +144,10 @@ connect
 
 ```
 trace
-  VBUS  F.Cu  0.5mm  8.0 6.0  12.0 6.0
+  VBUS  F.Cu  0.5mm  [8.0,6.0]  [12.0,6.0]
 ```
 
-列：`<net> <layer> <width> <x1> <y1> [<x2> <y2> …]`。
+列：`<net> <layer> <width> [<point> …]`，每个 `<point>` 是 `[x,y]` 单元格。
 
 - 至少 2 个点；点之间是直线段（直线、45° 斜线都能表达）。
 - `net` 必须存在于 `sch`；`layer` 必须是 `stackup` 里的铜层。
@@ -158,11 +158,11 @@ trace
 
 ```
 via
-  VBUS  12.0 6.0  0.6mm 0.3mm
-  GND   20.0 14.0 0.6mm 0.3mm  F.Cu  B.Cu
+  VBUS  [12.0,6.0]   0.6mm 0.3mm
+  GND   [20.0,14.0]  0.6mm 0.3mm  F.Cu  B.Cu
 ```
 
-列：`<net> <x> <y> <size> <drill> [<from_layer> <to_layer>]`。
+列：`<net> <point> <size> <drill> [<from_layer> <to_layer>]`，`<point>` 是 `[x,y]`。
 
 - 省略最后两列 = 通孔（贯穿全部铜层）；给出时为盲孔/埋孔，连接 from→to 之间的层。
 - 微孔（HDI）不支持（§7）。
@@ -171,10 +171,10 @@ via
 
 ```
 zone
-  GND  B.Cu  0.0 0.0  40.0 0.0  40.0 30.0  0.0 30.0
+  GND  B.Cu  [0.0,0.0]  [40.0,0.0]  [40.0,30.0]  [0.0,30.0]
 ```
 
-列：`<net> <layer> <x1> <y1> [<x2> <y2> …]`。
+列：`<net> <layer> [<point> …]`，每个 `<point>` 是 `[x,y]`。
 
 - 顶点构成闭合多边形；至少 3 个点。
 - 只存**意图**（轮廓 + 所属 net + 层）。填充参数（clearance、thermal、min_thickness）走 `rules` 与全局默认。
@@ -186,10 +186,10 @@ zone
 
 ```
 keepout
-  no_place  F.Cu  30.0 20.0  38.0 20.0  38.0 26.0  30.0 26.0
+  no_place  F.Cu  [30.0,20.0]  [38.0,20.0]  [38.0,26.0]  [30.0,26.0]
 ```
 
-列：`<type> <layer> <x1> <y1> [<x2> <y2> …]`。
+列：`<type> <layer> [<point> …]`，每个 `<point>` 是 `[x,y]`。
 
 - `type` ∈ `no_track` / `no_pour` / `no_place` / `no_via`。
 - 顶点构成闭合多边形。
@@ -267,26 +267,26 @@ silk
 
 ### 4.11 `physical_only`
 
-不影响逻辑的物理实体。列：`<id> <type> <x> <y> [args…]`，参数由类型决定。
+不影响逻辑的物理实体。列：`<id> <type> <point> [args…]`，参数由类型决定。
 
 ```
 physical_only
-  H1  mounting   5   5    6     3.2
-  F1  fiducial   45  31   1.0   F.Cu
-  S1  stitching  10  30   GND   0.6  0.3
-  X1  cutout     34  22   4.0   2.0
+  H1  mounting   [5,5]    6     3.2
+  F1  fiducial   [45,31]  1.0   F.Cu
+  S1  stitching  [10,30]  GND   0.6  0.3
+  X1  cutout     [34,22]  4.0   2.0
 ```
 
 单位默认 mm，与其余几何段一致（canonical form 不写 `mm` 后缀，`spec/pcb.md` §6）。
 
-`<x> <y>` 是实体的**参考点**，单位默认 mm，坐标帧同其他几何段。除了 `cutout`（参考点是矩形的一角），参考点都是几何中心——孔、点、过孔都是圆形，圆心就是它们唯一说得清的位置。
+`<point>` 是实体的**参考点**，是 `[x,y]`，单位默认 mm，坐标帧同其他几何段。除了 `cutout`（参考点是矩形的一角），参考点都是几何中心——孔、点、过孔都是圆形，圆心就是它们唯一说得清的位置。
 
 | 类型 | 参数 | 说明 |
 |---|---|---|
-| `mounting` | `<x> <y> <size> <drill>` | 安装孔，圆环外径与孔径 |
-| `fiducial` | `<x> <y> <size> <layer>` | 基准点；**不得挂 net**（挂了是错误） |
-| `stitching` | `<x> <y> <net> <size> <drill>` | 缝合孔：跨层连接**同一个 net 的多个层**；过孔不是焊盘，不算 net 的新成员 |
-| `cutout` | `<x> <y> <w> <h>` | 板内矩形开孔/槽，`<x> <y>` 是左下角 |
+| `mounting` | `<point> <size> <drill>` | 安装孔，圆环外径与孔径 |
+| `fiducial` | `<point> <size> <layer>` | 基准点；**不得挂 net**（挂了是错误） |
+| `stitching` | `<point> <net> <size> <drill>` | 缝合孔：跨层连接**同一个 net 的多个层**；过孔不是焊盘，不算 net 的新成员 |
+| `cutout` | `<point> <w> <h>` | 板内矩形开孔/槽，`<point>` 是左下角 |
 
 `cutout` 的参考点与其余三类不同（角 vs 圆心），因为矩形用它自己的形状说话；圆形的"左下角"没有意义，所以统一取圆心。**位置是坐标，不是几何**：实体只有简单图元（圆孔、圆点、矩形开槽），要自定义形状就写成器件（`AGENTS.md` §4.4 第 7 条）。
 
@@ -372,7 +372,7 @@ pcb 里写的 net 名就是**板级** net 名，与 sch 同一命名空间（模
 | `place` | 按 `instance_id` | — |
 | `connect` | 按 `(padA, padB)` | 每对内按字节序排（`padA ≤ padB`） |
 | `trace` | 按 `(net, layer, 起点)` | 折线方向归一：起点字典序大于终点时整条反转 |
-| `via` | 按 `(net, x, y)` | — |
+| `via` | 按 `(net, 归一后点)` | — |
 | `zone` | 按 `(net, layer, 归一后首点)` | 起点旋转到字典序最小的顶点；方向统一为有向面积为正 |
 | `keepout` | 按 `(type, layer, 归一后首点)` | 同 `zone` |
 | `rules` | 按类型固定序 `clearance` `width` `via` `net` `diff` `match` `mask` `paste` `thermal` `min_width`；同类型按主体名 | — |
@@ -385,7 +385,8 @@ pcb 里写的 net 名就是**板级** net 名，与 sch 同一命名空间（模
 - 坐标、尺寸、间距、线宽：mm，定点数，最多 4 位小数，去掉尾随零；由列类型提供单位，值里不写单位。
 - 角度：度，最多 1 位小数。
 - 阻抗：Ω。
-- 列对齐：同段内按最宽单元格对齐，列间至少两个空格；段之间一个空行；文件末尾一个换行。
+- 坐标元组写成一个 `[x,y]` 单元格（`teda.md` §4.3、[ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md)），括号内不写空格、不加单位、各分量按上面的定点数规则格式化。
+- 列对齐：同段内按最宽单元格对齐，列间至少两个空格；段之间一个空行；文件末尾一个换行。元组是**一格**，所以一串顶点或折点按单元格对齐，配对由元组自身保证，对齐不需要为它让路。
 - `fmt(fmt(x)) == fmt(x)`，且 `parse(fmt(x))` 与 `parse(x)` 语义相同。
 
 ---
@@ -463,7 +464,7 @@ nets
 对应的 `design/pcb/demo.teda`：
 
 ```
-version 0.9.2
+version 0.11.0
 pcb demo
 
 board_thickness 1.6mm
@@ -474,29 +475,29 @@ stackup
   B.Cu    copper     0.035mm  signal
 
 outline
-  0.0 0.0
-  40.0 0.0
-  40.0 30.0
-  0.0 30.0
+  [0.0,0.0]
+  [40.0,0.0]
+  [40.0,30.0]
+  [0.0,30.0]
 
 place
-  U1  12.0 12.0  0   top
-  C1  18.0 12.0  90  top
-  R1  24.0 8.0   0   top
+  U1  [12.0,12.0]  0   top
+  C1  [18.0,12.0]  90  top
+  R1  [24.0,8.0]   0   top
 
 connect
   U1.4  C1.1
   U1.4  R1.2
 
 trace
-  GND  F.Cu  0.25mm  12.0 6.0  12.0 16.0
-  GND  B.Cu  0.25mm  12.0 16.0  18.0 16.0
+  GND  F.Cu  0.25mm  [12.0,6.0]   [12.0,16.0]
+  GND  B.Cu  0.25mm  [12.0,16.0]  [18.0,16.0]
 
 via
-  GND  12.0 16.0  0.6mm  0.3mm
+  GND  [12.0,16.0]  0.6mm  0.3mm
 
 zone
-  GND  B.Cu  0.0 0.0  40.0 0.0  40.0 30.0  0.0 30.0
+  GND  B.Cu  [0.0,0.0]  [40.0,0.0]  [40.0,30.0]  [0.0,30.0]
 
 rules
   clearance  0.2mm
@@ -509,8 +510,8 @@ silk
   value   F.SilkS  0.8mm  hide
 
 physical_only
-  H1   mounting   3.2mm  2.5mm
-  F1   fiducial   1.0mm  F.Cu
+  H1   mounting   [5.0,5.0]     6.0    3.2
+  F1   fiducial   [45.0,31.0]   1.0    F.Cu
 ```
 
 读法：`VIN` 只有 `U1.1` 一个成员，pcb 里没有对应走线——按 §5.2 第 4 条报“该 net 未布线”。

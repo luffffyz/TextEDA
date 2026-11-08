@@ -260,6 +260,13 @@ export function analyzeProject(root: string): AnalyzeResult {
         boardDiagnostics.push(...schemaDiagnosticsToDiagnostics(check.errors, locateWith(result.sources)));
       // The design against the parts it is built from (ADR-0026): the device limits and the
       // declared windows come together only here, so the check runs where both are in hand.
+      const instances = schematicInstances(
+        result.ir,
+        (componentId) => resolver.resolve(componentId)?.pins ?? [],
+        symbolOf,
+        symbols,
+        deviceOf,
+      );
       boardDiagnostics.push(
         ...checkRatings({
           file: loaded.file,
@@ -270,7 +277,7 @@ export function analyzeProject(root: string): AnalyzeResult {
         ...checkViews({
           file: loaded.file,
           schematic: result.ir,
-          pages,
+          pages: pages.map((page) => ({ ...page, geometry: schematicGeometry(page.view, instances) })),
           ...netLocator(result.ir.nets),
         }),
       );
@@ -278,13 +285,6 @@ export function analyzeProject(root: string): AnalyzeResult {
       // (spec/schematic-view.md §9.2). Geometry comes from the renderer, so the check sees exactly
       // what a reader sees; the facts are handed over in `core`'s own shape, which the assignment
       // below type-checks.
-      const instances = schematicInstances(
-        result.ir,
-        (componentId) => resolver.resolve(componentId)?.pins ?? [],
-        symbolOf,
-        symbols,
-        deviceOf,
-      );
       for (const page of pages) {
         const geometry: ReadabilityGeometry = schematicGeometry(page.view, instances);
         boardDiagnostics.push(

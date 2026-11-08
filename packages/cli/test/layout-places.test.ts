@@ -33,6 +33,19 @@ function scratch(): string {
   return mkdtempSync(join(tmpdir(), "texteda-places-only-"));
 }
 
+/**
+ * Copy the reference project into a scratch directory.
+ *
+ * `dist/` is left out: it holds derived artifacts (the IR shard tree, the write backups), and a
+ * copy that carries an old backup cannot say what a write did or did not write.
+ */
+function copyProject(dir: string): void {
+  cpSync(REFERENCE, dir, {
+    recursive: true,
+    filter: (source) => relative(REFERENCE, source) !== "dist",
+  });
+}
+
 
 function content(root: string, relativePath: string): string {
   return readFileSync(join(root, relativePath), "utf8");
@@ -107,7 +120,7 @@ function expectU1At150(text: string, file: string): void {
 describe("layout-places: the places-only write path", () => {
   test("only the place row changes, and only that row", () => {
     const dir = scratch();
-    cpSync(REFERENCE, dir, { recursive: true });
+    copyProject(dir);
     const file = pageFile("charger-buck", "buck-5v");
     const before = content(dir, file);
 
@@ -144,7 +157,7 @@ describe("layout-places: the places-only write path", () => {
 
   test("only the page file in the project changes", () => {
     const dir = scratch();
-    cpSync(REFERENCE, dir, { recursive: true });
+    copyProject(dir);
     const before = new Map(allFiles(dir).map((path) => [path, readFileSync(path, "utf8")]));
 
     applyPlaces(dir, REQUEST);
@@ -157,7 +170,7 @@ describe("layout-places: the places-only write path", () => {
 
   test("the bytes the write replaced are kept, so a wrong move can be put back", () => {
     const dir = scratch();
-    cpSync(REFERENCE, dir, { recursive: true });
+    copyProject(dir);
     const file = pageFile("charger-buck", "buck-5v");
     const before = content(dir, file);
     const backup = join(dir, "dist", "backups", file);
@@ -173,7 +186,7 @@ describe("layout-places: the places-only write path", () => {
 
   test("a second write backs up the first write's result, not the original", () => {
     const dir = scratch();
-    cpSync(REFERENCE, dir, { recursive: true });
+    copyProject(dir);
     const file = pageFile("charger-buck", "buck-5v");
     const backup = join(dir, "dist", "backups", file);
 
@@ -192,7 +205,7 @@ describe("layout-places: the places-only write path", () => {
 
   test("a write that changes nothing leaves no backup behind", () => {
     const dir = scratch();
-    cpSync(REFERENCE, dir, { recursive: true });
+    copyProject(dir);
     const file = pageFile("charger-buck", "buck-5v");
     const before = content(dir, file);
 
@@ -215,7 +228,7 @@ describe("layout-places: the places-only write path", () => {
 
   test("the written bytes are the formatter's", () => {
     const dir = scratch();
-    cpSync(REFERENCE, dir, { recursive: true });
+    copyProject(dir);
     applyPlaces(dir, REQUEST);
     const written = content(dir, pageFile("charger-buck", "buck-5v"));
 
@@ -226,7 +239,7 @@ describe("layout-places: the places-only write path", () => {
 
   test("the nets whose wires went stale are reported, not re-anchored", () => {
     const dir = scratch();
-    cpSync(REFERENCE, dir, { recursive: true });
+    copyProject(dir);
 
     // The findings the page already has: the staleness that appears after the move is the move's,
     // not the page's own.
@@ -237,7 +250,7 @@ describe("layout-places: the places-only write path", () => {
 
     const outcome = applyPlaces(dir, REQUEST);
     expect(outcome.changed).toBe(true);
-    expect(outcome.stale).toEqual(["GND", "M2.BOOT", "M2.PH", "SYS"]);
+    expect(outcome.stale).toEqual(["GND", "M2.BOOT", "M2.PH", "M2.VFB", "SYS"]);
 
     // the project's own check sees the same nets, through the same entry point check.ts uses
     const findings = checkProject(dir).diagnostics.filter(staleCodes);
@@ -251,7 +264,7 @@ describe("layout-places: the places-only write path", () => {
 
   test("a plan writes nothing, and carries the drawing of the page as the file says it is", () => {
     const dir = scratch();
-    cpSync(REFERENCE, dir, { recursive: true });
+    copyProject(dir);
     const file = pageFile("charger-buck", "buck-5v");
     const before = content(dir, file);
 
@@ -265,20 +278,20 @@ describe("layout-places: the places-only write path", () => {
 
   test("a request that carries the editor's text keeps it", () => {
     const dir = scratch();
-    cpSync(REFERENCE, dir, { recursive: true });
+    copyProject(dir);
     const file = pageFile("charger-buck", "buck-5v");
     const before = content(dir, file);
-    const draft = before.replace("# TPS5430 5V/3A buck print page.", "# TPS5430 5V/3A buck print page (edited).");
+    const draft = before.replace("Every net of this module is drawn here", "Every net of this module is drawn here (edited)");
 
     const plan = planPlaces(dir, { ...REQUEST, text: draft });
     expect(plan.changed).toBe(true);
-    expect(plan.text).toContain("(edited).");
+    expect(plan.text).toContain("(edited)");
     expectU1At150(plan.text, file);
   });
 
   test("a request that moves nothing writes nothing", () => {
     const dir = scratch();
-    cpSync(REFERENCE, dir, { recursive: true });
+    copyProject(dir);
     const file = pageFile("charger-buck", "buck-5v");
     const before = content(dir, file);
 
@@ -290,7 +303,7 @@ describe("layout-places: the places-only write path", () => {
 
   test("a rotation that is not a right angle is refused with the layout path's own words", () => {
     const dir = scratch();
-    cpSync(REFERENCE, dir, { recursive: true });
+    copyProject(dir);
     const file = pageFile("charger-buck", "buck-5v");
     const before = content(dir, file);
 
@@ -309,7 +322,7 @@ describe("layout-places: the places-only write path", () => {
 
   test("a placement the page does not have is refused with the layout path's own words", () => {
     const dir = scratch();
-    cpSync(REFERENCE, dir, { recursive: true });
+    copyProject(dir);
     const file = pageFile("charger-buck", "buck-5v");
     const before = content(dir, file);
 

@@ -3,7 +3,7 @@
   "shards": [
     {
       "path": "boards/divider-network/schematic.json",
-      "sha256": "cb45dffe44007519362499748eabc15ad630d8295550da47f89e122cd80d023d",
+      "sha256": "2cf90d08f85e9a3c4798a59e13ffb3e642500fead09bcbd3ef3219b398a17d83",
       "normative": true
     },
     {
@@ -18,7 +18,7 @@
     },
     {
       "path": "project.json",
-      "sha256": "694709024132f47c373ca955784020ebabf30098e1c3d7442a3028b582e4e978",
+      "sha256": "31fa46537859c99118c4fcc251ae8bf071c2e4294afe993ba4f353b7b5ee1473",
       "normative": true
     },
     {
@@ -27,5 +27,5 @@
       "normative": true
     }
   ],
-  "source_hash": "6e3631ffe2d71f245441ce632c46cc9edbfc7c35bc39d26fcab0c2d4850cd626"
+  "source_hash": "dd4ccf17265274de6410d9044bb4152f37744834d0552f13a37ad90b63452a16"
 }

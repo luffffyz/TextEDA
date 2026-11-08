@@ -11,6 +11,7 @@ import type { SourceMap, Span } from "@texteda/ir/spans";
 import { byteCompare, naturalCompare } from "@texteda/ir/order";
 import { parseAngleMdeg, parseLengthNm } from "./units.ts";
 import { checkVersion, typeRange } from "./version.ts";
+import { type TupleShape, readTupleCells, shapeFor } from "./tuple.ts";
 import { REV_RE } from "./ids.ts";
 
 export const SYMBOL_SECTIONS = new Set(["pins", "body"]);
@@ -60,8 +61,8 @@ type Field = NonNullable<SymbolBody["fields"]>[number];
 class Collector {
   readonly diagnostics: Diagnostic[] = [];
 
-  error(file: string, line: number, col: number, code: DiagnosticCodeId, message: string): void {
-    this.diagnostics.push({ code, severity: "error", message, location: { file, line, col } });
+  error(file: string, line: number, col: number, code: DiagnosticCodeId, message: string, extra?: { hint?: string }): void {
+    this.diagnostics.push({ code, severity: "error", message, location: { file, line, col }, ...(extra?.hint === undefined ? {} : { hint: extra.hint }) });
   }
 
   get hasError(): boolean {
@@ -97,17 +98,46 @@ function readKeyValues(
   }
 }
 
-function readLengthList(
-  text: string,
+/**
+ * Read the components of one `[a,b,…]` geometry cell (ADR-0065 D3): symbol body geometry is one cell
+ * holding every component, so the arity is checked against what that kind needs.
+ */
+function readGeometry(
+  cell: Cell,
+  shape: TupleShape,
   file: string,
   line: number,
+  collector: Collector,
+): number[] | null {
+  const parts = readTupleCells(cell, shape, file, line, (diagnostic) => collector.diagnostics.push(diagnostic), "value.graphic-invalid");
+  if (parts === null) return null;
+  const values: number[] = [];
+  for (const part of parts) {
+    const parsed = parseLengthNm(part.text, file, line, part.col, "mm", "value.graphic-invalid");
+    if (!parsed.ok) {
+      collector.diagnostics.push(parsed.diagnostic);
+      return null;
+    }
+    values.push(parsed.value);
+  }
+  return values;
+}
+
+/** Length components inside a `key=value` cell: `at=[-6.5,20]` (ADR-0065 D3). */
+function readKeyTuple(
+  text: string,
   col: number,
+  shape: TupleShape,
+  file: string,
+  line: number,
   code: DiagnosticCodeId,
   collector: Collector,
 ): number[] | null {
+  const parts = readTupleCells({ text, col, byte: 0 }, shape, file, line, (diagnostic) => collector.diagnostics.push(diagnostic), code);
+  if (parts === null) return null;
   const values: number[] = [];
-  for (const part of text.split(",")) {
-    const parsed = parseLengthNm(part, file, line, col, "mm", code);
+  for (const part of parts) {
+    const parsed = parseLengthNm(part.text, file, line, part.col, "mm", code);
     if (!parsed.ok) {
       collector.diagnostics.push(parsed.diagnostic);
       return null;
@@ -137,28 +167,19 @@ function parsePinRow(
   units: number,
   collector: Collector,
 ): Pin | null {
-  if (cells.length < 4) {
-    collector.error(file, line, cells[0]?.col ?? 1, "syntax.row-too-short", "a pins row needs at least 4 columns: number x y rot");
+  if (cells.length < 3) {
+    collector.error(file, line, cells[0]?.col ?? 1, "syntax.row-too-short", "a pins row needs at least 3 columns: number [x,y] rot");
     return null;
   }
   const firstCell = cells[0]!;
   const number = cells[0]!;
-  const x = cells[1]!;
-  const y = cells[2]!;
-  const rot = cells[3]!;
+  const rot = cells[2]!;
   if (!PIN_NUMBER_RE.test(number.text)) {
     collector.error(file, line, number.col, "value.pin-number-invalid", `invalid pin number: ${number.text}`);
     return null;
   }
-  const positions: number[] = [];
-  for (const cell of [x, y]) {
-    const parsed = parseLengthNm(cell.text, file, line, cell.col, "mm", "value.pin-geometry-invalid");
-    if (!parsed.ok) {
-      collector.diagnostics.push(parsed.diagnostic);
-      return null;
-    }
-    positions.push(parsed.value);
-  }
+  const positions = readKeyTuple(cells[1]!.text, cells[1]!.col, { noun: "pin connection point", components: ["x", "y"] }, file, line, "value.pin-geometry-invalid", collector);
+  if (positions === null) return null;
   const parsedRot = parseAngleMdeg(rot.text, file, line, rot.col, "deg", "value.pin-geometry-invalid");
   if (!parsedRot.ok) {
     collector.diagnostics.push(parsedRot.diagnostic);
@@ -166,12 +187,12 @@ function parsePinRow(
   }
 
   const kv = new Map<string, string>();
-  readKeyValues(cells.slice(4), SYMBOL_PIN_KEYS, file, line, kv, collector);
+  readKeyValues(cells.slice(3), SYMBOL_PIN_KEYS, file, line, kv, collector);
 
   const pin: Pin = {
     number: number.text,
     at: { x_nm: positions[0]!, y_nm: positions[1]!, rotation_mdeg: parsedRot.value },
-    length_nm: 2540000,
+    length_nm: 2500000,
     unit: 1,
     style: "line",
   };
@@ -206,7 +227,7 @@ function parseBodyRow(
   collector: Collector,
 ): BodyItem | null {
   if (cells.length < 2) {
-    collector.error(file, line, cells[0]?.col ?? 1, "syntax.row-too-short", "a body row needs at least 2 columns: kind geometry");
+    collector.error(file, line, cells[0]?.col ?? 1, "syntax.row-too-short", "a body row needs at least 2 columns: kind [geometry]");
     return null;
   }
   const kindCell = cells[0]!;
@@ -215,7 +236,15 @@ function parseBodyRow(
     collector.error(file, line, kindCell.col, "value.graphic-invalid", `unknown graphic kind: ${kindCell.text}`);
     return null;
   }
-  const values = readLengthList(geometryCell.text, file, line, geometryCell.col, "value.graphic-invalid", collector);
+  const shape =
+    kindCell.text === "line" || kindCell.text === "rect"
+      ? shapeFor(`${kindCell.text} geometry`, ["x1", "y1", "x2", "y2"])
+      : kindCell.text === "circle"
+        ? shapeFor("circle geometry", ["cx", "cy", "r"])
+        : kindCell.text === "arc"
+          ? shapeFor("arc geometry", ["x1", "y1", "xm", "ym", "x2", "y2"])
+          : shapeFor("poly geometry", ["x", "y"], true);
+  const values = readGeometry(geometryCell, shape, file, line, collector);
   if (values === null) return null;
 
   const item: BodyItem = { kind: kindCell.text as BodyItem["kind"], unit: 1 };
@@ -360,7 +389,10 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
   const version = versionLine.cells[1]!.text;
   const verdict = checkVersion(version, VERSION_RANGE, "symbol");
   if (!verdict.ok) {
-    collector.error(file, versionLine.number, versionLine.cells[1]!.col, verdict.code, verdict.message);
+    collector.error(file, versionLine.number, versionLine.cells[1]!.col, verdict.code, verdict.message, {
+      ...(verdict.hint === undefined ? {} : { hint: verdict.hint }),
+    });
+    return { ok: false, diagnostics: collector.diagnostics };
   }
 
   const typeLine = nextMeaningful();
@@ -527,14 +559,14 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
           const field: Field = { name: fieldName, value: trailing(cursor) };
           const at = kv.get("at");
           if (at !== undefined) {
-            const values = readLengthList(at, file, line.number, rest[0]!.col, "library.field-invalid", collector);
+            const values = readKeyTuple(at, rest[0]!.col, { noun: "field position", components: ["x", "y"] }, file, line.number, "library.field-invalid", collector);
             if (values && values.length === 2) field.at = { x_nm: values[0]!, y_nm: values[1]! };
           }
           const hide = kv.get("hide");
           if (hide !== undefined) field.hide = hide === "yes" || hide === "true";
           const size = kv.get("size");
           if (size !== undefined) {
-            const values = readLengthList(size, file, line.number, rest[0]!.col, "library.field-invalid", collector);
+            const values = readKeyTuple(size, rest[0]!.col, { noun: "field size", components: ["w", "h"] }, file, line.number, "library.field-invalid", collector);
             if (values && values.length === 2) {
               field.effects = { width_nm: values[0]!, height_nm: values[1]! };
             }

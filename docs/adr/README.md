@@ -10,7 +10,7 @@ One flat counter, handed out in the order the records are written, starting at
 `0001`. A number names one record and nothing else: what a record is about is said by
 its folder, not by its number. A number is **never changed and never reused** — a link
 to `ADR-0006` names the same decision forever — so a new record takes the next free
-number and disturbs nothing that already exists. The next free number is `0065`.
+number and disturbs nothing that already exists. The next free number is `0066`.
 The sequence is not contiguous; gaps are normal.
 
 ## Retired
@@ -46,6 +46,7 @@ that was meant for it, and by nothing else.
 | [ADR-0002](01-language/0002-one-language-version-number.md) | One Language Version Number | Accepted | 2026-10-27 |
 | [ADR-0003](01-language/0003-diagnostic-error-codes.md) | Diagnostic Error Code Registry (`domain.slug`) | Accepted | 2026-10-21 |
 | [ADR-0004](01-language/0004-source-spans.md) | Source Spans — Diagnostics Point at the File, the IR Stays Clean | Accepted | 2026-10-22 |
+| [ADR-0065](01-language/0065-a-coordinate-tuple-is-one-cell.md) | A Coordinate Tuple Is One Cell | Accepted | 2026-11-08 |
 
 ## IR
 

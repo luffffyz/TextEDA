@@ -3,7 +3,7 @@
   "shards": [
     {
       "path": "boards/power-domains/schematic.json",
-      "sha256": "c821906d7cca7400e353c39a28681fb4b5d0140815b0d4435d41e19d83bc5e8b",
+      "sha256": "f89dcb8e9c5f7a28ee5be3fb6827d101d2d3bbbc47e0a69f275792a47a0078ee",
       "normative": true
     },
     {
@@ -33,7 +33,7 @@
     },
     {
       "path": "project.json",
-      "sha256": "00628473f10b95be9523c821e3a269ca00ba3906be5ea37aed27f65325b90e92",
+      "sha256": "beb19b58dbe06ab508109705dd57ce1fead0bd39e5c84c77c2ee2df3074bf63e",
       "normative": true
     },
     {
@@ -52,5 +52,5 @@
       "normative": true
     }
   ],
-  "source_hash": "82459ebbfb95a1b26ad16daf1363d8361a8d19515dac6998e558f1d6733e748c"
+  "source_hash": "8692e48bcef6c4aaa942d7ef629550b690fa82d145fb3c43fb4a257819f1b132"
 }

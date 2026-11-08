@@ -3,7 +3,7 @@
   "shards": [
     {
       "path": "boards/multi-unit/schematic.json",
-      "sha256": "521f48ea5a3ef2b1cd1c28f5b5b3e0bc809b4518ad078e215f8cb5e8a6c38593",
+      "sha256": "c022b608e71882c48bafd0c0c25ef3ee21213b3f41f7a2ff7ecf4c2596a46250",
       "normative": true
     },
     {
@@ -33,7 +33,7 @@
     },
     {
       "path": "project.json",
-      "sha256": "4ca6620502e1ba8319b282ff8fe8f3a0ee7f435aa09b8dc8e3d8f663ccdf393d",
+      "sha256": "aa7efd07e4ace3ebcec229143f5ee8488634666667fd8a1aaa1c3debaf1fad6c",
       "normative": true
     },
     {
@@ -47,5 +47,5 @@
       "normative": true
     }
   ],
-  "source_hash": "ea3e00c800f076708742fdc4cf6b73d7c9f24713b07cca3ccd8dc75ed0347c5a"
+  "source_hash": "f7bc4592ada86373fd185856681525416134e683e47f3bc0f108f6af0e105126"
 }

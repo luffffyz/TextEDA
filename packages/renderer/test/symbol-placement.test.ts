@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { strokeWidthFor, textStrokes } from "@texteda/core/font";
-import { renderSymbol, validateDoc, type SvgText, type SymbolBody } from "../src/index.ts";
+import { renderSymbol, toSvgText, validateDoc, type SvgText, type SymbolBody } from "../src/index.ts";
 type TextGeometry = Pick<SvgText, "text" | "x" | "y" | "sizeNm" | "anchor" | "rotateMdeg">;
 
 interface PaintedTextBounds {
@@ -41,7 +41,7 @@ function paintedTextBounds(label: TextGeometry): PaintedTextBounds {
 
 
 describe("symbol pin-number placement", () => {
-  test("numbers keep 0.20 mm painted clearance from pin lines and body bounds", () => {
+  test("numbers keep 0.50 mm painted clearance from pin lines and body bounds", () => {
     const pin = (
       number: string,
       x_nm: number,
@@ -83,44 +83,43 @@ describe("symbol pin-number placement", () => {
     expect(validateDoc(doc)).toEqual([]);
     const labels = doc.primitives.flatMap((primitive) => {
       if (primitive.kind !== "text" || primitive.role !== "pinNumber") return [];
-      return [
-        {
-          text: primitive.text,
-          pin: primitive.pin,
-          x: primitive.x,
-          y: primitive.y,
-          anchor: primitive.anchor,
-        },
-      ];
+      return [{
+        text: primitive.text,
+        pin: primitive.pin,
+        x: primitive.x,
+        y: primitive.y,
+        sizeNm: primitive.sizeNm,
+        anchor: primitive.anchor,
+        rotateMdeg: primitive.rotateMdeg ?? 0,
+      }];
     });
-    expect(labels).toEqual([
-      { text: "1", pin: "1", x: 1_992_262, y: 898_500, anchor: "middle" },
-      { text: "2", pin: "2", x: 8_177_071, y: 898_500, anchor: "middle" },
-      { text: "3", pin: "3", x: 5_590_071, y: -3_485_500, anchor: "middle" },
-      { text: "24", pin: "24", x: 6_098_071, y: 3_485_500, anchor: "middle" },
+    expect(labels.map((label) => ({
+      text: label.text,
+      pin: label.pin,
+      x: label.x,
+      y: label.y,
+      anchor: label.anchor,
+      rotateMdeg: label.rotateMdeg,
+    }))).toEqual([
+      { text: "1", pin: "1", x: 1_692_262, y: 1_198_500, anchor: "middle", rotateMdeg: 0 },
+      { text: "2", pin: "2", x: 8_477_071, y: 1_198_500, anchor: "middle", rotateMdeg: 0 },
+      { text: "3", pin: "3", x: 6_198_500, y: -3_670_595, anchor: "middle", rotateMdeg: 90_000 },
+      { text: "24", pin: "24", x: 6_198_500, y: 3_985_071, anchor: "middle", rotateMdeg: 90_000 },
     ]);
 
-    const halfStroke = strokeWidthFor(1_270_000) / 2;
     const body = { minX: 2_413_000, minY: -2_587_000, maxX: 7_587_000, maxY: 2_587_000 };
     for (const label of labels) {
       const pin = symbol.pins.find((candidate) => candidate.number === label.pin)!;
-      const strokes = textStrokes(label.text, {
-        x: label.x,
-        y: label.y,
-        sizeNm: 1_270_000,
-        anchor: "middle",
-        yDown: false,
-      });
-      const points = strokes.flatMap((stroke) => stroke.points);
-      const minX = Math.min(...points.map((point) => point.x)) - halfStroke;
-      const maxX = Math.max(...points.map((point) => point.x)) + halfStroke;
-      const minY = Math.min(...points.map((point) => point.y)) - halfStroke;
-      const maxY = Math.max(...points.map((point) => point.y)) + halfStroke;
+      const bounds = paintedTextBounds(label);
+      const minX = bounds.left;
+      const maxX = bounds.right;
+      const minY = bounds.bottom;
+      const maxY = bounds.top;
       const horizontal = (pin.at.rotation_mdeg ?? 0) % 180_000 === 0;
       const pinLineGap = horizontal
         ? minY - pin.at.y_nm
         : minX - pin.at.x_nm;
-      expect(pinLineGap).toBe(200_000);
+      expect(pinLineGap).toBe(500_000);
 
       const bodyGap = horizontal
         ? pin.at.rotation_mdeg === 0
@@ -129,14 +128,64 @@ describe("symbol pin-number placement", () => {
         : pin.at.rotation_mdeg === 90_000
           ? body.minY - maxY
           : minY - body.maxY;
-      expect(bodyGap).toBe(200_000);
+      expect(bodyGap).toBe(500_000);
     }
 
     const bodyless = renderSymbol({ ...symbol, body: [] }, { pins: [] });
     const fallback = bodyless.primitives.find(
       (primitive) => primitive.kind === "text" && primitive.role === "pinNumber" && primitive.pin === "1",
     );
-    expect(fallback).toMatchObject({ kind: "text", x: 1_340_000, y: 898_500, anchor: "middle" });
+    expect(fallback).toMatchObject({ kind: "text", x: 1_340_000, y: 1_198_500, anchor: "middle" });
+  });
+  test("C- and R-like bodies keep pin numbers outside the painted body", () => {
+    const pin = (number: string, x_nm: number): SymbolBody["pins"][number] => ({
+      number,
+      at: { x_nm, y_nm: 0, rotation_mdeg: x_nm < 0 ? 0 : 180_000 },
+      length_nm: 1_500_000,
+      unit: 1,
+      style: "line",
+    });
+    const base = {
+      library: "test",
+      name: "passive",
+      units: 1,
+      pin_numbers_hidden: true,
+      pin_names_hidden: true,
+      power: false,
+      in_bom: true,
+      on_board: true,
+      pins: [pin("1", -4_000_000), pin("2", 4_000_000)],
+    } satisfies Omit<SymbolBody, "body">;
+    const cases: Array<{ name: string; body: NonNullable<SymbolBody["body"]> }> = [
+      {
+        name: "capacitor",
+        body: [
+          { kind: "line", start: { x_nm: -1_000_000, y_nm: -1_500_000 }, end: { x_nm: -1_000_000, y_nm: 1_500_000 }, width_nm: 250_000, unit: 1 },
+          { kind: "line", start: { x_nm: 1_000_000, y_nm: -1_500_000 }, end: { x_nm: 1_000_000, y_nm: 1_500_000 }, width_nm: 250_000, unit: 1 },
+        ],
+      },
+      {
+        name: "resistor",
+        body: [{ kind: "rect", start: { x_nm: -2_500_000, y_nm: -1_000_000 }, end: { x_nm: 2_500_000, y_nm: 1_000_000 }, width_nm: 250_000, unit: 1 }],
+      },
+    ];
+
+    for (const candidate of cases) {
+      const doc = renderSymbol({ ...base, name: candidate.name, body: candidate.body }, { pins: [] });
+      expect(validateDoc(doc)).toEqual([]);
+      const labels = doc.primitives.filter(
+        (primitive): primitive is SvgText => primitive.kind === "text" && primitive.role === "pinNumber",
+      );
+      expect(labels).toHaveLength(2);
+      const bodyMinX = candidate.name === "capacitor" ? -1_125_000 : -2_625_000;
+      const bodyMaxX = -bodyMinX;
+      for (const label of labels) {
+        const bounds = paintedTextBounds(label);
+        const bodyGap = label.pin === "1" ? bodyMinX - bounds.right : bounds.left - bodyMaxX;
+        expect(bodyGap).toBe(500_000);
+        expect(bounds.bottom).toBe(500_000);
+      }
+    }
   });
   test("body frame includes circular arc extrema beyond authored points", () => {
     const symbol = {
@@ -183,7 +232,7 @@ describe("symbol pin-number placement", () => {
       yDown: false,
     }).flatMap((stroke) => stroke.points);
     const rightInk = Math.max(...points.map((point) => point.x)) + strokeWidthFor(1_270_000) / 2;
-    expect(-1_100_000 - rightInk).toBe(200_000);
+    expect(-1_100_000 - rightInk).toBe(500_000);
   });
   test("pin names keep 0.40 mm painted clearance from the inner body frame", () => {
     const symbol = {
@@ -289,6 +338,51 @@ describe("symbol pin-number placement", () => {
     expect(bodyless.primitives.find(
       (primitive) => primitive.kind === "text" && primitive.role === "pinName" && primitive.pin === "1",
     )).toMatchObject({ kind: "text", x: 1_600_000, y: 0, anchor: "start" });
+  });
+  test("keeps hidden pin numbers in SVG geometry for transient overlays", () => {
+    const symbol = {
+      library: "test",
+      name: "hidden-numbers",
+      units: 1,
+      pin_numbers_hidden: true,
+      pin_names_hidden: true,
+      power: false,
+      in_bom: true,
+      on_board: true,
+      pins: [
+        {
+          number: "1",
+          at: { x_nm: -4_000_000, y_nm: 0, rotation_mdeg: 0 },
+          length_nm: 3_000_000,
+          unit: 1,
+          style: "line",
+        },
+        {
+          number: "2",
+          at: { x_nm: 4_000_000, y_nm: 0, rotation_mdeg: 180_000 },
+          length_nm: 3_000_000,
+          unit: 1,
+          style: "line",
+        },
+      ],
+      body: [
+        {
+          kind: "rect",
+          start: { x_nm: -1_000_000, y_nm: -1_500_000 },
+          end: { x_nm: 1_000_000, y_nm: 1_500_000 },
+          width_nm: 250_000,
+          unit: 1,
+        },
+      ],
+    } satisfies SymbolBody;
+    const doc = renderSymbol(symbol, { pins: [] });
+    const numbers = doc.primitives.filter(
+      (primitive) => primitive.kind === "text" && primitive.role === "pinNumber",
+    );
+    expect(numbers).toHaveLength(2);
+    expect(numbers.every((primitive) => primitive.kind === "text" && primitive.hidden)).toBe(true);
+    expect(toSvgText(doc)).toContain('<g display="none"><title>1</title>');
+    expect(toSvgText(doc)).toContain('<g display="none"><title>2</title>');
   });
   test("always rotates visible-body vertical names toward the pin-facing side", () => {
     const pin = (number: string, x_nm: number, y_nm: number, rotation_mdeg: number): SymbolBody["pins"][number] => ({

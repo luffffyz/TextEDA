@@ -23,11 +23,11 @@
 ## 1. 文件头
 
 ```
-version 0.9.2
+version 0.11.0
 footprint sot-23-5
 ```
 
-- 版本行、类型行规则同 `teda.md` §5。版本行写的是**语言版本**（全语言一个号），不是 `footprint` 这一类描述自己的号。`footprint` 的版本下界是 `0.4`（该类型由 0.4 引入；`package_code` 标量由 0.4.1 引入）；上界是语言当前版本。接受规则见 `teda.md` §13.3。
+- 版本行、类型行规则同 `teda.md` §5。版本行写的是**语言版本**（全语言一个号），不是 `footprint` 这一类描述自己的号。`footprint` 的 reader 下界是 `0.11`：该类型于 0.4 引入，`package_code` 标量于 0.4.1 引入，0.11 的坐标元组改写要求 reader 拒绝旧表面。上界是语言当前版本；接受规则见 `teda.md` §13.3。
 - 文件名必须等于类型行里的 id：`assets/footprints/<lib>/<footprint_id>.teda` ↔ `footprint sot-23-5`。
 - `footprint_id` 允许 `[A-Za-z0-9_.+-]+`（比 `component_id` 宽：库里的封装名常带大写与下划线，如 `R_0402_1005Metric`）。
 
@@ -44,8 +44,8 @@ footprint sot-23-5
 | `tags` | 否 | 空格分隔的标签列表（KiCad 的 `tags` 是一个空格分隔的字符串）。 |
 | `attr` | 否 | `smd` / `through_hole` / `virtual` / `board_only`；缺省按焊盘推断（全 `smd` → `smd`）。 |
 | `package_code` | 否 | 这块焊盘图案的封装代号，如 `0402`、`SOT-23-5`、`LQFP-100`。器件文件不再写封装名，封装代号由这里说（决策见 [ADR-0028](../docs/adr/07-devices/0028-package-code-and-3d-models.md) decision 1）。库级检查要求每个封装都写明自己的代号。**两脚片式封装写 JEDEC（英制）代号**：`0402`，不写 IEC 公制 `1005` —— 同一个封装的两种拼法是两个代号，而工具按代号查表（片式电阻的功率底线按 `0402` 这类代号给，[ADR-0027](../docs/adr/07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md) D3）；写公制不报错，但那条底线就查不到，实例会被计成未比较。 |
-| `model` | 否 | 3D 模型：`model <path> [offset=x,y,z] [scale=x,y,z] [rot=x,y,z]`。`path` 是项目相对路径。 |
-| `field` | 否 | 属性，可重复：`field <Name> [key=value …] <text…>`。可选键：`at`（`x,y`）、`layer`、`hide`（`yes`）、`size`（`w,h`）、`thickness`。`text` 是**行尾剩余文本**（可为空），所以 `key=value` 必须写在值之前。常见 `Reference` / `Value` / `Datasheet`。 |
+| `model` | 否 | 3D 模型：`model <path> [offset=[x,y,z]] [scale=[x,y,z]] [rot=[x,y,z]]`。`path` 是项目相对路径。 |
+| `field` | 否 | 属性，可重复：`field <Name> [key=value …] <text…>`。可选键：`at`（`[x,y]`）、`layer`、`hide`（`yes`）、`size`（`[w,h]`）、`thickness`。`text` 是**行尾剩余文本**（可为空），所以 `key=value` 必须写在值之前。常见 `Reference` / `Value` / `Datasheet`。 |
 
 顺序无关，canonical form 固定为 `description` → `tags` → `attr` → `package_code` → `model` → `field`（按 `Name` 排序）。
 
@@ -64,20 +64,20 @@ footprint sot-23-5
 
 ```
 pads
-  1  smd  roundrect  -0.95  0.95  1.1  0.6  rratio=0.25
-  2  smd  roundrect  -0.95  0     1.1  0.6  rratio=0.25
-  9  th   circle     0      0     1.6  1.6  drill=1.0
+  1  smd  roundrect  [-0.95,0.95]    [1.1,0.6]  rratio=0.25
+  2  smd  roundrect  [-0.95,0]       [1.1,0.6]  rratio=0.25
+  9  th   circle     [0,0]          [1.6,1.6]  drill=1.0
 ```
 
-固定列：`number type shape x y w h`。
+固定列：`number type shape point size`，`point` 与 `size` 都是 `[x,y]`。
 
 | 列 | 取值 | 单位 |
 |---|---|---|
 | `number` | 焊盘号，必须与符号引脚编号一致（[ADR-0030](../docs/adr/08-libraries/0030-footprint-format-and-geometry.md) decision 7） | — |
 | `type` | `smd` / `th` | — |
 | `shape` | `rect` / `roundrect` / `oval` / `circle` | — |
-| `x` `y` | 焊盘中心，原点在封装中心，+x 向右、+y 向下 | 长度 |
-| `w` `h` | 焊盘尺寸 | 长度 |
+| `point` | 焊盘中心 `[x,y]`，原点在封装中心，+x 向右、+y 向下 | 长度 |
+| `size` | 焊盘尺寸 `[w,h]` | 长度 |
 
 可选尾列（`key=value`，顺序任意，多余的键报错）：
 
@@ -104,20 +104,20 @@ pads
 
 ```
 graphics
-  rect  F.CrtYd  -1.65,-1.2,1.65,1.2  width=0.05
-  line  F.SilkS  -2.1,0.95,-1.6,0.95   width=0.12
-  circle F.Fab   0,0,1.0              width=0.1  fill=none
+  rect    F.CrtYd  [-1.65,-1.2,1.65,1.2]  width=0.05
+  line    F.SilkS  [-2.1,0.95,-1.6,0.95]   width=0.12
+  circle  F.Fab    [0,0,1.0]               width=0.1  fill=none
 ```
 
-固定列：`kind layer geometry`。
+固定列：`kind layer geometry`。`geometry` 是**一个** `[…]` 单元格：
 
 | `kind` | `geometry` 单元格 | 说明 |
 |---|---|---|
-| `line` | `x1,y1,x2,y2` | 直线 |
-| `rect` | `x1,y1,x2,y2` | 矩形（对角两点） |
-| `circle` | `cx,cy,r` | 圆 |
-| `arc` | `x1,y1,xm,ym,x2,y2` | 圆弧（起点、中点、终点） |
-| `poly` | `x1,y1,x2,y2,…` | 闭合多边形，点数 ≥ 3 |
+| `line` | `[x1,y1,x2,y2]` | 直线 |
+| `rect` | `[x1,y1,x2,y2]` | 矩形（对角两点） |
+| `circle` | `[cx,cy,r]` | 圆 |
+| `arc` | `[x1,y1,xm,ym,x2,y2]` | 圆弧（起点、中点、终点） |
+| `poly` | `[x1,y1,x2,y2,…]` | 闭合多边形，点数 ≥ 3 |
 
 可选尾列：`width`（线宽；缺省或 `0` 用层默认）、`fill`（`solid` / `none`，仅 `rect`/`circle`/`poly`）。
 
@@ -158,7 +158,7 @@ graphics
 2. 段顺序：`pads` → `graphics`；段之间一个空行。
 3. `pads` 行按 `number` **自然序**（`2` 在 `10` 前）；`graphics` 行按 `(kind, layer, geometry)` 字典序。
 4. 布局：
-   - 表段（`pads`、`graphics`）按列对齐：同段内按最宽单元格补齐，列间至少两个空格；尾列 `key=value` 也按位置成列对齐。
+   - 表段（`pads`、`graphics`）按列对齐：同段内按最宽单元格补齐，列间至少两个空格；尾列 `key=value` 也按位置成列对齐。`point` / `size` / `geometry` 每项都是**一个** `[x,y]`（或更多分量）单元格（`teda.md` §4.3、[ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md)），按单元格对齐，括号内不写空格。
    - 标量行（含 `field`）是"键 + 值"，不做列对齐：单元格之间（含尾列）**一个**空格。
 5. 数值由边界整数反推成列默认单位，**省略单位**：长度 mm（最多 6 位小数）、角度度（最多 3 位）、比例十进制（最多 6 位），去尾零。源里的 `mil` / `in` / `m` 换算成 mm 写出（`10mil` → `0.254`）；显式写 `mm` 也合法，canonical 统一省略——与 `teda.md` §10.2「列类型提供单位时，值可省略单位」一致。
 6. 尾列 `key=value` 按键名 ASCII 字节序排序。
@@ -176,28 +176,28 @@ graphics
 `examples/reference-project/footprints/project/sot-23-5.teda`（即 canonical form；`bun run fmt:teda --check examples/reference-project/footprints` 退出 0）：
 
 ```
-version 0.9.2
+version 0.11.0
 footprint sot-23-5
 
 description SOT-23-5 body 2.9x1.6mm pitch 0.95mm (generic land pattern)
 tags SOT-23 SOT-23-5
 attr smd
 package_code SOT-23-5
-field Reference at=0,-2 layer=F.SilkS size=1,1 thickness=0.15 REF**
-field Value at=0,2 layer=F.Fab size=1,1 thickness=0.15 SOT-23-5
+field Reference at=[0,-2] layer=F.SilkS size=[1,1] thickness=0.15 REF**
+field Value at=[0,2] layer=F.Fab size=[1,1] thickness=0.15 SOT-23-5
 
 pads
-  1  smd  roundrect  -0.95  0.95    1.1  0.6  rratio=0.25
-  2  smd  roundrect  -0.95  0       1.1  0.6  rratio=0.25
-  3  smd  roundrect  -0.95  -0.95   1.1  0.6  rratio=0.25
-  4  smd  roundrect  0.95   -0.475  1.1  0.6  rratio=0.25
-  5  smd  roundrect  0.95   0.475   1.1  0.6  rratio=0.25
+  1  smd  roundrect  [-0.95,0.95]    [1.1,0.6]  rratio=0.25
+  2  smd  roundrect  [-0.95,0]       [1.1,0.6]  rratio=0.25
+  3  smd  roundrect  [-0.95,-0.95]   [1.1,0.6]  rratio=0.25
+  4  smd  roundrect  [0.95,-0.475]   [1.1,0.6]  rratio=0.25
+  5  smd  roundrect  [0.95,0.475]    [1.1,0.6]  rratio=0.25
 
 graphics
-  line  F.SilkS  -2.1,-0.95,-1.6,-0.95  width=0.12
-  line  F.SilkS  -2.1,0.95,-1.6,0.95    width=0.12
-  rect  F.CrtYd  -1.65,-1.2,1.65,1.2    width=0.05
-  rect  F.Fab    -1.45,-0.8,1.45,0.8    width=0.1
+  line    F.SilkS  [-2.1,-0.95,-1.6,-0.95]  width=0.12
+  line    F.SilkS  [-2.1,0.95,-1.6,0.95]    width=0.12
+  rect    F.CrtYd  [-1.65,-1.2,1.65,1.2]    width=0.05
+  rect    F.Fab    [-1.45,-0.8,1.45,0.8]    width=0.1
 ```
 
 编译后的 IR（`footprint` kind，节选）：

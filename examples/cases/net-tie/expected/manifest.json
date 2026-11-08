@@ -3,12 +3,12 @@
   "shards": [
     {
       "path": "boards/tie-board/pcb.json",
-      "sha256": "469f9c7a6219e51aaa7f705ea3385ed864104a29f9c3d5e10f1adac500b6f27a",
+      "sha256": "1acc0ff644f7b044fb0ac77b1f062f4266b0d3e2095942920f659e060b0ba8d4",
       "normative": true
     },
     {
       "path": "boards/tie-board/schematic.json",
-      "sha256": "bd69672a13b25e8cc0c7818d02471bce878f49381475857e4d0586aa1d634fbc",
+      "sha256": "3d0aec9410d77ce9b52a06ec172eb5368e4b040d5fd6b9b6a35b9cda42e4dd47",
       "normative": true
     },
     {
@@ -38,7 +38,7 @@
     },
     {
       "path": "project.json",
-      "sha256": "7b4c37c80eb59424059e0dfa2aa9be702e32c3f79363d0ad91e2ac155b5a9576",
+      "sha256": "b41507b16887369c2e2d746fd0cdfca52d5a234e7432479310f18a0b0424aa8d",
       "normative": true
     },
     {
@@ -52,5 +52,5 @@
       "normative": true
     }
   ],
-  "source_hash": "01ec5069ba37523651bb87b0db656e3ce6d63e1b10e6f2ba6a3ae3714c599b5b"
+  "source_hash": "793e2b9c1ed2d4a306593da6ac2245e1abade6366a89c50c34c1b1eb0930cfc0"
 }

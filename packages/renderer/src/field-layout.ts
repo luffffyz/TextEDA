@@ -221,9 +221,10 @@ export function pageFacts(
   const fixed: FieldBox[] = [];
   const bodies: PageBody[] = [];
   const pins = new Map<string, ReadonlyMap<string, Point>>();
-  const ports = new Map<string, Point>(
-    (view.port ?? []).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }]),
-  );
+  const endpoints = new Map<string, Point>([
+    ...(view.port ?? []).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }] as const),
+    ...(view.junction ?? []).map((junction) => [junction.id, { x_nm: junction.x_nm, y_nm: junction.y_nm }] as const),
+  ]);
 
   for (const place of view.place) {
     const instance = instances.get(place.instance_id);
@@ -295,8 +296,8 @@ export function pageFacts(
 
   const wires: PageWire[] = [];
   for (const wire of view.wire ?? []) {
-    const from = endpointOf(wire.from_pin, pins, ports);
-    const to = endpointOf(wire.to_pin, pins, ports);
+    const from = endpointOf(wire.from_pin, pins, endpoints);
+    const to = endpointOf(wire.to_pin, pins, endpoints);
     if (from === undefined || to === undefined) continue;
     wires.push({
       points: [
@@ -310,14 +311,14 @@ export function pageFacts(
   return { fields, bodies, texts, fixed, wires };
 }
 
-/** Where a run ends: a pin of a placed instance, or a port the page draws. */
+/** Where a run ends: a pin or a declared page endpoint. */
 function endpointOf(
   ref: string,
   pins: ReadonlyMap<string, ReadonlyMap<string, Point>>,
-  ports: ReadonlyMap<string, Point>,
+  endpoints: ReadonlyMap<string, Point>,
 ): Point | undefined {
   const dot = ref.lastIndexOf(".");
-  if (dot <= 0) return ports.get(ref);
+  if (dot <= 0) return endpoints.get(ref);
   return pins.get(ref.slice(0, dot))?.get(ref.slice(dot + 1));
 }
 

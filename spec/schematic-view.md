@@ -4,7 +4,7 @@
 
 本文件是 `teda.md` 的分描述补充：`.teda` 语言的共用规则在 `teda.md`，`view` 这一类描述的具体段定义在这里。
 
-Every `.teda` file declares the shared language version (currently `0.10.0`; see `spec/teda.md` §13.1). The `view` floor is `0.7`: `0.6` view files are no longer accepted because `0.7` changed their references from page-local to board-level ids ([ADR-0012](../docs/adr/04-schematic/0012-one-flat-schematic-per-board.md) D4). A `field` section requires language `0.10` or later; `0.9.2` view files without `field` remain valid.
+Every `.teda` file declares the shared language version (currently `0.11.0`; see `spec/teda.md` §13.1). The `view` type was introduced at `0.6`; its reader floor advanced to `0.7` when references changed from page-local to board-level ids ([ADR-0012](../docs/adr/04-schematic/0012-one-flat-schematic-per-board.md) D4), and is now `0.11` because coordinate tuples changed ([ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md)). A `field` section was introduced in `0.10`, but every `view` file now requires at least `0.11`.
 
 ---
 
@@ -52,7 +52,7 @@ Every `.teda` file declares the shared language version (currently `0.10.0`; see
 ## 1. 文件头
 
 ```
-version 0.9.2
+version 0.11.0
 view main
 ```
 
@@ -89,7 +89,8 @@ view main
 |---|---|---|
 | `place` | 器件实例的摆位 | 是 |
 | `field` | `Reference` / `Value` 的每实例位置覆盖 | 否 |
-| `wire` | 走线 | 否 |
+| `junction` | view-only 绘图节点及其坐标 | 否 |
+| `wire` | 走线边 | 否 |
 | `label` | net 名标签 | 否 |
 | `port` | 板端口符号 | 否 |
 | `text` | 自由注释文字 | 否 |
@@ -102,12 +103,12 @@ view main
 
 ```
 place
-  U1    40.0  30.0  0
-  C1    20.0  30.0  90
-  U2    80.0  30.0  0   unit=2
+  U1    [40.0,30.0]  0
+  C1    [20.0,30.0]  90
+  U2    [80.0,30.0]  0   unit=2
 ```
 
-列：`<instance_id> <x> <y> [<rot>] [key=value …]`。
+列：`<instance_id> <origin> [<rot>] [key=value …]`，`<origin>` 是 `[x,y]`。
 
 | 列 | 说明 |
 |---|---|
@@ -134,11 +135,11 @@ place
 
 ```teda
 field
-  U1  Reference  0.00  2.00
-  U1  Value     -0.50 -2.00
+  U1  Reference  [0.00,2.00]
+  U1  Value      [-0.50,-2.00]
 ```
 
-Each row is `<instance_id> <name> <x> <y>`. The vocabulary is closed to exactly `Reference` and `Value`; each `(instance_id, name)` pair occurs at most once. The instance must occur in this page's `place` section. The coordinates are relative to the symbol origin and are not checked against sheet bounds. In this local frame, `+x` points right and `+y` points up. The renderer applies the symbol's right-angle rotation when projecting a field to sheet coordinates; moving or rotating the symbol therefore carries the override with it.
+Each row is `<instance_id> <name> <offset>`. The vocabulary is closed to exactly `Reference` and `Value`; each `(instance_id, name)` pair occurs at most once. The instance must occur in this page's `place` section. `<offset>` is `[x,y]` relative to the symbol origin and is not checked against sheet bounds. In this local frame, `+x` points right and `+y` points up. The renderer applies the symbol's right-angle rotation when projecting a field to sheet coordinates; moving or rotating the symbol therefore carries the override with it.
 
 Two coordinate facts apply, and they are different questions (§2.1): the coordinates are written with the view file's `0.01 mm` **resolution** — the finest value the format can express, and the limit a writer is checked against — while the **drawing lattice** is `0.5 mm`. A field anchor is a lattice point in both axes ([ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1), and the review app snaps it there like a symbol placement. The file format does not *reject* a non-lattice value — `0.01 mm` resolution is what the format promises — but the drawing convention does not admit one, and the repository's view-style gate reports it.
 
@@ -157,7 +158,7 @@ The renderer routes around a collision on its own, so no row is needed to keep t
 write one only where the author wants a field somewhere else. The review app reports `manual`
 versus `automatic` on every field, which is how a reviewer tells the two apart.
 
-A `field` section requires language `0.10` (canonical spelling; equivalent to `0.10.0`). A `0.9.2` file containing `field` is rejected with `format.unsupported-version`; a `0.9.2` file without it remains valid. Unknown field names are invalid literals, duplicate pairs report `value.duplicate-field`, and an unknown instance reports `ref.unknown-instance`.
+`field` was introduced in language `0.10`, but the `view` reader floor is now `0.11` because coordinate tuples changed in `0.11`. Every `view` file declares at least `0.11`, whether or not it contains a `field` section; version validation runs before the body is parsed. Unknown field names are invalid literals, duplicate pairs report `value.duplicate-field`, and an unknown instance reports `ref.unknown-instance`.
 
 ---
 
@@ -165,40 +166,39 @@ A `field` section requires language `0.10` (canonical spelling; equivalent to `0
 
 ```
 wire
-  VDD   U1.5  C1.1  35.0 25.0
-  GND   C1.2  U2.4  15.0 25.0  15.0 12.0
+  VDD   U1.5  C1.1  [35.0,25.0]
+  GND   C1.2  U2.4  [15.0,25.0]  [15.0,12.0]
 ```
 
-列：`<net> <from_pin> <to_pin> [<bend_x> <bend_y> …]`。
+列：`<net> <from_endpoint> <to_endpoint> [<bend> …]`，每个 `<bend>` 是 `[x,y]`。
 
 | 列 | 说明 |
 |---|---|
 | `net` | 板级 net id，必须在板文件的 `nets` 段里存在 |
-| `from_pin` | 起点：**引脚引用**（编号形式 `U1.5`，模块层次落地后是 `M1.U1.5`，见 §0.1），或**本页画出的 port id**（`GND`）。引脚的点来自符号；port 的点来自本页的 `port` 行（[ADR-0062](../docs/adr/09-view/0062-a-run-may-end-at-a-port.md) D1）。列名沿用 `*_pin`：一行走线的两端语义未变，变的是一种端点的来源 |
-| `to_pin` | 终点，同上 |
-| `bend_x` `bend_y` | 折点坐标（mm），可为零个或多个，按顺序经过 |
+| `from_endpoint` | 起点：引脚引用、页面 port id，或本页 `junction` 段声明的 junction id |
+| `to_endpoint` | 终点，同上 |
+| `bend` | 折点坐标（mm），可为零个或多个，按顺序经过；每点一个 `[x,y]` 单元格 |
 
-- 走线的几何 = 起点引脚连接点 → 依次经过各折点 → 终点引脚连接点。**没有折点就是直线**。
-- 折点是唯一的"自由坐标"：引脚端点用**引脚引用**而不是坐标，就是为了让视图不复制符号几何（引脚挪了，线自动跟上）。折点锚在 `0.5 mm` 晶格上（§2.1，[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1）——折点必须够得到引脚连接点，而引脚连接点在晶格上（[ADR-0057](../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D1），所以折点也在晶格上时，这条线才画得出来。
-- **一条线一个 net**：同一 net 可以有多条 `wire` 行（分叉、绕行都靠多行表达）。
-- **端点引脚**必须属于该 net：以引脚引用写的端必须在板 `nets` 段里被声明为该 net 的成员。不一致即报错（`view.pin-net-mismatch`）——这是"视图不重复电气事实"的兑现：视图引用了逻辑层的事实，就必须对得上。
-- **以 port id 写的端**不按成员集合判：port 给 net 起名，它本身不是 net 的一个成员，所以把它塞进成员集合会让"这个 net 有哪些成员"取决于画了多少页。它的检查是同一条 `port` 行与板的对账（`ref.unknown-port`、`view.port-not-on-net`），加上本页是否画出了这个 port（`view.port-not-drawn`，§9.1）。
-- **移动之后，走线只在它自己画过的线上缩短**：重锚把端点跟到新引脚位置；两端之间**多余**的折点（移动前需要、移动后不需要的那些）去掉。按两条规则收紧：**剩下的折点必须共线**（共线就是母线，母线是图纸上的事实而非冗余，整条 `GND` 线上的标签与 port 都锚在它上面），或**折点只剩两端自身连线的那个已有的交点**（`(from.x, to.y)` 或 `(to.x, from.y)`，且图上原本就有这个折点——不新造坐标）。删一个折点若让首段或末段变斜，可把紧邻的折点挪到端点的线上，**只许挪一端**，两端都挪是重建而非缩短。另外，锚在这条线上的标签与 port 必须仍留在缩短后的线上（留出让量 = 本次移动本身产生的位移）：把线从标签底下抽走，标签会被重锚带到别的线上，那就是另一张图。所有候选还须通过可读性检查（自交、斜段、穿本体、穿引脚笔画）。都不合格时这条线保持原样——**不是**去另找一条更短的合法路径：换到另一条线是"把线搬家"，不是"把线缩短"（[ADR-0063](../docs/adr/09-view/0063-a-run-is-shortened-only-along-the-lines-it-was-drawn-on.md) D2、D3、D3a、D3b、D4）。
-- **端点永不移动**：缩短只删中间折点，起点与终点的连接点由行本身的名字决定（§5，[ADR-0063](../docs/adr/09-view/0063-a-run-is-shortened-only-along-the-lines-it-was-drawn-on.md) D1）。
-- **一条走线不得自交**：重锚时若保形会让路径越过自己先前的段（例如引脚移过了自己的折点，折点留在原地），那条路径不是任何人为这行画出的形状。它被重建为一个肘形（两端同轴时是一条直线）并作为冲突报告（[ADR-0042](../docs/adr/09-view/0042-the-review-app-has-modes.md) D5、[ADR-0062](../docs/adr/09-view/0062-a-run-may-end-at-a-port.md)）。
-- 不支持圆弧，只支持折线（与 `pcb` 的 `trace` 一致）。
-- **只走 90 度**：每一段（含从引脚到第一个折点、从最后一个折点到引脚的两段）必须**平行于坐标轴**——要么纯水平，要么纯垂直。斜线不是风格问题：整页都是横平竖直时，唯一那条斜线会被读成引线或注记，而它的两端是两个"关系待猜"的连接。修法永远是局部的：在两端相遇处加一个折点。违反即报 `view.wire-diagonal`（§9.2）。
-- **走线不得穿过引脚连接点，也不得穿过引脚从连接点到符号本体的那段笔画**：引脚是连接点，线从它中间穿过而不在这里结束，读者会读成一个没有圆点的连接；线横穿引脚的短笔画时，读者也分不清哪一段是引脚、哪一段是走线。连接点测试在该引脚就是这条走线的端点时豁免（线本来就结束在这里），**笔画测试不豁免**——从错误的方向接近引脚，仍会跨过读者看得见的那段引脚。修法永远是局部的：在该引脚处把线拆成两条 `wire` 行，或绕开它。违反即报 `view.wire-crosses-pin`（§9.2）。
+- `@x,y` **不是合法 wire endpoint**。历史文件必须把每个匿名坐标提升为命名 junction，并在 `junction` 段声明其坐标；实现不得静默把旧端点解释成 junction。
+- 走线的几何 = 端点节点的解析位置（引脚、port 或 junction）→ 依次经过折点 → 另一端点节点。端点身份不是坐标的别名。
+- **一条线一个 net**：同一 net 的多条 `wire` 行是图的边；junction 是图节点，不是 schematic net 成员，也不改变 S0 连通性。
+- 引脚端点必须属于该 net；port 端点按本页 port 规则校验；junction 端点必须存在且只能属于这条边声明的 net。不同 net 不能共享 junction。
+- 视图的绘图连通性按图校验：有效的树不得有 dangling endpoint、几何 gap、断开的必需成员、孤立 junction 或非法 junction degree。不同 net 的几何交叉不是连接；同一 net 的有效分支绘制确定性的 junction dot。
+- Review App 的 Re-anchor wires 关闭时，移动或旋转引脚不得改写 endpoint identity，也不得改写作者写下的 bends；受影响的 net 报 stale，显式 `view rewire` 才修复。开启时保留 pin identity 并按既有重锚规则让端点跟随。
+- **只走 90 度**：每一段必须平行于坐标轴，违反即报 `view.wire-diagonal`（§9.2）。
+- **走线不得自交**：重锚若保形会使路径自交，则按既有规则重建并报告冲突（[ADR-0042](../docs/adr/09-view/0042-the-review-app-has-modes.md) D5、[ADR-0062](../docs/adr/09-view/0062-a-run-may-end-at-a-port.md)）。
+- 走线不得穿过非本端点的引脚连接点或引脚笔画，违反即报 `view.wire-crosses-pin`（§9.2）。
 
-### 5.1 连接点：画出来的，不写下来的
+### 5.1 `junction` 段
 
-同一条 net 的走线在**三条或更多条臂**会合处画一个实心圆点（直径 0.9144mm，KiCad 的默认值）。这条规则完全由几何导出，**视图里没有连接点这一项**：
+```
+junction
+  VOUT_J1  [204.0,92.5]
+```
 
-- 一条走线**结束**在该点是**一条臂**，**穿过**该点是**两条臂**；**引脚连接点本身也算一条臂**。臂数 ≥ 3 才画点：一根线接到引脚是 2（线 + 引脚），不画；两根线接到同一引脚是 3，画点。两条走线的拐角（∟）是 2，不画。
-- 臂数按**不同的方向**数，不按 `wire` 行数：两行沿同一条线重叠，读者只看到一条线，只算一条臂。否则同一引脚上的两条重合走线会让“只连一根线”的引脚长出圆点。
-- 臂数**按 net 分别数**：不同 net 的两条线碰在一起、或交叉穿过，都不画点。引脚只属于一个 net；别的 net 的走线从引脚上穿过是 `view.wire-crosses-pin` 的事，**不在该引脚画点**——点会声称一个不存在的连接。
-- 因此读法只有一条：**有点 = 这里是连接，没点 = 只是画在同一处**。这条读法不需要第二个约定去补充，所以**不用半圆跳线**：不同 net 的两条线可以直接交叉，交叉点没有点，读者就知道它们不相连；绕开只是排版选择，不是规则要求。
-- 点的图层是 `junction`，**不进反解投影**（§9.5）：连接点是走线的推论，写进 IR 就多了一个能与走线打架的事实。
+列：`<junction_id> <point>`，`<point>` 是 `[x,y]`。坐标单位为 mm，使用 view 的 `0.01 mm` 格式分辨率；坐标必须在图幅内，并遵守 `0.5 mm` 绘图晶格门禁（[ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md)、[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md)）。`junction_id` 在本页唯一，且不得与页面 port id 混淆。junction 只属于 view drawing graph，不进入 schematic IR 的 net members。
+
+同一 net 的 junction 可作为多条 wire 的共享节点；不同 net 不得引用同一 junction。junction 的 degree 是图中连接到该 junction 的有效 wire arms 数：低于 2 是 isolated/dangling，高于 4 报 invalid degree。声明的 junction 才绘制 dot；普通二臂折点不绘点。不同 net 的线交叉不生成连接点。
 
 ---
 
@@ -206,11 +206,11 @@ wire
 
 ```
 label
-  VDD   35.0  25.0
-  GND   15.0  25.0
+  VDD   [35.0,25.0]
+  GND   [15.0,25.0]
 ```
 
-列：`<net> <x> <y>`。
+列：`<net> <point>`，`<point>` 是 `[x,y]`。
 
 - 标签画的就是 **net id 本身**，**不允许改写显示文字**。标签若能显示与 net id 不同的东西（比如 net 叫 `VDD`、标签写 `3.3V`），图上就会出现"看起来叫 3.3V 的网络"——人读图时会误判网络名。想要 `3.3V` 这个名字，就把 net 命名为 `3.3V`。
 - 标签位置必须落在**该 net 的某条走线上**，或落在**该 net 某个引脚的连接点**上；否则报 `view.label-not-on-net`（**警告**，不是错误：视图是给人看的图，位置偏了要提示，但不该让整张图不可用）。
@@ -223,10 +223,10 @@ label
 
 ```
 port
-  SYS_OUT   280.0  105.0  180
+  SYS_OUT   [280.0,105.0]  180
 ```
 
-列：`<port_id> <x> <y> [<rot>]`。
+列：`<port_id> <point> [<rot>]`，`<point>` 是 `[x,y]`。
 
 - `port_id` 必须是**板**的端口，必须在板文件的 `ports` 段里存在（`teda.md` §7.5）。
 - 端口符号**不创建连接**，它只是给一个已存在的 net 起个对外的名字。
@@ -243,10 +243,10 @@ port
 
 ```
 text
-  12.0  8.0   Rev A — power section
+  12.0 8.0   Rev A — power section
 ```
 
-列：`<x> <y> <text…>`。
+列：`<point> <text…>`，`<point>` 是 `[x,y]`。
 
 - 第三列起是**行尾剩余文本**（与标量同一约定，`teda.md` §4.4），允许空格。
 - 注释锚点锚在 `0.5 mm` 晶格上（§2.1，[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1）。
@@ -271,7 +271,14 @@ text
 | `ref.unknown-net` | `wire` / `label` 里的 net 在板的 `nets` 段里不存在 | 已实现（板交叉校验） |
 | `ref.unknown-port` | `port` 里的 port_id 在板的 `ports` 段里不存在 | 已实现（板交叉校验） |
 | `view.pin-net-mismatch` | `wire` 的端点引脚不属于该行声明的 net | 已实现（板交叉校验） |
-| `view.port-not-drawn` | `wire` 的某一端写了某个 port id，但本页的 `port` 段没有画它——端点坐标无处可取 | 已实现（解析器） |
+| `view.port-not-drawn` | `wire` 端点引用的 port 未在本页 `port` 段绘制 | 已实现（解析器） |
+| `ref.unknown-junction` | `wire` 端点引用的 junction 未在本页 `junction` 段声明 | 已实现（板交叉校验） |
+| `view.wire-dangling-endpoint` | wire 端点在渲染几何中没有对应 pin、page port 或 junction 锚点 | 已实现（板交叉校验 + 渲染几何） |
+| `view.wire-gap` | wire 几何经过本 net 声明的 junction，却没有以该 junction 为端点 | 已实现（板交叉校验 + 渲染几何） |
+| `view.wire-disconnected` | 本页同一 net 的必需 pin/port 节点未处于一个连通分量 | 已实现（板交叉校验） |
+| `view.junction-isolated` | 声明的 junction 未被有效 wire edge 使用 | 已实现（板交叉校验） |
+| `view.endpoint-wrong-net` | junction 或 page port 被 wire 声明为不匹配的 net | 已实现（板交叉校验） |
+| `view.junction-invalid-degree` | junction 的有效同 net wire-arm degree 不符合图规则 | 已实现（板交叉校验） |
 
 ### 9.2 警告（不阻断）
 
@@ -291,15 +298,15 @@ text
 
 > 码表见 `docs/error-codes.md`（由 `packages/ir/src/diagnostics/codes.ts` 生成）。诊断码按"错误的种类"分域，不按发现阶段分（[ADR-0003](../docs/adr/01-language/0003-diagnostic-error-codes.md)）："引用了不存在的东西"在 `view` 里和在 `sch` 里是同一类错误，所以复用 `ref.*`；"角度不合法"复用 `value.angle-invalid`。`view` 域是本描述引入的新域，授权见 [ADR-0035](../docs/adr/09-view/0035-the-view-layer-is-a-drawing.md)。
 >
-> **注册表只登记"已发出"的码**（[ADR-0003](../docs/adr/01-language/0003-diagnostic-error-codes.md) decision 7：码表是唯一真源，发出即冻结）。本表全部十个码都已发出并登记。
+> **注册表只登记"已发出"的码**（[ADR-0003](../docs/adr/01-language/0003-diagnostic-error-codes.md) decision 7：码表是唯一真源，发出即冻结）。本表列出的诊断码均已发出并登记。
 >
 > **几何从渲染器来，不从检查器推**。文字宽度、符号本体范围、引脚落点都由 `packages/renderer` 的 `schematicGeometry` 按**实际画法**算出（同一套变换、同一套笔画字体度量），检查器只判断"压没压住""在不在线上"。检查器自己再算一遍就会和读者看到的东西漂移，那正是可读性检查要防的那类错误。
 >
 > **字段也在几何里**：`schematicGeometry` 除了视图自己的记录（`label` / `port` / `text`），还给出每个已放置实例的 `fields`——符号画的 `Reference` / `Value` 在纸上的框（含旋转，按绘制后的矩形取包围盒）。字段的默认位置由渲染器确定，显式 `field` 覆盖由视图作者调整；两者都是视图几何的一部分，但都不改变逻辑事实。可读性检查读取最终字段几何：`view.text-on-wire` 就靠它报出"走线穿过位号"，`view.text-overlap` 就靠它报出"两个字段压在一起"。字段在整页上的位置由渲染器按 §4.1 的规则统一安排，所以一页里字段互相压住说明这页已经没有位置可让——检查器把它报出来，作者去把符号挪开。
 
-### 9.2.1 每条警告带多少
+### 9.2.1 诊断载荷
 
-警告是二值的（"在"或"不在"），但**带量**才可修。`--json` 载荷的 `data` 字段因此一律给数字，单位与 IR 一致（纳米）：
+诊断的 `--json` 载荷带量才可修。`data` 字段使用与 IR 一致的单位（纳米）：
 
 | 码 | `data` |
 |---|---|
@@ -310,6 +317,11 @@ text
 | `view.wire-diagonal` | `page` `net` `segments`（斜段**条数**）`x_nm` `y_nm`（第一段斜线的起点）`off_axis_nm`（该段偏出轴线的量 = min(abs(dx), abs(dy))） |
 | `view.wire-crosses-pin` | `page` `net` `instance` `pin` `x_nm` `y_nm`（引脚连接点）；穿过笔画时另带 `cross_x_nm` `cross_y_nm`（笔画上的穿越点） |
 | `view.nets-not-drawn` | `count` + 前十个 net 名 |
+| `view.wire-dangling-endpoint` | `page` `net` `endpoint` |
+| `view.wire-gap` | `page` `net` `junction` `wire`（本页 `wire` 段中的零基索引） |
+| `view.wire-disconnected` | `page` `net` `components` `missing_members` |
+| `view.junction-isolated` / `view.junction-invalid-degree` | `page` `junction` `degree` |
+| `view.endpoint-wrong-net` | `page` `junction` / `port` `net`；junction 冲突另带 `other_net` |
 
 同一组数字在人类可读输出里换成 mm / mm²，出现在消息里（"nearest point of the net is 6.8 mm away"）：一个偏 0.1 mm 的标签和一个偏 20 mm 的标签是同一条警告、两种完全不同的修法。
 
@@ -377,30 +389,30 @@ text
 ### 10.1 正例
 
 ```
-version 0.9.2
+version 0.11.0
 view main
 
 sheet 297 210
 
 place
-  U1    40.0  30.0  0
-  C1    20.0  30.0  90
-  R1    60.0  30.0  0
+  U1    [40.0,30.0]  0
+  C1    [20.0,30.0]  90
+  R1    [60.0,30.0]  0
 
 wire
-  VDD   U1.5  C1.1  35.0 25.0
-  VDD   C1.1  R1.1  25.0 25.0  55.0 25.0
-  GND   C1.2  R1.2  25.0 35.0  55.0 35.0
+  VDD   U1.5  C1.1  [35.0,25.0]
+  VDD   C1.1  R1.1  [25.0,25.0]  [55.0,25.0]
+  GND   C1.2  R1.2  [25.0,35.0]  [55.0,35.0]
 
 label
-  VDD   35.0  25.0
-  GND   25.0  35.0
+  VDD   [35.0,25.0]
+  GND   [25.0,35.0]
 ```
 
 ### 10.2 反例
 
 ```
-version 0.9.2
+version 0.11.0
 view main
 
 wire
@@ -415,16 +427,17 @@ wire
 
 ## 11. Canonical form
 
-段顺序固定：`place` → `field` → `wire` → `label` → `port` → `text`。
+段顺序固定：`place` → `field` → `junction` → `wire` → `label` → `port` → `text`。
 - 段内行按**自然序**排序（标识符里的数字段按数值比，`C2` 在 `C10` 前；见 `teda.md` §12 规则 9）。
   - `place` 按 `instance_id` 排；
   - `field` 按 `(instance_id, name)` 排；
-  - `wire` 按 `(net, from_pin, to_pin)` 排；
+  - `junction` 按 `junction_id` 排；
+  - `wire` 按 `(net, from_endpoint, to_endpoint)` 排；
   - `label` 按 `(net, x, y)` 排；
   - `port` 按 `port_id` 排；
   - `text` 按 `(x, y, text)` 排。
-- 列宽按段内最大值对齐；行宽超过 80 列时**不折行**（`wire` 的折点是成对坐标，拆行会断配对，与 `pcb` 的 `trace` 同理，见 `teda.md` §3 末条）。
-- `wire` 的前三列按段内最大值对齐；**折点坐标成对排**（`x y` 组内一个空格、组间两个空格），因为折点拆开就看不出配对。这一条是 `teda.md` §12 规则 3 的例外，理由同 `pcb` 的 `trace`（`spec/pcb.md` §6.2）。
+- 列宽按段内最大值对齐；行宽超过 80 列时**不折行**（`wire` 的折点是一串 `[x,y]` 单元格，拆行会让一条走线读成两条，与 `pcb` 的 `trace` 同理，见 `teda.md` §3 末条）。
+- `wire` 的折点每个是**一格**（`[x,y]`），所以前三列与折点列一起按最宽单元格对齐，不需要任何"成对排"的例外。
 - `place` 的旋转列与 `unit=` 尾列分开对齐（旋转可能缺省，`unit=` 可能没有）。
 - `wire` 的折点按经过顺序排列，不排序（顺序有语义）。
 - 源文件里同一行的顺序不影响 IR：IR 里的 `points` 保留折点顺序，其余数组按上面的键排序。

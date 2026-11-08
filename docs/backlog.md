@@ -706,6 +706,15 @@
 - **身份索引不是第二真源**：`dist/ir/identity.json` 是附注类，只提供身份到源码位置的导航，不进入工程哈希。
 - 别在 viewer 里做布局求解或自己的走线算法——viewer 只显示、选择与预览；PCB 画布依赖 `packages/renderer` 的 PCB SVG，画不出来时如实报没有 PCB 画布。
 
+**已落地：pending gray overlay（摆位草稿）**：第一遍由 agent 生成器件与连线后，用户拖动或旋转器件时，保持已提交的 SVG 不变，不在每次指针更新时重算连线、字段跟随或重叠避让；在 SVG 之上绘制灰色 overlay。overlay 只显示 pending 的器件 symbol 与 pin number，不显示 field，也不成为第二份持久化 view 真源。用户点击 `Apply` 后，才一次性提交摆位 / 旋转，重算完整 SVG（包括 field 与连线），并删除 overlay。
+
+**验收**：
+
+- pending 移动或旋转只更新灰色 symbol/pin overlay；已提交的 SVG、field 与连线保持不变。
+- overlay 能通过 pin number 区分 `0°` 与 `180°` 等方向，且不显示 field。
+- `Apply` 是唯一重算点：提交成功后完整 SVG 替换旧画面，overlay 消失；取消则只丢弃 overlay。
+- 不新增持久化 overlay 文件、第二个 placement 真源或浏览器侧布线 / 布局求解。
+
 ---
 
 ## F35. 采购层的实现（ADR-0029 的落地）
@@ -1010,3 +1019,54 @@ DSH 侧**代码已落地**：宿主合同读的是官方 cookbook（`@deepseek-a
 - 一个 MCP 客户端能 `initialize` 之后 `resources/read` 拿到那个 `ui://` 资源，内容声明的 MIME 是 `text/html;profile=mcp-app`。
 - 工具列表里承载它的那条带 `_meta.ui.resourceUri`，指向同一个资源。
 - 资源里挂的 app 与独立 app 的渲染逐像素一致（同一份 `mountReview`、同一份 `APP_STYLES`），且 `bun test` 与 `bun run typecheck` 不因这个增量而变。
+
+---
+
+## F60. Schematic-view wire trees, explicit junctions, and geometric connectivity
+
+**Status**: Implemented. Print-page wires use declared view-only junction IDs; page checks validate endpoint geometry and graph connectivity against renderer-owned pin coordinates without changing schematic connectivity.
+
+**Coordinate syntax**: settled for the whole language by [ADR-0065](adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) — a geometric tuple is one bracketed cell `[a,b]` in every description type, not just `junction`. The F60 draft's local `[x,y]` for junctions was the first instance of that rule; the "keep space-separated `x y` elsewhere" half of it is superseded, and the old two-cell form is no longer accepted under language 0.11. Bare coordinate endpoints in `wire` rows remain disallowed (D2 of that record keeps endpoints as pin/port/junction identities).
+
+**Delivered**:
+
+1. Added the view-only `junction` section with stable IDs and sheet coordinates. Junctions are drawing nodes, not schematic nets or electrical facts.
+2. Restricted wire endpoints to pin references, page ports, or declared junction IDs; removed `@x,y` endpoint support. Re-anchor-off preserves pin identity and authored bends while reporting stale nets; explicit rewire remains the repair operation.
+3. Modeled net drawings as endpoint graphs: wire rows are edges, pin/port/junction endpoints are nodes, and explicit junction IDs cannot silently join different nets.
+4. Added renderer-geometry checks for dangling endpoints and wires passing through same-net junctions without naming them; graph checks report disconnected required members, isolated junctions, wrong-net endpoints, and invalid junction degree.
+5. Preserved orthogonal-wire validation, re-anchor-on/off behavior, overlay/apply behavior, canonical formatting, round-trip projection, and the 0.5 mm view lattice.
+
+**Involved files**: `spec/schematic-view.md`, `schemas/ir/`, `packages/parser/`, `packages/core/src/view/`, `packages/renderer/`, `packages/viewer/`, `packages/ir/src/diagnostics/`, `tests/`, and affected reference views.
+
+**Acceptance**:
+
+- A net tree with one or more explicit junctions is representable with multiple two-endpoint wire rows, without coordinate endpoints.
+- Moving or rotating a placed symbol leaves every wire endpoint identity-preserving. With re-anchor enabled, affected endpoints follow the moved symbols; with re-anchor disabled, no `@x,y` fallback is written, the authored bends remain unchanged, and the affected net is reported stale until explicitly rewired.
+- A deliberately gapped wire, disconnected branch, isolated junction, and wrong-net endpoint each produce a page-local diagnostic; a valid tree passes.
+- Different-net crossings remain non-connections, same-net branches render junction dots deterministically, and all affected views pass canonical formatting, round-trip, lattice, and existing orthogonal-wire checks.
+
+**Note**: This is a view-layer drawing graph only. It must not become a second source of schematic connectivity; the board schematic remains authoritative.
+
+---
+
+## F61. Hierarchical module views and custom page size
+
+**Status**: Not implemented. The schematic layer should describe circuit connectivity, not page composition. The tentative final print-page structure is `main.view.teda` as the first page for module-to-module relationships, followed by detail pages for the actual circuit drawings. A detail page may place multiple module instances; a module name in a view filename is not by itself a final-page boundary. The current view contract has no reserved overview-page semantics and no compact size for a page containing one or more small modules such as `buck-5v`.
+
+**Proposed design to settle**:
+
+1. Reserve `views/<board_id>/main.view.teda` as the first print page and overview drawing. It shows module boxes and the connections between their exposed ports. The target is that one overview page covers the module scale of most projects; this is a page-size/readability target, not a new logical connectivity rule.
+2. Treat the remaining `views/<board_id>/<page_id>.view.teda` files as detail print pages for actual circuit drawings. A detail page may place one or more module instances, so `buck-5v.view.teda` is a page that draws a module instance or several instances, not a mandatory one-module-per-page file type.
+3. Keep logical connectivity in the schematic layer: the board schematic owns connections between module instances, while module descriptions own each module's internal devices, nets, and exposed ports. Reconcile the requested `main.teda` / `modules.teda` naming with the existing flat-board/module source model before changing the language; `view` must not become a second logical source.
+4. Add an explicit custom page size, proposed as `size [width,height]` in millimetres — the bracketed cell is the language-wide tuple form ([ADR-0065](adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) D1). Define whether this replaces or aliases the current `sheet <size>` scalar, the default, canonical ordering, coordinate resolution and 0.5 mm lattice rules, SVG dimensions, metrics, ordering of pages in review, and migration of existing pages.
+5. Define page references, module-box geometry, module ports, cross-page identity, and checks for missing modules, duplicate module placement, stale port connections, out-of-size content, and connections that cross a module box incorrectly.
+
+**Involved files**: `spec/teda.md`, `spec/module.md`, `spec/schematic-view.md`, `schemas/ir/`, `packages/parser/`, `packages/core/src/view/`, `packages/renderer/`, `packages/viewer/`, `packages/cli/`, `tests/`, and affected `design/` / `views/` examples.
+
+**Acceptance**:
+
+- A board can have a module overview page and module-detail pages without duplicating or changing schematic connectivity.
+- A compact module page can declare a non-A4 size such as `size [120,80]`, and parser, canonical formatter, IR, renderer, metrics, review app, lattice checks, and SVG output agree on it.
+- One page can place multiple small modules while preserving each module instance's identity and port connections.
+- Existing A4 pages remain valid or have an explicit deterministic migration; no page silently changes size.
+- Invalid sizes, missing module references, duplicate module placements, and stale inter-module connections produce page-local diagnostics.

@@ -8,7 +8,7 @@
 // The test therefore measures the *growth*, not the absolute time: a machine's speed is not the
 // contract, but "four times the page must not cost sixteen times the work" is.
 import { describe, expect, test } from "bun:test";
-import { rmSync } from "node:fs";
+import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { planLayout } from "../src/layout.ts";
@@ -20,6 +20,7 @@ const referenceProject = join(fileURLToPath(new URL("../../../", import.meta.url
 function cost(n: number, w: number, l: number): number {
   const dir = makeBenchProject(referenceProject, n, w, l);
   try {
+    writeFileSync(join(dir, "views/charger-buck/bench.view.teda"), benchPage(n, w, l));
     const start = performance.now();
     const plan = planLayout(dir, { ...BENCH_REQUEST, places: [...BENCH_REQUEST.places] });
     const ms = performance.now() - start;
@@ -39,7 +40,7 @@ describe("the Apply benchmark page", () => {
     const page = benchPage(20, 30, 12);
     expect(page.split("\n").filter((line) => line.startsWith("  M2.R")).length).toBe(20);
     expect(page.split("\n").filter((line) => line.startsWith("  NET  M2.R")).length).toBe(30);
-    expect(page.split("\n").filter((line) => /^  NET  \d/.test(line)).length).toBe(12);
+    expect(page.split("\n").filter((line) => /^  NET  \[/.test(line)).length).toBe(12);
   });
 });
 

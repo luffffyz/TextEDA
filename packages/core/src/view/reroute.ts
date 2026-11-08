@@ -38,15 +38,17 @@ export interface WireCorners {
  * It is still not a router. The interior corners keep their coordinates, nothing is searched, and a
  * wire whose interior is not orthogonal is reported rather than redrawn (ADR-0042 D6).
  */
+export type RerouteEndpoint = string | { readonly x_nm: number; readonly y_nm: number };
+
 export interface RerouteInput {
   readonly net: string;
-  readonly from_pin: string;
-  readonly to_pin: string;
+  readonly from_pin: RerouteEndpoint;
+  readonly to_pin: RerouteEndpoint;
   /** The wire's stored corners. */
   readonly points: readonly WireCorners[];
-  /** Where the from-pin sits now. */
+  /** Where the from endpoint sits now. */
   readonly from: WireCorners;
-  /** Where the to-pin sits now. */
+  /** Where the to endpoint sits now. */
   readonly to: WireCorners;
 }
 

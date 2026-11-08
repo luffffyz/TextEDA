@@ -7,7 +7,7 @@ import { strokeWidthFor, textStrokes } from "@texteda/core/font";
 import { describe, expect, test } from "bun:test";
 import type { SchematicView } from "@texteda/ir/schematic-view";
 import type { SvgText, SymbolBody } from "../src/index.ts";
-import { extractSchematic, renderSchematic, renderSymbol, schematicProjection, toSvgText, type SchematicInstance } from "../src/index.ts";
+import { extractSchematic, renderSchematic, renderSymbol, schematicGeometry, schematicProjection, toSvgText, type SchematicInstance } from "../src/index.ts";
 import { resolveSchematicFields } from "../src/field-placement.ts";
 
 interface InkBounds {
@@ -164,6 +164,53 @@ describe("renderSchematic", () => {
     expect({ x: pin1.x, y: pin1.y }).toEqual({ x: 100_000_000, y: 96_190_000 });
     expect(pin1.rotMdeg).toBe(90_000);
   });
+  test("keeps pin numbers clear of a body through quarter-turn placement", () => {
+    const instances = new Map([[
+      "C1",
+      {
+        symbol: symbol(),
+        part: { pins: [{ number: "1", name: "A", type: "passive" }, { number: "2", name: "B", type: "passive" }] },
+      },
+    ]]);
+
+    for (const rotation of [0, 90_000, 180_000, 270_000] as const) {
+      const doc = renderSchematic(
+        view({ place: [{ instance_id: "C1", x_nm: 100_000_000, y_nm: 100_000_000, rot_mdeg: rotation }] }),
+        instances,
+      );
+      const body = doc.primitives.find((primitive) => primitive.kind === "rect" && primitive.layer === "symbol");
+      if (!body || body.kind !== "rect") throw new Error("placed symbol body is missing");
+      const halfStroke = body.widthNm / 2;
+      const bodyBounds = {
+        minX: body.x1 - halfStroke,
+        minY: body.y1 - halfStroke,
+        maxX: body.x2 + halfStroke,
+        maxY: body.y2 + halfStroke,
+      };
+      for (const number of ["1", "2"] as const) {
+        const label = doc.primitives.find(
+          (primitive) => primitive.kind === "text" && primitive.role === "pinNumber" && primitive.pin === number,
+        );
+        if (!label || label.kind !== "text") throw new Error(`placed pin number ${number} is missing`);
+        const ink = paintedPageTextBounds(label);
+        const gap = number === "1"
+          ? ({
+              0: bodyBounds.minX - ink.maxX,
+              90: bodyBounds.minY - ink.maxY,
+              180: ink.minX - bodyBounds.maxX,
+              270: ink.minY - bodyBounds.maxY,
+            } as const)[rotation / 1000]
+          : ({
+              0: ink.minX - bodyBounds.maxX,
+              90: ink.minY - bodyBounds.maxY,
+              180: bodyBounds.minX - ink.maxX,
+              270: bodyBounds.minY - ink.maxY,
+            } as const)[rotation / 1000];
+        expect(gap).toBe(500_000);
+      }
+    }
+  });
+
   test("keeps vertical pin names inside the body after schematic placement", () => {
     const pinSymbol: SymbolBody = {
       library: "test",
@@ -468,6 +515,18 @@ describe("renderSchematic", () => {
       .find((candidate) => candidate.name === "Reference");
     if (!automatic) throw new Error("automatic Reference field is missing");
     expect(automatic).not.toMatchObject({ x: 104_000_000, y: 95_000_000 });
+  });
+  test("disabling page field layout keeps symbol-local anchors and explicit field overrides", () => {
+    const instances = new Map([["C1", { ...part(), value: "10k" }]]);
+    const manual = [{ instance_id: "C1", name: "Reference" as const, x_nm: 4_000_000, y_nm: 5_000_000 }];
+    const v = view({ place: [{ instance_id: "C1", x_nm: 100_000_000, y_nm: 100_000_000 }], field: manual });
+    const doc = renderSchematic(v, instances, { automaticFields: false });
+    const fields = fieldsOf(doc);
+    expect(fields.find((field) => field.name === "Reference")).toMatchObject({ x: 104_000_000, y: 95_000_000 });
+    expect(fields.find((field) => field.name === "Value")).toMatchObject({ x: 100_000_000, y: 102_460_500 });
+    expect(schematicGeometry(v, instances, { automaticFields: false }).symbols)
+      .toEqual(schematicGeometry(v, instances).symbols);
+    expect(extractSchematic(doc).fields).toEqual(schematicProjection(v, instances, { automaticFields: false }).fields);
   });
 
   test("field geometry stays separate from free text during projection and extraction", () => {

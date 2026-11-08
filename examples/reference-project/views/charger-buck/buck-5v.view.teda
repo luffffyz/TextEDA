@@ -1,72 +1,88 @@
-version 0.10
+version 0.11
 view buck-5v
 
-# TPS5430 5V/3A buck print page. Every net is drawn. GND is a bus below the parts (the view layer has
-# no ground-symbol primitive); the divider's ground end sits above the parts, so it climbs to the bus
-# through the gap left of C3. Different-net crossings are legal and carry no dot
-# (spec/schematic-view.md §5.1): every dot on this page is a junction that exists.
+# TPS5430 5V/3A buck print page. Every net of this module is drawn here, and the board's two
+# ports that this module owns — GND and VOUT_5V — are drawn as ports, so the page shows the
+# interface it exposes as well as the wiring behind it (spec/schematic-view.md §5, ADR-0062).
 #
 # The buck is module M2 of the board, so the page names the board's flat ids: M2.U1, M2.C2, ...
 # (spec/module.md §7). Every symbol origin and every bend below is a multiple of 0.5 mm (ADR-0057),
-# so a pin point can always be reached by an axis-aligned run.
+# so a pin point is reachable by an axis-aligned run.
 #
-# The feedback net is named twice instead of run across the page: one label sits on the chip's VSENSE
-# pin, the other on the divider's own node. A label may sit on a pin (spec/schematic-view.md §6), so
-# the chip's body is narrow enough to leave room for the label beside that pin.
+# GND is a bus below the parts at y = 121.5. Each part drops onto it in its own column, so no two
+# legs share a column and each leg is a straight vertical that stops at the pin. The seven junctions
+# are the points on the bus where a third arm leaves it; a part that reaches the bus with one elbow
+# is a bend inside its own row, not a junction, and a dot is drawn only where one is declared
+# (spec/schematic-view.md §5.1).
 #
-# The two board ports end runs (ADR-0062): the GND port is the west end of the bus, and the VOUT_5V
-# port hangs off C4.1. Moving either port carries the run that ends at it.
+# PH is a two-point bus at y = 98.0: C2.2 sits on it, L1.1 climbs onto it at x = 182.5, and D1.1
+# climbs to it at x = 176.5, where the junction is.
+#
+# VOUT is a chain along y = 101.5 from C3.1 east to C4.1 and on to the port; the divider's top
+# pin and L1's output climb onto it. A pin is a join: two runs that end at one pin read as one
+# node, and no dot is drawn there, because a dot marks a junction and a pin is already visible.
+#
+# Different-net crossings carry no dot and are legal (spec/schematic-view.md §5.1). The feedback
+# run at y = 115 crosses the three GND legs of U1.6, U1.9 and D1.2, and nothing else.
 place
-  M2.C1  117.5  96.5  90
-  M2.C2  161.5  102.0  270
-  M2.C3  213.5  105.5  90
-  M2.C4  218.0  105.5  90
-  M2.D1  177.5  108.5  90
-  M2.L1  186.5  98.0  0
-  M2.R1  196.5  102.0  90
-  M2.R2  197.0  115.5  90
-  M2.U1  140.0  105.0  0
+  M2.C1  [117.5,96.5]  90
+  M2.C2  [161.5,102.0]  270
+  M2.C3  [213.5,105.5]  90
+  M2.C4  [218.0,105.5]  90
+  M2.D1  [176.5,108.5]  90
+  M2.L1  [186.5,95.5]  0
+  M2.R1  [197.0,105.0]  90
+  M2.R2  [197.0,115.5]  90
+  M2.U1  [140.0,105.0]  0
 
 field
-  M2.C3  Reference  2.5   -1.0
-  M2.C3  Value      5.5   -1.0
-  M2.C4  Value      2.5   2.0
-  M2.L1  Value      -1.5  5.0
+  M2.C3  Reference  [2.0,-3.0]
+  M2.C4  Reference  [-2.0,-2.0]
+
+junction
+  J_GND_C1   [117.5,121.5]
+  J_GND_C3   [213.5,121.5]
+  J_GND_D1   [176.5,121.5]
+  J_GND_R2   [197.0,121.5]
+  J_GND_U16  [139.5,121.5]
+  J_GND_U19  [142.0,121.5]
+  J_PH_D1    [176.5,98.0]
 
 wire
-  GND      GND      M2.C1.2  117.5 121.0
-  GND      M2.C1.2  M2.U1.6  117.5 121.0  139.5 121.0
-  GND      M2.C3.2  M2.C4.2  213.5 121.0  218.0 121.0
-  GND      M2.D1.2  M2.R2.2  177.5 121.0  197.0 121.0
-  GND      M2.R2.2  M2.C3.2  197.0 121.0  213.5 121.0
-  GND      M2.U1.6  M2.U1.9  139.5 121.0  142.0 121.0
-  GND      M2.U1.9  M2.D1.2  142.0 121.0  177.5 121.0
-  M2.BOOT  M2.U1.1  M2.C2.1  161.5 108.5
-  M2.PH    M2.C2.2  M2.D1.1  177.5 98.0
-  M2.PH    M2.D1.1  M2.L1.1  177.5 98.0
-  M2.PH    M2.U1.8  M2.C2.2  155.0 98.0
-  M2.VFB   M2.R1.2  M2.R2.1  198.5 106.0  198.5 111.5
-  SYS      M2.C1.1  M2.U1.7  117.5 86.0  140.0 86.0
-  VOUT     M2.C3.1  M2.C4.1
-  VOUT     M2.C3.1  M2.R1.1  196.5 101.5
-  VOUT     M2.C4.1  VOUT_5V  233.0 101.5
-  VOUT     M2.L1.2  M2.C3.1  213.5 98.0
+  GND  GND  J_GND_C1
+  GND  J_GND_C1  J_GND_U16
+  GND  J_GND_D1  J_GND_R2
+  GND  J_GND_R2  J_GND_C3
+  GND  J_GND_U16  J_GND_U19
+  GND  J_GND_U19  J_GND_D1
+  GND  M2.C1.2  J_GND_C1
+  GND  M2.C3.2  J_GND_C3
+  GND  M2.C4.2  J_GND_C3  [218.0,121.5]
+  GND  M2.D1.2  J_GND_D1
+  GND  M2.R2.2  J_GND_R2
+  GND  M2.U1.6  J_GND_U16
+  GND  M2.U1.9  J_GND_U19
+  M2.BOOT  M2.C2.1  M2.U1.1  [161.5,108.5]
+  M2.PH  J_PH_D1  M2.L1.1  [182.5,98.0]
+  M2.PH  M2.C2.2  J_PH_D1
+  M2.PH  M2.D1.1  J_PH_D1
+  M2.PH  M2.U1.8  M2.C2.2  [158.0,101.0]  [158.0,98.0]
+  M2.VFB  M2.R1.2  M2.R2.1
+  M2.VFB  M2.U1.4  M2.R2.1  [120.0,106.0]  [120.0,115.0]  [190.0,115.0]  [190.0,111.5]
+  SYS  M2.C1.1  M2.U1.7  [117.5,89.5]  [140.0,89.5]
+  VOUT  M2.C3.1  M2.C4.1
+  VOUT  M2.C4.1  VOUT_5V
+  VOUT  M2.L1.2  M2.R1.1  [197.0,95.5]
+  VOUT  M2.R1.1  M2.C3.1  [197.0,101.5]
 
 label
-  GND      130.0  121.0
-  GND      190.0  121.0
-  GND      211.0  121.0
-  GND      216.5  121.0
-  M2.BOOT  157.0  108.5
-  M2.PH    168.0  98.0
-  M2.VFB   125.0  106.0
-  M2.VFB   198.5  109.5
-  SYS      130.0  86.0
-  VOUT     196.5  98.0
+  GND      [160.0,121.5]
+  M2.BOOT  [158.0,108.5]
+  M2.PH    [168.0,98.0]
+  M2.VFB   [150.0,115.0]
+  SYS      [130.0,89.5]
+  VOUT     [205.0,101.5]
 
 port
-  GND      110.0  121.0  180
-  VOUT_5V  233.0  101.0
-
-text
-  20.0  15.0  5V 3A buck from SYS (TPS5430)
+  GND      [110.0,121.5]  180
+  VOUT_5V  [233.0,101.5]

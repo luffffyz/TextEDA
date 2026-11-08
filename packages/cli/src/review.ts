@@ -23,7 +23,7 @@ import {
   type LayoutPlace,
   type LayoutText,
 } from "./layout.ts";
-import { buildReviewModel, reviewGeometry } from "./review-model.ts";
+import { buildReviewModel, reviewGeometry, reviewPageIndex } from "./review-model.ts";
 
 export interface ReviewOptions {
   readonly root: string;
@@ -78,6 +78,12 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+
+function parseOptionalBoolean(value: unknown, key: "automatic_fields" | "reanchor_wires"): boolean | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "boolean") throw new LayoutError(`${key} must be a boolean`);
+  return value;
+}
 
 function parseLayoutFields(value: unknown, key: "fields" | "remove_fields"): LayoutField[] | LayoutFieldRemoval[] | undefined {
   if (value === undefined) return undefined;
@@ -200,27 +206,28 @@ async function handleApi(
   try {
     const body = JSON.parse(await readBody(request)) as Record<string, unknown>;
     if (url === "/api/layout") {
-      const model = rebuild();
-      const board = model.boards.find((candidate) => candidate.id === body["board"]);
-      if (board === undefined) {
-        send(400, { error: `no such board: ${String(body["board"])}` });
+      const index = reviewPageIndex(root);
+      const boardId = body["board"];
+      if (typeof boardId !== "string" || !index.boards.has(boardId)) {
+        send(400, { error: `no such board: ${String(boardId)}` });
         return;
       }
       const pageId = String(body["page"]);
-      const page = model.drawings.find(
-        (candidate) => candidate.kind === "sch" && candidate.board === board.id && candidate.page === pageId,
-      );
-      if (page === undefined) {
+      if (!index.pages.some((page) => page.board === boardId && page.page === pageId)) {
         send(400, { error: `no such print page: ${pageId}` });
         return;
       }
       const places = Array.isArray(body["places"]) ? (body["places"] as LayoutPlace[]) : [];
       const fields = parseLayoutFields(body["fields"], "fields");
       const remove_fields = parseLayoutFields(body["remove_fields"], "remove_fields");
-       // The editor's unsaved text, when the app holds one: the layout is computed on it and the
-       // write is it with the moved rows applied, so a drag cannot discard the edit (ADR-0042 D6).
-       const draft = typeof body["text"] === "string" ? { text: body["text"] } : {};
-      const request = { board: board.id, page: pageId, places, ...draft } as Parameters<typeof planLayout>[1];
+      // The editor's unsaved text, when the app holds one: the layout is computed on it and the
+      // write is it with the moved rows applied, so a drag cannot discard the edit (ADR-0042 D6).
+      const draft = typeof body["text"] === "string" ? { text: body["text"] } : {};
+      const request = { board: boardId, page: pageId, places, ...draft } as Parameters<typeof planLayout>[1];
+      const automaticFields = parseOptionalBoolean(body["automatic_fields"], "automatic_fields");
+      const reanchorWires = parseOptionalBoolean(body["reanchor_wires"], "reanchor_wires");
+      if (automaticFields !== undefined) request.automatic_fields = automaticFields;
+      if (reanchorWires !== undefined) request.reanchor_wires = reanchorWires;
       if (fields !== undefined) request.fields = fields as LayoutField[];
       if (remove_fields !== undefined) request.remove_fields = remove_fields as LayoutFieldRemoval[];
       const texts = parseLayoutTexts(body["texts"], "texts");
@@ -234,6 +241,7 @@ async function handleApi(
           changed: plan.changed,
           conflicts: plan.conflicts,
           reseated: plan.reseated,
+          ...(plan.stale === undefined ? {} : { stale: plan.stale }),
           svg: plan.svg,
           symbols: planned.symbols,
           texts: planned.texts,
@@ -247,6 +255,7 @@ async function handleApi(
         changed: plan.changed,
         conflicts: plan.conflicts,
         reseated: plan.reseated,
+        ...(plan.stale === undefined ? {} : { stale: plan.stale }),
         svg: plan.svg,
         symbols: planned.symbols,
         texts: planned.texts,
@@ -256,10 +265,10 @@ async function handleApi(
     }
 
     // The edit route: the source of a page the project has.
-    const model = rebuild();
+    const index = reviewPageIndex(root);
     const file = String(body["file"] ?? "");
-    const owner = model.drawings.find((candidate) => candidate.kind === "sch" && candidate.file === file);
-    if (owner === undefined || owner.board === undefined || owner.page === undefined) {
+    const owner = index.pages.find((page) => page.file === file);
+    if (owner === undefined) {
       send(400, { error: `no such print page: ${file}` });
       return;
     }
@@ -274,8 +283,14 @@ async function handleApi(
       send(200, { changed: saved.changed, model: after });
       return;
     }
-    const drawn = renderPageSource(root, owner.board, owner.page, text);
-    send(200, { svg: drawn.svg, errors: drawn.errors, anchors: drawn.anchors });
+    const automaticFields = parseOptionalBoolean(body["automatic_fields"], "automatic_fields");
+    const drawn = renderPageSource(root, owner.board, owner.page, text, automaticFields);
+    send(200, {
+      svg: drawn.svg,
+      errors: drawn.errors,
+      anchors: drawn.anchors,
+      geometry: reviewGeometry(drawn.geometry),
+    });
   } catch (error) {
     send(400, { error: error instanceof Error ? error.message : String(error) });
   }

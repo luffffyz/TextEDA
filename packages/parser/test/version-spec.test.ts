@@ -1,14 +1,7 @@
-// The language version table in spec/teda.md §13.1 and the acceptance ranges in
-// packages/parser/src/version.ts state the same fact twice: the version each description type is
-// born at, and the one version number the language is at. ADR-0041 D1 allows one fact to live in one
-// place, and this pair is the one place where two copies have to exist — the spec has to be
-// self-contained for third-party implementers, and the parser has to decide what it accepts. These
-// tests pin them together so neither can drift.
-//
-// The table carries the **floor** (the version a type was born at). The upper bound is the language's
-// current number, shared by every type (ADR-0002 D4): either every row states it as a range, or it
-// is stated once in the prose of §13.1. The reader below accepts both shapes and asserts the same
-// thing about either.
+// The version table in spec/teda.md §13.1 states each description type's introduction version and
+// the oldest surface version accepted by this reader. Those facts differ after a breaking rewrite;
+// the parser implements reader floors, and this test keeps them aligned with the public contract.
+// The language ceiling is shared by every type.
 //
 // The parser deliberately does not track the patch component of the accepted set: a patch never
 // changes the acceptance decision.
@@ -65,14 +58,11 @@ function cells(line: string): string[] {
 }
 
 /**
- * The version table in spec/teda.md §13.1: one row per description type.
- *
- * Column 1 is the type name in a code span, column 2 the floor in a code span. Column 3 is either
- * free prose or the accepted range (`0.1` – `0.9`); a cell that is nothing but versions is read as a
- * range, so the reader does not depend on which of the two shapes the table is written in.
+ * The version table in spec/teda.md §13.1 gives the oldest accepted reader floor plus the historical
+ * version that introduced each type; those are separate facts after a breaking rewrite.
  */
-function specTable(): Map<string, { floor: string; upper: number | null }> {
-  const rows = new Map<string, { floor: string; upper: number | null }>();
+function specTable(): Map<string, { floor: string; introduced: string | null; upper: number | null }> {
+  const rows = new Map<string, { floor: string; introduced: string | null; upper: number | null }>();
   for (const line of versionTable()) {
     const parts = cells(line);
     if (parts.length !== 3) continue;
@@ -81,8 +71,10 @@ function specTable(): Map<string, { floor: string; upper: number | null }> {
     if (!name || !floor) continue;
     const cell = parts[2]!.replace(/`/g, "").trim();
     const range = /^(\d+\.\d+)(?:\.\d+)?(?:\s*[-–—]\s*(\d+\.\d+)(?:\.\d+)?)?$/.exec(cell);
+    const introduced = /\bintroduced at (\d+\.\d+)\b/i.exec(cell)?.[1] ?? null;
     rows.set(name[1]!, {
       floor: floor[1]!,
+      introduced,
       upper: range ? Number((range[2] ?? range[1]!).split(".")[1]) : null,
     });
   }
@@ -100,7 +92,7 @@ function specProse(): string {
 
 /** Whether the prose of §13.1 states the language's current version. */
 function proseStatesCeiling(): boolean {
-  // The spec records the declared release as `0.10.0`; canonical source spelling omits a zero patch (`0.10`).
+  // The spec records the declared release as `0.11.0`; canonical source spelling omits a zero patch (`0.11`).
   return specProse().includes(formatVersion(SUPPORTED_LANGUAGE));
 }
 
@@ -110,9 +102,8 @@ describe("spec/teda.md §13.1 and packages/parser/src/version.ts", () => {
     expect([...rows.keys()].sort()).toEqual([...ALL_TYPES].sort());
   });
 
-  test("the table has three columns: the per-type current-version column is gone", () => {
-    // The old table had four columns (type | current version | born | accepted range). The current
-    // version is one number for the whole language, so it is not a column of a per-type table.
+  test("the table has three columns: type, reader floor and notes", () => {
+    // The language version is shared, while historical introductions stay in the notes column.
     const table = versionTable();
     expect(table.length).toBeGreaterThan(0);
     for (const line of table) {
@@ -120,16 +111,37 @@ describe("spec/teda.md §13.1 and packages/parser/src/version.ts", () => {
     }
   });
 
-  test("the born version is the floor the parser accepts", () => {
+  test("the reader floor matches the spec independently of type introduction", () => {
     const rows = specTable();
     for (const type of ALL_TYPES) {
-      const row = rows.get(type);
-      const born = row ? Number(row.floor.split(".")[1]) : NaN;
-      expect({ type, born, required: typeRange(type).required.minor }).toEqual({
+      const floor = rows.get(type)?.floor;
+      expect({ type, floor: floor ?? "<missing>", required: formatVersion(typeRange(type).required) }).toEqual({
         type,
-        born,
-        required: born,
+        floor: floor ?? "<missing>",
+        required: floor ?? "<missing>",
       });
+    }
+    expect(typeRange("footprint").required.minor).toBeGreaterThan(4);
+    expect(typeRange("pcb").required.minor).toBeGreaterThan(4);
+    expect(typeRange("symbol").required.minor).toBeGreaterThan(5);
+    expect(typeRange("view").required.minor).toBeGreaterThan(6);
+  });
+
+  test("the spec keeps historical type introductions distinct from reader floors", () => {
+    const rows = specTable();
+    const introduced: Record<DescriptionType, string> = {
+      component: "0.1",
+      footprint: "0.4",
+      module: "0.8",
+      pcb: "0.4",
+      procurement: "0.9",
+      schematic: "0.1",
+      symbol: "0.5",
+      system: "0.2",
+      view: "0.6",
+    };
+    for (const type of ALL_TYPES) {
+      expect({ type, introduced: rows.get(type)?.introduced }).toEqual({ type, introduced: introduced[type] });
     }
   });
 

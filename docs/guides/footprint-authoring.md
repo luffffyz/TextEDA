@@ -53,7 +53,7 @@
 语法见 `spec/footprint.md`。完整示例：`examples/reference-project/assets/footprints/sot/sot-23-5.teda`。
 
 ```
-version 0.9.2
+version 0.11
 footprint sot-23-5
 
 description SOT-23-5 body 2.9x1.6mm pitch 0.95mm
@@ -61,29 +61,29 @@ tags SOT-23 SOT-23-5
 attr smd
 package_code SOT-23-5
 model 3dmodels/sot-23-5.stp
-field Reference at=0,-2 layer=F.SilkS size=1,1 thickness=0.15 REF**
-field Value at=0,2 layer=F.Fab size=1,1 thickness=0.15 SOT-23-5
+field Reference at=[0,-2] layer=F.SilkS size=[1,1] thickness=0.15 REF**
+field Value at=[0,2] layer=F.Fab size=[1,1] thickness=0.15 SOT-23-5
 
 pads
-  1  smd  roundrect  -0.95  0.95    1.1  0.6  rratio=0.25
-  2  smd  roundrect  -0.95  0       1.1  0.6  rratio=0.25
-  3  smd  roundrect  -0.95  -0.95   1.1  0.6  rratio=0.25
-  4  smd  roundrect  0.95   -0.475  1.1  0.6  rratio=0.25
-  5  smd  roundrect  0.95   0.475   1.1  0.6  rratio=0.25
+  1  smd  roundrect  [-0.95,0.95]   [1.1,0.6]  rratio=0.25
+  2  smd  roundrect  [-0.95,0]      [1.1,0.6]  rratio=0.25
+  3  smd  roundrect  [-0.95,-0.95]  [1.1,0.6]  rratio=0.25
+  4  smd  roundrect  [0.95,-0.475]  [1.1,0.6]  rratio=0.25
+  5  smd  roundrect  [0.95,0.475]   [1.1,0.6]  rratio=0.25
 
 graphics
-  line  F.SilkS  -2.1,-0.95,-1.6,-0.95  width=0.12
-  line  F.SilkS  -2.1,0.95,-1.6,0.95    width=0.12
-  rect  F.CrtYd  -1.65,-1.2,1.65,1.2    width=0.05
-  rect  F.Fab    -1.45,-0.8,1.45,0.8    width=0.1
+  line  F.SilkS  [-2.1,-0.95,-1.6,-0.95]  width=0.12
+  line  F.SilkS  [-2.1,0.95,-1.6,0.95]    width=0.12
+  rect  F.CrtYd  [-1.65,-1.2,1.65,1.2]    width=0.05
+  rect  F.Fab    [-1.45,-0.8,1.45,0.8]    width=0.1
 ```
 
 要点：
 
 - 长度默认 **mm**，可写 `0.95mm` / `10mil` / `1in`；角度默认度。单位换算在编译期做，**结果不是整数纳米就报错**（不四舍五入）。
 - 比例（`rratio`）在 IR 里是整数百万分比（`250000`），不是浮点。
-- 焊盘行固定 7 列，后面接 `key=value` 尾列（`rot` `drill` `rratio` `mask` `paste` `zone` `thermal_w` `thermal_g` `layers`）。
-- 图形行 3 列：`kind layer geometry`；`geometry` 单元格内用逗号写坐标（`line`/`rect` 4 个数、`arc` 6 个、`circle` 3 个、`poly` 偶数个）。
+- 焊盘行固定 5 列 `number type shape [x,y] [w,h]`：位置与尺寸各是**一格**，不是两列（[ADR-0065](../adr/01-language/0065-a-coordinate-tuple-is-one-cell.md)）。后面接 `key=value` 尾列（`rot` `drill` `rratio` `mask` `paste` `zone` `thermal_w` `thermal_g` `layers`）。
+- 图形行 3 列：`kind layer [geometry]`；`geometry` 是**一格带方括号**的逗号列表（`line`/`rect` 4 个数、`arc` 6 个、`circle` 3 个、`poly` 偶数个），例如 `rect [-1.65,-1.2,1.65,1.2]`。
 - 不支持：自定义焊盘形状、挖空/开槽、多个 3D 模型、层叠封装。缺口不硬塞：可以在库里放手写 `.kicad_mod` 兜底（不受 schema 管）。
 
 手写时不必纠结对齐和顺序，写完跑一次：

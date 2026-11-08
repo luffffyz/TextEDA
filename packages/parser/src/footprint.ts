@@ -12,6 +12,7 @@ import { byteCompare, naturalCompare } from "@texteda/ir/order";
 import { parseAngleMdeg, parseLengthNm, parsePpm } from "./units.ts";
 import { checkVersion, typeRange } from "./version.ts";
 import { REV_RE } from "./ids.ts";
+import { OFFSET_3D, POINT, SIZE, type TupleShape, readTupleCells, readTupleText, shapeFor } from "./tuple.ts";
 
 // Section key sets are exported for fmt reuse: both places must agree on one lexicon, not each write its own.
 export const SECTIONS = new Set(["pads", "graphics"]);
@@ -35,6 +36,9 @@ const PAD_SHAPES = new Set(["rect", "roundrect", "oval", "circle"]);
 const GRAPHIC_KINDS = new Set(["line", "rect", "circle", "arc", "poly"]);
 const ZONE_KINDS = new Set(["solid", "thermal", "none"]);
 const ATTRS = new Set(["smd", "through_hole", "virtual", "board_only"]);
+/** Model transforms: the same three-component cells as `offset`, named for what they carry. */
+const SCALE_3D: TupleShape = { noun: "scale", components: ["x", "y", "z"] };
+const ROTATION_3D: TupleShape = { noun: "rotation", components: ["x", "y", "z"] };
 const FOOTPRINT_ID_RE = /^[A-Za-z0-9_.+-]+$/;
 const PIN_NUMBER_RE = /^[A-Za-z0-9_+-]+$/;
 // `*` is part of a layer name: a through-hole pad is on `*.Cu` / `*.Mask` (every copper layer).
@@ -64,8 +68,8 @@ type Field = NonNullable<Footprint["footprint"]["fields"]>[number];
 class Collector {
   readonly diagnostics: Diagnostic[] = [];
 
-  error(file: string, line: number, col: number, code: DiagnosticCodeId, message: string): void {
-    this.diagnostics.push({ code, severity: "error", message, location: { file, line, col } });
+  error(file: string, line: number, col: number, code: DiagnosticCodeId, message: string, extra?: { hint?: string }): void {
+    this.diagnostics.push({ code, severity: "error", message, location: { file, line, col }, ...(extra?.hint === undefined ? {} : { hint: extra.hint }) });
   }
 
   get hasError(): boolean {
@@ -101,19 +105,37 @@ function readKeyValues(
   }
 }
 
-/** Parse a list of numbers in `x,y` form (lengths). */
-function readLengthList(
+/**
+ * Split a `key=value` payload into its tuple components: `offset=[0,0,1.5]`, `rot=[0,0,90]`.
+ * The components keep their own columns, so a later per-component diagnostic lands where it belongs.
+ */
+function readTupleParts(
   text: string,
+  col: number,
+  shape: TupleShape,
   file: string,
   line: number,
+  code: DiagnosticCodeId,
+  collector: Collector,
+): Cell[] | null {
+  return readTupleText(text, col, shape, file, line, (diagnostic) => collector.diagnostics.push(diagnostic), code);
+}
+
+/** One bracketed cell, or a `key=value` payload, as the lengths of a fixed shape. */
+function readTupleLengthsFromText(
+  text: string,
   col: number,
+  shape: TupleShape,
+  file: string,
+  line: number,
   code: DiagnosticCodeId,
   collector: Collector,
 ): number[] | null {
-  const parts = text.split(",");
+  const parts = readTupleText(text, col, shape, file, line, (diagnostic) => collector.diagnostics.push(diagnostic), code);
+  if (parts === null) return null;
   const values: number[] = [];
   for (const part of parts) {
-    const parsed = parseLengthNm(part, file, line, col, "mm", code);
+    const parsed = parseLengthNm(part.text, file, line, part.col, "mm", code);
     if (!parsed.ok) {
       if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
       return null;
@@ -123,25 +145,35 @@ function readLengthList(
   return values;
 }
 
+/** Components of one `[a,b,…]` cell as lengths (ADR-0065 D3): the pad's `point` and `size`, and the shape geometry. */
+function readTupleLengths(
+  cell: Cell,
+  shape: TupleShape,
+  file: string,
+  line: number,
+  code: DiagnosticCodeId,
+  collector: Collector,
+): number[] | null {
+  return readTupleLengthsFromText(cell.text, cell.col, shape, file, line, code, collector);
+}
+
 function parsePadRow(
   cells: Cell[],
   file: string,
   line: number,
   collector: Collector,
 ): Pad | null {
-  if (cells.length < 7) {
-    collector.error(file, line, cells[0]?.col ?? 1, "syntax.row-too-short", "a pads row needs at least 7 columns: number type shape x y w h");
+  if (cells.length < 5) {
+    collector.error(file, line, cells[0]?.col ?? 1, "syntax.row-too-short", "a pads row needs at least 5 columns: number type shape [x,y] [w,h]");
     return null;
   }
-  // Column count already validated above; indexing here, the first 7 columns are guaranteed to exist.
+  // Column count already validated above; indexing here, the first 5 columns are guaranteed to exist.
   const firstCell = cells[0]!;
   const number = cells[0]!;
   const type = cells[1]!;
   const shape = cells[2]!;
-  const x = cells[3]!;
-  const y = cells[4]!;
-  const w = cells[5]!;
-  const h = cells[6]!;
+  const pointCell = cells[3]!;
+  const sizeCell = cells[4]!;
   if (!PIN_NUMBER_RE.test(number.text)) {
     collector.error(file, line, number.col, "value.pad-number-invalid", `invalid pad number: ${number.text}`);
     return null;
@@ -154,33 +186,30 @@ function parsePadRow(
     collector.error(file, line, shape.col, "value.pad-shape-unknown", `unknown pad shape: ${shape.text}`);
     return null;
   }
-  const nums: number[] = [];
-  for (const cell of [x, y, w, h]) {
-    const parsed = parseLengthNm(cell.text, file, line, cell.col, "mm", "value.pad-size-invalid");
-    if (!parsed.ok) {
-      if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
-      return null;
-    }
-    nums.push(parsed.value!);
-  }
-  const sizeX = nums[2]!;
-  const sizeY = nums[3]!;
+  const point = readTupleLengths(pointCell, POINT, file, line, "value.pad-size-invalid", collector);
+  if (point === null) return null;
+  const measured = readTupleLengths(sizeCell, SIZE, file, line, "value.pad-size-invalid", collector);
+  if (measured === null) return null;
+  const sizeX = measured[0]!;
+  const sizeY = measured[1]!;
   if (sizeX <= 0 || sizeY <= 0) {
-    collector.error(file, line, w.col, "value.pad-size-invalid", "pad size must be positive");
+    collector.error(file, line, sizeCell.col, "value.pad-size-invalid", "pad size must be positive");
     return null;
   }
 
   const kv = new Map<string, string>();
-  readKeyValues(cells.slice(7), PAD_KEYS, file, line, kv, collector);
+  readKeyValues(cells.slice(5), PAD_KEYS, file, line, kv, collector);
 
   const pad: Pad = {
     number: number.text,
     type: type.text as Pad["type"],
     shape: shape.text as Pad["shape"],
-    at: { x_nm: nums[0]!, y_nm: nums[1]! },
+    at: { x_nm: point[0]!, y_nm: point[1]! },
     size: { x_nm: sizeX, y_nm: sizeY },
     layers: type.text === "th" ? ["*.Cu", "*.Mask"] : ["F.Cu", "F.Mask", "F.Paste"],
   };
+
+
 
   const rot = kv.get("rot");
   if (rot !== undefined) {
@@ -290,7 +319,15 @@ function parseGraphicRow(
     collector.error(file, line, layerCell.col, "value.graphic-invalid", `invalid layer name: ${layerCell.text}`);
     return null;
   }
-  const values = readLengthList(geometryCell.text, file, line, geometryCell.col, "value.graphic-invalid", collector);
+  const shape =
+    kindCell.text === "line" || kindCell.text === "rect"
+      ? shapeFor(`${kindCell.text} geometry`, ["x1", "y1", "x2", "y2"])
+      : kindCell.text === "circle"
+        ? shapeFor("circle geometry", ["cx", "cy", "r"])
+        : kindCell.text === "arc"
+          ? shapeFor("arc geometry", ["x1", "y1", "xm", "ym", "x2", "y2"])
+          : shapeFor("poly geometry", ["x", "y"], true);
+  const values = readTupleLengths(geometryCell, shape, file, line, "value.graphic-invalid", collector);
   if (values === null) return null;
 
   const graphic: Graphic = {
@@ -298,30 +335,13 @@ function parseGraphicRow(
     layer: layerCell.text,
   };
 
-  const need = (count: number): boolean => {
-    if (values.length !== count) {
-      collector.error(
-        file,
-        line,
-        geometryCell.col,
-        "value.graphic-invalid",
-        `${kindCell.text} geometry needs ${count} numbers, got ${values.length}`,
-      );
-      return false;
-    }
-    return true;
-  };
-
   switch (kindCell.text) {
     case "line":
-    case "rect": {
-      if (!need(4)) return null;
+    case "rect":
       graphic.start = { x_nm: values[0]!, y_nm: values[1]! };
       graphic.end = { x_nm: values[2]!, y_nm: values[3]! };
       break;
-    }
-    case "circle": {
-      if (!need(3)) return null;
+    case "circle":
       if (values[2]! <= 0) {
         collector.error(file, line, geometryCell.col, "value.graphic-invalid", "circle radius must be positive");
         return null;
@@ -329,21 +349,18 @@ function parseGraphicRow(
       graphic.center = { x_nm: values[0]!, y_nm: values[1]! };
       graphic.radius_nm = values[2]!;
       break;
-    }
-    case "arc": {
-      if (!need(6)) return null;
+    case "arc":
       graphic.start = { x_nm: values[0]!, y_nm: values[1]! };
       graphic.mid = { x_nm: values[2]!, y_nm: values[3]! };
       graphic.end = { x_nm: values[4]!, y_nm: values[5]! };
       break;
-    }
     case "poly": {
-      if (values.length < 6 || values.length % 2 !== 0) {
-        collector.error(file, line, geometryCell.col, "value.graphic-invalid", "poly needs at least 3 points (x,y alternating)");
+      if (values.length < 6) {
+        collector.error(file, line, geometryCell.col, "value.graphic-invalid", "poly needs at least 3 points: [x,y,x,y,x,y,…]");
         return null;
       }
-      const points = [];
-      for (let i = 0; i < values.length; i += 2) {
+      const points: { x_nm: number; y_nm: number }[] = [];
+      for (let i = 0; i + 1 < values.length; i += 2) {
         points.push({ x_nm: values[i]!, y_nm: values[i + 1]! });
       }
       const [p0, p1, p2, ...rest] = points;
@@ -433,7 +450,10 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
   const version = versionLine.cells[1]!.text;
   const verdict = checkVersion(version, VERSION_RANGE, "footprint");
   if (!verdict.ok) {
-    collector.error(file, versionLine.number, versionLine.cells[1]!.col, verdict.code, verdict.message);
+    collector.error(file, versionLine.number, versionLine.cells[1]!.col, verdict.code, verdict.message, {
+      ...(verdict.hint === undefined ? {} : { hint: verdict.hint }),
+    });
+    return { ok: false, diagnostics: collector.diagnostics };
   }
 
   const typeLine = nextMeaningful();
@@ -542,48 +562,43 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
           const kv = new Map<string, string>();
           readKeyValues(rest.slice(1), MODEL_KEYS, file, line.number, kv, collector);
           const entry: NonNullable<Footprint["footprint"]["model3d"]> = { path };
+          const col = rest[0]!.col;
           const offset = kv.get("offset");
           if (offset !== undefined) {
-            const values = readLengthList(offset, file, line.number, rest[0]!.col, "library.model-invalid", collector);
-            if (values && values.length === 3) {
-              entry.offset_nm = [values[0]!, values[1]!, values[2]!];
-            }
+            const values = readTupleLengthsFromText(offset, col, OFFSET_3D, file, line.number, "library.model-invalid", collector);
+            if (values !== null) entry.offset_nm = [values[0]!, values[1]!, values[2]!];
           }
           const scale = kv.get("scale");
           if (scale !== undefined) {
-            const parts = scale.split(",");
-            const ppm: number[] = [];
-            let ok = parts.length === 3;
-            for (const part of parts) {
-              const parsedPpm = parsePpm(part, file, line.number, rest[0]!.col, "library.model-invalid");
-              if (!parsedPpm.ok) {
-                ok = false;
-                collector.diagnostics.push(parsedPpm.diagnostic);
-                continue;
+            const parts = readTupleParts(scale, col, SCALE_3D, file, line.number, "library.model-invalid", collector);
+            if (parts !== null) {
+              const ppm: number[] = [];
+              for (const part of parts) {
+                const parsedPpm = parsePpm(part.text, file, line.number, part.col, "library.model-invalid");
+                if (!parsedPpm.ok) {
+                  collector.diagnostics.push(parsedPpm.diagnostic);
+                  continue;
+                }
+                if (parsedPpm.value <= 0) {
+                  collector.error(file, line.number, part.col, "library.model-invalid", `scale must be a positive number: ${part.text}`);
+                  continue;
+                }
+                ppm.push(parsedPpm.value);
               }
-              if (parsedPpm.value <= 0) {
-                ok = false;
-                collector.error(file, line.number, rest[0]!.col, "library.model-invalid", `scale must be a positive number: ${part}`);
-                continue;
-              }
-              ppm.push(parsedPpm.value);
-            }
-            if (ok && ppm.length === 3) {
-              entry.scale_ppm = [ppm[0]!, ppm[1]!, ppm[2]!];
-            } else if (parts.length !== 3) {
-              collector.error(file, line.number, rest[0]!.col, "library.model-invalid", `scale requires 3 numbers: ${scale}`);
+              if (ppm.length === 3) entry.scale_ppm = [ppm[0]!, ppm[1]!, ppm[2]!];
             }
           }
           const rot = kv.get("rot");
           if (rot !== undefined) {
-            const values = rot.split(",");
-            const parsed = values.map((v) => parseAngleMdeg(v, file, line.number, rest[0]!.col, "deg", "library.model-invalid"));
-            const okAngles = parsed.filter((p) => p.ok);
-            if (okAngles.length === 3) {
-              entry.rotation_mdeg = [okAngles[0]!.value, okAngles[1]!.value, okAngles[2]!.value];
-            }
-            for (const p of parsed) {
-              if (!p.ok) collector.diagnostics.push(p.diagnostic);
+            const parts = readTupleParts(rot, col, ROTATION_3D, file, line.number, "library.model-invalid", collector);
+            if (parts !== null) {
+              const angles: number[] = [];
+              for (const part of parts) {
+                const parsed = parseAngleMdeg(part.text, file, line.number, part.col, "deg", "library.model-invalid");
+                if (parsed.ok) angles.push(parsed.value);
+                else if (parsed.diagnostic) collector.diagnostics.push(parsed.diagnostic);
+              }
+              if (angles.length === 3) entry.rotation_mdeg = [angles[0]!, angles[1]!, angles[2]!];
             }
           }
           model3d = entry;
@@ -613,8 +628,8 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
           const field: Field = { name: fieldName, value: trailing(cursor) };
           const at = kv.get("at");
           if (at !== undefined) {
-            const values = readLengthList(at, file, line.number, rest[0]!.col, "library.field-invalid", collector);
-            if (values && values.length === 2) {
+            const values = readTupleLengthsFromText(at, rest[0]!.col, POINT, file, line.number, "library.field-invalid", collector);
+            if (values !== null) {
               field.at = { x_nm: values[0]!, y_nm: values[1]! };
             }
           }
@@ -627,8 +642,8 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
           if (size !== undefined || thickness !== undefined) {
             const effects: NonNullable<Field["effects"]> = {};
             if (size !== undefined) {
-              const values = readLengthList(size, file, line.number, rest[0]!.col, "library.field-invalid", collector);
-              if (values && values.length === 2) {
+              const values = readTupleLengthsFromText(size, rest[0]!.col, SIZE, file, line.number, "library.field-invalid", collector);
+              if (values !== null) {
                 effects.width_nm = values[0]!;
                 effects.height_nm = values[1]!;
               }

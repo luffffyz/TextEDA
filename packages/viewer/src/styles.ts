@@ -181,8 +181,15 @@ export const APP_STYLES = `
   padding: 48px; text-align: center; white-space: pre-line; color: var(--muted);
 }
 .teda-review .canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
-.teda-review .sheet { box-shadow: 0 8px 32px #0008; }
-.teda-review .sheet-svg { display: block; background: #fff; }
+ .teda-review .sheet { position: relative; box-shadow: 0 8px 32px #0008; }
+ .teda-review .sheet-svg { display: block; background: #fff; }
+ .teda-review .pending-symbol-overlay {
+  position: absolute; inset: 0; display: block; width: 100%; height: 100%;
+  overflow: visible; pointer-events: none;
+}
+ .teda-review .pending-symbol { opacity: .55; }
+ .teda-review .pending-symbol * { stroke: #858b94 !important; }
+ .teda-review .pending-symbol [fill]:not([fill="none"]) { fill: #858b94 !important; }
 /* The hit rect is invisible and exactly the object's box: no stroke, because a transparent stroke
    still counts for pointer-events and would make neighbouring 0402s steal each other's hover. */
 .teda-review .hotspot { fill: transparent; stroke: none; pointer-events: all; }

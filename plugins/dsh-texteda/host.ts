@@ -21,7 +21,7 @@
 import type { Context } from "@deepseek-ai/cordis";
 import { defineTool } from "@deepseek-ai/dsh-tools";
 import { dshTools } from "../../packages/cli/src/dsh-tools.ts";
-import { buildReviewModel, reviewGeometry } from "../../packages/cli/src/review-model.ts";
+import { buildReviewModel, reviewGeometry, reviewPageIndex } from "../../packages/cli/src/review-model.ts";
 import { applyPlaces, planPlaces, LayoutError } from "../../packages/cli/src/layout.ts";
 import type { ReviewCapability, ReviewModel } from "../../packages/viewer/src/types.ts";
 
@@ -138,15 +138,10 @@ async function handlePlaces(ctx: Context, request: Request): Promise<Response> {
     const places = askedPlaces(body.places);
     if (places === undefined) return refuse(400, "a place needs instance_id, x, y and rot");
 
-    // The request may name only a print page the project has, and the check is the model's own: a
-    // route that trusted the body's paths would be a way to write a file the app never showed.
-    const model = buildReviewModel(root);
-    const owner = model.boards.find((candidate) => candidate.id === board);
-    if (owner === undefined) return refuse(400, `no such board: ${board}`);
-    const drawing = model.drawings.find(
-        (candidate) => candidate.kind === "sch" && candidate.board === board && candidate.page === page,
-    );
-    if (drawing === undefined) {
+    // Validate against the project's actual page files; do not build the full review model for a preview.
+    const index = reviewPageIndex(root);
+    if (!index.boards.has(board)) return refuse(400, `no such board: ${board}`);
+    if (!index.pages.some((candidate) => candidate.board === board && candidate.page === page)) {
         return refuse(400, `no such print page: ${page}`);
     }
 

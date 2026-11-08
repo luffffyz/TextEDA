@@ -96,7 +96,7 @@ nets
 - **标量只在第一个段之前**。进入段之后，所有非段头、非空、非注释行都按行解析。
 - **注释只整行**。`#` 出现在值或单元格中间时是普通字符（避免截断 URL 片段）。
 - **`:` 只用于 net/bus 成员行**。`name: member...` 表示“名字 → 成员列表”；其余段是固定列元组，不加冒号。
-- **冒号与续行同域**。只有“名字 + 不定长列表”的行（`nets`、`bus` 成员）才既用冒号界定名字与列表的边界，又可能长到一行放不下，所以也只有它们支持续行：首列是裸 `:` 的行延续上一行命名的 net。其余段要么列数固定（`instances`、`ports`、`constraints`），要么是成对坐标、拆行会断配对（`trace`、`zone`、`keepout`、`outline`），都不需要续行。
+- **冒号与续行同域**。只有“名字 + 不定长列表”的行（`nets`、`bus` 成员）才既用冒号界定名字与列表的边界，又可能长到一行放不下，所以也只有它们支持续行：首列是裸 `:` 的行延续上一行命名的 net。其余段要么列数固定（`instances`、`ports`、`constraints`），要么是不定长的一串**元组单元格**（`trace`、`zone`、`keepout`、`outline`，每个点是一格），都不需要续行。
 
 ---
 
@@ -120,6 +120,24 @@ nets
 ### 4.3 单元格
 
 单元格是不含空白的连续字符。v0.1 **不支持引号、转义、跨行单元格**。需要空格的自由文本（厂商名、描述）只能写在标量里。
+
+**坐标元组是一个单元格**（0.11 起，[ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) D1）。一个几何量——点、尺寸、偏移——写成不带空白的 `[a,b]` / `[a,b,c]`，括号内不允许空白；元数由消费它的那一列固定，**不从行内数出来**。
+
+| 形态 | 写法 | 例 |
+|---|---|---|
+| 点 | `[x,y]` | `M2.U1  [140.0,105.0]  0` |
+| 尺寸 | `[w,h]` | `1  smd  roundrect  [-0.95,0.95]  [1.1,0.6]` |
+| 偏移 | `[x,y,z]` | `model body.step offset=[0,0,1.5]` |
+
+**单值是单值，不加括号**：一个长度、一个角度、一个比例仍是普通单元格（`0.25`、`90`、`25%`），`[0.25]` 不是元组。
+
+一串点就是**一串元组单元格**：`outline` 的顶点、`trace` 的折点、`zone`/`keepout` 的环、`wire` 的折点、`poly`/`arc` 的图形、`pads` 的位置与尺寸都是每点一格。run 里有多少格就有多少点——"成对坐标"不再是诊断（旧的 `value.invalid-value: coordinates must come in pairs` 不再出现在这些段）。
+
+`key=value` 里的元组保留键、值加括号：`at=[-6.5,20]`、`size=[1,1]`、`offset=[0,0,1.5]`。
+
+元组**整体失败**：括号缺失、元数不符、括号内有空白都只在元组那一列报一条诊断，文案给出期望的元数与形态（`[10.0]` 需要点 → "a point is `[x,y]`"）。元组内部各分量保留自己的列偏移，所以"某个坐标不在 `0.01 mm` 分辨率上""某点越出图幅"仍指向那个分量，而对齐与"一个几何量"仍以单元格为单位。
+
+规则适用于**所有描述类型**（`view` / `pcb` / `symbol` / `footprint`），列见各分描述规范；这是 [ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) D3 的表。
 
 ### 4.4 标量值
 
@@ -654,25 +672,25 @@ nets
 
 `version` 为 `MAJOR.MINOR[.PATCH]`，三位各自无前导零。**PATCH 位可省略，省略即 0**：`0.6` 与 `0.6.0` 是同一个版本，IR 里只存一种写法（`0.6`）。
 
-**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.10.0**。
+**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.11.0**。
 
-各描述类型之间剩下的唯一差别是**下界**：一种描述类型在它被引入之前不存在，所以工具不读比那更早的它的文件。上界对所有描述类型都是同一个——语言当前版本。
+各描述类型接受的**下界**是当前 reader 仍支持的最早表面形态；它可以晚于类型的历史引入版本。上界对所有描述类型都是同一个——语言当前版本。
 
-| 描述类型 | 下界 | 说明 |
+| 描述类型 | reader 下界 | 说明 |
 |---|---|---|
-| `schematic` | `0.1` | 0.1 引入的板文件（板级原理图描述） |
-| `module` | `0.8` | 0.8 引入的模块描述 |
-| `procurement` | `0.9` | 0.9 引入的采购选料描述 |
-| `view` | `0.7` | 0.6 引入的打印页；0.7 起引用板级 id，所以下界是 0.7 |
-| `pcb` | `0.7` | 0.4 引入；0.7 的板扁平化改写了它的形状，所以下界是 0.7 |
-| `footprint` | `0.4` | 0.4 引入的封装几何 |
-| `symbol` | `0.5` | 0.5 引入的符号视图 |
-| `system` | `0.2` | 0.2 引入的板间连接描述 |
-| `component` | `0.1` | 0.1 引入的器件描述 |
+| `schematic` | `0.1` | Introduced at 0.1; a board-level schematic description |
+| `module` | `0.8` | Introduced at 0.8; a module description |
+| `procurement` | `0.9` | Introduced at 0.9; procurement selections |
+| `view` | `0.11` | Introduced at 0.6; board-level references from 0.7; coordinate tuples require 0.11 |
+| `pcb` | `0.11` | Introduced at 0.4; flat-board rewrite at 0.7; coordinate tuples require 0.11 |
+| `footprint` | `0.11` | Introduced at 0.4; coordinate tuples require 0.11 |
+| `symbol` | `0.11` | Introduced at 0.5; coordinate tuples require 0.11 |
+| `system` | `0.2` | Introduced at 0.2; inter-board connections |
+| `component` | `0.1` | Introduced at 0.1; component descriptions |
 
-下界表由 `packages/parser/src/version.ts` 的 `TYPE_BIRTH` 实现，两者由 `packages/parser/test/version-spec.test.ts` 钉在一起：抬一个类型的下界会让测试红，而不是让规范悄悄过期。
+`packages/parser/src/version.ts` 的 reader-floor 表实现接受下界；`packages/parser/test/version-spec.test.ts` 将其与本表钉在一起。类型引入版本是历史事实，保留在说明列中；它不决定 reader floor。
 
-在 `0.x` 阶段，兼容澄清和诊断改进走 PATCH；新增段或字段走 MINOR，并且必须有显式决策记录（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D5）。本次 `0.10.0` 由 [ADR-0055](../docs/adr/09-view/0055-schematic-fields-are-view-overrides.md) 引入 `view` 的 `field` 段。
+在 `0.x` 阶段，兼容澄清和诊断改进走 PATCH；新增段或字段、以及**改变已接受文件的表面形态**走 MINOR，并且必须有显式决策记录（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D5）。`0.10.0` 由 [ADR-0055](../docs/adr/09-view/0055-schematic-fields-are-view-overrides.md) 引入 `view` 的 `field` 段；`0.11.0` 由 [ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) 把坐标统一成一个括号元组单元格——这次是破坏性变更，带迁移说明与 `bun run migrate:0.11`。
 
 | 位 | 什么时候动 | 动它意味着 |
 |---|---|---|
@@ -700,10 +718,10 @@ nets
 
 1. 版本号是合法的 `MAJOR.MINOR[.PATCH]`（否则 `format.invalid-version`）；
 2. MAJOR 与工具支持的 MAJOR 相同（否则 `format.unsupported-version`）；
-3. MINOR **不低于该描述类型的下界**（§13.1 的表）——`view` 文件不能写 `0.5`，`procurement` 文件不能写 `0.8`；
+3. MINOR **不低于该描述类型的 reader 下界**（§13.1 的表）——`view` 与 `symbol` 文件不能写 `0.10`，即使某个文件没有使用 `field` 段；`procurement` 文件仍可写 `0.9`；
 4. MINOR **不高于语言当前的 MINOR**——上界对所有描述类型都是同一个：今天 `symbol` 文件与 `view` 文件的上界一样，都是语言当前版本。
 
-上界只有一个，所以"这个文件写的是不是我这行自己的号"这个问题不再存在。下界仍然是类型的事实——一种描述类型在被引入之前不存在，比它更早的号没有意义。
+上界是统一的语言版本；reader 下界则是该类型当前仍支持的最早表面形态，可能晚于类型的历史引入版本。表面形态发生破坏性变化时，下界可以随显式迁移一起前移。
 
 `project.toml` 的 `format` 是**语言版本**（§13.1 的当前号），`texteda init` 写的就是它；IR 的 `format` 字段记的是源文件自己声明的版本（canonical 写法）。IR 契约版本 `ir_version` 是另一条线，不随语言版本动（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D8）。
 
@@ -713,10 +731,17 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
 
 语言的每次版本变化在这里留一条，最新的在前。每条写明改了什么，并指向决定它的那份记录。
 
+#### 0.11.0 — A coordinate tuple is one cell（2026-11-08）
+
+- **Coordinates are bracketed tuples, in every description type.** A point, a size and an offset are one cell — `[x,y]`, `[w,h]`, `[x,y,z]` — and a run of points is a run of such cells. The `key=value` spellings keep their key and gain the brackets: `at=[-6.5,20]`, `size=[1,1]`, `offset=[0,0,1.5]`. Single scalars (length, angle, ratio) are unchanged. The rule and its reasons are in [ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md); the lexical rule is §4.3.
+- **This is a breaking change.** The old two-cell form (`U1  10.0  10.0`, `1  -12.5  -13.5  0`, `rect  -10,-16.5,10,16.5`) is not accepted: `bun run migrate:0.11 <project dir>` folds tuples and sets geometric description files (`view`, `pcb`, `symbol`, `footprint`) to language `0.11`; it also updates the project `format`. The migration table in [ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) §Migration lists the affected columns. The migration decides nothing — a tuple's arity was already fixed by its column.
+- **Reader floors move only where the surface changed.** `view`, `pcb`, `symbol`, and `footprint` now have a reader floor of `0.11`, whether or not an individual file currently contains a tuple. Other description types keep their prior floors and do not need their version lines rewritten.
+- **What does not change.** The `0.5 mm` lattice ([ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md)), the wire endpoint rules ([ADR-0062](../docs/adr/09-view/0062-a-run-may-end-at-a-port.md)), the junction graph, the `0.01 mm` view resolution and the IR contract. The IR still stores `x_nm` / `y_nm` as separate integers ([ADR-0005](../docs/adr/02-ir/0005-ir-representation.md)); `ir_version` does not move.
+
 #### 0.10.0 — Schematic field overrides（2026-11-01）
 
 - The `view` description gains an optional `field` section for per-instance `Reference` and `Value` positions. Rows are symbol-local overrides; omitted rows select deterministic renderer placement. The construct is defined by [ADR-0055](../docs/adr/09-view/0055-schematic-fields-are-view-overrides.md).
-- A `0.9.2` file remains valid when it uses no `field` section, but a `0.9.2` file containing `field` is rejected. The IR contract for the new optional array is **v0.15**; **v0.14** is unchanged.
+- At the `0.10` release, a `0.9.2` file remained valid when it used no `field` section, while a `0.9.2` file containing `field` was rejected. The `view` reader floor later moved to `0.11` for the coordinate-tuple rewrite. The IR contract for the new optional array is **v0.15**; **v0.14** is unchanged.
 
 #### 0.9.2 — 资产目录变成分类目录（2026-10-30）
 
@@ -729,7 +754,7 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
 #### 0.9.1 — 九条类型版本线合并为一个语言版本号（2026-10-27）
 
 - **语言只有一个版本号**（决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D2）：每个 `.teda` 文件声明的是语言版本，与它是哪一种描述无关；`project.toml` 的 `format` 是同一个号。
-- **下界仍按类型，上界统一**（决策同前 D2）：每种描述类型的下界是它被引入的那一版（`pcb` 例外——0.7 的板扁平化改写了它的形状，下界因此是 `0.7`）；上界是语言当前版本，对所有描述类型相同。
+- **下界仍按类型，上界统一**（决策同前 D2）：在 0.9.1 合并时，每种描述类型的下界是它被引入的那一版（`pcb` 例外——0.7 的板扁平化改写了它的形状，下界因此是 `0.7`）；上界是语言当前版本，对所有描述类型相同。后续的破坏性表面迁移可以显式提高 reader 下界。
 - **合并只放宽接受范围**（决策同前 D3）：今天能读的文件没有一份变成不能读。
 - **版本号从此只走 PATCH 位**（决策同前 D4）：下一个是 `0.9.2`；`0.x` 阶段抬 MINOR 需要一份决策记录。
 - **`1.0` 仍然是保留号**（决策同前 D5）：合并不是冻结——十用例语料还差六个（`docs/backlog.md` F12）。
@@ -940,12 +965,12 @@ constraints
 `design/sch/power/charger.view.teda`（同一个板的第一个打印页，画给评审看）：
 
 ```
-version 0.9.2
+version 0.11.0
 view charger
 
 place
-  R1  40  30  0
-  U1  80  30  0
+  R1  [40,30]  0
+  U1  [80,30]  0
 
 wire
   VFB  U1.VFB  R1.1

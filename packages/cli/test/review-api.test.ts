@@ -110,6 +110,26 @@ describe("the review app's write routes", () => {
     }
   });
 
+
+  test("the layout route commits a zero-degree rotation instead of retaining the old angle", async () => {
+    const dir = scratch();
+    const server = await serve(dir);
+    try {
+      const response = await post(server, "/api/layout", {
+        board: "charger-buck",
+        page: "buck-5v",
+        places: [{ instance_id: "M2.C4", x: 218, y: 105.5, rot: 0 }],
+        commit: true,
+      });
+      expect(response.status).toBe(200);
+      expect(response.payload["changed"]).toBe(true);
+      const parsed = parseView(readFileSync(join(dir, pageFile), "utf8"), { file: pageFile, board: "charger-buck" });
+      expect(parsed.ok).toBe(true);
+      expect(parsed.ir?.place.find((place) => place.instance_id === "M2.C4")?.rot_mdeg).toBeUndefined();
+    } finally {
+      server.stop();
+    }
+  });
   test("the layout route writes the page when it is asked to commit", async () => {
     const dir = scratch();
     const server = await serve(dir);
@@ -134,7 +154,10 @@ describe("the review app's write routes", () => {
   test("the layout route keeps the editor's unsaved text", async () => {
     const dir = scratch();
     const text = readFileSync(join(dir, pageFile), "utf8");
-    const draft = text.replace("# TPS5430 5V/3A buck print page.", "# TPS5430 5V/3A buck print page (edited).");
+    const draft = text.replace(
+      "Every net of this module is drawn here",
+      "Every net of this module is drawn here (edited)",
+    );
     const server = await serve(dir);
     try {
       const response = await post(server, "/api/layout", {
@@ -148,7 +171,7 @@ describe("the review app's write routes", () => {
       expect(response.payload["changed"]).toBe(true);
       const written = readFileSync(join(dir, pageFile), "utf8");
       // The edit is still there, and so is the move.
-      expect(written).toContain("# TPS5430 5V/3A buck print page (edited).");
+      expect(written).toContain("Every net of this module is drawn here (edited)");
       expectC1At118(written);
     } finally {
       server.stop();
@@ -165,10 +188,11 @@ describe("the review app's write routes", () => {
         page: "buck-5v",
         places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 90 }],
         commit: true,
-        text: "version 0.9.1\nview buck-5v\n\nplace\n  M2.C1  118.0\n",
+        text: "version 0.11\nview buck-5v\n\nplace\n  M2.C1  118.0\n",
       });
       expect(response.status).toBe(400);
-      expect(String(response.payload["error"] ?? "")).toContain("syntax.row-too-short");
+      // The draft's place row writes a point as two cells, which the language does not allow.
+      expect(String(response.payload["error"] ?? "")).toContain("syntax.invalid-literal");
       expect(readFileSync(join(dir, pageFile), "utf8")).toBe(before);
     } finally {
       server.stop();
@@ -253,6 +277,23 @@ describe("the review app's write routes", () => {
       });
       expect(malformed.status).toBe(400);
       expect(String(malformed.payload["error"] ?? "")).toContain("finite numbers");
+      const invalidAutomaticFields = await post(server, "/api/layout", {
+        board: "charger-buck",
+        page: "buck-5v",
+        places: [],
+        automatic_fields: "false",
+      });
+      expect(invalidAutomaticFields.status).toBe(400);
+      expect(String(invalidAutomaticFields.payload["error"] ?? "")).toContain("automatic_fields must be a boolean");
+
+      const invalidReanchorWires = await post(server, "/api/layout", {
+        board: "charger-buck",
+        page: "buck-5v",
+        places: [],
+        reanchor_wires: 0,
+      });
+      expect(invalidReanchorWires.status).toBe(400);
+      expect(String(invalidReanchorWires.payload["error"] ?? "")).toContain("reanchor_wires must be a boolean");
 
       const unknown = await post(server, "/api/layout", {
         board: "charger-buck",
@@ -297,13 +338,33 @@ describe("the review app's write routes", () => {
       server.stop();
     }
   });
+  test("the source route can suppress automatic page fields without changing source rows", async () => {
+    const dir = scratch();
+    const text = readFileSync(join(dir, pageFile), "utf8");
+    const server = await serve(dir);
+    try {
+      const automatic = await post(server, "/api/source", { file: pageFile, text, save: false });
+      const disabled = await post(server, "/api/source", {
+        file: pageFile,
+        text,
+        save: false,
+        automatic_fields: false,
+      });
+      expect(automatic.status).toBe(200);
+      expect(disabled.status).toBe(200);
+      expect(disabled.payload["geometry"]).not.toEqual(automatic.payload["geometry"]);
+      expect(readFileSync(join(dir, pageFile), "utf8")).toBe(text);
+    } finally {
+      server.stop();
+    }
+  });
 
   test("the source route saves the page in the formatter's form", async () => {
     const dir = scratch();
     const text = readFileSync(join(dir, pageFile), "utf8");
     const draft = text.replace(
-      /^([ \t]*)M2\.C1[ \t]+117\.5[ \t]+96\.5[ \t]+90$/m,
-      "$1M2.C1 118.0 95.0 90",
+      /^([ \t]*)M2\.C1[ \t]+\[117\.5,96\.5\][ \t]+90$/m,
+      "$1M2.C1  [118.0,95.0]  90",
     );
     expect(draft).not.toBe(text);
     const server = await serve(dir);
@@ -328,7 +389,7 @@ describe("the review app's write routes", () => {
     try {
       const response = await post(server, "/api/source", {
         file: pageFile,
-        text: "version 0.9.1\npcb charger-buck\n",
+        text: "version 0.11\npcb charger-buck\n",
         save: true,
       });
       expect(response.status).toBe(400);

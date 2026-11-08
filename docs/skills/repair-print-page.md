@@ -42,6 +42,62 @@ Asking for "the routing algorithm to be optimized" is asking for a router. Addin
 ADR and collides with
 [ADR-0017](../adr/05-pcb/0017-layout-and-routing-are-agent-driven.md).
 
+### 1.1 Explicitly authorized full rewire
+
+A full rewire replaces every `wire` row on this page. It is exceptional and requires explicit
+authorization from the page owner; it is **not** the default response to a moved part, a stale
+bend, or a warning. The default is to re-route only the affected nets and preserve the other
+source rows. `texteda view rewire` is a local re-anchor operation, not a router: it keeps the
+existing segment count and direction sequence and never chooses a path around bodies, pins, or
+text.
+
+When a full rewire is explicitly authorized, use this sequence:
+
+1. **Snapshot the source.** Copy the complete `views/<board_id>/<page_id>.view.teda` file to an
+   immutable working snapshot before changing it. The snapshot must include the current places,
+   labels, ports, fields, notes, and text, not just the wire rows. It is the rollback and the
+   comparison point for the operation.
+2. **Refresh the authorities.** Generate a fresh review payload for the current page and read pin
+   points, symbol boxes, and text boxes from the renderer's current geometry. At the same time,
+   load the board schematic with its modules expanded (`parseSchematic` with `loadModules`) and
+   derive flattened logical net membership from that IR. Do not infer membership from the old
+   wires, a screenshot, or a stale coordinate table; the schematic supplies membership and the
+   renderer supplies coordinates.
+3. **Remove only wires.** In the working view, delete every `wire` row and no other row. Keep the
+   page version, placements, labels, ports, fields, notes, and other text exactly as page source.
+   Do not regenerate the page or replace its non-wire drawing state.
+4. **Rebuild from logic and geometry.** For each flattened net represented on this page, map its
+   page-visible pin members (and any page port) to the fresh renderer connection points. Write new
+   orthogonal `wire` rows from those members, splitting multi-member nets into explicit branches.
+   Each pin endpoint must be a member of the named net; route around body, pin-stroke, and text
+   boxes; approach pins along their permitted axis; and put labels and ports on their own nets.
+   Never use the deleted rows as a topology or bend template.
+5. **Verify coverage and connectivity.** Make a net-by-net coverage table: every page-visible member pin must be an endpoint of at least one new row, every wire endpoint must belong to that logical net, and each intended page port must be connected. Also verify that, for each drawn net, all of its page-visible member pins and intended page ports lie in one single connected geometric graph through the new wire rows and their endpoint contacts. Endpoint membership and coverage alone are insufficient: the checker can accept disconnected wire subtrees that carry the same net, and matching net names alone do not prove geometric continuity. Before completion, perform an explicit visual/topology check by tracing every drawn net in the rendered page and confirming that each such graph is continuous from every visible member pin to every intended port. A page may intentionally omit a board-level net, but that exception must be page-local and understood; a board-wide `nets-not-drawn` count is not proof that the page's visible pins are covered.
+6. **Inspect page-local diagnostics.** Run the project check in JSON mode, then filter it to this
+   board/page and inspect its `view.*` findings. Resolve page-local wire, pin, body, label, port,
+   and text findings before judging the result; do not let diagnostics from another page stand in
+   for this page's evidence.
+7. **Measure the page.** Run `view metrics` for this page and record wire count and length,
+   crossings, through-body count, and text gaps. Use those numbers to compare the rebuilt drawing
+   with the intended layout and with the snapshot, while remembering that a crossing between
+   different nets is legal.
+8. **Render and crop.** Render this page once, then crop the SVG around each dense or disputed area
+   as in §4. Inspect the crop for pin-axis arrivals, body or artwork crossings, label and port
+   placement, and junction dots; do not judge a whole-sheet render at its default scale.
+9. **Canonicalise last.** Run the canonical TEDA formatter on the finished view and then its
+   check form. The final diff should contain the authorized wire replacement plus formatter-owned
+   canonical changes only; do not silently absorb unrelated placement or text edits.
+
+### 1.2 Evaluate routes without a quality gate
+
+Route evaluation is a comparison aid, not a router and not a universal quality gate. For competing
+hand-authored routes, compare logical correctness and clearance first, then the Manhattan length,
+unnecessary bends, crossings, text gaps, and the rendered crop's readability. Prefer a short,
+simple route that keeps labels legible and leaves the pin axis clean, but explain a longer route
+when it avoids a body, pin, or text obstacle. Use `view metrics` and the crop as evidence rather
+than turning any one number into a pass/fail threshold. The formal diagnostics and verification
+loop in §9 still apply; this guidance only helps choose among routes that are otherwise valid.
+
 ## 2. Get the real geometry first
 
 Never infer a pin's position from the page's `place` row or from the symbol source. Ask the
@@ -121,42 +177,46 @@ What each source is good for:
 | What the checker thinks | `texteda check --json` |
 | How long a run is, how many crossings | `texteda view metrics` |
 
-## 3. Junction dots are derived, and the rule is *arms*
+## 3. A junction is declared, and a dot is drawn only where one is declared
 
-The view carries no junction records. A dot is a property of the drawn geometry, so it is derived
-at render time and never written into the source
-([`spec/schematic-view.md`](../../spec/schematic-view.md) §5.1). The derivation is in
-`packages/renderer/src/schematic.ts` (`junctionDots`):
+A dot is a claim about connectivity, so it is **written**: a `junction` row gives a drawing node a
+stable id and a sheet position, and `wire` rows name that id as an endpoint
+([`spec/schematic-view.md`](../../spec/schematic-view.md) §5.1). The renderer draws a circle only
+for a declared junction (`packages/renderer/src/schematic.ts`); it derives nothing from the geometry.
 
-- A dot appears where **three or more arms of one net** meet.
-- Arms are counted by **direction**, not by `wire` row. Two rows that overlap along the same line
-  make one visible arm.
-- A run ending at a point is **one** arm; a run passing through it is **two**.
-- A pin connection point is **one** arm, and only for its own net.
-- Arms are counted **per net**. Two runs of different nets that merely touch draw no dot.
+That makes three rules, and the checker enforces all three:
 
-Worked consequences:
+- A declared junction must be **used** by the wires of exactly one net, with a degree of 2 to 4 arms
+  (`view.junction-isolated`, `view.junction-invalid-degree`, `view.endpoint-wrong-net`).
+- A wire that **passes through** a declared junction of its own net without naming it reports
+  `view.wire-gap`: the drawing would show a dot that wire does not belong to.
+- Two runs of the same net that meet at a point **do not** get a dot just because they touch. If the
+  drawing needs a dot there, declare a junction and make both rows end on it; if it must not look
+  joined, leave the junction out and the crossing unmarked.
 
-| Situation | Arms | Dot |
-|---|---:|---|
-| One wire ending on a pin | wire + pin = 2 | no |
-| Two distinct wires ending on a pin | 2 wires + pin = 3 | yes |
-| Two coincident rows overlapping a pin | 1 visible arm + pin = 2 | no |
-| An L bend between two runs | 2 | no |
-| A foreign net's run passing through a pin | that net's arms only | no — it is a crossing, and it is `view.wire-crosses-pin` |
+Where the arms of one net genuinely fork (three or more branches from one point), declare a junction
+there and end every branch row on it. A plain two-arm corner is not a junction: it is a bend.
 
-A dot on a pin that carries one visible run is a bug in the drawing, not in the renderer.
+| Situation | What the source says | Dot |
+|---|---|---|
+| One wire ending on a pin | no junction row | no |
+| Two rows ending on one declared junction, third row also ending there | `junction` row + three endpoints | yes |
+| Two rows of one net merely meeting at a point | no junction row | no — and adding no dot is correct, not a defect |
+| A row passing through a declared junction of its net without naming it | junction row, row not an endpoint | `view.wire-gap` |
+| A junction named by rows of two different nets | one junction, two nets | `view.endpoint-wrong-net` |
 
 **Crossings between different nets are legal.** No dot means "not connected", and the drawing
 says so by omission. `view.wire-crossing` is **deprecated** — it is never emitted, it is kept only
 so old reports parse. Crossings show up as a number in `view metrics`, not as a diagnostic.
 
-To audit the dots on a rendered page:
+To audit the dots on a rendered page, compare them with the page's `junction` rows:
 
 ```sh
-bun run texteda view render examples/reference-project charger-buck/buck-5v --out /tmp/page.svg
-grep -o '<circle cx="[0-9.]*" cy="[0-9.]*"' /tmp/page.svg
-```
+grep -o 'data-ref="junction:[^"]*"' /tmp/page.svg | wc -l   # one dot per declared junction
+grep -c '^  [A-Za-z0-9_+-]*  *\[' examples/reference-project/views/charger-buck/buck-5v.view.teda   # rows declared
+
+The two counts agree. A circle with no row is a renderer defect; a row with no circle means the page
+has not been rendered yet.
 
 ## 4. Look at it: crop, do not re-render
 
@@ -190,7 +250,7 @@ is down. A source feature at `y = +2.0` appears at SVG `y = -2.0`.
 layer, sum the segment lengths and compare with `|dx| + |dy|` between its first and last point:
 
 - ratio ≈ 1 → the run is honest, leave it;
-- ratio > ~1.5 → a detour; rewrite the bend list.
+- ratio > ~1.5 → investigate a detour and rewrite the bend list when appropriate. This ratio is a review heuristic, not a route-quality gate; a route still needs the geometry, diagnostics, and visual review in §1.1.
 
 The same walk yields the `junction` layer's `circle` primitives with their nets — that is where
 the reader believes the connections are.

@@ -69,6 +69,13 @@
         "$ref": "#/$defs/field"
       }
     },
+    "junction": {
+      "type": "array",
+      "description": "Named drawing-graph junctions, sorted by id. Junctions do not create schematic connectivity.",
+      "items": {
+        "$ref": "#/$defs/junction"
+      }
+    },
     "wire": {
       "type": "array",
       "description": "Wire polylines, one per drawn run; several wires may belong to the same net.",
@@ -110,8 +117,8 @@
     },
     "view_endpoint_ref": {
       "type": "string",
-      "pattern": "(^([A-Z]+[0-9]+\\.)?[A-Z]+[0-9]+\\.[A-Za-z0-9_+-]+$)|(^[A-Za-z0-9_+-]+$)",
-      "description": "An end of a drawn run: a board-level pin reference in numbered form (<instance_id>.<pin_number>, e.g. U1.5 or M1.U1.5), or the id of a board port this page draws. A pin's connection point comes from the symbol; a port's comes from the page's own `port` row, so a run can end at the board's edge. Both are matched against the board by the same strings the view already speaks."
+      "pattern": "^(([A-Z]+[0-9]+\\.)?[A-Z]+[0-9]+\\.[A-Za-z0-9_+-]+|[A-Za-z0-9_+-]+)$",
+      "description": "A board-level pin reference, a drawn board port id, or a declared junction id. Coordinates are not endpoint identities."
     },
     "place": {
       "type": "object",
@@ -176,34 +183,39 @@
         }
       }
     },
+    "junction": {
+      "type": "object",
+      "description": "A named view-only node in the schematic drawing graph.",
+      "additionalProperties": false,
+      "required": ["id", "x_nm", "y_nm"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9_+-]+$" },
+        "x_nm": { "type": "integer", "description": "Junction position, x from the sheet's upper-left corner." },
+        "y_nm": { "type": "integer", "description": "Junction position, y from the sheet's upper-left corner, increasing downward." }
+      }
+    },
     "wire": {
       "type": "object",
-      "description": "One polyline of one net, from one pin to another, optionally bending through given points.",
+      "description": "One polyline of one net between named pin, port or junction endpoints, optionally bending through given points.",
       "additionalProperties": false,
-      "required": [
-        "net",
-        "from_pin",
-        "to_pin"
-      ],
+      "required": ["net", "from_pin", "to_pin"],
       "properties": {
         "net": {
           "$ref": "urn:texteda:ir:0.15:common#/$defs/net_id",
-          "description": "The net this wire draws; both endpoints must be members of it in the board's nets."
+          "description": "The net this wire draws. Pin endpoints must be members of it in the board's nets."
         },
         "from_pin": {
           "$ref": "#/$defs/view_endpoint_ref",
-          "description": "Start of the run: a pin, whose connection point comes from the symbol, or a port this page draws, whose point comes from the page's `port` row. Named `from_pin` because a wire has always started at a pin; a port ending is the same column with a different kind of end."
+          "description": "Start endpoint identity: a pin, a port this page draws, or a declared junction."
         },
         "to_pin": {
           "$ref": "#/$defs/view_endpoint_ref",
-          "description": "End of the run, with the same two kinds of end as `from_pin`."
+          "description": "End endpoint identity, with the same endpoint kinds as `from_pin`."
         },
         "points": {
           "type": "array",
           "description": "Bend points in the order they are traversed. Omitted means a straight wire.",
-          "items": {
-            "$ref": "#/$defs/point"
-          }
+          "items": { "$ref": "#/$defs/point" }
         }
       }
     },

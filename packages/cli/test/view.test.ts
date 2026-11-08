@@ -30,13 +30,15 @@ interface Metrics {
 }
 
 describe("texteda view metrics", () => {
-  test("a wired page reports every label on its net", () => {
+  test("a wired page reports what it carries", () => {
     const result = run(["view", "metrics", project, "charger-buck/buck-5v", "--json"]);
     expect(result.code).toBe(0);
     const metrics = JSON.parse(result.stdout) as Metrics;
     expect(metrics.board).toBe("charger-buck");
     expect(metrics.page).toBe("buck-5v");
-    expect(metrics.counts.labels).toBe(10);
+    // The page is fully wired and names each net with a label: the count says so.
+    expect(metrics.counts.labels).toBe(6);
+    expect(metrics.counts.wires).toBeGreaterThan(0);
     expect(metrics.wire_total_nm).toBeGreaterThan(0);
     expect(metrics.content_fill_ppm).toBeGreaterThan(0);
     expect(metrics.content_fill_ppm).toBeLessThan(1_000_000);
@@ -91,8 +93,8 @@ describe("texteda view rewire", () => {
     const page = join(dir, "views/charger-buck/buck-5v.view.teda");
     const original = readFileSync(page, "utf8");
     const text = original.replace(
-      /^([ \t]*)M2\.U1[ \t]+140\.0[ \t]+105\.0[ \t]+0$/m,
-      "$1M2.U1 150.0 105.0 0",
+      /^([ \t]*)M2\.U1[ \t]+\[140\.0,105\.0\][ \t]+0$/m,
+      "$1M2.U1 [150.0,105.0] 0",
     );
     expect(text).not.toBe(original);
     writeFileSync(page, text);
@@ -125,17 +127,21 @@ describe("texteda view rewire", () => {
     const u1 = parsed.ir?.place.find((place) => place.instance_id === "M2.U1");
     expect(u1).toMatchObject({ x_nm: 150_000_000, y_nm: 105_000_000 });
     expect(u1?.rot_mdeg ?? 0).toBe(0);
-    // An interior corner kept its place and only the ends moved: the rewire rewrites the ends and
-    // leaves the bends where the author put them.
-    const gnd = parsed.ir?.wire?.find((wire) => wire.net === "GND" && wire.from_pin === "M2.C1.2");
-    expect(gnd?.points?.[0]).toEqual({ x_nm: 117_500_000, y_nm: 121_000_000 });
-    expect(gnd?.points?.[1]).toEqual({ x_nm: 149_500_000, y_nm: 121_000_000 });
-    expect(gnd?.points?.length).toBe(2);
+    // The moved U1 endpoints are re-anchored to the stationary bus junctions. The C1 wire keeps
+    // the same named endpoint and has no intermediate bend.
+    const u16 = parsed.ir?.wire?.find((wire) => wire.from_pin === "M2.U1.6");
+    expect(u16?.to_pin).toBe("J_GND_U16");
+    expect(u16?.points).toEqual([{ x_nm: 149_500_000, y_nm: 121_500_000 }]);
+    const c1 = parsed.ir?.wire?.find((wire) => wire.from_pin === "M2.C1.2");
+    expect(c1?.to_pin).toBe("J_GND_C1");
+    expect(c1?.points).toBeUndefined();
   });
 
   test("a page that needs nothing is reported as such", () => {
     const dir = copyProject();
-    const result = run(["view", "rewire", dir, "charger-buck/buck-5v"]);
+    // The charger-power page is a placement sketch: it has no wire, so there is nothing to
+    // re-anchor.
+    const result = run(["view", "rewire", dir, "charger-buck/charger-power"]);
     expect(result.code).toBe(0);
     expect(result.stdout).toContain("No wire needed re-anchoring");
   });

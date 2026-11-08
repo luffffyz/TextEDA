@@ -50,6 +50,18 @@ import {
   type SchematicInstances,
 } from "./symbols.ts";
 
+/** Existing schematic pages, indexed without building the renderer/checker review model. */
+export function reviewPageIndex(root: string): {
+  boards: Set<string>;
+  pages: { board: string; page: string; file: string }[];
+} {
+  const boardIds = listBoards(root);
+  const pages = boardIds.flatMap((board) =>
+    (loadBoard(root, board)?.views ?? []).map((view) => ({ board, page: view.pageId, file: view.file })),
+  );
+  return { boards: new Set(boardIds), pages };
+}
+
 /** Integer nanometres → millimetres, three decimals (a micrometre): the drawing's own resolution. */
 function mm(nm: number): number {
   return Math.round(nm / 1000) / 1000;

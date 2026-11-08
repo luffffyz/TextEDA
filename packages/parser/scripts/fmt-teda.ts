@@ -55,12 +55,19 @@ interface Work {
   fromDirectory: boolean;
 }
 
-/** Pre-0.7 sources kept as migration inputs: the current language rejects them. */
-const LEGACY_PATHS = ["tests/migration/"];
+/**
+ * Paths a formatting run does not own: build output (`dist/`, including its `backups/`) and vendored
+ * libraries in `external/`. Their files are not project sources, and a frozen backup is a record of
+ * what a page used to be, not a candidate to reformat.
+ *
+ * Pre-0.7 sources kept as migration inputs are skipped for a different reason: the current language
+ * rejects them, so they are not formatting candidates; the migration tool owns them.
+ */
+const SKIP_PATHS = ["tests/migration/", "/dist/", "/external/"];
 
-function isLegacy(file: string): boolean {
-  const path = file.split("\\").join("/");
-  return LEGACY_PATHS.some((legacy) => path.includes(legacy));
+function isSkipped(file: string): boolean {
+  const path = `/${file.split("\\").join("/")}`;
+  return SKIP_PATHS.some((skipped) => path.includes(skipped));
 }
 
 /** Recursively expand a directory (only .teda), keeping byte order for stable output. */
@@ -69,7 +76,7 @@ function expand(target: string): Work[] {
   return readdirSync(target, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith(".teda"))
     .map((entry) => ({ file: join(entry.parentPath, entry.name), fromDirectory: true }))
-    .filter((work) => !isLegacy(work.file))
+    .filter((work) => !isSkipped(work.file))
     .sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
 }
 

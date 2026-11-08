@@ -1,4 +1,4 @@
-version 0.9.2
+version 0.11
 symbol ldo-sot23-5
 
 description 5-pin LDO regulator in SOT-23-5
@@ -8,15 +8,15 @@ tags ldo regulator
 # Body width is 13 mm to leave 6.5 mm clearance for pin names on each side.
 # Pin connection points sit on the 0.5 mm placement lattice (ADR-0057) in both coordinates; rows are 2.5 mm apart (ADR-0058).
 pin_name_offset 1
-field Reference at=0,9 U
-field Value at=0,-9 ldo-sot23-5
+field Reference at=[0,9] U
+field Value at=[0,-9] ldo-sot23-5
 
 pins
-  1  -9  -1    0    length=2.5
-  2  0   -6.5  90   length=2.5
-  3  -9  1.5   0    length=2.5
-  4  9   -1    180  length=2.5
-  5  9   1.5   180  length=2.5
+  1  [-9,-1]   0
+  2  [0,-6.5]  90
+  3  [-9,1.5]  0
+  4  [9,-1]    180
+  5  [9,1.5]   180
 
 body
-  rect  -6.5,-4,6.5,4  fill=background  width=0.25
+  rect  [-6.5,-4,6.5,4]  fill=background  width=0.25

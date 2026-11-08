@@ -81,6 +81,15 @@ interface PendingText {
   y: number;
 }
 
+interface LayoutPreview {
+  svg: string;
+  symbols: ReviewSymbol[];
+  texts: ReviewText[];
+  fields: ReviewField[];
+  stale: string[];
+  conflicts: string[];
+}
+
 /** The action bar's buttons follow the current drawing and pending changes. */
 let applyButton: HTMLButtonElement | undefined;
 let revertButton: HTMLButtonElement | undefined;
@@ -96,8 +105,6 @@ interface AppState {
   panX: number;
   panY: number;
   selected: Highlight | null;
-  /** The next ordinary click only dismisses a just-queued rotation. */
-  rotationPendingId: string | null;
   /** The definition menu is open for the current selection. */
   /**
    * The kind blocks the person folded, by key (`kind/symbol`).
@@ -127,8 +134,14 @@ interface AppState {
   /** Label and port positions keyed by `kind:id`: a net names a label, a port_id names a port. */
   pendingTexts: Map<string, PendingText>;
   /** The page source, when it differs from the file. */
+  /** Independent page-field and wire-repair choices for the standalone full-layout host. */
+  automaticFields: boolean;
+  reanchorWires: boolean;
+  /** Latest server-planned drawing for the pending edits and current choices. */
+  layoutPreview: LayoutPreview | null;
   draft: string | null;
   /** The rendered draft. */
+  draftGeometry: { symbols: ReviewSymbol[]; texts: ReviewText[]; fields: ReviewField[] } | null;
   draftSvg: string;
   draftErrors: string[];
   /**
@@ -150,7 +163,6 @@ function initialState(): AppState {
     panX: 0,
     panY: 0,
     selected: null,
-    rotationPendingId: null,
     folded: new Set<string>(),
     adjusted: false,
     sidebarOpen: false,
@@ -162,7 +174,11 @@ function initialState(): AppState {
     pendingTexts: new Map<string, PendingText>(),
     draft: null,
     draftSvg: "",
+    draftGeometry: null,
     draftErrors: [],
+    automaticFields: false,
+    reanchorWires: false,
+    layoutPreview: null,
   };
 }
 
@@ -223,6 +239,86 @@ function canEditSource(): boolean {
   return canWriteFull() && drawing()?.kind === "sch";
 }
 
+let layoutPreviewTicket = 0;
+
+let layoutPreviewTimer: number | undefined;
+
+/** Debounce server layout previews unless a symbol placement is pending. */
+function scheduleLayoutPreview(): void {
+  clearTimeout(layoutPreviewTimer);
+  layoutPreviewTimer = undefined;
+  if (state.pending.size > 0) {
+    layoutPreviewTicket += 1;
+    if (state.layoutPreview !== null) {
+      state.layoutPreview = null;
+      renderStage(true);
+    } else {
+      renderPendingSymbolOverlay();
+    }
+    return;
+  }
+  if (state.layoutPreview !== null) {
+    state.layoutPreview = null;
+    renderStage(true);
+  }
+  layoutPreviewTicket += 1;
+  layoutPreviewTimer = window.setTimeout(() => {
+    layoutPreviewTimer = undefined;
+    void requestLayoutPreview();
+  }, 80);
+}
+
+async function requestLayoutPreview(): Promise<void> {
+  if (state.pending.size > 0) {
+    renderPendingSymbolOverlay();
+    return;
+  }
+  const current = drawing();
+  if (!canWriteFull() || current?.kind !== "sch") {
+    state.layoutPreview = null;
+    renderStage(true);
+    return;
+  }
+  const ticket = ++layoutPreviewTicket;
+  try {
+    const payload = await postJson("/api/layout", {
+      board: current.board ?? "",
+      page: current.page ?? "",
+      places: pendingPlaces(),
+      ...(state.pendingFields.size === 0 ? {} : { fields: [...state.pendingFields.values()] }),
+      ...(state.removeFields.size === 0 ? {} : { remove_fields: [...state.removeFields].flatMap((key) => {
+        const identity = splitFieldKey(key);
+        return identity === undefined ? [] : [identity];
+      }) }),
+      ...(state.pendingTexts.size === 0 ? {} : { texts: [...state.pendingTexts.values()] }),
+      ...(unsavedDraft(current) === undefined ? {} : { text: unsavedDraft(current) }),
+      automatic_fields: state.automaticFields,
+      reanchor_wires: state.reanchorWires,
+    });
+    if (ticket !== layoutPreviewTicket) return;
+    state.layoutPreview = {
+      svg: String(payload["svg"] ?? ""),
+      symbols: (payload["symbols"] as ReviewSymbol[] | undefined) ?? [],
+      texts: (payload["texts"] as ReviewText[] | undefined) ?? [],
+      fields: (payload["fields"] as ReviewField[] | undefined) ?? [],
+      stale: (payload["stale"] as string[] | undefined) ?? [],
+      conflicts: (payload["conflicts"] as string[] | undefined) ?? [],
+    };
+    renderStage(true);
+    if (state.sourceOpen) void refreshDraft();
+    const previewIssues = [
+      ...(state.layoutPreview.conflicts.length === 0 ? [] : [`${state.layoutPreview.conflicts.length} wire shape conflict(s)`]),
+      ...(state.layoutPreview.stale.length === 0 ? [] : [`${state.layoutPreview.stale.length} stale net(s)`]),
+    ];
+    if (previewIssues.length > 0) setStatus(`preview · ${previewIssues.join(", ")} · not applied`);
+  } catch (error) {
+    if (ticket !== layoutPreviewTicket) return;
+    state.layoutPreview = null;
+    setStatus(`layout preview failed: ${error instanceof Error ? error.message : String(error)}`);
+    renderStage(true);
+  }
+}
+
 /** Build the one action bar; actions are capabilities, not interaction modes. */
 function renderActions(): void {
   frame.actionBar.textContent = "";
@@ -255,6 +351,29 @@ function renderActions(): void {
       fit();
     });
     frame.actionBar.append(source);
+    if (canWriteFull()) {
+      const fields = el("button", "action", state.automaticFields ? "Auto fields: on" : "Auto fields: off");
+      fields.type = "button";
+      fields.title = "automatically avoid collisions between page-level Reference and Value fields";
+      fields.classList.toggle("active", state.automaticFields);
+      fields.addEventListener("click", () => {
+        state.automaticFields = !state.automaticFields;
+        state.layoutPreview = null;
+        scheduleLayoutPreview();
+        renderAll();
+      });
+      const wires = el("button", "action", state.reanchorWires ? "Re-anchor wires: on" : "Re-anchor wires: off");
+      wires.type = "button";
+      wires.title = "re-anchor moved wire endpoints and simplify their existing paths";
+      wires.classList.toggle("active", state.reanchorWires);
+      wires.addEventListener("click", () => {
+        state.reanchorWires = !state.reanchorWires;
+        state.layoutPreview = null;
+        scheduleLayoutPreview();
+        renderAll();
+      });
+      frame.actionBar.append(fields, wires);
+    }
   }
   if (current?.kind === "sch") {
     const apply = el("button", "action", "Apply");
@@ -791,13 +910,22 @@ function stageDrawing():
   | undefined {
   const current = drawing();
   if (current === undefined) return undefined;
+  if (state.layoutPreview !== null && state.pending.size === 0 && current.kind === "sch") {
+    return {
+      svg: state.layoutPreview.svg,
+      sheet: current.sheet,
+      symbols: state.layoutPreview.symbols,
+      texts: state.layoutPreview.texts,
+      fields: state.layoutPreview.fields,
+    };
+  }
   if (state.sourceOpen && current.kind === "sch") {
     return {
       svg: state.draftSvg !== "" ? state.draftSvg : current.svg,
       sheet: current.sheet,
-      symbols: current.symbols,
-      texts: current.texts,
-      fields: current.fields ?? [],
+      symbols: state.draftGeometry?.symbols ?? current.symbols,
+      texts: state.draftGeometry?.texts ?? current.texts,
+      fields: state.draftGeometry?.fields ?? current.fields ?? [],
     };
   }
   return {
@@ -1018,7 +1146,6 @@ function renderStage(keepSelection = false): void {
   frame.canvas.textContent = "";
   if (!keepSelection) {
     state.selected = null;
-    state.rotationPendingId = null;
     selectionAnchor = null;
   }
   frame.status.classList.remove("error");
@@ -1068,7 +1195,8 @@ function renderStage(keepSelection = false): void {
   }
   pinchSheet(svg);
   overlay(svg, shown.symbols, shown.texts, shown.fields);
-  applyPending(svg);
+  if (state.layoutPreview === null) applyPending(svg);
+  renderPendingSymbolOverlay(svg, shown.symbols);
   if (keepSelection) paintHighlights(state.selected);
   applyTransform();
   const pending = state.pending.size + state.pendingFields.size + state.removeFields.size + state.pendingTexts.size;
@@ -1078,34 +1206,71 @@ function renderStage(keepSelection = false): void {
   );
 }
 
-
-/**
- * Pending placement rows, drawn where the user put them.
- *
- * The renderer groups what belongs to one instance under `data-ref`, so a moved symbol is moved by
- * transforming its groups (ADR-0042 D2). The transform is the same one the renderer would have
- * applied: a turn about the old origin, then a move to the new one.
- */
-function applyPending(svg: SVGSVGElement): void {
+/** Draw pending symbols without touching committed SVG primitives. */
+function renderPendingSymbolOverlay(
+  svg?: SVGSVGElement,
+  symbols: readonly ReviewSymbol[] = drawing()?.symbols ?? [],
+): void {
+  const target = svg ?? frame.canvas.querySelector<SVGSVGElement>(".sheet-svg");
+  if (target === null) return;
+  const holder = target.parentElement;
+  holder?.querySelector(".pending-symbol-overlay")?.remove();
+  if (state.pending.size === 0 || holder === null) return;
+  const layer = target.ownerDocument.createElementNS("http://www.w3.org/2000/svg", "svg");
+  layer.setAttribute("class", "pending-symbol-overlay");
+  const viewBox = target.getAttribute("viewBox");
+  if (viewBox !== null) layer.setAttribute("viewBox", viewBox);
+  layer.setAttribute("preserveAspectRatio", target.getAttribute("preserveAspectRatio") ?? "xMinYMin meet");
+  layer.setAttribute("width", target.getAttribute("width") ?? "100%");
+  layer.setAttribute("height", target.getAttribute("height") ?? "100%");
   const originalPlaces = placedPlaces();
+  const symbolsById = new Map(symbols.map((symbol) => [symbol.id, symbol]));
   for (const [id, place] of state.pending) {
     const from = originalPlaces.get(id);
-    if (from === undefined) continue;
+    const symbol = symbolsById.get(id);
+    if (from === undefined || symbol === undefined) continue;
+    const pinNumbers = new Set(Object.keys(symbol.pins));
     const dx = place.x - from.x;
     const dy = place.y - from.y;
     const turn = place.rot - from.rot;
     const transform =
       turn === 0 ? `translate(${dx} ${dy})` : `translate(${dx} ${dy}) rotate(${turn} ${from.x} ${from.y})`;
-    for (const group of svg.querySelectorAll<SVGGElement>("g[data-ref]")) {
-      if (group.getAttribute("data-ref") !== `instance:${id}`) continue;
-      group.setAttribute("transform", transform);
+    for (const original of target.querySelectorAll<SVGGElement>("g[data-ref]")) {
+      if (original.getAttribute("data-ref") !== `instance:${id}`) continue;
+      const clone = original.cloneNode(true) as SVGGElement;
+      clone.removeAttribute("data-ref");
+      clone.removeAttribute("data-net");
+      clone.setAttribute("class", "pending-symbol");
+      clone.setAttribute("transform", transform);
+      clone.setAttribute("aria-hidden", "true");
+      for (const title of clone.querySelectorAll("g > title")) {
+        const group = title.parentElement;
+        if (!pinNumbers.has(title.textContent ?? "")) group?.remove();
+        else group?.removeAttribute("display");
+      }
+      for (const node of clone.querySelectorAll("[data-ref], [data-net]")) {
+        node.removeAttribute("data-ref");
+        node.removeAttribute("data-net");
+      }
+      layer.append(clone);
     }
   }
+  holder.append(layer);
+}
+
+
+/**
+ * Pending field and text rows are drawn on top of the committed SVG. Symbol rows use the separate
+ * overlay above so the committed geometry remains unchanged while the pointer moves.
+ */
+function applyPending(svg: SVGSVGElement): void {
+  const originalPlaces = placedPlaces();
 
   for (const field of drawing()?.fields ?? []) {
     const from = originalPlaces.get(field.instance_id);
     if (from === undefined) continue;
-    const to = state.pending.get(field.instance_id) ?? from;
+    if (state.pending.has(field.instance_id)) continue;
+    const to = from;
     const key = fieldKey(field.instance_id, field.name);
     const pending = state.pendingFields.get(key);
     if (from === to && pending === undefined) continue;
@@ -1278,7 +1443,8 @@ function renderSource(current: ReviewDrawing): void {
     return;
   }
   pinchSheet(svg);
-  overlay(svg, shown.symbols, shown.texts, shown.fields ?? []);
+  if (state.layoutPreview === null) applyPending(svg);
+  renderPendingSymbolOverlay(svg, shown.symbols);
   applyTransform();
   const errors = state.draftErrors;
   setStatus(
@@ -1459,7 +1625,6 @@ function awayFromStage(event: PointerEvent): void {
  */
 function clearSelection(): void {
   state.selected = null;
-  state.rotationPendingId = null;
   selectionAnchor = null;
   paintHighlights(null);
   renderTree();
@@ -1594,6 +1759,8 @@ async function applyPendingMoves(): Promise<void> {
       ...(remove_fields.length === 0 ? {} : { remove_fields }),
       ...(texts.length === 0 ? {} : { texts }),
       ...(draft === undefined ? {} : { text: draft }),
+      automatic_fields: state.automaticFields,
+      reanchor_wires: state.reanchorWires,
     });
     const next = payload["model"];
     if (next !== undefined) {
@@ -1607,20 +1774,19 @@ async function applyPendingMoves(): Promise<void> {
     if (draft !== undefined) {
       state.draft = null;
       state.draftSvg = "";
+      state.draftGeometry = null;
       state.draftErrors = [];
       const written = drawing();
       if (written !== undefined) frame.sourceText.value = written.source ?? "";
     }
-    renderAll();
     const conflicts = (payload["conflicts"] as string[] | undefined) ?? [];
     const stale = (payload["stale"] as string[] | undefined) ?? [];
-    const repairs = places.length === 0
-      ? []
-      : [
-          ...(conflicts.length === 0 ? [] : [`${conflicts.length} wire could not keep their shape`]),
-          ...(stale.length === 0 ? [] : [`${stale.length} net stale: run \`texteda view rewire\``]),
-        ];
+    const repairs = [
+      ...(conflicts.length === 0 ? [] : [`${conflicts.length} wire could not keep their shape`]),
+      ...(stale.length === 0 ? [] : [`${stale.length} net stale: run \`texteda view rewire\``]),
+    ];
     const fieldChanges = fields.length + remove_fields.length;
+    renderAll();
     setStatus(
       repairs.length > 0
         ? `applied, but ${repairs.join("; ")}`
@@ -1655,6 +1821,7 @@ function onSourceInput(): void {
   clearTimeout(draftTimer);
   draftTimer = window.setTimeout(() => {
     void refreshDraft();
+    scheduleLayoutPreview();
   }, 250);
 }
 
@@ -1672,14 +1839,22 @@ async function refreshDraft(): Promise<void> {
   draftTicket += 1;
   const ticket = draftTicket;
   try {
-    const payload = await postJson("/api/source", { file: current.file, text: state.draft, save: false });
+    const payload = await postJson("/api/source", {
+      file: current.file,
+      text: state.draft,
+      save: false,
+      automatic_fields: state.automaticFields,
+    });
     // Two requests can be in flight after a save redraws; the answer to the older one would draw
     // text the person has already replaced, so it is dropped.
     if (ticket !== draftTicket) return;
     state.draftErrors = (payload["errors"] as string[] | undefined) ?? [];
     const svg = String(payload["svg"] ?? "");
-    // A draft that does not parse has no drawing; the last good one stays on the sheet.
-    if (svg !== "") state.draftSvg = svg;
+    if (svg !== "") {
+      state.draftSvg = svg;
+      const geometry = payload["geometry"] as AppState["draftGeometry"] | undefined;
+      if (geometry !== undefined) state.draftGeometry = geometry;
+    }
     renderStage(true);
   } catch (error) {
     if (ticket !== draftTicket) return;
@@ -1730,9 +1905,9 @@ function rotateSelected(): void {
   if (from === undefined) return;
   const place: PendingPlace = { instance_id: id, x: from.x, y: from.y, rot: (from.rot + 90) % 360 };
   state.pending.set(id, place);
-  state.rotationPendingId = id;
   updateActions();
   renderStage(true);
+  scheduleLayoutPreview();
 }
 
 // --- input -----------------------------------------------------------------------------------
@@ -1911,7 +2086,6 @@ function beginMove(): boolean {
   } else {
     return false;
   }
-  state.rotationPendingId = null;
   dragging = null;
   pressed = null;
   frame.stage.classList.add("moving");
@@ -1945,6 +2119,7 @@ function updateTextMove(move: Extract<MoveTransaction, { kind: "text" }>, point:
   }
   applyPendingToCanvas();
   updateActions();
+  scheduleLayoutPreview();
   const current = state.pendingTexts.get(key);
   setStatus(current === undefined
     ? `${move.textKind} ${move.id} · unchanged · not applied`
@@ -1956,17 +2131,21 @@ function updateSymbolMove(move: Extract<MoveTransaction, { kind: "symbol" }>, po
   const dy = point.y - move.start.y;
   if (!move.moved && Math.hypot(dx, dy) * PX_PER_MM * state.zoom <= DRAG_SLOP) return;
   move.moved = true;
+  const pendingRotation = state.pending.get(move.id)?.rot;
   const place: PendingPlace = {
     instance_id: move.id,
     x: snapPlacement(move.from.x + dx),
     y: snapPlacement(move.from.y + dy),
-    rot: move.from.rot,
+    // Rotation is an independent pending edit. Keep an R pressed during this move when the
+    // pointer updates the placement again.
+    rot: pendingRotation ?? move.from.rot,
   };
   const persisted = placedPlaces().get(move.id);
   if (persisted !== undefined && samePlace(persisted, place)) state.pending.delete(move.id);
   else state.pending.set(move.id, place);
   applyPendingToCanvas();
   updateActions();
+  scheduleLayoutPreview();
   setStatus(`${move.id} → ${place.x.toFixed(2)}, ${place.y.toFixed(2)} mm · not applied yet`);
 }
 
@@ -1990,6 +2169,7 @@ function updateFieldMove(move: Extract<MoveTransaction, { kind: "field" }>, poin
   }
   applyPendingToCanvas();
   updateActions();
+  scheduleLayoutPreview();
   const current = state.pendingFields.get(key);
   setStatus(current === undefined
     ? `${move.name} · unchanged · not applied`
@@ -2029,6 +2209,7 @@ function cancelMove(): void {
   clearSelection();
   updateActions();
   renderStage(true);
+  scheduleLayoutPreview();
   setStatus("the current move was cancelled");
 }
 
@@ -2070,11 +2251,12 @@ function onStagePointerMove(event: PointerEvent): void {
   applyTransform();
 }
 
-/** Draw pending moves on the sheet that is on screen. */
+/** Refresh only the temporary pending symbol layer. */
 function applyPendingToCanvas(): void {
   const svg = frame.canvas.querySelector<SVGSVGElement>(".sheet-svg");
   if (svg === null) return;
   applyPending(svg);
+  renderPendingSymbolOverlay(svg);
 }
 
 const stopDrag = (event: PointerEvent): void => {
@@ -2123,11 +2305,6 @@ const stopDrag = (event: PointerEvent): void => {
     lastPress = null;
     const group = pickedAt(event.clientX, event.clientY);
     highlightNet(group?.getAttribute("data-net") ?? null);
-    return;
-  }
-  if (state.rotationPendingId !== null) {
-    lastPress = null;
-    clearSelection();
     return;
   }
   if (selection === null) {

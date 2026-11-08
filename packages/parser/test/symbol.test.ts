@@ -31,6 +31,12 @@ describe("example symbol", () => {
     expect(pin17.at.rotation_mdeg).toBe(90000);
   });
 
+  test("omitted pin length uses the half-millimetre lattice default", () => {
+    const result = parse(["version 0.11", "symbol t", "", "pins", "  1  [0,0]  0"].join("\n"));
+    expect(result.ok).toBe(true);
+    expect(result.ir!.symbol.pins[0]!.length_nm).toBe(2500000);
+  });
+
   test("body is a rectangle with background fill", () => {
     const body = result.ir!.symbol.body!;
     expect(body.length).toBe(1);
@@ -56,21 +62,21 @@ describe("example symbol", () => {
 
 describe("error locations", () => {
   test("version below 0.5 reports an error", () => {
-    const result = parse(["version 0.4", "symbol t", "", "pins", "  1  0  0  0"].join("\n"));
+    const result = parse(["version 0.4", "symbol t", "", "pins", "  1  [0,0]  0"].join("\n"));
     expect(result.ok).toBe(false);
     expect(result.diagnostics[0]!.code).toBe("format.unsupported-version");
     expect(result.diagnostics[0]!.location!.line).toBe(1);
   });
 
   test("type line not symbol reports an error", () => {
-    const result = parse("version 0.5\nfootprint t\n");
+    const result = parse("version 0.11\nfootprint t\n");
     expect(formatDiagnostic(result.diagnostics[0]!)).toBe(
       "x.teda:2:1: error syntax.header-invalid: the second line must be symbol <id>",
     );
   });
 
   test("unknown scalar reports an error with line and column", () => {
-    const result = parse(["version 0.5", "symbol t", "", "colour red", "pins", "  1  0  0  0"].join("\n"));
+    const result = parse(["version 0.11", "symbol t", "", "colour red", "pins", "  1  [0,0]  0"].join("\n"));
     expect(result.ok).toBe(false);
     expect(result.diagnostics[0]!.code).toBe("syntax.unknown-field");
     expect(result.diagnostics[0]!.location!.line).toBe(4);
@@ -79,7 +85,7 @@ describe("error locations", () => {
 
   test("unit exceeding units reports an error", () => {
     const result = parse(
-      ["version 0.5", "symbol t", "", "units 1", "pins", "  1  0  0  0  unit=2"].join("\n"),
+      ["version 0.11", "symbol t", "", "units 1", "pins", "  1  [0,0]  0  unit=2"].join("\n"),
     );
     expect(result.ok).toBe(false);
     expect(result.diagnostics[0]!.code).toBe("value.invalid-unit");
@@ -87,21 +93,21 @@ describe("error locations", () => {
 
   test("symbol fields have no layer", () => {
     const result = parse(
-      ["version 0.5", "symbol t", "", "field Reference at=0,0 layer=F.SilkS U", "pins", "  1  0  0  0"].join("\n"),
+      ["version 0.11", "symbol t", "", "field Reference at=[0,0] layer=F.SilkS U", "pins", "  1  [0,0]  0"].join("\n"),
     );
     expect(result.ok).toBe(false);
     expect(result.diagnostics.some((d) => d.message.includes("symbols have no layers"))).toBe(true);
   });
 
   test("pins section must not be empty", () => {
-    const result = parse("version 0.5\nsymbol t\n");
+    const result = parse("version 0.11\nsymbol t\n");
     expect(result.ok).toBe(false);
     expect(result.diagnostics.some((d) => d.code === "library.pins-empty")).toBe(true);
   });
 
   test("duplicate pin number within the same unit reports an error", () => {
     const result = parse(
-      ["version 0.5", "symbol t", "", "pins", "  1  0  0  0", "  1  1  0  0"].join("\n"),
+      ["version 0.11", "symbol t", "", "pins", "  1  [0,0]  0", "  1  [1,0]  0"].join("\n"),
     );
     expect(result.ok).toBe(false);
     expect(result.diagnostics.some((d) => d.code === "library.duplicate-pin-number")).toBe(true);
@@ -111,20 +117,20 @@ describe("error locations", () => {
 describe("IR order depends only on semantics", () => {
   test("pins by (unit, number), fields by name, body by (unit, kind, coordinates)", () => {
     const text = [
-      "version 0.5",
+      "version 0.11",
       "symbol t",
       "",
       "units 2",
       "field Value V",
       "field Reference R",
       "pins",
-      "  2  0  0  0  unit=2",
-      "  10  0  0  0",
-      "  1  0  0  0",
+      "  2  [0,0]  0  unit=2",
+      "  10  [0,0]  0",
+      "  1  [0,0]  0",
       "",
       "body",
-      "  rect  0,0,1,1",
-      "  line  0,0,1,1",
+      "  rect  [0,0,1,1]",
+      "  line  [0,0,1,1]",
       "",
     ].join("\n");
     const sym = parse(text).ir!.symbol;
@@ -136,7 +142,7 @@ describe("IR order depends only on semantics", () => {
 
 describe("the file revision", () => {
   test("`rev` is a scalar and reaches the IR", () => {
-    const text = ["version 0.5.1", "symbol s", "rev 2.1.0", "", "pins", "  1  0  0  0", ""].join("\n");
+    const text = ["version 0.11", "symbol s", "rev 2.1.0", "", "pins", "  1  [0,0]  0", ""].join("\n");
     const result = parse(text);
     expect(result.diagnostics.map(formatDiagnostic)).toEqual([]);
     expect(result.ir!.symbol.rev).toBe("2.1.0");

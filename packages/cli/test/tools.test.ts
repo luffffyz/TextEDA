@@ -49,9 +49,11 @@ const CASES: { tool: string; args: string[]; call: Record<string, unknown> }[] =
     call: { project_dir: "PROJECT", board: "charger-buck", page: "buck-5v" },
   },
   {
+    // The charger-power page is a placement sketch with no wire: the rewire has nothing to do,
+    // and the tool says the same as the verb.
     tool: "texteda_view_rewire",
-    args: ["view", "rewire", "PROJECT", "charger-buck/buck-5v", "--json"],
-    call: { project_dir: "PROJECT", board: "charger-buck", page: "buck-5v" },
+    args: ["view", "rewire", "PROJECT", "charger-buck/charger-power", "--json"],
+    call: { project_dir: "PROJECT", board: "charger-buck", page: "charger-power" },
   },
   {
     tool: "texteda_ir",

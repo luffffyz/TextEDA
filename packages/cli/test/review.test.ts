@@ -103,7 +103,8 @@ describe("review model", () => {
     expect(instance[0]).toMatchObject({ file: "design/modules/buck-5v.teda", line: 10 });
     const net = model.sources["net:charger-buck/SYS"] ?? [];
     expect(net.map((location) => location.kind)).toContain("net");
-    expect(net.map((location) => location.kind)).toContain("view-label");
+    // The page draws the net with a run: the page carries no label for it.
+    expect(net.map((location) => location.kind)).toContain("view-wire");
     expect(model.sources["component:cap-mlcc-1210"]?.[0]?.file).toBe(
       "assets/components/passives/cap-mlcc-1210.teda",
     );

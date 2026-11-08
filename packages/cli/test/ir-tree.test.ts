@@ -189,8 +189,10 @@ describe("IR shard tree hashes", () => {
       const before = buildIrTree(project);
       const page = join(project, "views", "charger-buck", "buck-5v.view.teda");
       const text = readFileSync(page, "utf8");
-      const moved = text.replace(/^(\s*\w+\s+)([0-9.]+)(\s+[0-9.]+\s*)$/m, "$130.0$3");
-      expect(moved).not.toBe(text);
+      // The page ships without a label, so the one this moves is the test's own.
+      const labelled = `${text}\nlabel\n  GND  [130.0,122.5]\n`;
+      const moved = labelled.replace("  GND  [130.0,122.5]", "  GND  [30.0,122.5]");
+      expect(moved).not.toBe(labelled);
       writeFileSync(page, moved);
       const after = buildIrTree(project);
       expect(after.diagnostics.filter((d) => d.severity === "error")).toEqual([]);

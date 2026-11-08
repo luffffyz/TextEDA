@@ -9,10 +9,13 @@
 // which the current formatter then canonicalizes.
 //
 // What it does, per board with a `pages` section:
-//   1. merges the board root and the page files into one flat `schematic` file (version 0.7);
+//   1. merges the board root and the page files into one flat `schematic` file;
 //   2. deletes the page files;
 //   3. rewrites the print pages (`*.view.teda`): the page's net names become the board's net names;
-//   4. rewrites the pcb description: the instance ids and net names lose their page prefix.
+//   4. rewrites the pcb description: the instance ids and net names lose their page prefix;
+//   5. folds the coordinates into one bracketed cell and writes the current language version
+//      (ADR-0065 D5), through the same module `migrate:0.11` uses. A 0.7-shaped file with the
+//      0.6 surface is not a file any reader accepts, so the migration has to finish the job.
 //
 // What it refuses to do: choose a name. Two pages that use the same refdes, or the same net name,
 // are reported and the board is left untouched -- renaming is an authoring decision (ADR-0012
@@ -20,7 +23,11 @@
 // counterpart in general, so the script reports it instead of inventing one.
 import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { formatPcb, formatSchematic, formatView, lex } from "@texteda/parser";
+import { formatPcb, formatSchematic, formatVersion, formatView, lex, SUPPORTED_LANGUAGE } from "@texteda/parser";
+import { foldFile } from "./lib/tuple-fold.ts";
+
+/** The language number this repository implements: a migrated file has to carry it (ADR-0065 D5). */
+const TARGET = formatVersion(SUPPORTED_LANGUAGE);
 
 const SCHEMATIC_SECTIONS = ["instances", "nets", "ports", "pages", "constraints"];
 const VIEW_SECTIONS = ["place", "wire", "label", "port", "text"];
@@ -321,7 +328,7 @@ function mergeBoard(root: Doc, pages: PageData[]): { merged: MergedBoard; collis
 
 /** Render the merged board as text; the formatter canonicalizes it. */
 function renderMerged(root: Doc, merged: MergedBoard, pages: PageData[]): string {
-  const lines: string[] = ["version 0.7", `schematic ${root.id}`, ""];
+  const lines: string[] = [`version ${TARGET}`, `schematic ${root.id}`, ""];
   for (const comment of root.leading) lines.push(comment);
   if (root.leading.length > 0) lines.push("");
 
@@ -446,9 +453,17 @@ function rewritePcb(text: string, instances: Set<string>, names: Map<string, Map
   return out.join("\n");
 }
 
-/** Replace the version line with 0.7. */
-function withVersion07(text: string): string {
-  return text.replace(/^(\s*version\s+)\S+/m, "$10.7");
+/**
+ * Write the rewritten file in the shape the current parser reads.
+ *
+ * A 0.6 file predates both the flat board (0.7) and the bracketed tuple (0.11), so the rewrite is
+ * only half the work: the coordinates it just carried over are still in the two-cell form, which no
+ * reader accepts any more. The fold comes from the same module `migrate:0.11` uses, so the two
+ * migrations cannot disagree about the surface they write.
+ */
+function toCurrentSurface(text: string, type: string): { text: string; problems: string[] } {
+  const folded = foldFile(text, type);
+  return { text: folded.text.replace(/^(\s*version\s+)\S+/m, `$1${TARGET}`), problems: folded.problems };
 }
 
 function main(): number {
@@ -498,7 +513,9 @@ function main(): number {
     }
 
     const mergedText = renderMerged(root, merged, pages);
-    const formatted = formatSchematic(mergedText, { file: `sch/${name}` });
+    const folded = toCurrentSurface(mergedText, "schematic");
+    for (const problem of folded.problems) fail(`sch/${name}: ${problem}`);
+    const formatted = formatSchematic(folded.text, { file: `sch/${name}` });
     if (!formatted.ok || formatted.text === undefined) {
       fail(
         `sch/${name}: the merged board does not compile: ${formatted.diagnostics[0]?.message ?? "unknown error"}`,
@@ -512,8 +529,10 @@ function main(): number {
       const viewFile = join(schDir, boardId, `${page.page}.view.teda`);
       if (!existsSync(viewFile)) continue;
       const names = merged.netNames.get(page.instance) ?? new Map<string, string>();
-      const text = withVersion07(rewriteView(readFileSync(viewFile, "utf8"), names, merged.boardPorts));
-      const formattedView = formatView(text, { file: `sch/${boardId}/${page.page}.view.teda` });
+      const rewritten = rewriteView(readFileSync(viewFile, "utf8"), names, merged.boardPorts);
+      const foldedView = toCurrentSurface(rewritten, "view");
+      for (const problem of foldedView.problems) fail(`sch/${boardId}/${page.page}.view.teda: ${problem}`);
+      const formattedView = formatView(foldedView.text, { file: `sch/${boardId}/${page.page}.view.teda` });
       if (!formattedView.ok || formattedView.text === undefined) {
         const reason = formattedView.diagnostics[0]?.message ?? "unknown error";
         fail(`sch/${boardId}/${page.page}.view.teda: the rewritten print page does not compile: ${reason}`);
@@ -525,8 +544,10 @@ function main(): number {
     const pcbFile = join(projectRoot, "pcb", `${boardId}.teda`);
     if (existsSync(pcbFile)) {
       const instances = new Set(pages.map((p) => p.instance));
-      const text = withVersion07(rewritePcb(readFileSync(pcbFile, "utf8"), instances, merged.netNames));
-      const formattedPcb = formatPcb(text, { file: `pcb/${boardId}.teda` });
+      const rewrittenPcb = rewritePcb(readFileSync(pcbFile, "utf8"), instances, merged.netNames);
+      const foldedPcb = toCurrentSurface(rewrittenPcb, "pcb");
+      for (const problem of foldedPcb.problems) fail(`pcb/${boardId}.teda: ${problem}`);
+      const formattedPcb = formatPcb(foldedPcb.text, { file: `pcb/${boardId}.teda` });
       if (!formattedPcb.ok || formattedPcb.text === undefined) {
         const reason = formattedPcb.diagnostics[0]?.message ?? "unknown error";
         fail(`pcb/${boardId}.teda: the rewritten pcb description does not compile: ${reason}`);
@@ -545,14 +566,14 @@ function main(): number {
       unlinkSync(join(schDir, boardId, `${page.page}.teda`));
     }
 
-    console.log(`  + ${boardId} is now one flat file (version 0.7)`);
+    console.log(`  + ${boardId} is now one flat file (version ${TARGET})`);
     migrated += 1;
   }
   if (problems.length > 0) {
     console.error(`\n${problems.length} problem(s); nothing was migrated.`);
     return 1;
   }
-  console.log(`\nMigrated ${migrated} board(s) to language 0.7.`);
+  console.log(`\nMigrated ${migrated} board(s) to language ${TARGET}.`);
   return 0;
 }
 

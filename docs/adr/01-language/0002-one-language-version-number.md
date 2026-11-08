@@ -2,9 +2,9 @@
 
 Status: Accepted
 Date: 2026-10-27
-Scope: Decides: that the language has one version number, that additive language changes may take an explicitly recorded MINOR step while compatible clarifications take PATCH, and that a description type's floor is the version it was born at. Does not decide: when the surface is frozen — `1.0` is reserved for that, see `spec/teda.md` §13.2.
-Related: [ADR-0001](0001-fact-layer-has-no-expressions.md), [ADR-0006](../02-ir/0006-ir-shards-and-hashes.md), [ADR-0011](../03-project/0011-renumbering-is-a-code-executed-rename.md), [ADR-0041](../10-process/0041-documentation-has-one-authority-per-fact.md), [ADR-0055](../09-view/0055-schematic-fields-are-view-overrides.md)
-Impact: `spec/teda.md` §13; `packages/parser/src/version.ts`; `scripts/migrate-0.9.ts`; `examples/**`
+Scope: Decides: that the language has one version number, that additive language changes may take an explicitly recorded MINOR step while compatible clarifications take PATCH, and that each description type has a reader floor which may advance when an explicit breaking surface migration requires it. Does not decide: when the surface is frozen — `1.0` is reserved for that, see `spec/teda.md` §13.2.
+Related: [ADR-0001](0001-fact-layer-has-no-expressions.md), [ADR-0006](../02-ir/0006-ir-shards-and-hashes.md), [ADR-0011](../03-project/0011-renumbering-is-a-code-executed-rename.md), [ADR-0041](../10-process/0041-documentation-has-one-authority-per-fact.md), [ADR-0055](../09-view/0055-schematic-fields-are-view-overrides.md), [ADR-0065](0065-a-coordinate-tuple-is-one-cell.md)
+Impact: `spec/teda.md` §13; `packages/parser/src/version.ts`; `scripts/migrate-0.9.ts`; `scripts/migrate-0.11.ts`; `examples/**`
 
 ## Background
 
@@ -80,14 +80,16 @@ knows `0.6` — that tool simply does not produce the diagnostics that `0.6.1` a
 ### D4. The Acceptance Rule
 
 A file is accepted when its version is a valid `MAJOR.MINOR[.PATCH]`, its MAJOR is the MAJOR the
-tool supports, its MINOR is **not below the version that introduced the description type**, and its
+tool supports, its MINOR is **not below the reader floor for its description type**, and its
 MINOR is **not above the language version the tool supports**. The patch is ignored.
 
-The lower bound is the version that introduced the type: a `view` file cannot declare `0.5`, and a
-`pcb` file cannot declare `0.4`. The floor is the oldest version of that type the tool still
-reads, which for every type is the version it was introduced in, with one exception: `pcb` was
-introduced at `0.4` and the flat-board change rewrote its shape at `0.7`, so its floor is `0.7`.
-The floor is a fact about the type, not about the file's age.
+The reader floor is the oldest surface form that the current parser accepts for that type. It is
+usually the language version that introduced the type, but it may be raised by a later breaking
+surface rewrite. The `pcb` floor first advanced from its introduction at `0.4` to `0.7` when the
+flat-board change rewrote its shape. The `view`, `pcb`, `symbol`, and `footprint` floors are now
+`0.11`, because the coordinate-tuple rewrite changes their lexical surface. Other types retain
+their earlier floors. These reader floors are maintained in `spec/teda.md` §13.1 and
+`packages/parser/src/version.ts`; historical introduction versions remain separate facts.
 
 The upper bound is the **language** version for every type, not the version at which the type last
 changed. This matters: before this rule, the `symbol` parser refused anything above `0.5` and the
@@ -150,27 +152,24 @@ corpus is still incomplete.
 
 The repository's `.teda` files and `project.toml` files do not move in lockstep merely because the
 language has a newer version. A file may keep an older accepted version when it uses only constructs
-available at that version. A file that uses a new construct declares the MINOR that introduced that
-construct; the parser gates the construct, not unrelated files. The IR shard records the source
-file's declared language version, so only shards produced from changed source files acquire that
-format value and any resulting hash changes.
+available at that version. For an additive construct, the parser gates its introduction version;
+unrelated files need not move. A breaking surface rewrite may instead raise the reader floor for the
+affected description types, in which case files of those types must migrate while other types keep
+their prior floors. The IR shard records the source file's declared language version, so only shards
+produced from changed source files acquire that format value and any resulting hash changes.
 
-Any required migration is scoped to the construct that requires it and is documented in
-`spec/teda.md` §13.4. A migration script may rewrite the affected files, but a release does not
-silently rewrite every `.teda` file or every project's `format` key.
+Any required migration is scoped to the affected construct and documented in `spec/teda.md` §13.4.
+A migration script may rewrite the affected files and update `project.toml` when explicitly run, but
+a release does not silently rewrite every `.teda` file or every project's `format` key.
 
 ## Consequences
 
 - Once a version is out, a change that only adds diagnostics — a new readability check for the view
   layer, a warning about a column that was always ambiguous — is a PATCH, not a MINOR. MINOR stays
   reserved for actually adding language: a new description type, a new section, a new field.
-- The parsers no longer refuse a file that declares the current language version: a `symbol` file at
-  `0.9.1` and a `schematic` file at `0.9.1` are both accepted. The upper bound is the language
-  version the tool supports; the lower bound is the version that introduced the type.
-- The version number in the IR (`format`) is canonical, so `0.6` and `0.6.0` compile to
-  byte-identical IR — the "IR depends on semantics only" rule (`AGENTS.md` §2, invariant 18) keeps
-  holding. The `symbol` and `footprint` shards carry no `format` field at all, so they are
-  unaffected either way.
+- The parsers accept a file at the current language version. The upper bound is shared; each type
+  keeps its reader floor, which can advance beyond its historical introduction after a breaking
+  surface migration.
 - The parser gets simpler: one number and nine floors. `packages/parser/src/version.ts` loses the
   per-type ceiling, and the type table keeps only the floor of each type.
 - The one construct-level gate in the parser keeps its meaning. The instance UID column is allowed

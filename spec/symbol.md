@@ -27,11 +27,11 @@
 ## 1. 文件头
 
 ```
-version 0.9.2
+version 0.11.0
 symbol bq24610rger
 ```
 
-- 版本行、类型行规则同 `teda.md` §5。文件写**语言版本**（当前 `0.9.2`）；`symbol` 的下界是 `0.5`（该类型由 0.5 引入），上界是语言当前版本——接受规则见 `teda.md` §13.3。
+- 版本行、类型行规则同 `teda.md` §5。文件写**语言版本**（当前版本见 `teda.md` §13.1）；`symbol` 的 reader 下界是 `0.11`。该类型于 `0.5` 引入，`0.11` 的坐标元组改写要求 reader 拒绝旧表面；接受规则见 `teda.md` §13.3。
 - 文件名必须等于类型行里的 id：`assets/symbols/<lib>/<symbol_id>.teda` ↔ `symbol bq24610rger`。
 - `symbol_id` 允许 `[A-Za-z0-9_.+-]+`。一个符号是**可复用的视图**：`r` / `c` / `nmos-5` 这类通用画法供多个器件共享，所以名字不必等于 `component_id`。绑定只发生在 `component.symbol`。
 
@@ -53,7 +53,7 @@ symbol bq24610rger
 | `power` | 否 | `yes` / `no`，缺省 `no`。电源符号（KiCad `(power)`）。 |
 | `in_bom` | 否 | `yes` / `no`，缺省 `yes`。 |
 | `on_board` | 否 | `yes` / `no`，缺省 `yes`。 |
-| `field` | 否 | 属性，可重复：`field <Name> [key=value …] <text…>`。键：`at`（`x,y`）、`hide`（`yes`）、`size`（`w,h`）。常见 `Reference`（值如 `U`）、`Value`（缺省取符号名）。**没有 `layer`**（符号不分层）。 |
+| `field` | 否 | 属性，可重复：`field <Name> [key=value …] <text…>`。键：`at`（`[x,y]`）、`hide`（`yes`）、`size`（`[w,h]`）。常见 `Reference`（值如 `U`）、`Value`（缺省取符号名）。**没有 `layer`**（符号不分层）。 |
 
 **`Reference` 与 `Value` 的文本是占位符**：库里的 `U` / `R` / 符号名只说明"这里有个位号""这里有个值"。落到图纸上时由**被放置的实例**填：`Reference` 换成实例 id（`R1`），`Value` 换成该实例的 `value` 列（`10k`、`100nF`；件没有 `value` 列时用它自己的 `mpn`）。其余字段原样画（`spec/schematic-view.md` §9.5 把这两条都算进投影）。
 
@@ -74,24 +74,24 @@ symbol bq24610rger
 
 ```
 pins
-  1        -12.5  -11.0   0
-  24       -1.0    19.0   270
-  25        1.0   -19.0   90  style=inverted
+  1   [-12.5,-11.0]  0
+  24  [-1.0,19.0]    270
+  25  [1.0,-19.0]    90  style=inverted
 ```
 
-固定列：`number x y rot`。**第一列是引脚号，不是引脚名**（引脚名归 `component`）。
+固定列：`number point rot`，`point` 是 `[x,y]`。**第一列是引脚号，不是引脚名**（引脚名归 `component`）。
 
 | 列 | 取值 | 单位 |
 |---|---|---|
 | `number` | 引脚号，必须与 `component` 的引脚编号一致（库级检查） | — |
-| `x` `y` | 引脚**连接点**，+y 向上；落在 `0.5 mm` 网格上（见下） | 长度 |
+| `point` | 引脚**连接点** `[x,y]`，+y 向上；落在 `0.5 mm` 网格上（见下） | 长度 |
 | `rot` | 引脚朝向：`0` 向右（左侧引脚）、`180` 向左（右侧）、`90` 向上（下方引脚）、`270` 向下（上方引脚） | 角度 |
 
 可选尾列（`key=value`，顺序任意，多余的键报错）：
 
 | 键 | 说明 |
 |---|---|
-| `length` | 引脚长度，缺省 `2.54` |
+| `length` | Pin length, default `2.5` |
 | `unit` | 所属单元，`0`…`units`；`0` 表示所有单元共有，缺省 `1` |
 | `style` | 引脚图形：`line`（缺省）/ `inverted` / `clock` / `inverted_clock` / `input_low` / `clock_low` / `output_low` / `edge_clock_high` / `non_logic` |
 
@@ -119,21 +119,21 @@ pins
 
 ```
 body
-  rect  -10.16,-16.51,10.16,16.51  width=0.254  fill=background
-  line  -8.89,12.7,-8.89,-12.7     width=0.254
-  circle 0,0,1.27                  width=0        fill=outline
-  poly  0,0,1,1,2,0                width=0.254    unit=0
+  rect    [-10.16,-16.51,10.16,16.51]  width=0.254  fill=background
+  line    [-8.89,12.7,-8.89,-12.7]     width=0.254
+  circle  [0,0,1.27]                   width=0        fill=outline
+  poly    [0,0,1,1,2,0]                width=0.254    unit=0
 ```
 
-固定列：`kind geometry`（**没有 layer**：符号图形不分层）。
+固定列：`kind geometry`（**没有 layer**：符号图形不分层）。`geometry` 是**一个** `[…]` 单元格：
 
 | `kind` | `geometry` 单元格 |
 |---|---|
-| `line` | `x1,y1,x2,y2` |
-| `rect` | `x1,y1,x2,y2`（对角两点） |
-| `circle` | `cx,cy,r` |
-| `arc` | `x1,y1,xm,ym,x2,y2`（起点、中点、终点） |
-| `poly` | `x1,y1,x2,y2,…`（闭合多边形，点数 ≥ 3） |
+| `line` | `[x1,y1,x2,y2]` |
+| `rect` | `[x1,y1,x2,y2]`（对角两点） |
+| `circle` | `[cx,cy,r]` |
+| `arc` | `[x1,y1,xm,ym,x2,y2]`（起点、中点、终点） |
+| `poly` | `[x1,y1,x2,y2,…]`（闭合多边形，点数 ≥ 3） |
 
 可选尾列：`width`（线宽，缺省 `0` = 不描边）、`fill`（`none`（缺省）/ `outline` / `background`）、`unit`（同 `pins`）。
 
@@ -169,10 +169,10 @@ v0.1 不支持：文字标注（极性 `+`/`−`、功能名）、图片、贝�
 `teda.md` §12 的通用规则之外：
 
 1. 标量顺序：见 §2。
-2. **缺省值不写**：等于缺省的标量与尾列一律省略（`units 1`、`pin_numbers show`、`pin_names show`、`power no`、`in_bom yes`、`on_board yes`、`pin_name_offset 0.508`、`length=2.54`、`unit=1`、`style=line`、`width=0`、`fill=none`）。这样同一份符号只有一种写法，diff 只反映语义变化。
+2. **缺省值不写**：等于缺省的标量与尾列一律省略（`units 1`、`pin_numbers show`、`pin_names show`、`power no`、`in_bom yes`、`on_board yes`、`pin_name_offset 0.508`、`length=2.5`、`unit=1`、`style=line`、`width=0`、`fill=none`）。这样同一份符号只有一种写法，diff 只反映语义变化。
 3. 段顺序：`pins` → `body`；段之间一个空行。
 4. `pins` 行按 (`unit` 自然序, `number` 自然序)；`body` 行按 (`kind`, `geometry`, `unit`) 字典序。
-5. 布局：表段按列对齐，列间至少两个空格；标量行（含 `field`）用单个空格。
+5. 布局：表段按列对齐，列间至少两个空格；标量行（含 `field`）用单个空格。引脚连接点 `[x,y]` 与 `body` 的 `geometry` 都是**一个**单元格（`teda.md` §4.3、[ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md)），按单元格对齐，括号内不写空格；`at=` / `size=` 的值同样带括号。
 6. 数值按列的默认单位写（长度 mm、角度度），省略单位；单位换算成 mm 后写出。
 7. 尾列 `key=value` 按键名 ASCII 字节序排序。
 8. `tags` 按 ASCII 字节序排序；`field` 的 `hide=no` 省略。
@@ -186,7 +186,7 @@ v0.1 不支持：文字标注（极性 `+`/`−`、功能名）、图片、贝�
 `examples/reference-project/assets/symbols/power/bq24610rger.teda`（即 canonical form；`bun run packages/parser/scripts/fmt-teda.ts --check examples/reference-project/assets/symbols` 退出 0）：
 
 ```
-version 0.9.2
+version 0.11.0
 symbol bq24610rger
 
 description 24V synchronous buck battery charger controller
@@ -194,18 +194,18 @@ tags battery charger
 # Pin connection points sit on the 0.5 mm placement lattice (ADR-0057) in both coordinates; same-side rows are
 # 2.5 mm apart (ADR-0058) and every tail is 2.5 mm.
 pin_name_offset 1.25
-field Reference at=-6.5,20 U
-field Value at=0,-20 bq24610rger
+field Reference at=[-6.5,20] U
+field Value at=[0,-20] bq24610rger
 
 pins
-  1   -12.5  -13.5  0    length=2.5
-  2   -12.5  -11    0    length=2.5
-  3    12.5  -10    180  length=2.5
+  1   [-12.5,-13.5]  0    length=2.5
+  2   [-12.5,-11.0]  0    length=2.5
+  3   [12.5,-10.0]   180  length=2.5
   ...
-  25   1.5   -19  90   length=2.5
+  25  [1.5,-19.0]    90   length=2.5
 
 body
-  rect  -10,-16.5,10,16.5  fill=background  width=0.25
+  rect  [-10,-16.5,10,16.5]  fill=background  width=0.25
 ```
 
 配套的 `component`（`examples/reference-project/components/power/bq24610rger.teda`）提供引脚名与电气类型：

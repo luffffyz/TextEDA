@@ -7,18 +7,18 @@ import { missingPartPins, symbolLibrary, unplacedPartPins } from "../src/index.t
 
 const smallSymbol = parseSymbol(
   [
-    "version 0.5",
+    "version 0.11",
     "symbol demo",
     "",
     "description demo symbol",
-    "field Reference at=-6.35,17.78 U",
+    "field Reference at=[-6.35,17.78] U",
     "",
     "pins",
-    "  1  -12.7  2.54  0",
-    "  2  12.7  -2.54  180",
+    "  1  [-12.7,2.54]  0",
+    "  2  [12.7,-2.54]  180",
     "",
     "body",
-    "  rect  -5.08,-5.08,5.08,5.08  width=0.254  fill=background",
+    "  rect  [-5.08,-5.08,5.08,5.08]  width=0.254  fill=background",
     "",
   ].join("\n"),
   { file: "x.teda", library: "project" },
@@ -45,7 +45,7 @@ describe("Symbol library export", () => {
     const text = symbolLibrary(smallSymbol, part);
     expect(text).toContain('(name "IN"');
     expect(text).toContain('(number "1"');
-    expect(text).toContain("(pin input line (at -12.7 2.54 0) (length 2.54)");
+    expect(text).toContain("(pin input line (at -12.7 2.54 0) (length 2.5)");
   });
 
   test("power electrical type maps to KiCad's power_in", () => {
@@ -64,14 +64,14 @@ describe("Symbol library export", () => {
   test("graphics without stroking still get a stroke KiCad accepts (no type none)", () => {
     const symbol = parseSymbol(
       [
-        "version 0.5",
+        "version 0.11",
         "symbol t",
         "",
         "pins",
-        "  1  0  0  0",
+        "  1  [0,0]  0",
         "",
         "body",
-        "  poly  -1,1,0,2,1,1  width=0",
+        "  poly  [-1,1,0,2,1,1]  width=0",
         "",
       ].join("\n"),
       { file: "x.teda", library: "project" },
@@ -88,7 +88,7 @@ describe("Symbol library export", () => {
 
   test("pins present in the component but not drawn in the symbol are listed (warning material)", () => {
     const symbol = parseSymbol(
-      ["version 0.5", "symbol t", "", "pins", "  1  0  0  0", ""].join("\n"),
+      ["version 0.11", "symbol t", "", "pins", "  1  [0,0]  0", ""].join("\n"),
       { file: "x.teda", library: "project" },
     ).ir!.symbol;
     expect(unplacedPartPins(symbol, part)).toEqual(["2"]);
