@@ -180,11 +180,25 @@ Two settings change what a call may do:
 use, and `x` to kill or `r` to revive.
 
 **A silent child is usually still generating, not stuck.** Read the transcript tail before
-concluding anything:
+concluding anything. The raw file is JSONL, one event per line; `jq` turns the last few events
+into something readable:
 
 ```sh
 # what is it doing right now
-tail -n 40 ~/.omp/agent/sessions/<slug>/<session-id>/<AgentName>.jsonl
+tail -n 40 ~/.omp/agent/sessions/<slug>/<session-id>/<AgentName>.jsonl \
+  | jq -r 'select(.type=="message") | .message.role as $r | (.message.content // [])[]
+           | if type=="object" then "\($r) \(.name // .type)" else "\($r) \((.text // "")[0:60])" end' \
+  | tail -n 8
+```
+
+```
+assistant thinking
+assistant text
+assistant bash
+toolResult text
+toolResult text
+developer text
+assistant text
 ```
 
 A transcript that ends in a tool call and keeps growing is a working child. A transcript that
@@ -217,11 +231,11 @@ built-in one verbatim, and `omp://prewalk.md` carries it with examples.
 Delegation is not free: the child pays a startup cost for its system prompt and shares nothing of
 this session's cache. The transcripts are the record.
 
-Layout: the parent session is `<session-id>.jsonl`; each child is a sibling **directory** of the
-same name holding one `<AgentName>.jsonl` per child.
+Layout: the parent session is `<session-id>.jsonl`; a session that spawned children also has a
+sibling **directory** of the same name, holding one `<AgentName>.jsonl` per child.
 
 ```sh
-ls ~/.omp/agent/sessions/<cwd-slug>/                 # one entry per session
+ls ~/.omp/agent/sessions/<cwd-slug>/                 # a .jsonl per session, plus a dir per session with children
 ls ~/.omp/agent/sessions/<cwd-slug>/<session-id>/     # one .jsonl per child
 ```
 
