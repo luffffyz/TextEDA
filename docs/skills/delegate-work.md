@@ -124,7 +124,7 @@ last two steps — but only when `task.perCallModel` is on and the model is appr
 
 The bundled agents are pinned in their own definition: `task` says `model: "@task"`, `scout` says
 `model: "@smol"`, `reviewer` says `model: "@slow"`, and `security-reviewer` names none, so it
-inherits the parent's model. The roles on this machine are:
+inherits the parent's model. Read your own roles — this is a snapshot, not the truth:
 
 ```sh
 grep -A12 'modelRoles' ~/.omp/agent/config.yml
@@ -140,7 +140,8 @@ modelRoles:
   smol: minimax-code-cn/MiniMax-M3.1-Flash:high
 ```
 
-A weaker `task` role explains most "the subagent did it badly" reports. **Check which model
+The `task` role is a **different model from the main session's**, so a child's output can differ
+in quality from yours for reasons that have nothing to do with the slice. **Check which model
 actually ran before rewriting the slice.** The child's own transcript is the ground truth — it
 records the model in its first `model_change` record:
 
