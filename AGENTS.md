@@ -397,7 +397,7 @@ dist/ir/
 - **改错是就地改，不是追加附录**：记录陈述的是**现在为真的事**，写错了就改那一句；带日期的附录只留给**退役记录**（`Status:` 指向取代它的那条）。历史在 git 里，不在正文里积累。
 - **拆活与派工**：派工的判据（什么能派、什么不能派）、分片的写法、共享门禁怎么办、验收与定价见 [`docs/skills/delegate-work.md`](docs/skills/delegate-work.md)。
 - **同一句话里不要既给规则又给例外。** 矛盾的规格一定会被执行成错的那一半。
-- **判研（judge）的判据由 omp 内置，不要自造短版 rubric 去测它。** `prewalk.auto` 与 `find.enabled: auto` 都走 `judge` 角色，但**两者的判据不同**：`prewalk.auto` 用 harness 的三档 route 判据（`prewalk` / `primary` / `direct`，原文在 harness 的 `packages/coding-agent/src/prompts/judge/auto-prewalk.json`，`omp://prewalk.md` 里那张表只是带例子的摘要），`find.enabled: auto` 用的是按请求形状分的二元判据（`name` / `sketch` / `passage`，原文在 `packages/coding-agent/src/prompts/judge/find.json` 与 `packages/coding-agent/src/tools/jfind/questions.ts`）。要验证哪一条路径，就逐字复制**那一条路径自己的**判据：简化标签会让同一批任务判错，错的是**探针**不是模型。改 `prewalk.autoTarget` 前先确认目标角色指向哪个模型：角色是别名，模型会被换掉。
+- **判研（judge）的判据由 omp 内置，不要自造短版 rubric 去测它。** `find.enabled: auto` 走 `judge` 角色，用的是按请求形状分的二元判据（`name` / `sketch` / `passage`，原文在 harness 的 `packages/coding-agent/src/prompts/judge/find.json` 与 `packages/coding-agent/src/tools/jfind/questions.ts`）。要验证这条路径，就逐字复制它的判据：简化标签会让同一批任务判错，错的是**探针**不是模型。判研前先确认 `judge` 角色实际指向哪个模型：角色是别名，模型会被换掉。
 - **提交信息英文**。
 - **新增依赖需要 ADR**；默认零运行时依赖的 parser 是目标。
 - **不知道符号叫什么，先查索引再读源码。** `docs/api-reference/packages/<pkg>.md` 是生成的导出清单（当前 1045 条，每条带 `文件#L行号`）：不知道某个包对外有哪些名字、某个导出的签名是什么、它在哪个文件第几行时，读这一页比在 `packages/*/src/` 里猜文件名、或先猜名字再 `grep` 便宜。**已经知道名字和位置就不用查它**——直接读源码或跑 `xd://lsp`。索引只给位置与签名，**语义、错误行为与规则以规范与源码为准**；它随 `bun run gen` 重生成，不手改。
