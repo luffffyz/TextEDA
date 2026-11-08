@@ -169,7 +169,10 @@ Two settings change what a call may do:
 
 - `task.perCallModel` (`off` here) — when it is off, a slice may not name a model; the role decides.
 - `task.prewalk` (`false` here) and `prewalk.enabled` (`false` here) — the cheap-model hand-off at
-  the first edit is off, so a child stays on its own model for the whole run.
+  the first edit is off, so a child stays on its own model for the whole run. The two are
+  independent: `task.prewalk` is what a child sees, and it applies only to the bundled generic
+  `task` agent; `prewalk.enabled` arms the top-level session's own hand-off and never reaches a
+  child. A per-agent `task.agentPrewalk[<agent>]` setting overrides that agent's frontmatter.
 
 ## 4. Supervise
 
@@ -246,9 +249,12 @@ the reply. Unowned findings are how stale claims survive a migration.
 3. **Check the child stayed in scope.** A slice that edited a file it was not given is a finding
    about the slice, not about the code.
 
-If the work was judged, the reviewer is the judge, and the judge grades against a rubric. The rule
-for that rubric is not in this file: [`AGENTS.md`](../../AGENTS.md) §12 says to use the harness's
-built-in one verbatim, and `omp://prewalk.md` carries it with examples.
+If the work was judged, the reviewer is the judge, and the judge grades against a rubric. For code
+quality the rubric is **yours**: `judge()` / `judgeBatch()` take the questions and their rubric as
+input, so write criteria the judge can answer from the diff alone, and give it hidden cases the
+child never saw. The harness ships built-in rubrics only for its own routing paths — `prewalk.auto`
+and `find.enabled: auto` — and those are not code-quality rubrics; copy the one of the path you are
+probing, verbatim, per [`AGENTS.md`](../../AGENTS.md) §12.
 
 ## 6. Price it
 
@@ -487,4 +493,5 @@ delegate even when the token totals are a wash.
   per-call model rules.
 - `omp://tools/task.md`: the `task` tool's wire schema, limits, and side effects.
 - `omp://agent-hub.md`: the Agent Hub, the roster, and how to steer or revive a child.
-- `omp://prewalk.md`: the harness's judge rubric, to be copied verbatim.
+- `omp://prewalk.md`: the `prewalk.auto` hand-off, its trigger, and the three-route rubric the
+  judge gets (the table there paraphrases the rubric the harness actually sends).
