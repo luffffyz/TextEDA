@@ -5,7 +5,7 @@
 // Usage:
 //   bun run view:verify [project dir]        required section, **zero external dependencies**
 //
-// What it checks, per print page under `views/<board_id>/<page_id>.view.teda`:
+// What it checks, per project print page directly under `views/`:
 //   1. the page parses;
 //   2. every coordinate it stores — placement origin, field anchor, wire bend, label, port, note —
 //      is a lattice point in both axes.
@@ -30,17 +30,10 @@ const fail = (message: string): void => {
 };
 
 function listPages(dir: string): string[] {
-  const out: string[] = [];
-  if (!statSync(dir).isDirectory()) return out;
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) {
-      out.push(...listPages(full));
-    } else if (entry.endsWith(".view.teda")) {
-      out.push(full);
-    }
-  }
-  return out.sort();
+  return readdirSync(dir)
+    .filter((entry) => entry.endsWith(".view.teda") && statSync(join(dir, entry)).isFile())
+    .map((entry) => join(dir, entry))
+    .sort();
 }
 
 if (!statSync(viewsRoot).isDirectory()) {
@@ -56,8 +49,7 @@ if (pages.length === 0) {
 
 let checked = 0;
 for (const page of pages) {
-  const board = page.split("/").slice(-2, -1)[0] ?? "";
-  const parsed = parseView(readFileSync(page, "utf8"), { file: page, board });
+  const parsed = parseView(readFileSync(page, "utf8"), { file: page });
   if (!parsed.ok || !parsed.ir) {
     fail(`${page}: the page does not parse`);
     continue;

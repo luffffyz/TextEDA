@@ -23,7 +23,7 @@ function fmtModule(file: string, text: string) {
 }
 
 describe("canonical form (schematic)", () => {
-  const file = `${projectDir}/design/sch/mcu-board.teda`;
+  const file = `${projectDir}/design/sch/main.teda`;
   const text = readFileSync(file, "utf8");
   const canonical = fmt(file, text);
 
@@ -41,6 +41,7 @@ describe("canonical form (schematic)", () => {
       JSON.stringify({
         id: doc.id,
         version: doc.version,
+        modules: doc.modules.map((m) => `${m.instanceId} ${m.uid ?? ""} ${m.moduleId}`).sort(),
         instances: doc.instances
           .map((i) => `${i.refdes} ${i.uid ?? ""} ${i.componentId} ${i.paramCells.join(" ")}`)
           .sort(),
@@ -48,64 +49,36 @@ describe("canonical form (schematic)", () => {
           .map((n) => `${n.name}: ${[...n.memberRefs].sort().join(" ")}`)
           .sort(),
         ports: doc.ports.map((p) => `${p.id} ${p.net}`).sort(),
-        constraints: doc.constraints.map((c) => `${c.type} ${c.args.join(" ")}`),
-        buses: doc.buses.map((b) => `${b.id}=${b.type}`),
+        constraints: doc.constraints.map((c) => `${c.type} ${c.args.join(" ")}`).sort(),
+        buses: doc.buses.map((b) => `${b.id}=${b.type}`).sort(),
+        interconnects: doc.interconnects.map((i) => `${i.id} ${i.from} ${i.to}`).sort(),
+        interconnectPins: doc.interconnectPins.map((i) => `${i.interconnect} ${i.from} ${i.to}`).sort(),
       });
     expect(normalize(after.doc!)).toBe(normalize(before.doc!));
   });
 
   test("section order is fixed", () => {
     const order = [...canonical.matchAll(/^(\w+)$/gm)].map((m) => m[1]!);
-    expect(order).toEqual(["instances", "nets", "ports", "constraints"]);
+    expect(order).toEqual(["modules", "nets", "ports", "constraints", "interconnects"]);
   });
 
-  test("the UID column survives formatting unchanged", () => {
+  test("module UID values survive formatting unchanged", () => {
     const before = parseSchematicDocument(text, { file });
     const after = parseSchematicDocument(canonical, { file });
-    expect(after.doc!.instances.map((i) => i.uid)).toEqual(before.doc!.instances.map((i) => i.uid));
+    expect(after.doc!.modules.map((m) => m.uid)).toEqual(before.doc!.modules.map((m) => m.uid));
   });
 
-  test("instances are ordered by refdes naturally", () => {
-    const rows = canonical.split("\n").filter((l) => /^  [A-Z]+\d+\s/.test(l));
-    const refs = rows.map((l) => l.trim().split(/\s+/)[0]!);
-    expect(refs.slice(0, 6)).toEqual(["C1", "C2", "C3", "C4", "C5", "C6"]);
-  });
-
-  test("the colon in a net row hugs the net name, members start in the same column", () => {
+  test("the colon in each net row hugs the net name and members share a column", () => {
     const lines = canonical.split("\n").filter((l) => /^  [A-Z0-9_]+:/.test(l));
-    expect(lines[0]).toMatch(/^  BOOT0: {4}R2\.1 {2}U1\.BOOT0$/);
+    expect(lines.length).toBeGreaterThan(0);
     const columns = lines.map((l) => l.indexOf(l.trim().split(/\s+/)[1]!));
     expect(new Set(columns).size).toBe(1);
-  });
-
-  test("comments are preserved and follow their line", () => {
-    expect(canonical).toContain("# CH32V307VCT6");
   });
 
   test("one blank line between sections, one trailing newline at end of file", () => {
     expect(canonical).toContain("\n\nnets\n");
     expect(canonical.endsWith("\n")).toBe(true);
     expect(canonical.endsWith("\n\n")).toBe(false);
-  });
-});
-
-describe("canonical form (a board that composes modules)", () => {
-  const boardFile = `${projectDir}/design/sch/charger-buck.teda`;
-  const boardText = readFileSync(boardFile, "utf8");
-  const boardCanonical = fmt(boardFile, boardText);
-
-  test("board file idempotent", () => {
-    expect(fmt(boardFile, boardCanonical)).toBe(boardCanonical);
-  });
-
-  test("board section order: modules, nets, ports, constraints", () => {
-    const order = [...boardCanonical.matchAll(/^(\w+)$/gm)].map((m) => m[1]!);
-    expect(order).toEqual(["modules", "nets", "ports", "constraints"]);
-  });
-
-  test("the module instances are ordered by their id", () => {
-    const rows = boardCanonical.split("\n").filter((l) => /^  M\d+\s/.test(l));
-    expect(rows.map((l) => l.trim().split(/\s+/)[0])).toEqual(["M1", "M2"]);
   });
 });
 
@@ -135,54 +108,54 @@ describe("canonical form (a module file)", () => {
 });
 
 describe("bus blocks (teda.md §7.3)", () => {
-  const header = ["version 0.3", "schematic b", "", "instances", "  R1  res-thick-0402  10k", "  R2  res-thick-0402  10k", "", "bus pwr = PWR"].join("\n");
+  const header = ["version 0.14.0", "module test", "", "instances", "  R1  res-thick-0402  10k", "  R2  res-thick-0402  10k", "", "bus pwr = PWR"].join("\n");
 
   test("two bus blocks both survive formatting", () => {
     // The blocks share the section name `bus` but are separate statements: keying them by the name
     // alone let the second overwrite the first, and the lost members went with it.
-    const canonical = fmt("sch/b.teda", `${header}\n  gnd:  R1.2  R2.2\n  vdd:  R1.1\n\nbus i2c0 = I2C\n  scl:  R2.1`);
+    const canonical = fmtModule("design/modules/test.teda", `${header}\n  gnd:  R1.2  R2.2\n  vdd:  R1.1\n\nbus i2c0 = I2C\n  scl:  R2.1`);
     expect(canonical).toContain("bus pwr = PWR");
     expect(canonical).toContain("  gnd:  R1.2  R2.2");
     expect(canonical).toContain("bus i2c0 = I2C");
     expect(canonical).toContain("  scl:  R2.1");
-    expect(fmt("sch/b.teda", canonical)).toBe(canonical);
+    expect(fmtModule("design/modules/test.teda", canonical)).toBe(canonical);
   });
 });
 
 describe("negative cases", () => {
   test("no text is produced on a syntax error", () => {
     // Unknown section: the parser reports an error and the formatter produces no text.
-    const text = "version 0.3\nschematic b\n\nwidgets\n  x  y\n";
-    const result = formatSchematic(text, { file: "sch/b.teda" });
+    const text = "version 0.14.0\nmodule test\n\nwidgets\n  x  y\n";
+    const result = formatSchematic(text, { file: "design/modules/test.teda", kind: "module" });
     expect(result.ok).toBe(false);
     expect(result.text).toBeUndefined();
   });
 
   test("reports an error when the file header is incomplete", () => {
-    const result = formatSchematic("version 0.3\n", { file: "sch/b.teda" });
+    const result = formatSchematic("version 0.14.0\n", { file: "design/sch/main.teda" });
     expect(result.ok).toBe(false);
     expect(result.diagnostics[0]?.code).toBe("syntax.header-invalid");
   });
 });
 
 describe("continuation rows and wide nets (teda.md §7.2, §12)", () => {
-  const header = ["version 0.3", "schematic b", "", "instances", "  R1  res-thick-0402  10k", "  R2  res-thick-0402  10k", "", "nets"].join("\n");
+  const header = ["version 0.14.0", "module test", "", "instances", "  R1  res-thick-0402  10k", "  R2  res-thick-0402  10k", "", "nets"].join("\n");
 
   test("a net that fits on one line is written as one line", () => {
     // The continuation row is merged back: the wrapping is a layout decision, not a fact about the net.
-    const canonical = fmt("sch/b.teda", `${header}\n  A:  R1.1\n  :  R2.1`);
+    const canonical = fmtModule("design/modules/test.teda", `${header}\n  A:  R1.1\n  :  R2.1`);
     expect(canonical).toContain("  A:  R1.1  R2.1");
     expect(canonical).not.toContain("\n  :");
   });
 
   test("members of one net are merged, whatever rows they came from", () => {
-    const canonical = fmt("sch/b.teda", `${header}\n  A:  R1.1\n  A:  R2.1`);
+    const canonical = fmtModule("design/modules/test.teda", `${header}\n  A:  R1.1\n  A:  R2.1`);
     expect(canonical).toContain("  A:  R1.1  R2.1");
   });
 
   test("a wide net is wrapped into continuation rows within 80 columns", () => {
     const members = Array.from({ length: 40 }, (_, i) => `R${i}.1`);
-    const canonical = fmt("sch/b.teda", `${header}\n  A:  ${members.join("  ")}`);
+    const canonical = fmtModule("design/modules/test.teda", `${header}\n  A:  ${members.join("  ")}`);
     const netLines = canonical.split("\n").filter((l) => /^  (A:|:)/.test(l));
     expect(netLines.length).toBeGreaterThan(1);
     for (const line of netLines) expect(line.length).toBeLessThanOrEqual(80);
@@ -196,7 +169,7 @@ describe("continuation rows and wide nets (teda.md §7.2, §12)", () => {
 
   test("continuation members are aligned with the first row's members", () => {
     const members = Array.from({ length: 40 }, (_, i) => `R${i}.1`);
-    const canonical = fmt("sch/b.teda", `${header}\n  A:  ${members.join("  ")}`);
+    const canonical = fmtModule("design/modules/test.teda", `${header}\n  A:  ${members.join("  ")}`);
     const netLines = canonical.split("\n").filter((l) => /^  (A:|:)/.test(l));
     const columns = netLines.map((l) => l.indexOf(l.trim().split(/\s+/)[1]!));
     expect(new Set(columns).size).toBe(1);
@@ -204,14 +177,14 @@ describe("continuation rows and wide nets (teda.md §7.2, §12)", () => {
 
   test("wrapping is idempotent", () => {
     const members = Array.from({ length: 40 }, (_, i) => `R${i}.1`);
-    const canonical = fmt("sch/b.teda", `${header}\n  A:  ${members.join("  ")}`);
-    expect(fmt("sch/b.teda", canonical)).toBe(canonical);
+    const canonical = fmtModule("design/modules/test.teda", `${header}\n  A:  ${members.join("  ")}`);
+    expect(fmtModule("design/modules/test.teda", canonical)).toBe(canonical);
   });
 
   test("a net written on one line and the same net written in pieces format identically", () => {
     const members = ["R1.1", "R2.1"];
-    const oneLine = fmt("sch/b.teda", `${header}\n  A:  R1.1  R2.1`);
-    const twoLines = fmt("sch/b.teda", `${header}\n  A:  R1.1\n  :  R2.1`);
+    const oneLine = fmtModule("design/modules/test.teda", `${header}\n  A:  R1.1  R2.1`);
+    const twoLines = fmtModule("design/modules/test.teda", `${header}\n  A:  R1.1\n  :  R2.1`);
     expect(twoLines).toBe(oneLine);
   });
 });

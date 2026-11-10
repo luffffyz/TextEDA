@@ -37,6 +37,13 @@ describe("example symbol", () => {
     expect(result.ir!.symbol.pins[0]!.length_nm).toBe(2500000);
   });
 
+  test("normalizes a zero patch in the emitted language format", () => {
+    const result = parse(["version 0.11.0", "symbol t", "", "pins", "  1  [0,0]  0"].join("\n"));
+    expect(result.ok).toBe(true);
+    expect(result.ir!.format).toBe("0.11");
+    expect(validate("symbol", result.ir!)).toEqual({ ok: true, errors: [] });
+  });
+
   test("body is a rectangle with background fill", () => {
     const body = result.ir!.symbol.body!;
     expect(body.length).toBe(1);

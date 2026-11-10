@@ -16,7 +16,7 @@ const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const referenceProject = join(repoRoot, "examples", "reference-project");
 const cli = join(repoRoot, "packages", "cli", "scripts", "texteda.ts");
 
-const pageFile = "views/charger-buck/buck-5v.view.teda";
+const pageFile = "views/buck-5v.view.teda";
 
 /** The scratch copies this file made, so they can be taken away when it is done. */
 const scratches: string[] = [];
@@ -34,9 +34,9 @@ afterAll(() => {
 });
 
 function expectC1At118(text: string): void {
-  const parsed = parseView(text, { file: pageFile, board: "charger-buck" });
+  const parsed = parseView(text, { file: pageFile });
   expect(parsed.ok).toBe(true);
-  expect(parsed.ir?.place.find((place) => place.instance_id === "M2.C1")).toMatchObject({
+  expect(parsed.ir?.place!.find((place) => place.instance_id === "M2.C1")).toMatchObject({
     x_nm: 118_000_000,
     y_nm: 95_000_000,
     rot_mdeg: 90_000,
@@ -95,7 +95,7 @@ describe("the review app's write routes", () => {
     const server = await serve(dir);
     try {
       const response = await post(server, "/api/layout", {
-        board: "charger-buck",
+        board: "main",
         page: "buck-5v",
         places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 90 }],
         commit: false,
@@ -116,16 +116,16 @@ describe("the review app's write routes", () => {
     const server = await serve(dir);
     try {
       const response = await post(server, "/api/layout", {
-        board: "charger-buck",
+        board: "main",
         page: "buck-5v",
         places: [{ instance_id: "M2.C4", x: 218, y: 105.5, rot: 0 }],
         commit: true,
       });
       expect(response.status).toBe(200);
       expect(response.payload["changed"]).toBe(true);
-      const parsed = parseView(readFileSync(join(dir, pageFile), "utf8"), { file: pageFile, board: "charger-buck" });
+      const parsed = parseView(readFileSync(join(dir, pageFile), "utf8"), { file: pageFile });
       expect(parsed.ok).toBe(true);
-      expect(parsed.ir?.place.find((place) => place.instance_id === "M2.C4")?.rot_mdeg).toBeUndefined();
+      expect(parsed.ir?.place!.find((place) => place.instance_id === "M2.C4")?.rot_mdeg).toBeUndefined();
     } finally {
       server.stop();
     }
@@ -135,7 +135,7 @@ describe("the review app's write routes", () => {
     const server = await serve(dir);
     try {
       const response = await post(server, "/api/layout", {
-        board: "charger-buck",
+        board: "main",
         page: "buck-5v",
         places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 90 }],
         commit: true,
@@ -161,7 +161,7 @@ describe("the review app's write routes", () => {
     const server = await serve(dir);
     try {
       const response = await post(server, "/api/layout", {
-        board: "charger-buck",
+        board: "main",
         page: "buck-5v",
         places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 90 }],
         commit: true,
@@ -184,11 +184,11 @@ describe("the review app's write routes", () => {
     const server = await serve(dir);
     try {
       const response = await post(server, "/api/layout", {
-        board: "charger-buck",
+        board: "main",
         page: "buck-5v",
         places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 90 }],
         commit: true,
-        text: "version 0.11\nview buck-5v\n\nplace\n  M2.C1  118.0\n",
+        text: "version 0.14.0\nview buck-5v\n\nplace\n  M2.C1  118.0\n",
       });
       expect(response.status).toBe(400);
       // The draft's place row writes a point as two cells, which the language does not allow.
@@ -206,7 +206,7 @@ describe("the review app's write routes", () => {
       const board = await post(server, "/api/layout", { board: "nope", page: "buck-5v", places: [] });
       expect(board.status).toBe(400);
       expect(String(board.payload["error"] ?? "")).toContain("no such board");
-      const page = await post(server, "/api/layout", { board: "charger-buck", page: "nope", places: [] });
+      const page = await post(server, "/api/layout", { board: "main", page: "nope", places: [] });
       expect(page.status).toBe(400);
       expect(String(page.payload["error"] ?? "")).toContain("no such print page");
     } finally {
@@ -217,11 +217,11 @@ describe("the review app's write routes", () => {
   test("the layout route previews and commits a field override without writing the preview", async () => {
     const dir = scratch();
     const before = readFileSync(join(dir, pageFile), "utf8");
-    const draft = before.replace("version 0.9.2", "version 0.10.0");
+    const draft = before.replace("version 0.14.0", "version 0.14.1");
     const server = await serve(dir);
     try {
       const preview = await post(server, "/api/layout", {
-        board: "charger-buck",
+        board: "main",
         page: "buck-5v",
         places: [],
         fields: [{ instance_id: "M2.C1", name: "Value", x: 0, y: 0 }],
@@ -233,7 +233,7 @@ describe("the review app's write routes", () => {
       expect(readFileSync(join(dir, pageFile), "utf8")).toBe(before);
 
       const commit = await post(server, "/api/layout", {
-        board: "charger-buck",
+        board: "main",
         page: "buck-5v",
         places: [],
         fields: [{ instance_id: "M2.C1", name: "Value", x: 0, y: 0 }],
@@ -254,7 +254,7 @@ describe("the review app's write routes", () => {
         y: 0,
         manual: true,
       });
-      const parsed = parseView(readFileSync(join(dir, pageFile), "utf8"), { file: pageFile, board: "charger-buck" });
+      const parsed = parseView(readFileSync(join(dir, pageFile), "utf8"), { file: pageFile });
       expect(parsed.ir?.field?.filter((field) => field.instance_id === "M2.C1")).toEqual([
         { instance_id: "M2.C1", name: "Value", x_nm: 0, y_nm: 0 },
       ]);
@@ -266,11 +266,11 @@ describe("the review app's write routes", () => {
   test("the layout route rejects malformed, unknown, and conflicting field operations", async () => {
     const dir = scratch();
     const before = readFileSync(join(dir, pageFile), "utf8");
-    const draft = before.replace("version 0.9.2", "version 0.10.0");
+    const draft = before.replace("version 0.14.0", "version 0.14.1");
     const server = await serve(dir);
     try {
       const malformed = await post(server, "/api/layout", {
-        board: "charger-buck",
+        board: "main",
         page: "buck-5v",
         places: [],
         fields: [{ instance_id: "M2.C1", name: "Value", x: "0", y: 0 }],
@@ -278,7 +278,7 @@ describe("the review app's write routes", () => {
       expect(malformed.status).toBe(400);
       expect(String(malformed.payload["error"] ?? "")).toContain("finite numbers");
       const invalidAutomaticFields = await post(server, "/api/layout", {
-        board: "charger-buck",
+        board: "main",
         page: "buck-5v",
         places: [],
         automatic_fields: "false",
@@ -287,7 +287,7 @@ describe("the review app's write routes", () => {
       expect(String(invalidAutomaticFields.payload["error"] ?? "")).toContain("automatic_fields must be a boolean");
 
       const invalidReanchorWires = await post(server, "/api/layout", {
-        board: "charger-buck",
+        board: "main",
         page: "buck-5v",
         places: [],
         reanchor_wires: 0,
@@ -296,7 +296,7 @@ describe("the review app's write routes", () => {
       expect(String(invalidReanchorWires.payload["error"] ?? "")).toContain("reanchor_wires must be a boolean");
 
       const unknown = await post(server, "/api/layout", {
-        board: "charger-buck",
+        board: "main",
         page: "buck-5v",
         places: [],
         fields: [{ instance_id: "M2.UNKNOWN", name: "Value", x: 0, y: 0 }],
@@ -306,7 +306,7 @@ describe("the review app's write routes", () => {
       expect(String(unknown.payload["error"] ?? "")).toContain("does not place M2.UNKNOWN");
 
       const conflicting = await post(server, "/api/layout", {
-        board: "charger-buck",
+        board: "main",
         page: "buck-5v",
         places: [],
         fields: [{ instance_id: "M2.C1", name: "Value", x: 0, y: 0 }],
@@ -389,7 +389,7 @@ describe("the review app's write routes", () => {
     try {
       const response = await post(server, "/api/source", {
         file: pageFile,
-        text: "version 0.11\npcb charger-buck\n",
+        text: "version 0.14.0\npcb charger-buck\n",
         save: true,
       });
       expect(response.status).toBe(400);
@@ -405,7 +405,7 @@ describe("the review app's write routes", () => {
     const server = await serve(dir);
     try {
       const response = await post(server, "/api/source", {
-        file: "views/charger-buck/../../../../etc/passwd",
+        file: "views/../../../../etc/passwd",
         text: "",
         save: true,
       });

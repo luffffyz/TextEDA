@@ -1,7 +1,7 @@
 {
-  "ir_version": "0.15",
+  "ir_version": "0.19",
   "format": "0.9.1",
-  "board": "charger-buck",
+  "project": "main",
   "page": "buck-5v",
   "sheet": { "width_nm": 297000000, "height_nm": 210000000 },
   "place": [

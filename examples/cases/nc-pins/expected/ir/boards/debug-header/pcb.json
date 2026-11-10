@@ -1,0 +1,64 @@
+{
+  "board_thickness_nm": 1600000,
+  "connect": [],
+  "format": "0.14",
+  "ir_version": "0.19",
+  "modules": [
+    "M1"
+  ],
+  "outline": [
+    {
+      "x_nm": 0,
+      "y_nm": 0
+    },
+    {
+      "x_nm": 40000000,
+      "y_nm": 0
+    },
+    {
+      "x_nm": 40000000,
+      "y_nm": 30000000
+    },
+    {
+      "x_nm": 0,
+      "y_nm": 30000000
+    }
+  ],
+  "pcb": "debug-header",
+  "place": [],
+  "rules": [
+    {
+      "type": "clearance",
+      "value_nm": 200000
+    },
+    {
+      "type": "width",
+      "value_nm": 250000
+    }
+  ],
+  "source": {
+    "file": "design/pcb/debug-header.teda",
+    "line": 1
+  },
+  "stackup": [
+    {
+      "kind": "signal",
+      "layer": "F.Cu",
+      "thickness_nm": 35000,
+      "type": "copper"
+    },
+    {
+      "er_ppm": 4300000,
+      "layer": "core",
+      "material": "FR4",
+      "thickness_nm": 1530000,
+      "type": "dielectric"
+    },
+    {
+      "kind": "signal",
+      "layer": "B.Cu",
+      "thickness_nm": 35000,
+      "type": "copper"
+    }
+  ]
+}

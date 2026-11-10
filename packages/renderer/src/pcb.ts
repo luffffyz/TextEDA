@@ -177,7 +177,7 @@ export function renderPcb(options: PcbCanvasOptions): SvgDoc {
 
   return {
     kind: "pcb",
-    title: pcb.board,
+    title: pcb.pcb,
     orientation: "y-down",
     primitives,
   };

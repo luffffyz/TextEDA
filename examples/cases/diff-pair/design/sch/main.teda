@@ -1,0 +1,26 @@
+version 0.14.0
+schematic main
+
+modules
+  M1  can-node
+
+nets
+  CANH:    M1.CANH
+  CANL:    M1.CANL
+  CAN_RX:  M1.CAN_RX
+  CAN_TX:  M1.CAN_TX
+  GND:     M1.GND
+  SPLIT:   M1.SPLIT
+  V3V3:    M1.V3V3
+
+ports
+  CAN_RX  CAN_RX
+  CAN_TX  CAN_TX
+  GND     GND
+  V3V3    V3V3
+
+constraints
+  diff     CANH  CANL            120Ω  ±10%
+  skew     CANH  CANL            <=    5mm
+  voltage  GND   0V..0V
+  voltage  V3V3  3.135V..3.465V

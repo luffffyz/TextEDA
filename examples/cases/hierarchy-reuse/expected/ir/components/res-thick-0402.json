@@ -40,7 +40,7 @@
     "polarized": false,
     "symbol": "passives:r"
   },
-  "ir_version": "0.15",
+  "ir_version": "0.19",
   "source": {
     "file": "assets/components/passives/res-thick-0402.teda",
     "line": 1

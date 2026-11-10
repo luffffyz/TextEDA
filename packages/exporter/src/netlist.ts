@@ -11,7 +11,7 @@ import type { Schematic } from "@texteda/ir/schematic";
 import { byteCompare, pinRefCompare } from "@texteda/ir/order";
 
 export interface NetlistComponent {
-  /** The board's instance id (the refdes). */
+  /** The project's instance id (the refdes). */
   id: string;
   /** Component id (the file name under `components/`). */
   component: string;
@@ -29,7 +29,7 @@ export interface NetlistPort {
 
 export interface Netlist {
   ir_version: string;
-  board: string;
+  project: string;
   components: NetlistComponent[];
   nets: NetlistNet[];
   ports: NetlistPort[];
@@ -49,7 +49,7 @@ export function toNetlist(ir: Schematic): Netlist {
     .map((port) => ({ id: port.id, net: port.net }))
     .sort((a, b) => byteCompare(a.id, b.id));
 
-  return { ir_version: ir.ir_version, board: ir.board, components, nets, ports };
+  return { ir_version: ir.ir_version, project: ir.project, components, nets, ports };
 }
 
 /**
@@ -60,7 +60,7 @@ export function toNetlist(ir: Schematic): Netlist {
  * padding whitespace; for clean diffs use `--json` (fixed field order).
  */
 export function formatNetlist(netlist: Netlist): string {
-  const lines: string[] = [`# netlist ${netlist.board} (ir ${netlist.ir_version})`];
+  const lines: string[] = [`# netlist ${netlist.project} (ir ${netlist.ir_version})`];
   for (const net of netlist.nets) {
     lines.push(`${net.id}: ${net.members.join(" ")}`);
   }

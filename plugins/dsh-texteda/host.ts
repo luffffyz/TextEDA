@@ -141,7 +141,7 @@ async function handlePlaces(ctx: Context, request: Request): Promise<Response> {
     // Validate against the project's actual page files; do not build the full review model for a preview.
     const index = reviewPageIndex(root);
     if (!index.boards.has(board)) return refuse(400, `no such board: ${board}`);
-    if (!index.pages.some((candidate) => candidate.board === board && candidate.page === page)) {
+    if (!index.pages.some((candidate) => candidate.page === page)) {
         return refuse(400, `no such print page: ${page}`);
     }
 

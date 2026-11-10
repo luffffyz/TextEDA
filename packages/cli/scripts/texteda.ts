@@ -9,12 +9,12 @@
 //   texteda renumber <project dir> <board_id> [--policy preserve|compact|position] [--mapping <file>] [--apply] [--dry-run] [--json]
 //   texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb] [--procurement]
 //   texteda check <project dir> [--json]
-//   texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]
+//   texteda netlist <project dir> [--json] [--out <file>]
 //   texteda ir <project dir> [--out <dir>] [--json]
 //   texteda bom <project dir> <board_id> [--json] [--out <file>]
-//   texteda view metrics <project dir> <board>/<page> [--json]
-//   texteda view rewire <project dir> <board>/<page> [--dry-run] [--json]
-//   texteda view render <project dir> <board>/<page> [--out <file>] [--json]
+//   texteda view metrics <project dir> <page_id> [--json]
+//   texteda view rewire <project dir> <page_id> [--dry-run] [--json]
+//   texteda view render <project dir> <page_id> [--out <file>] [--json]
 //   texteda review <project dir> [--port <n>] [--out <file>]
 //   texteda export gerbers <project dir> <board_id> [--out <dir>] [--json]
 //   texteda tools --json
@@ -27,7 +27,7 @@ import { runCompile } from "../src/compile.ts";
 import { buildCheck } from "../src/check.ts";
 import { runIr } from "../src/ir.ts";
 import { runBom } from "../src/bom.ts";
-import { runViewMetrics, runViewRender, runViewRewire, splitPageRef } from "../src/view.ts";
+import { runViewMetrics, runViewRender, runViewRewire } from "../src/view.ts";
 import { runReview } from "../src/review.ts";
 import { runId } from "../src/id.ts";
 import { runRenumber } from "../src/renumber.ts";
@@ -44,7 +44,6 @@ const KNOWN_FLAGS = new Set([
   "--name",
   "--json",
   "--out",
-  "--board",
   "--pcb",
   "--procurement",
   "--from",
@@ -64,7 +63,6 @@ const KNOWN_FLAGS = new Set([
 const VALUE_FLAGS = new Set([
   "--name",
   "--out",
-  "--board",
   "--from",
   "--rev",
   "--project",
@@ -88,12 +86,12 @@ function fail(code: "cli.bad-flag" | "cli.bad-usage", message: string): never {
         "  texteda renumber <project dir> <board_id> [--policy preserve|compact|position] [--mapping <file>] [--apply] [--dry-run] [--json]",
         "  texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb] [--procurement]",
         "  texteda check <project dir> [--json]",
-        "  texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]",
+        "  texteda netlist <project dir> [--json] [--out <file>]",
         "  texteda ir <project dir> [--out <dir>] [--json]",
         "  texteda bom <project dir> <board_id> [--json] [--out <file>]",
-        "  texteda view metrics <project dir> <board>/<page> [--json]",
-        "  texteda view rewire <project dir> <board>/<page> [--dry-run] [--json]",
-        "  texteda view render <project dir> <board>/<page> [--out <file>] [--json]",
+        "  texteda view metrics <project dir> <page_id> [--json]",
+        "  texteda view rewire <project dir> <page_id> [--dry-run] [--json]",
+        "  texteda view render <project dir> <page_id> [--out <file>] [--json]",
         "  texteda review <project dir> [--port <n>] [--out <file>]",
         "  texteda export gerbers <project dir> <board_id> [--out <dir>] [--json]",
         "  texteda tools --json",
@@ -177,7 +175,7 @@ function runCheck(args: ParsedArgs): void {
   if (args.positional.length > 1) fail("cli.bad-usage", "Too many arguments");
 
   const built = buildCheck(resolve(target));
-  const { payload, boards } = built.value!;
+  const { payload, pcbs } = built.value!;
   if (args.flags.has("--json")) {
     console.log(JSON.stringify(payload, null, 2));
   } else {
@@ -194,7 +192,7 @@ function runCheck(args: ParsedArgs): void {
     }
     const byStage = payload.countsByStage;
     console.error(
-      `Checked ${boards.length} boards: ${payload.errorCount} errors, ${payload.warningCount} warnings` +
+      `Checked the project schematic and ${pcbs.length} PCBs: ${payload.errorCount} errors, ${payload.warningCount} warnings` +
         ` (stages: parse ${byStage.parse} · contract ${byStage.contract} · design ${byStage.semantic})`,
     );
   }
@@ -205,8 +203,7 @@ function runNetlist(args: ParsedArgs): void {
   const target = args.positional[0] ?? fail("cli.bad-usage", "Missing project directory");
   if (args.positional.length > 1) fail("cli.bad-usage", "Too many arguments");
 
-  const only = args.values.get("--board");
-  const built = buildNetlist({ root: resolve(target), ...(only === undefined ? {} : { board: only }) });
+  const built = buildNetlist({ root: resolve(target) });
   if (!built.ok) {
     if (built.code === "cli.bad-usage") fail("cli.bad-usage", built.error ?? "Bad usage");
     console.error(built.error ?? "The netlist could not be exported");
@@ -300,15 +297,13 @@ if (command === "init") {
 } else if (command === "view") {
   const sub = args.positional[0] ?? fail("cli.bad-usage", "Missing view subcommand: metrics, rewire, render");
   const root = args.positional[1] ?? fail("cli.bad-usage", "Missing project directory");
-  const ref = args.positional[2] ?? fail("cli.bad-usage", "Missing board/page");
+  const page = args.positional[2] ?? fail("cli.bad-usage", "Missing page_id");
   if (args.positional.length > 3) fail("cli.bad-usage", "Too many arguments");
-  const pageRef = splitPageRef(ref) ?? fail("cli.bad-usage", `Not a board/page reference: ${ref}`);
   if (sub === "metrics") {
     process.exit(
       runViewMetrics({
         root: resolve(root),
-        board: pageRef.board,
-        page: pageRef.page,
+        page,
         json: args.flags.has("--json"),
       }),
     );
@@ -316,8 +311,7 @@ if (command === "init") {
     process.exit(
       runViewRewire({
         root: resolve(root),
-        board: pageRef.board,
-        page: pageRef.page,
+        page,
         dryRun: args.flags.has("--dry-run"),
         json: args.flags.has("--json"),
       }),
@@ -327,8 +321,7 @@ if (command === "init") {
     process.exit(
       runViewRender({
         root: resolve(root),
-        board: pageRef.board,
-        page: pageRef.page,
+        page,
         json: args.flags.has("--json"),
         ...(outFile === undefined ? {} : { outFile }),
       }),
@@ -337,7 +330,7 @@ if (command === "init") {
     fail("cli.bad-usage", `Unknown view subcommand: ${sub} (metrics, rewire, render)`);
   }
 } else if (command === "view-metrics") {
-  fail("cli.bad-usage", "`texteda view-metrics` is now `texteda view metrics <project dir> <board>/<page>`");
+  fail("cli.bad-usage", "`texteda view-metrics` is now `texteda view metrics <project dir> <page_id>`");
 } else if (command === "review") {
   const root = args.positional[0] ?? fail("cli.bad-usage", "Missing project directory");
   if (args.positional.length > 1) fail("cli.bad-usage", "Too many arguments");

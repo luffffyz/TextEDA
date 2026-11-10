@@ -283,7 +283,8 @@
       "th"
     ]
   },
-  "ir_version": "0.15",
+  "format": "0.11",
+  "ir_version": "0.19",
   "source": {
     "file": "assets/footprints/header/hdr-2x5-127.teda",
     "line": 1

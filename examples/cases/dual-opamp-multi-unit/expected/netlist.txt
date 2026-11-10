@@ -1,10 +1,10 @@
-# netlist multi-unit (ir 0.15)
-FB: R1.2 R2.1 U1.2
-GND: R2.2 U1.4
-SIG_IN: U1.3
-SIG_MID: R1.1 U1.1 U1.5
-SIG_OUT: U1.6 U1.7
-V3V3: U1.8
+# netlist main (ir 0.19)
+GND: M1.R2.2 M1.U1.4
+M1.FB: M1.R1.2 M1.R2.1 M1.U1.2
+M1.SIG_MID: M1.R1.1 M1.U1.1 M1.U1.5
+SIG_IN: M1.U1.3
+SIG_OUT: M1.U1.6 M1.U1.7
+V3V3: M1.U1.8
 
 port GND: GND
 port SIG_IN: SIG_IN
@@ -12,6 +12,6 @@ port SIG_OUT: SIG_OUT
 port V3V3: V3V3
 
 # components 3
-R1 res-22k1-0402
-R2 res-10k-0402
-U1 opa2333
+M1.R1 res-22k1-0402
+M1.R2 res-10k-0402
+M1.U1 opa2333

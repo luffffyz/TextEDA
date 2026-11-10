@@ -79,7 +79,7 @@ describe("the pi projection", () => {
   });
 
   test("a tool's value is the value the command line prints", async () => {
-    const proc = Bun.spawn(["bun", "run", script, "view", "metrics", project, "charger-buck/buck-5v", "--json"], {
+    const proc = Bun.spawn(["bun", "run", script, "view", "metrics", project, "buck-5v", "--json"], {
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -90,7 +90,6 @@ describe("the pi projection", () => {
     expect(tool).toBeDefined();
     const result = await tool?.execute("call-1", {
       project_dir: project,
-      board: "charger-buck",
       page: "buck-5v",
     });
     expect(JSON.parse(result?.content[0]?.text ?? "{}")).toEqual(JSON.parse(stdout));

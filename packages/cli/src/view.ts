@@ -11,32 +11,23 @@
 // metric and the warning can never disagree about where something is.
 //
 // Integer nanometres and ppm ratios only (ADR-0005): two runs, two machines, one table.
-import { readFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import { parseSchematic, parseView } from "@texteda/parser";
 import type { Schematic } from "@texteda/ir/schematic";
-import { schematicGeometry } from "@texteda/renderer";
+import { composedGeometry, renderComposedPage, toSvgText } from "@texteda/renderer";
 import { rerouteWire, viewMetrics, type ViewMetrics } from "@texteda/core";
-import { loadBoard, loadComponents, loadModules } from "./project.ts";
+import { loadSchematic, loadViews, loadComponents, loadModules } from "./project.ts";
+import { loadPageComposition, pageCompositionError } from "./page-composition.ts";
 import { loadSymbolLibrary, schematicInstances, type DeviceFacts } from "./symbols.ts";
-import { pinPoint, renderPageSource, rewritePage } from "./layout.ts";
+import { pinPoint, renderInterconnects, renderPageSource, rewritePage } from "./layout.ts";
 import { writeOut } from "./output.ts";
 import type { VerbResult } from "./result.ts";
 
 export interface ViewMetricsOptions {
   readonly root: string;
-  /** Board id. */
-  readonly board: string;
   /** Print page id. */
   readonly page: string;
   readonly json: boolean;
-}
-
-/** `board/page` -> its two halves; a page id cannot contain a slash. */
-export function splitPageRef(ref: string): { board: string; page: string } | null {
-  const slash = ref.indexOf("/");
-  if (slash <= 0 || slash === ref.length - 1) return null;
-  return { board: ref.slice(0, slash), page: ref.slice(slash + 1) };
 }
 
 /** Millimetres with one decimal, from nanometres: readable without losing the order of magnitude. */
@@ -46,7 +37,7 @@ function mm(nm: number): string {
 
 function format(metrics: ViewMetrics): string {
   const lines: string[] = [];
-  lines.push(`${metrics.board}/${metrics.page} — ${mm(metrics.sheet.width_nm)} × ${mm(metrics.sheet.height_nm)} mm sheet`);
+  lines.push(`${metrics.project}/${metrics.page} — ${mm(metrics.sheet.width_nm)} × ${mm(metrics.sheet.height_nm)} mm sheet`);
   if (metrics.content) {
     const { content } = metrics;
     lines.push(
@@ -80,55 +71,61 @@ function format(metrics: ViewMetrics): string {
 
 /** The page's measurements, or why they could not be measured. */
 export function buildViewMetrics(options: ViewMetricsOptions): VerbResult<ViewMetrics> {
-  const { root, board, page } = options;
-  const loaded = loadBoard(root, board);
+  const { root, page } = options;
+  const loaded = loadSchematic(root);
   if (!loaded) {
-    return { ok: false, code: "cli.bad-usage", error: `Board root file not found: design/sch/${board}.teda` };
+    return { ok: false, code: "cli.bad-usage", error: "Project root file not found: design/sch/main.teda" };
   }
-  const source = loaded.views.find((view) => view.pageId === page);
+  const source = loadViews(root).find((view) => view.pageId === page);
   if (!source) {
-    const available = loaded.views.map((view) => view.pageId).join(", ") || "none";
+    const available = loadViews(root).map((view) => view.pageId).join(", ") || "none";
     return {
       ok: false,
       code: "cli.bad-usage",
-      error: `Print page ${page} not found for board ${board} (available: ${available})`,
+      error: `Print page ${page} not found (available: ${available})`,
     };
   }
 
   const { resolver, shards } = loadComponents(root);
   const schematic = parseSchematic(loaded.text, {
     file: loaded.file,
-    board,
     components: resolver,
     modules: loadModules(root),
   });
   if (!schematic.ir) {
     return { ok: false, error: schematic.diagnostics.map((diagnostic) => diagnostic.message).join("; ") };
   }
-  const view = parseView(source.text, { file: source.file, board });
+  const view = parseView(source.text, { file: source.file });
   if (!view.ir) {
     return { ok: false, error: view.diagnostics.map((diagnostic) => diagnostic.message).join("; ") };
   }
 
-  // Geometry is measured on the board's own instances: a page that places an unknown instance is
-  // the cross-check's finding, and measuring the rest of the page is still honest.
+  const symbols = loadSymbolLibrary(root);
   const instances = schematicInstances(
     schematic.ir as Schematic,
     (componentId) => resolver.resolve(componentId)?.pins ?? [],
     (componentId) => shards.find((shard) => shard.id === componentId)?.ir.component.symbol,
-    loadSymbolLibrary(root),
+    symbols,
     (componentId): DeviceFacts | undefined => {
       const component = shards.find((shard) => shard.id === componentId)?.ir.component;
       if (component === undefined) return undefined;
       return { params: component.params ?? [], ...(component.mpn === undefined ? {} : { mpn: component.mpn }) };
     },
   );
+  const composition = loadPageComposition(root, view.ir, symbols, { resolver, shards });
+  if (composition.errors.length > 0) return { ok: false, error: pageCompositionError(composition.errors) };
+  let geometry;
+  try {
+    geometry = composedGeometry(composition.view, instances, composition.composition);
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
   return {
     ok: true,
     value: viewMetrics({
-      view: view.ir,
+      view: composition.view,
       schematic: schematic.ir,
-      geometry: schematicGeometry(view.ir, instances),
+      geometry,
     }),
   };
 }
@@ -146,7 +143,6 @@ export function runViewMetrics(options: ViewMetricsOptions): number {
 
 export interface ViewRewireOptions {
   readonly root: string;
-  readonly board: string;
   readonly page: string;
   /** Report what would change without writing the page. */
   readonly dryRun: boolean;
@@ -174,61 +170,64 @@ export interface ViewRewireResult {
  * of redrawn (ADR-0042 D6).
  */
 export function buildViewRewire(options: ViewRewireOptions): VerbResult<ViewRewireResult> {
-  const { root, board, page } = options;
-  const loaded = loadBoard(root, board);
+  const { root, page } = options;
+  const loaded = loadSchematic(root);
   if (!loaded) {
-    return { ok: false, code: "cli.bad-usage", error: `Board root file not found: design/sch/${board}.teda` };
+    return { ok: false, code: "cli.bad-usage", error: "Project root file not found: design/sch/main.teda" };
   }
-  const source = loaded.views.find((view) => view.pageId === page);
+  const source = loadViews(root).find((view) => view.pageId === page);
   if (!source) {
-    const available = loaded.views.map((view) => view.pageId).join(", ") || "none";
+    const available = loadViews(root).map((view) => view.pageId).join(", ") || "none";
     return {
       ok: false,
       code: "cli.bad-usage",
-      error: `Print page ${page} not found for board ${board} (available: ${available})`,
+      error: `Print page ${page} not found (available: ${available})`,
     };
   }
 
   const { resolver, shards } = loadComponents(root);
   const schematic = parseSchematic(loaded.text, {
     file: loaded.file,
-    board,
     components: resolver,
     modules: loadModules(root),
   });
   if (!schematic.ir) {
     return { ok: false, error: schematic.diagnostics.map((diagnostic) => diagnostic.message).join("; ") };
   }
-  const view = parseView(source.text, { file: source.file, board });
+  const view = parseView(source.text, { file: source.file });
   if (!view.ir) {
     return { ok: false, error: view.diagnostics.map((diagnostic) => diagnostic.message).join("; ") };
   }
 
+  const symbols = loadSymbolLibrary(root);
   const instances = schematicInstances(
     schematic.ir as Schematic,
     (componentId) => resolver.resolve(componentId)?.pins ?? [],
     (componentId) => shards.find((shard) => shard.id === componentId)?.ir.component.symbol,
-    loadSymbolLibrary(root),
+    symbols,
     (componentId): DeviceFacts | undefined => {
       const component = shards.find((shard) => shard.id === componentId)?.ir.component;
       if (component === undefined) return undefined;
       return { params: component.params ?? [], ...(component.mpn === undefined ? {} : { mpn: component.mpn }) };
     },
   );
-  const geometry = schematicGeometry(view.ir, instances);
-  // An endpoint is an identity, not a coordinate: a pin, a port this page draws, or a junction this
-  // page declares (spec/schematic-view.md §5). All three resolve to their point here.
+  const composition = loadPageComposition(root, view.ir, symbols, { resolver, shards });
+  if (composition.errors.length > 0) return { ok: false, error: pageCompositionError(composition.errors) };
+  const geometry = composedGeometry(composition.view, instances, composition.composition);
+  // An endpoint is an identity, not a coordinate: a pin, a port this page draws, a module port,
+  // or a junction this page declares (spec/schematic-view.md §5). All four resolve to their point.
   const endpointPoints = new Map<string, { x_nm: number; y_nm: number }>([
     ...(view.ir.port ?? []).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }] as const),
     ...(view.ir.junction ?? []).map((junction) => [junction.id, { x_nm: junction.x_nm, y_nm: junction.y_nm }] as const),
   ]);
+  const modulePortPoints = new Map(geometry.modulePortPoints ?? []);
 
   const rewired: string[] = [];
   const conflicts: string[] = [];
   const changed: { index: number; wire: NonNullable<typeof view.ir.wire>[number] }[] = [];
   (view.ir.wire ?? []).forEach((wire, index) => {
-    const from = pinPoint(geometry, wire.from_pin, endpointPoints);
-    const to = pinPoint(geometry, wire.to_pin, endpointPoints);
+    const from = pinPoint(geometry, wire.from_pin, endpointPoints, modulePortPoints);
+    const to = pinPoint(geometry, wire.to_pin, endpointPoints, modulePortPoints);
     if (!from || !to) {
       conflicts.push(`${wire.net} ${wire.from_pin} → ${wire.to_pin}: the pin is not on this page`);
       return;
@@ -289,7 +288,6 @@ export function runViewRewire(options: ViewRewireOptions): number {
 
 export interface ViewRenderOptions {
   readonly root: string;
-  readonly board: string;
   readonly page: string;
   /** Where the drawing is written; the default is under `dist/view/`. */
   readonly outFile?: string;
@@ -312,29 +310,64 @@ export interface ViewRenderResult {
  * adds is a file a person can open, or a plugin can show, without a server running.
  */
 export function buildViewRender(options: ViewRenderOptions): VerbResult<ViewRenderResult> {
-  const { root, board, page } = options;
-  const loaded = loadBoard(root, board);
+  const { root, page } = options;
+  const loaded = loadSchematic(root);
   if (!loaded) {
-    return { ok: false, code: "cli.bad-usage", error: `Board root file not found: design/sch/${board}.teda` };
+    return { ok: false, code: "cli.bad-usage", error: "Project root file not found: design/sch/main.teda" };
   }
-  const source = loaded.views.find((view) => view.pageId === page);
+  const source = loadViews(root).find((view) => view.pageId === page);
   if (!source) {
-    const available = loaded.views.map((view) => view.pageId).join(", ") || "none";
+    const available = loadViews(root).map((view) => view.pageId).join(", ") || "none";
     return {
       ok: false,
       code: "cli.bad-usage",
-      error: `Print page ${page} not found for board ${board} (available: ${available})`,
+      error: `Print page ${page} not found (available: ${available})`,
     };
   }
-  const text = readFileSync(`${root}/${source.file}`, "utf8");
-  const drawn = renderPageSource(root, board, page, text);
-  if (drawn.errors.length > 0) {
-    return { ok: false, error: drawn.errors.join("; ") };
+  const view = parseView(source.text, { file: source.file });
+  const errors = view.diagnostics
+    .filter((diagnostic) => diagnostic.severity === "error")
+    .map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`);
+  if (!view.ir) return { ok: false, error: errors.join("; ") || `Print page ${page} could not be parsed` };
+  let svg: string;
+  if (view.ir.template === undefined && (view.ir.module_place?.length ?? 0) === 0) {
+    const drawn = renderPageSource(root, page, source.text);
+    if (drawn.errors.length > 0) return { ok: false, error: drawn.errors.join("; ") };
+    svg = drawn.svg;
+  } else {
+    const { resolver, shards } = loadComponents(root);
+    const symbols = loadSymbolLibrary(root);
+    const schematic = parseSchematic(loaded.text, {
+      file: loaded.file,
+      components: resolver,
+      modules: loadModules(root),
+    });
+    if (!schematic.ir) return { ok: false, error: schematic.diagnostics.map((diagnostic) => diagnostic.message).join("; ") };
+    const composition = loadPageComposition(root, view.ir, symbols, { resolver, shards });
+    if (composition.errors.length > 0) return { ok: false, error: pageCompositionError(composition.errors) };
+    const instances = schematicInstances(
+      schematic.ir as Schematic,
+      (componentId) => resolver.resolve(componentId)?.pins ?? [],
+      (componentId) => shards.find((shard) => shard.id === componentId)?.ir.component.symbol,
+      symbols,
+      (componentId): DeviceFacts | undefined => {
+        const component = shards.find((shard) => shard.id === componentId)?.ir.component;
+        if (component === undefined) return undefined;
+        return { params: component.params ?? [], ...(component.mpn === undefined ? {} : { mpn: component.mpn }) };
+      },
+    );
+    try {
+      const geometry = composedGeometry(composition.view, instances, composition.composition);
+      const doc = renderComposedPage(composition.view, instances, composition.composition);
+      svg = toSvgText(renderInterconnects(composition.view, doc, geometry.modulePortPoints));
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
   }
-  const svgFile = options.outFile ?? `dist/view/${board}/${page}.svg`;
+  const svgFile = options.outFile ?? `dist/view/${page}.svg`;
   const path = isAbsolute(svgFile) ? svgFile : `${root}/${svgFile}`;
-  writeOut(path, drawn.svg);
-  return { ok: true, value: { file: source.file, svg_file: svgFile, bytes: Buffer.byteLength(drawn.svg, "utf8") } };
+  writeOut(path, svg);
+  return { ok: true, value: { file: source.file, svg_file: svgFile, bytes: Buffer.byteLength(svg, "utf8") } };
 }
 
 /** Write the page's drawing. Returns the process exit code. */

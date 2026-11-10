@@ -14,6 +14,7 @@ The typed intermediate representation: the three layers it is made of, how it is
 1. [0005](0005-ir-representation.md) — the IR is one model, one contract, one serialization.
 2. [0006](0006-ir-shards-and-hashes.md) — the IR is a tree of shards, and a hash is a tree of hashes.
 3. [0007](0007-device-description-enters-the-ir.md) — a device's description is a fact, so it is a shard.
+4. [0066](0066-symbol-and-footprint-shards-record-source-language-version.md) — symbol and footprint shards carry normalized language-version provenance.
 
 ## Records
 
@@ -22,3 +23,4 @@ The typed intermediate representation: the three layers it is made of, how it is
 | [ADR-0005](0005-ir-representation.md) | IR Representation (Semantic Model / Contract / Serialization) | Accepted | 2026-10-20 |
 | [ADR-0006](0006-ir-shards-and-hashes.md) | IR Sharding, Identity Keys, and Hashes | Accepted | 2026-10-21 |
 | [ADR-0007](0007-device-description-enters-the-ir.md) | A Device's Description Is a Fact, So It Enters the IR | Accepted | 2026-10-23 |
+| [ADR-0066](0066-symbol-and-footprint-shards-record-source-language-version.md) | Symbol and Footprint Shards Record the Source Language Version | Accepted | 2026-11-08 |

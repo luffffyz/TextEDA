@@ -1,35 +1,38 @@
-// `texteda export gerbers`: the board's manufacturing layers, from the pcb description (ADR-0018,
-// backlog F15).
+// `texteda export gerbers`: one physical PCB's manufacturing layers, from its pcb description
+// (ADR-0018, backlog F15).
 //
 // The chain is one direction and every step is a projection of the step above:
 //
-//   design/pcb/<board>.teda  →  pcb IR  →  fill (derived, ADR-0018 D3)  →  board image  →  text
+//   design/sch/main.teda  (the logical root, ADR-0069 D1)  →  project schematic IR ─┐
+//   design/pcb/<pcb_id>.teda  (ADR-0069 D2)                →  pcb IR ───────────────┴→  fill (derived,
+//                                                                           ADR-0018 D3)  →  board image  →  text
 //
-// Nothing here writes back: the pour is recomputed on every export and never stored in the IR
-// (ADR-0018 D2), so a file can never disagree with the description it came from. The `source_hash`
-// stamped on every file is the project hash of the tree this export was projected from, which is what
-// makes a delivered packet traceable to a build (invariant 11).
+// The pads, values and pin nets come from the project's one logical root; the copper comes from
+// this PCB's own description. Nothing here writes back: the pour is recomputed on every export and
+// never stored in the IR (ADR-0018 D2), so a file can never disagree with the description it came
+// from. The `source_hash` stamped on every file is the project hash of the tree this export was
+// projected from, which is what makes a delivered packet traceable to a build (invariant 11).
 //
 // Usage:
-//   texteda export gerbers <project dir> <board_id> [--out <dir>] [--json]
+//   texteda export gerbers <project dir> <pcb_id> [--out <dir>] [--json]
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
-import { diagnosticsToPayload, type Diagnostic } from "@texteda/ir/diagnostics";
+import { diagnosticsToPayload, type Diagnostic, type DiagnosticsPayload } from "@texteda/ir/diagnostics";
 import type { VerbResult } from "./result.ts";
 import { parsePcb, parseSchematic } from "@texteda/parser";
 import { boardImage, fillBoard, fillBoardFacts, type FillOutput } from "@texteda/core";
 import { toExcellon, toGerber } from "@texteda/exporter";
 import type { ManufacturingFile, ManufacturingStamp } from "@texteda/core/image";
 import { buildIrTree, toolVersion } from "./ir-tree.ts";
-import { loadBoard, loadComponents, loadModules, loadPcb } from "./project.ts";
+import { loadComponents, loadModules, loadPcb, loadSchematic } from "./project.ts";
 import { footprintsByInstance, loadFootprintLibrary, withPackageCodes } from "./pads.ts";
 import { instanceValueText } from "./symbols.ts";
-import { LAYOUT } from "./paths.ts";
+import { LAYOUT, MAIN_SCHEMATIC_ID } from "./paths.ts";
 
 export interface ExportOptions {
   /** Project root directory. */
   root: string;
-  /** Board id: the pcb description's file name. */
+  /** The physical PCB id: the pcb description's file name. */
   board: string;
   /** Output directory; defaults to `<root>/dist/fab/<board>`. */
   outDir?: string | undefined;
@@ -51,7 +54,7 @@ export interface ExportResult {
 }
 
 /**
- * Assemble and write the manufacturing files of one board.
+ * Assemble and write the manufacturing files of one physical PCB.
  *
  * Errors stop the export, for the same reason `ir` refuses to write a tree: a Gerber file produced
  * from a design with holes in it would be delivered as if it were right, and nothing downstream can
@@ -67,17 +70,6 @@ export function runExport(options: ExportOptions): ExportResult {
     stamp,
     pours: [],
   });
-  const board = loadBoard(options.root, options.board);
-  if (!board) {
-    diagnostics.push({
-      code: "cli.export-no-board",
-      severity: "error",
-      message: `board ${options.board} has no schematic: a board always has one (ADR-0014 D5), and the pads come from it`,
-      location: { file: `${LAYOUT.pcb}/${options.board}.teda`, line: 1, col: 1 },
-      data: { board: options.board, missing: LAYOUT.sch },
-    });
-    return refuse();
-  }
   const pcbSource = loadPcb(options.root, options.board);
   if (!pcbSource) {
     diagnostics.push({
@@ -89,18 +81,28 @@ export function runExport(options: ExportOptions): ExportResult {
     });
     return refuse();
   }
+  const schematicSource = loadSchematic(options.root);
+  if (!schematicSource) {
+    diagnostics.push({
+      code: "cli.export-no-board",
+      severity: "error",
+      message: `the project has no logical root (${LAYOUT.sch}/${MAIN_SCHEMATIC_ID}.teda): the pads and pin nets come from it (ADR-0069 D1)`,
+      location: { file: `${LAYOUT.sch}/${MAIN_SCHEMATIC_ID}.teda`, line: 1, col: 1 },
+      data: { board: options.board, missing: LAYOUT.sch },
+    });
+    return refuse();
+  }
 
   const { resolver, devices: loadedDevices, diagnostics: componentDiagnostics } = loadComponents(options.root);
   diagnostics.push(...componentDiagnostics);
   const modules = loadModules(options.root);
-  const schematic = parseSchematic(board.text, {
-    file: board.file,
-    board: options.board,
+  const schematic = parseSchematic(schematicSource.text, {
+    file: schematicSource.file,
     components: resolver,
     modules,
   });
   diagnostics.push(...schematic.diagnostics);
-  const pcb = parsePcb(pcbSource.text, { file: pcbSource.file, board: options.board });
+  const pcb = parsePcb(pcbSource.text, { file: pcbSource.file, pcb: pcbSource.pcbId });
   diagnostics.push(...pcb.diagnostics);
   if (!schematic.ir || !pcb.ir) return refuse();
 
@@ -126,8 +128,8 @@ export function runExport(options: ExportOptions): ExportResult {
   const stamp: ManufacturingStamp = { tool_version: toolVersion(), source_hash: tree.projectHash };
 
   // Silkscreen text: a value is not a fact of the land pattern (a generic cannot hold one, a part's
-  // value is its MPN), so the schematic's instance row is the only place it can come from — the same
-  // string the print page puts on the drawing (ADR-0024).
+  // value is its MPN), so the root schematic's instance row is the only place it can come from —
+  // the same string the print page puts on the drawing (ADR-0024).
   const values = new Map<string, string>();
   for (const instance of schematic.ir.instances) {
     const text = instanceValueText(instance, devices.get(instance.component));
@@ -168,7 +170,7 @@ export interface ExportPayload {
   out_dir: string;
   files: { name: string; bytes: number }[];
   pours: { net: string; layer: string; area_nm2: number }[];
-  diagnostics: ReturnType<typeof diagnosticsToPayload>;
+  diagnostics: DiagnosticsPayload;
 }
 
 /**

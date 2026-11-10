@@ -37,7 +37,7 @@
 
 ## F3. 原理图的 SVG 渲染（sch renderer）
 
-**现状**：sch 打印页渲染**已落地**。`packages/renderer` 的 `renderSchematic(view: SchematicView, instances)` 把视图 IR 画成 `SvgDoc`（图幅框、摆位符号、走线折线、标签、端口、注释），调用方负责把每个 `place.instance_id` 解析成符号 IR 与器件引脚事实——渲染器仍然不碰文件系统、不排版。`bun run preview view <board>/<page>` 能出图；参考工程有两份打印页：`views/charger-buck/buck-5v.view.teda`（全部 net 走线，GND 走一条总线）与 `views/charger-buck/charger-power.view.teda`（摆位研究，线在评审时逐网补）。**未落地**：与 `.kicad_sch` 的人工比对。旧状态见 [ADR-0036](adr/09-view/0036-our-own-reference-renderer.md)（符号/封装先落地）。**规则现状（2026-10-25）**：`view` 域九个码，最新两条是 `view.text-on-wire`（走线穿过文字，含符号画的字段）与 `view.wire-diagonal`（走线只走 90 度）；视图坐标网格随之从 0.1 mm 细到 0.01 mm，否则在 1.27 mm 的引脚偏置上无法表达正交出线。
+**Current status**: schematic print-page rendering is **implemented**. `packages/renderer`'s `renderSchematic(view: SchematicView, instances)` draws the view IR as an `SvgDoc` (sheet frame, placed symbols, orthogonal wires, labels, ports, and annotations); callers resolve each `place.instance_id` to symbol IR and device-pin facts, so the renderer still does not touch the filesystem or perform layout. `bun run preview view <page_id>` renders a page; the reference project currently has three flat project print pages: `views/buck-5v.view.teda` (all nets wired, with GND on one bus), `views/charger-power.view.teda` (placement study whose wires are filled in net by net during review), and `views/composed.view.teda` (a composed module-drawing page). **Not implemented**: one-time manual comparison with `.kicad_sch`. The old status is recorded in [ADR-0036](adr/09-view/0036-our-own-reference-renderer.md) (symbols/footprints landed first). **Current rules (2026-10-25)**: the `view` domain has nine codes; the latest two are `view.text-on-wire` (wires crossing text, including fields drawn by symbols) and `view.wire-diagonal` (wires must use only 90-degree segments); the view coordinate grid was consequently refined from 0.1 mm to 0.01 mm, because 1.27 mm pin offsets otherwise cannot express orthogonal exits.
 
 **为什么现在做**：
 
@@ -50,20 +50,20 @@
    - 打印页内的元素按 IR 的坐标画：器件（用它的符号视图摆位）、导线、net 标签、端口、文本注释；**电源符号**未做——`view` 描述没有这个段，GND 目前靠 net 标签表达；
    - 器件的引脚连接点与符号渲染器用同一份 `renderSymbol` 几何（走线端点直接取变换后的引脚连接点，不另算）；
    - 走线是"引脚连接点 → IR 折点 → 引脚连接点"的折线，不做自动布线。
-2. ~~预览命令扩一档~~ **已落地**：`bun run preview view <board>/<page>`（旧的 `preview schematic <board_id> --page` 方案改成按打印页取 `views/<board>/<page>.view.teda`，与文件布局一致）。
-3. ~~**可读性检查**（`AGENTS.md` §6："文字重叠、线压引脚、标签碰撞、越界、连线穿过符号"）~~ **已落地**（2026-10-23）：`spec/schematic-view.md` §9.2 的六个码全部发出——越界原本就由 `view` 解析器的 `view.out-of-sheet` 覆盖，其余五个（`view.label-not-on-net` / `view.port-not-on-net` / `view.label-collision` / `view.text-overlap` / `view.wire-crosses-symbol`）在 `packages/core/src/view/readability.ts`，由 `texteda check` 跑。（2026-10-25 补了 `view.text-on-wire`：走线穿过文字，含符号画的 Reference / Value 字段——这两类字原先不在检查器看的几何里，试跑打印页评审时被 `charger-buck-buck-5v-view-r1` 的两条意见抓到；同日又补了 `view.wire-diagonal`：走线只走 90 度，任何一段两端坐标同时变化就报警——引脚偏置是 1.27 mm，所以视图网格从 0.1 mm 收细到 0.01 mm，否则从第一个引脚就无法正交出线。同日又补了 `view.wire-crosses-pin`：走线穿过某个引脚连接点（该引脚不是这条走线的端点时），或穿过引脚从连接点到符号本体的短笔画，就报警——引脚是连接点，线从它中间穿过而不在这里结束，读者会读成一个没有圆点的连接；横穿引脚笔画时，读者也分不清哪一段是引脚。参考工程的 buck 页按此把 PH 线绕开 U1 的引脚列与 C2 的引脚笔画。）**几何从渲染器来**：`packages/renderer` 的 `schematicGeometry` 用与 `renderSchematic` 同一套变换与同一套笔画字体度量算出文字框、符号本体框与引脚落点，检查器只做判断——自己再算一遍就会与读者看到的东西漂移。两条口径：`*-not-on-net` 只在该 net **本页画了走线**时判（整条 net 没画是 `view.nets-not-drawn` 的事，不逐标签重复）；`view.text-overlap` 要求有重叠**面积**，相切不算。参考工程当前 0 条（标签都落在线上）。**配套的度量**：`texteda view-metrics <工程目录> <board>/<page> [--json]`（`packages/core/src/view/metrics.ts`，`spec/schematic-view.md` §9.4）报内容占比、文字最小间隙、走线总长、跨 net 交叉数、穿身条数，以及每个标签/端口到其 net 的**距离**；同一批数字也进了五条警告的 `data`（距离 / 重叠面积 / 穿身长度），人类可读输出里换成 mm。**agent 的循环因此是 `写 → check（对不对）→ view-metrics（差多少）→ 改`**，截图只留给人的评审：像素不能跨渲染比较，也进不了 CI。
+2. ~~预览命令扩一档~~ **已落地**：`bun run preview view <page_id>` 按项目页 ID 查找 `views/<page_id>.view.teda`；旧的按板级 schematic/page 查找方案已移除。
+3. ~~**可读性检查**（`AGENTS.md` §6："文字重叠、线压引脚、标签碰撞、越界、连线穿过符号"）~~ **已落地**（2026-10-23）：`spec/schematic-view.md` §9.2 的六个码全部发出——越界原本就由 `view` 解析器的 `view.out-of-sheet` 覆盖，其余五个（`view.label-not-on-net` / `view.port-not-on-net` / `view.label-collision` / `view.text-overlap` / `view.wire-crosses-symbol`）在 `packages/core/src/view/readability.ts`，由 `texteda check` 跑。（2026-10-25 补了 `view.text-on-wire`：走线穿过文字，含符号画的 Reference / Value 字段——这两类字原先不在检查器看的几何里，试跑打印页评审时被 `charger-buck-buck-5v-view-r1` 的两条意见抓到；同日又补了 `view.wire-diagonal`：走线只走 90 度，任何一段两端坐标同时变化就报警——引脚偏置是 1.27 mm，所以视图网格从 0.1 mm 收细到 0.01 mm，否则从第一个引脚就无法正交出线。同日又补了 `view.wire-crosses-pin`：走线穿过某个引脚连接点（该引脚不是这条走线的端点时），或穿过引脚从连接点到符号本体的短笔画，就报警——引脚是连接点，线从它中间穿过而不在这里结束，读者会读成一个没有圆点的连接；横穿引脚笔画时，读者也分不清哪一段是引脚。参考工程的 buck 页按此把 PH 线绕开 U1 的引脚列与 C2 的引脚笔画。）**几何从渲染器来**：`packages/renderer` 的 `schematicGeometry` 用与 `renderSchematic` 同一套变换与同一套笔画字体度量算出文字框、符号本体框与引脚落点，检查器只做判断——自己再算一遍就会与读者看到的东西漂移。两条口径：`*-not-on-net` 只在该 net **本页画了走线**时判（整条 net 没画是 `view.nets-not-drawn` 的事，不逐标签重复）；`view.text-overlap` 要求有重叠**面积**，相切不算。参考工程当前 0 条（标签都落在线上）。**配套的度量**：`texteda view metrics <工程目录> <page_id> [--json]`（`packages/core/src/view/metrics.ts`，`spec/schematic-view.md` §9.4）报内容占比、文字最小间隙、走线总长、跨 net 交叉数、穿身条数，以及每个标签/端口到其 net 的**距离**；同一批数字也进了五条警告的 `data`（距离 / 重叠面积 / 穿身长度），人类可读输出里换成 mm。**agent 的循环因此是 `写 → check（对不对）→ view metrics（差多少）→ 改`**，截图只留给人的评审：像素不能跨渲染比较，也进不了 CI。
 4. ~~**round-trip**~~ **已落地**（2026-10-23）：`packages/renderer/src/schematic-extract.ts` 的 `schematicProjection(view, instances)` 与 `extractSchematic(doc)` 两端对比，口径写在 `spec/schematic-view.md` §9.5。**投影是"纸面上的东西"**：图幅、引脚连接点与朝向、符号图形、走线折点、标签/注释文字与位置、端口尖点与朝向，全在绝对图纸坐标；**摆位原点与旋转、线宽字号、端口塔形细节、引脚归属哪个实例**都不进投影（图上没有这些信息；实例身份靠 `Reference` 文字进投影）。**两端不共用变换函数**：视图侧用象限矩阵，图纸侧直接读绘制指令——共用就是自己验证自己。测试：`packages/renderer/test/schematic-roundtrip.test.ts`（四个象限、灵敏度、走线端点落在引脚上）与 `packages/cli/test/view-roundtrip.test.ts`（参考工程每一页）。已用一次故意写错 `toSheet` 的变异验证过：两个参考页的测试都变红。
 5. 与 KiCad 的 `.kicad_sch` 渲染做**一次性人工比对**——**未落地**（不进 CI）。
-6. ~~**板 ↔ 打印页交叉校验**（`packages/core`）~~ **已落地**（2026-10-23，`packages/core/src/view/checks.ts`，在 `texteda check` 里跑）：`spec/schematic-view.md` §9.1 的四条错误（`ref.unknown-instance` / `ref.unknown-net` / `ref.unknown-port` / `view.pin-net-mismatch`）与一条覆盖率警告（`view.nets-not-drawn`）。**两处口径修正**：`net-not-drawn` 做成**板级**（规范原写“在这个打印页里”）——打印页按模块分，按页会替另一页的线报错；而且一块板报**一条**总数 + 前十个 net 名（同 [ADR-0019](adr/05-pcb/0019-a-partial-layout-is-legal.md) D4 的分寸）。参考工程现在报 `30 of 36 nets`：两份页是研究稿，这个数字是真的。（原记录：：`spec/schematic-view.md` §9.1 标"待实现"的那几条（实例 / net / port 是否存在、端点引脚是否属于该 net、`net-not-drawn`）。渲染器对未知实例或未知符号引脚是**抛错**，不是发诊断——诊断归 core，渲染器不伪造几何。
-   缺口的具体形状（2026-10-23 复查）：
-   - 视图只**引用**身份（`place.instance_id` / `wire` 的 `pin` / `label` 的 `net_id`），可是引错、引到不存在的 id、引到别块板的 id 今天都不报——`texteda check` 只看 `schematic` 与 `pcb`，`view` 只做解析与越界（`view.out-of-sheet`）；
-   - 反向也要查：板上有 net、打印页里一条线都没有（`net-not-drawn`），以及一个实例在整块板的所有打印页里都没出现——后者与 `bind.instance-unplaced`（pcb 侧）是同一类"缺失要看得见"的信号，严重度应一致（warning）；
-   - ~~两条视图规则都**不改哈希**，所以这类诊断只能是 warning/note，不能拦树~~ ——**身份错误照样阻断**：`spec/schematic-view.md` §9.1 一直把“引用了不存在的东西”列为 error，与 `sch` 侧同类（ADR-0003 按错误的种类分域），解析器也早就对 `view.pin-not-placed` 报 error。只有覆盖率是 warning；`ir` 不跑交叉校验，这一点仍然成立；
-   - 边界：视图说“这条线在这里”与板说“这两个引脚同 net”冲突时，**以板为准**（`AGENTS.md` §2 第 2 条），诊断只指出冲突，不改真源。）
+6. ~~**项目逻辑 ↔ 项目打印页交叉校验**（`packages/core`）~~ **已落地**（2026-10-23，`packages/core/src/view/checks.ts`，在 `texteda check` 里跑）：`spec/schematic-view.md` §9.1 的四条错误（`ref.unknown-instance` / `ref.unknown-net` / `ref.unknown-port` / `view.pin-net-mismatch`）与一条覆盖率警告（`view.nets-not-drawn`）。**两处口径修正**：`net-not-drawn` 做成**项目级**（规范原写“在这个打印页里”）——项目可有多张打印页，按页汇总会替另一页的线报错；而且项目报**一条**总数 + 前十个 net 名（同 [ADR-0019](adr/05-pcb/0019-a-partial-layout-is-legal.md) D4 的分寸）。参考工程现在报 `30 of 36 nets`：两份页是研究稿，这个数字是真的。
+   项目级引用口径：
+   - 视图只**引用**项目身份（`place.instance_id` / `wire` 的 `pin` / `label` 的 `net_id` / `interconnect_id`），可是引错、引到不存在的 id 今天都报错；视图不能创建、删除或改写项目逻辑、PCB 绑定、互连或铜连续事实。
+   - 反向也要查：项目上有 net、打印页里一条线都没有（`net-not-drawn`），以及一个项目实例在所有项目打印页里都没出现——后者与 `bind.instance-unplaced`（PCB 侧）是同一类“缺失要看得见”的信号，严重度应一致（warning）。
+   - 身份错误照样阻断：`spec/schematic-view.md` §9.1 一直把“引用了不存在的东西”列为 error，与逻辑侧同类（ADR-0003 按错误的种类分域）；只有覆盖率是 warning；`ir` 不跑交叉校验，这一点仍然成立。
+   - 边界：视图说“这条线在这里”与项目逻辑 / PCB 说“这些引脚同 net”冲突时，**以项目逻辑与 PCB 真源为准**（`AGENTS.md` §2 第 2 条），诊断只指出冲突，不改真源。
 
 **验收**：
 
-- ~~`bun run preview view <board>/<page>` 出整页 SVG~~ **已满足**：器件、导线、net 标签、端口都在图上（参考工程两份打印页）。
+- ~~`bun run preview view <page_id>` emits a full-page SVG~~ **satisfied**: devices, wires, net labels, and ports render on the reference project's three current flat print pages.
 - ~~同一份 IR 渲染两次字节相同~~ **已满足**（`packages/renderer/test/schematic.test.ts`）。
 - ~~sch 的 round-trip 测试通过~~ **已满足**（第 4 条）。
 - 越界与"连线穿符号"能被报出来——**部分**：越界在解析器，穿符号未做。
@@ -71,7 +71,7 @@
 **注意**：
 
 - **sch 的逻辑 IR 仍然没有坐标**（`instances` / `nets` / `ports` 只有身份与成员），画在独立的 `view` IR 里；渲染器的输入因此是 `view` + 调用方解析好的符号事实（符号 IR、器件引脚事实），仍然不碰文件系统。
-- **S1 视图层已闭环到渲染**：`spec/schematic-view.md`、`schemas/ir/v0.3/schematic-view.schema.json`、`packages/parser` 的 `view` 解析与 canonical `fmt`（语言版本 0.7）、`packages/renderer` 的 `renderSchematic`、`preview view`、参考工程两份打印页。**下一步**：`packages/core` 的板 ↔ 打印页交叉校验（视图引用的实例 / net / port 是否存在、端点引脚是否属于该 net），再把可读性检查与 round-trip 反解补上。
+- **The S1 view layer is closed through project-wide rendering**: `spec/schematic-view.md`, `schemas/ir/v0.3/schematic-view.schema.json`, the `view` parser and canonical `fmt` in `packages/parser` (language version 0.7), `packages/renderer`'s `renderSchematic`, `preview view`, the reference project's three current flat print pages, and the project-logic-to-print-page cross-checks in `packages/core` are all landed. Project print pages reference only project-level instance, net, port, and interconnect identities; they carry no logical or physical facts.
 - **口径已澄清（[ADR-0057](adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)）**：两件事不再混为一谈。`VIEW_GRID_NM = 10_000` 是**视图文件能表达的坐标分辨率**（`0.01 mm`），不是绘制网格；符号的编写晶格是**引脚连接点与内端都是 `0.5 mm` 的整数倍**（逐引脚、两个轴），画号码的符号同侧相邻脚至少 `2.5 mm`（[ADR-0058](adr/08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md)），评审 app 的拖动吸附同为 `0.5 mm`。于是一条标签既可以落在引脚连接点上（本仓库现有的符号库全部满足），也可以落在走线的晶格折点上，两者都合法；旧的「标准符号不在 `0.1mm` 栅格上、标签只能落在折点」的冲突已消失。参考工程的 `buck-5v` 仍把 GND 走成位总线、标签落在总线上，那是排版选择，不是规则要求。
 - 布局不自动排版：sch 的坐标来自 IR，渲染器只画。多单元器件（双运放）要按 `unit` 选对符号视图。
 - 不要顺手做自动排版——S1 打印页的自动排版仍明确不做（每次渲染都变，可读性检查就失去意义）。B0 的 agent 驱动布局布线是另一条线，见 [ADR-0017](adr/05-pcb/0017-layout-and-routing-are-agent-driven.md) 与 F48。
@@ -193,9 +193,10 @@
 
 ---
 
-## F12. 十用例语料（语法准入规则的闸门）——**进行中（8 / 10）**
+## F12. 十用例语料（语法准入规则的闸门）——**进行中（9 / 10）**
 
 **进度（2026-10-25 三个，2026-10-27 加 `diff-pair`，2026-10-30 加 `power-domains`、`hierarchy-reuse`、`net-tie`、`parameterised-divider`）**：约定落地在 `examples/cases/README.md`（一个用例 = 一个完整小工程 + `expected/{ir/**,manifest.json,diagnostics.json,netlist.txt}`；`bun run cases:check` 比对、`--update` 重写，`bun test` 里有一条带上它；用例必须无 error）。已写：
+**Current update (2026-11-08):** `dnp-variant` is now written. The existing project-level `[variants.<id>]` surface is sufficient for this case; it pins `default_variant` and a component-scoped `dnp` list without changing schematic connectivity.
 
 | 用例 | 证明什么 | 暴露的问题 |
 |---|---|---|
@@ -207,14 +208,13 @@
 | `hierarchy-reuse` | 一个模块被实例化两次：模块拥有自己的器件、net 与窗口，板拥有合并进来的 net；模块文件**自己不产生分片**，展平后只剩 `M1.C1` / `M1.MID` 这样的限定名；模块局部 uid 在展平后被模块实例 uid 限定（`ID4xekqr/IDgt9qvr`）；板不用的端口必须写 `no_connect` | 没有。`check` **0 error 0 warning**（2 条 note：`design.stress-unknown` / `bind.not-checked`）。模块层自语言 0.8 起就有（[ADR-0013](adr/04-schematic/0013-modules-compose-boards.md)），用例钉住的是展平口径：**端口合并、私有 net 留作 `M<n>.<net>`、模块的窗口跟着模块走**。模块参数与嵌套仍未做（F13） |
 | `net-tie` | 两个 sch net 在铜上短接：板文件里 `connect` 有一对跨 net 的焊盘，`deviation` 段声明 `net_tie V3V3 V3V3_SENSE` → 报告出一条 **note**（`bind.net-tie`）；没声明的短接是 **error**（`bind.net-mismatch`）；sch 仍是权威，网表里两个 net 仍然分开 | 抓到一个**表面缺口**：语言没有 net tie **器件**——`construction` 词表是封闭的（只有被动件工艺：`mlcc`/`film`/`tantalum`/`electrolytic`/`thick`/`thin`/`shielded`/`molded`），所以 `kind: generic` 的 tie 写不出来（`value.component-construction-invalid`）。用例改用「铜连 + 声明」的形式，并在 README 里写明这个缺口；往语言里加一种 construction 要另起 ADR（[ADR-0025](adr/07-devices/0025-device-vocabulary-and-parameter-roles.md)） |
 | `parameterised-divider` | 五个同值电阻（`100k`）做出三个不同抽头电压：三腿梯形网络两个抽头 + 两腿分压一个抽头；抽头电压写成字面量（`2.2V` / `1.1V` / `1.65V`）| 没有新的语言缺口，但**记录了一条边界**：分压比是**拓扑**的事，语言里没有表达式（[ADR-0001](adr/01-language/0001-fact-layer-has-no-expressions.md) D3）、模块参数也没做（F13），所以「抽头电压」是设计者手算的字面量——检查器拿它跟器件比，不验证分压本身。用例同时钉住 Q2 的另一个形状：分压器不是宽表，ADR-0001 D6 的触发条件不成立 |
+| `dnp-variant` | a default project variant and a component-scoped DNP list; variant state stays outside logical connectivity | no new surface was needed: `[variants.<id>]` is parsed into the project shard, while the schematic and netlist remain unchanged; instance-scoped generic DNP remains outside this case |
 
 **`diff` / `skew` 的落地状态（写于 2026-10-27）**：语法（`spec/teda.md` §7.4）、解析（`packages/parser/src/schematic.ts` 的 `case "diff"` / `case "skew"`）、契约（`schematic.schema.json` 的 `constraint` 分支）都在，**没有**任何规则消费它们：`impedance` / `length` / `diff` / `skew` 目前只被「pcb 里点名的 net 必须存在」这条绑定校验顺带看到（`packages/core/src/binding/checks.ts`）。差分阻抗与等长要能判定，得先有 B0 的走线数据与 DRC 指标（F48），所以本项不重复登记。
 
-**剩下的 2 个，各自的已知障碍**（写之前先读）：
+**One case remains, with one known obstacle**:
 
-- **DNP 变体**：语言**没有** `dnp` 的表面（`project.toml` 的 `[variants]` 也还没解析），IR 有 `dnp` 字段但没有来源 → 先定表面（ADR），再写用例。
-- ~~**net tie**~~ **已写（2026-10-30）**：受控偏差在 `pcb` 的类型里，需要 `pcb` 描述 + `connect` 段 + 铜箔——用例带了一块最小板（3 个器件 + 一个 `net_tie` 偏差），把「声明过的短接进报告、没声明的短接是 error」这条边界钉住。
-- **参数化分压**：**已写（2026-10-30）**——用例写的是「五个同值电阻做出三个不同电压」：分压比是**拓扑**的事，语言里没有表达式（同记录 D3）、模块参数也没做（F13），所以抽头电压是设计者手算的字面量，检查器只拿它跟器件比、不验证分压本身。
+- ~~**DNP variant**~~ **已写（2026-11-08）**：`examples/cases/dnp-variant/` pins `default_variant`, a component-scoped `dnp` entry, the unchanged schematic/netlist, and the standing diagnostics.
 - **BGA 200 脚**：**写不了**——语言没有 BGA 器件：200 脚是**具体料**（要有真实 mpn 与数据手册的球位表），而 `construction` 词表是封闭的、只有被动件工艺，泛型 BGA 写不出来（同 `net-tie` 用例撞到的同一个缺口）。要写这个用例，先要定「BGA 怎么表达」（另起 ADR）。
 - **顺序不按难度，按风险**（2026-10-30 改）：先用**片段级探针**（不是完整用例）手写一次 20 路 × 5 器件的表，看它在 `spec/teda.md` §12 规则 8 的 80 列折行之后还剩多少行、还能不能一眼读懂。探针不能代替正式证据（[ADR-0001](adr/01-language/0001-fact-layer-has-no-expressions.md) D6 的触发条件是那个用例本身），但它把"要不要改语言"从赌注变成一次决定：
   - **表够用** → 语言对这一批冻结 → 层次复用 → BGA 200 脚 → 参数化分压；
@@ -232,7 +232,7 @@
 - 第 1 条改为**在 ADR 里写清"这个特性解决哪个具体硬件问题"**，并给一个**最小的具体片段**（不是完整用例），例如"20 路电源域里每路的 5 个器件要写 5 行 × 20 路 = 100 行"；
 - ADR 里要写"将来补语料时回到这条"。
 
-**现状**：`AGENTS.md` §10 列了十个困难用例（BGA 200 脚、双运放多单元、20 路电源域、差分对、DNP 变体、net tie、总线、层次复用、参数化分压、NC 引脚），并要求"先于实现写"；`AGENTS.md` §5.2 把"至少一个用例必须用到它"作为新语法特性的准入条件。**已落地 8 个**（见上表），另 2 个未写（障碍见上）。
+**现状**：`AGENTS.md` §10 列了十个困难用例（BGA 200 脚、双运放多单元、20 路电源域、差分对、DNP 变体、net tie、总线、层次复用、参数化分压、NC 引脚），并要求"先于实现写"；**已落地 9 个**（见上表）。最后一个 BGA 200 脚的障碍见上。
 
 **为什么现在做**：这是当前**最挡路的一条**：
 
@@ -396,13 +396,13 @@
 
 ## F18. `texteda check`：一条命令跑完解析、契约校验与 ERC
 
-**现状**：**sch 级已落地**（[ADR-0038](adr/10-process/0038-implementation-stack-and-agent-entry.md)）。`bun run check <项目目录>` 遍历工程里的全部板（`design/sch/<board>.teda`），逐板解析 → 语义层 ERC → 契约层 schema 校验，诊断走 [ADR-0003](adr/01-language/0003-diagnostic-error-codes.md) 的统一载荷（`code` / `severity` / `location` / `data` / `hint`），`--json` 打到 stdout、人读模式打到 stderr；有 error 退出码 1，只有 warning 退出码 0。器件文件解析失败（`syntax.component-invalid`）与器件文件头 id 与文件名不一致（`ref.component-id-mismatch`）也走同一条通道。
+**Current status**: **project-level validation is implemented** ([ADR-0069](adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md)). `texteda check <project directory>` validates the single project logical root at `design/sch/main.teda`, then every physical PCB at `design/pcb/<pcb_id>.teda`, including explicit project-logic-to-PCB ownership and binding checks. It does not discover or traverse board-local schematic files or active system descriptions: neither is an input in the current contract. Diagnostics use the unified [ADR-0003](adr/01-language/0003-diagnostic-error-codes.md) payload (`code` / `severity` / `location` / `data` / `hint`), `--json` goes to stdout, human-readable output goes to stderr, an error exits 1, and warnings alone exit 0. Device-file parse failures (`syntax.component-invalid`) and a device-file header id that disagrees with its filename (`ref.component-id-mismatch`) use the same channel.
 
 **还没做的**：
 
-1. ~~`project.toml` / `system` / `pcb` 的解析还没接进 `check`~~ **已落地**（`project.toml` 与 `system` 见 [ADR-0009](adr/03-project/0009-board-linking.md) 与 [ADR-0006](adr/02-ir/0006-ir-shards-and-hashes.md) D2；`pcb` 描述在 F16 里落地后也接进了 `check`——板级绑定校验 `checkBinding` 随之进 `check`）。
+1. ~~`project.toml` / `system` / `pcb` parsing was not wired into `check`~~ **landed**: `project.toml`, the single logical root at `design/sch/main.teda`, and every physical PCB at `design/pcb/<pcb_id>.teda` are parsed and checked; `checkBinding` validates each PCB's explicit mapping to project logic. There is no active system-description input and no board-local schematic traversal.
 2. **ERC 与契约校验分层计数**：现在两类诊断在同一个数组里（`severity` 能区分 error/warning，但"契约错"与"设计错"没有分开统计）。
-3. 诊断顺序稳定 ✓（板按 id 排序、板内按产出顺序），但还没写成测试。
+3. Diagnostic ordering is stable ✓ (project-level diagnostics precede physical-PCB diagnostics; physical PCBs are ordered by id, and records within each PCB follow production order), but this is not yet covered by a test.
 
 **验收（已过的部分）**：
 
@@ -455,26 +455,12 @@
 
 **注意**：`via` 既是段名又是 `rules` 的行首列，语法上靠"段头独占一行"消歧（已写进 `spec/pcb.md` §1）。加新段名时要检查是否与规则类型/物理实体类型重名。
 
-## F22. `symbol` / `footprint` 的 IR 分片不记录语言版本
-
-**现状**：语言版本方案已定（`MAJOR.MINOR[.PATCH]`，`1.0` 是里程碑，决策见 [ADR-0002](adr/01-language/0002-one-language-version-number.md)），版本判定集中在 `packages/parser/src/version.ts`。但 IR 分片之间不一致：`schematic` / `pcb` / `schematic-view` / `project` / `component` / `system` 六个分片带 `format`（以及 `common` 定义的 `format_version`），**`symbol` 与 `footprint` 两个分片一个版本字段都没有**——它们只带 `ir_version`（IR 契约自己的版本，与语言版本无关）。
-
-**为什么要补**：分片自描述是第三方实现的入口条件（[ADR-0038](adr/10-process/0038-implementation-stack-and-agent-entry.md)）。读到一个 `symbol` 分片的人无法知道它是用哪个语言版本产的，也就无法判断"这个分片里的东西在当前语言版本下是否还成立"。现在影响很小（`symbol` / `footprint` 自 `0.5` / `0.4` 起没有新构造），但分片之间不一致本身是个坑。
-
-**要做的事**：
-
-1. 给 `schemas/ir/v0.3/symbol.schema.json` 与 `footprint.schema.json` 加 `format`（或引用 `common` 的 `format_version`），与其它分片对齐——**先定用哪个名字**，别一个用 `format` 一个用 `format_version`。
-2. 解析器写入规范化的版本号（补丁位为 0 时省略，`0.6` 与 `0.6.0` 存成同一个字符串）。
-3. 这是 **IR 契约变更**：`ir_version` 要不要跟着动（当前 `0.1`）按 [ADR-0006](adr/02-ir/0006-ir-shards-and-hashes.md) 的分片约定决定，别顺手改。
-4. 补 `tests/schemas/` 的正反例与 `bun run gen` 生成的类型。
-
-**注意**：不要在没有 ADR 的情况下把语言版本和 `ir_version` 绑在一起——两者回答的是不同问题（"这份描述能用什么构造" vs "这个分片的形状我还认不认"）。
 
 ## F23. "从零到板"的 skill：一步一步建一个 TextEDA 工程
 
 **现状**：零件齐了，**路径没连起来**。仓库里有走完前半程要用的每一样东西，但没有一条被验证过的、从空目录走到成品的路径。
 
-- `texteda init <dir>` 只给骨架（`project.toml` + `assets/components/` `design/sch/` `design/pcb/` `design/system/` `docs/`），**不含任何器件、符号、封装或原理图**。
+- `texteda init <dir>` creates only the skeleton directories (`assets/components/`, `design/sch/` for the logical root, `design/pcb/`, `design/modules/`, and `docs/`) plus `project.toml`; it does **not** create `design/sch/main.teda` or any device, symbol, footprint, or schematic content. There is no `design/system/`.
 - 库的写法分散在三处：`docs/guides/symbol-authoring.md`（符号）、`docs/guides/footprint-authoring.md`（封装）、`teda.md` §6（器件）。**没有一份"一个工程该有哪些文件、它们怎么互相引用"的总账**。
 - 命令有四条（`init` / `compile` / `check` / `netlist`），但**没有一条把它们串起来的脚本**；用法只能从源码里读。CLI 也**没有 `export` 子命令**——KiCad 符号/封装导出只能走仓库脚本（`bun run export:symbol` / `export:footprint`），而且它们吃的是**IR JSON 不是 `.teda`**：`compile:symbol` / `compile:footprint` 先出 JSON，`export:symbol` 再拿 JSON **加 `--component <器件文件>`** 合并引脚事实（引脚的电学事实归 `component`，符号只写视图，[ADR-0031](adr/08-libraries/0031-symbol-format.md)）。这条两步链没人写在文档里，是最容易踩的地方。
 - **终点缺两块**：`.kicad_pcb` 板文件导出器**不在仓库里**（`docs/trial-run/charger-buck/` 那份是**一次性原型**生成的，README 明写"未进仓库"）；Gerber / Excellon 写出器也没有（F15）。
@@ -497,17 +483,17 @@
 
 ## F25. 器件拆成 part / generic，器件资产归到 `assets/`（ADR-0024 / ADR-0024 的落地）
 
-**现状**：**语言与实现已落地**（2026-10-22；2026-10-23 按 [ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D6 改名并合目录）——`component` 有必填 `kind`（`part` / `generic`）、通用器件专有的 `construction` / `polarized`，`part` 禁 `params`、通用器件必带必填 `value`；`packages/parser` 有真正的 `component` 解析器（`packages/parser/src/component.ts`）；**件与通用器件同在 `assets/components/` 一个目录**，`kind` 只写在文件里、不从目录推断；参考工程是 16 个件与 6 个通用器件。**本项目尚无外部使用者，没有需要迁移的旧文件，所以不写迁移脚本**——改法写在 `spec/teda.md` §13.4。决策见 [ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D1 与 [ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D7。
+**现状**：**语言与实现已落地**（2026-10-22；2026-10-23 按 [ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D6 改名并合目录）——`component` 有必填 `kind`（`part` / `generic`）、通用器件专有的 `construction` / `polarized`，`part` 禁 `params`、通用器件必带必填 `value`；`packages/parser` 有真正的 `component` 解析器（`packages/parser/src/component.ts`）；**件与通用器件同在 `assets/components/` 一个目录**，`kind` 只写在文件里、不从目录推断；参考工程是 16 个件与 6 个通用器件。**本项目尚无外部使用者，没有需要迁移的旧文件，所以不写迁移脚本**——改法写在 `spec/teda.md` §12.4。决策见 [ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D1 与 [ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D7。
 
 **未落地**：`lib:id` 限定名与库解析顺序、变体对通用器件的作用域、库的信任模型（F26）。**采购描述类型已落地**（F35：解析器、`fmt`、IR 契约 v0.6 的 `procurement` 分片）。
 
 **要做的事**：
 
-1. **语言层（已落地）**：`component` 增加必填 `kind`（`part` / `generic`）；`part` 要求 `mpn`、`generic` 禁止 `mpn` 且 `params` 至少有一列参与身份（`value`）；新增 `construction`（开放词表）与 `polarized`（`yes`/`no`）两个标量字段；`spec/teda.md` §6 改写（`spec/teda.md` §6.1.1 两种器件、`spec/teda.md` §6.2 `params`、`spec/teda.md` §10.1 新增 `polarized` 电气类型）。**版本走的是 `component` 自己的版本线 `0.1` → `0.1.1` → `0.1.2` → `0.1.3`**（每种描述类型一条线，0.x 阶段只走 PATCH 位，见 [ADR-0002](adr/01-language/0002-one-language-version-number.md) D5）——这是合并前（2026-10-23）的记法：类型版本线已随 2026-10-27 的合并退役，合并后是**语言版本**（见 [ADR-0002](adr/01-language/0002-one-language-version-number.md) D2）。
+1. **语言层（已落地）**：`component` 增加必填 `kind`（`part` / `generic`）；`part` 要求 `mpn`、`generic` 禁止 `mpn` 且 `params` 至少有一列参与身份（`value`）；新增 `construction`（开放词表）与 `polarized`（`yes`/`no`）两个标量字段；`spec/teda.md` §6 改写（`spec/teda.md` §6.1.1 两种器件、`spec/teda.md` §6.2 `params`、`spec/teda.md` §9.1 新增 `polarized` 电气类型）。**版本走的是 `component` 自己的版本线 `0.1` → `0.1.1` → `0.1.2` → `0.1.3`**（每种描述类型一条线，0.x 阶段只走 PATCH 位，见 [ADR-0002](adr/01-language/0002-one-language-version-number.md) D5）——这是合并前（2026-10-23）的记法：类型版本线已随 2026-10-27 的合并退役，合并后是**语言版本**（见 [ADR-0002](adr/01-language/0002-one-language-version-number.md) D2）。
    - **引脚表是身份分界**（[ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md) decision 3）：引脚表变了就是另一个器件；只有不改引脚表、不改引脚行为的属性才允许进 `params`（value / tolerance / 耐压 / ESR / 温度档）。`package` 与 `footprint` 是 part / generic 的固定属性，**不是** `params`。
    - **一封装一 part**（decision 4）：同一 die 的多个封装 = 多个 part 文件，各自写**完整**引脚表；不做引脚表合成、不做多封装 part。
 2. **目录迁移（已落地）**：`assets/components/passives/c-0402.teda` → `cap-mlcc-0402.teda`（通用器件 id 不带值、带构造）、`c-220u.teda` → `cap-tantalum-7343.teda`（`construction tantalum` + `polarized yes`）、`r-0402.teda` → `res-thick-0402.teda`；有真 MPN 的（`xtal-8mhz-3225`、`l-6r8` → `ihlp2525czer6r8m01` 等）留在 `assets/components/*` 并标 `kind: part`；`assets/symbols/`、`assets/footprints/` 归到 `assets/` 下（**库目录仍带库名**：`assets/symbols/project/`、`assets/footprints/project/`，见 `spec/teda.md` §2 的 `<lib>/` 布局）；`project.toml` 的 `[libs.project]` 还在，`libref` 替代它属 F29 的**未落地**部分。**2026-10-23**：通用器件不再单独放 `assets/families/`，与件同在 `assets/components/**`（按类别进子目录），`kind` 只写在文件里（[ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md)）。
-3. **迁移脚本：不做**（2026-10-23 定）——本项目尚无外部使用者，没有需要迁移的旧文件；改法写在 `spec/teda.md` §13.4（加 `kind`、`family` 改名 `generic`、把通用器件挪进 `assets/components/`、版本提到 `0.1.3`）。**通用器件 id 的改名与 `construction` / `polarized` 的取值由作者决定**，工具不替人填。
+3. **迁移脚本：不做**（2026-10-23 定）——本项目尚无外部使用者，没有需要迁移的旧文件；改法写在 `spec/teda.md` §12.4（加 `kind`、`family` 改名 `generic`、把通用器件挪进 `assets/components/`、版本提到 `0.1.3`）。**通用器件 id 的改名与 `construction` / `polarized` 的取值由作者决定**，工具不替人填。
 4. **命名空间**：`instances` 行支持 `lib:id` 限定名（库内件必须限定，项目件可裸写）；解析顺序：项目 `assets/components/` → 库。
 5. **variant 作用域**：`packages/core` 的 ERC 里，变体按 `component_id` 生效只对 `kind: part` 成立；通用器件只能按实例作用域（DNP/替代料指到具体实例）。
 6. **`params` 语义校验（部分落地）**：`part` 禁 `params`、通用器件必带必填 `value`、`package` / `footprint` 不得作参数列、必填列在前——都已在解析器里查（诊断码 `value.component-identity-invalid` / `value.component-param-reserved` / `value.component-param-order`）。**未落地**："改引脚表/改引脚行为"这层语义靠人工判定（编译器查不了），仍靠约定 + 库级检查。
@@ -558,7 +544,7 @@
 
 ## F27. `package` 字段删除、3D 模型改挂 part（ADR-0028 的落地）
 
-**现状**：**第 1、2 条已落地**（2026-10-23）：`component` 不再写 `package`（读到即报错 `syntax.removed-construct`），封装代号由 land pattern 自己写（`package_code`，`lib:verify` 要求每个封装都写）；契约随这批从 v0.2 升到 **v0.3**（`schemas/ir/v0.3/`），语言的 `component` 线 `0.1.1` → `0.1.2`、`footprint` 线 `0.4` → `0.4.1`，改法写在 `spec/teda.md` §13.4（本项目没有需要迁移的旧文件，不写迁移脚本）。**第 3-8 条未落地**：3D 模型仍按 `model` 行挂在 **footprint** 文件上（[ADR-0030](adr/08-libraries/0030-footprint-format-and-geometry.md)）。决策见 [ADR-0028](adr/07-devices/0028-package-code-and-3d-models.md)。
+**现状**：**第 1、2 条已落地**（2026-10-23）：`component` 不再写 `package`（读到即报错 `syntax.removed-construct`），封装代号由 land pattern 自己写（`package_code`，`lib:verify` 要求每个封装都写）；契约随这批从 v0.2 升到 **v0.3**（`schemas/ir/v0.3/`），语言的 `component` 线 `0.1.1` → `0.1.2`、`footprint` 线 `0.4` → `0.4.1`，改法写在 `spec/teda.md` §12.4（本项目没有需要迁移的旧文件，不写迁移脚本）。**第 3-8 条未落地**：3D 模型仍按 `model` 行挂在 **footprint** 文件上（[ADR-0030](adr/08-libraries/0030-footprint-format-and-geometry.md)）。决策见 [ADR-0028](adr/07-devices/0028-package-code-and-3d-models.md)。
 
 **要做的事**：
 
@@ -594,12 +580,12 @@
 
 **要做的事**：
 
-1. **树的重排**（机械部分）：`assets/symbols/` `assets/footprints/` `assets/components/` → `assets/**`；`procurement/` → `assets/procurement/`；`design/sch/` `design/pcb/` `design/modules/` `design/system/` → `design/**`；`views/<board_id>/<page>.view.teda` → `views/<board_id>/<page>.view.teda`（见 F30）；新增 `external/simulation/`（`cache/` 不建，由使用者自建且 gitignore；`external/libs/` 后来也不建了——库是模板，见 [ADR-0034](adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md)）。参考工程与 CLI 里的路径同步改。（**2026-10-23**：件与通用器件合并到 `assets/components/**` 一个目录，不再有 `families/`——见 [ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md)。）
+1. **树的重排**（机械部分，历史记录）：`assets/symbols/`、`assets/footprints/`、`assets/components/` → `assets/**`；`procurement/` → `assets/procurement/`；电路描述迁入 `design/**`；视图曾按 PCB 分目录，现由 F64 / [ADR-0069](adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4 改为平铺在 `views/<page_id>.view.teda`。新增 `external/simulation/`（`cache/` 不建，由使用者自建且 gitignore；`external/libs/` 后来也不建了——库是模板，见 [ADR-0034](adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md)）。参考工程与 CLI 路径同步改。（**2026-10-23**：件与通用器件合并到 `assets/components/**` 一个目录，不再有 `families/`——见 [ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md)。）
 2. ~~**`libref` 描述类型**~~ **已撤销**（2026-10-24，[ADR-0034](adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md)）：锚点是"钉住一棵只读的树"，而我们真正要的只是"这些器件现在是我们的"。取而代之是 `texteda lib import`：拷贝 + 限定符重写 + 来源头注释 + `provenance generated`，副本可编辑，没有哈希盯着它。`spec/libref.md`、`libref` schema、parser、`lib add` 全部删除；`external/libs/` 下有库形状的树报 `ref.library-in-tree`。
 3. ~~**库 vendoring**~~ **已撤销**（同上）：编译期永不联网这一条保留（不变量 20），但"vendored 树 + 内容哈希"这一层没有了——副本是自有资产，`assets/**` 之外没有第二个器件来源。`--from <url>` 不做（门禁不联网）。
-4. **分片布局与源码树解耦**：分片按种类固定（`boards/` `assets/symbols/` `assets/footprints/` `assets/components/` `procurement/`），映射由每片的 `source.file` 承担（[ADR-0006](adr/02-ir/0006-ir-shards-and-hashes.md) decision 3 修订）；挪源码目录不改分片路径、不改工程哈希。
-5. **`texteda init`** 建新骨架：`assets/{symbols,footprints,components}`、`assets/procurement/{primary,alternatives}`、`external/simulation`、`design/{sch,pcb,modules,system}`、`views/`、`docs/`。
-6. **迁移脚本**：不做——本项目尚无外部使用者，没有需要迁移的旧文件；[ADR-0006](adr/02-ir/0006-ir-shards-and-hashes.md) D9 的目录变更直接改文件，改法写进 `spec/teda.md` §13.4，不替人命名、不替人决定库版本。
+4. **IR shard layout and source-tree decoupling**: normative project logic is `project/schematic.json`, physical PCB data is `boards/<pcb_id>/pcb.json` (with board-owned procurement shards), and advisory pages are `views/<page_id>.json`; there is no `systems/` shard. Each shard carries `source.file`; the current paths are fixed by kind rather than mirroring the source tree.
+5. **`texteda init`** 建新骨架：`assets/{symbols,footprints,components}`、`assets/procurement/{primary,alternatives}`、`external/simulation`、`design/{sch,pcb,modules}`、`views/`、`docs/`；逻辑根是 `design/sch/main.teda`，不创建 `design/system/`。
+6. **迁移脚本**：不做——本项目尚无外部使用者，没有需要迁移的旧文件；[ADR-0006](adr/02-ir/0006-ir-shards-and-hashes.md) D9 的目录变更直接改文件，改法写进 `spec/teda.md` §12.4，不替人命名、不替人决定库版本。
 7. **`external/cache/` 纪律**：厂商数据手册 PDF 放这里，gitignore；`check:public` 要能发现误提交的 PDF（今天查的是历史与工作区，新增这条要确认覆盖到新路径）。
 
 **验收**：
@@ -618,27 +604,23 @@
 
 ## F30. 打印页移到 `views/`，分片改为附注类（ADR-0035 的落地）
 
-**现状**：**搬家已落地**（2026-10-22）——打印页文件在 `views/<board_id>/<page_id>.view.teda`（独立根目录，不再与板文件同目录），参考工程与 CLI 的扫描路径已改。**未落地**：分片分类（打印页分片仍是规范类，随板哈希走——挪一个标签就改板哈希与工程哈希）、盖章、交叉校验、文档同步。决策见 [ADR-0035](adr/09-view/0035-the-view-layer-is-a-drawing.md)。
+**现状**：**已完成**（2026-11-09，见 [ADR-0069](adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4–D5）——项目打印页位于 `views/<page_id>.view.teda`，不再按 PCB 子目录分组；解析、CLI、参考工程与评审 UI 均按项目级 page ID 查找。视图分片是 `views/<page_id>.json`，属于 advisory，不进入项目或 PCB 规范哈希；盖章使用该页分片自己的 `sha256`。
 
-**要做的事**：
+**已交付**：
 
-1. **搬家**：**已落地**——打印页从板文件同目录（`design/sch/<board_id>/`）挪到**独立根目录** `views/<board_id>/<page_id>.view.teda`；参考工程与 CLI 的扫描路径已同步。分片路径 `dist/ir/boards/<board_id>/view/<page_id>.json` **不变**（分片布局与源码树解耦）。
-2. **分类**：打印页分片改为 **advisory**（不进工程哈希、不进板哈希）；`advisory_hash` 同时聚合采购备选与打印页。判据不变：改了会不会让已签发的制造包作废。**已落地**（2026-10-23，随 [ADR-0006](adr/02-ir/0006-ir-shards-and-hashes.md) 的 2026-10-22 修订一起落，见同记录 D9）。
-3. **盖章**：渲染出的页面盖**该页分片自己的 `sha256`** 作为 `source_hash`（不盖板哈希）；制造类产物仍盖板哈希 / 工程哈希。评审 UI 按板 id 把 `views/<board_id>/` 的原理图页与 `design/pcb/<board_id>.teda` 渲染出的 PCB 图对上，跳转在 UI 层解决，不靠目录。
-4. **交叉校验**：页面引用的实例 / 引脚 / net 必须存在于板级，否则报错（归 `packages/core`）——与 F3 同批做。
-5. **文档**：`spec/schematic-view.md` §9 与 `AGENTS.md` §3 的 S1 行改成"手写源文件 + 附注类分片"；`docs/skills/new-project.md` 若提到打印页路径，同步。
+1. **项目级路径与查找**：每页一个 `views/<page_id>.view.teda` 源文件；`page_id` 是稳定的页面引用，不是逻辑边界，也不携带 PCB 归属。`views/main.view.teda` 是首个拓扑总览页，可只画模块框、项目端口和 interconnect，不必放置元件。
+2. **附注分类与哈希**：页面 IR 使用 `views/<page_id>.json`；修改或移动标签不改变项目逻辑、PCB 实现、项目哈希或 PCB 哈希，只改变 advisory hash 与该页分片哈希。
+3. **盖章与 UI**：渲染页面盖该页 advisory 分片的 `sha256`；评审 UI 按项目级身份索引页面、模块、PCB 与 interconnect，跳转不依赖目录层级。
+4. **项目级交叉校验**：页面只能引用已存在的项目实例、扁平实例/net、project port 与 interconnect ID；未知身份、错误的 pin/net 绑定报错。项目级覆盖率缺口（未在任何页面表示的模块或 interconnect）是 view warning，不改变逻辑事实。
+5. **文档与调用方**：`spec/schematic-view.md`、`AGENTS.md` 的 S1 描述、项目 skill、CLI/UI 与参考示例均采用“手写源文件 + advisory 分片”的项目级口径；不存在并行的 board-local view 模型。
 
 **验收**：
 
-- 只挪动一个标签 → `project_hash` 与板哈希**不变**，`advisory_hash` 变。
-- 挪动源码文件目录（`design/sch/<board>/` → `view/<board>/`）→ 分片路径与工程哈希**不变**。
-- 页面引用一个板级不存在的实例 → 报错（不是静默通过）。
+- 只移动一个标签 → 项目逻辑、PCB 实现、`project_hash` 与 PCB hash 不变，`advisory_hash` 与该页分片 `sha256` 改变。
+- 页面路径与 IR 分片固定为 `views/<page_id>.view.teda` 与 `views/<page_id>.json`，源码目录调整不引入 board-scoped 视图身份。
+- 页面引用不存在的项目实例、net、port、pin 或 interconnect → 报错，而不是静默通过；删除或修改所有视图不会改变逻辑连通性、PCB binding 或 netlist。
 
-**注意**：
-
-- **"可丢弃"的含义要改口径**：S1 可丢弃指的是**不参与构建身份**，不是"可重新生成"——渲染器只画不摆，页面文件生成不出来，所以它放在 `views/`（手写源、进仓库），不放 `dist/`（派生产物），也不放 `design/`（电路真源）。
-- 打印页仍是**手写源**：它进仓库、进评审、可被人工挪动；只是不进构建身份。删掉整个 `views/` 不会让板子失效、不会改哈希、不会作废制造包。
-- 别顺手把 view 目录塞回 `design/` 或 `design/sch/`：`design/` 只装电路描述，扫电路的工具不必学会跳过例外。
+**注意**：S1 的“可丢弃”表示不参与构建身份，不表示可重新生成。视图是手写源、进仓库、由渲染器只画不摆；它不创建或删除项目 connectivity、PCB ownership、interconnect、pin mapping 或铜连续事实。
 
 ---
 
@@ -675,7 +657,7 @@
 
 ## F34. 评审 GUI（`packages/viewer`）：高亮指针、跳转源码、画图与单一交互面
 
-**现状**：**已落地（2026-11-03）**。`texteda review <工程目录>` 提供一个不切模式的交互面：所有画都支持 hover、选中、定义菜单、同类画箭头导航、缩放与平移；原理图选中后可用 `m` 移动、`r` 排队顺时针 90° 旋转，显式的 Source 操作才打开源码面板。移动使用现有 `snapPlacement()` 的 0.5 mm 网格（[ADR-0057](adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)）；左键只完成本地预览，`Escape` 只撤销当前移动事务，`Apply` / `Ctrl+Enter` 才写回。PCB、符号、封装画保持只读。实现见 `packages/viewer/src/app.ts`、`packages/viewer/src/capability.ts` 与 `packages/viewer/src/types.ts`；文件写入仍只经过 CLI 的 `POST /api/layout` / `POST /api/source`，写入目标只有 `views/**`。决策见 [ADR-0035](adr/09-view/0035-the-view-layer-is-a-drawing.md)、[ADR-0042](adr/09-view/0042-the-review-app-has-modes.md)、[ADR-0048](adr/09-view/0048-the-review-app-shows-drawings.md) 与 [ADR-0056](adr/09-view/0056-the-review-app-has-one-interaction-surface.md)。
+**Current status**: **implemented (2026-11-03)**. `texteda review <project directory>` provides one mode-free interaction surface: every drawing supports hover, selection, definition menus, same-kind drawing navigation, zoom, and pan; selecting a schematic symbol enables `m` movement and queued clockwise 90° `r` rotation, while only an explicit Source action opens the source panel. Movement uses the existing 0.5 mm `snapPlacement()` grid ([ADR-0057](adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)); left click only completes local preview, `Escape` cancels the current movement transaction, and `Apply` / `Ctrl+Enter` writes back. PCB, symbol, and footprint drawings remain read-only. Implemented in `packages/viewer/src/app.ts`, `packages/viewer/src/capability.ts`, and `packages/viewer/src/types.ts`; writes still pass only through the CLI `POST /api/layout` / `POST /api/source`, and targets are flat `views/<page_id>.view.teda`. Decisions: [ADR-0035](adr/09-view/0035-the-view-layer-is-a-drawing.md), [ADR-0042](adr/09-view/0042-the-review-app-has-modes.md), [ADR-0048](adr/09-view/0048-the-review-app-shows-drawings.md), and [ADR-0056](adr/09-view/0056-the-review-app-has-one-interaction-surface.md).
 
 模型仍按 `ReviewDrawing` 区分 `sch` / `pcb` / `symbol` / `footprint`，侧栏按 kind 分组；`placement` 不是交互模式，PCB 画布是一张独立的只读画。发现项的 show 按钮会依据身份索引跳到持有它的画并选中，度量来自 core，app 不自行测量。意见锚点（`[instance:U3]` 前缀）仍未落地；实时布线按设计不做。
 
@@ -690,11 +672,11 @@
 **验收**：
 
 - hover 一个符号 → 该符号高亮并显示身份（实例 id、器件、封装），**SVG 不重新生成**。
-- 双击或按 `Enter` 一个符号 → 出现定义位置菜单，至少含 sch 实例行与 view 摆位项；选中后打开对应文件并定位到行。
+- 双击或按 `Enter` 一个符号 → 出现定义位置菜单，至少含 logical-root 实例行与 `views/<page_id>.view.teda` 摆位项；选中后打开对应文件并定位到行。
 - 单次点击一个原理图符号 → 只选中并显示 facts，不移动、不跳源码；PCB 点击只做对象 / net 选择与高亮。
 - 选中原理图符号后按 `m` → 移动预览按 0.5 mm 吸附；左键完成本地预览，`Escape` 恢复这一次移动而保留其他 pending 编辑；切换画时也不提交 pending 编辑。
 - 选中原理图符号后按 `r` → 排队顺时针 90°；随后点击或按 `Escape` 只清除选中，不撤销排队的旋转。
-- `Apply` / `Ctrl+Enter` → 通过 CLI / 宿主 canonical 写路由提交 placement、rotation、字段和 Source 草稿；只修改对应的 `views/<board>/<page>.view.teda`，不修改 `design/**`、IR 或工程哈希。`write: "places"` 只允许摆位，`write: "layout"` 才允许字段与 Source 写入。
+- `Apply` / `Ctrl+Enter` → 通过 CLI / 宿主 canonical 写路由提交 placement、rotation、fields 和 Source 草稿；只修改对应的 `views/<page_id>.view.teda`，不修改 `design/**`、IR 或工程哈希。`write: "places"` 只允许摆位，`write: "layout"` 才允许字段与 Source 写入。
 - 不存在三个模式或模式切换的验收；所有画共用 hover、选中、定义菜单、导航、缩放与平移，只有原理图画提供显式摆位动作，PCB / symbol / footprint 保持只读。
 - viewer 不布线、不做布局求解；既有 wire 保持在本地预览中，布线搜索仍由 agent / CLI 的独立工作流完成（[ADR-0017](adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)）。
 
@@ -1051,31 +1033,15 @@ DSH 侧**代码已落地**：宿主合同读的是官方 cookbook（`@deepseek-a
 
 ## F61. Hierarchical module views and custom page size
 
-**Status**: Not implemented. The schematic layer should describe circuit connectivity, not page composition. The tentative final print-page structure is `main.view.teda` as the first page for module-to-module relationships, followed by detail pages for the actual circuit drawings. A detail page may place multiple module instances; a module name in a view filename is not by itself a final-page boundary. The current view contract has no reserved overview-page semantics and no compact size for a page containing one or more small modules such as `buck-5v`.
+**Historical record (superseded)**: F61 delivered hierarchical module views and custom page sizes under the former board-scoped organization. Its former `views/<board_id>/...` paths, board-local electrical authority, and IR v0.17 acceptance criteria are retained only as history; they are not current contracts and must not be implemented or used for new projects. The current project-wide view contract is F64 / [ADR-0069](adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md): pages live directly under `views/<page_id>.view.teda`, reference the single root schematic, and are advisory drawings. The former implementation files and tests remain historical context for the current renderer and view layer.
 
-**Proposed design to settle**:
-
-1. Reserve `views/<board_id>/main.view.teda` as the first print page and overview drawing. It shows module boxes and the connections between their exposed ports. The target is that one overview page covers the module scale of most projects; this is a page-size/readability target, not a new logical connectivity rule.
-2. Treat the remaining `views/<board_id>/<page_id>.view.teda` files as detail print pages for actual circuit drawings. A detail page may place one or more module instances, so `buck-5v.view.teda` is a page that draws a module instance or several instances, not a mandatory one-module-per-page file type.
-3. Keep logical connectivity in the schematic layer: the board schematic owns connections between module instances, while module descriptions own each module's internal devices, nets, and exposed ports. Reconcile the requested `main.teda` / `modules.teda` naming with the existing flat-board/module source model before changing the language; `view` must not become a second logical source.
-4. Add an explicit custom page size, proposed as `size [width,height]` in millimetres — the bracketed cell is the language-wide tuple form ([ADR-0065](adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) D1). Define whether this replaces or aliases the current `sheet <size>` scalar, the default, canonical ordering, coordinate resolution and 0.5 mm lattice rules, SVG dimensions, metrics, ordering of pages in review, and migration of existing pages.
-5. Define page references, module-box geometry, module ports, cross-page identity, and checks for missing modules, duplicate module placement, stale port connections, out-of-size content, and connections that cross a module box incorrectly.
-
-**Involved files**: `spec/teda.md`, `spec/module.md`, `spec/schematic-view.md`, `schemas/ir/`, `packages/parser/`, `packages/core/src/view/`, `packages/renderer/`, `packages/viewer/`, `packages/cli/`, `tests/`, and affected `design/` / `views/` examples.
-
-**Acceptance**:
-
-- A board can have a module overview page and module-detail pages without duplicating or changing schematic connectivity.
-- A compact module page can declare a non-A4 size such as `size [120,80]`, and parser, canonical formatter, IR, renderer, metrics, review app, lattice checks, and SVG output agree on it.
-- One page can place multiple small modules while preserving each module instance's identity and port connections.
-- Existing A4 pages remain valid or have an explicit deterministic migration; no page silently changes size.
-- Invalid sizes, missing module references, duplicate module placements, and stale inter-module connections produce page-local diagnostics.
+**Current contract and acceptance**: see F64 above and [ADR-0069](adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md). F61's completed behavior remains covered where applicable by the current project-wide parser, renderer, viewer, metrics, and lattice checks; no board-local view path or board-local schematic is valid.
 
 ---
 
 ## F62. Repair buck-5v pin junction and wire clearance
 
-**Status**: Implemented. The reference print page `examples/reference-project/views/charger-buck/buck-5v.view.teda` now uses a pin-axis PH approach at L1 and a cleared orthogonal VOUT route around R1; the renderer and schematic connectivity remain unchanged.
+**Status**: Implemented. The reference print page `examples/reference-project/views/buck-5v.view.teda` now uses a pin-axis PH approach at L1 and a cleared orthogonal VOUT route around R1; the renderer and schematic connectivity remain unchanged.
 
 **Why now**: The page is the reference evidence for schematic rendering and must not teach an incorrect junction or an unreadable pin approach.
 
@@ -1085,7 +1051,7 @@ DSH 侧**代码已落地**：宿主合同读的是官方 cookbook（`@deepseek-a
 2. Remove or correct the page-local source geometry that causes the L1 junction marker, without weakening the renderer's general perpendicular-pin marker rule or changing schematic connectivity.
 3. Re-route the upper R1/VOUT wire so it does not overlap the R1 symbol or pin stroke, while preserving the VOUT net endpoints and avoiding new crossings or junctions.
 
-**Involved files**: `examples/reference-project/views/charger-buck/buck-5v.view.teda`, `packages/renderer/src/schematic.ts` only if the defect is renderer-wide, and the focused renderer/view tests if a regression is needed.
+**Involved files**: `examples/reference-project/views/buck-5v.view.teda`, `packages/renderer/src/schematic.ts` only if the defect is renderer-wide, and the focused renderer/view tests if a regression is needed.
 
 **Acceptance**:
 
@@ -1095,3 +1061,30 @@ DSH 侧**代码已落地**：宿主合同读的是官方 cookbook（`@deepseek-a
 - Existing different-net crossings remain dotless and schematic connectivity is unchanged.
 
 **Note**: This is a reference-view repair, not permission to relax `view.wire-crosses-pin` or to make geometric crossings authoritative.
+
+
+---
+
+## F64. Project-level logical root and multiple physical boards
+
+**Status**: Implemented and accepted by [ADR-0069](adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) (2026-11-09). The project has one logical root at `design/sch/main.teda`, physical PCB descriptions at `design/pcb/<pcb_id>.teda`, reusable module definitions under `design/modules/`, and project-wide print pages at `views/<page_id>.view.teda`. There are no board-local schematic roots, root-level component instances, `system` descriptions, or `design/system/` descriptions.
+
+**Delivered contract**:
+
+1. **Project logic**: `design/sch/main.teda` composes module descriptions and owns globally unique module-instance identities, flattened project-net membership, project ports, constraints, and interconnects. Equal local net names in separate module instances do not merge without an explicit root binding. The schematic IR remains flat for ordinary consumers while carrying the ownership and port-binding records required for physical validation.
+2. **Explicit PCB ownership**: Each `design/pcb/<pcb_id>.teda` has a required `modules` section listing the project module instances implemented by that PCB. Across all PCBs each module instance occurs exactly once; one PCB may implement several instances, reusable definitions may be instantiated on different PCBs, and no instance may be split. Placement, pad, trace, via, zone, and rule facts resolve against the assigned instances and flattened project nets. A PCB `connect` edge proves copper continuity on that PCB only; sharing a project `net_id` never implies copper continuity.
+3. **Explicit interconnects**: Root `interconnects` connect exactly two module-port endpoints on different PCBs, and both endpoints belong to the same root project net. Optional `interconnect_pins` rows record connector/cable terminal mappings. Logical net membership, cross-PCB interconnect paths, and within-PCB copper continuity remain separate facts; no fact is inferred from another, and views can only reference interconnect IDs.
+4. **Project-wide views**: a composed page such as `views/composed.view.teda` may draw module drawings, project ports, and interconnect links without page-level component placements; the spec and renderer also support topology-only pages. `main` is only the conventional first-listed page ID, not a required page or role. Other overview/detail pages can cover any project logic and may place components. Pages reference existing project-level module-instance, flattened instance/net, project-port, and interconnect IDs; they never create or remove connectivity, ownership, pin mapping, interconnect, or copper facts. Missing project relationships are view warnings, not logic errors, and removing all views leaves logic, PCB checks, netlists, and normative hashes unchanged.
+5. **IR and migration**: The normative IR v0.19 layout is `project/schematic.json`, `boards/<pcb_id>/pcb.json`, and advisory `views/<page_id>.json`; there is no `systems/` shard. Language advances to `0.14.0`, reader floors for `schematic`, `pcb`, and `view` advance to `0.14`, and v0.18 remains immutable. `bun run migrate:0.14 <project dir>` performs only deterministic moves and transformations, refusing to invent module IDs, PCB assignments, or connector-pin mappings; author decisions are recorded in the migration note, with no compatibility reader or parallel legacy model.
+6. **ADR/spec/schema and callers**: ADR-0069 replaces the earlier board-local decisions; `spec/project.md`, `spec/teda.md`, `spec/module.md`, `spec/pcb.md`, `spec/schematic-view.md`, and `schemas/ir/` document the single project-level model. Parser/core/IR/renderer/exporter/CLI/viewer callers, migration handling, tests, and reference examples use that model. Reference examples cover multiple PCBs and module instances, explicit interconnects, composed and detail pages; the spec example and renderer tests cover a topology-only page, and tests cover whole-module-to-one-PCB ownership.
+
+**Acceptance evidence**:
+
+- One project-level logical root composes module electrical facts and expresses project-wide connectivity; no per-board schematic or drawing is a second connectivity authority.
+- Multiple `design/pcb/<pcb_id>.teda` files have explicit, validated mappings to project logic; unplaced, duplicated, cross-owned, and split module instances are rejected, and board copper continuity is never inferred from global net identity.
+- Every module instance is wholly assigned to one PCB; cross-board functions use separate module instances plus an explicit interconnect, with optional connector/cable pin mappings checked against endpoint ports.
+- Project views can show modules and interconnects without component circuitry, divide overview/detail information across pages with stable project-level references, and remain advisory drawings whose edits cannot change logic or physical facts.
+- The IR contract is v0.19 with the project/PCB/advisory shard paths above, and the migration command and refusal rules are documented; v0.18 remains unchanged.
+- Reference examples pass project checks, PCB binding checks, formatting, rendering, and view checks; removing or changing views leaves logical connectivity and netlists unchanged.
+
+**Note**: This is a project/logic/physical-boundary redesign, not an extension of the former board-local module-view feature. Preserve the distinction between logical connectivity, physical PCB copper, explicit interconnect paths, and advisory drawings.

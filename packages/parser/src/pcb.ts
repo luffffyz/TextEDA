@@ -1,9 +1,10 @@
-// `pcb` description → IR (`schemas/ir/v0.5/pcb.schema.json`). See `spec/pcb.md` for the spec.
+// `pcb` description → IR (`schemas/ir/v0.19/pcb.schema.json`). See `spec/pcb.md` for the spec.
 //
 // This layer only does "text → structure": read sections, validate column counts and enums,
 // and replace unit-bearing literals with integers.
-// Cross-description consistency (whether a pad belongs to the same sch net, whether a net exists)
-// is binding validation (spec §5.2); it needs the flattened sch result and is not done in this file.
+// Cross-description consistency (whether a placed instance belongs to one of the module instances
+// this PCB implements, whether a net exists in the project schematic) is binding validation
+// (spec §5.2); it needs the flattened project schematic and is not done in this file.
 import { irVersion } from "@texteda/ir";
 import type {
   ConnectEdge,
@@ -22,17 +23,17 @@ import type {
 } from "@texteda/ir/pcb";
 import type { Diagnostic, DiagnosticCodeId } from "@texteda/ir/diagnostics";
 import { lex, type Cell, type Line } from "./lexer.ts";
-import { SourceFile, recordObjects } from "./sources.ts";
+import { SourceFile, recordAll, recordObjects } from "./sources.ts";
 import type { SourceMap, Span } from "@texteda/ir/spans";
 import { parseAngleMdeg, parseLengthNm } from "./units.ts";
 import { checkVersion, typeRange } from "./version.ts";
 import { POINT, readTupleCells, tupleShapeText } from "./tuple.ts";
 import { parseQuantity } from "./quantities.ts";
-import { byteCompare } from "@texteda/ir/order";
+import { byteCompare, naturalCompare } from "@texteda/ir/order";
 
 export interface PcbParseOptions {
   file: string;
-  board: string;
+  pcb: string;
 }
 
 export interface PcbParseResult {
@@ -44,6 +45,7 @@ export interface PcbParseResult {
 }
 
 export const PCB_SECTIONS = [
+  "modules",
   "stackup",
   "outline",
   "place",
@@ -62,8 +64,8 @@ type Section = (typeof PCB_SECTIONS)[number];
 
 const SECTION_SET: ReadonlySet<string> = new Set(PCB_SECTIONS);
 /**
- * `pcb` was introduced in language version 0.4; since 0.7 its instance ids and net names are the
- * board's own (no page prefix, ADR-0012), so a 0.4 pcb file has to be re-checked.
+ * The pcb reader floor advances to 0.14 with ADR-0069 D6: a pcb description now implements project
+ * module instances through its required `modules` section, a shape older pcb files do not have.
  */
 const VERSION_RANGE = typeRange("pcb");
 
@@ -484,25 +486,35 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
   const typeLine = lines[1];
   if (
     typeLine === undefined ||
+    typeLine.cells.length !== 2 ||
     typeLine.cells[0]?.text !== "pcb" ||
     typeLine.cells[1] === undefined
   ) {
-    diagnostics.add("error", "syntax.header-invalid", "the second line must be pcb <board_id>", file, 2, 1);
+    diagnostics.add("error", "syntax.header-invalid", "the second line must be pcb <pcb_id>", file, 2, 1);
     return { ok: false, diagnostics: diagnostics.items };
   }
   const id = typeLine.cells[1].text;
-  if (!/^[A-Za-z0-9_+-]+$/.test(id)) {
-    diagnostics.add("error", "syntax.invalid-identifier", `invalid id: ${id}`, file, typeLine.number, typeLine.cells[1].col);
-  }
-  if (id !== options.board) {
+  // The v0.19 pcb identity is a slug: the id of this shard and the scope of its board hash (ADR-0069 D2, D5).
+  if (!/^[a-z][a-z0-9-]*$/.test(id)) {
     diagnostics.add(
       "error",
-      "ref.pcb-id-mismatch",
-      `pcb id (${id}) must match the board id (${options.board}): sch and pcb describe the same board`,
+      "syntax.board-invalid",
+      `invalid id: ${id}`,
       file,
       typeLine.number,
       typeLine.cells[1].col,
-      { expected: options.board, actual: id },
+      { hint: "a pcb id is a slug: lowercase letters, digits and hyphens, starting with a letter" },
+    );
+  }
+  if (id !== options.pcb) {
+    diagnostics.add(
+      "error",
+      "ref.pcb-id-mismatch",
+      `pcb id (${id}) must match the pcb id (${options.pcb}): a pcb description lives at design/pcb/<pcb_id>.teda (ADR-0069 D2)`,
+      file,
+      typeLine.number,
+      typeLine.cells[1].col,
+      { expected: options.pcb, actual: id },
     );
   }
 
@@ -528,6 +540,7 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
   }
 
   const seen = new Set<Section>();
+  const moduleRows: { id: string; span: Span }[] = [];
   const stackup: StackupLayer[] = [];
   const outline: Point[] = [];
   const place: Placement[] = [];
@@ -557,6 +570,11 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
     for (const line of block.rows) {
       const c = line.cells;
       switch (block.section) {
+        case "modules": {
+          if (!exactColumns(line, 1, diagnostics, file)) break;
+          moduleRows.push({ id: c[0]!.text, span: src.span(line.number, line.cells[0]?.col) });
+          break;
+        }
         case "stackup": {
           const kind = c[1]?.text;
           if (kind === "copper") {
@@ -855,7 +873,7 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
 
   /* -------- required sections -------- */
 
-  for (const required of ["stackup", "outline", "place", "connect", "rules"] as const) {
+  for (const required of ["modules", "stackup", "outline", "place", "connect", "rules"] as const) {
     if (!seen.has(required)) {
       diagnostics.add(
         "error",
@@ -970,12 +988,36 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
     edges.add(key);
   }
 
+  // modules: across all PCBs every project module instance occurs exactly once (ADR-0069 D2), so a
+  // repeated id in one file is a double claim. Canonical order is byte order: the list is a set of
+  // ids and its source order is not semantic (spec/pcb.md §6.2).
+  const claimed = new Set<string>();
+  const owned: { id: string; span: Span }[] = [];
+  for (const row of moduleRows) {
+    if (claimed.has(row.id)) {
+      diagnostics.add(
+        "error",
+        "value.duplicate-field",
+        `duplicate module instance: ${row.id} (a module instance is implemented by exactly one PCB, ADR-0069 D2)`,
+        file,
+        1,
+        1,
+        { actual: row.id },
+      );
+      continue;
+    }
+    claimed.add(row.id);
+    owned.push(row);
+  }
+  owned.sort((a, b) => naturalCompare(a.id, b.id));
+  const modules = owned.map((row) => row.id);
   const ir: Pcb = {
     ir_version: irVersion,
     // The canonical spelling of the version: `0.6` and `0.6.0` are the same version, so the IR stores one of them.
     format: verdict.ok ? verdict.text : format,
     source: { file, line: 1 },
-    board: options.board,
+    pcb: options.pcb,
+    modules,
     board_thickness_nm: boardThicknessNm ?? 0,
     stackup: stackup as Pcb["stackup"],
     outline: normalizeRing(outline) as Pcb["outline"],
@@ -1013,6 +1055,7 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
 
   // IR path → span, keyed by the canonical index of each record (ADR-0004 D2).
   const sources: SourceMap = new Map();
+  recordAll(sources, "/modules", owned, (row) => row.span);
   recordObjects(sources, "/stackup", stackup, at);
   recordObjects(sources, "/place", ir.place, at);
   recordObjects(sources, "/connect", ir.connect, at);

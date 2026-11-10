@@ -610,6 +610,7 @@ export function parseSymbol(text: string, options: SymbolParseOptions): SymbolPa
 
   const ir: Symbol = {
     ir_version: irVersion,
+    format: verdict.text,
     source: { file, line: 1 },
     symbol: body,
   };

@@ -27,7 +27,7 @@ version 0.11.0
 footprint sot-23-5
 ```
 
-- 版本行、类型行规则同 `teda.md` §5。版本行写的是**语言版本**（全语言一个号），不是 `footprint` 这一类描述自己的号。`footprint` 的 reader 下界是 `0.11`：该类型于 0.4 引入，`package_code` 标量于 0.4.1 引入，0.11 的坐标元组改写要求 reader 拒绝旧表面。上界是语言当前版本；接受规则见 `teda.md` §13.3。
+- 版本行、类型行规则同 `teda.md` §5。版本行写的是**语言版本**（全语言一个号），不是 `footprint` 这一类描述自己的号。`footprint` 的 reader 下界是 `0.11`：该类型于 0.4 引入，`package_code` 标量于 0.4.1 引入，0.11 的坐标元组改写要求 reader 拒绝旧表面。上界是语言当前版本；接受规则见 `teda.md` §12.3。
 - 文件名必须等于类型行里的 id：`assets/footprints/<lib>/<footprint_id>.teda` ↔ `footprint sot-23-5`。
 - `footprint_id` 允许 `[A-Za-z0-9_.+-]+`（比 `component_id` 宽：库里的封装名常带大写与下划线，如 `R_0402_1005Metric`）。
 
@@ -129,7 +129,7 @@ graphics
 
 ## 6. 单位
 
-长度的列类型给出默认单位 **mm**，可显式写 `mm` / `mil` / `in` / `m`（`teda.md` §10.2）。角度默认 **度**，可写 `deg`。
+长度的列类型给出默认单位 **mm**，可显式写 `mm` / `mil` / `in` / `m`（`teda.md` §9.2）。角度默认 **度**，可写 `deg`。
 
 换算只发生在边界：`.teda` 解析进来时换算成 **整数纳米 / 整数毫度**（[ADR-0005](../docs/adr/02-ir/0005-ir-representation.md) decision 3）；换算结果不是整数时**报错**（"精度超过纳米"），不四舍五入。
 
@@ -142,7 +142,7 @@ graphics
 1. `pads` 的 `number` 唯一；`type=th` 必须有 `drill`；`shape=roundrect` 才允许 `rratio`。
 2. `graphics` 的 `geometry` 单元格点数与 `kind` 匹配；`poly` 点数 ≥ 3。
 3. `field` 的 `Name` 唯一。
-4. 编译产物必须通过 `schemas/ir/v0.3/footprint.schema.json`（closed schema）。
+4. The compiled shard must pass `schemas/ir/v0.17/footprint.schema.json` (closed schema). The shard root includes the required `format` field: the normalized language version of the source `.teda` file (`0.12`, not `0.12.0`; see `teda.md` §12.1).
 5. 库级检查（与符号引脚号比对、DRC）不属于本描述，属工具链（[ADR-0030](../docs/adr/08-libraries/0030-footprint-format-and-geometry.md) decision 7）。
 6. 编译产物的顺序只依赖语义，不依赖源文件书写顺序：`pads` 按号自然序、`graphics` 按 `(kind, layer, 坐标)`、`fields` 按 `Name`、`tags` 按字节序。同一封装换个写法编译出的 IR 必须字节相同（这是产物可复现、diff 有意义的前提）。
 
@@ -160,7 +160,7 @@ graphics
 4. 布局：
    - 表段（`pads`、`graphics`）按列对齐：同段内按最宽单元格补齐，列间至少两个空格；尾列 `key=value` 也按位置成列对齐。`point` / `size` / `geometry` 每项都是**一个** `[x,y]`（或更多分量）单元格（`teda.md` §4.3、[ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md)），按单元格对齐，括号内不写空格。
    - 标量行（含 `field`）是"键 + 值"，不做列对齐：单元格之间（含尾列）**一个**空格。
-5. 数值由边界整数反推成列默认单位，**省略单位**：长度 mm（最多 6 位小数）、角度度（最多 3 位）、比例十进制（最多 6 位），去尾零。源里的 `mil` / `in` / `m` 换算成 mm 写出（`10mil` → `0.254`）；显式写 `mm` 也合法，canonical 统一省略——与 `teda.md` §10.2「列类型提供单位时，值可省略单位」一致。
+5. 数值由边界整数反推成列默认单位，**省略单位**：长度 mm（最多 6 位小数）、角度度（最多 3 位）、比例十进制（最多 6 位），去尾零。源里的 `mil` / `in` / `m` 换算成 mm 写出（`10mil` → `0.254`）；显式写 `mm` 也合法，canonical 统一省略——与 `teda.md` §9.2「列类型提供单位时，值可省略单位」一致。
 6. 尾列 `key=value` 按键名 ASCII 字节序排序。
 7. `tags` 按 ASCII 字节序排序（它是集合，顺序无语义）。
 8. `field` 的 `hide=no` 省略（与不写等价）；`hide` 只写肯定形式 `hide=yes`。
@@ -204,8 +204,8 @@ graphics
 
 ```json
 {
-  "ir_version": "0.1",
-  "source": { "file": "examples/reference-project/footprints/project/sot-23-5.teda" },
+  "ir_version": "0.17",
+  "format": "0.11",
   "footprint": {
     "library": "project",
     "name": "sot-23-5",

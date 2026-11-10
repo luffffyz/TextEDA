@@ -1,0 +1,86 @@
+{
+  "constraints": [
+    {
+      "max_uv": 0,
+      "min_uv": 0,
+      "subject": "GND",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3300000,
+      "min_uv": 3300000,
+      "subject": "VREF",
+      "type": "voltage"
+    }
+  ],
+  "format": "0.14",
+  "instances": [
+    {
+      "component": "res-thick-0402",
+      "id": "M1.R1",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDnphqjf"
+    }
+  ],
+  "ir_version": "0.19",
+  "modules": [
+    {
+      "instance_id": "M1",
+      "module_id": "dnp-variant",
+      "ports": [
+        {
+          "id": "GND",
+          "net": "GND",
+          "pins": [
+            "M1.R1.2"
+          ]
+        },
+        {
+          "id": "VREF",
+          "net": "VREF",
+          "pins": [
+            "M1.R1.1"
+          ]
+        }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "id": "GND",
+      "members": [
+        "M1.R1.2"
+      ]
+    },
+    {
+      "id": "VREF",
+      "members": [
+        "M1.R1.1"
+      ]
+    }
+  ],
+  "ports": [
+    {
+      "id": "GND",
+      "net": "GND"
+    },
+    {
+      "id": "VREF",
+      "net": "VREF"
+    }
+  ],
+  "project": "main",
+  "source": {
+    "file": "design/sch/main.teda",
+    "line": 1
+  }
+}

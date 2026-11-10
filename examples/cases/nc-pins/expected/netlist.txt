@@ -1,10 +1,10 @@
-# netlist debug-header (ir 0.15)
-GND: J1.3 J1.5
-NRST: J1.10 R1.1
-SWCLK: J1.4
-SWDIO: J1.2
-SWO: J1.6
-VTREF: J1.1 R1.2
+# netlist main (ir 0.19)
+GND: M1.J1.3 M1.J1.5
+NRST: M1.J1.10 M1.R1.1
+SWCLK: M1.J1.4
+SWDIO: M1.J1.2
+SWO: M1.J1.6
+VTREF: M1.J1.1 M1.R1.2
 
 port GND: GND
 port NRST: NRST
@@ -14,5 +14,5 @@ port SWO: SWO
 port VTREF: VTREF
 
 # components 2
-J1 hdr-2x5-127
-R1 res-10k-0402
+M1.J1 hdr-2x5-127
+M1.R1 res-10k-0402

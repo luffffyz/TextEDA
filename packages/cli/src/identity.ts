@@ -2,7 +2,7 @@
 //
 // A source map is IR-path keyed and exists only for the duration of a parse. The review app needs
 // the other direction: a click on `U1` or `VCC` has to name every place that identity appears —
-// the board row, the print-page placement, the component file, the footprint, the pin line. This
+// the project schematic row, the PCB placement, the component file, the footprint, the pin line. This
 // module turns the same parse into that index.
 //
 // It is advisory: derived from the sources, never part of a shard, the manifest, the project hash or
@@ -24,7 +24,7 @@ import type {
 /** One compiled description, with the source map its parser produced. */
 export interface IdentityInput {
   kind: SchemaKind;
-  /** Shard path, e.g. `boards/charger-buck/view/buck-5v.json`. */
+  /** Shard path, e.g. `views/buck-5v.json`. */
   path: string;
   /** Source file, relative to the project root. */
   source: string;
@@ -47,12 +47,12 @@ interface Entry {
 /**
  * Build the identity index from the descriptions that compiled.
  *
- * Identity keys are namespaced so two boards can both have `U1` and a net named `VCC` does not
- * collide with a component:
+ * Identity keys are namespaced so logical and physical identities do not collide, and a net named
+ * `VCC` does not collide with a component:
  *
- * - `instance:<board>/<instance-id>`
- * - `net:<board>/<net-id>`
- * - `port:<board>/<port-id>`
+ * - `instance:<project>/<instance-id>` for schematic, view, and PCB identities
+ * - `net:<project>/<net-id>`
+ * - `port:<project>/<port-id>`
  * - `component:<component-id>`
  * - `component-pin:<component-id>/<pin-number>`
  * - `symbol:<lib>:<symbol-id>`
@@ -88,26 +88,25 @@ export function buildIdentityDocument(inputs: readonly IdentityInput[]): Identit
   for (const input of inputs) {
     switch (input.kind) {
       case "schematic": {
-        const board = (input.ir as Schematic).board;
         const ir = input.ir as Schematic;
         ir.instances.forEach((instance, index) => {
-          add(`instance:${board}/${instance.id}`, "instance", "sch instance row", input, `/instances/${index}`);
+          add(`instance:${ir.project}/${instance.id}`, "instance", "sch instance row", input, `/instances/${index}`);
         });
         ir.nets.forEach((net, index) => {
-          add(`net:${board}/${net.id}`, "net", "sch net row", input, `/nets/${index}`);
+          add(`net:${ir.project}/${net.id}`, "net", "sch net row", input, `/nets/${index}`);
         });
         (ir.ports ?? []).forEach((port, index) => {
-          add(`port:${board}/${port.id}`, "port", "sch port row", input, `/ports/${index}`);
+          add(`port:${ir.project}/${port.id}`, "port", "sch port row", input, `/ports/${index}`);
         });
         break;
       }
       case "pcb": {
         const ir = input.ir as Pcb;
-        ir.place.forEach((place, index) => {
+        (ir.place ?? []).forEach((place, index) => {
           add(
-            `instance:${ir.board}/${place.instance_id}`,
+            `instance:main/${place.instance_id}`,
             "pcb-place",
-            "pcb placement",
+            `pcb placement (${ir.pcb})`,
             input,
             `/place/${index}`,
           );
@@ -116,9 +115,9 @@ export function buildIdentityDocument(inputs: readonly IdentityInput[]): Identit
       }
       case "schematic-view": {
         const ir = input.ir as SchematicView;
-        ir.place.forEach((place, index) => {
+        (ir.place ?? []).forEach((place, index) => {
           add(
-            `instance:${ir.board}/${place.instance_id}`,
+            `instance:${ir.project}/${place.instance_id}`,
             "view-place",
             `view place (${ir.page})`,
             input,
@@ -127,7 +126,7 @@ export function buildIdentityDocument(inputs: readonly IdentityInput[]): Identit
         });
         (ir.wire ?? []).forEach((wire, index) => {
           add(
-            `net:${ir.board}/${wire.net}`,
+            `net:${ir.project}/${wire.net}`,
             "view-wire",
             `view wire (${ir.page})`,
             input,
@@ -136,7 +135,7 @@ export function buildIdentityDocument(inputs: readonly IdentityInput[]): Identit
         });
         (ir.label ?? []).forEach((label, index) => {
           add(
-            `net:${ir.board}/${label.net}`,
+            `net:${ir.project}/${label.net}`,
             "view-label",
             `view label (${ir.page})`,
             input,
@@ -145,7 +144,7 @@ export function buildIdentityDocument(inputs: readonly IdentityInput[]): Identit
         });
         (ir.port ?? []).forEach((port, index) => {
           add(
-            `port:${ir.board}/${port.id}`,
+            `port:${ir.project}/${port.id}`,
             "view-port",
             `view port (${ir.page})`,
             input,
@@ -180,8 +179,21 @@ export function buildIdentityDocument(inputs: readonly IdentityInput[]): Identit
         add(`footprint:${id}`, "footprint", "footprint file", input, "/footprint");
         break;
       }
+      case "module-view": {
+        // A module drawing names the module definition's own identities (`U1`, `VCC`, `SYS_OUT`
+        // inside the module), not the project's flattened identities. The index is project-scoped
+        // (`instance:<project>/<id>`, `net:<project>/<id>`), and a module-local id filed under those
+        // keys would collide with the project's own `U1` — two different things under one key. The
+        // viewer's source kinds have no module-local kind either, so the drawing stays out of the
+        // index rather than widening the identity contract here (ADR-0068 D2).
+        break;
+      }
+      case "sheet-template": {
+        // A template is literal furniture: its rows carry ids, but no identity a drawing can
+        // select and no place a reviewer starts from (ADR-0068 D3). Nothing to index.
+        break;
+      }
       case "project":
-      case "system":
       case "procurement":
         // Not identities the drawing can select: the review app asks about instances, nets, ports
         // and the devices/symbols/footprints behind them.

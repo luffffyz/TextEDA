@@ -14,14 +14,24 @@
 // anchors, stroke widths, and the shape of a port tag beyond its tip/direction remain styling.
 // Also absent: which instance a drawn pin belongs to. Two identical symbols swapped on the page draw
 // the same pins; their separate Reference fields provide the instance identities.
+//
+// An overview page's module boxes and module port marks are projected the same way: the rectangle a
+// box covers and the point a port mark sits at, plus the identity the drawing carries. Which module
+// an instance instantiates is a fact of the board file, not of the drawing (ADR-0067 D4), so it is
+// not projected -- a drawing cannot tell a reader which module `M1` stands for.
 import type { SchematicView } from "@texteda/ir/schematic-view";
 import type { SvgDoc } from "./svg.ts";
 import { renderSymbol } from "./symbol.ts";
-import type { SchematicInstance, SchematicRenderOptions } from "./schematic.ts";
+import {
+  viewModuleBoxes,
+  viewModulePorts,
+  type SchematicInstance,
+  type SchematicRenderOptions,
+} from "./schematic.ts";
 import { resolveSchematicFields } from "./field-placement.ts";
 import { pageFacts, placePageFields, type FieldPlacement, type PageProjection } from "./field-layout.ts";
 
-type Place = SchematicView["place"][number];
+type Place = NonNullable<SchematicView["place"]>[number];
 type Wire = NonNullable<SchematicView["wire"]>[number];
 
 /** A pin's connection point, orientation and drawing length, in absolute sheet coordinates. */
@@ -74,6 +84,27 @@ export interface SchematicPortProjection {
   dir_y: number;
 }
 
+/**
+ * A module box: the rectangle the overview draws for one module instance.
+ *
+ * Only what the drawing shows: the instance the box stands for and the rectangle it covers. The
+ * module the instance instantiates is a fact of the board file, not of the drawing (ADR-0067 D4).
+ */
+export interface SchematicModuleProjection {
+  instance_id: string;
+  x1_nm: number;
+  y1_nm: number;
+  x2_nm: number;
+  y2_nm: number;
+}
+
+/** A module port mark: the port it names and the point it is drawn at. */
+export interface SchematicModulePortProjection {
+  id: string;
+  x_nm: number;
+  y_nm: number;
+}
+
 export interface SchematicProjection {
   sheet: { width_nm: number; height_nm: number };
   pins: SchematicPinProjection[];
@@ -81,11 +112,15 @@ export interface SchematicProjection {
   fields: SchematicFieldProjection[];
   shapes: SchematicShapeProjection[];
   ports: SchematicPortProjection[];
+  /** The module boxes the page draws (an overview page's frames). */
+  modules: SchematicModuleProjection[];
+  /** The module port marks the page draws. */
+  modulePorts: SchematicModulePortProjection[];
 }
 
 /**
- * Symbol layers are the symbol's own drawing; `wire` is the page's runs. Sheet frame and port tags
- * are projected separately.
+ * Symbol layers are the symbol's own drawing; `wire` is the page's runs. Sheet frame, port tags and
+ * the overview's module boxes and module port marks are projected separately.
  *
  * `junction` is deliberately absent: a dot is derived from the runs it sits on
  * (spec/schematic-view.md §5.1), so projecting it would put a second copy of that rule on the
@@ -186,13 +221,21 @@ export function schematicProjection(
   view: SchematicView,
   instances: ReadonlyMap<string, SchematicInstance>,
   options: SchematicRenderOptions = {},
+  effectiveSheet: SchematicView["sheet"] = view.sheet,
 ): SchematicProjection {
+  const sheet = effectiveSheet;
+  if (sheet === undefined) {
+    throw new Error("schematic projection requires an effective sheet extent");
+  }
   const placed = new Map<string, { place: Place; instance: SchematicInstance }>();
-  for (const place of view.place) placed.set(place.instance_id, { place, instance: instances.get(place.instance_id)! });
+  for (const place of view.place ?? []) placed.set(place.instance_id, { place, instance: instances.get(place.instance_id)! });
   // Where each port the page draws sits: a run may end at one (ADR-0062), and its point is the
   // page's own `port` row.
   const endpointPoints = new Map((view.port ?? []).map((port) => [port.id, { x: port.x_nm, y: port.y_nm }]));
   for (const junction of view.junction ?? []) endpointPoints.set(junction.id, { x: junction.x_nm, y: junction.y_nm });
+  // A module port is an endpoint kind of its own: on an overview a run may end on one
+  // (ADR-0067 D3).
+  const modulePortPoints = new Map(viewModulePorts(view).map((port) => [port.id, { x: port.x_nm, y: port.y_nm }]));
 
   const pins: SchematicPinProjection[] = [];
   const texts: SchematicTextProjection[] = [];
@@ -204,7 +247,7 @@ export function schematicProjection(
     ? new Map()
     : placePageFields(pageFacts(view, instances, PROJECTION));
 
-  for (const place of view.place) {
+  for (const place of view.place ?? []) {
     const entry = placed.get(place.instance_id)!;
     if (!entry.instance) throw new Error(`schematic view: no symbol facts for placed instance ${place.instance_id}`);
     const unit = place.unit ?? 1;
@@ -308,7 +351,7 @@ export function schematicProjection(
   }
 
   for (const wire of view.wire ?? []) {
-    shapes.push({ kind: "polyline", layer: "wire", points: wirePoints(wire, placed, endpointPoints).map((p) => ({ x_nm: p.x, y_nm: p.y })) });
+    shapes.push({ kind: "polyline", layer: "wire", points: wirePoints(wire, placed, endpointPoints, modulePortPoints).map((p) => ({ x_nm: p.x, y_nm: p.y })) });
   }
   for (const label of view.label ?? []) {
     texts.push({ layer: "label", role: "text", text: label.net, x_nm: label.x_nm, y_nm: label.y_nm });
@@ -318,7 +361,7 @@ export function schematicProjection(
   }
 
   return {
-    sheet: { width_nm: view.sheet.width_nm, height_nm: view.sheet.height_nm },
+    sheet,
     pins: byFact(pins),
     texts: byFact(texts),
     fields: byFact(fields),
@@ -328,6 +371,18 @@ export function schematicProjection(
         const dir = portDirection(port.rot_mdeg);
         return { id: port.id, x_nm: port.x_nm, y_nm: port.y_nm, dir_x: dir.x, dir_y: dir.y };
       }),
+    ),
+    modules: byFact(
+      viewModuleBoxes(view).map((box) => ({
+        instance_id: box.instance_id,
+        x1_nm: Math.min(box.x_nm, box.x_nm + box.width_nm),
+        y1_nm: Math.min(box.y_nm, box.y_nm + box.height_nm),
+        x2_nm: Math.max(box.x_nm, box.x_nm + box.width_nm),
+        y2_nm: Math.max(box.y_nm, box.y_nm + box.height_nm),
+      })),
+    ),
+    modulePorts: byFact(
+      viewModulePorts(view).map((port) => ({ id: port.id, x_nm: port.x_nm, y_nm: port.y_nm })),
     ),
   };
 }
@@ -342,6 +397,7 @@ function wirePoints(
   wire: Wire,
   placed: ReadonlyMap<string, { place: Place; instance: SchematicInstance }>,
   ports: ReadonlyMap<string, { x: number; y: number }>,
+  modulePorts: ReadonlyMap<string, { x: number; y: number }>,
 ): { x: number; y: number }[] {
   const endpoint = (ref: string): { x: number; y: number } => {
     // A bare id names a page port or declared junction; both resolve on this page.
@@ -350,6 +406,10 @@ function wirePoints(
       if (!point) throw new Error(`schematic view: wire endpoint ${ref} names a port or junction the page does not draw`);
       return { x: point.x, y: point.y };
     }
+    // A dotted id names a module port when this page draws one with that id: a module port is an
+    // interface, not a pin (ADR-0067 D3).
+    const modulePort = modulePorts.get(ref);
+    if (modulePort) return { x: modulePort.x, y: modulePort.y };
     const { instance: id, pin } = splitPinRef(ref);
     const entry = placed.get(id);
     if (!entry) throw new Error(`schematic view: wire endpoint ${ref} refers to an instance that is not placed`);
@@ -371,6 +431,8 @@ export function extractSchematic(doc: SvgDoc): SchematicProjection {
   const fields: SchematicFieldProjection[] = [];
   const shapes: SchematicShapeProjection[] = [];
   const ports: SchematicPortProjection[] = [];
+  const modules: SchematicModuleProjection[] = [];
+  const modulePorts: SchematicModulePortProjection[] = [];
   let sheet = { width_nm: 0, height_nm: 0 };
   // Port tags are emitted in view order, a tag polygon followed by its name text; both are kept in
   // order and zipped, because the text sits at the tag's centre and not at its tip.
@@ -437,10 +499,31 @@ export function extractSchematic(doc: SvgDoc): SchematicProjection {
           sheet = { width_nm: primitive.x2 - primitive.x1, height_nm: primitive.y2 - primitive.y1 };
           break;
         }
+        // A module box: the rectangle an overview draws around one module instance. The instance
+        // is the drawing's own identity -- the extractor never guesses which module it stands for.
+        if (primitive.layer === "module") {
+          modules.push({
+            instance_id: moduleIdentity(primitive.ref, "module:", "module box"),
+            x1_nm: Math.min(primitive.x1, primitive.x2),
+            y1_nm: Math.min(primitive.y1, primitive.y2),
+            x2_nm: Math.max(primitive.x1, primitive.x2),
+            y2_nm: Math.max(primitive.y1, primitive.y2),
+          });
+          break;
+        }
         if (!SHAPE_LAYERS.has(primitive.layer)) break;
         shapes.push({ kind: "rect", layer: primitive.layer, x1_nm: primitive.x1, y1_nm: primitive.y1, x2_nm: primitive.x2, y2_nm: primitive.y2, fill: primitive.fill });
         break;
       case "circle":
+        // A module port mark: a ring drawn where the overview puts the port.
+        if (primitive.layer === "module_port") {
+          modulePorts.push({
+            id: moduleIdentity(primitive.ref, "module-port:", "module port"),
+            x_nm: primitive.cx,
+            y_nm: primitive.cy,
+          });
+          break;
+        }
         if (!SHAPE_LAYERS.has(primitive.layer)) break;
         shapes.push({ kind: "circle", layer: primitive.layer, cx_nm: primitive.cx, cy_nm: primitive.cy, r_nm: primitive.rNm, fill: primitive.fill });
         break;
@@ -486,5 +569,28 @@ export function extractSchematic(doc: SvgDoc): SchematicProjection {
     ports.push({ id, x_nm: tag.x_nm, y_nm: tag.y_nm, dir_x: tag.dir_x, dir_y: tag.dir_y });
   }
 
-  return { sheet, pins: byFact(pins), texts: byFact(texts), fields: byFact(fields), shapes: byFact(shapes), ports: byFact(ports) };
+  return {
+    sheet,
+    pins: byFact(pins),
+    texts: byFact(texts),
+    fields: byFact(fields),
+    shapes: byFact(shapes),
+    ports: byFact(ports),
+    modules: byFact(modules),
+    modulePorts: byFact(modulePorts),
+  };
+}
+
+/**
+ * The identity a module shape carries in the drawing.
+ *
+ * The drawing names the object it drew (`module:M1`, `module-port:M1.SYS_OUT`); a shape without
+ * that name cannot be placed in the projection, and guessing one would invent a fact.
+ */
+function moduleIdentity(ref: string | undefined, prefix: string, what: string): string {
+  const id = ref !== undefined && ref.startsWith(prefix) ? ref.slice(prefix.length) : "";
+  if (id === "") {
+    throw new Error(`schematic drawing: a ${what} is missing its identity`);
+  }
+  return id;
 }

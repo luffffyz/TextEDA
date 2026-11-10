@@ -3,8 +3,7 @@
 Status: Accepted
 Date: 2026-10-21
 Scope: Decides: how the IR is split into shards, how an identity is keyed, and how the hashes are computed and aggregated. Does not decide: the representation of the IR itself — see ADR-0005; nor the instance identity — see ADR-0010.
-Related: [ADR-0002](../01-language/0002-one-language-version-number.md), [ADR-0004](../01-language/0004-source-spans.md), [ADR-0005](0005-ir-representation.md), [ADR-0008](../03-project/0008-project-tree-has-owners.md), [ADR-0012](../04-schematic/0012-one-flat-schematic-per-board.md), [ADR-0023](../06-manufacturing/0023-the-output-package-carries-its-provenance.md)
-Impact: `schemas/ir/**`; `packages/cli/src/ir-tree.ts`; `packages/cli/src/ir.ts`; `AGENTS.md` §2 rule 18, `AGENTS.md` §9
+Related: [ADR-0002](../01-language/0002-one-language-version-number.md), [ADR-0004](../01-language/0004-source-spans.md), [ADR-0005](0005-ir-representation.md), [ADR-0008](../03-project/0008-project-tree-has-owners.md), [ADR-0012](../04-schematic/0012-one-flat-schematic-per-board.md), [ADR-0023](../06-manufacturing/0023-the-output-package-carries-its-provenance.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md)
 
 ## Background
 
@@ -60,27 +59,24 @@ by the `source.file` field every shard already has.
 ```
 dist/ir/
 ├── manifest.json                     # shard paths + sha256 per shard + the project hash
-├── boards/<board_id>/schematic.json  # the flattened logic of one board
-├── boards/<board_id>/pcb.json        # the physical description of one board
-├── boards/<board_id>/view/<page_id>.json  # the drawing of one page
+├── project/schematic.json            # the one project's flattened logical root (normative)
+├── boards/<pcb_id>/pcb.json          # one physical PCB implementation (normative)
+├── views/<page_id>.json              # one project-level drawing (advisory)
 ├── symbols/<lib>/<symbol_id>.json
 ├── footprints/<lib>/<footprint_id>.json
 ├── components/<component_id>.json
-├── boards/<board_id>/procurement.json              # the primary selections of one board
-├── boards/<board_id>/procurement-alternatives.json  # the second sources of one board
-├── project.json
-└── systems/<system_id>.json
+├── boards/<pcb_id>/procurement.json              # primary selections for one PCB (normative)
+├── boards/<pcb_id>/procurement-alternatives.json  # second sources for one PCB (advisory)
+└── project.json
 ```
 
-- A print page's drawing is its own description, so it is its own shard. It is **not** merged into
-  the schematic shard — the schematic shard is the flattened logic, the view shard is a picture of
-  one page, and the two have different readers. It is **advisory** (D7).
-- The library kinds keep one shard per library file; the library name is the directory the file
-  lives in. A library vendored under `external/libs/<name>/` and the project's own assets under
-  `assets/` are distinguished by the library name in the shard path and by `source.file`.
-- A selection is scoped to a board, so its shard is a **board** shard: the primary takes part in
-  the board hash, and changing the part a board is built from invalidates that board's review. The
-  primary is normative, the alternatives advisory.
+The current `v0.19` paths reflect the project-level logic root and physical PCB ownership in
+[ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1, D2, and D5.
+
+- Each project print page is its own advisory shard. It is **not** merged into the schematic shard: the schematic shard is flattened logic, and the view shard is a picture of one page.
+- The library kinds keep one shard per library file; the library name is the directory the file lives in. A library vendored under `external/libs/<name>/` and the project's own assets under `assets/` are distinguished by the library name in the shard path and by `source.file`.
+- Procurement is scoped to one physical PCB and its owned module instances, so its shard is under `boards/<pcb_id>/`: the primary takes part in the project hash and that PCB's board hash; changing the part a PCB is built from invalidates that PCB's review. The primary is normative, the alternatives advisory.
+
 - **The shard set is the project's content, not a reachability closure.** Every description file
   with a producer gets a shard, whether or not the build uses it: a device file no board and no
   procurement file references is still a shard, exactly as a symbol no component references would

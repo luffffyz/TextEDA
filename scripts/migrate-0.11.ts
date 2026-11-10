@@ -14,9 +14,9 @@
 //      table lists them;
 //   2. brackets the tuple value of a key that carries one (`at=`, `size=`, `offset=`, `scale=`,
 //      `rot=`) and the single geometry cell of a `body`/`graphics` row;
-//   3. rewrites the `version` line of `view`, `pcb`, `symbol`, and `footprint` files to the current
-//      language version; the other description types keep their accepted older version lines;
-//   4. rewrites the `format` key of `project.toml` to the same number.
+//   3. rewrites the `version` line of `view`, `pcb`, `symbol`, and `footprint` files to 0.11; the
+//      other description types keep their accepted older version lines;
+//   4. rewrites the `format` key of `project.toml` to the same number (0.11).
 //
 // It works on the text, not on the IR: it reads and writes lines and never asks the parser what a
 // file means. It decides nothing — a tuple's arity was already fixed by the column that consumed
@@ -26,11 +26,10 @@
 // Idempotent: an already-bracketed tuple is left as it is, so re-running the script is safe.
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { formatVersion, SUPPORTED_LANGUAGE } from "@texteda/parser";
 import { descriptionType, foldFile, GEOMETRIC_DESCRIPTION_TYPES, headerIndex } from "./lib/tuple-fold.ts";
 
-/** The target number for geometric files and `project.toml` after this migration (ADR-0065 D5). */
-const TARGET = formatVersion(SUPPORTED_LANGUAGE);
+/** The historical target number for the tuple-syntax migration (ADR-0065 D5). */
+const TARGET = "0.11";
 
 /**
  * Directories a project does not own: build output and vendored libraries. Their files are not the

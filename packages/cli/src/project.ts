@@ -3,10 +3,12 @@
 //
 // Project layout (ADR-0008, see `paths.ts`):
 //   assets/components/**/*.teda        devices (one per file, id taken from the file name)
-//   design/sch/<board>.teda            the board's schematic (one file per board, ADR-0012)
-//   design/pcb/<board>.teda            the board's layout
+//   design/sch/main.teda               the one logical root (ADR-0069 D1)
+//   design/pcb/<pcb_id>.teda           the physical PCB implementations (ADR-0069 D2)
 //   design/modules/<module>.teda       module definitions (spec/module.md)
-//   views/<board>/<page>.view.teda     a print page of the board's drawing (ADR-0035, ADR-0012, ADR-0035)
+//   views/<page>.view.teda             a project print page (ADR-0069 D4)
+//   views/modules/<module>.module-view.teda      a reusable drawing of one module (ADR-0068 D1)
+//   views/templates/<template>.sheet-template.teda  reusable static page furniture (ADR-0068 D1)
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import {
@@ -24,7 +26,7 @@ import type { DiagnosticCodeId } from "@texteda/ir/diagnostics";
 import { PROCUREMENT_ROLES, type ProcurementRole } from "@texteda/parser";
 import type { Device } from "@texteda/core";
 import type { SourceMap } from "@texteda/ir/spans";
-import { LAYOUT } from "./paths.ts";
+import { LAYOUT, MAIN_SCHEMATIC_ID, VIEW_SUFFIXES } from "./paths.ts";
 import { locateWith } from "./locate.ts";
 
 /** Problem when a component file cannot be read (no exception thrown; the caller aggregates these into diagnostics). */
@@ -70,8 +72,7 @@ export interface LoadedComponents {
  *
  * One directory holds device files (ADR-0024, ADR-0024): `assets/components/` holds the parts
  * (specific devices) and the generics (device classes) alike — the kind is a fact of the file,
- * not of the path. One id namespace: the id is the file name, so a board writes
- * `res-thick-0402` without saying where it lives.
+ * not of the path: the file name is the component id.
  */
 export function loadComponents(root: string): LoadedComponents {
   const files: string[] = [];
@@ -90,7 +91,7 @@ export function loadComponents(root: string): LoadedComponents {
   const problems: ComponentProblem[] = [];
   const shards: { id: string; file: string; ir: Component; sources?: SourceMap }[] = [];
   const diagnostics: Diagnostic[] = [];
-  /** Device files that exist but have errors: a board referencing them must not be told "not found". */
+  /** Device files that exist but have errors: a module referencing them must not be told "not found". */
   const broken = new Map<string, string>();
   for (const file of files.sort()) {
     const result = parseComponent(readFileSync(file, "utf8"), { file: relative(root, file) });
@@ -190,18 +191,22 @@ export function loadComponents(root: string): LoadedComponents {
 
 }
 
-export interface LoadedBoard {
-  /** Board id. */
-  board: string;
-  /** The board's schematic file (relative to the project root). */
+/** The project's one logical root: `design/sch/main.teda` (ADR-0069 D1). */
+export interface SchematicSource {
+  /** Path relative to the project root. */
   file: string;
-  /** The board's schematic text. */
+  /** The file's text. */
   text: string;
-  /** The board's print pages (the drawing layer, ADR-0035). */
-  views: ViewSource[];
 }
 
-/** A print page of a board's drawing: `views/<board>/<page_id>.view.teda`. */
+/** Read the project's logical root (`design/sch/main.teda`). Returns `null` when the file does not exist. */
+export function loadSchematic(root: string): SchematicSource | null {
+  const file = join(root, LAYOUT.sch, `${MAIN_SCHEMATIC_ID}.teda`);
+  if (!existsSync(file)) return null;
+  return { file: relative(root, file), text: readFileSync(file, "utf8") };
+}
+
+/** A project print page: `views/<page_id>.view.teda` (ADR-0069 D4). */
 export interface ViewSource {
   /** Print page id (the view file's id). */
   pageId: string;
@@ -210,18 +215,27 @@ export interface ViewSource {
   text: string;
 }
 
-/** List the project's boards (`design/sch/<board>.teda`). Returns an empty array when the directory does not exist. */
-export function listBoards(root: string): string[] {
-  const dir = join(root, LAYOUT.sch);
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".teda"))
-    .map((entry) => entry.name.slice(0, entry.name.length - ".teda".length))
-    .sort();
+/** The project's print pages (`views/<page_id>.view.teda`), the drawing layer (ADR-0035). Returns an empty array when the directory does not exist. */
+export function loadViews(root: string): ViewSource[] {
+  return readViewFiles(root, LAYOUT.views, VIEW_SUFFIXES.page).map((page) => ({
+    pageId: page.id,
+    file: page.file,
+    text: page.text,
+  }));
 }
 
-/** List the boards that have a pcb description (`design/pcb/<board>.teda`). */
-export function listPcbBoards(root: string): string[] {
+/** A physical PCB implementation: `design/pcb/<pcb_id>.teda` (ADR-0069 D2). */
+export interface PcbSource {
+  /** The PCB id, taken from the file name. */
+  pcbId: string;
+  /** Path relative to the project root. */
+  file: string;
+  /** The file's text. */
+  text: string;
+}
+
+/** List the project's physical PCBs (`design/pcb/<pcb_id>.teda`). Returns an empty array when the directory does not exist. */
+export function listPcbs(root: string): string[] {
   const dir = join(root, LAYOUT.pcb);
   if (!existsSync(dir)) return [];
   return readdirSync(dir, { withFileTypes: true })
@@ -230,12 +244,18 @@ export function listPcbBoards(root: string): string[] {
     .sort();
 }
 
+/** Read one physical PCB (`design/pcb/<pcb_id>.teda`). Returns `null` when the file does not exist. */
+export function loadPcb(root: string, pcbId: string): PcbSource | null {
+  const file = join(root, LAYOUT.pcb, `${pcbId}.teda`);
+  if (!existsSync(file)) return null;
+  return { pcbId, file: relative(root, file), text: readFileSync(file, "utf8") };
+}
+
 /**
  * Read the project file (`project.toml`).
  *
- * The project file is the project's own metadata: name, version, the board list, the variants,
- * the library locks. It carries no circuit. A project without the file is still a project — the
- * diagnostics say so, and the boards are found from `design/sch/` as before.
+ * The project file holds metadata such as name, version, variants, and library locks. It carries no
+ * circuit. A project without the file is still a project — the diagnostics say so.
  */
 export function loadProject(root: string): { ir?: Project; owner?: string; diagnostics: Diagnostic[] } {
   const file = "project.toml";
@@ -260,27 +280,6 @@ export function loadProject(root: string): { ir?: Project; owner?: string; diagn
   };
 }
 
-/** A system description: `design/system/<system_id>.teda`. */
-export interface SystemSource {
-  /** The system id, taken from the file name. */
-  systemId: string;
-  /** Path relative to the project root. */
-  file: string;
-}
-
-/** Every system description in the project (`design/system/<system_id>.teda`). */
-export function listSystems(root: string): SystemSource[] {
-  const dir = join(root, LAYOUT.system);
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".teda"))
-    .map((entry) => ({
-      systemId: entry.name.slice(0, entry.name.length - ".teda".length),
-      file: relative(root, join(dir, entry.name)),
-    }))
-    .sort((a, b) => (a.systemId < b.systemId ? -1 : a.systemId > b.systemId ? 1 : 0));
-}
-
 /**
  * Read the project's modules (`design/modules/<module_id>.teda`). The module id is the file name, like the
  * component id (spec/module.md §1). Returns an empty array when the directory does not exist.
@@ -298,36 +297,93 @@ export function loadModules(root: string): ModuleSource[] {
     .sort((a, b) => (a.moduleId < b.moduleId ? -1 : a.moduleId > b.moduleId ? 1 : 0));
 }
 
-/** Read the board's schematic file and its print pages. Returns `null` when the schematic file does not exist. */
-export function loadBoard(root: string, board: string): LoadedBoard | null {
-  const file = join(root, LAYOUT.sch, `${board}.teda`);
-  if (!existsSync(file)) return null;
-  const viewDir = join(root, LAYOUT.views, board);
-  const views: ViewSource[] = [];
-  if (existsSync(viewDir)) {
-    for (const name of readdirSync(viewDir).sort()) {
-      // Only print pages live in this directory: `<page_id>.view.teda` (ADR-0035, ADR-0012).
-      if (!name.endsWith(".view.teda")) continue;
-      views.push({
-        pageId: name.slice(0, name.length - ".view.teda".length),
-        file: relative(root, join(viewDir, name)),
-        text: readFileSync(join(viewDir, name), "utf8"),
-      });
-    }
-  }
-  return {
-    board,
-    file: relative(root, file),
-    text: readFileSync(file, "utf8"),
-    views,
-  };
+/** A reusable module drawing: `views/modules/<module_id>.module-view.teda` (ADR-0068 D1). */
+export interface ModuleViewSource {
+  /** The module the drawing belongs to; the id is the file name. */
+  moduleId: string;
+  /** Path relative to the project root. */
+  file: string;
+  /** The file's text. */
+  text: string;
 }
 
-/** A procurement file: one board's selections, in one of the two positions (spec/procurement.md). */
+/** A reusable sheet template: `views/templates/<template_id>.sheet-template.teda` (ADR-0068 D1). */
+export interface SheetTemplateSource {
+  /** The template id; the id is the file name. */
+  templateId: string;
+  /** Path relative to the project root. */
+  file: string;
+  /** The file's text. */
+  text: string;
+}
+
+/**
+ * Read the project's reusable module drawings (`views/modules/<module_id>.module-view.teda`).
+ *
+ * A module drawing is the view layer's own description of one module: local bounds plus the rows
+ * that draw it (ADR-0068 D2). The module id is the file name, like the electrical module's id, and
+ * the drawing is advisory: it can show the module, it can never change it.
+ */
+export function loadModuleViews(root: string): ModuleViewSource[] {
+  return readViewFiles(root, LAYOUT.moduleViews, VIEW_SUFFIXES.moduleView).map((entry) => ({
+    moduleId: entry.id,
+    file: entry.file,
+    text: entry.text,
+  }));
+}
+
+/**
+ * Read the project's sheet templates (`views/templates/<template_id>.sheet-template.teda`).
+ *
+ * A template is static page furniture: a size and the rows that draw it (ADR-0068 D3). It adds
+ * artwork to a page, never electrical facts.
+ */
+export function loadSheetTemplates(root: string): SheetTemplateSource[] {
+  return readViewFiles(root, LAYOUT.sheetTemplates, VIEW_SUFFIXES.sheetTemplate).map((entry) => ({
+    templateId: entry.id,
+    file: entry.file,
+    text: entry.text,
+  }));
+}
+
+/** One file of a view artifact directory: the id is the file name without the type suffix. */
+interface ViewFile {
+  /** The id: the file name without the type suffix. */
+  id: string;
+  /** Path relative to the project root. */
+  file: string;
+  /** The file's text. */
+  text: string;
+}
+
+/**
+ * Read the files in one view artifact directory that carry the given type suffix.
+ *
+ * Project pages are direct children of `views/`; module drawings and templates live in their
+ * dedicated subdirectories. The suffix distinguishes artifact kinds, and absent directories
+ * produce an empty array.
+ */
+function readViewFiles(root: string, dir: string, suffix: string): ViewFile[] {
+  const path = join(root, dir);
+  if (!existsSync(path)) return [];
+  const files: ViewFile[] = [];
+  for (const entry of readdirSync(path, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith(suffix)) continue;
+    const full = join(path, entry.name);
+    files.push({
+      id: entry.name.slice(0, entry.name.length - suffix.length),
+      file: relative(root, full),
+      text: readFileSync(full, "utf8"),
+    });
+  }
+  return files.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
+/** A procurement file: one PCB's selections, in one of the two positions (spec/procurement.md). */
 export interface ProcurementSource {
   /** The role the position gives the file: the primary selections or the second sources. */
   role: ProcurementRole;
-  /** The board the file belongs to, taken from the file name. */
+  /** The PCB id the file belongs to, taken from the file name. */
   board: string;
   /** Path relative to the project root. */
   file: string;
@@ -336,7 +392,7 @@ export interface ProcurementSource {
 }
 
 /**
- * Read a board's procurement file in one position.
+ * Read a PCB's procurement file in one position.
  *
  * The primary is normative (the build is made of those parts) and the alternatives are advisory
  * (a second source does not change the build); the two are separate files, and each one produces
@@ -362,18 +418,6 @@ export function listProcurement(root: string): ProcurementSource[] {
     }
   }
   return out;
-}
-
-/** Read `design/pcb/<board>.teda`; returns null when absent (pcb is an optional sibling description). */
-export function loadPcb(root: string, board: string): LoadedBoard | null {
-  const file = join(root, LAYOUT.pcb, `${board}.teda`);
-  if (!existsSync(file)) return null;
-  return {
-    board,
-    file: relative(root, file),
-    text: readFileSync(file, "utf8"),
-    views: [],
-  };
 }
 
 /** One tree under `external/libs/` that the build refuses to read (ADR-0034). */

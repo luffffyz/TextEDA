@@ -11,6 +11,7 @@ import { join, relative } from "node:path";
 import { QUANTITY_SPECS, formatQuantity, parseSymbol, type QuantityKind } from "@texteda/parser";
 import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
 import type { Symbol } from "@texteda/ir/symbol";
+import { PARAM_TYPE_KINDS, parseQuantity, type Document as ModuleDocument } from "@texteda/parser";
 import type { Schematic } from "@texteda/ir/schematic";
 import type { SchematicInstance } from "@texteda/renderer";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
@@ -80,6 +81,58 @@ export function schematicInstances(
     instances.set(instance.id, {
       symbol: symbol.symbol,
       part: { pins: pinsOf(instance.component).map((pin) => ({ number: pin.number, name: pin.name, type: pin.type })) },
+      ...(value === undefined ? {} : { value }),
+    });
+  }
+  return instances;
+}
+
+/** A module's local instances as the renderer needs them, keyed by their local designators. */
+export function moduleSchematicInstances(
+  doc: ModuleDocument,
+  pinsOf: (componentId: string) => readonly { number: string; name: string; type: string }[],
+  symbolOf: (componentId: string) => string | undefined,
+  symbols: ReadonlyMap<string, Symbol>,
+  deviceOf: (componentId: string) => DeviceFacts | undefined,
+  paramsOf: (componentId: string) => readonly { name: string; type: string }[],
+): SchematicInstances {
+  const instances: SchematicInstances = new Map();
+  for (const instance of doc.instances) {
+    const symbolRef = symbolOf(instance.componentId);
+    const symbol = symbolRef === undefined ? undefined : symbols.get(symbolRef);
+    if (symbol === undefined) continue;
+    const device = deviceOf(instance.componentId);
+    const declarations = paramsOf(instance.componentId);
+    const fallback = instanceValueText(
+      { id: instance.refdes, component: instance.componentId, params: [] },
+      device,
+    );
+    const valueIndex = declarations.findIndex((declaration) => declaration.name === "value");
+    const cell = valueIndex < 0 ? undefined : instance.paramCells[valueIndex];
+    const declaration = valueIndex < 0 ? undefined : declarations[valueIndex];
+    let value = fallback;
+    if (cell !== undefined && declaration !== undefined) {
+      if (declaration.type === "string") {
+        value = instanceValueText(
+          { id: instance.refdes, component: instance.componentId, params: [{ name: "value", text: cell }] },
+          device,
+        );
+      } else {
+        const kind = PARAM_TYPE_KINDS[declaration.type];
+        if (kind !== undefined) {
+          const parsed = parseQuantity(cell, kind, { code: "value.invalid-param" });
+          if (parsed.ok) {
+            value = instanceValueText(
+              { id: instance.refdes, component: instance.componentId, params: [{ name: "value", value: parsed.value }] },
+              device,
+            );
+          }
+        }
+      }
+    }
+    instances.set(instance.refdes, {
+      symbol: symbol.symbol,
+      part: { pins: pinsOf(instance.componentId).map((pin) => ({ ...pin })) },
       ...(value === undefined ? {} : { value }),
     });
   }

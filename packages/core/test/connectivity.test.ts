@@ -6,7 +6,7 @@ import { describe, expect, test } from "bun:test";
 import { checkConnectivity, type ConnectivityFacts } from "../src/index.ts";
 
 const base: ConnectivityFacts = {
-  file: "sch/b.teda",
+  file: "design/sch/main.teda",
   nets: [],
   portNets: new Set(),
   pins: [],
@@ -82,13 +82,13 @@ describe("location", () => {
     const diagnostics = checkConnectivity({
       ...base,
       nets: [{ id: "N1", members: ["R1.1"] }],
-      locateNet: (id) => (id === "N1" ? { file: "sch/b/p1.teda", line: 12, col: 3 } : undefined),
+      locateNet: (id) => (id === "N1" ? { file: "design/sch/main.teda", line: 12, col: 3 } : undefined),
     });
-    expect(diagnostics[0]!.location).toEqual({ file: "sch/b/p1.teda", line: 12, col: 3 });
+    expect(diagnostics[0]!.location).toEqual({ file: "design/sch/main.teda", line: 12, col: 3 });
   });
 
-  test("falls back to the board file's first line when no location is available, without dropping the diagnostic", () => {
+  test("falls back to the project schematic's first line when no location is available, without dropping the diagnostic", () => {
     const diagnostics = checkConnectivity({ ...base, nets: [{ id: "N1", members: ["R1.1"] }] });
-    expect(diagnostics[0]!.location).toEqual({ file: "sch/b.teda", line: 1, col: 1 });
+    expect(diagnostics[0]!.location).toEqual({ file: "design/sch/main.teda", line: 1, col: 1 });
   });
 });

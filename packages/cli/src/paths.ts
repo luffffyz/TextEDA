@@ -3,7 +3,7 @@
 //   assets/    what this project owns: device assets + procurement decisions
 //   external/  what this project references but does not own
 //   design/    the circuit — the truth
-//   views/     the drawings: hand-written, discardable, outside the build (ADR-0035)
+//   views/     the drawings: hand-written, discardable, outside the build (ADR-0035, ADR-0068)
 //   docs/      design intent, review records, analysis evidence
 //   dist/      derived artifacts
 //
@@ -18,16 +18,36 @@ export const LAYOUT = {
   footprints: "assets/footprints",
   /** Procurement selections (ADR-0029): `primary/` is normative, `alternatives/` is advisory. */
   procurement: "assets/procurement",
-  /** Board schematics: `design/sch/<board_id>.teda`. */
+  /** The one logical root: `design/sch/main.teda` (ADR-0069 D1). */
   sch: "design/sch",
-  /** Board layouts: `design/pcb/<board_id>.teda`. */
+  /** Physical PCB implementations: `design/pcb/<pcb_id>.teda` (ADR-0069 D2). */
   pcb: "design/pcb",
   /** Review rounds (ADR-0037): `docs/reviews/<round_id>.md` and `<round_id>.decision.toml`. */
   reviews: "docs/reviews",
   /** Module definitions: `design/modules/<module_id>.teda`. */
   modules: "design/modules",
-  /** System descriptions: `design/system/<system_id>.teda`. */
-  system: "design/system",
-  /** Print pages: `views/<board_id>/<page_id>.view.teda` (ADR-0035). */
+  /** Project print pages: `views/<page_id>.view.teda` (ADR-0069 D4). */
   views: "views",
+  /** Reusable module drawings: `views/modules/<module_id>.module-view.teda` (ADR-0068 D1). */
+  moduleViews: "views/modules",
+  /** Reusable sheet templates: `views/templates/<template_id>.sheet-template.teda` (ADR-0068 D1). */
+  sheetTemplates: "views/templates",
+} as const;
+
+/** The logical root's fixed id (ADR-0069 D1): the only schematic is `design/sch/main.teda`. */
+export const MAIN_SCHEMATIC_ID = "main";
+
+/**
+ * The file-name suffixes that mark the three view artifact kinds (ADR-0035, ADR-0068 D1).
+ *
+ * The suffix is the type marker: it says which description a file holds before anybody reads the
+ * header, so one directory never yields another kind's rows.
+ */
+export const VIEW_SUFFIXES = {
+  /** A project print page: `views/<page_id>.view.teda` (ADR-0069 D4). */
+  page: ".view.teda",
+  /** A reusable module drawing: `views/modules/<module_id>.module-view.teda`. */
+  moduleView: ".module-view.teda",
+  /** A reusable sheet template: `views/templates/<template_id>.sheet-template.teda`. */
+  sheetTemplate: ".sheet-template.teda",
 } as const;

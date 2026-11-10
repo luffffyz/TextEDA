@@ -1,46 +1,51 @@
 {
-  "ir_version": "0.15",
+  "ir_version": "0.19",
   "shards": [
     {
-      "path": "boards/sensor-hub/schematic.json",
-      "sha256": "639f9cf5269f827aa2884edb6e7863a58589a88098e61c31726bb7ff9226d440",
+      "path": "boards/sensor-hub/pcb.json",
+      "sha256": "f247dfe2cefc6568244fe2f445efdcf09e1ce57270098ae94ec3629e3b74959c",
       "normative": true
     },
     {
       "path": "components/hdr-1x4-254.json",
-      "sha256": "93483439e494eb0ff50caf72958fb1e0ee69405bf4c7160ff8f86438de7ed1b2",
+      "sha256": "d59e4bd66a5dae4662854682f4fb2e5f9ac91b6c010b06361558a4abd6664fba",
       "normative": true
     },
     {
       "path": "components/jst-sh-4.json",
-      "sha256": "eb530c40e5226441103a3acf489bf4a488f46165c06e49769b41665524dc3b81",
+      "sha256": "cacdb2cc0931457be12948cf8cf009094854f56e81fd60417b85d411bbc0ea89",
       "normative": true
     },
     {
       "path": "footprints/connector/jst-sh-4.json",
-      "sha256": "01d88e9e08aca15af1e7f95a6f88712ea62ceda693cf527533fdb0d59141898e",
+      "sha256": "aa0cdab6a07b513e298990d3ba260226bbc6a8f7ba2f36adc403ee253c0df7dd",
       "normative": true
     },
     {
       "path": "footprints/header/hdr-1x4-254.json",
-      "sha256": "305fde417411a15e210d735e8238ec6e31ce59ed1d654bd064d2db51ee793430",
+      "sha256": "ba8b252ad25c86a633cc35090f5dab9add299dec42997066dabde01cc13e7a68",
       "normative": true
     },
     {
       "path": "project.json",
-      "sha256": "093d1b323e9feca1cdfaf8c59a8f7bea384f08c0f889d429062d5e673f7d7a26",
+      "sha256": "1f01b750d863e6aaab01ca490f8f865ea7a99190cdcb71057d4f3b77f0885ca8",
+      "normative": true
+    },
+    {
+      "path": "project/schematic.json",
+      "sha256": "4fcbe434353012344ada5d385fdd7a79f7fc090ffb2d0b15f5970811d9420054",
       "normative": true
     },
     {
       "path": "symbols/connectors/hdr-1x4.json",
-      "sha256": "e7b203eb54fb3fb34c4d6252c9542a4b6a3cb0a135b3f2e054bff53393437920",
+      "sha256": "9c605bfa28c8f9b9ec08c2b58ea0bbb580a90ede6163c950657289beb583e561",
       "normative": true
     },
     {
       "path": "symbols/connectors/jst-sh-4.json",
-      "sha256": "ea8cee6071462d7cea7a712ab136771cb596ad593c6b3f38a4934b49916adb2f",
+      "sha256": "8170ddc1748d9251ad81fc61374c6f0fac13d3c0e981b98e3b48ab11c2cf6118",
       "normative": true
     }
   ],
-  "source_hash": "0329061b3334655f5565b7b88c59332e9024c178886e2af0e1cabdaefdbcbc79"
+  "source_hash": "54c40c0b5b41e5d4ae0df4ae54f5eca72fc27f42dfbeb26d2e5f30227f5b01b9"
 }

@@ -70,6 +70,16 @@ describe("texteda bom", () => {
     expect(bought.status).toBe("bought");
     expect(bought.quantity).toBe(1);
   });
+  test("scopes rows to the selected PCB's owned modules", () => {
+    const result = run(["bom", project, "mcu-board", "--json"]);
+    expect(result.code).toBe(0);
+    const payload = JSON.parse(result.stdout) as {
+      lines: Array<{ component_id: string; refdes: string[] }>;
+    };
+    expect(payload.lines.some((line) => line.component_id === "bq24610rger")).toBe(false);
+    expect(payload.lines.some((line) => line.refdes.includes("M3.U1"))).toBe(true);
+    expect(payload.lines.every((line) => line.refdes.every((refdes) => refdes.startsWith("M3.")))).toBe(true);
+  });
 
   test("--out writes the table to a file", () => {
     const dir = mkdtempSync(join(tmpdir(), "texteda-bom-"));
@@ -83,9 +93,9 @@ describe("texteda bom", () => {
     }
   });
 
-  test("an unknown board is an error", () => {
-    const result = run(["bom", project, "no-such-board"]);
+  test("an unknown PCB is an error", () => {
+    const result = run(["bom", project, "no-such-pcb"]);
     expect(result.code).toBe(2);
-    expect(result.stderr).toContain("Board root file not found");
+    expect(result.stderr).toContain("PCB description not found");
   });
 });

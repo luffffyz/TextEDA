@@ -1,5 +1,6 @@
 {
-  "ir_version": "0.15",
+  "ir_version": "0.19",
+  "format": "0.11",
   "source": {
     "file": "footprints/chip/r-0402.json"
   },

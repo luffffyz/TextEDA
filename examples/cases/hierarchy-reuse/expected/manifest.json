@@ -1,56 +1,61 @@
 {
-  "ir_version": "0.15",
+  "ir_version": "0.19",
   "shards": [
     {
-      "path": "boards/sensor-hub/schematic.json",
-      "sha256": "5adc01b4b6984da6700dde2ffabb628bb2ea29805127cb656339b6145b0ade5f",
+      "path": "boards/sensor-hub/pcb.json",
+      "sha256": "710ff456161687b13986ca59bb61e1480da486238fb5a728bbd35ca14926b26e",
       "normative": true
     },
     {
       "path": "components/cap-mlcc-0402.json",
-      "sha256": "1ad7695448611da05988bc8283891c5f38b3a7101cd2a65eee55841759ae9bd7",
+      "sha256": "64c1569173a793d609d369fb2e019edbdb5df4a41658bd08e71bf52e8aef2e70",
       "normative": true
     },
     {
       "path": "components/ntc-103at.json",
-      "sha256": "dc34d22c0e31b3c4cbf3e78f5cf8b9dfbffbefdac7e1072c5f9c071813eaf572",
+      "sha256": "542d407d0abb336838abf5cdcd13a061ee5006aa749a0c67723f1838ef4bd9ff",
       "normative": true
     },
     {
       "path": "components/res-thick-0402.json",
-      "sha256": "0562167f021577a540a02078c3842a0a501142c919756be1550c689a3bdf6b4d",
+      "sha256": "a3f063ff0d2c8422293e851f4e3bbfc2177299a981f3533a69bec0f230f475aa",
       "normative": true
     },
     {
       "path": "footprints/chip/chip-0402.json",
-      "sha256": "39da6b6d0d8a5a6df6b8ed1ee0b51b77b6c5a0e581b41e06d4c4d9da7ccf1e33",
+      "sha256": "48de49078ff357157ce9d47e15390e7a18b3d8a3642ab8a74da848e49d034f67",
       "normative": true
     },
     {
       "path": "footprints/chip/chip-0603.json",
-      "sha256": "a908fd6307662e1cfab5deebf93968d6f23bdaf90fd582e8cd5da6531aa13e0e",
+      "sha256": "6991f3877a08b4af51a4ed8afea5631cd17ac1df32325afa199a08266556292f",
       "normative": true
     },
     {
       "path": "project.json",
-      "sha256": "ae3bcfdd07ca6fa14881d4675b065b56fdfa2f493af6bb7a89fafa100294d12e",
+      "sha256": "a3b4a054bf00571c9db1f21c02732917950d04426c78efbf73df0633e1a42cf0",
+      "normative": true
+    },
+    {
+      "path": "project/schematic.json",
+      "sha256": "dd6529661bdc299b83db82a8479877a9706e4848ff59e1bdea85fcf2f6843f32",
       "normative": true
     },
     {
       "path": "symbols/passives/c.json",
-      "sha256": "a3bed7960f1670f6dea396f60e9dd464da969ce36af4b2679fe618568c238f30",
+      "sha256": "7fec862adff808614d813f3c0a095174674963b5ae238d9b1c6345f86c02893b",
       "normative": true
     },
     {
       "path": "symbols/passives/r.json",
-      "sha256": "352da16646143241e3f20cd8d7fb16405f095f55b0aa078cda00152534e239f1",
+      "sha256": "6f15c2d8b79e2186b2bcc752d171763af3aec60ea7d104d14a200f2d0b8f3786",
       "normative": true
     },
     {
       "path": "symbols/sensors/thermistor.json",
-      "sha256": "9b7b070b8a9d21f52609197f291e30af4d17da2c888e9e601681f0a16af3e6e5",
+      "sha256": "95ed48ea47dab6b3e01060e37478b45615881d8d5f2f2f374879ff6d0bb443f0",
       "normative": true
     }
   ],
-  "source_hash": "475201cec6a12be074fab82259ff983f8bac4949f2b0438c896cb34caa7c6b50"
+  "source_hash": "e6bcc54fe2a31ddbd9332995553a7a9105c7570ff710542aba7d1bb911a1c311"
 }

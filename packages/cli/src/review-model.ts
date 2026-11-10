@@ -1,20 +1,42 @@
 // The review model's own module.
 //
-// The model is what the app draws: the boards, their print pages, the drawings, the findings and
-// the build hash. It is not the server and not the document — the command line serves it and
-// writes it into a page, and a plugin host serves it over its own transport (ADR-0043 D9). So it
-// lives here, apart from the HTTP server, and can be built by either.
+// The model is what the app draws: the boards, their print pages, the drawings — a board's canvas,
+// a library symbol, a library footprint, a reusable module drawing — the findings and the build
+// hash. It is not the server and not the document — the command line serves it and writes it into
+// a page, and a plugin host serves it over its own transport (ADR-0043 D9). So it lives here,
+// apart from the HTTP server, and can be built by either.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parsePcb, parseProjectToml, parseSchematic, parseView, formatQuantity, type QuantityKind } from "@texteda/parser";
+import {
+  formatQuantity,
+  PARAM_TYPE_KINDS,
+  parseModuleView,
+  parsePcb,
+  parseProjectToml,
+  parseQuantity,
+  parseSchematic,
+  parseSchematicDocument,
+  parseSheetTemplate,
+  parseView,
+  type Document as ModuleDocument,
+  type ModuleSource,
+  type QuantityKind,
+} from "@texteda/parser";
 import type { Schematic } from "@texteda/ir/schematic";
-import type { SchematicView } from "@texteda/ir/schematic-view";
+import type { ModulePlace, SchematicView } from "@texteda/ir/schematic-view";
+import type { ModuleView as ModuleViewIr } from "@texteda/ir/module-view";
+import type { SheetTemplate as SheetTemplateIr } from "@texteda/ir/sheet-template";
+import type { Component } from "@texteda/ir/component";
 import type { Symbol } from "@texteda/ir/symbol";
 import type { Footprint } from "@texteda/ir/footprint";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
 import {
   bounds,
+  composedGeometry,
+  moduleGeometry,
+  renderComposedPage,
   renderFootprint,
+  renderModuleDrawing,
   renderSchematic,
   renderSymbol,
   schematicGeometry,
@@ -40,7 +62,16 @@ import type {
 import { checkProject } from "./check.ts";
 import { buildIrTree } from "./ir-tree.ts";
 import { LAYOUT } from "./paths.ts";
-import { listBoards, loadBoard, loadComponents, loadModules, loadPcb } from "./project.ts";
+import {
+  listPcbs,
+  loadComponents,
+  loadModuleViews,
+  loadModules,
+  loadPcb,
+  loadSchematic,
+  loadSheetTemplates,
+  loadViews,
+} from "./project.ts";
 import { loadFootprintLibrary } from "./pads.ts";
 import {
   instanceValueText,
@@ -50,16 +81,14 @@ import {
   type SchematicInstances,
 } from "./symbols.ts";
 
-/** Existing schematic pages, indexed without building the renderer/checker review model. */
+/** Existing project pages, indexed without building the renderer/checker review model. */
 export function reviewPageIndex(root: string): {
   boards: Set<string>;
-  pages: { board: string; page: string; file: string }[];
+  pages: { page: string; file: string }[];
 } {
-  const boardIds = listBoards(root);
-  const pages = boardIds.flatMap((board) =>
-    (loadBoard(root, board)?.views ?? []).map((view) => ({ board, page: view.pageId, file: view.file })),
-  );
-  return { boards: new Set(boardIds), pages };
+  const sources = loadViews(root);
+  const ordered = [...sources].sort((a, b) => (a.pageId === "main" ? -1 : b.pageId === "main" ? 1 : a.pageId.localeCompare(b.pageId)));
+  return { boards: new Set(["main"]), pages: ordered.map((view) => ({ page: view.pageId, file: view.file })) };
 }
 
 /** Integer nanometres → millimetres, three decimals (a micrometre): the drawing's own resolution. */
@@ -85,18 +114,18 @@ export function reviewDiagnostic(diagnostic: Diagnostic): ReviewDiagnostic {
 
 /** One page, drawn; or a page that says why it has no drawing. */
 function reviewPage(
-  boardId: string,
   schematic: Schematic,
   viewText: string,
   viewFile: string,
   pageId: string,
   instances: SchematicInstances,
+  artifacts: ViewArtifacts,
 ): ReviewDrawing {
-  const parsed = parseView(viewText, { file: viewFile, board: boardId });
+  const parsed = parseView(viewText, { file: viewFile });
   if (!parsed.ir) {
     return {
       kind: "sch",
-      key: `board/${boardId}/page/${pageId}`,
+      key: `page/${pageId}`,
       label: pageId,
       file: viewFile,
       sheet: { w: 0, h: 0 },
@@ -104,53 +133,154 @@ function reviewPage(
       symbols: [],
       texts: [],
       fields: [],
-       problems: parsed.diagnostics.map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`),
-      board: boardId,
+      problems: parsed.diagnostics.map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`),
+      board: "main",
+      page: pageId,
     };
   }
   const view = parsed.ir;
 
+  // What the page composes, if anything (ADR-0068 D4): a template gives the page its extent and
+  // its furniture, and a `module_place` row puts a module drawing on the page. A page that
+  // composes nothing is an ordinary page and is drawn as one.
+  const templateId = view.template;
+  const template = templateId === undefined ? undefined : artifacts.templates.get(templateId);
+  const placements = view.module_place ?? [];
+
   let svg = "";
   const problems: string[] = [];
+  if (templateId !== undefined) {
+    if (template === undefined) {
+      problems.push(`the page names the template ${templateId}, which the project does not have`);
+    } else {
+      // The template is there but does not compile: the page is drawn without its furniture, and
+      // the template's own file says why.
+      problems.push(...template.problems);
+    }
+  }
+  const drawablePlacements = placements.filter((placement) => {
+    const drawing = artifacts.drawings.get(placement.module_id);
+    if (drawing === undefined) {
+      problems.push(`the page places the module ${placement.module_id}, which has no drawing`);
+      return false;
+    }
+    if (drawing.problems.length > 0 || drawing.ir === undefined) {
+      problems.push(...drawing.problems);
+      return false;
+    }
+    return true;
+  });
+  const effectiveView = template?.ir === undefined ? view : { ...view, sheet: template.ir.size };
+  const renderView = drawablePlacements.length === placements.length
+    ? effectiveView
+    : { ...effectiveView, module_place: drawablePlacements };
+  // Invalid references are reported above and excluded from composition, so they cannot block
+  // valid placements or make the renderer infer module geometry.
   try {
-    svg = toSvgText(renderSchematic(view, instances));
+    svg = toSvgText(
+      template === undefined && placements.length === 0
+        ? renderSchematic(view, instances)
+        : renderComposedPage(renderView, instances, {
+            ...(template?.ir === undefined ? {} : { template: template.ir }),
+            drawings: composedDrawings(drawablePlacements, artifacts),
+            moduleInstances: composedInstances(drawablePlacements, artifacts),
+          }),
+    );
   } catch (error) {
-    // A view that references geometry nobody supplied cannot be drawn. The cross-check (backlog F3)
-    // owns the diagnosis; here the honest answer is "no drawing, and why".
+    // A view that references geometry nobody supplied cannot be drawn. The cross-check owns the
+    // diagnosis; here the honest answer is "no drawing, and why".
     problems.push(error instanceof Error ? error.message : String(error));
   }
 
-  const geometry = reviewGeometry(schematicGeometry(view, instances));
+  let pageGeometry: SheetGeometry;
+  try {
+    pageGeometry = composedGeometry(renderView, instances, {
+      ...(template?.ir === undefined ? {} : { template: template.ir }),
+      drawings: composedDrawings(drawablePlacements, artifacts),
+      moduleInstances: composedInstances(drawablePlacements, artifacts),
+    });
+  } catch (error) {
+    // Invalid placement facts must not hide the page or the checks' authoritative diagnostics.
+    problems.push(error instanceof Error ? error.message : String(error));
+    try {
+      pageGeometry = schematicGeometry(effectiveView, instances);
+    } catch {
+      pageGeometry = { texts: [], fields: [], symbols: [], modules: [] };
+    }
+  }
+  const geometry = reviewGeometry(pageGeometry);
   const { symbols, texts, fields } = geometry;
-  // What the page measures: how crowded it is, how long its wiring is, where the wires cross
-  // (spec/schematic-view.md §9.4). The findings say *that* something is wrong; these say how much.
-  const metrics = reviewMetrics(view, schematic, instances);
+  const metrics = reviewMetrics(effectiveView, schematic, pageGeometry);
+
+  // The page's own extent: a page that carries a template has none of its own — the template's size
+  // is the page's extent (ADR-0068 D4).
+  const sheet = effectiveView.sheet;
 
   return {
     kind: "sch",
-    key: `board/${boardId}/page/${pageId}`,
+    key: `page/${pageId}`,
     label: pageId,
     file: viewFile,
-    sheet: { w: mm(view.sheet.width_nm), h: mm(view.sheet.height_nm) },
+    sheet: sheet === undefined
+      ? { w: 0, h: 0 }
+      : { w: mm(sheet.width_nm), h: mm(sheet.height_nm) },
     svg,
     symbols,
     texts,
     fields,
     problems,
-    board: boardId,
+    board: "main",
     page: pageId,
     ...(metrics === undefined ? {} : { metrics }),
     // The source is exposed for the explicit Source panel; placements are the pending view actions
     // that can be applied to this page. Both are the page's own facts, not a second drawing
     // (ADR-0056 D1, D2).
     source: viewText,
-    places: view.place.map((place) => ({
+    places: (view.place ?? []).map((place) => ({
       instance_id: place.instance_id,
       x: mm(place.x_nm),
       y: mm(place.y_nm),
       rot: Math.round((place.rot_mdeg ?? 0) / 1000),
     })),
   };
+}
+
+/**
+ * The module drawings a page places, by module id (ADR-0068 D4).
+ *
+ * The same drawing may be placed more than once and on more than one page: the placement says
+ * where it goes, the drawing says what it is.
+ */
+function composedDrawings(
+  placements: readonly ModulePlace[],
+  artifacts: ViewArtifacts,
+): Map<string, ModuleViewIr> {
+  const drawings = new Map<string, ModuleViewIr>();
+  for (const placement of placements) {
+    const drawing = artifacts.drawings.get(placement.module_id);
+    if (drawing?.ir === undefined) continue;
+    drawings.set(placement.module_id, drawing.ir);
+  }
+  return drawings;
+}
+
+/**
+ * The module definitions' own instances, by module id (ADR-0068 D2).
+ *
+ * A placed drawing names the module's local instances; the geometry behind them is the module
+ * definition's fact, not the board's.
+ */
+function composedInstances(
+  placements: readonly ModulePlace[],
+  artifacts: ViewArtifacts,
+): Map<string, SchematicInstances> {
+  const instances = new Map<string, SchematicInstances>();
+  for (const placement of placements) {
+    const drawing = artifacts.drawings.get(placement.module_id);
+    if (drawing === undefined) continue;
+    instances.set(placement.module_id, drawing.instances);
+  }
+  return instances;
 }
 
 /**
@@ -162,20 +292,20 @@ function reviewPage(
  */
 function reviewPcb(
   root: string,
-  boardId: string,
+  pcbId: string,
   schematic: Schematic,
   footprintOf: (componentId: string) => string | undefined,
   library: ReadonlyMap<string, Footprint>,
   deviceOf: (componentId: string) => DeviceFacts | undefined,
 ): ReviewDrawing | undefined {
-  const loaded = loadPcb(root, boardId);
+  const loaded = loadPcb(root, pcbId);
   if (loaded === null) return undefined;
-  const parsed = parsePcb(loaded.text, { file: loaded.file, board: boardId });
+  const parsed = parsePcb(loaded.text, { file: loaded.file, pcb: pcbId });
   if (!parsed.ir) {
     return {
       kind: "pcb",
-      key: `board/${boardId}/pcb`,
-      label: boardId,
+      key: `pcb/${pcbId}`,
+      label: pcbId,
       file: loaded.file,
       sheet: { w: 0, h: 0 },
       svg: "",
@@ -185,7 +315,7 @@ function reviewPcb(
       problems: parsed.diagnostics
         .filter((diagnostic) => diagnostic.severity === "error")
         .map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`),
-      board: boardId,
+      board: pcbId,
     };
   }
   const pcb = parsed.ir;
@@ -241,8 +371,8 @@ function reviewPcb(
 
   return {
     kind: "pcb",
-    key: `board/${boardId}/pcb`,
-    label: boardId,
+    key: `pcb/${pcbId}`,
+    label: pcbId,
     file: loaded.file,
     sheet: { w: mm(Math.max(...xs) - Math.min(...xs)), h: mm(Math.max(...ys) - Math.min(...ys)) },
     svg,
@@ -250,7 +380,7 @@ function reviewPcb(
     texts: [],
     parts: partList,
     problems,
-    board: boardId,
+    board: pcbId,
   };
 }
 
@@ -267,10 +397,10 @@ const DRAWING_MARGIN_NM = 2_000_000;
 function reviewMetrics(
   view: SchematicView,
   schematic: Schematic,
-  instances: SchematicInstances,
+  geometry: SheetGeometry,
 ): ReviewMetrics | undefined {
   try {
-    const measured = viewMetrics({ view, schematic, geometry: schematicGeometry(view, instances) });
+    const measured = viewMetrics({ view, schematic, geometry });
     return {
       content_fill_ppm: measured.content_fill_ppm,
       ...(measured.text_min_gap_nm === null ? {} : { text_min_gap_nm: measured.text_min_gap_nm }),
@@ -303,6 +433,195 @@ function splitRef(ref: string): [string, string] {
   const dot = ref.indexOf(":");
   if (dot < 0) return ["", ref];
   return [ref.slice(0, dot), ref.slice(dot + 1)];
+}
+
+/* ------------------------------------------------------------------ *
+ * The reusable view artifacts of ADR-0068: the module drawings and the
+ * sheet templates. Both are advisory — they can show a design, they can
+ * never change one.
+ * ------------------------------------------------------------------ */
+
+/**
+ * One reusable module drawing (ADR-0068 D1/D2).
+ *
+ * The drawing is the view layer's own picture of one module: its own local bounds and rows that
+ * use the module definition's local identities. It is advisory — it can show a module, it can
+ * never change one.
+ */
+interface ModuleDrawing {
+  /** The module the drawing draws. */
+  readonly moduleId: string;
+  /** The drawing's file, relative to the project root. */
+  readonly file: string;
+  /** The parsed drawing; absent when the file does not compile. */
+  readonly ir?: ModuleViewIr;
+  /** Why the drawing has no ink. */
+  readonly problems: readonly string[];
+  /** The module definition's own instances, as the renderer needs them. */
+  readonly instances: SchematicInstances;
+}
+
+/** One reusable sheet template (ADR-0068 D1/D3): a size and static furniture. */
+interface SheetTemplate {
+  /** The template's id. */
+  readonly templateId: string;
+  /** The template's file, relative to the project root. */
+  readonly file: string;
+  /** The parsed template; absent when the file does not compile. */
+  readonly ir?: SheetTemplateIr;
+  /** Why the template has no ink. */
+  readonly problems: readonly string[];
+}
+
+/**
+ * The project's reusable view artifacts (ADR-0068 D1).
+ *
+ * The module drawings and the sheet templates are parsed once and handed to whoever draws them:
+ * a page that places the same module twice draws the same drawing twice, from one parse.
+ */
+interface ViewArtifacts {
+  /** The module drawings, by module id. */
+  readonly drawings: ReadonlyMap<string, ModuleDrawing>;
+  /** The sheet templates, by template id. */
+  readonly templates: ReadonlyMap<string, SheetTemplate>;
+}
+
+/** What the model knows about a device: the symbol it draws and the pins it names (ADR-0031). */
+type ComponentFacts = Component["component"];
+
+interface DeviceLookup {
+  /** The device's own facts, as its component file declares them. */
+  readonly componentOf: (componentId: string) => ComponentFacts | undefined;
+  /** The device's pins: number, name and type. */
+  readonly pinsOf: (componentId: string) => readonly { number: string; name: string; type: string }[];
+  /** The symbol the device draws itself with. */
+  readonly symbolOf: (componentId: string) => string | undefined;
+  /** The device's parameters and its MPN. */
+  readonly deviceOf: (componentId: string) => DeviceFacts | undefined;
+  /** The project's symbol library. */
+  readonly symbols: ReadonlyMap<string, Symbol>;
+}
+
+/**
+ * The project's reusable view artifacts, parsed (ADR-0068 D1).
+ *
+ * The module definitions are read as well: a module drawing names the module's own instances, and
+ * the symbol behind an instance is a fact of the module file — the device names the pins, the
+ * symbol draws them (ADR-0031). The drawing itself never declares a component, a pin, a net or a
+ * port (ADR-0068 D2).
+ */
+function loadViewArtifacts(
+  root: string,
+  modules: readonly ModuleSource[],
+  facts: DeviceLookup,
+): ViewArtifacts {
+  const definitions = new Map<string, ModuleDocument>();
+  for (const source of modules) {
+    const parsed = parseSchematicDocument(source.text, { file: source.file, kind: "module" });
+    if (parsed.doc === undefined) continue;
+    definitions.set(source.moduleId, parsed.doc);
+  }
+
+  const drawings = new Map<string, ModuleDrawing>();
+  for (const source of loadModuleViews(root)) {
+    const parsed = parseModuleView(source.text, { file: source.file });
+    const definition = definitions.get(source.moduleId);
+    const problems = parsed.ir === undefined
+      ? parsed.diagnostics.map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`)
+      : [];
+    if (definition === undefined) {
+      // The drawing draws the module's own instances; without the module definition there are no
+      // symbols to draw, and the project says why the definition is unusable.
+      problems.push(`the module ${source.moduleId} has no usable definition, so its drawing has no geometry`);
+    }
+    drawings.set(source.moduleId, {
+      moduleId: source.moduleId,
+      file: source.file,
+      ...(parsed.ir === undefined ? {} : { ir: parsed.ir }),
+      problems,
+      instances: definition === undefined ? new Map() : moduleInstances(definition, facts),
+    });
+  }
+
+  const templates = new Map<string, SheetTemplate>();
+  for (const source of loadSheetTemplates(root)) {
+    const parsed = parseSheetTemplate(source.text, { file: source.file });
+    templates.set(source.templateId, {
+      templateId: source.templateId,
+      file: source.file,
+      ...(parsed.ir === undefined ? {} : { ir: parsed.ir }),
+      problems: parsed.ir === undefined
+        ? parsed.diagnostics.map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`)
+        : [],
+    });
+  }
+
+  return { drawings, templates };
+}
+
+/**
+ * The module definition's own instances, as the renderer needs them (ADR-0068 D2).
+ *
+ * A module drawing names the module's local instances (`U1`), and the geometry behind an instance
+ * is the device's: the symbol draws the body, the device names the pins (ADR-0031). An instance
+ * whose device or symbol is unknown is left out — the module file's own check says so, and
+ * geometry cannot be invented for it.
+ */
+function moduleInstances(doc: ModuleDocument, facts: DeviceLookup): SchematicInstances {
+  const instances: SchematicInstances = new Map();
+  for (const instance of doc.instances) {
+    const symbolRef = facts.symbolOf(instance.componentId);
+    const symbol = symbolRef === undefined ? undefined : facts.symbols.get(symbolRef);
+    if (symbol === undefined) continue;
+    const value = moduleValue(instance, facts);
+    instances.set(instance.refdes, {
+      symbol: symbol.symbol,
+      part: { pins: facts.pinsOf(instance.componentId).map((pin) => ({ ...pin })) },
+      ...(value === undefined ? {} : { value }),
+    });
+  }
+  return instances;
+}
+
+/**
+ * The value a module instance prints, or nothing when the device has none (ADR-0024).
+ *
+ * The value is a fact of the instance row: the device's own value column, read with the type that
+ * column declares. A part without a value column prints its MPN, exactly as the board's instances
+ * do.
+ */
+function moduleValue(
+  instance: ModuleDocument["instances"][number],
+  facts: DeviceLookup,
+): string | undefined {
+  const device = facts.deviceOf(instance.componentId);
+  // The rule the board's own instances use: a part without a value column prints its MPN.
+  const none = instanceValueText(
+    { id: instance.refdes, component: instance.componentId, params: [] },
+    device,
+  );
+  const decls = facts.componentOf(instance.componentId)?.params ?? [];
+  const index = decls.findIndex((decl) => decl.name === "value");
+  if (index < 0) return none;
+  const cell = instance.paramCells[index];
+  if (cell === undefined) return none;
+  const decl = decls[index]!;
+  const param = decl.type === "string"
+    ? { name: "value", text: cell }
+    : quantityParam(cell, decl.type);
+  if (param === undefined) return none;
+  return instanceValueText(
+    { id: instance.refdes, component: instance.componentId, params: [param] },
+    device,
+  );
+}
+
+/** The value column read as the quantity its type declares; nothing when the cell does not parse. */
+function quantityParam(cell: string, type: string): { name: string; value: number } | undefined {
+  const kind = PARAM_TYPE_KINDS[type];
+  if (kind === undefined) return undefined;
+  const parsed = parseQuantity(cell, kind, { code: "value.invalid-param" });
+  return parsed.ok ? { name: "value", value: parsed.value } : undefined;
 }
 
 /**
@@ -354,6 +673,48 @@ function reviewFootprint(ref: string, footprint: Footprint): ReviewDrawing {
     symbols: [],
     texts: [],
     problems: [],
+  };
+}
+
+/**
+ * One reusable module drawing, drawn on its own.
+ *
+ * A module drawing is the view layer's own picture of one module, with its own local bounds
+ * (ADR-0068 D2): it is not a page of a board, so its sheet is its own extent plus the renderer's
+ * margin — the sheet a library symbol gets, not a board page's size. The drawing is advisory: it
+ * shows a module, it never changes one.
+ */
+function reviewModuleDrawing(drawing: ModuleDrawing): ReviewDrawing {
+  const problems = [...drawing.problems];
+  let svg = "";
+  if (drawing.ir !== undefined) {
+    try {
+      svg = toSvgText(renderModuleDrawing(drawing.ir, drawing.instances));
+    } catch (error) {
+      // A drawing that asks for geometry nobody supplied cannot be drawn. The module file's own
+      // check owns the diagnosis; here the honest answer is "no ink, and why".
+      problems.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+  const geometry = drawing.ir === undefined
+    ? undefined
+    : reviewGeometry(moduleGeometry(drawing.ir, drawing.instances));
+  const local = drawing.ir?.bounds;
+  return {
+    kind: "module",
+    key: `module/${drawing.moduleId}`,
+    label: drawing.moduleId,
+    file: drawing.file,
+    // The drawing's own bounds, plus the margin the renderer leaves around a drawing: the sheet
+    // says how much room the drawing takes, not how much room a page would give it.
+    sheet: local === undefined
+      ? { w: 0, h: 0 }
+      : { w: mm(local.width_nm + 2 * DRAWING_MARGIN_NM), h: mm(local.height_nm + 2 * DRAWING_MARGIN_NM) },
+    svg,
+    symbols: geometry?.symbols ?? [],
+    texts: geometry?.texts ?? [],
+    fields: geometry?.fields ?? [],
+    problems,
   };
 }
 
@@ -425,12 +786,7 @@ function reviewInstances(
   });
 }
 
-/**
- * Build the payload the page shows.
- *
- * Every board that has a schematic becomes a board; a board with no view file becomes a board with no
- * pages and a note saying so — the honest state of ADR-0035 decision 6, not an invented layout.
- */
+/** Build the project-level review payload: one logical root, project pages, and physical PCB canvases. */
 export function buildReviewModel(root: string): ReviewModel {
   const projectFile = "project.toml";
   const projectName = (() => {
@@ -462,45 +818,46 @@ export function buildReviewModel(root: string): ReviewModel {
   const drawings: ReviewDrawing[] = [];
   const footprintLibrary = loadFootprintLibrary(root);
   const footprintOf = (componentId: string): string | undefined => componentOf(componentId)?.footprint;
-  for (const boardId of listBoards(root)) {
-    const loaded = loadBoard(root, boardId);
-    if (!loaded) continue;
-    const parsed = parseSchematic(loaded.text, {
-      file: loaded.file,
-      board: boardId,
-      components: resolver,
-      modules,
-    });
-    if (!parsed.ir) {
-      boards.push({
-        id: boardId,
-        file: loaded.file,
-        instances: [],
-        nets: [],
-        note: `the board does not compile: ${parsed.diagnostics
+  const artifacts = loadViewArtifacts(root, modules, {
+    componentOf,
+    pinsOf,
+    symbolOf,
+    deviceOf,
+    symbols: symbolLibrary,
+  });
+  const source = loadSchematic(root);
+  const schematicFile = source?.file ?? "design/sch/main.teda";
+  const parsed = source === null ? undefined : parseSchematic(source.text, {
+    file: source.file,
+    components: resolver,
+    modules,
+  });
+  if (parsed?.ir === undefined) {
+    const reason = source === null
+      ? "the project has no logical root schematic"
+      : `the project does not compile: ${(parsed?.diagnostics ?? [])
           .filter((diagnostic) => diagnostic.severity === "error")
           .map((diagnostic) => diagnostic.code)
           .slice(0, 3)
-          .join(", ")}`,
-      });
-      continue;
-    }
+          .join(", ")}`;
+    boards.push({ id: "main", file: schematicFile, instances: [], nets: [], note: reason });
+  } else {
     const schematic = parsed.ir as Schematic;
     const instances = schematicInstances(schematic, pinsOf, symbolOf, symbolLibrary, deviceOf);
-    const pages = loaded.views.map((view) =>
-      reviewPage(boardId, schematic, view.text, view.file, view.pageId, instances),
+    const pages = loadViews(root).map((view) =>
+      reviewPage(schematic, view.text, view.file, view.pageId, instances, artifacts),
     );
-    const pcb = reviewPcb(root, boardId, schematic, footprintOf, footprintLibrary, deviceOf);
     drawings.push(...pages);
-    if (pcb !== undefined) drawings.push(pcb);
+    for (const pcbId of listPcbs(root)) {
+      const pcb = reviewPcb(root, pcbId, schematic, footprintOf, footprintLibrary, deviceOf);
+      if (pcb !== undefined) drawings.push(pcb);
+    }
     boards.push({
-      id: boardId,
-      file: loaded.file,
-      instances: reviewInstances(schematic, paramTypes, componentOf, loaded.file),
+      id: "main",
+      file: schematicFile,
+      instances: reviewInstances(schematic, paramTypes, componentOf, schematicFile),
       nets: schematic.nets.map((net) => ({ id: net.id, members: [...net.members] })),
-      ...(pages.length === 0
-        ? { note: `no view file: this board has no print page to draw (ADR-0035)` }
-        : {}),
+      ...(pages.length === 0 ? { note: "no view file: this project has no print page to draw (ADR-0069)" } : {}),
     });
   }
 
@@ -523,6 +880,13 @@ export function buildReviewModel(root: string): ReviewModel {
   }
   for (const [ref, footprint] of [...footprintLibrary].sort((a, b) => a[0].localeCompare(b[0]))) {
     drawings.push(reviewFootprint(ref, footprint));
+  }
+
+  // The reusable module drawings, each drawn on its own (ADR-0068 D2): a module drawing is not a
+  // page of a board, so it is previewed by itself, with its own bounds. They come after the
+  // library's drawings because they are the project's own artifacts, in module-id order.
+  for (const drawing of artifacts.drawings.values()) {
+    drawings.push(reviewModuleDrawing(drawing));
   }
 
   const diagnostics = checkProject(root).diagnostics.map(reviewDiagnostic);

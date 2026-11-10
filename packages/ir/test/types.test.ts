@@ -9,8 +9,9 @@ import type { Pcb } from "../src/generated/types/pcb.ts";
 
 const minimalSchematic: Schematic = {
   ir_version: irVersion,
-  format: "0.7",
-  board: "demo",
+  format: "0.14.0",
+  project: "main",
+  modules: [],
   instances: [],
   nets: [],
 };
@@ -40,8 +41,9 @@ const wrongPinsSource: Component = {
 
 const minimalPcb: Pcb = {
   ir_version: irVersion,
-  format: "0.7",
-  board: "demo",
+  format: "0.14.0",
+  pcb: "demo",
+  modules: ["M1"],
   board_thickness_nm: 1600000,
   stackup: [
     { layer: "F.Cu", type: "copper", thickness_nm: 35000, kind: "signal" },

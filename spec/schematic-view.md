@@ -1,67 +1,82 @@
 # `view` 描述规范（草案）
 
-状态：草案。决策与取舍见 `docs/adr/09-view/0035-the-view-layer-is-a-drawing.md`（视图层）与 `docs/adr/04-schematic/0012-one-flat-schematic-per-board.md`（板只有一份原理图文件，绘制划分是打印页）；跨描述通用的词法、单位、版本、canonical 规则见 `teda.md` §3–§5、§10、§12。
+Status: Draft. Decisions and trade-offs are in [ADR-0035](../docs/adr/09-view/0035-the-view-layer-is-a-drawing.md) and [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md); shared lexical, unit, version, and canonical rules are in `teda.md` §§3–5, 10, and 12.
 
 本文件是 `teda.md` 的分描述补充：`.teda` 语言的共用规则在 `teda.md`，`view` 这一类描述的具体段定义在这里。
 
-Every `.teda` file declares the shared language version (currently `0.11.0`; see `spec/teda.md` §13.1). The `view` type was introduced at `0.6`; its reader floor advanced to `0.7` when references changed from page-local to board-level ids ([ADR-0012](../docs/adr/04-schematic/0012-one-flat-schematic-per-board.md) D4), and is now `0.11` because coordinate tuples changed ([ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md)). A `field` section was introduced in `0.10`, but every `view` file now requires at least `0.11`.
+Every `.teda` file declares the shared language version, currently `0.14.0` (see `spec/teda.md` §12.1). The `view` type was introduced at `0.6`; its reader floor is now `0.14` because project-level roots and flat project-page ownership replace board-owned schematics and pages ([ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4, D6). A `view` file must declare language `0.14` or later; there is no legacy board-scoped reader.
 
----
+Language `0.12` added module-box and module-port overview sections and page size ([ADR-0067](../docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md)). Language `0.13` added reusable `module_view` drawings, `sheet_template` descriptions, and page composition with `template` and `module_place` ([ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md)). These features remain available in language `0.14.0`; module-port wire endpoints are not a project-page connection mechanism.
 
-## 0. 定位
+**All view-layer artifacts are advisory.** Project pages, module drawings, sheet templates, and composed pages contain geometry and references, not electrical or physical facts. Editing or deleting them can change view diagnostics and the advisory hash only; views never change project connectivity, PCB copper continuity, the normative project hash, or netlist output ([ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) D1; [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4–D5).
 
-`view` 描述表达**一块板的一个"打印页"的"画"**：符号摆在哪、走线怎么走、标签与板端口在哪。
+## 0. Position and authority
 
-它是原理图逻辑（S0）与渲染器之间的那一层，也就是 `AGENTS.md` §3 分层表里的 **S1**。四条底线（`AGENTS.md` §2、[ADR-0035](../docs/adr/09-view/0035-the-view-layer-is-a-drawing.md) decision 1 6）：
+`view` describes one project print page: where project components and module boxes are drawn, how project nets are shown, and where project ports and declared interconnects appear. It is the drawing layer (S1) between project logic (S0) and the renderer.
 
-1. **视图不是第二个真源**。引脚电气类型、net 成员、器件身份都在板文件（`schematic`）里；`view` 只按同样的身份键（`instance_id` / `pin_number` / `net_id`）**引用**它们，不复述。视图与逻辑不一致是缺陷，要报出来。
+1. **A view is not a second source of truth.** Module descriptions own component facts; the project root owns module-instance identities, project nets, project ports, constraints, and interconnects. A view refers to those identities and cannot redefine them.
 2. The renderer does not arrange symbols, wires, labels or ports. It does provide deterministic `Reference` / `Value` field positions when no override is present; this narrow text-placement rule is not a layout solver.
-3. **视图可丢弃、可重画**。它是 S1 层，`AGENTS.md` §3 明确标为"可以自由、可以丢弃"。
-4. **视图不改变连通性**。`view` 里的 net 只是引用逻辑层的 net id；它既不新增连接，也不删除连接。连通性由 S0 决定（`AGENTS.md` §2 第 2 条）。
+3. **Views are disposable drawings.** A project remains logically and physically defined without any view pages.
+4. **A view never changes continuity.** Wires draw root project-net membership; an `interconnect` row draws a separately declared root interconnect. Neither creates, removes, or changes a connection.
 
-### 0.1 视图用哪一套引脚引用
+### 0.1 Project references
 
-视图**只写引脚编号**（`U1.5`；层次落地后是 `M1.U1.5`），不写引脚名（`U1.PA0`）、不写多单元简写（`U1.2.OUT`）。
+Component endpoints use numbered pins (`M1.U1.5`), not pin names (`M1.U1.PA0`) or multi-unit shorthand (`M1.U1.2.OUT`). Module ports use `<module_instance_id>.<port_id>` (for example, `M1.SYS_OUT`). Project nets and flattened component identities are defined by the root and module descriptions; views only refer to those identities.
 
-理由：板文件里的引脚引用在**编译时**就被解析成编号形式（IR 里的 net 成员一律是编号，见 `teda.md` §4.5、§12 规则 9）。视图如果允许名字形式，视图与板文件就得各自解析一次名字，两边解析结果还可能不一致（歧义、找不到）。统一成编号形式后，"视图与逻辑对不对得上"就是**同一批字符串的直接比对**，不需要任何解析器在场。
+### 0.2 Project root, PCBs, and print pages
 
-代价是写视图的人得知道编号——这本来就是画图工具该知道的事。
+The project has one logical root, `design/sch/main.teda`. Its `modules`, `nets`, `ports`, constraints, and `interconnects` describe project logic. Module definitions in `design/modules/<module_id>.teda` own component instances and their local electrical facts. Physical implementations are separate `pcb` files at `design/pcb/<pcb_id>.teda`; their module assignments and copper describe physical ownership and intra-PCB continuity, not another logical root.
 
-### 0.2 与板文件的关系：打印页
+| | Project logic | Physical implementation | Print page |
+|---|---|---|---|
+| File | `design/sch/main.teda` and `design/modules/<module_id>.teda` | `design/pcb/<pcb_id>.teda` | `views/<page_id>.view.teda` |
+| Description type | `schematic` and `module` | `pcb` | `view` |
+| Identity | Project-wide module-instance, net, port, and interconnect IDs | PCB ID and its assigned project module instances | Flat project page ID; IR `project` identity is `main` |
 
-`view` 是**一块板的一个打印页**：板的文件是 `design/sch/<board_id>.teda`（`schematic`），打印页是 `views/<board_id>/<page_id>.view.teda`（`view`）。
+The page ID has no PCB parent. A page can draw flattened project instances such as `M1.U1`, project nets and ports, module topology, and root interconnects. It does not declare module ownership, root net membership, interconnect endpoints, PCB assignment, or copper continuity.
 
-| | 板文件 | 打印页 |
-|---|---|---|
-| 文件 | `design/sch/<board_id>.teda` | `views/<board_id>/<page_id>.view.teda` |
-| 描述类型 | `schematic` | `view` |
-| 名字空间 | 板级（instance_id、net_id 在板内唯一） | **同一套板级名** |
+`main` is the conventional first-listed page ID, not a required page or topology-overview role. Any page may draw module boxes, module ports, and declared interconnect links without component placements or a `place` section. Detail pages may place any subset of project components. No view pages is a valid project state; tools must not synthesize a page.
 
-所以视图里写 `U1.5`、`GND`，指的是**板上**的 U1 的 5 号脚、**板上**的 GND net——与板文件里的字符串逐字相同，没有第二套名字要解析。
-
-**视图用的是板的身份语言，不是它的一部分**：板级 `instance_id`、`net_id` 是什么形状，视图里就是什么形状。当前版本的视图仍按**显示名**引用实例（`U1`、`M1.U1`）；实例的稳定 `uid`（[ADR-0010](../docs/adr/03-project/0010-instance-identity-is-a-uid.md)）是板级记录的字段，view/pcb 的引用重键不在本版。将来模块层次落地后，模块实例的 id 是 `M1.U1`、模块内部 net 是 `M1.VCC`，视图照样直接写这些名字（引脚引用是 `M1.U1.5`）——因为视图只**引用**身份，不定义身份。视图不认识的写法（比如两个点的 `A.B.C`）在解析期就报错。
-
-打印页是**绘制与打印的划分单元**，不是逻辑的划分单元：画不下、评审想分块看，就多写一个打印页；逻辑始终只有一份。**没有打印页是合法状态**：板仍然可校验、可导网表，只是不可画。评审界面要如实报"此板无打印页"，不能自己排一张。
-
-一个板可以有多个打印页（`charger-power`、`buck-5v`），每个打印页画板上的一部分器件；各打印页画到的 net 与端口都是**板级**的，重名不存在。
-
-决策见 `docs/adr/04-schematic/0012-one-flat-schematic-per-board.md`。
+Page divisions are for drawing and review only. Project logic and physical implementation remain complete and checkable regardless of how pages are split or whether any page exists. See [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md).
 
 ---
-
-## 1. 文件头
+## 1. File header
 
 ```
-version 0.11.0
+version 0.14.0
 view main
 ```
 
-- 版本行、类型行规则同 `teda.md` §5。
-- 文件名必须等于类型行里的 id（去掉 `.view` 后缀）：`views/<board_id>/<page_id>.view.teda` ↔ `view <page_id>`。`.view` 后缀是类型标记。
-- 板 id 不写进文件，由目录 `views/<board_id>/` 决定。
-- `page_id` 是**打印页**的名字（不是逻辑划分单元）：同一块板的打印页 id 互不相同。
+- Header rules follow `teda.md` §5.
+- The filename must match the type-line ID after removing `.view`: `views/<page_id>.view.teda` ↔ `view <page_id>`. The `.view` suffix marks the type.
+- Page IDs share one flat project namespace; no board ID is encoded in the path or identity.
+
+### 1.1 Page identity and overview convention
+
+A page ID names a project drawing file; it does not select a mandatory role. `main` is conventionally listed first; it may be a detail page or an overview, and a topology overview may use any page ID.
+
+| Convention | Common page ID | Drawing |
+|---|---|---|
+| Project topology overview | Any ID (often `main`) | Module boxes and ports, plus links that reference declared root interconnects; component `place` rows are optional and may be absent |
+| Detail page | Any ID, including `main` | Any subset of project components placed with `place`, optionally alongside module or interconnect drawings |
+
+- One file is one print page. The page ID is a stable drawing reference, not a logical boundary or board identity.
+- A page may mix and split components from project modules freely. An ID that happens to equal a module name does not establish ownership.
+- A page that declares `module_place` is a composed page (§14), regardless of its ID. A page may also use a template without adopting an overview or detail role.
+- The project root, module descriptions, and PCB descriptions remain authoritative for their respective logical and physical facts. All page drawings are advisory.
+
+### 1.2 The three view-layer files
+
+| Type | File | Type line | What it is |
+|---|---|---|---|
+| `view` | `views/<page_id>.view.teda` | `view <page_id>` | One project print page (§4–§8) |
+| `module_view` | `views/modules/<module_id>.module-view.teda` | `module_view <module_id>` | One module's reusable, module-local drawing (§12) |
+| `sheet_template` | `views/templates/<template_id>.sheet-template.teda` | `sheet_template <template_id>` | Static sheet furniture and the extent it supplies (§13) |
+
+All three types live under `views/`, distinguished by directory and suffix (`.view` / `.module-view` / `.sheet-template`). A `view` page ID is flat and project-wide; reusable module drawings and templates keep their own type-specific identities. The ID on each type line must match the filename after removing its suffix.
 
 ---
+
 
 ## 2. 标量
 
@@ -69,9 +84,17 @@ view main
 
 | 键 | 必填 | 说明 |
 |---|---|---|
-| `sheet` | 否 | 图幅：`<宽> <高>`（mm）。缺省 `297 210`（A4 横向）。 |
+| `size` | No | This page's extent `[width,height]` in mm, one tuple cell (`teda.md` §4.3; [ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) D1). Canonical since language `0.12`. Defaults to `[297,210]` (A4 landscape). |
+| `sheet` | No | Legacy alias for `size`, with identical dimensions and semantics. Accepted as an input spelling; canonical output uses `size`. |
+| `template` | No | The sheet template this page draws on: `views/templates/<template_id>.sheet-template.teda`. Added in language `0.13` ([ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) D4). |
 
-顺序无关，canonical form 固定为 `sheet` 在最前。
+- `size` and `sheet` are mutually exclusive spellings of the same page extent ([ADR-0067](../docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md) D6).
+- `template` and page-size keys are mutually exclusive: a page with `template` uses the template's `size` as its extent ([ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) D4).
+- Without an explicit size or template, the page defaults to A4 landscape, 297 × 210 mm. A template supplies the extent instead.
+- Language `0.14` is the minimum view version, so `size` is available in every valid project page. The reader also accepts the legacy `sheet` spelling; canonical output writes `size`.
+- Scalar order is irrelevant; canonical form places page-size scalars before the sections (§11).
+- The IR page extent remains `SchematicView.sheet` (`{width_nm, height_nm}`). A page using a template omits its own `sheet` field (IR contract `v0.19`; [ADR-0067](../docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md) D7).
+
 
 ### 2.1 坐标系
 
@@ -80,22 +103,29 @@ view main
 - 原点 = **图幅的左上角**；**+x 向右，+y 向下**（与 SVG 的坐标系一致，渲染器不需要翻转）。
 - 旋转角度单位为度，**顺时针为正**，缺省 `0`。
 - IR 里长度一律是整数纳米（`_nm`）、角度是整数毫度（`_mdeg`），见 `AGENTS.md` §2 第 18 条与 `docs/adr/02-ir/0006-ir-shards-and-hashes.md` decision 7。
+- **模块框的几何**（§4.2）与页一样：框的左上角 `[x,y]` 与尺寸 `[w,h]` 都锚在 `0.5 mm` 晶格上，整个框落在**这一页自己的尺寸**之内（写明的尺寸，或缺省的 A4 横向 297 × 210 mm）。框的尺寸与页的尺寸是两件事：页的尺寸是这一页的范围，框的尺寸是这个模块画出来的范围。
 
 ---
 
 ## 3. 段总表
 
-| 段 | 内容 | 必填 |
+| Section | Contents | Required |
 |---|---|---|
-| `place` | 器件实例的摆位 | 是 |
-| `field` | `Reference` / `Value` 的每实例位置覆盖 | 否 |
-| `junction` | view-only 绘图节点及其坐标 | 否 |
-| `wire` | 走线边 | 否 |
-| `label` | net 名标签 | 否 |
-| `port` | 板端口符号 | 否 |
-| `text` | 自由注释文字 | 否 |
+| `place` | Component-instance placement | No |
+| `field` | Per-instance `Reference` / `Value` position overrides | No |
+| `module` | Module boxes (topology overview) | No |
+| `module_port` | Module-port positions (topology overview) | No |
+| `interconnect` | Drawing of a declared root interconnect | No |
+| `module_place` | Placement of reusable module drawings (composed page) | No |
+| `junction` | View-only drawing nodes and coordinates | No |
+| `wire` | Project-net drawing edges | No |
+| `label` | Project-net name labels | No |
+| `port` | Project-port symbols | No |
+| `text` | Free annotation text | No |
 
-段头是"单个保留字"（`teda.md` §3）。**本描述不使用冒号，也不支持续行**：所有段都是固定前缀 + 变长坐标尾（与 `pcb` 的 `trace` / `zone` 同一风格，见 `spec/pcb.md` §4.5）。
+`place` is optional. A topology-only overview may contain module boxes, module ports, and interconnect drawings without any component placements. Segment headers are reserved words (`teda.md` §3). Sections use fixed columns and do not use colons or continuation lines.
+
+The `module` and `module_port` sections were added in language `0.12`; `module_place` was added in `0.13` ([ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) D4). The project `interconnect` drawing section requires language `0.14`. A page must not mix `module_place` with legacy `module` / `module_port` sections.
 
 ---
 
@@ -112,7 +142,7 @@ place
 
 | 列 | 说明 |
 |---|---|
-| `instance_id` | 板级实例 id（`U1`；模块层次落地后可以是 `M1.U1`），必须在板文件 `design/sch/<board_id>.teda` 的 `instances` 段里存在 |
+| `instance_id` | Project component-instance ID, such as `M1.U1`; it must exist in the flattened project model assembled from the root and its module descriptions |
 | `x` `y` | 符号**原点**在图幅坐标系里的位置（mm） |
 | `rot` | 符号旋转（度，顺时针为正），缺省 `0`。v0.1 只支持直角旋转：必须是 0/90/180/270，否则报 `value.angle-invalid` |
 
@@ -125,7 +155,7 @@ place
 - 符号画成什么样**不在视图里**：由 `component.symbol` → 符号库决定，渲染器自己去查。视图只说"这个实例摆在哪儿、朝哪儿"。
 - `x` `y` 锚在 `0.5 mm` 晶格上（§2.1，[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1）。摆位吸附也是这张晶格（[ADR-0057](../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D4）。
 - 引脚的连接点坐标 = 符号原点 + 旋转后的引脚偏移（符号的几何事实，见 `spec/symbol.md`）。因此**符号改了引脚位置，视图里的线自动跟着走**，视图不需要跟着改。
-- 一个打印页只摆它要画的实例；板上的其它实例不出现在这个打印页里（不是错误）。
+- A page places only the instances it draws; project instances omitted from a page are not errors. In particular, a topology-only page may omit `place` entirely.
 
 ---
 
@@ -158,7 +188,73 @@ The renderer routes around a collision on its own, so no row is needed to keep t
 write one only where the author wants a field somewhere else. The review app reports `manual`
 versus `automatic` on every field, which is how a reviewer tells the two apart.
 
-`field` was introduced in language `0.10`, but the `view` reader floor is now `0.11` because coordinate tuples changed in `0.11`. Every `view` file declares at least `0.11`, whether or not it contains a `field` section; version validation runs before the body is parsed. Unknown field names are invalid literals, duplicate pairs report `value.duplicate-field`, and an unknown instance reports `ref.unknown-instance`.
+`field` was introduced in language `0.10`. Every view file now declares language `0.14` or later because the project-level page and root shapes changed; this applies whether or not the page contains a `field` section. Version validation runs before the body is parsed. Unknown field names are invalid literals, duplicate pairs report `value.duplicate-field`, and an unknown instance reports `ref.unknown-instance`.
+
+---
+
+## 4.2. `module` 段（概览页的模块框）
+
+`module` 段是可选的，属于概览页（§1.1），语言 `0.12` 引入。
+
+```
+module
+  M1  charger-power   [20.0,20.0]   [90.0,60.0]
+  M2  buck-5v         [150.0,20.0]  [80.0,60.0]
+```
+
+列：`<module_instance_id> <module_id> [x,y] [w,h]`。
+
+| 列 | 说明 |
+|---|---|
+| `module_instance_id` | Project module-instance ID (for example, `M1`), declared in the root's `modules` section |
+| `module_id` | The module definition bound to this project instance by the root |
+| `x` `y` | Top-left corner of the drawn frame in page coordinates (mm) |
+| `w` `h` | Width and height of the drawn frame (mm) |
+
+- **A frame is only a drawing.** It shows a boundary, never the contents: component instances, nets, and constraints belong to the module definition, and its external ports are declared in that module's `ports` section (`spec/module.md` §§2–3).
+- The frame has its own position and dimensions, independent of the page size. Its corners and dimensions follow the `0.5 mm` lattice, and the whole frame must fit on the page (§2.1).
+- Frames are advisory; a page may show any subset of project modules. Project-wide view-coverage warnings are advisory, not logical errors.
+- Electrical facts are owned as described in `spec/module.md` §7.2 and ADR-0069: modules own internal facts, the root owns module instances and project bindings, and views only reference them.
+
+---
+
+## 4.3. `module_port` 段（概览页的模块端口）
+
+`module_port` 段是可选的，属于概览页，语言 `0.12` 引入。
+
+```
+module_port
+  M1.SYS_OUT   [110.0,50.0]
+  M2.SYS_IN    [150.0,50.0]
+```
+
+列：`<module_instance_id>.<port_id> [x,y]`。
+
+| 列 | 说明 |
+|---|---|
+| `id` | 带实例前缀的端口：模块实例 id + 模块声明的端口名（`M1.SYS_OUT`） |
+| `x` `y` | 端口在页上画出来的位置（mm） |
+
+- The referenced module definition must declare the port, and the project root must bind that module-instance port to a project net. A drawing cannot create, move, or rebind a port.
+- The module instance must have a frame on this page (§4.2); the port is drawn on its module boundary.
+- These sections are optional `SchematicView` arrays `module` and `module_port`; omitted sections are absent from IR.
+
+---
+
+## 4.4. `interconnect` section
+
+The optional `interconnect` section draws root interconnects on a project page. Each row is `<interconnect_id> <from_module_port> <to_module_port> [<point> [<rotation>]]`:
+
+```teda
+interconnect
+  ic1  M1.SYS_OUT  M2.SYS_IN  [130.0,50.0]  0
+```
+
+- `interconnect_id` must name an interconnect declared by the project's root `design/sch/main.teda` `interconnects` section. The endpoint IDs must exactly restate that root row, in its declared order.
+- This row draws only the declared project-level join. It cannot create, remove, reverse, or re-endpoint continuity; views that omit it do not alter the root. Where project-wide page coverage is checked, omission is advisory.
+- Both endpoints need page drawing positions: `module_port` rows for module-box overviews, or the matching `port` rows in placed module drawings on composed pages (§14.4).
+- `<point>` is an optional page-coordinate position for the interconnect drawing. `<rotation>` is optional clockwise right-angle rotation and defaults to `0`.
+- An interconnect is not a PCB trace or a `wire` endpoint. PCB copper and board-local connectivity remain physical-board facts, separate from this project-level drawing.
 
 ---
 
@@ -174,17 +270,21 @@ wire
 
 | 列 | 说明 |
 |---|---|
-| `net` | 板级 net id，必须在板文件的 `nets` 段里存在 |
-| `from_endpoint` | 起点：引脚引用、页面 port id，或本页 `junction` 段声明的 junction id |
-| `to_endpoint` | 终点，同上 |
-| `bend` | 折点坐标（mm），可为零个或多个，按顺序经过；每点一个 `[x,y]` 单元格 |
+| `net` | Project net ID, declared by `design/sch/main.teda` in its `nets` section |
+| `from_endpoint` | Start: a project component pin reference, a project-port ID drawn on this page, or a junction declared on this page |
+| `to_endpoint` | End point, with the same endpoint forms |
+| `bend` | Zero or more ordered bend coordinates (mm), each one `[x,y]` cell |
 
 - `@x,y` **不是合法 wire endpoint**。历史文件必须把每个匿名坐标提升为命名 junction，并在 `junction` 段声明其坐标；实现不得静默把旧端点解释成 junction。
-- 走线的几何 = 端点节点的解析位置（引脚、port 或 junction）→ 依次经过折点 → 另一端点节点。端点身份不是坐标的别名。
-- **一条线一个 net**：同一 net 的多条 `wire` 行是图的边；junction 是图节点，不是 schematic net 成员，也不改变 S0 连通性。
-- 引脚端点必须属于该 net；port 端点按本页 port 规则校验；junction 端点必须存在且只能属于这条边声明的 net。不同 net 不能共享 junction。
-- 视图的绘图连通性按图校验：有效的树不得有 dangling endpoint、几何 gap、断开的必需成员、孤立 junction 或非法 junction degree。不同 net 的几何交叉不是连接；同一 net 的有效分支绘制确定性的 junction dot。
-- Review App 的 Re-anchor wires 关闭时，移动或旋转引脚不得改写 endpoint identity，也不得改写作者写下的 bends；受影响的 net 报 stale，显式 `view rewire` 才修复。开启时保留 pin identity 并按既有重锚规则让端点跟随。
+- A component-pin endpoint refers to a project component instance and must belong to the row's declared project net. A project-port endpoint must be declared by the project root and drawn in this page's `port` section. A junction is a page-local drawing node only.
+- Module ports are drawn as project ports by `module_port`; a project-level join between ports is drawn only by an `interconnect` row (§4.4), never by an ordinary `wire` row. Drawing either cannot create or alter the root's net membership or interconnect endpoints.
+- On composed pages, a project port may be positioned by a placed module drawing's `port` row and its placement transform (§14.3); that drawing remains advisory.
+- Wires must not cross a module frame except at a project-port endpoint on its boundary (`view.wire-crosses-module`, §9.1).
+- Wire geometry joins the resolved endpoint positions (pins, project ports, or junctions), in order through its bends. Endpoint identity is not a coordinate alias.
+- One `wire` row is one visual edge of a declared project net. Junctions are drawing-graph nodes, not project-net members, and do not change root connectivity.
+- Pin and project-port endpoints must agree with the root project net; junctions are page-local drawing nodes. Different nets cannot share a junction.
+- The page's drawing graph is checked for dangling endpoints, geometric gaps, disconnected required members, isolated junctions, and invalid junction degree. These checks concern drawing fidelity only; they do not change project connectivity. Geometric crossings between different nets do not connect them.
+- With Review App Re-anchor wires disabled, moving or rotating a pin does not change endpoint identity or author-written bends; affected nets are stale until explicitly repaired with `view rewire`. When enabled, pin identity is retained and endpoints follow the existing re-anchor rule.
 - **只走 90 度**：每一段必须平行于坐标轴，违反即报 `view.wire-diagonal`（§9.2）。
 - **走线不得自交**：重锚若保形会使路径自交，则按既有规则重建并报告冲突（[ADR-0042](../docs/adr/09-view/0042-the-review-app-has-modes.md) D5、[ADR-0062](../docs/adr/09-view/0062-a-run-may-end-at-a-port.md)）。
 - **A pin connection point may be the endpoint of a perpendicular wire**: when a wire ends at a pin connection point and its final segment is perpendicular to the pin stroke, the renderer draws a junction dot at that point. The connection still comes from the wire's pin endpoint identity and net; this does not create another junction graph node.
@@ -227,17 +327,14 @@ port
   SYS_OUT   [280.0,105.0]  180
 ```
 
-列：`<port_id> <point> [<rot>]`，`<point>` 是 `[x,y]`。
+Column: `<project_port_id> <point> [<rotation>]`, where `<point>` is `[x,y]`.
 
-- `port_id` 必须是**板**的端口，必须在板文件的 `ports` 段里存在（`teda.md` §7.5）。
-- 端口符号**不创建连接**，它只是给一个已存在的 net 起个对外的名字。
-- 端口有两种角色，二者都用这一行：**画一个符号**（位置落在该 net 的走线或引脚连接点上，同 `label`，不一致报 `view.port-not-on-net`，警告），以及**作为一条走线的端点**（`wire` 行的 `from_pin` / `to_pin` 写这个 port id，端点坐标就取这一行的 `x` / `y`）。端点与符号共用同一个 `x` / `y`：端点的坐标不另写一份（[ADR-0062](../docs/adr/09-view/0062-a-run-may-end-at-a-port.md) D1、D2）。
-- 一条走线结束在某个 port 上时，这一行就是它的端点；移动这一行，走线**延伸或收缩**去够它（同引脚重锚，[ADR-0062](../docs/adr/09-view/0062-a-run-may-end-at-a-port.md) D4）。
-- 走线命名的 port 必须是**本页**画出的（`port` 段里有一行）；没有那一行就没有端点坐标，报 `view.port-not-drawn`（错误，§9.1）。
-- 端口锚点锚在 `0.5 mm` 晶格上（§2.1，[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1）。
-- `rot` 单位度、顺时针为正、缺省 `0`。
-- 画在哪个打印页上都可以：一个板端口可以在多个打印页里各画一次。
-
+- `project_port_id` must be declared in the root `design/sch/main.teda` `ports` section (`teda.md` §7.5). A view does not declare project ports.
+- The port glyph does not create connectivity; it draws an existing project port.
+- A row both draws the glyph and supplies its position as a `wire` endpoint. The endpoint uses the same project-port ID and coordinates; a wire endpoint must have a matching `port` row on this page ([ADR-0062](../docs/adr/09-view/0062-a-run-may-end-at-a-port.md) D1–D2).
+- Moving the row moves the glyph and the wire endpoint together; the view cannot change the root port's identity or net membership.
+- Port glyphs may be repeated on any number of project pages.
+- The anchor follows the `0.5 mm` drawing lattice (§2.1, [ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1). Rotation is clockwise degrees and defaults to `0`.
 ---
 
 ## 8. `text` 段
@@ -257,35 +354,40 @@ text
 
 ## 9. 校验
 
-校验分两层：**文件自身能回答的**（解析器做）与**需要板才能回答的**（板交叉校验做，`packages/core`）。下表最后一列是落地状态。
-
-板交叉校验在 `texteda check` 里跑（[ADR-0038](../docs/adr/10-process/0038-implementation-stack-and-agent-entry.md) 是校验入口）；`texteda ir` 只把分片写出来，不做交叉校验——视图是附注分片，不参与构建身份（[ADR-0006](../docs/adr/02-ir/0006-ir-shards-and-hashes.md)）。
-
+Validation has two scopes: syntax and page-local geometry are checked while reading the file; project references and drawing fidelity are checked against `design/sch/main.teda`, its module descriptions, and the composed project model. These checks run with `texteda check` ([ADR-0038](../docs/adr/10-process/0038-implementation-stack-and-agent-entry.md)); `texteda ir` writes shards without running cross-file checks. View shards are advisory and excluded from the normative project identity ([ADR-0006](../docs/adr/02-ir/0006-ir-shards-and-hashes.md), [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D5).
 ### 9.1 错误（阻断）
 
 | 码 | 触发 | 状态 |
 |---|---|---|
-| `view.pin-not-placed` | `wire` 的端点引脚所属实例没有出现在 `place` 段 | 已实现（解析器） |
-| `view.out-of-sheet` | 坐标落在图幅之外 | 已实现（解析器） |
-| `value.angle-invalid` | 旋转不是 0/90/180/270 之外的整数度（v0.1 只支持直角旋转） | 已实现（解析器） |
-| `ref.unknown-instance` | `place` 里的 instance id 在板的 `instances` 段里不存在 | 已实现（板交叉校验） |
-| `ref.unknown-net` | `wire` / `label` 里的 net 在板的 `nets` 段里不存在 | 已实现（板交叉校验） |
-| `ref.unknown-port` | `port` 里的 port_id 在板的 `ports` 段里不存在 | 已实现（板交叉校验） |
-| `view.pin-net-mismatch` | `wire` 的端点引脚不属于该行声明的 net | 已实现（板交叉校验） |
-| `view.port-not-drawn` | `wire` 端点引用的 port 未在本页 `port` 段绘制 | 已实现（解析器） |
-| `ref.unknown-junction` | `wire` 端点引用的 junction 未在本页 `junction` 段声明 | 已实现（板交叉校验） |
-| `view.wire-dangling-endpoint` | wire 端点在渲染几何中没有对应 pin、page port 或 junction 锚点 | 已实现（板交叉校验 + 渲染几何） |
-| `view.wire-gap` | wire 几何经过本 net 声明的 junction，却没有以该 junction 为端点 | 已实现（板交叉校验 + 渲染几何） |
-| `view.wire-disconnected` | 本页同一 net 的必需 pin/port 节点未处于一个连通分量 | 已实现（板交叉校验） |
-| `view.junction-isolated` | 声明的 junction 未被有效 wire edge 使用 | 已实现（板交叉校验） |
-| `view.endpoint-wrong-net` | junction 或 page port 被 wire 声明为不匹配的 net | 已实现（板交叉校验） |
-| `view.junction-invalid-degree` | junction 的有效同 net wire-arm degree 不符合图规则 | 已实现（板交叉校验） |
+| `view.pin-not-placed` | A `wire` pin endpoint's project component instance is absent from this page's `place` section | Implemented (parser) |
+| `view.out-of-sheet` | A point or drawing bounds exceed the page extent; for `module_view` the local `bounds`, for `sheet_template` the `size`, and for `module_place` the transformed bounds are checked | Implemented (parser and project checks) |
+| `value.angle-invalid` | A rotation is not an integer right angle (the view supports only 0/90/180/270 degrees) | Implemented (parser) |
+| `ref.unknown-instance` | A project page `place`, `module`, or `module_place` row references an instance absent from the flattened project model; `module_view` placements must reference an instance declared by that module | Implemented (project checks) |
+| `ref.unknown-net` | A project-page `wire` or `label` names a net absent from the project model; a `module_view` must reference a net declared by its module | Implemented (project checks) |
+| `ref.unknown-port` | A project-page `port` or `module_port` references an undeclared project/module port | Implemented (project checks) |
+| `ref.unknown-interconnect` | An `interconnect` row references an ID not declared by the root | Implemented (project checks) |
+| `view.pin-net-mismatch` | A `wire` pin endpoint is not a member of the row's declared project net | Implemented (project checks) |
+| `view.port-not-drawn` | A `wire` endpoint references a project port not drawn in this page's `port` section | Implemented (parser) |
+| `ref.unknown-junction` | A `wire` endpoint references a junction not declared on this page | Implemented (project checks) |
+| `view.wire-dangling-endpoint` | A wire endpoint has no corresponding pin, project-port, or junction anchor in the rendered geometry | Implemented (project checks and rendered geometry) |
+| `view.wire-gap` | Wire geometry passes through a declared junction of the same net without ending at that junction | Implemented (project checks and rendered geometry) |
+| `view.wire-disconnected` | Required pin/port nodes in this page's drawing of one project net are not in one connected component | Implemented (project checks) |
+| `view.junction-isolated` | A declared junction is not used by a valid wire edge | Implemented (project checks) |
+| `view.endpoint-wrong-net` | A junction or page port is used by a wire for a different project net | Implemented (project checks) |
+| `view.module-unknown-instance` | A `module` or `module_place` row names an instance absent from the project root | Implemented (project checks) |
+| `view.module-id-mismatch` | A `module` or `module_place` row names a module definition other than the one bound to that project instance | Implemented (project checks) |
+| `view.wire-crosses-module` | A page wire crosses a drawn module frame away from its own project-port endpoint | Implemented (readability check) |
+| `ref.unknown-module` | A composed page references a missing template or module drawing, or a placed instance has no module drawing for its root-bound module | Implemented (project checks) |
+
+`view.out-of-sheet` also applies to module-drawing bounds, template furniture bounds, and each transformed module placement against the page extent. Module-drawing references are checked against the module definition's local instances, nets, and ports; template references are checked as literal static geometry (see §§12.2–12.3 and 13.2–13.4).
+
+Module and project-port references are checked against the root and module definitions, not against a PCB. A page may draw only a subset of the project; omitted component placements are not errors.
 
 ### 9.2 警告（不阻断）
 
 | 码 | 触发 | 状态 |
 |---|---|---|
-| `view.nets-not-drawn` | 板里**成员数 ≥ 2** 的 net 在**所有**打印页上都既没有走线也没有标签——图上看不出它连着。一块板报**一条**，带数量与前十个 net 名（画到一半是正常状态，它需要说得出来，不是被禁止——同 [ADR-0019](../docs/adr/05-pcb/0019-a-partial-layout-is-legal.md) D4 的分寸）。没有任何打印页的板**不报**：有逻辑、无视图是合法状态 | 已实现（板交叉校验，`packages/core/src/view/checks.ts`） |
+| `view.nets-not-drawn` | A project net with at least two members has no wire or label on any project page. When pages exist, this is one advisory coverage warning with a count and up to ten net IDs; a project with no pages is valid and produces no view-coverage warning. | Implemented (project checks) |
 | `view.label-not-on-net` | 标签没落在该 net 的走线或引脚上（该 net 在本页**有画走线**时才判：整条 net 没画是 `view.nets-not-drawn` 的事，不逐标签重复） | 已实现（可读性检查，`packages/core/src/view/readability.ts`） |
 | `view.port-not-on-net` | 端口符号没落在该 net 的走线或引脚上（同一前提） | 已实现（可读性检查，同上） |
 | `view.wire-crosses-symbol` | 走线穿过某个符号的本体（`AGENTS.md` §6 的可读性检查）；本体取符号**图形**的包围盒，不含文字字段 | 已实现（可读性检查，同上） |
@@ -295,11 +397,11 @@ text
 | `view.label-collision` | 两个标签压在一起（label 与 label 的重叠归这条，其余文字组合归 `view.text-overlap`） | 已实现（可读性检查，同上） |
 | `view.text-on-wire` | 走线从文字**中间**穿过：字还在，词读不出来。标签与端口**豁免它自己命名的那个 net**（标签本来就落在自己的线上），符号画的字段（Reference / Value）与自由注释不豁免 | 已实现（可读性检查，同上） |
 
-> **不同 net 的走线交叉不报警**：§5.1 的读法只有一条（有点 = 连接，没点 = 不连接），所以交叉本身不是缺陷；`view.wire-crossing` 已废弃，只为旧报告保留码表行，`check` 不再发出。
+> Crossings between different nets do not connect them: a dot indicates a junction, and an unmarked crossing does not. `view.wire-crossing` is retired and is not emitted.
 
 > 码表见 `docs/error-codes.md`（由 `packages/ir/src/diagnostics/codes.ts` 生成）。诊断码按"错误的种类"分域，不按发现阶段分（[ADR-0003](../docs/adr/01-language/0003-diagnostic-error-codes.md)）："引用了不存在的东西"在 `view` 里和在 `sch` 里是同一类错误，所以复用 `ref.*`；"角度不合法"复用 `value.angle-invalid`。`view` 域是本描述引入的新域，授权见 [ADR-0035](../docs/adr/09-view/0035-the-view-layer-is-a-drawing.md)。
 >
-> **注册表只登记"已发出"的码**（[ADR-0003](../docs/adr/01-language/0003-diagnostic-error-codes.md) decision 7：码表是唯一真源，发出即冻结）。本表列出的诊断码均已发出并登记。
+> The diagnostic registry lists only emitted and registered codes ([ADR-0003](../docs/adr/01-language/0003-diagnostic-error-codes.md) decision 7). The table above lists current registered diagnostics; project-wide view-coverage warnings are advisory and do not become blocking errors.
 >
 > **几何从渲染器来，不从检查器推**。文字宽度、符号本体范围、引脚落点都由 `packages/renderer` 的 `schematicGeometry` 按**实际画法**算出（同一套变换、同一套笔画字体度量），检查器只判断"压没压住""在不在线上"。检查器自己再算一遍就会和读者看到的东西漂移，那正是可读性检查要防的那类错误。
 >
@@ -328,14 +430,16 @@ text
 
 ### 9.3 不校验的事
 
-- **视图不参与 ERC**。ERC 在板的逻辑 IR 上跑（`AGENTS.md` §4.2），视图里的线画错了不会让 ERC 变红——那是 `view.*` 诊断的活。
-- **视图不改变连通性**。视图里少画一条线，逻辑层照样是那个 net。
+- **Views do not participate in ERC.** ERC uses the project's logical model, not page drawings; drawing mistakes are reported by `view.*` diagnostics.
+- **Views do not change connectivity.** Omitting or misdrawing a wire, port, module, or interconnect leaves root net membership and declared interconnects unchanged.
+- **An overview cannot add a project join.** It may draw a root-declared interconnect by ID (§4.4); only the root owns module-port net membership and interconnect endpoints. Deleting every page leaves the project logic, PCB checks, netlists, and normative project hash intact.
+- **Module ownership is not a view fact.** Project module instances, root net membership, and interconnects are declared by the project root and module descriptions; PCB assignment and copper continuity are declared by the physical PCB descriptions. A page only references these facts.
 
 ### 9.5 可反解（round-trip）
 
 渲染器只读（`AGENTS.md` §2 不变量 3），所以它画的每一页都必须能反解回"这一页说了什么"——`extract(render(ir)) == ir`（不变量 4，[ADR-0036](../docs/adr/09-view/0036-our-own-reference-renderer.md) decision 5）。
 
-**比的是语义投影，不是 IR 本身**。一张打印页的语义是落在纸面上的东西：图幅大小、引脚连接点与朝向、符号自身的图形、走线折点、标签与注释的文字与位置、端口标签的尖点与朝向，以及 `Reference` / `Value` 字段的文字与绝对图纸位置。以下故意不在投影里：
+**比的是语义投影，不是 IR 本身**。一张打印页的语义是落在纸面上的东西：图幅大小、引脚连接点与朝向、符号自身的图形、走线折点、标签与注释的文字与位置、端口标签的尖点与朝向、模块框与模块端口的框线与位置，以及 `Reference` / `Value` 字段的文字与绝对图纸位置。以下故意不在投影里：
 
 | 不进投影 | 理由 |
 |---|---|
@@ -355,7 +459,7 @@ text
 
 ### 9.4 度量（`texteda view metrics`）
 
-警告之外，一张页的**量**由 `texteda view metrics <工程目录> <board>/<page> [--json]` 给（`packages/core/src/view/metrics.ts`）。它与可读性检查读**同一份几何**（`schematicGeometry`），所以"这条线离那个 net 多远"在两边只有一个答案。
+A page's metrics are provided by `texteda view metrics <project-directory> <page_id> [--json]` (`packages/core/src/view/metrics.ts`). Metrics and readability checks use the same geometry (`schematicGeometry`), so a distance from a wire to a net has one answer.
 
 | 量 | 含义 |
 |---|---|
@@ -375,9 +479,9 @@ text
 
 | 命令 | 做什么 |
 |---|---|
-| `texteda view metrics <工程目录> <board>/<page> [--json]` | §9.4 的量 |
-| `texteda view rewire <工程目录> <board>/<page> [--dry-run] [--json]` | 把走线重新锚回引脚（见下） |
-| `texteda view render <工程目录> <board>/<page> [--out <文件>] [--json]` | 把这一页画成 SVG 文件（与评审 app 同一渲染器） |
+| `texteda view metrics <project-directory> <page_id> [--json]` | §9.4 metrics |
+| `texteda view rewire <project-directory> <page_id> [--dry-run] [--json]` | Re-anchor the page's component-pin wires (see below) |
+| `texteda view render <project-directory> <page_id> [--out <file>] [--json]` | Render that project page to SVG with the review app's renderer |
 
 **`view rewire` 做什么**：走线行的端点写的是**引脚引用**，所以符号一动端点就跟着动，而折点留在原地——走线会歪（`view.wire-diagonal`）。`view rewire` 把折点重新算出来：中间的折点坐标不动，两端按引脚现在的位置重算。方向从走线自己读出来：相邻两段不能同向（同向就是一条线），所以端段的轴向由它旁边那一段决定（`packages/core/src/view/reroute.ts` 的 `rerouteWire`）。
 
@@ -390,56 +494,312 @@ text
 ### 10.1 正例
 
 ```
-version 0.11.0
-view main
+version 0.14.0
+view power-detail
 
-sheet 297 210
+size [297,210]
 
 place
-  U1    [40.0,30.0]  0
-  C1    [20.0,30.0]  90
-  R1    [60.0,30.0]  0
+  M1.C1   [20.0,30.0]  90
+  M1.R1   [60.0,30.0]  0
+  M1.U1   [40.0,30.0]  0
 
 wire
-  VDD   U1.5  C1.1  [35.0,25.0]
-  VDD   C1.1  R1.1  [25.0,25.0]  [55.0,25.0]
-  GND   C1.2  R1.2  [25.0,35.0]  [55.0,35.0]
+  M1.GND  M1.C1.2  M1.R1.2  [25.0,35.0]  [55.0,35.0]
+  M1.VDD  M1.C1.1  M1.R1.1  [25.0,25.0]  [55.0,25.0]
+  M1.VDD  M1.U1.5  M1.C1.1  [35.0,25.0]
 
 label
-  VDD   [35.0,25.0]
-  GND   [25.0,35.0]
+  M1.GND  [25.0,35.0]
+  M1.VDD  [35.0,25.0]
 ```
 
-### 10.2 反例
+### 10.2 Invalid pin drawing
 
-```
-version 0.11.0
-view main
+```teda
+version 0.14.0
+view power-detail
 
 wire
-  VDD   U1.5  C1.1
+  M1.VDD  M1.U1.5  M1.C1.1
 ```
 
-**错在哪**：`C1` 没有出现在 `place` 段（`view.pin-not-placed`，解析器就会报）；`U1.5` 与 `C1.1` 都没在板的 `nets` 段里声明为 `VDD` 的成员（`view.pin-net-mismatch`，板交叉校验时报）。
+This page is invalid because the pin instances are not placed (`view.pin-not-placed`) and the root project model does not establish the listed pin memberships on `M1.VDD` (`view.pin-net-mismatch`). Fix the drawing by placing the instances and make its `wire` net and endpoints match the flattened project model. No PCB net declaration supplies these logical facts.
 
-**怎么修**：把 `C1` 摆进 `place` 段，并在板的 `nets` 段里声明 `VDD: U1.5 C1.1 R1.1`。
+### 10.3 概览页正例
+
+```
+version 0.14.0
+view main
+
+size [297,210]
+
+module
+  M1  charger-power   [20.0,20.0]   [90.0,60.0]
+  M2  buck-5v         [150.0,20.0]  [80.0,60.0]
+
+module_port
+  M1.SYS_OUT   [110.0,50.0]
+  M2.SYS_IN    [150.0,50.0]
+
+interconnect
+  ic1  M1.SYS_OUT  M2.SYS_IN  [130.0,50.0]  0
+```
+
+This topology-only example intentionally has no `place` section. It is valid when the project root declares module instances `M1` and `M2`, binds both declared module ports to the same project net, and declares interconnect `ic1` with exactly these ordered endpoints. The page draws that root-declared link; it does not create a net membership or a physical path. The physical PCB assignments and any copper continuity are described separately by the PCB files.
+
+### 10.4 自定义页尺寸正例
+
+```
+version 0.14.0
+view buck-5v-detail
+
+size [120,80]
+
+place
+  M2.U1   [30.0,20.0]  0
+  M2.L1   [60.0,20.0]  0
+```
+
+This page uses its own 120 × 80 mm extent rather than A4. Coordinates lie within the page and follow the `0.5 mm` drawing lattice. A detail page may draw any subset of project components; the page ID does not establish ownership (§1.1).
+
+### 10.5 概览页反例
+
+```
+version 0.14.0
+view main
+
+size [297,210]
+sheet [297,210]
+
+module
+  M1  charger-power   [20.0,20.0]   [90.0,60.0]
+```
+
+This file is invalid because `size` and its legacy alias `sheet` are mutually exclusive (§2). The single module frame is otherwise valid: pages are advisory and need not draw every project module.
+
+Fix it by deleting either `size` or `sheet`.
 
 ---
 
 ## 11. Canonical form
 
-段顺序固定：`place` → `field` → `junction` → `wire` → `label` → `port` → `text`。
-- 段内行按**自然序**排序（标识符里的数字段按数值比，`C2` 在 `C10` 前；见 `teda.md` §12 规则 9）。
-  - `place` 按 `instance_id` 排；
-  - `field` 按 `(instance_id, name)` 排；
-  - `junction` 按 `junction_id` 排；
-  - `wire` 按 `(net, from_endpoint, to_endpoint)` 排；
-  - `label` 按 `(net, x, y)` 排；
-  - `port` 按 `port_id` 排；
-  - `text` 按 `(x, y, text)` 排。
-- 列宽按段内最大值对齐；行宽超过 80 列时**不折行**（`wire` 的折点是一串 `[x,y]` 单元格，拆行会让一条走线读成两条，与 `pcb` 的 `trace` 同理，见 `teda.md` §3 末条）。
-- `wire` 的折点每个是**一格**（`[x,y]`），所以前三列与折点列一起按最宽单元格对齐，不需要任何"成对排"的例外。
-- `place` 的旋转列与 `unit=` 尾列分开对齐（旋转可能缺省，`unit=` 可能没有）。
-- `wire` 的折点按经过顺序排列，不排序（顺序有语义）。
-- 源文件里同一行的顺序不影响 IR：IR 里的 `points` 保留折点顺序，其余数组按上面的键排序。
-- 缺省值在源文件里**可以不写**（`rot` 缺省 0、`unit` 缺省 1、`sheet` 缺省 A4 横向）；IR 里缺省字段一律省略，所以 `rot=0` 与不写旋转是同一个文件。
+Section order is fixed: `place` → `field` → `module` → `module_port` → `interconnect` → `module_place` → `junction` → `wire` → `label` → `port` → `text`.
+- Rows within a section use natural identifier order (`C2` precedes `C10`; see `teda.md` §12 rule 9).
+  - `place` by `instance_id`;
+  - `field` by `(instance_id, name)`;
+  - `module` by `module_instance_id`;
+  - `module_port` by `id`;
+  - `interconnect` by `interconnect_id`;
+  - `module_place` by `(module_instance_id, x, y)`;
+  - `junction` by `junction_id`;
+  - `wire` by `(net, from_endpoint, to_endpoint)`;
+  - `label` by `(net, x, y)`;
+  - `port` by `port_id`;
+  - `text` by `(x, y, text)`.
+- Columns align to each section's widest cell; rows longer than 80 columns are not wrapped (`wire` bends are individual `[x,y]` cells, and splitting a row would make one path appear as two; see `teda.md` §3).
+- Each `wire` bend is one cell `[x,y]`; align bend cells with the first three columns.
+- `place` rotation and `unit=` are separately aligned optional columns.
+- `wire` bends remain in path order; their order is semantic.
+- Every view is language `0.14` or later. Canonical output writes `size`; `sheet` is accepted only as a legacy input alias and is never emitted. Canonicalization does not change the file's declared language version.
+- Source row order does not affect IR: the `points` array retains bend order, while other section arrays use the sort keys above.
+- Defaults may be omitted (`rot` defaults to 0, `unit` to 1, and page extent to A4 landscape); IR omits default-valued fields.
+
+`module_place` rows are ordered by `(module_instance_id, x, y)`; repeated placements of one instance are allowed and source order has no meaning. For a declared interconnect endpoint on a page using `module_place`, use the first canonical placement of its module instance to resolve that module port's drawing position; all placements are rendered and their transformed bounds are checked independently. `module_view` and `sheet_template` canonical forms are in §§12.6 and 13.5.
+
+---
+
+## 12. `module_view`：可复用的模块局部图
+
+`module_view` is a reusable drawing of a module definition. It can be previewed independently or placed repeatedly on project pages. It is advisory: the module description owns every electrical fact, while the project root owns module-instance identity and project bindings ([ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) D1–D2; `spec/module.md` §7.2).
+
+### 12.1 文件与头
+
+```
+version 0.14.0
+module_view buck-5v
+
+bounds [120,80]
+```
+
+- 文件住在 `views/modules/<module_id>.module-view.teda`；类型行是 `module_view <module_id>`，`module_id` 必须等于去掉 `.module-view` 后缀的文件名（与 `view` 同一规则，§1）。
+- `module_id` 的形状与模块文件里的模块 id 相同（`^[a-z][a-z0-9-]*$`）：模块图按**模块 id** 找，不按模块实例找。
+- 语言 `0.13` 新增。`module_view` 的 reader 下界是 `0.13`（`spec/teda.md` §12.1）——这个类型在 `0.13` 之前不存在。
+
+### 12.2 `bounds`：这张图自己的范围
+
+`bounds [width,height]` 是**必填**标量（mm，一个括号元组单元格，`teda.md` §4.3）。局部原点在 `bounds` 的左上角，+x 向右、+y 向下（与页同一套坐标系，§2.1）。
+
+- **这是模块局部的范围，不是页的图幅。** 它与页的 `size` / `sheet`（§2）是两件事：一个模块图可以在多页上以不同尺寸摆放，页的图幅由页自己（或它的模板）决定。两者的检查也是分开的：模块图的点落在自己的 `bounds` 内，摆放后的范围落在页内（§14.3）。
+- 模块图的每一个画出来的点都必须落在 `bounds` 内；落在外面是错误（§9.1）。
+- 坐标分辨率与晶格与页相同（`0.01 mm` 分辨率、`0.5 mm` 绘图晶格，§2.1）。
+
+### 12.3 段与行
+
+模块图有这些段，行语义与页相同（§4–§8）：`place`、`field`、`junction`、`wire`、`label`、`port`、`text`。没有 `module`、`module_port`、`module_place`——模块图不摆放别的模块图。
+
+```
+place
+  U1    [10.0,10.0]  0
+  C1    [40.0,10.0]  90
+
+wire
+  VOUT   U1.5  C1.2  [20.0,20.0]
+
+port
+  VOUT   [0.0,30.0]  180
+```
+
+**Names are module-local**, not project-page names:
+
+| Spelling | Meaning in a module drawing |
+|---|---|
+| `place` `instance_id` | An internal module instance such as `U1`, without an `M<digits>.` prefix |
+| `wire` / `label` net | A net declared inside the module, such as `VOUT`, without an `M<digits>.` prefix |
+| `port` `port_id` | An external port declared by the module (`spec/module.md` §3) |
+
+- A module drawing cannot declare electrical facts: it cannot add components, pins, nets, or ports. Its `place` instances, `wire` / `label` nets, and `port` IDs must all exist in the module description; the module description is authoritative (§9.1).
+- Module-drawing wire endpoints use module-local spelling: pin references such as `U1.5`, module ports such as `PORT`, and junction IDs. Project-page prefixes are not used in this local namespace.
+- A module port's drawing position follows the module interface and is transformed when the drawing is placed on a project page (§14.3).
+
+### 12.4 没有电气权威
+
+模块图**只画**，不定义。删除一张模块图，模块与板一字不变：模块文件里的一切仍然成立，ERC 仍然跑，导出的网表仍然是同一份。模块图的增删改只影响视图诊断与 `advisory_hash`（§9.3、§14.5）。
+
+### 12.5 独立预览
+
+模块图**可以独立预览**：不摆到任何页上也能画出来、也能查。预览用同一套渲染器与同一套视图检查（[ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) Consequences）。
+
+### 12.6 Canonical form
+
+- 段顺序固定：`place` → `field` → `junction` → `wire` → `label` → `port` → `text`。
+- 段内行按**自然序**排序（§11 的同一套规则）：`place` 按 `instance_id`，`field` 按 `(instance_id, name)`，`junction` 按 `junction_id`，`wire` 按 `(net, from_endpoint, to_endpoint)`，`label` 按 `(net, x, y)`，`port` 按 `port_id`，`text` 按 `(x, y, text)`。
+- `bounds` 是唯一的标量，canonical form 把它放在第一个段之前。
+- 缺省值可以不写（`rot` 缺省 0）；IR 里缺省字段一律省略。
+
+---
+
+## 13. `sheet_template`：静态的图纸模板
+
+`sheet_template` 是**页面上静态的家具**：图框、标题栏、表格、矢量 logo。它只有图形与文字，没有电气，也没有任何页特有的事实（[ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) D3）。
+
+### 13.1 文件与头
+
+```
+version 0.14.0
+sheet_template a4
+
+size [297,210]
+```
+
+- 文件住在 `views/templates/<template_id>.sheet-template.teda`；类型行是 `sheet_template <template_id>`，`template_id` 必须等于去掉 `.sheet-template` 后缀的文件名，形状为 `^[a-z][a-z0-9-]*$`。
+- 语言 `0.13` 新增；`sheet_template` 的 reader 下界是 `0.13`。
+
+### 13.2 `size`：模板的范围
+
+`size [width,height]` 是**必填**标量（mm），与页的图幅同一套写法（§2）。
+
+- **模板的 `size` 就是用它的页的图幅**：页写了 `template` 就不再写自己的 `size` / `sheet`（§2、§14.1）。
+- 模板的 `size` 与模块图的 `bounds`（§12.2）是两件事：模板的范围是**整页**的范围，模块图的范围是**一张图**的范围。
+
+### 13.3 家具段：封闭的四个
+
+模板只有四个段，**这是封闭集**，不多不少：`line`、`rect`、`polyline`、`text`。
+
+| 段 | 行 | 说明 |
+|---|---|---|
+| `line` | `<id> [x1,y1] [x2,y2]` | 一条直线 |
+| `rect` | `<id> [x1,y1] [x2,y2]` | 一个矩形，给**两个对角点**（与 `line` 同一套格子写法） |
+| `polyline` | `<id> [x1,y1] [x2,y2] [x3,y3] …` | 一条折线，按顺序经过它的点；至少两个点 |
+| `text` | `<id> [x,y] <text…>` | 一段静态文字 |
+
+```
+line
+  RULE_TOP   [10.0,10.0]   [287.0,10.0]
+
+rect
+  TITLE_BOX  [197.0,160.0]  [287.0,200.0]
+
+polyline
+  LOGO       [12.0,180.0]  [20.0,190.0]  [28.0,180.0]
+
+text
+  TITLE      [200.0,190.0]  Charger-Buck Rev A
+```
+
+- **每一行都有一个 id**，在模板内唯一（`value.duplicate-id`）。id 的形状是 `^[A-Za-z0-9_+-]+$`。
+- **每一行都按 id 起头**——`text` 也一样（`text` 段的行是 `<id> [x,y] <text…>`，id 在前）。页里的 `text` 行没有 id（§8），模板里的有：模板的每一样东西都要能被指认。
+- **所有坐标与图形都必须落在模板的 `size` 之内**（§9.1）。
+- 文字用渲染器的**固定视图字高**，没有字号、没有字体、没有行距这些参数。
+- 折线可以画 logo，不引入外部文件，不引入运行时资源。
+
+### 13.4 家具是字面的
+
+A template's contents are literal: no project metadata interpolation, variables, electrical references, or page-specific facts. Text in a title block is exactly the text supplied; the template does not read a project's name, version, or date. Templates do not supply net names, reference designators, or project ports; those belong to project pages and module drawings.
+
+### 13.5 Canonical form
+
+- 段顺序固定：`line` → `rect` → `polyline` → `text`。
+- 段内行按 `id` 排（自然序，§11 的同一套规则）。
+- `size` 是唯一的标量，canonical form 把它放在第一个段之前。
+
+---
+
+## 14. 组合页：模板 + 模块图
+
+A composed page can place a template and reusable module drawings. It remains one project `view` file at `views/<page_id>.view.teda` and one print page; it is not another logical page or module hierarchy ([ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) D1, D4).
+
+### 14.1 `template`：这一页画在哪个模板上
+
+页的标量 `template <template_id>` 指向 `views/templates/<template_id>.sheet-template.teda`（§2、§13.1）。
+
+- **模板的 `size` 就是这一页的图幅**，所以这一页不再写 `size` 或 `sheet`（§2）。
+- 模板引用不到（文件不存在）是错误，不是"没有模板就算了"（§9.1）。
+
+### 14.2 `module_place`：把模块图摆到页上
+
+```
+module_place
+  M1  charger-power  [20.0,20.0]   0
+  M2  buck-5v        [160.0,20.0]  90
+```
+
+列：`<module_instance_id> <module_id> [x,y] [<rot>]`。
+
+| 列 | 说明 |
+|---|---|
+| `module_instance_id` | A project module-instance ID (such as `M1`), declared by the root's `modules` section |
+| `module_id` | The definition bound to that project instance by the root |
+| `x` `y` | Top-left corner of the placed drawing in page coordinates (mm) |
+| `rot` | Clockwise right-angle rotation: `0` / `90` / `180` / `270`, default `0`; other values report `value.angle-invalid` |
+
+- **A placement is a drawing, not a fact:** it says where the module drawing appears and never defines its contents (§4.2, §12.4).
+- Repeated rows for one project module instance are valid. Each is a drawing occurrence; the root remains authoritative for project identity and electrical bindings.
+- A module-port reference does not identify a repeated drawing occurrence. Resolve its position from the first canonical `module_place` row for that instance, sorted by `(module_instance_id, x, y)`; never use source row order. Render all occurrences and check each transformed bound independently.
+- A page must use either `module` / `module_port` or `module_place`, not both. They are separate drawing conventions; mixing them defines no third meaning.
+- A composed page may also contain page-level `place` rows for any project component instances it chooses to draw.
+
+### 14.3 摆放变换
+
+摆放把模块图的 `bounds` 映射到页坐标，**不缩放**。局部点 `(u,v)`、局部范围 `w × h`：
+
+| `rot` | 局部点 → 摆放后的局部点 |
+|---|---|
+| `0` | `(u, v)` |
+| `90` | `(h - v, u)` |
+| `180` | `(w - u, h - v)` |
+| `270` | `(v, w - u)` |
+
+然后加上页位置 `[x,y]`。所以 **`[x,y]` 是变换后的 bounds 的左上角**：模块图的左上角不一定落在 `[x,y]` 上（`90` / `180` / `270` 时它落在别的角）。
+
+- 旋转是**顺时针**的，因为页坐标 y 向下增长（§2.1）。
+- **变换后的范围必须落在页内**（页的图幅，或用模板时模板的 `size`）。落在外面是错误（§9.1）。
+- 摆放不改变任何电气事实：被摆进去的图仍然只是图（§14.5）。
+
+### 14.4 页上的模块端口端点
+
+A composed page draws a root-declared interconnect with its `interconnect` row (§4.4); it never uses a `wire` row to join module ports. Each endpoint's page position comes from the corresponding module drawing's `port` row after the `module_place` transform (§14.3). The module drawing must be placed on this page and declare the named port. These positions are advisory: neither a view nor a module drawing changes root net membership, the interconnect endpoints, PCB assignment, or copper continuity.
+
+### 14.5 Composed pages have no electrical authority
+
+A composed page is a drawing. Editing or deleting it affects view diagnostics and the advisory hash only; it never changes project connectivity, a PCB IR, the normative project hash, or netlist output ([ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) D1; [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4–D5).

@@ -661,6 +661,7 @@ function renderTree(): void {
   const kinds: { title: string; kind: ReviewDrawingKind }[] = [
     { title: "Schematics", kind: "sch" },
     { title: "PCBs", kind: "pcb" },
+    { title: "Modules", kind: "module" },
     { title: "Symbols", kind: "symbol" },
     { title: "Footprints", kind: "footprint" },
   ];
@@ -942,6 +943,7 @@ function drawnCount(current: ReviewDrawing, shown: { symbols: ReviewSymbol[] }):
   if (current.kind === "pcb") return `${current.parts?.length ?? 0} parts`;
   if (current.kind === "symbol") return "symbol";
   if (current.kind === "footprint") return "footprint";
+  if (current.kind === "module") return "module";
   return `${shown.symbols.length} symbols`;
 }
 
@@ -1008,7 +1010,7 @@ export interface KeyHint {
  */
 export interface KeyHintState {
   /** The kind of drawing on screen, or `undefined` when there is none. */
-  drawingKind: "sch" | "pcb" | "symbol" | "footprint" | undefined;
+  drawingKind: "sch" | "pcb" | "symbol" | "footprint" | "module" | undefined;
   /** What is selected, if anything. */
   selected: Highlight | null;
   /** Whether a move transaction is in flight. */

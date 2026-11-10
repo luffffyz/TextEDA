@@ -9,7 +9,7 @@ import { parseView } from "../src/view.ts";
 
 const file = "sch/charger-buck/buck-5v.view.teda";
 
-const SOURCE = `version 0.11
+const SOURCE = `version 0.14
 view buck-5v
 
 sheet [297,210]
@@ -36,22 +36,22 @@ text
 
 describe("view parsing", () => {
   test("parses a full view file into the IR shard", () => {
-    const result = parseView(SOURCE, { file, board: "charger-buck" });
+    const result = parseView(SOURCE, { file });
     expect(result.diagnostics).toEqual([]);
     expect(result.ok).toBe(true);
     const ir = result.ir!;
     expect(ir.ir_version).toBe(irVersion);
-    expect(ir.format).toBe("0.11");
-    expect(ir.board).toBe("charger-buck");
+    expect(ir.format).toBe("0.14");
+    expect(ir.project).toBe("main");
     expect(ir.page).toBe("buck-5v");
     expect(ir.sheet).toEqual({ width_nm: 297_000_000, height_nm: 210_000_000 });
     // Canonical order (spec/schematic-view.md §11): the IR is sorted, the source need not be.
-    expect(ir.place.map((p) => p.instance_id)).toEqual(["C1", "U1", "U2"]);
-    expect(ir.place[1]!.x_nm).toBe(40_000_000);
+    expect(ir.place!.map((p) => p.instance_id)).toEqual(["C1", "U1", "U2"]);
+    expect(ir.place![1]!.x_nm).toBe(40_000_000);
     // A zero rotation and unit 1 are the defaults: the IR omits them.
-    expect(ir.place[1]!.rot_mdeg).toBeUndefined();
-    expect(ir.place[0]!.rot_mdeg).toBe(90_000);
-    expect(ir.place[2]!.unit).toBe(2);
+    expect(ir.place![1]!.rot_mdeg).toBeUndefined();
+    expect(ir.place![0]!.rot_mdeg).toBe(90_000);
+    expect(ir.place![2]!.unit).toBe(2);
     expect(ir.wire).toHaveLength(2);
     expect(ir.wire![1]!.points).toEqual([{ x_nm: 35_000_000, y_nm: 25_000_000 }]);
     expect(ir.wire![0]!.points).toEqual([
@@ -72,28 +72,28 @@ describe("view parsing", () => {
       "  GND   C1.2  U2.4  [15.0,25.0]  [15.0,12.0]\n  VDD   U1.5  C1.1  [35.0,25.0]",
     );
     expect(shuffled).not.toBe(SOURCE);
-    const a = parseView(SOURCE, { file, board: "charger-buck" });
-    const b = parseView(shuffled, { file, board: "charger-buck" });
+    const a = parseView(SOURCE, { file });
+    const b = parseView(shuffled, { file });
     expect(b.diagnostics).toEqual([]);
     expect(JSON.stringify(b.ir)).toBe(JSON.stringify(a.ir));
   });
 
   test("the IR satisfies the schematic-view contract", () => {
-    const ir = parseView(SOURCE, { file, board: "charger-buck" }).ir!;
+    const ir = parseView(SOURCE, { file }).ir!;
     const result = validate("schematic-view", ir);
     expect({ ...result, errors: result.errors }).toEqual({ ok: true, errors: [] });
   });
 
   test("the sheet defaults to A4 landscape", () => {
-    const source = "version 0.11\nview main\n\nplace\n  U1  [10.0,10.0]\n";
-    const ir = parseView(source, { file, board: "b" }).ir!;
+    const source = "version 0.14\nview main\n\nplace\n  U1  [10.0,10.0]\n";
+    const ir = parseView(source, { file }).ir!;
     expect(ir.sheet).toEqual({ width_nm: 297_000_000, height_nm: 210_000_000 });
   });
 
   test("a bend point lands on a pin's column: the grid is 0.01 mm, not 0.1", () => {
     // 1.27 mm pin pitch is 127 steps of 0.01 mm and 12.7 steps of 0.1 mm, so a wire that leaves a
     // pin straight and then turns needs the finer grid (spec/schematic-view.md §2.1, §5).
-    const result = parseView("version 0.11\nview main\n\nplace\n  U1  [10.0,10.0]\n\nwire\n  VDD  U1.5  U1.6  [124.76,10.0]\n", { file, board: "b" });
+    const result = parseView("version 0.14\nview main\n\nplace\n  U1  [10.0,10.0]\n\nwire\n  VDD  U1.5  U1.6  [124.76,10.0]\n", { file });
     expect(result.ok).toBe(true);
     expect(result.ir!.wire![0]!.points).toEqual([{ x_nm: 124_760_000, y_nm: 10_000_000 }]);
   });
@@ -102,7 +102,7 @@ describe("view parsing", () => {
     // The view names ids, it does not define them: a module instance is `M1.U1`, its pin
     // reference is `M1.U1.5`, and a module-internal net is `M1.VCC`.
     const source = [
-      "version 0.11",
+      "version 0.14",
       "view main",
       "",
       "place",
@@ -115,18 +115,18 @@ describe("view parsing", () => {
       "label",
       "  M1.VCC  [15.0,10.0]",
     ].join("\n");
-    const result = parseView(source, { file, board: "b" });
+    const result = parseView(source, { file });
     expect(result.diagnostics).toEqual([]);
     const ir = result.ir!;
-    expect(ir.place.map((p) => p.instance_id)).toEqual(["M1.C1", "M1.U1"]);
+    expect(ir.place!.map((p) => p.instance_id)).toEqual(["M1.C1", "M1.U1"]);
     expect(ir.wire![0]).toMatchObject({ net: "M1.VCC", from_pin: "M1.U1.5", to_pin: "M1.C1.1" });
     expect(ir.label![0]).toMatchObject({ net: "M1.VCC" });
     // The qualified names satisfy the contract, not just the parser.
     expect(validate("schematic-view", ir)).toMatchObject({ ok: true, errors: [] });
   });
   test("parses named drawing junctions as endpoint identities", () => {
-    const source = "version 0.11\nview main\n\njunction\n  J1  [10.25,20.5]\n  J2  [30,20.5]\n\nwire\n  VDD  J1  J2\n";
-    const result = parseView(source, { file, board: "b" });
+    const source = "version 0.14\nview main\n\njunction\n  J1  [10.25,20.5]\n  J2  [30,20.5]\n\nwire\n  VDD  J1  J2\n";
+    const result = parseView(source, { file });
     expect(result.diagnostics).toEqual([]);
     expect(result.ir!.junction).toEqual([
       { id: "J1", x_nm: 10_250_000, y_nm: 20_500_000 },
@@ -137,12 +137,12 @@ describe("view parsing", () => {
     expect(formatView(source, { file }).text).toContain("J1  [10.25,20.5]");
   });
   test("rejects legacy anonymous coordinate endpoints", () => {
-    const result = parseView("version 0.11\nview main\n\nwire\n  VDD  @10.25,20.5  @30,20.5\n", { file, board: "b" });
+    const result = parseView("version 0.14\nview main\n\nwire\n  VDD  @10.25,20.5  @30,20.5\n", { file });
     expect(result.ir).toBeUndefined();
     expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toContain("syntax.invalid-ref");
   });
   test("parses symbol-local field overrides in canonical order and maps source spans", () => {
-    const source = `version 0.11
+    const source = `version 0.14
 view main
 
 place
@@ -154,7 +154,7 @@ field
   U2  Value      [1.0,2.0]
   U2  Reference  [-3.0,-4.0]
 `;
-    const result = parseView(source, { file, board: "b" });
+    const result = parseView(source, { file });
     expect(result.diagnostics).toEqual([]);
     expect(result.ok).toBe(true);
     expect(result.ir!.field).toEqual([
@@ -167,21 +167,34 @@ field
   });
 
   test("a view below the reader floor is rejected even without geometry", () => {
-    const result = parseView("version 0.9.2\nview main\n", { file, board: "b" });
+    const result = parseView("version 0.9.2\nview main\n", { file });
     expect(result.ok).toBe(false);
     expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(["format.unsupported-version"]);
   });
 
-  test("a 0.9.2 view that draws a point is refused: the tuple needs 0.11", () => {
-    const result = parseView("version 0.9.2\nview main\n\nplace\n  U1  [10.0,10.0]\n", { file, board: "b" });
+  test("a below-floor view that draws a point is refused", () => {
+    const result = parseView("version 0.9.2\nview main\n\nplace\n  U1  [10.0,10.0]\n", { file });
     expect(result.ok).toBe(false);
     expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toContain("format.unsupported-version");
   });
 
-  test("a field section requires language 0.10, even when empty", () => {
-    const result = parseView("version 0.9.2\nview main\n\nfield\n", { file, board: "b" });
+  test("a below-floor view with a field is refused", () => {
+    const result = parseView("version 0.9.2\nview main\n\nfield\n", { file });
     expect(result.ok).toBe(false);
     expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toContain("format.unsupported-version");
+  });
+});
+
+describe("reusable module placements", () => {
+  test("module_place accepts the optional rotation and canonicalizes zero", () => {
+    const source = "version 0.14\nview main\n\ntemplate a4\n\nmodule_place\n  M2 buck-5v [10,20]\n  M2 buck-5v [30,40] 0\n  M2 buck-5v [50,60] 90\n";
+    const result = parseView(source, { file });
+    expect(result.diagnostics).toEqual([]);
+    expect(result.ir!.module_place).toEqual([
+      { instance_id: "M2", module_id: "buck-5v", x_nm: 10_000_000, y_nm: 20_000_000 },
+      { instance_id: "M2", module_id: "buck-5v", x_nm: 30_000_000, y_nm: 40_000_000 },
+      { instance_id: "M2", module_id: "buck-5v", x_nm: 50_000_000, y_nm: 60_000_000, rot_mdeg: 90_000 },
+    ]);
   });
 });
 
@@ -190,43 +203,43 @@ describe("view diagnostics", () => {
   const cases: { name: string; source: string; code: string }[] = [
     {
       name: "a wire endpoint whose instance is not placed",
-      source: "version 0.11\nview main\n\nplace\n  U1  [10.0,10.0]\n\nwire\n  VDD  U1.5  C1.1\n",
+      source: "version 0.14\nview main\n\nplace\n  U1  [10.0,10.0]\n\nwire\n  VDD  U1.5  C1.1\n",
       code: "view.pin-not-placed",
     },
     {
       name: "a coordinate outside the sheet",
-      source: "version 0.11\nview main\n\nplace\n  U1  [400.0,10.0]\n",
+      source: "version 0.14\nview main\n\nplace\n  U1  [400.0,10.0]\n",
       code: "view.out-of-sheet",
     },
     {
       name: "a rotation that is not a right angle",
-      source: "version 0.11\nview main\n\nplace\n  U1  [10.0,10.0]  45\n",
+      source: "version 0.14\nview main\n\nplace\n  U1  [10.0,10.0]  45\n",
       code: "value.angle-invalid",
     },
     {
       name: "a pin reference with more than one instance level",
-      source: "version 0.11\nview main\n\nplace\n  U1  [10.0,10.0]\n\nwire\n  VDD  U1.5.6  U1.6\n",
+      source: "version 0.14\nview main\n\nplace\n  U1  [10.0,10.0]\n\nwire\n  VDD  U1.5.6  U1.6\n",
       code: "syntax.invalid-ref",
     },
     {
       // A bend is one cell, so a bend cell that is not a tuple is the mistake (ADR-0065 D2).
       name: "a bend cell that is not a tuple",
-      source: "version 0.11\nview main\n\nplace\n  U1  [10.0,10.0]\n\nwire\n  VDD  U1.5  U1.6  10.0\n",
+      source: "version 0.14\nview main\n\nplace\n  U1  [10.0,10.0]\n\nwire\n  VDD  U1.5  U1.6  10.0\n",
       code: "syntax.invalid-literal",
     },
     {
       name: "a coordinate finer than the 0.01 mm grid",
-      source: "version 0.11\nview main\n\nplace\n  U1  [10.005,10.0]\n",
+      source: "version 0.14\nview main\n\nplace\n  U1  [10.005,10.0]\n",
       code: "value.length-invalid",
     },
     {
       name: "an unknown key in the place tail",
-      source: "version 0.11\nview main\n\nplace\n  U1  [10.0,10.0]  colour=red\n",
+      source: "version 0.14\nview main\n\nplace\n  U1  [10.0,10.0]  colour=red\n",
       code: "syntax.unknown-field",
     },
     {
       name: "an unknown section",
-      source: "version 0.11\nview main\n\nnotes\n  hello\n",
+      source: "version 0.14\nview main\n\nnotes\n  hello\n",
       code: "syntax.unknown-field",
     },
     {
@@ -236,29 +249,29 @@ describe("view diagnostics", () => {
     },
     {
       name: "an unknown schematic field name",
-      source: "version 0.11\nview main\n\nplace\n  U1  [10.0,10.0]\n\nfield\n  U1  Label  [1.0,2.0]\n",
+      source: "version 0.14\nview main\n\nplace\n  U1  [10.0,10.0]\n\nfield\n  U1  Label  [1.0,2.0]\n",
       code: "syntax.invalid-literal",
     },
     {
       name: "a duplicate field override",
-      source: "version 0.11\nview main\n\nplace\n  U1  [10.0,10.0]\n\nfield\n  U1  Reference  [1.0,2.0]\n  U1  Reference  [3.0,4.0]\n",
+      source: "version 0.14\nview main\n\nplace\n  U1  [10.0,10.0]\n\nfield\n  U1  Reference  [1.0,2.0]\n  U1  Reference  [3.0,4.0]\n",
       code: "value.duplicate-field",
     },
     {
       name: "a field override whose instance is not placed",
-      source: "version 0.11\nview main\n\nplace\n  U1  [10.0,10.0]\n\nfield\n  C1  Value  [1.0,2.0]\n",
+      source: "version 0.14\nview main\n\nplace\n  U1  [10.0,10.0]\n\nfield\n  C1  Value  [1.0,2.0]\n",
       code: "ref.unknown-instance",
     },
     {
       name: "a field coordinate finer than the 0.01 mm grid",
-      source: "version 0.11\nview main\n\nplace\n  U1  [10.0,10.0]\n\nfield\n  U1  Value  [1.005,2.0]\n",
+      source: "version 0.14\nview main\n\nplace\n  U1  [10.0,10.0]\n\nfield\n  U1  Value  [1.005,2.0]\n",
       code: "value.length-invalid",
     },
   ];
 
   for (const c of cases) {
     test(c.name, () => {
-      const result = parseView(c.source, { file, board: "b" });
+      const result = parseView(c.source, { file });
       expect(result.ok).toBe(false);
       expect(result.diagnostics.map((d) => d.code)).toContain(c.code as never);
     });
@@ -267,7 +280,7 @@ describe("view diagnostics", () => {
 
 describe("view canonical form", () => {
   test("sorts the rows, aligns the columns and is idempotent", () => {
-    const messy = `version 0.11
+    const messy = `version 0.14
 view main
 
 place
@@ -284,7 +297,7 @@ label
     const first = formatView(messy, { file });
     expect(first.ok).toBe(true);
     expect(first.text).toBe(
-      `version 0.11
+      `version 0.14
 view main
 
 place
@@ -304,7 +317,7 @@ label
   });
 
   test("sorts field overrides, preserves row comments and is idempotent", () => {
-    const source = `version 0.11
+    const source = `version 0.14
 view main
 
 place
@@ -331,7 +344,7 @@ field
   });
 
   test("keeps the optional port rotation", () => {
-    const source = `version 0.11
+    const source = `version 0.14
 view main
 
 place
@@ -344,7 +357,7 @@ port
     const first = formatView(source, { file });
     expect(first.ok).toBe(true);
     expect(first.text).toContain("GND  [10.0,10.0]  180");
-    const reparsed = parseView(first.text!, { file, board: "b" });
+    const reparsed = parseView(first.text!, { file });
     expect(reparsed.ok).toBe(true);
     expect(reparsed.ir!.port![0]).toMatchObject({ id: "GND", rot_mdeg: 180_000 });
     const second = formatView(first.text!, { file });
@@ -352,7 +365,7 @@ port
   });
 
   test("keeps the comments attached to their row", () => {
-    const source = `version 0.11
+    const source = `version 0.14
 view main
 
 place
@@ -367,8 +380,169 @@ place
   });
 
   test("produces no output when the file has errors", () => {
-    const result = formatView("version 0.11\nview main\n\nplace\n  U1  [400.0,10.0]\n", { file });
+    const result = formatView("version 0.14\nview main\n\nplace\n  U1  [400.0,10.0]\n", { file });
     expect(result.ok).toBe(false);
     expect(result.text).toBeUndefined();
+  });
+});
+
+// Language 0.14: the module overview and the page's own size (ADR-0067 D6, spec/schematic-view.md
+// §2, §4.2, §4.3, §5). The reader floor is 0.14; all view constructs in this section are accepted
+// in a file that declares 0.14.
+const OVERVIEW = `version 0.14
+view main
+
+size [297,210]
+
+module
+  M1  charger-power   [20.0,20.0]   [90.0,60.0]
+  M2  buck-5v         [150.0,20.0]  [80.0,60.0]
+
+module_port
+  M1.SYS_OUT   [110.0,50.0]
+  M2.SYS_IN    [150.0,50.0]
+
+wire
+  SYS   M1.SYS_OUT   M2.SYS_IN
+`;
+
+describe("view language 0.14", () => {
+  test("an overview parses the module boxes and the module ports", () => {
+    const result = parseView(OVERVIEW, { file });
+    expect(result.diagnostics).toEqual([]);
+    expect(result.ok).toBe(true);
+    const ir = result.ir!;
+    expect(ir.module).toEqual([
+      {
+        instance_id: "M1",
+        module_id: "charger-power",
+        x_nm: 20_000_000,
+        y_nm: 20_000_000,
+        width_nm: 90_000_000,
+        height_nm: 60_000_000,
+      },
+      {
+        instance_id: "M2",
+        module_id: "buck-5v",
+        x_nm: 150_000_000,
+        y_nm: 20_000_000,
+        width_nm: 80_000_000,
+        height_nm: 60_000_000,
+      },
+    ]);
+    expect(ir.module_port).toEqual([
+      { id: "M1.SYS_OUT", x_nm: 110_000_000, y_nm: 50_000_000 },
+      { id: "M2.SYS_IN", x_nm: 150_000_000, y_nm: 50_000_000 },
+    ]);
+    // A wire may end on a module port: it is an interface, not a pin of a placed instance.
+    expect(ir.wire![0]).toMatchObject({ net: "SYS", from_pin: "M1.SYS_OUT", to_pin: "M2.SYS_IN" });
+    expect(validate("schematic-view", ir)).toMatchObject({ ok: true, errors: [] });
+    expect(ir.place).toBeUndefined();
+  });
+
+  test("the module records keep their source spans", () => {
+    const result = parseView(OVERVIEW, { file });
+    const lines = OVERVIEW.split("\n");
+    expect(result.sources!.get("/module/0")!.line).toBe(lines.indexOf("  M1  charger-power   [20.0,20.0]   [90.0,60.0]") + 1);
+    expect(result.sources!.get("/module_port/1")!.line).toBe(lines.indexOf("  M2.SYS_IN    [150.0,50.0]") + 1);
+  });
+
+  test("a module box that does not fit the page is refused", () => {
+    const source = "version 0.14\nview main\n\nmodule\n  M1  charger-power  [250.0,20.0]  [90.0,60.0]\n";
+    const result = parseView(source, { file });
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.map((d) => d.code)).toContain("view.out-of-sheet");
+  });
+
+  test("a module port outside the page is refused", () => {
+    const source = "version 0.14\nview main\n\nmodule_port\n  M1.SYS_OUT  [300.0,50.0]\n";
+    const result = parseView(source, { file });
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.map((d) => d.code)).toContain("view.out-of-sheet");
+  });
+
+  test("a page may declare its own size, and the size is the bound of the drawing", () => {
+    const source = "version 0.14\nview buck-5v\n\nsize [120,80]\n\nplace\n  M2.U1  [30.0,20.0]\n";
+    const ir = parseView(source, { file }).ir!;
+    expect(ir.sheet).toEqual({ width_nm: 120_000_000, height_nm: 80_000_000 });
+    const outside = parseView(
+      "version 0.14\nview buck-5v\n\nsize [120,80]\n\nplace\n  M2.U1  [130.0,20.0]\n",
+      { file },
+    );
+    expect(outside.ok).toBe(false);
+    expect(outside.diagnostics.map((d) => d.code)).toContain("view.out-of-sheet");
+  });
+
+  test("a 0.14 page may write the legacy alias of the page size", () => {
+    const ir = parseView("version 0.14\nview main\n\nsheet [120,80]\n\nplace\n  U1  [10.0,10.0]\n", { file }).ir!;
+    expect(ir.sheet).toEqual({ width_nm: 120_000_000, height_nm: 80_000_000 });
+  });
+
+  test("the default page is still A4 landscape", () => {
+    const ir = parseView("version 0.14\nview main\n\nplace\n  U1  [10.0,10.0]\n", { file }).ir!;
+    expect(ir.sheet).toEqual({ width_nm: 297_000_000, height_nm: 210_000_000 });
+  });
+
+  test("a page that writes both spellings of the page size is an error", () => {
+    const source = "version 0.14\nview main\n\nsize [297,210]\nsheet [297,210]\n\nplace\n  U1  [10.0,10.0]\n";
+    const result = parseView(source, { file });
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.map((d) => d.code)).toContain("syntax.duplicate-key");
+  });
+
+  test("the page-size key follows the file's own language version", () => {
+    // A 0.14 page writes canonical `size`; formatting migrates the legacy `sheet` alias.
+    const old = formatView(SOURCE, { file });
+    expect(old.ok).toBe(true);
+    expect(old.text).toContain("size [297,210]");
+    expect(old.text).not.toContain("sheet [297,210]");
+
+    const newer = formatView(OVERVIEW, { file });
+    expect(newer.ok).toBe(true);
+    expect(newer.text).toContain("size [297,210]");
+    expect(newer.text).not.toContain("sheet [297,210]");
+
+    // A 0.14 page that still writes the old spelling comes back as `size`.
+    const legacy = formatView("version 0.14\nview main\n\nsheet [120,80]\n\nplace\n  U1  [10.0,10.0]\n", { file });
+    expect(legacy.ok).toBe(true);
+    expect(legacy.text).toContain("size [120,80]");
+    expect(legacy.text).not.toContain("sheet [120,80]");
+  });
+
+  test("the sections come out in canonical order and the rows are sorted", () => {
+    const messy = `version 0.14
+view main
+
+text
+  [12.0,8.0]  a note
+
+wire
+  SYS  M1.SYS_OUT  M2.SYS_IN
+
+module_port
+  M2.SYS_IN    [150.0,50.0]
+  M1.SYS_OUT   [110.0,50.0]
+
+module
+  M2  buck-5v         [150.0,20.0]  [80.0,60.0]
+  M1  charger-power   [20.0,20.0]   [90.0,60.0]
+
+place
+  M1.U1  [30.0,20.0]
+
+field
+  M1.U1  Reference  [0.0,2.0]
+`;
+    const result = formatView(messy, { file });
+    expect(result.ok).toBe(true);
+    const order = ["place", "field", "module", "module_port", "wire", "text"];
+    const positions = order.map((name) => result.text!.indexOf(`\n${name}\n`));
+    expect(positions.every((position) => position > 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    expect(result.text!.indexOf("M1  charger-power")).toBeLessThan(result.text!.indexOf("M2  buck-5v"));
+    expect(result.text!.indexOf("M1.SYS_OUT")).toBeLessThan(result.text!.indexOf("M2.SYS_IN"));
+    const second = formatView(result.text!, { file });
+    expect(second.ok).toBe(true);
+    expect(second.text).toBe(result.text);
   });
 });

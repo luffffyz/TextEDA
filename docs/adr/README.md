@@ -10,7 +10,7 @@ One flat counter, handed out in the order the records are written, starting at
 `0001`. A number names one record and nothing else: what a record is about is said by
 its folder, not by its number. A number is **never changed and never reused** — a link
 to `ADR-0006` names the same decision forever — so a new record takes the next free
-number and disturbs nothing that already exists. The next free number is `0066`.
+number and disturbs nothing that already exists. The next free number is `0070`.
 The sequence is not contiguous; gaps are normal.
 
 ## Retired
@@ -55,6 +55,7 @@ that was meant for it, and by nothing else.
 | [ADR-0005](02-ir/0005-ir-representation.md) | IR Representation (Semantic Model / Contract / Serialization) | Accepted | 2026-10-20 |
 | [ADR-0006](02-ir/0006-ir-shards-and-hashes.md) | IR Sharding, Identity Keys, and Hashes | Accepted | 2026-10-21 |
 | [ADR-0007](02-ir/0007-device-description-enters-the-ir.md) | A Device's Description Is a Fact, So It Enters the IR | Accepted | 2026-10-23 |
+| [ADR-0066](02-ir/0066-symbol-and-footprint-shards-record-source-language-version.md) | Symbol and Footprint Shards Record the Source Language Version | Accepted | 2026-11-08 |
 
 ## Project
 
@@ -64,6 +65,7 @@ that was meant for it, and by nothing else.
 | [ADR-0009](03-project/0009-board-linking.md) | How Boards Are Linked Together | Accepted | 2026-10-20 |
 | [ADR-0010](03-project/0010-instance-identity-is-a-uid.md) | Instance Identity Is a Stable Project-Local UID, Not the Refdes | Accepted | 2026-10-25 |
 | [ADR-0011](03-project/0011-renumbering-is-a-code-executed-rename.md) | Renumbering Is a Code-Executed Global Rename, Not an Agent Edit | Accepted | 2026-10-25 |
+| [ADR-0069](03-project/0069-project-level-logical-root-and-physical-board-mapping.md) | One Project Logic Root, Physical PCB Implementations, and Project Views | Accepted | 2026-11-09 |
 | [ADR-0060](03-project/0060-a-write-keeps-the-bytes-it-replaced.md) | A Write Keeps the Bytes It Replaced | Accepted | 2026-11-04 |
 
 ## Schematic
@@ -139,6 +141,8 @@ that was meant for it, and by nothing else.
 | [ADR-0062](09-view/0062-a-run-may-end-at-a-port.md) | A Run May End at a Port | Accepted | 2026-11-04 |
 | [ADR-0063](09-view/0063-a-run-is-shortened-only-along-the-lines-it-was-drawn-on.md) | A Run Is Shortened Only Along the Lines It Was Drawn On | Accepted | 2026-11-04 |
 | [ADR-0064](09-view/0064-automatic-fields-are-placed-for-the-page.md) | Automatic Fields Are Placed for the Page, Not for One Symbol | Accepted | 2026-11-05 |
+| [ADR-0067](09-view/0067-hierarchical-module-views-and-custom-page-size.md) | Hierarchical Module Views and a Custom Page Size | Accepted | 2026-11-08 |
+| [ADR-0068](09-view/0068-reusable-module-drawings-and-sheet-templates.md) | Reusable Module Drawings and Sheet Templates | Accepted | 2026-11-08 |
 
 ## Process
 

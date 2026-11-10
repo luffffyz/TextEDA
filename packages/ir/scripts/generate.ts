@@ -1,16 +1,16 @@
-// Generates IR contract artifacts from schemas/ir/<version>/*.schema.json:
+// Generates IR contract artifacts from schemas/ir/<version>/*.schema.json (current contract: v0.19):
 //   1. schemas.ts and types/*.ts in src/generated/ (runtime schemas and TypeScript types)
 //   2. docs/error-codes.md and docs/ir-reference.md (generated navigation for the same contract)
 // The root `bun run gen` additionally generates `docs/api-reference/` from public package exports.
 // Generation is idempotent: the same schemas produce byte-identical artifacts; CI catches drift with `git diff --exit-code`.
 import { compile } from "json-schema-to-typescript";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { codeEntry, DIAGNOSTIC_CODES, DIAGNOSTIC_CODE_IDS, DIAGNOSTIC_DOMAINS } from "../src/diagnostics/codes.ts";
 import { IR_QUANTITY_SPECS, quantityOfField } from "../src/units.ts";
 
-const irVersion = process.env.IR_VERSION ?? "v0.15";
+const irVersion = process.env.IR_VERSION ?? "v0.19";
 const here = dirname(fileURLToPath(import.meta.url));
 const schemaDir = join(here, "../../../schemas/ir", irVersion);
 const outDir = join(here, "../src/generated");
@@ -47,11 +47,12 @@ const ROOT_NAMES: Record<string, string> = {
   component: "Component",
   schematic: "Schematic",
   pcb: "Pcb",
-  system: "System",
   manifest: "Manifest",
   footprint: "Footprint",
   symbol: "Symbol",
   common: "Common",
+  "module-view": "ModuleView",
+  "sheet-template": "SheetTemplate",
 };
 
 const kinds: string[] = [];
@@ -410,9 +411,24 @@ outputs.push({
   content: renderIrReferenceDoc(),
 });
 
+const generatedTypesDir = join(outDir, "types");
+const generatedTypePaths = new Set(
+  outputs.filter(({ path }) => path.startsWith(`${generatedTypesDir}/`)).map(({ path }) => path),
+);
+const staleGeneratedTypePaths = existsSync(generatedTypesDir)
+  ? readdirSync(generatedTypesDir)
+      .filter((file) => file.endsWith(".ts"))
+      .map((file) => join(generatedTypesDir, file))
+      .filter((path) => !generatedTypePaths.has(path))
+  : [];
+
 // --check: compare only, never write. CI uses it to block "changed the schema but forgot to regenerate".
 const check = process.argv.includes("--check");
 const drifted: string[] = [];
+if (staleGeneratedTypePaths.length > 0) {
+  if (check) drifted.push(...staleGeneratedTypePaths);
+  else for (const path of staleGeneratedTypePaths) unlinkSync(path);
+}
 for (const { path, content } of outputs) {
   const current = existsSync(path) ? readFileSync(path, "utf8") : null;
   if (current === content) continue;

@@ -22,7 +22,7 @@ const q = (s: string) => `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 export interface PartPin {
   number: string;
   name: string;
-  /** teda electrical type (`teda.md` §10.1). */
+  /** teda electrical type (`teda.md §9.1`). */
   type: string;
 }
 

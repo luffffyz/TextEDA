@@ -1,27 +1,51 @@
-// Board loading: a board is one schematic file, and its drawing lives in a directory of print pages
-// (`<page>.view.teda`, ADR-0035, ADR-0012). The directory holds drawings only.
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { listBoards, loadBoard } from "../src/project.ts";
+import { listPcbs, loadPcb, loadSchematic, loadViews } from "../src/project.ts";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const projectRoot = join(repoRoot, "examples/reference-project");
 
-describe("loadBoard", () => {
-  test("reads the board's schematic file and its print pages", () => {
-    const board = loadBoard(projectRoot, "charger-buck");
-    expect(board).not.toBeNull();
-    expect(board!.file).toBe("design/sch/charger-buck.teda");
-    expect(board!.text.split("\n")[1]).toBe("schematic charger-buck");
-    expect(board!.views.map((v) => v.pageId)).toEqual(["buck-5v", "charger-power"]);
-    for (const view of board!.views) {
-      expect(view.text.split("\n")[1]).toBe(`view ${view.pageId}`);
-    }
+describe("project loaders", () => {
+  test("reads the project's logical root schematic", () => {
+    const schematic = loadSchematic(projectRoot);
+    expect(schematic).not.toBeNull();
+    expect(schematic!.file).toBe("design/sch/main.teda");
+    expect(schematic!.text.split("\n")[1]).toBe("schematic main");
   });
 
-  test("lists boards by file name only", () => {
-    expect(listBoards(projectRoot)).toContain("charger-buck");
-    expect(listBoards(projectRoot)).toContain("mcu-board");
+  test("lists and loads physical PCBs with their identity and module ownership", () => {
+    expect(listPcbs(projectRoot)).toEqual(["charger-buck", "mcu-board"]);
+
+    const charger = loadPcb(projectRoot, "charger-buck");
+    expect(charger).not.toBeNull();
+    expect(charger).toMatchObject({
+      pcbId: "charger-buck",
+      file: "design/pcb/charger-buck.teda",
+    });
+    expect(charger!.text.split("\n")[1]).toBe("pcb charger-buck");
+    expect(charger!.text).toContain("\nmodules\n  M1\n  M2\n");
+
+    const mcu = loadPcb(projectRoot, "mcu-board");
+    expect(mcu).not.toBeNull();
+    expect(mcu).toMatchObject({
+      pcbId: "mcu-board",
+      file: "design/pcb/mcu-board.teda",
+    });
+    expect(mcu!.text.split("\n")[1]).toBe("pcb mcu-board");
+    expect(mcu!.text).toContain("\nmodules\n  M3\n\n");
+  });
+
+  test("loads project-level advisory print pages", () => {
+    const views = loadViews(projectRoot);
+    expect(views.map((view) => view.pageId)).toEqual(["buck-5v", "charger-power", "composed"]);
+    expect(views.map((view) => view.file)).toEqual([
+      "views/buck-5v.view.teda",
+      "views/charger-power.view.teda",
+      "views/composed.view.teda",
+    ]);
+    for (const view of views) {
+      expect(view.text.split("\n")[1]).toBe(`view ${view.pageId}`);
+    }
   });
 });

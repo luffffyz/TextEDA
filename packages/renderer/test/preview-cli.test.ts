@@ -60,24 +60,24 @@ describe("preview command", () => {
     expect(found.code).toBe(0);
   });
 
-  test("view: draws a page from its view file", () => {
+  test("view: draws a project advisory page from its view file", () => {
     const out = mkdtempSync(join(tmpdir(), "texteda-preview-test-"));
-    const run = runPreview(["view", "charger-buck/buck-5v", "--out", out]);
+    const run = runPreview(["view", "buck-5v", "--out", out]);
     expect(run.stderr).toBe("");
     expect(run.code).toBe(0);
     const files = run.stdout.trim().split("\n").filter((l) => l.length > 0);
     expect(files).toHaveLength(1);
     const svg = readFileSync(files[0]!, "utf8");
-    expect(svg).toContain("<title>charger-buck/buck-5v</title>");
+    expect(svg).toContain("<title>main/buck-5v</title>");
     // The placed instances name themselves; the library placeholder (`U`) must not survive.
-    // The buck is module M2 of the board, so the drawing carries the flat ids.
+    // The buck is module M2 of the project, so the drawing carries the flat ids.
     expect(svg).toContain("<title>M2.C1</title>");
     expect(svg).toContain("<title>M2.U1</title>");
     expect(svg).toContain("<title>GND</title>");
   });
 
   test("view without a view file: report it clearly and exit non-zero", () => {
-    const run = runPreview(["view", "charger-buck/nonexistent"]);
+    const run = runPreview(["view", "nonexistent"]);
     expect(run.code).not.toBe(0);
     expect(run.stderr).toContain("no print page");
   });

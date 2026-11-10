@@ -17,8 +17,10 @@ export const ON_LINE_NM = 1_000;
 /**
  * The polyline a wire draws: its ends are pins or declared page endpoints, plus bend points.
  *
- * A pin reference resolves through the symbol; a port or junction id resolves through `endpoints`.
- * An undeclared endpoint remains unresolved.
+ * A declared endpoint resolves first: a page port, a junction and a module port are named by their
+ * own id, and `M1.PORT` is the module port `PORT` of the module instance `M1`, not a pin of a
+ * symbol. A pin reference (`U1.4`) resolves through the symbol. An undeclared endpoint remains
+ * unresolved.
  */
 export function wirePath(
   wire: NonNullable<SchematicView["wire"]>[number],
@@ -26,8 +28,10 @@ export function wirePath(
   endpoints?: ReadonlyMap<string, Point>,
 ): Point[] | null {
   const pointOf = (ref: string): Point | null => {
+    const declared = endpoints?.get(ref);
+    if (declared) return declared;
     const dot = ref.lastIndexOf(".");
-    if (dot <= 0) return endpoints?.get(ref) ?? null;
+    if (dot <= 0) return null;
     return symbols.get(ref.slice(0, dot))?.pins.get(ref.slice(dot + 1)) ?? null;
   };
   const from = pointOf(wire.from_pin);
@@ -133,6 +137,67 @@ export function segmentInBox(a: Point, b: Point, box: ReadabilityBox, inset = 0)
 /** Whether a segment enters a box's interior (touching an edge does not count). */
 export function segmentEntersBox(a: Point, b: Point, box: ReadabilityBox, inset = ON_LINE_NM): boolean {
   return segmentInBox(a, b, box, inset) !== null;
+}
+
+/**
+ * Where a segment meets a box's frame, as the points where the two touch.
+ *
+ * Touching counts: a run that ends on the frame, grazes a corner or lies along an edge all meet
+ * it, and the reader cannot tell a run along the frame from a run through the box. A segment that
+ * lies on an edge reports the two ends of the interval they share.
+ */
+export function segmentBoxHits(a: Point, b: Point, box: ReadabilityBox): Point[] {
+  const corners: readonly Point[] = [
+    { x_nm: box.min_x_nm, y_nm: box.min_y_nm },
+    { x_nm: box.max_x_nm, y_nm: box.min_y_nm },
+    { x_nm: box.max_x_nm, y_nm: box.max_y_nm },
+    { x_nm: box.min_x_nm, y_nm: box.max_y_nm },
+  ];
+  const hits: Point[] = [];
+  for (let i = 0; i < corners.length; i += 1) {
+    hits.push(...segmentTouch(a, b, corners[i]!, corners[(i + 1) % corners.length]!));
+  }
+  return hits;
+}
+
+/**
+ * Where two segments touch: the point where they cross, or the two ends of the interval they
+ * share when they lie on one line.
+ */
+function segmentTouch(a: Point, b: Point, c: Point, d: Point): Point[] {
+  const r = { x: b.x_nm - a.x_nm, y: b.y_nm - a.y_nm };
+  const s = { x: d.x_nm - c.x_nm, y: d.y_nm - c.y_nm };
+  const denominator = r.x * s.y - r.y * s.x;
+  const ac = { x: c.x_nm - a.x_nm, y: c.y_nm - a.y_nm };
+  if (denominator !== 0) {
+    const t = (ac.x * s.y - ac.y * s.x) / denominator;
+    const u = (ac.x * r.y - ac.y * r.x) / denominator;
+    const inside = (v: number): boolean => v >= -1e-9 && v <= 1 + 1e-9;
+    if (!inside(t) || !inside(u)) return [];
+    const at = Math.max(0, Math.min(1, t));
+    return [{ x_nm: a.x_nm + r.x * at, y_nm: a.y_nm + r.y * at }];
+  }
+  // Parallel: the two meet only when they lie on one line, and then they share an interval.
+  const length = Math.hypot(r.x, r.y);
+  if (length === 0) return [];
+  if (distanceToLine(c, a, b) > ON_LINE_NM || distanceToLine(d, a, b) > ON_LINE_NM) return [];
+  const along = (p: Point): number => ((p.x_nm - a.x_nm) * r.x + (p.y_nm - a.y_nm) * r.y) / (length * length);
+  const start = Math.min(along(c), along(d));
+  const end = Math.max(along(c), along(d));
+  const from = Math.max(0, start);
+  const to = Math.min(1, end);
+  if (to < from) return [];
+  const at = (t: number): Point => ({ x_nm: a.x_nm + r.x * t, y_nm: a.y_nm + r.y * t });
+  return from === to ? [at(from)] : [at(from), at(to)];
+}
+
+/** Distance from a point to the infinite line through two points. */
+function distanceToLine(point: Point, a: Point, b: Point): number {
+  const dx = b.x_nm - a.x_nm;
+  const dy = b.y_nm - a.y_nm;
+  const length = Math.hypot(dx, dy);
+  if (length === 0) return Math.hypot(point.x_nm - a.x_nm, point.y_nm - a.y_nm);
+  return Math.abs((point.x_nm - a.x_nm) * dy - (point.y_nm - a.y_nm) * dx) / length;
 }
 
 /**

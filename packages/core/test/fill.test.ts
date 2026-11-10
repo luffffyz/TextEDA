@@ -27,7 +27,8 @@ function board(overrides: Partial<Pcb> = {}): Pcb {
   return {
     ir_version: irVersion,
     format: "0.7",
-    board: "b",
+    pcb: "b",
+    modules: [],
     board_thickness_nm: 1_600_000,
     stackup: [
       { type: "copper", layer: "F.Cu", thickness_nm: 35_000, kind: "signal" },
@@ -46,6 +47,7 @@ function board(overrides: Partial<Pcb> = {}): Pcb {
 function footprint(size: [number, number], overrides: Record<string, unknown> = {}): Footprint {
   return {
     ir_version: irVersion,
+    format: "0.11",
     footprint: {
       library: "project",
       name: "test",

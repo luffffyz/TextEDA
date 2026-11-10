@@ -1,43 +1,52 @@
-// `texteda check`: validate a project's schematics.
+// `texteda check`: validate the logical root and physical PCBs.
 //
 // Validation has two layers (AGENTS.md §10 "error quality"):
 //   1. Semantic layer: parsing and ERC from `packages/parser` (unconnected pins, net member conflicts, missing components, ...);
-//   2. Contract layer: whether the produced IR satisfies `schemas/ir/v0.15/schematic.schema.json`.
+//   2. Contract layer: whether the produced IR satisfies `schemas/ir/v0.19/schematic.schema.json`.
 //
 // Output shape matches `compile`: human-readable mode prints to stderr, `--json` mode prints the diagnostic payload to stdout
 // (ADR-0003: code / severity / location / data are the machine contract).
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
+import type { Pcb } from "@texteda/ir/pcb";
 import type { Schematic } from "@texteda/ir/schematic";
-import { schematicGeometry } from "@texteda/renderer";
-import type { SchematicView } from "@texteda/ir/schematic-view";
 import type { Procurement } from "@texteda/ir/procurement";
 import type { Diagnostic, DiagnosticLocation, DiagnosticsPayload } from "@texteda/ir/diagnostics";
 import { diagnosticsToPayload } from "@texteda/ir/diagnostics";
 import type { SourceMap } from "@texteda/ir/spans";
-import { PROCUREMENT_ROLES, parsePcb, parseProcurement, parseSchematic, parseSystem, parseView } from "@texteda/parser";
+import { composedGeometry, schematicGeometry } from "@texteda/renderer";
 import {
-  listBoards,
-  listPcbBoards,
+  parseModuleView,
+  parsePcb,
+  parseProcurement,
+  parseSchematic,
+  parseSchematicDocument,
+  parseSheetTemplate,
+  parseView,
+  PROCUREMENT_ROLES,
+} from "@texteda/parser";
+import {
+  listPcbs,
   listProcurement,
-  listSystems,
-  loadBoard,
   loadComponents,
+  loadModuleViews,
   loadModules,
   loadPcb,
   loadProcurement,
   loadProject,
+  loadSchematic,
+  loadSheetTemplates,
+  loadViews,
 } from "./project.ts";
+import { loadPageComposition } from "./page-composition.ts";
 import {
   checkBinding,
   checkCopperCoverage,
+  checkDeviceUsage,
   fillBoard,
   fillBoardFacts,
   checkProcurement,
   checkRatings,
   checkReviews,
-  checkSystem,
   checkReadability,
   checkViews,
   type RatingDevice,
@@ -45,6 +54,12 @@ import {
   type ViewPage,
 } from "@texteda/core";
 import { buildProcurementFacts } from "./procurement.ts";
+import { loadReviews } from "./reviews.ts";
+import { footprintsByInstance, loadFootprintLibrary, padsByInstance, withPackageCodes } from "./pads.ts";
+import { loadSymbolLibrary, schematicInstances, type DeviceFacts } from "./symbols.ts";
+import { idLocator, locateWith } from "./locate.ts";
+import { checkProjectInstanceUids, type ProjectUidInput } from "./uids.ts";
+import type { VerbResult } from "./result.ts";
 
 /** Which net each pin belongs to: what a pour needs to tell its own copper from a stranger's. */
 function pinNets(schematic: Schematic): Map<string, string> {
@@ -59,43 +74,41 @@ type ProcurementPage = {
   file: string;
   locate?: (irPath: string) => DiagnosticLocation | undefined;
 };
-import { checkDeviceUsage } from "@texteda/core";
-import { loadReviews } from "./reviews.ts";
-import { footprintsByInstance, loadFootprintLibrary, padsByInstance, withPackageCodes } from "./pads.ts";
-import { loadSymbolLibrary, schematicInstances, type DeviceFacts } from "./symbols.ts";
-import { LAYOUT } from "./paths.ts";
-import { idLocator, locateWith } from "./locate.ts";
-import { checkProjectInstanceUids, type ProjectUidInput } from "./uids.ts";
-import type { VerbResult } from "./result.ts";
-
-export interface BoardAnalysis {
-  board: string;
-  /** The parsed IR; absent when parsing fails. */
+export interface MainAnalysis {
+  /** The sole logical root schematic. */
+  main: "main";
+  /** The parsed IR; absent when parsing fails or the root file is missing. */
   ir?: Schematic;
-  /** Diagnostics for this board (parse + ERC + contract). */
+  diagnostics: Diagnostic[];
+}
+
+export interface PcbAnalysis {
+  /** Physical PCB id, taken from `design/pcb/<pcb>.teda`. */
+  pcb: string;
+  /** The parsed IR; absent when parsing fails. */
+  ir?: Pcb;
   diagnostics: Diagnostic[];
 }
 
 export interface AnalyzeResult {
-  /** Board ids in the project, in file order. */
-  boards: string[];
-  /** Per-board analysis results, in the same order as `boards`. */
-  analyses: BoardAnalysis[];
-  /** All diagnostics, ordered by board. */
+  main: MainAnalysis;
+  /** Physical PCB analyses, in file order. */
+  pcbs: PcbAnalysis[];
   diagnostics: Diagnostic[];
 }
 
 export interface CheckResult {
-  /** Boards validated. */
-  boards: string[];
-  /** All diagnostics, ordered by board. */
+  /** The project's sole logical root. */
+  main: "main";
+  /** Physical PCB ids validated. */
+  pcbs: string[];
   diagnostics: Diagnostic[];
 }
 
-/** Validate all boards in the project. */
+/** Validate the project's logical root and all physical PCBs. */
 export function checkProject(root: string): CheckResult {
-  const { boards, diagnostics } = analyzeProject(root);
-  return { boards, diagnostics };
+  const { pcbs, diagnostics } = analyzeProject(root);
+  return { main: "main", pcbs: pcbs.map(({ pcb }) => pcb), diagnostics };
 }
 
 /**
@@ -104,23 +117,26 @@ export function checkProject(root: string): CheckResult {
  * The command line and a host's tool registry call the same function, so the two faces of the
  * verb cannot drift (ADR-0044 D2).
  */
-export function buildCheck(root: string): VerbResult<{ payload: DiagnosticsPayload; boards: string[] }> {
+export function buildCheck(root: string): VerbResult<{ payload: DiagnosticsPayload; main: "main"; pcbs: string[] }> {
   const result = checkProject(root);
   const payload = diagnosticsToPayload(result.diagnostics);
   // The project has errors when the command line would exit non-zero: that is the answer the
   // caller needs, whether it is a person or a host's tool registry.
-  return { ok: payload.errorCount === 0, value: { payload, boards: result.boards } };
+  return { ok: payload.errorCount === 0, value: { payload, main: result.main, pcbs: result.pcbs } };
 }
 
+
+
 /**
- * Run one full pipeline: parsing (incl. ERC) -> contract validation, keeping each board's IR.
+ * Run one full pipeline: parse the single logical root and every physical PCB, then validate their
+ * bindings and preserve both layers' IR for exporters and advisory checkers.
  *
  * Exporters want the IR and checkers want the diagnostics; both come from the same parse — otherwise the same pipeline would run twice and the two sides could see different things.
  */
 export function analyzeProject(root: string): AnalyzeResult {
-  const diagnostics: Diagnostic[] = [];
-  const boards = listBoards(root);
-  /** Per-board UID declarations, checked across the project after all boards are parsed. */
+  const projectDiagnostics: Diagnostic[] = [];
+  const pcbIds = listPcbs(root);
+  const knownPcbs = new Set(pcbIds);
   const uidInputs: ProjectUidInput[] = [];
   const {
     resolver,
@@ -129,9 +145,7 @@ export function analyzeProject(root: string): AnalyzeResult {
     shards: componentShards,
     diagnostics: componentDiagnostics,
   } = loadComponents(root);
-  // Everything the device loader had to say: a file that does not compile, an id that disagrees
-  // with its name, a tree under `external/libs/` that nothing reads (ADR-0034).
-  diagnostics.push(...componentDiagnostics);
+  projectDiagnostics.push(...componentDiagnostics);
   for (const problem of problems) {
     const diagnostic: Diagnostic = {
       severity: "error",
@@ -140,38 +154,122 @@ export function analyzeProject(root: string): AnalyzeResult {
       location: { file: problem.file, line: problem.line, col: 1 },
     };
     if (problem.data) diagnostic.data = problem.data;
-    diagnostics.push(diagnostic);
+    projectDiagnostics.push(diagnostic);
   }
 
-  // A procurement file belongs to a board: one whose design exists (spec/procurement.md §1).
-  const knownBoards = new Set(boards);
+  // Procurement selections belong to physical PCBs; preserve the source id from each shard.
   for (const file of listProcurement(root)) {
-    if (knownBoards.has(file.board)) continue;
-    diagnostics.push({
+    if (knownPcbs.has(file.board)) continue;
+    projectDiagnostics.push({
       code: "ref.unknown-board",
       severity: "error",
-      message: `board ${file.board} not found: ${file.file} selects parts for a board this project does not have`,
-      hint: `a procurement file belongs to a board: use the board id of a design/sch/${file.board}.teda file`,
+      message: `PCB ${file.board} not found: ${file.file} selects parts for a PCB this project does not have`,
+      hint: `a procurement file belongs to a PCB: use the id of a design/pcb/${file.board}.teda file`,
       location: { file: file.file, line: 2, col: 1 },
     });
   }
 
-  // The project file: the metadata, the board list, the variants. It carries no circuit, so
-  // there is nothing to check in it beyond its own shape.
   const project = loadProject(root);
-  diagnostics.push(...project.diagnostics);
+  projectDiagnostics.push(...project.diagnostics);
 
-  const analyses: BoardAnalysis[] = [];
-  /** Ids a board places or a procurement file names: the library's used half (ADR-0006). */
-  const referencedDevices = new Set<string>();
-  /**
-   * Whether every description that could name a device was read. If one was not, the reference
-   * set is incomplete and an unused-looking device may simply live on a board we could not parse:
-   * a warning that fires on a broken file is worse than no warning.
-   */
-  let referencesComplete = true;
+  const moduleDrawings: Array<{
+    module_id: string;
+    bounds: { width_nm: number; height_nm: number };
+    place: { instance_id: string }[];
+    port: { id: string; x_nm: number; y_nm: number }[];
+    nets: { id: string }[];
+    ports: { id: string }[];
+    points?: { x_nm: number; y_nm: number }[];
+    wire?: { net: string; from_pin: string; to_pin: string; points?: { x_nm: number; y_nm: number }[] }[];
+    label?: { net: string; x_nm: number; y_nm: number }[];
+    file: string;
+    locate?: (irPath: string) => DiagnosticLocation | undefined;
+  }> = [];
+  for (const source of loadModuleViews(root)) {
+    const parsed = parseModuleView(source.text, { file: source.file });
+    projectDiagnostics.push(...parsed.diagnostics);
+    if (!parsed.ir) continue;
+    const contract = validate("module-view", parsed.ir);
+    if (!contract.ok)
+      projectDiagnostics.push(...schemaDiagnosticsToDiagnostics(contract.errors, locateWith(parsed.sources)));
+    const locate = locateWith(parsed.sources);
+    moduleDrawings.push({
+      module_id: parsed.ir.module_id,
+      bounds: parsed.ir.bounds,
+      place: parsed.ir.place,
+      nets: [],
+      ports: [],
+      port: parsed.ir.port ?? [],
+      ...(parsed.ir.junction === undefined ? {} : { points: parsed.ir.junction }),
+      ...(parsed.ir.wire === undefined ? {} : { wire: parsed.ir.wire }),
+      ...(parsed.ir.label === undefined ? {} : { label: parsed.ir.label }),
+      file: source.file,
+      ...(locate === undefined ? {} : { locate }),
+    });
+  }
+  const templates: Array<{
+    template_id: string;
+    size: { width_nm: number; height_nm: number };
+    line?: { start: { x_nm: number; y_nm: number }; end: { x_nm: number; y_nm: number } }[];
+    rect?: { start: { x_nm: number; y_nm: number }; end: { x_nm: number; y_nm: number } }[];
+    polyline?: { points: { x_nm: number; y_nm: number }[] }[];
+    text?: { x_nm: number; y_nm: number }[];
+    file: string;
+    locate?: (irPath: string) => DiagnosticLocation | undefined;
+  }> = [];
+  for (const source of loadSheetTemplates(root)) {
+    const parsed = parseSheetTemplate(source.text, { file: source.file });
+    projectDiagnostics.push(...parsed.diagnostics);
+    if (!parsed.ir) continue;
+    const contract = validate("sheet-template", parsed.ir);
+    if (!contract.ok)
+      projectDiagnostics.push(...schemaDiagnosticsToDiagnostics(contract.errors, locateWith(parsed.sources)));
+    const locate = locateWith(parsed.sources);
+    templates.push({
+      template_id: source.templateId,
+      size: parsed.ir.size,
+      file: source.file,
+      ...(parsed.ir.line === undefined ? {} : { line: parsed.ir.line }),
+      ...(parsed.ir.rect === undefined ? {} : { rect: parsed.ir.rect }),
+      ...(parsed.ir.polyline === undefined ? {} : { polyline: parsed.ir.polyline }),
+      ...(parsed.ir.text === undefined ? {} : { text: parsed.ir.text }),
+      ...(locate === undefined ? {} : { locate }),
+    });
+  }
+
   const modules = loadModules(root);
-  /** Devices as the rating check needs them: pin facts (terminal count) + the part's own ratings. */
+  let brokenModuleParse = false;
+  const moduleDefinitions = modules.flatMap((source) => {
+    const parsed = parseSchematicDocument(source.text, { file: source.file, kind: "module" });
+    if (!parsed.ok) brokenModuleParse = true;
+    if (!parsed.doc) return [];
+    return [{
+      module_id: source.moduleId,
+      instance_ids: parsed.doc.instances.map((instance) => instance.refdes),
+      net_ids: parsed.doc.nets.map((net) => net.name),
+      ports: parsed.doc.ports.map((port) => ({ id: port.id })),
+    }];
+  });
+
+  for (const drawing of moduleDrawings) {
+    const definition = moduleDefinitions.find((candidate) => candidate.module_id === drawing.module_id);
+    if (definition === undefined) continue;
+    drawing.nets = definition.net_ids.map((id) => ({ id }));
+    drawing.ports = definition.ports.map((port) => ({ id: port.id }));
+  }
+  const moduleDrawingById = new Map(moduleDrawings.map((drawing) => [drawing.module_id, drawing]));
+  const templateById = new Map(templates.map((template) => [template.template_id, template]));
+
+  const footprints = loadFootprintLibrary(root, projectDiagnostics);
+  const devices = withPackageCodes(loadedDevices, footprints);
+  const symbols = loadSymbolLibrary(root, projectDiagnostics);
+  const symbolOf = (componentId: string): string | undefined =>
+    componentShards.find((shard) => shard.id === componentId)?.ir.component.symbol;
+  const deviceOf = (componentId: string): DeviceFacts | undefined => {
+    const component = componentShards.find((shard) => shard.id === componentId)?.ir.component;
+    if (component === undefined) return undefined;
+    return { params: component.params ?? [], ...(component.mpn === undefined ? {} : { mpn: component.mpn }) };
+  };
   const ratingDevices = (): Map<string, RatingDevice> => {
     const built = new Map<string, RatingDevice>();
     for (const [id, device] of devices) {
@@ -185,280 +283,293 @@ export function analyzeProject(root: string): AnalyzeResult {
     }
     return built;
   };
-  const footprints = loadFootprintLibrary(root, diagnostics);
-  /** Devices with the land pattern's package code attached: the package floor is keyed by it (ADR-0027). */
-  const devices = withPackageCodes(loadedDevices, footprints);
-  const symbols = loadSymbolLibrary(root, diagnostics);
-  /** The device's symbol reference: the device IR is the owner of it (ADR-0031). */
-  const symbolOf = (componentId: string): string | undefined =>
-    componentShards.find((shard) => shard.id === componentId)?.ir.component.symbol;
-  /** What the drawing prints for an instance: its value column, or a part's MPN. */
-  const deviceOf = (componentId: string): DeviceFacts | undefined => {
-    const component = componentShards.find((shard) => shard.id === componentId)?.ir.component;
-    if (component === undefined) return undefined;
-    return { params: component.params ?? [], ...(component.mpn === undefined ? {} : { mpn: component.mpn }) };
-  };
-  for (const board of boards) {
-    const loaded = loadBoard(root, board);
-    if (!loaded) continue;
-    const result = parseSchematic(loaded.text, {
-      file: loaded.file,
-      board,
-      components: resolver,
-      modules,
-    });
-    const boardDiagnostics = [...result.diagnostics];
-    /**
-     * `locateInstance` for the rules that name an instance rather than a JSON path; empty when the
-     * parse carried no spans (ADR-0004 D1: line numbers live beside the IR, not in it).
-     */
-    /** A board net's row: the definition the drawing and the pcb are checked against (ADR-0004 D5). */
-    const netLocator = (nets: readonly { id: string }[]): { locateNet?: (netId: string) => DiagnosticLocation | undefined } => {
-      const locate = idLocator(result.sources, nets, "/nets");
-      return locate === undefined ? {} : { locateNet: locate };
-    };
 
-    /** A pcb record's span, as a `locate` for the rules that name a pcb row. */
-    const pcbLocator = (
-      sources: SourceMap | undefined,
-    ): { locate?: (irPath: string) => DiagnosticLocation | undefined } => {
-      const locate = locateWith(sources);
-      return locate === undefined ? {} : { locate };
-    };
-
-    const instanceLocator = (): { locateInstance?: (instanceId: string) => DiagnosticLocation | undefined } => {
-      const locate = idLocator(result.sources, result.ir?.instances ?? [], "/instances");
-      return locate === undefined ? {} : { locateInstance: locate };
-    };
-
-    // Print pages are descriptions of their own (ADR-0035): parse them here and cross-check them
-    // against the board. Coverage needs all pages at once, so the pages are collected first.
-    const pages: ViewPage[] = [];
-    for (const source of loaded.views) {
-      const parsed = parseView(source.text, { file: source.file, board });
-      boardDiagnostics.push(...parsed.diagnostics);
-      if (parsed.ir) {
-        const contract = validate("schematic-view", parsed.ir);
-        if (!contract.ok)
-          boardDiagnostics.push(...schemaDiagnosticsToDiagnostics(contract.errors, locateWith(parsed.sources)));
-        const locate = locateWith(parsed.sources);
-        pages.push({ file: source.file, view: parsed.ir, ...(locate === undefined ? {} : { locate }) });
-      }
-    }
-    if (!result.ir) referencesComplete = false;
+  const mainSource = loadSchematic(root);
+  const mainDocument = mainSource === null
+    ? undefined
+    : parseSchematicDocument(mainSource.text, { file: mainSource.file });
+  const mainResult = mainSource === null
+    ? undefined
+    : parseSchematic(mainSource.text, {
+        file: mainSource.file,
+        components: resolver,
+        modules,
+      });
+  const mainDiagnostics: Diagnostic[] = [...(mainResult?.diagnostics ?? [])];
+  const mainIr = mainResult?.ir;
+  const referencedDevices = new Set<string>();
+  let referencesComplete = mainIr !== undefined && !brokenModuleParse;
+  if (mainSource !== null && mainResult !== undefined) {
     uidInputs.push({
-      board,
-      file: loaded.file,
-      ...(result.sourceUids === undefined ? {} : { sourceUids: result.sourceUids }),
-      ...(result.ir === undefined ? {} : { ir: result.ir }),
-      ...(result.sources === undefined ? {} : { sources: result.sources }),
+      board: "main",
+      file: mainSource.file,
+      ...(mainResult.sourceUids === undefined ? {} : { sourceUids: mainResult.sourceUids }),
+      ...(mainIr === undefined ? {} : { ir: mainIr }),
+      ...(mainResult.sources === undefined ? {} : { sources: mainResult.sources }),
     });
-    if (result.ir) {
-      for (const instance of result.ir.instances) referencedDevices.add(instance.component);
-      const check = validate("schematic", result.ir);
-      if (!check.ok)
-        boardDiagnostics.push(...schemaDiagnosticsToDiagnostics(check.errors, locateWith(result.sources)));
-      // The design against the parts it is built from (ADR-0026): the device limits and the
-      // declared windows come together only here, so the check runs where both are in hand.
-      const instances = schematicInstances(
-        result.ir,
-        (componentId) => resolver.resolve(componentId)?.pins ?? [],
-        symbolOf,
-        symbols,
-        deviceOf,
-      );
-      boardDiagnostics.push(
-        ...checkRatings({
-          file: loaded.file,
-          schematic: result.ir,
-          devices: ratingDevices(),
-          ...instanceLocator(),
-        }),
-        ...checkViews({
-          file: loaded.file,
-          schematic: result.ir,
-          pages: pages.map((page) => ({ ...page, geometry: schematicGeometry(page.view, instances) })),
-          ...netLocator(result.ir.nets),
-        }),
-      );
-      // The drawing itself: text on top of text, a label away from its net, a wire through a body
-      // (spec/schematic-view.md §9.2). Geometry comes from the renderer, so the check sees exactly
-      // what a reader sees; the facts are handed over in `core`'s own shape, which the assignment
-      // below type-checks.
-      for (const page of pages) {
-        const geometry: ReadabilityGeometry = schematicGeometry(page.view, instances);
-        boardDiagnostics.push(
-          ...checkReadability({
-            file: page.file,
-            view: page.view,
-            schematic: result.ir,
-            geometry,
-            ...(page.locate === undefined ? {} : { locate: page.locate }),
-          }),
-        );
-      }
-      // Board-level consistency: run binding validation when a pcb description exists (spec/pcb.md §5.2).
-      const pcbSource = loadPcb(root, board);
-      if (pcbSource !== null) {
-        const pcbResult = parsePcb(pcbSource.text, { file: pcbSource.file, board });
-        boardDiagnostics.push(...pcbResult.diagnostics);
-        if (pcbResult.ir) {
-          const pcbCheck = validate("pcb", pcbResult.ir);
-          if (!pcbCheck.ok)
-            boardDiagnostics.push(...schemaDiagnosticsToDiagnostics(pcbCheck.errors, locateWith(pcbResult.sources)));
-          boardDiagnostics.push(
-            ...checkBinding({
-              file: pcbSource.file,
-              schematic: result.ir,
-              pcb: pcbResult.ir,
-              ...netLocator(result.ir.nets),
-              ...pcbLocator(pcbResult.sources),
-            }),
-          );
-          // Whether the drawing implements the declaration (ADR-0020): it needs pad geometry,
-          // which comes from the project's footprint library, so it is loaded once per project.
-          boardDiagnostics.push(
-            ...checkCopperCoverage({
-              file: pcbSource.file,
-              schematic: result.ir,
-              pcb: pcbResult.ir,
-              pads: padsByInstance(result.ir, devices, footprints),
-            }),
-          );
-          // Whether each pour can exist at all (ADR-0018 D3): the fill is derived, so the check runs
-          // it here rather than reading a stored result. Its findings are about the description — a
-          // non-copper layer, a ruled-out width, a pour that pours nothing — so they belong in
-          // `check`, before anyone tries to export.
-          boardDiagnostics.push(
-            ...fillBoard(
-              fillBoardFacts({
-                file: pcbSource.file,
-                pcb: pcbResult.ir,
-                placed: footprintsByInstance(result.ir, devices, footprints),
-                pin_net: pinNets(result.ir),
-                ...pcbLocator(pcbResult.sources),
-              }),
-            ).diagnostics,
-          );
-        }
-      } else {
-        // A skipped check is not a passed check (AGENTS.md §4.4 rule 6): say so, at `note` severity.
-        boardDiagnostics.push({
-          code: "bind.not-checked",
-          severity: "note",
-          message: `board ${board} has no pcb description: the sch/pcb binding was not checked`,
-          location: { file: loaded.file, line: 1, col: 1 },
-          data: { board, present: "sch", missing: "pcb" },
-        });
-      }
+  }
+  if (mainIr !== undefined) {
+    for (const instance of mainIr.instances) referencedDevices.add(instance.component);
+    const contract = validate("schematic", mainIr);
+    if (!contract.ok)
+      mainDiagnostics.push(...schemaDiagnosticsToDiagnostics(contract.errors, locateWith(mainResult?.sources)));
+  }
+
+  const pages: ViewPage[] = [];
+  for (const source of loadViews(root)) {
+    const parsed = parseView(source.text, { file: source.file });
+    mainDiagnostics.push(...parsed.diagnostics);
+    if (!parsed.ir) continue;
+    const contract = validate("schematic-view", parsed.ir);
+    if (!contract.ok)
+      mainDiagnostics.push(...schemaDiagnosticsToDiagnostics(contract.errors, locateWith(parsed.sources)));
+    const locate = locateWith(parsed.sources);
+    pages.push({ file: source.file, view: parsed.ir, ...(locate === undefined ? {} : { locate }) });
+  }
+
+  const pcbAnalyses: PcbAnalysis[] = [];
+  const parsedPcbs: Array<{ pcb: string; file: string; ir: Pcb; sources?: SourceMap }> = [];
+  for (const pcbId of pcbIds) {
+    const source = loadPcb(root, pcbId);
+    if (source === null) continue;
+    const parsed = parsePcb(source.text, { file: source.file, pcb: pcbId });
+    const pcbDiagnostics = [...parsed.diagnostics];
+    const analysis: PcbAnalysis = {
+      pcb: pcbId,
+      ...(parsed.ir === undefined ? {} : { ir: parsed.ir }),
+      diagnostics: pcbDiagnostics,
+    };
+    pcbAnalyses.push(analysis);
+    if (parsed.ir === undefined) {
+      referencesComplete = false;
+      continue;
     }
-    // The procurement layer: the parse, the contract check and the selection check (whether the
-    // selected part satisfies the line is a cross-file question, so it lives in packages/core).
+    const contract = validate("pcb", parsed.ir);
+    if (!contract.ok)
+      pcbDiagnostics.push(...schemaDiagnosticsToDiagnostics(contract.errors, locateWith(parsed.sources)));
+    parsedPcbs.push({
+      pcb: pcbId,
+      file: source.file,
+      ir: parsed.ir,
+      ...(parsed.sources === undefined ? {} : { sources: parsed.sources }),
+    });
+  }
+
+  const mainLocate = locateWith(mainResult?.sources);
+  const netLocator = mainIr === undefined
+    ? undefined
+    : idLocator(mainResult?.sources, mainIr.nets, "/nets");
+  const instanceLocator = mainIr === undefined
+    ? undefined
+    : idLocator(mainResult?.sources, mainIr.instances, "/instances");
+  if (mainSource !== null && mainIr !== undefined) {
+    const modulesByInstance = new Map((mainResult?.modules ?? []).map((module) => [module.instance_id, module]));
+    const endpointNet = (ref: string): string | undefined => {
+      const dot = ref.indexOf(".");
+      if (dot === -1) return undefined;
+      const module = modulesByInstance.get(ref.slice(0, dot));
+      return module?.ports.find((port) => port.id === ref.slice(dot + 1))?.net;
+    };
+    for (const interconnect of mainDocument?.doc?.interconnects ?? []) {
+      const netA = endpointNet(interconnect.from);
+      const netB = endpointNet(interconnect.to);
+      if (netA === undefined || netB === undefined || netA === netB) continue;
+      const related = netLocator?.(netA);
+      mainDiagnostics.push({
+        code: "bind.net-mismatch",
+        severity: "error",
+        message: `interconnect ${interconnect.id} joins project net ${netA} to ${netB}`,
+        location: { file: mainSource.file, line: interconnect.line, col: interconnect.col },
+        hint: "both interconnect endpoints must resolve to the same project net",
+        data: { interconnect: interconnect.id, net_a: netA, net_b: netB },
+        ...(related === undefined ? {} : { related: [related] }),
+      });
+    }
+  }
+  if (mainSource !== null && mainIr !== undefined) {
+  if (pcbIds.length === 0) {
+    mainDiagnostics.push({
+      code: "bind.not-checked",
+      severity: "note",
+      message: "the schematic/PCB binding was not checked because the project has no PCB description",
+      location: { file: mainSource.file, line: 1, col: 1 },
+      hint: "add a PCB description to check physical placement and connectivity",
+    });
+  } else if (parsedPcbs.length === pcbIds.length) {
+    mainDiagnostics.push(
+      ...checkBinding({
+        file: mainSource.file,
+        schematic: mainIr,
+        pcbs: parsedPcbs.map(({ file, ir, sources }) => {
+          const locate = locateWith(sources);
+          return {
+            file,
+            pcb: ir,
+            ...(locate === undefined ? {} : { locate }),
+            ...(netLocator === undefined ? {} : { locateNet: netLocator }),
+          };
+        }),
+        ...(mainLocate === undefined ? {} : { locate: mainLocate }),
+      }),
+    );
+
+    const instances = schematicInstances(
+      mainIr,
+      (componentId) => resolver.resolve(componentId)?.pins ?? [],
+      symbolOf,
+      symbols,
+      deviceOf,
+    );
+    const checkedPages = pages.map((page) => {
+      const loadedComposition = loadPageComposition(root, page.view, symbols, { resolver, shards: componentShards });
+      if (loadedComposition.errors.length > 0) {
+        return { ...page, view: loadedComposition.view, geometry: schematicGeometry(loadedComposition.view, instances) };
+      }
+      return {
+        ...page,
+        view: loadedComposition.view,
+        geometry: composedGeometry(loadedComposition.view, instances, loadedComposition.composition),
+      };
+    });
+    mainDiagnostics.push(
+      ...checkRatings({
+        file: mainSource.file,
+        schematic: mainIr,
+        devices: ratingDevices(),
+        ...(instanceLocator === undefined ? {} : { locateInstance: instanceLocator }),
+      }),
+      ...checkViews({
+        file: mainSource.file,
+        schematic: mainIr,
+        pages: checkedPages,
+        ...(netLocator === undefined ? {} : { locateNet: netLocator }),
+        ...(mainResult?.modules === undefined ? {} : { modules: mainResult.modules }),
+        moduleDrawings,
+        templates,
+        moduleDefinitions,
+        locateModuleDrawing: (moduleId, irPath) => {
+          const drawing = moduleDrawingById.get(moduleId);
+          return drawing?.locate?.(irPath) ?? (drawing === undefined ? undefined : { file: drawing.file, line: 1, col: 1 });
+        },
+        locateTemplate: (templateId, irPath) => {
+          const template = templateById.get(templateId);
+          return template?.locate?.(irPath) ?? (template === undefined ? undefined : { file: template.file, line: 1, col: 1 });
+        },
+      }),
+    );
+    for (const page of checkedPages) {
+      const geometry: ReadabilityGeometry = page.geometry;
+      mainDiagnostics.push(
+        ...checkReadability({
+          file: page.file,
+          view: page.view,
+          schematic: mainIr,
+          geometry,
+          ...(page.locate === undefined ? {} : { locate: page.locate }),
+        }),
+      );
+    }
+  }
+  }
+
+  if (mainIr !== undefined) {
+    for (const pcb of parsedPcbs) {
+      const analysis = pcbAnalyses.find(({ pcb: id }) => id === pcb.pcb);
+      if (analysis === undefined) continue;
+      const locate = locateWith(pcb.sources);
+      analysis.diagnostics.push(
+        ...checkCopperCoverage({
+          file: pcb.file,
+          schematic: mainIr,
+          pcb: pcb.ir,
+          pads: padsByInstance(mainIr, devices, footprints),
+        }),
+        ...fillBoard(
+          fillBoardFacts({
+            file: pcb.file,
+            pcb: pcb.ir,
+            placed: footprintsByInstance(mainIr, devices, footprints),
+            pin_net: pinNets(mainIr),
+            ...(locate === undefined ? {} : { locate }),
+          }),
+        ).diagnostics,
+      );
+    }
+  }
+
+  for (const pcbId of pcbIds) {
+    const analysis = pcbAnalyses.find(({ pcb }) => pcb === pcbId);
     const procurementShards: ProcurementPage[] = [];
     for (const role of PROCUREMENT_ROLES) {
-      const procurement = loadProcurement(root, board, role);
-      if (!procurement) continue;
+      const procurement = loadProcurement(root, pcbId, role);
+      if (procurement === null) continue;
       const parsed = parseProcurement(procurement.text, {
         file: procurement.file,
-        board,
+        board: pcbId,
         role,
         components: resolver,
       });
-      boardDiagnostics.push(...parsed.diagnostics);
-      if (!parsed.ir) referencesComplete = false;
-      if (parsed.ir) {
-        const check = validate("procurement", parsed.ir);
-        if (!check.ok)
-          boardDiagnostics.push(...schemaDiagnosticsToDiagnostics(check.errors, locateWith(parsed.sources)));
-        const locate = locateWith(parsed.sources);
-        procurementShards.push({ ir: parsed.ir, file: procurement.file, ...(locate === undefined ? {} : { locate }) });
-        for (const selection of parsed.ir.procurement.selections) {
-          referencedDevices.add(selection.generic);
-          if (selection.part) referencedDevices.add(selection.part);
-        }
+      if (analysis !== undefined) analysis.diagnostics.push(...parsed.diagnostics);
+      if (parsed.ir === undefined) {
+        referencesComplete = false;
+        continue;
+      }
+      const contract = validate("procurement", parsed.ir);
+      if (!contract.ok && analysis !== undefined)
+        analysis.diagnostics.push(...schemaDiagnosticsToDiagnostics(contract.errors, locateWith(parsed.sources)));
+      const locate = locateWith(parsed.sources);
+      procurementShards.push({ ir: parsed.ir, file: procurement.file, ...(locate === undefined ? {} : { locate }) });
+      for (const selection of parsed.ir.procurement.selections) {
+        referencedDevices.add(selection.generic);
+        if (selection.part) referencedDevices.add(selection.part);
       }
     }
-    if (result.ir && procurementShards.length > 0) {
-      boardDiagnostics.push(
-        ...checkProcurement(
-          buildProcurementFacts({
-            schematic: result.ir,
-            procurements: procurementShards,
-            devices: devices,
-            ...instanceLocator(),
-          }),
-        ),
+    if (mainIr !== undefined && analysis?.ir !== undefined && procurementShards.length > 0) {
+      const procurementDiagnostics = checkProcurement(
+        buildProcurementFacts({
+          schematic: mainIr,
+          moduleInstances: analysis?.ir?.modules ?? [],
+          procurements: procurementShards,
+          devices,
+          ...(instanceLocator === undefined ? {} : { locateInstance: instanceLocator }),
+        }),
       );
+      if (analysis !== undefined) analysis.diagnostics.push(...procurementDiagnostics);
+      else projectDiagnostics.push(...procurementDiagnostics);
     }
-
-    diagnostics.push(...boardDiagnostics);
-    analyses.push({
-      board,
-      ...(result.ir === undefined ? {} : { ir: result.ir }),
-      diagnostics: boardDiagnostics,
-    });
   }
 
-  // A pcb whose board has no schematic is not checked either — and would otherwise not even be
-  // read, since boards are found from `design/sch/`. Say it rather than drop the file silently.
-  for (const board of listPcbBoards(root)) {
-    if (boards.includes(board)) continue;
-    diagnostics.push({
-      code: "bind.not-checked",
-      severity: "note",
-      message: `board ${board} has a pcb description but no schematic: the sch/pcb binding was not checked`,
-      location: { file: `${LAYOUT.pcb}/${board}.teda`, line: 1, col: 1 },
-      data: { board, present: "pcb", missing: "sch" },
-    });
-  }
-
-  // The library layer: a device file nothing places and nothing selects (ADR-0006 -- the shard
-  // set is the project's content, so an abandoned candidate still changes the project hash).
   if (referencesComplete) {
-    diagnostics.push(
+    projectDiagnostics.push(
       ...checkDeviceUsage({
-        // Every device is the project's own file now (ADR-0034: an imported library is a copy), so
-        // the rule applies to all of them.
         devices: componentShards.map((shard) => ({ id: shard.id, file: shard.file })),
         referenced: referencedDevices,
       }),
     );
   }
 
-  // The system layer: how the boards are wired to each other. The systems are checked against
-  // the boards, so they come after them.
-  const boardIrs = new Map<string, Schematic>();
-  for (const analysis of analyses) {
-    if (analysis.ir) boardIrs.set(analysis.board, analysis.ir);
-  }
-  const declaredBoards = project.ir?.boards?.map((board) => board.id) ?? boards;
-  for (const source of listSystems(root)) {
-    const parsed = parseSystem(readFileSync(join(root, source.file), "utf8"), { file: source.file });
-    diagnostics.push(...parsed.diagnostics);
-    if (!parsed.ir) continue;
-    const contract = validate("system", parsed.ir);
-    if (!contract.ok) diagnostics.push(...schemaDiagnosticsToDiagnostics(contract.errors, locateWith(parsed.sources)));
-    diagnostics.push(
-      ...checkSystem({
-        system: { ...parsed.ir, source: { file: source.file } },
-        declaredBoards,
-        boards: boardIrs,
-      }),
-    );
-  }
-
-  // The review layer (ADR-0037): a fact about a human process, not about the design, so it
-  // changes no shard and no hash -- but a note nobody answered must not be invisible either.
   const reviews = loadReviews(root);
-  diagnostics.push(...reviews.diagnostics);
-  diagnostics.push(
+  projectDiagnostics.push(...reviews.diagnostics);
+  projectDiagnostics.push(
     ...checkReviews({
       ...(project.owner !== undefined ? { projectOwner: project.owner } : {}),
       rounds: reviews.rounds,
     }),
   );
+  projectDiagnostics.push(...checkProjectInstanceUids(uidInputs));
 
-  diagnostics.push(...checkProjectInstanceUids(uidInputs));
-
-  return { boards, analyses, diagnostics };
+  const diagnostics = [
+    ...mainDiagnostics,
+    ...pcbAnalyses.flatMap(({ diagnostics: pcbDiagnostics }) => pcbDiagnostics),
+    ...projectDiagnostics,
+  ];
+  return {
+    main: {
+      main: "main",
+      ...(mainIr === undefined ? {} : { ir: mainIr }),
+      diagnostics: mainDiagnostics,
+    },
+    pcbs: pcbAnalyses,
+    diagnostics,
+  };
 }

@@ -171,7 +171,7 @@ export function boardImage(facts: BoardImageFacts): BoardImage {
   const outline = outlineRing(pcb);
   if (outline.length > 2) add("Edge.Cuts", { kind: "draw", width_nm: EDGE_WIDTH_NM, points: outline });
 
-  return { board: pcb.board, layers: layerOrder(pcb, byLayer), drills };
+  return { board: pcb.pcb, layers: layerOrder(pcb, byLayer), drills };
 }
 
 /**

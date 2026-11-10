@@ -14,11 +14,12 @@ describe("schematic benchmark generator", () => {
         const generated = makeProject(projectRoot, shape, 8);
         const source = schematicSource(shape, 8);
         expect(schematicSource(shape, 8)).toBe(source);
-        expect(readFileSync(generated.schematic, "utf8")).toBe(source);
+        expect(readFileSync(generated.module, "utf8")).toBe(source);
+        expect(readFileSync(generated.schematic, "utf8")).toBe("version 0.14.0\nschematic main\n\nmodules\n  M1  benchmark\n");
 
         const result = analyzeProject(projectRoot);
         expect(result.diagnostics.filter((diagnostic) => diagnostic.severity === "error")).toEqual([]);
-        const schematic = result.analyses[0]?.ir;
+        const schematic = result.main.ir;
         if (schematic === undefined) throw new Error("generated project did not produce schematic IR");
         expect(schematic.instances).toHaveLength(8);
         expect(schematic.nets).toHaveLength(shape === "sparse" ? 8 : 2);

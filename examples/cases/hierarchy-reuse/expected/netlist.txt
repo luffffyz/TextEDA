@@ -1,8 +1,8 @@
-# netlist sensor-hub (ir 0.15)
-GND: M1.C1.2 M1.C2.2 M2.C1.2 M2.C2.2 RT1.2
+# netlist main (ir 0.19)
+GND: M1.C1.2 M1.C2.2 M2.C1.2 M2.C2.2 M3.RT1.2
 M1.MID: M1.C1.1 M1.R1.2 M1.R2.1
 M2.MID: M2.C1.1 M2.R1.2 M2.R2.1
-NTC: RT1.1
+NTC: M3.RT1.1
 OUT1: M1.C2.1 M1.R2.2
 OUT2: M2.C2.1 M2.R2.2
 SIG1: M1.R1.1
@@ -24,4 +24,4 @@ M2.C1 cap-mlcc-0402
 M2.C2 cap-mlcc-0402
 M2.R1 res-thick-0402
 M2.R2 res-thick-0402
-RT1 ntc-103at
+M3.RT1 ntc-103at

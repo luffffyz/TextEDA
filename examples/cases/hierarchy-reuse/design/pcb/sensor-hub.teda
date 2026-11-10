@@ -1,0 +1,30 @@
+version 0.14.0
+pcb sensor-hub
+
+board_thickness  1.6
+
+modules
+  M1
+  M2
+  M3
+
+stackup
+  F.Cu     copper      0.035  signal
+  prepreg  dielectric  1.53   FR4     4.3
+  B.Cu     copper      0.035  signal
+
+outline
+  [0,0]
+  [50,0]
+  [50,36]
+  [0,36]
+
+place
+
+connect
+
+rules
+  clearance  0.2
+  width  0.3
+  via  0.6  0.3
+  min_width  0.15

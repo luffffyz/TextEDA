@@ -1,0 +1,140 @@
+{
+  "constraints": [
+    {
+      "max_uv": 0,
+      "min_uv": 0,
+      "subject": "GND",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "V3V3",
+      "type": "voltage"
+    }
+  ],
+  "format": "0.14",
+  "instances": [
+    {
+      "component": "res-22k1-0402",
+      "id": "M1.R1",
+      "uid": "IDrv7pbd"
+    },
+    {
+      "component": "res-10k-0402",
+      "id": "M1.R2",
+      "uid": "IDykgsg8"
+    },
+    {
+      "component": "opa2333",
+      "id": "M1.U1",
+      "uid": "IDrqteny"
+    }
+  ],
+  "ir_version": "0.19",
+  "modules": [
+    {
+      "instance_id": "M1",
+      "module_id": "multi-unit",
+      "ports": [
+        {
+          "id": "GND",
+          "net": "GND",
+          "pins": [
+            "M1.R2.2",
+            "M1.U1.4"
+          ]
+        },
+        {
+          "id": "SIG_IN",
+          "net": "SIG_IN",
+          "pins": [
+            "M1.U1.3"
+          ]
+        },
+        {
+          "id": "SIG_OUT",
+          "net": "SIG_OUT",
+          "pins": [
+            "M1.U1.6",
+            "M1.U1.7"
+          ]
+        },
+        {
+          "id": "V3V3",
+          "net": "V3V3",
+          "pins": [
+            "M1.U1.8"
+          ]
+        }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "id": "GND",
+      "members": [
+        "M1.R2.2",
+        "M1.U1.4"
+      ]
+    },
+    {
+      "id": "M1.FB",
+      "members": [
+        "M1.R1.2",
+        "M1.R2.1",
+        "M1.U1.2"
+      ]
+    },
+    {
+      "id": "M1.SIG_MID",
+      "members": [
+        "M1.R1.1",
+        "M1.U1.1",
+        "M1.U1.5"
+      ]
+    },
+    {
+      "id": "SIG_IN",
+      "members": [
+        "M1.U1.3"
+      ]
+    },
+    {
+      "id": "SIG_OUT",
+      "members": [
+        "M1.U1.6",
+        "M1.U1.7"
+      ]
+    },
+    {
+      "id": "V3V3",
+      "members": [
+        "M1.U1.8"
+      ]
+    }
+  ],
+  "ports": [
+    {
+      "id": "GND",
+      "net": "GND"
+    },
+    {
+      "id": "SIG_IN",
+      "net": "SIG_IN"
+    },
+    {
+      "id": "SIG_OUT",
+      "net": "SIG_OUT"
+    },
+    {
+      "id": "V3V3",
+      "net": "V3V3"
+    }
+  ],
+  "project": "main",
+  "source": {
+    "file": "design/sch/main.teda",
+    "line": 1
+  }
+}

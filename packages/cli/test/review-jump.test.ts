@@ -12,13 +12,13 @@ const referenceProject = join(repoRoot, "examples", "reference-project");
 describe("review definition menu", () => {
   const model = buildReviewModel(referenceProject);
   const instance = model.boards
-    .find((board) => board.id === "charger-buck")
+    .find((board) => board.id === "main")
     ?.instances.find((candidate) => candidate.id === "M2.C1")!;
 
   test("an instance lists the board/module row, placements and its device files", () => {
     const locations = definitionLocations({
       sources: model.sources,
-      board: "charger-buck",
+      board: "main",
       selected: { kind: "symbol", id: "M2.C1" },
       instance,
       pins: ["1", "2"],
@@ -34,13 +34,13 @@ describe("review definition menu", () => {
       "component-pin",
     ]);
     expect(locations.some((location) => location.file === "design/modules/buck-5v.teda")).toBe(true);
-    expect(locations.some((location) => location.file === "views/charger-buck/buck-5v.view.teda")).toBe(true);
+    expect(locations.some((location) => location.file === "views/buck-5v.view.teda")).toBe(true);
   });
 
   test("a net lists every wire and label that names it", () => {
     const locations = definitionLocations({
       sources: model.sources,
-      board: "charger-buck",
+      board: "main",
       selected: { kind: "text", id: "SYS" },
     });
     expect(locations.map((location) => location.kind)).toContain("net");

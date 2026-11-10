@@ -45,4 +45,15 @@ describe("IR contract fixtures", () => {
       }
     });
   }
+
+  test("symbol and footprint shards require the source language format", () => {
+    for (const [kind, path] of [
+      ["symbol", "valid/symbol/bq24610rger.json"],
+      ["footprint", "valid/footprint/resistor-0402.json"],
+    ] as const) {
+      const shard = JSON.parse(readFileSync(join(fixtureRoot, path), "utf8"));
+      delete shard.format;
+      expect(validate(kind, shard).ok).toBe(false);
+    }
+  });
 });

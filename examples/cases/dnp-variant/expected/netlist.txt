@@ -1,0 +1,9 @@
+# netlist main (ir 0.19)
+GND: M1.R1.2
+VREF: M1.R1.1
+
+port GND: GND
+port VREF: VREF
+
+# components 1
+M1.R1 res-thick-0402

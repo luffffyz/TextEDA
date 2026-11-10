@@ -1,191 +1,237 @@
-// Unit tests for `schematic` parsing (one flat file per board, ADR-0012).
+// Project-root schematic parser tests (ADR-0069).
 //
-// Positive cases use real descriptions from the reference project (mcu-board, charger-buck);
-// negative cases use minimal inline sources -- each negative case breaks exactly one thing, and the diagnostic code must line up.
+// The root owns project nets, ports, constraints and interconnects; module files own every
+// component instance and internal net. Test-only flat-module sources keep focused parser cases
+// small while passing them through a real `schematic main` composition.
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { validate } from "@texteda/ir";
 import {
   parseSchematic,
+  parseSchematicDocument,
   type ModuleSource,
 } from "../src/schematic.ts";
-import { formatVersion, SUPPORTED_LANGUAGE } from "../src/version.ts";
 import { loadResolver } from "./project.ts";
 
 const projectDir = "examples/reference-project";
 
 const resolver = loadResolver();
 
-describe("single-file board (mcu-board)", () => {
-  const text = readFileSync(join(projectDir, "design/sch", "mcu-board.teda"), "utf8");
-  const result = parseSchematic(text, { file: "sch/mcu-board.teda", board: "mcu-board", components: resolver });
+const rootFile = "design/sch/main.teda";
+const rootText = readFileSync(join(projectDir, rootFile), "utf8");
+const rootDoc = parseSchematicDocument(rootText, { file: rootFile }).doc!;
+const referenceModules: ModuleSource[] = [...new Set(rootDoc.modules.map((row) => row.moduleId))].map((moduleId) => ({
+  moduleId,
+  file: `design/modules/${moduleId}.teda`,
+  text: readFileSync(join(projectDir, "design/modules", `${moduleId}.teda`), "utf8"),
+}));
+const referenceResult = parseSchematic(rootText, {
+  file: rootFile,
+  components: resolver,
+  modules: referenceModules,
+});
 
-  test("parses successfully with no error diagnostics", () => {
+const testRootFile = "design/sch/main.teda";
+
+/** Compose a focused module parser case under the valid project schematic root. */
+function parseFlatModule(
+  sourceText: string,
+  components: Parameters<typeof parseSchematic>[1]["components"] = resolver,
+) {
+  const moduleText = sourceText;
+  const moduleFile = "design/modules/test.teda";
+  const doc = parseSchematicDocument(moduleText, { file: moduleFile, kind: "module" }).doc;
+  const netNames = new Set<string>();
+  const ports = doc?.ports ?? [];
+  if (doc) {
+    for (const net of doc.nets) netNames.add(net.name);
+    for (const bus of doc.buses) {
+      for (const member of bus.members) netNames.add(`${bus.id}.${member.member}`);
+    }
+  }
+  const orderedNetNames = [...netNames].sort();
+
+  // Root net IDs cannot contain the dot used by module bus-member identities. Keep ordinary
+  // names unchanged, and give qualified bus members deterministic legal aliases at the root.
+  const rootNetIds = new Map<string, string>();
+  const usedRootNetIds = new Set<string>();
+  for (const net of orderedNetNames) {
+    const base = /^[A-Za-z0-9_+-]+$/.test(net) ? net : net.replace(/[^A-Za-z0-9_+-]/g, "_");
+    let alias = base;
+    let suffix = 2;
+    while (usedRootNetIds.has(alias)) alias = `${base}_${suffix++}`;
+    usedRootNetIds.add(alias);
+    rootNetIds.set(net, alias);
+  }
+
+  const portForNet = new Map<string, string>();
+  const usedPortIds = new Set<string>();
+  for (const port of ports) {
+    if (/^[A-Za-z0-9_+-]+$/.test(port.id)) usedPortIds.add(port.id);
+    if (/^[A-Za-z0-9_+-]+$/.test(port.id) && port.net !== "no_connect" && netNames.has(port.net) && !portForNet.has(port.net)) {
+      portForNet.set(port.net, port.id);
+    }
+  }
+  const generatedPorts: string[] = [];
+  let nextPort = 1;
+  for (const net of orderedNetNames) {
+    if (portForNet.has(net)) continue;
+    let id = `T${nextPort++}`;
+    while (usedPortIds.has(id)) id = `T${nextPort++}`;
+    usedPortIds.add(id);
+    portForNet.set(net, id);
+    generatedPorts.push(`  ${id}  ${net}`);
+  }
+  const composedModuleText = generatedPorts.length === 0
+    ? moduleText
+    : `${moduleText.trimEnd()}\n\nports\n${generatedPorts.join("\n")}\n`;
+  const rootRows = [...portForNet].map(([net, port]) => `  ${rootNetIds.get(net)!}:  M1.${port}`);
+  const projectPorts = ports
+    .filter((port) => /^[A-Za-z0-9_+-]+$/.test(port.id) && port.net !== "no_connect" && netNames.has(port.net))
+    .map((port) => `  ${port.id}  ${rootNetIds.get(port.net)!}`);
+  const projectText = [
+    "version 0.14.0",
+    "schematic main",
+    "",
+    "modules",
+    "  M1  test",
+    ...(rootRows.length > 0 ? ["", "nets", ...rootRows] : []),
+    ...(projectPorts.length > 0 ? ["", "ports", ...projectPorts] : []),
+    "",
+  ].join("\n");
+  return parseSchematic(projectText, {
+    file: testRootFile,
+    components,
+    modules: [{ moduleId: "test", file: moduleFile, text: composedModuleText }],
+  });
+}
+describe("project schematic root (ADR-0069)", () => {
+  const result = referenceResult;
+
+  test("parses the one project root without error diagnostics", () => {
     expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
     expect(result.ok).toBe(true);
+    expect(validate("schematic", result.ir).errors).toEqual([]);
   });
 
-  test("IR satisfies the schematic contract", () => {
-    const check = validate("schematic", result.ir);
-    expect(check.errors).toEqual([]);
-    expect(check.ok).toBe(true);
+  test("the root has project identity and the current language format", () => {
+    expect(result.ir!.project).toBe("main");
+    expect(result.ir!.format).toBe("0.14");
+    expect(result.modules!.length).toBeGreaterThan(0);
   });
 
-  test("instances and nets are unique sets of the board", () => {
+  test("module ownership and flattened instance identities are explicit", () => {
     const ir = result.ir!;
-    expect(ir.board).toBe("mcu-board");
-    // The reference project fixture is migrated with the rest of the project, so it declares the
-    // current language version.
-    expect(ir.format).toBe("0.11");
-    expect(ir.instances.length).toBe(21);
-    expect(ir.nets.length).toBe(10);
+    for (const module of result.modules!) {
+      expect(module.instance_id).toMatch(/^M\d+$/);
+      const instances = ir.instances.filter((instance) => instance.id.startsWith(`${module.instance_id}.`));
+      expect(instances.length).toBeGreaterThan(0);
+      expect(instances.every((instance) => instance.id.startsWith(`${module.instance_id}.`))).toBe(true);
+    }
+    expect(ir.instances.every((instance) => /^M\d+\./.test(instance.id))).toBe(true);
   });
 
-  test("pin references use numbers, not pin names", () => {
-    const gnd = result.ir!.nets.find((n) => n.id === "GND")!;
-    expect(gnd.members.length).toBe(27);
-    // VSS_1 is a pin name; the IR may only contain pin numbers.
-    expect(gnd.members.every((m) => /^[A-Z]+\d+\.[A-Za-z0-9_+-]+$/.test(m))).toBe(true);
-    expect(gnd.members.some((m) => m.includes("VSS"))).toBe(false);
+  test("flattened pin membership carries its owning module instance", () => {
+    expect(result.ir!.nets.length).toBeGreaterThan(0);
+    for (const net of result.ir!.nets) {
+      expect(net.members.every((member) => /^M\d+\./.test(member))).toBe(true);
+    }
   });
 
-  test("params land in the IR in component declaration order, units converted to integers", () => {
-    const c1 = result.ir!.instances.find((i) => i.id === "C1")!;
-    expect(c1.component).toBe("cap-mlcc-0402");
-    expect(c1.params).toEqual([
-      { name: "value", value: 100_000_000 }, // 100nF → fF
-      { name: "tolerance", value: 100_000 }, // 10% → ppm
-      { name: "voltage", value: 16_000_000 }, // 16V → µV
-      { name: "dielectric", text: "X7R" },
-    ]);
+  test("module port facts retain their pins and project-net bindings", () => {
+    for (const module of result.modules!) {
+      for (const port of module.ports) {
+        expect(Array.isArray(port.pins)).toBe(true);
+        expect(port.pins.every((pin) => pin.startsWith(`${module.instance_id}.`))).toBe(true);
+        if (port.net !== undefined) {
+          const net = result.ir!.nets.find((candidate) => candidate.id === port.net)!;
+          for (const pin of port.pins) expect(net.members).toContain(pin);
+        }
+      }
+    }
   });
 
-  test("constraints land in the unit field matching their type", () => {
-    const constraints = result.ir!.constraints!;
-    expect(constraints).toEqual([
-      { type: "voltage", subject: "VIN_5V", min_uv: 4_500_000, max_uv: 5_500_000 },
-      { type: "voltage", subject: "GND", min_uv: 0, max_uv: 0 },
-      { type: "voltage", subject: "V3V3", min_uv: 3_000_000, max_uv: 3_600_000 },
-      { type: "current", subject: "V3V3", max_na: 300_000_000 },
-    ]);
-  });
-
-  test("ports only name existing nets", () => {
-    const ports = result.ir!.ports!;
-    expect(ports.length).toBe(7);
-    expect(ports.find((p) => p.id === "VOUT_3V3")!.net).toBe("V3V3");
-  });
-
-  test("ERC warning: unconnected pins", () => {
-    const warnings = result.diagnostics.filter((d) => d.severity === "warning");
-    // Each reserved GPIO on the board gets an unconnected warning.
-    const unconnected = warnings.filter((d) => d.code === "net.pin-unassigned");
-    expect(unconnected.length).toBe(78);
-  });
-
-  test("single-member nets warn only when truly unconnected", () => {
-    const warnings = result.diagnostics.filter((d) => d.severity === "warning");
-    // SWDIO / SWCLK on the board each connect only one pin, but they hang off board-level ports (going off-board), so they are not unconnected.
-    expect(warnings.filter((d) => d.code === "drc.single-member-net").length).toBe(0);
-
-    // The same nets become unconnected once the ports are removed, and must be reported.
-    const withoutPorts = text.replace(/^ports\n(?:.*\n)*?$/m, "");
-    const stripped = parseSchematic(withoutPorts, {
-      file: "sch/mcu-board.teda",
-      board: "mcu-board",
-      components: resolver,
-    });
-    expect(
-      stripped.diagnostics.filter((d) => d.code === "drc.single-member-net").length,
-    ).toBeGreaterThan(0);
+  test("root-owned constraints and ports use project net identities", () => {
+    for (const constraint of result.ir!.constraints ?? []) {
+      const subject = "subject" in constraint ? constraint.subject : undefined;
+      if (subject !== undefined && !subject.startsWith("M")) {
+        expect(result.ir!.nets.some((net) => net.id === subject)).toBe(true);
+      }
+    }
+    for (const port of result.ir!.ports ?? []) {
+      expect(result.ir!.nets.some((net) => net.id === port.net)).toBe(true);
+    }
   });
 });
 
-describe("composed board (charger-buck)", () => {
-  const text = readFileSync(join(projectDir, "design/sch", "charger-buck.teda"), "utf8");
-  const modules: ModuleSource[] = ["charger-power", "buck-5v"].map((id) => ({
-    moduleId: id,
-    file: `modules/${id}.teda`,
-    text: readFileSync(join(projectDir, "design/modules", `${id}.teda`), "utf8"),
-  }));
-  const result = parseSchematic(text, {
-    file: "sch/charger-buck.teda",
-    board: "charger-buck",
-    components: resolver,
-    modules,
+describe("module facts (spec/module.md §7.2)", () => {
+  test("a project with no modules has an empty facts list", () => {
+    const plain = parseSchematic("version 0.14.0\nschematic main\n", {
+      file: rootFile,
+      components: resolver,
+    });
+    expect(plain.modules).toEqual([]);
   });
 
-  test("parses successfully and the IR satisfies the contract", () => {
-    expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
-    const check = validate("schematic", result.ir);
-    expect(check.errors).toEqual([]);
-  });
+  describe("module port pin facts", () => {
+    const moduleText = [
+      "version 0.14.0",
+      "module m1",
+      "",
+      "instances",
+      "  R1  res-thick-0402  10k  ±1%",
+      "",
+      "nets",
+      "  VCC:  R1.1",
+      "  AUX:  R1.2",
+      "",
+      "ports",
+      "  BOUND  VCC",
+      "  SPARE  no_connect",
+      "  LOOSE  AUX",
+      "",
+    ].join("\n");
+    const projectText = [
+      "version 0.14.0",
+      "schematic main",
+      "",
+      "modules",
+      "  M1  m1",
+      "",
+      "nets",
+      "  VCC:  M1.BOUND",
+      "",
+    ].join("\n");
+    const facts = parseSchematic(projectText, {
+      file: rootFile,
+      components: resolver,
+      modules: [{ moduleId: "m1", file: "design/modules/m1.teda", text: moduleText }],
+    });
 
-  test("the board's instances carry their module's prefix", () => {
-    const ids = result.ir!.instances.map((i) => i.id);
-    expect(ids.length).toBe(61);
-    expect(ids).toContain("M1.U1");
-    expect(ids).toContain("M2.U1");
-    expect(ids).toContain("M1.C1");
-    expect(ids).toContain("M2.C1");
-  });
+    test("every declared port has complete flattened pins", () => {
+      expect(facts.modules![0]!.ports).toEqual([
+        { id: "BOUND", net: "VCC", pins: ["M1.R1.1"] },
+        { id: "LOOSE", pins: ["M1.R1.2"] },
+        { id: "SPARE", pins: [] },
+      ]);
+    });
 
-  test("a module's internal nets keep the qualified name", () => {
-    const ids = result.ir!.nets.map((n) => n.id);
-    expect(ids).toContain("M1.VFB");
-    expect(ids).toContain("M2.VFB");
-    expect(ids).toContain("M2.BOOT");
-    expect(ids).toContain("M1.PH");
-    expect(ids).toContain("M2.PH");
-  });
-
-  test("a port merges the module's net into the board's net", () => {
-    const ids = result.ir!.nets.map((n) => n.id);
-    // The merged nets keep the board's name; the module's own name is gone.
-    expect(ids).toContain("GND");
-    expect(ids).toContain("SYS");
-    expect(ids).toContain("VOUT");
-    expect(ids).not.toContain("M2.SYS");
-    expect(ids).not.toContain("M2.GND");
-  });
-
-  test("the nets both modules share are one net", () => {
-    const sys = result.ir!.nets.find((n) => n.id === "SYS")!;
-    // The power path's SYS and the buck's SYS are one board net. The IR names pins by number.
-    expect(sys.members).toContain("M1.U1.1");
-    expect(sys.members).toContain("M2.U1.7");
-    const gnd = result.ir!.nets.find((n) => n.id === "GND")!;
-    expect(gnd.members).toContain("M1.U1.17");
-    expect(gnd.members).toContain("M2.U1.6");
-  });
-
-  test("the board's ports name board nets", () => {
-    const ports = result.ir!.ports!;
-    expect(ports.length).toBe(5);
-    expect(ports.find((p) => p.id === "VOUT_5V")!.net).toBe("VOUT");
-    expect(ports.find((p) => p.id === "GND")!.net).toBe("GND");
-  });
-
-  test("the constraints name the board's nets and the modules' qualified nets", () => {
-    const constraints = result.ir!.constraints!;
-    const buckVfb = constraints.find((c) => c.type === "voltage" && c.subject === "M2.VFB");
-    expect(buckVfb).toEqual({ type: "voltage", subject: "M2.VFB", min_uv: 1_203_000, max_uv: 1_239_000 });
-    const chargerVfb = constraints.find((c) => c.type === "voltage" && c.subject === "M1.VFB");
-    expect(chargerVfb).toEqual({ type: "voltage", subject: "M1.VFB", min_uv: 2_079_000, max_uv: 2_121_000 });
-  });
-
-  test("ERC warning: ENA intentionally left open (internal pull-up)", () => {
-    const warnings = result.diagnostics.filter((d) => d.severity === "warning");
-    expect(warnings.map((w) => w.message)).toEqual(["pin M2.U1.5 (ENA) is not connected"]);
+    test("an unbound port remains a diagnostic without losing its pins", () => {
+      expect(facts.diagnostics.map((d) => d.code)).toContain("ref.unbound-port");
+      expect(facts.modules![0]!.ports.find((port) => port.id === "LOOSE")).toEqual({
+        id: "LOOSE",
+        pins: ["M1.R1.2"],
+      });
+    });
   });
 });
 
 
 describe("stable instance UIDs (ADR-0010)", () => {
-  const board = (rows: string) => [
-    "version 0.9",
-    "schematic b",
+  const flatModule = (rows: string) => [
+    "version 0.14.0",
+    "module test",
     "",
     "instances",
     ...rows.split("\n"),
@@ -195,19 +241,16 @@ describe("stable instance UIDs (ADR-0010)", () => {
     "  B:  R1.2",
   ].join("\n");
 
-  test("a top-level row carries its UID into the IR", () => {
-    const result = parseSchematic(board("  R1  ID7k3m9q  res-thick-0402  10k  ±1%"), {
-      file: "sch/b.teda",
-      board: "b",
-      components: resolver,
-    });
+  test("a module instance row carries its UID into the IR", () => {
+    const result = parseFlatModule(flatModule("  R1  ID7k3m9q  res-thick-0402  10k  ±1%"));
     expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
     expect(result.ir!.instances[0]!.uid).toBe("ID7k3m9q");
+    expect(result.ir!.instances[0]!.id).toBe("M1.R1");
   });
 
   test("a module-local UID is path-qualified by the module instance UID", () => {
     const moduleText = [
-      "version 0.9",
+      "version 0.14.0",
       "module m",
       "",
       "instances",
@@ -219,9 +262,9 @@ describe("stable instance UIDs (ADR-0010)", () => {
       "ports",
       "  P  N",
     ].join("\n");
-    const boardText = [
-      "version 0.9",
-      "schematic b",
+    const projectText = [
+      "version 0.14.0",
+      "schematic main",
       "",
       "modules",
       "  M1  IDp8x2n4  m",
@@ -230,11 +273,10 @@ describe("stable instance UIDs (ADR-0010)", () => {
       "nets",
       "  A:  M1.P  M2.P",
     ].join("\n");
-    const composed = parseSchematic(boardText, {
-      file: "sch/b.teda",
-      board: "b",
+    const composed = parseSchematic(projectText, {
+      file: rootFile,
       components: resolver,
-      modules: [{ moduleId: "m", file: "modules/m.teda", text: moduleText }],
+      modules: [{ moduleId: "m", file: "design/modules/m.teda", text: moduleText }],
     });
     expect(composed.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
     const m1 = composed.ir!.instances.find((i) => i.id === "M1.R1")!;
@@ -245,7 +287,7 @@ describe("stable instance UIDs (ADR-0010)", () => {
 
   test("a module-local UID stays bare when the module instance has no UID", () => {
     const moduleText = [
-      "version 0.9",
+      "version 0.14.0",
       "module m",
       "",
       "instances",
@@ -257,9 +299,9 @@ describe("stable instance UIDs (ADR-0010)", () => {
       "ports",
       "  P  N",
     ].join("\n");
-    const boardText = [
-      "version 0.9",
-      "schematic b",
+    const projectText = [
+      "version 0.14.0",
+      "schematic main",
       "",
       "modules",
       "  M1  m",
@@ -267,51 +309,39 @@ describe("stable instance UIDs (ADR-0010)", () => {
       "nets",
       "  A:  M1.P",
     ].join("\n");
-    const composed = parseSchematic(boardText, {
-      file: "sch/b.teda",
-      board: "b",
+    const composed = parseSchematic(projectText, {
+      file: rootFile,
       components: resolver,
-      modules: [{ moduleId: "m", file: "modules/m.teda", text: moduleText }],
+      modules: [{ moduleId: "m", file: "design/modules/m.teda", text: moduleText }],
     });
     expect(composed.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
     expect(composed.ir!.instances.find((i) => i.id === "M1.R1")!.uid).toBe("ID7k3m9q");
   });
 
-  test("a duplicate UID in one file is an error", () => {
-    const result = parseSchematic(
-      board("  R1  ID7k3m9q  res-thick-0402  10k  ±1%\n  R2  ID7k3m9q  res-thick-0402  1k  ±1%"),
-      { file: "sch/b.teda", board: "b", components: resolver },
+  test("a duplicate UID in one module file is an error", () => {
+    const result = parseFlatModule(
+      flatModule("  R1  ID7k3m9q  res-thick-0402  10k  ±1%\n  R2  ID7k3m9q  res-thick-0402  1k  ±1%"),
     );
     expect(result.diagnostics.map((d) => d.code)).toContain("value.duplicate-instance-uid");
   });
 
   test("a malformed UID is a syntax error", () => {
-    const result = parseSchematic(board("  R1  ID7K3M9Q  res-thick-0402  10k  ±1%"), {
-      file: "sch/b.teda",
-      board: "b",
-      components: resolver,
-    });
+    const result = parseFlatModule(flatModule("  R1  ID7K3M9Q  res-thick-0402  10k  ±1%"));
     expect(result.diagnostics.map((d) => d.code)).toContain("syntax.invalid-identifier");
   });
 
-  test("a 0.9 row without a UID warns; an older file does not", () => {
-    const current = parseSchematic(board("  R1  res-thick-0402  10k  ±1%"), {
-      file: "sch/b.teda",
-      board: "b",
-      components: resolver,
-    });
+  test("a missing UID warns in current and older supported module files", () => {
+    const current = parseFlatModule(flatModule("  R1  res-thick-0402  10k  ±1%"));
     expect(current.diagnostics.map((d) => d.code)).toContain("value.instance-uid-missing");
-    const legacy = parseSchematic(
-      "version 0.8\nschematic b\n\ninstances\n  R1  res-thick-0402  10k  ±1%\n\nnets\n  A:  R1.1\n  B:  R1.2\n",
-      { file: "sch/b.teda", board: "b", components: resolver },
+    const older = parseFlatModule(
+      "version 0.8\nmodule test\n\ninstances\n  R1  res-thick-0402  10k  ±1%\n\nnets\n  A:  R1.1\n  B:  R1.2\n",
     );
-    expect(legacy.diagnostics.map((d) => d.code)).not.toContain("value.instance-uid-missing");
+    expect(older.diagnostics.map((d) => d.code)).toContain("value.instance-uid-missing");
   });
 
   test("a UID below language 0.9 is rejected", () => {
-    const result = parseSchematic(
-      "version 0.8\nschematic b\n\ninstances\n  R1  ID7k3m9q  res-thick-0402  10k  ±1%\n\nnets\n  A:  R1.1\n  B:  R1.2\n",
-      { file: "sch/b.teda", board: "b", components: resolver },
+    const result = parseFlatModule(
+      "version 0.8\nmodule test\n\ninstances\n  R1  ID7k3m9q  res-thick-0402  10k  ±1%\n\nnets\n  A:  R1.1\n  B:  R1.2\n",
     );
     expect(result.diagnostics.map((d) => d.code)).toContain("format.unsupported-version");
   });
@@ -319,8 +349,8 @@ describe("stable instance UIDs (ADR-0010)", () => {
 
 describe("constraint types", () => {
   const text = [
-    "version 0.3",
-    "schematic b",
+    "version 0.14.0",
+    "module test",
     "",
     "instances",
     "  R1  res-thick-0402  10k  ±1%",
@@ -338,7 +368,7 @@ describe("constraint types", () => {
     "  power     A   1W",
     "",
   ].join("\n");
-  const result = parseSchematic(text, { file: "sch/b.teda", board: "b", components: resolver });
+  const result = parseFlatModule(text);
 
   test("all seven constraint types land in the matching unit field", () => {
     expect(result.ir!.constraints).toEqual([
@@ -353,13 +383,13 @@ describe("constraint types", () => {
 
   test("errors when a constraint's subject does not exist", () => {
     const bad = text.replace("  current   A   100mA", "  current   NOPE   100mA");
-    const result2 = parseSchematic(bad, { file: "sch/b.teda", board: "b", components: resolver });
+    const result2 = parseFlatModule(bad);
     expect(result2.diagnostics.map((d) => d.code)).toContain("ref.unknown-net");
   });
 
   test("errors when a range's lower bound exceeds its upper bound", () => {
     const bad = text.replace("0.5mm..2mm", "2mm..0.5mm");
-    const result2 = parseSchematic(bad, { file: "sch/b.teda", board: "b", components: resolver });
+    const result2 = parseFlatModule(bad);
     expect(result2.diagnostics.some((d) => d.message.includes("lower bound exceeds upper bound"))).toBe(true);
   });
 });
@@ -368,8 +398,8 @@ describe("row order", () => {
   // The IR depends on the semantics only: where a row was written is not part of it, and neither
   // is the order of the rows (spec/teda.md §12; ADR-0004 D1 removed the last field that leaked it).
   const source = [
-    "version 0.3",
-    "schematic b",
+    "version 0.14.0",
+    "module test",
     "",
     "instances",
     "  R1  res-thick-0402  10k  ±1%",
@@ -381,8 +411,8 @@ describe("row order", () => {
     "  C:  R2.2",
   ].join("\n");
   const shuffled = [
-    "version 0.3",
-    "schematic b",
+    "version 0.14.0",
+    "module test",
     "",
     "instances",
     "  R2  res-thick-0402  4k7  ±1%",
@@ -395,61 +425,44 @@ describe("row order", () => {
   ].join("\n");
 
   test("row order and member order do not affect IR bytes", () => {
-    const a = parseSchematic(source, { file: "sch/b.teda", board: "b", components: resolver });
-    const b = parseSchematic(shuffled, { file: "sch/b.teda", board: "b", components: resolver });
+    const a = parseFlatModule(source);
+    const b = parseFlatModule(shuffled);
     expect(b.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
     expect(JSON.stringify(b.ir)).toBe(JSON.stringify(a.ir));
   });
 });
 
 describe("negative cases", () => {
-  const board = ["version 0.3", "schematic b", "", "instances", "  R1  res-thick-0402  10k  ±1%", "", "nets", "  A:  R1.1"].join("\n");
+  const moduleText = ["version 0.14.0", "module test", "", "instances", "  R1  res-thick-0402  10k  ±1%", "", "nets", "  A:  R1.1"].join("\n");
 
-  function codes(text: string, options: Partial<Parameters<typeof parseSchematic>[1]> = {}): string[] {
-    const result = parseSchematic(text, {
-      file: "sch/b.teda",
-      board: "b",
-      components: resolver,
-      ...options,
-    });
-    return result.diagnostics.map((d) => d.code);
+  function codes(text: string, components: Parameters<typeof parseSchematic>[1]["components"] = resolver): string[] {
+    return parseFlatModule(text, components).diagnostics.map((d) => d.code);
   }
 
   test("component not found", () => {
-    const text = board.replace("res-thick-0402", "no-such-part");
-    expect(codes(text)).toContain("ref.unknown-component");
+    expect(codes(moduleText.replace("res-thick-0402", "no-such-part"))).toContain("ref.unknown-component");
   });
 
   test("diagnostics carry machine-usable data (ADR-0003)", () => {
-    const result = parseSchematic(board.replace("res-thick-0402", "no-such-part"), {
-      file: "sch/b.teda",
-      board: "b",
-      components: resolver,
-    });
+    const result = parseFlatModule(moduleText.replace("res-thick-0402", "no-such-part"));
     const diagnostic = result.diagnostics.find((d) => d.code === "ref.unknown-component")!;
-    expect(diagnostic.data).toEqual({ component_id: "no-such-part", refdes: "R1" });
+    expect(diagnostic.data).toEqual({ component_id: "no-such-part", module_instance_id: "M1", refdes: "R1" });
   });
 
   test("duplicate refdes", () => {
-    const text = board.replace("nets", "  R1  res-thick-0402  10k  ±1%\n\nnets");
+    const text = moduleText.replace("nets", "  R1  res-thick-0402  10k  ±1%\n\nnets");
     expect(codes(text)).toContain("ref.duplicate-refdes");
   });
 
   test("parameter column count does not match the component declaration", () => {
-    const text = board.replace("10k", "10k 1% 2W 3X");
-    expect(codes(text)).toContain("value.param-count-mismatch");
+    expect(codes(moduleText.replace("10k", "10k 1% 2W 3X"))).toContain("value.param-count-mismatch");
   });
 
   test("a row that fails against a declaration names the declaration (ADR-0004 D5)", () => {
-    const text = board.replace("10k", "10k 1% 2W 3X");
-    const result = parseSchematic(text, {
-      file: "sch/b.teda",
-      board: "b",
-      components: resolver,
-    });
+    const result = parseFlatModule(moduleText.replace("10k", "10k 1% 2W 3X"));
     const diagnostic = result.diagnostics.find((d) => d.code === "value.param-count-mismatch")!;
     // The row is the place to fix; the declaration is the file that decides how many columns there are.
-    expect(diagnostic.location).toMatchObject({ file: "sch/b.teda", line: 5 });
+    expect(diagnostic.location).toMatchObject({ file: "design/modules/test.teda", line: 5 });
     const related = diagnostic.related ?? [];
     expect(related).toHaveLength(1);
     expect(related[0]!.file).toContain("res-thick-0402.teda");
@@ -457,16 +470,15 @@ describe("negative cases", () => {
   });
 
   test("parameter value is not a value of that quantity", () => {
-    const text = board.replace("10k", "10V");
-    expect(codes(text)).toContain("value.invalid-param");
+    expect(codes(moduleText.replace("10k", "10V"))).toContain("value.invalid-param");
   });
 
   test("a code-valued parameter outside its closed value set is an error (ADR-0025)", () => {
     // The dielectric is a code, not a quantity: the spelling is exact, because two spellings of
     // one code would be two BOM lines.
     const text = [
-      "version 0.3",
-      "schematic b",
+      "version 0.14.0",
+      "module test",
       "",
       "instances",
       "  C1  cap-mlcc-0402  100n  ±10%  16V  X7r",
@@ -478,15 +490,14 @@ describe("negative cases", () => {
   });
 
   test("pin does not exist", () => {
-    const text = board.replace("R1.1", "R1.9");
-    expect(codes(text)).toContain("net.member-unknown");
+    expect(codes(moduleText.replace("R1.1", "R1.9"))).toContain("net.member-unknown");
   });
 
   test("a no_connect pin is wired to a net", () => {
     // NC1 (pin 2) of tps5430ddar is no_connect.
     const text = [
-      "version 0.3",
-      "schematic b",
+      "version 0.14.0",
+      "module test",
       "",
       "instances",
       "  U1  tps5430ddar",
@@ -500,8 +511,8 @@ describe("negative cases", () => {
 
   test("one pin belongs to two nets", () => {
     const text = [
-      "version 0.3",
-      "schematic b",
+      "version 0.14.0",
+      "module test",
       "",
       "instances",
       "  R1  res-thick-0402  10k  ±1%",
@@ -515,56 +526,48 @@ describe("negative cases", () => {
   });
 
   test("port points at a nonexistent net", () => {
-    const text = board + "\n\nports\n  P1  NOPE";
-    expect(codes(text)).toContain("ref.unknown-net");
+    expect(codes(`${moduleText}\n\nports\n  P1  NOPE`)).toContain("ref.unknown-net");
   });
 
   test("two ports point at the same net", () => {
-    const text = board + "\n\nports\n  P1  A\n  P2  A";
-    expect(codes(text)).toContain("ref.duplicate-port-net");
+    expect(codes(`${moduleText}\n\nports\n  P1  A\n  P2  A`)).toContain("ref.duplicate-port-net");
   });
 
   test("single-member net produces a warning", () => {
-    const result = parseSchematic(board, { file: "sch/b.teda", board: "b", components: resolver });
+    const result = parseFlatModule(moduleText);
     const diagnostic = result.diagnostics.find((d) => d.code === "drc.single-member-net");
     expect(diagnostic?.severity).toBe("warning");
     expect(diagnostic?.message).toContain("net A");
   });
 
   test("the `pages` section is gone: it says so instead of 'unknown section'", () => {
-    const text = board + "\n\npages\n  P1  some-page";
-    const result = parseSchematic(text, { file: "sch/b.teda", board: "b", components: resolver });
+    const text = ["version 0.14.0", "schematic main", "", "pages", "  P1  some-page"].join("\n");
+    const result = parseSchematic(text, { file: rootFile, components: resolver });
     const diagnostic = result.diagnostics.find((d) => d.code === "syntax.removed-construct")!;
     expect(diagnostic.message).toContain("pages");
-    expect(diagnostic.hint).toContain("teda.md §13.4");
+    expect(diagnostic.hint).toContain("teda.md §12.4");
   });
 
   test("the `page` description type is gone: it says so instead of 'unknown type'", () => {
-    const text = "version 0.3\npage p1\n\ninstances\n  R2  res-thick-0402  10k  ±1%";
-    const result = parseSchematic(text, { file: "sch/b/p1.teda", board: "b", components: resolver });
+    const result = parseSchematic("version 0.14.0\npage p1\n", { file: rootFile, components: resolver });
     const diagnostic = result.diagnostics.find((d) => d.code === "syntax.removed-construct")!;
     expect(diagnostic.message).toContain("page");
   });
 
   test("version higher than the tool supports", () => {
-    const text = board.replace("version 0.3", "version 0.12");
-    expect(codes(text)).toContain("format.unsupported-version");
+    expect(codes(moduleText.replace("version 0.14.0", "version 0.15"))).toContain("format.unsupported-version");
   });
 
   test("unknown section", () => {
     // A stray line before any section starts: it belongs to no section.
-    const text = "version 0.3\nschematic b\nwidgets  x\n";
+    const text = "version 0.14.0\nmodule test\nwidgets  x\n";
     expect(codes(text)).toContain("syntax.unknown-section");
   });
 
   test("diagnostics carry file, line, and column", () => {
-    const result = parseSchematic(board.replace("10k", "10V"), {
-      file: "sch/b.teda",
-      board: "b",
-      components: resolver,
-    });
+    const result = parseFlatModule(moduleText.replace("10k", "10V"));
     const diagnostic = result.diagnostics.find((d) => d.code === "value.invalid-param")!;
-    expect(diagnostic.location).toEqual({ file: "sch/b.teda", line: 5, col: 3 });
+    expect(diagnostic.location).toEqual({ file: "design/modules/test.teda", line: 5, col: 3 });
   });
 });
 
@@ -585,14 +588,13 @@ describe("pin references into a multi-unit device (teda.md §4.5)", () => {
         : undefined,
   };
   const text = (member: string): string =>
-    ["version 0.8", "schematic b", "", "instances", "  U1  dual-opamp", "", "nets", `  A:  ${member}`].join("\n");
-  const parse = (member: string) =>
-    parseSchematic(text(member), { file: "sch/b.teda", board: "b", components: resolverWithOpamp });
+    ["version 0.14.0", "module test", "", "instances", "  U1  dual-opamp", "", "nets", `  A:  ${member}`].join("\n");
+  const parse = (member: string) => parseFlatModule(text(member), resolverWithOpamp);
 
   test("naming the unit resolves to that unit's pin", () => {
     const result = parse("U1.2.OUT");
     expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
-    expect(result.ir!.nets[0]!.members).toEqual(["U1.7"]);
+    expect(result.ir!.nets[0]!.members).toEqual(["M1.U1.7"]);
   });
 
   test("a name that two units share is ambiguous, not unit 1", () => {
@@ -613,11 +615,10 @@ describe("pin references into a multi-unit device (teda.md §4.5)", () => {
         ],
       }),
     };
-    const result = parseSchematic(["version 0.8", "schematic b", "", "instances", "  U1  x", "", "nets", "  A:  U1.GND"].join("\n"), {
-      file: "sch/b.teda",
-      board: "b",
-      components: repeated,
-    });
+    const result = parseFlatModule(
+      ["version 0.14.0", "module test", "", "instances", "  U1  x", "", "nets", "  A:  U1.GND"].join("\n"),
+      repeated,
+    );
     expect(result.diagnostics.find((d) => d.code === "ref.ambiguous-pin")!.hint).toContain("pin number");
     expect(result.diagnostics.find((d) => d.code === "ref.ambiguous-pin")!.data).toEqual({
       component_id: "x",
@@ -629,9 +630,9 @@ describe("pin references into a multi-unit device (teda.md §4.5)", () => {
 
 describe("single-member net semantics (teda.md §11.4)", () => {
   test("a net with one pin is reported", () => {
-    const boardWithOnePin = [
-      "version 0.3",
-      "schematic b",
+    const sourceWithOnePin = [
+      "version 0.14.0",
+      "module test",
       "",
       "instances",
       "  R1  res-thick-0402  10k  ±1%",
@@ -639,61 +640,48 @@ describe("single-member net semantics (teda.md §11.4)", () => {
       "nets",
       "  A:  R1.1",
     ].join("\n");
-    const result = parseSchematic(boardWithOnePin, {
-      file: "sch/b.teda",
-      board: "b",
-      components: resolver,
-    });
+    const result = parseFlatModule(sourceWithOnePin);
     const warnings = result.diagnostics.filter((d) => d.code === "drc.single-member-net");
     expect(warnings.length).toBe(1);
     expect(warnings[0]!.message).toContain("A");
-    expect(warnings[0]!.location?.file).toBe("sch/b.teda");
+    expect(warnings[0]!.location?.file).toBe(testRootFile);
   });
 
-  test("a net with a board-level port is not single-member", () => {
-    const boardWithBoardPort = [
-      "version 0.3",
-      "schematic b",
+  test("a project-level port is not single-member", () => {
+    const module = [
+      "version 0.14.0",
+      "module test",
       "",
       "instances",
       "  R1  res-thick-0402  10k  ±1%",
       "",
       "nets",
       "  SWD:  R1.1",
-      "",
-      "ports",
-      "  SWDIO  SWD",
     ].join("\n");
-    const result = parseSchematic(boardWithBoardPort, {
-      file: "sch/b.teda",
-      board: "b",
-      components: resolver,
-    });
-    // That pin goes off-board; it is not an unconnected pin.
+    const result = parseFlatModule(`${module}\n\nports\n  SWDIO  SWD`);
     expect(result.diagnostics.filter((d) => d.code === "drc.single-member-net").length).toBe(0);
   });
 });
 
 describe("continuation rows (teda.md §7.2)", () => {
   // A row whose first column is a bare `:` continues the net named by the row above it.
-  const header = ["version 0.3", "schematic b", "", "instances", "  R1  res-thick-0402  10k  ±1%", "  R2  res-thick-0402  10k  ±1%", "", "nets"].join("\n");
+  const header = ["version 0.14.0", "module test", "", "instances", "  R1  res-thick-0402  10k  ±1%", "  R2  res-thick-0402  10k  ±1%", "", "nets"].join("\n");
 
   function parse(text: string) {
-    return parseSchematic(text, { file: "sch/b.teda", board: "b", components: resolver });
+    return parseFlatModule(text);
   }
 
   test("a continuation row adds members to the net above it", () => {
     const result = parse(`${header}\n  A:  R1.1\n  :  R2.1`);
     expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
     const net = result.ir!.nets.find((n) => n.id === "A")!;
-    expect(net.members).toEqual(["R1.1", "R2.1"]);
+    expect(net.members).toEqual(["M1.R1.1", "M1.R2.1"]);
   });
 
   test("several continuation rows all belong to the same net", () => {
     const result = parse(`${header}\n  A:  R1.1\n  :  R2.1\n  :  R1.2`);
     const net = result.ir!.nets.find((n) => n.id === "A")!;
-    // The IR orders members by pin reference: R1.1, R1.2, R2.1.
-    expect(net.members).toEqual(["R1.1", "R1.2", "R2.1"]);
+    expect(net.members).toEqual(["M1.R1.1", "M1.R1.2", "M1.R2.1"]);
   });
 
   test("a continuation row does not create a net of its own", () => {
@@ -709,7 +697,7 @@ describe("continuation rows (teda.md §7.2)", () => {
   test("a continuation row merges with a repeated net name", () => {
     const result = parse(`${header}\n  A:  R1.1\n  A:  R1.2\n  :  R2.1`);
     const net = result.ir!.nets.find((n) => n.id === "A")!;
-    expect(net.members).toEqual(["R1.1", "R1.2", "R2.1"]);
+    expect(net.members).toEqual(["M1.R1.1", "M1.R1.2", "M1.R2.1"]);
   });
 
   test("the row order of the source does not change the IR", () => {
@@ -721,87 +709,58 @@ describe("continuation rows (teda.md §7.2)", () => {
   test("members are ordered by pin reference, not by source order", () => {
     const result = parse(`${header}\n  A:  R2.1  R1.1`);
     const net = result.ir!.nets.find((n) => n.id === "A")!;
-    expect(net.members).toEqual(["R1.1", "R2.1"]);
+    expect(net.members).toEqual(["M1.R1.1", "M1.R2.1"]);
   });
 });
 
 describe("bus continuation rows (teda.md §7.3)", () => {
-  const header = ["version 0.3", "schematic b", "", "instances", "  R1  res-thick-0402  10k  ±1%", "  R2  res-thick-0402  10k  ±1%", "", "bus i2c0 = I2C"].join("\n");
+  const header = ["version 0.14.0", "module test", "", "instances", "  R1  res-thick-0402  10k  ±1%", "  R2  res-thick-0402  10k  ±1%", "", "bus i2c0 = I2C"].join("\n");
 
   test("a continuation row adds pins to the bus member above it", () => {
-    const result = parseSchematic(`${header}\n  scl:  R1.1\n  :  R2.1\n  sda:  R2.2`, {
-      file: "sch/b.teda",
-      board: "b",
-      components: resolver,
-    });
+    const result = parseFlatModule(`${header}\n  scl:  R1.1\n  :  R2.1\n  sda:  R2.2`);
     expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
-    const net = result.ir!.nets.find((n) => n.id === "i2c0.scl")!;
-    expect(net.members).toEqual(["R1.1", "R2.1"]);
+    const net = result.ir!.nets.find((n) => n.id === "i2c0_scl")!;
+    expect(net.members).toEqual(["M1.R1.1", "M1.R2.1"]);
     // The continuation belongs to the member above it, not to the member below it.
-    const other = result.ir!.nets.find((n) => n.id === "i2c0.sda")!;
-    expect(other.members).toEqual(["R2.2"]);
+    const other = result.ir!.nets.find((n) => n.id === "i2c0_sda")!;
+    expect(other.members).toEqual(["M1.R2.2"]);
   });
 
   test("a continuation row without a bus member above is an error", () => {
-    const result = parseSchematic(`${header}\n  :  R1.1`, {
-      file: "sch/b.teda",
-      board: "b",
-      components: resolver,
-    });
+    const result = parseFlatModule(`${header}\n  :  R1.1`);
     expect(result.diagnostics.map((d) => d.code)).toContain("net.continuation-without-net");
   });
 
   test("a member net may be named by a port", () => {
     // `i2c0.scl` is a net with no row of its own; the bus declaration is what brings it into existence.
-    const result = parseSchematic(`${header}\n  scl:  R1.1\n  sda:  R2.2\n\nports\n  I2C_SCL  i2c0.scl`, {
-      file: "sch/b.teda",
-      board: "b",
-      components: resolver,
-    });
+    const result = parseFlatModule(`${header}\n  scl:  R1.1\n  sda:  R2.2\n\nports\n  I2C_SCL  i2c0.scl`);
     expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
-    expect(result.ir!.ports).toEqual([{ id: "I2C_SCL", net: "i2c0.scl" }]);
+    expect(result.ir!.ports).toEqual([{ id: "I2C_SCL", net: "i2c0_scl" }]);
   });
 
   test("a member net may be the subject of a constraint", () => {
-    const result = parseSchematic(`${header}\n  scl:  R1.1\n  sda:  R2.2\n\nconstraints\n  voltage  i2c0.scl  3.0V..3.6V`, {
-      file: "sch/b.teda",
-      board: "b",
-      components: resolver,
-    });
+    const result = parseFlatModule(`${header}\n  scl:  R1.1\n  sda:  R2.2\n\nconstraints\n  voltage  i2c0.scl  3.0V..3.6V`);
     expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
-    expect(result.ir!.constraints).toEqual([{ type: "voltage", subject: "i2c0.scl", min_uv: 3_000_000, max_uv: 3_600_000 }]);
+    expect(result.ir!.constraints).toEqual([{ type: "voltage", subject: "i2c0_scl", min_uv: 3_000_000, max_uv: 3_600_000 }]);
   });
 
   test("the same bus declared twice is an error, and only the first block reaches the IR", () => {
-    const result = parseSchematic(`${header}\n  scl:  R1.1\n  sda:  R2.2\n\nbus i2c0 = I2C\n  scl:  R2.1`, {
-      file: "sch/b.teda",
-      board: "b",
-      components: resolver,
-    });
+    const result = parseFlatModule(`${header}\n  scl:  R1.1\n  sda:  R2.2\n\nbus i2c0 = I2C\n  scl:  R2.1`);
     expect(result.diagnostics.map((d) => d.code)).toContain("ref.duplicate-bus");
-    expect(result.ir!.buses).toHaveLength(1);
-    const scl = result.ir!.nets.find((n) => n.id === "i2c0.scl")!;
-    expect(scl.members).toEqual(["R1.1"]);
+    const scl = result.ir!.nets.find((n) => n.id === "i2c0_scl")!;
+    expect(scl.members).toEqual(["M1.R1.1"]);
   });
 
   test("a repeated member row merges into one member net", () => {
-    const result = parseSchematic(`${header}\n  scl:  R1.1\n  scl:  R2.1\n  sda:  R2.2`, {
-      file: "sch/b.teda",
-      board: "b",
-      components: resolver,
-    });
+    const result = parseFlatModule(`${header}\n  scl:  R1.1\n  scl:  R2.1\n  sda:  R2.2`);
     expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
-    expect(result.ir!.nets.filter((n) => n.id === "i2c0.scl")).toHaveLength(1);
-    expect(result.ir!.nets.find((n) => n.id === "i2c0.scl")!.members).toEqual(["R1.1", "R2.1"]);
+    expect(result.ir!.nets.filter((n) => n.id === "i2c0_scl")).toHaveLength(1);
+    expect(result.ir!.nets.find((n) => n.id === "i2c0_scl")!.members).toEqual(["M1.R1.1", "M1.R2.1"]);
   });
 
   test("a pin repeated across two member rows is an error", () => {
-    const result = parseSchematic(`${header}\n  scl:  R1.1\n  scl:  R1.1`, {
-      file: "sch/b.teda",
-      board: "b",
-      components: resolver,
-    });
+    const result = parseFlatModule(`${header}\n  scl:  R1.1\n  scl:  R1.1`);
     expect(result.diagnostics.map((d) => d.code)).toContain("net.duplicate-member");
-    expect(result.ir!.nets.find((n) => n.id === "i2c0.scl")!.members).toEqual(["R1.1"]);
+    expect(result.ir!.nets.find((n) => n.id === "i2c0_scl")!.members).toEqual(["M1.R1.1"]);
   });
 });

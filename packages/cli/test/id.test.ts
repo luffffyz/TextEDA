@@ -63,7 +63,7 @@ describe("UID generation", () => {
 });
 
 describe("project UID collection", () => {
-  test("collects board, module-instance and module-local UIDs", () => {
+  test("collects project-root, module-instance and module-local UIDs", () => {
     const { uids, diagnostics } = collectProjectUidSources(referenceProject);
     expect(diagnostics.filter((diagnostic) => diagnostic.severity === "error")).toEqual([]);
     expect(uids.size).toBeGreaterThan(50);
@@ -110,8 +110,8 @@ describe("texteda id command", () => {
     try {
       mkdirSync(join(root, "design", "sch"), { recursive: true });
       writeFileSync(
-        join(root, "design", "sch", "b.teda"),
-        "version 0.9\nschematic b\n\ninstances\n  R1  IDbad  res-thick-0402  10k  ±1%\n",
+        join(root, "design", "sch", "main.teda"),
+        "version 0.14.0\nschematic main\n\nmodules\n  M1  IDbad  m\n",
       );
       const result = run(["id", root]);
       expect(result.code).toBe(1);

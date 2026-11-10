@@ -221,11 +221,13 @@ const LAYER_STYLE: Record<string, { stroke: string; fill: string }> = {
   "F.Adhes": { stroke: "#0891b2", fill: "none" },
   "Edge.Cuts": { stroke: "#111827", fill: "none" },
   sheet: { stroke: "#9ca3af", fill: "none" },
+  module: { stroke: "#7c3aed", fill: "none" },
+  module_port: { stroke: "#1d4ed8", fill: "none" },
   wire: { stroke: "#15803d", fill: "#15803d" },
   junction: { stroke: "#15803d", fill: "#15803d" },
   label: { stroke: "#111827", fill: "#111827" },
   port: { stroke: "#1d4ed8", fill: "#1d4ed8" },
-  text: { stroke: "#374151", fill: "#374151" },
+  template: { stroke: "#6b7280", fill: "#6b7280" },
 };
 
 const DEFAULT_STYLE = { stroke: "#374151", fill: "none" };
@@ -271,14 +273,16 @@ const LAYER_ORDER = [
   "B.CrtYd",
   "Edge.Cuts",
   "sheet",
+  "template",
+  "module",
   "wire",
   "junction",
+  "module_port",
   "symbol",
   "power",
   "pin",
   "label",
   "port",
-  "text",
 ];
 
 export interface SvgBounds {

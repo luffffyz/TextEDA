@@ -31,7 +31,7 @@ version 0.11.0
 symbol bq24610rger
 ```
 
-- 版本行、类型行规则同 `teda.md` §5。文件写**语言版本**（当前版本见 `teda.md` §13.1）；`symbol` 的 reader 下界是 `0.11`。该类型于 `0.5` 引入，`0.11` 的坐标元组改写要求 reader 拒绝旧表面；接受规则见 `teda.md` §13.3。
+- 版本行、类型行规则同 `teda.md` §5。文件写**语言版本**（当前版本见 `teda.md` §12.1）；`symbol` 的 reader 下界是 `0.11`。该类型于 `0.5` 引入，`0.11` 的坐标元组改写要求 reader 拒绝旧表面；接受规则见 `teda.md` §12.3。
 - 文件名必须等于类型行里的 id：`assets/symbols/<lib>/<symbol_id>.teda` ↔ `symbol bq24610rger`。
 - `symbol_id` 允许 `[A-Za-z0-9_.+-]+`。一个符号是**可复用的视图**：`r` / `c` / `nmos-5` 这类通用画法供多个器件共享，所以名字不必等于 `component_id`。绑定只发生在 `component.symbol`。
 
@@ -156,7 +156,7 @@ v0.1 不支持：文字标注（极性 `+`/`−`、功能名）、图片、贝�
 1. `pins` 的 `number` 唯一（同一 `unit` 内）；`unit` 在 `0`…`units` 内。
 2. `body` 的 `geometry` 点数与 `kind` 匹配；`poly` 点数 ≥ 3；`fill` 只适用于 `rect` / `circle` / `poly`。
 3. `field` 的 `Name` 唯一；`field` 不接受 `layer`。
-4. 编译产物必须通过 `schemas/ir/v0.3/symbol.schema.json`（closed schema）。
+4. The compiled shard must pass `schemas/ir/v0.17/symbol.schema.json` (closed schema). The shard root includes the required `format` field: the normalized language version of the source `.teda` file (`0.12`, not `0.12.0`; see `teda.md` §12.1).
 5. 库级检查（与 `component` 的引脚号集合比对、与 `footprint` 的引脚号比对、ERC）不属于本描述，属工具链（[ADR-0030](../docs/adr/08-libraries/0030-footprint-format-and-geometry.md) decision 7）。
 6. 编译产物的顺序只依赖语义：`pins` 按 (`unit`, `number` 自然序)、`body` 按 (`kind`, 坐标) 排；`fields` 按 `Name`、`tags` 按字节序。
 

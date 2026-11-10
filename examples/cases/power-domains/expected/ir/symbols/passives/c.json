@@ -1,5 +1,6 @@
 {
-  "ir_version": "0.15",
+  "format": "0.11",
+  "ir_version": "0.19",
   "source": {
     "file": "assets/symbols/passives/c.teda",
     "line": 1

@@ -20,8 +20,9 @@ const SQUARE: [Point, Point, Point, ...Point[]] = [point(0, 0), point(10, 0), po
 function board(overrides: Partial<Pcb> = {}): Pcb {
   return {
     ir_version: irVersion,
-    format: "0.7",
-    board: "demo",
+    format: "0.19",
+    pcb: "demo",
+    modules: [],
     board_thickness_nm: 1_600_000,
     stackup: [
       { type: "copper", layer: "F.Cu", thickness_nm: 35_000, kind: "signal" },
@@ -39,6 +40,7 @@ function board(overrides: Partial<Pcb> = {}): Pcb {
 function footprint(pads: NonNullable<Footprint["footprint"]["pads"]>): Footprint {
   return {
     ir_version: irVersion,
+    format: "0.11",
     footprint: { library: "project", name: "test", pads },
   };
 }
@@ -338,6 +340,7 @@ describe("boardImage", () => {
   test("silk graphics land on the silk layer with the declared width, or the layer default", () => {
     const withGraphics: Footprint = {
       ir_version: irVersion,
+      format: "0.11",
       footprint: {
         library: "project",
         name: "test",
@@ -365,6 +368,7 @@ describe("boardImage", () => {
   test("a filled silk shape is a region and an arc is a polyline with both ends exact", () => {
     const withGraphics: Footprint = {
       ir_version: irVersion,
+      format: "0.11",
       footprint: {
         library: "project",
         name: "test",
@@ -403,6 +407,7 @@ describe("boardImage", () => {
   test("the board's silk rules put the reference on the declared layer and the field's layer does not gate", () => {
     const marked: Footprint = {
       ir_version: irVersion,
+      format: "0.11",
       footprint: {
         library: "project",
         name: "test",
@@ -445,6 +450,7 @@ describe("boardImage", () => {
   test("a hidden field prints nothing, even when the board prints its item", () => {
     const marked: Footprint = {
       ir_version: irVersion,
+      format: "0.11",
       footprint: {
         library: "project",
         name: "test",
@@ -463,6 +469,7 @@ describe("boardImage", () => {
   test("a bottom-side part mirrors its silk layer, its drawing and its text", () => {
     const marked: Footprint = {
       ir_version: irVersion,
+      format: "0.11",
       footprint: {
         library: "project",
         name: "test",

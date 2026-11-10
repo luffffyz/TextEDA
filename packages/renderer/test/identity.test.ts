@@ -55,8 +55,8 @@ function part(): SchematicInstance {
 function view(): SchematicView {
   return {
     ir_version: irVersion,
-    format: "0.7",
-    board: "b",
+    format: "0.14",
+    project: "main",
     page: "p",
     sheet: { width_nm: 100_000_000, height_nm: 60_000_000 },
     place: [{ instance_id: "U1", x_nm: 50_000_000, y_nm: 30_000_000, rot_mdeg: 0 }],

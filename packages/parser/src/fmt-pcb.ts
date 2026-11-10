@@ -157,10 +157,10 @@ function ratioPpmLocal(text: string): number {
 
 /** Format a `pcb` description. Produces nothing when parsing has errors, to avoid "washing" a bad file into canonical form. */
 export function formatPcb(text: string, options: { file: string }): PcbFormatResult {
-  // The board id is taken from the type line: fmt cares about no filename/project context, only this one piece of text.
+  // The PCB id is taken from the type line: fmt cares about no filename/project context, only this one piece of text.
   const header = lex(text).filter((line) => !line.blank && !line.comment)[1];
-  const board = header?.cells[1]?.text ?? "fmt";
-  const parsed = parsePcb(text, { file: options.file, board });
+  const pcb = header?.cells[1]?.text ?? "fmt";
+  const parsed = parsePcb(text, { file: options.file, pcb });
   if (parsed.diagnostics.some((d) => d.severity === "error")) {
     return { ok: false, diagnostics: parsed.diagnostics };
   }

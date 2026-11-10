@@ -25,9 +25,11 @@ function lineKey(component: string, params: Readonly<Record<string, number | str
 }
 
 export interface ProcurementFactsInput {
-  /** The board's schematic IR. */
+  /** The project schematic IR. */
   schematic: Schematic;
-  /** The procurement shards of the board, primary first. */
+  /** Root module instances implemented by this physical PCB. */
+  moduleInstances: readonly string[];
+  /** The procurement shards of the PCB, primary first. */
   procurements: readonly {
     ir: Procurement;
     file: string;
@@ -40,7 +42,7 @@ export interface ProcurementFactsInput {
 }
 
 /**
- * The board's design lines: the generic (or part) lines the design uses.
+ * The selected PCB's design lines: only non-DNP, non-logical instances owned by its modules.
  *
  * A line is a device plus the values it was given: two 10k resistors with different tolerances
  * are two lines. An instance that is not placed (DNP) or has no physical entity (logical only)
@@ -48,11 +50,15 @@ export interface ProcurementFactsInput {
  */
 export function designLines(
   schematic: Schematic,
+  moduleInstances: readonly string[],
   /** Where an instance was written: the IR no longer carries line numbers (ADR-0004 D1). */
   locateInstance?: (instanceId: string) => DiagnosticLocation | undefined,
 ): DesignLine[] {
+  const owners = new Set(moduleInstances);
   const lines = new Map<string, DesignLine>();
   for (const instance of schematic.instances) {
+    const separator = instance.id.indexOf(".");
+    if (separator < 0 || !owners.has(instance.id.slice(0, separator))) continue;
     if (instance.dnp === true) continue;
     if (instance.logical_only === true) continue;
     const params = paramMap(instance.params ?? []);
@@ -99,10 +105,10 @@ export function selections(
   return out;
 }
 
-/** The facts of one board's procurement state. */
+/** The facts of one physical PCB's procurement state. */
 export function buildProcurementFacts(input: ProcurementFactsInput): ProcurementFacts {
   return {
-    lines: designLines(input.schematic, input.locateInstance),
+    lines: designLines(input.schematic, input.moduleInstances, input.locateInstance),
     selections: selections(input.procurements),
     devices: input.devices,
   };

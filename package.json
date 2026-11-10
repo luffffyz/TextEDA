@@ -24,6 +24,7 @@
     "migrate:0.7": "bun run scripts/migrate-0.7.ts",
     "migrate:0.9": "bun run scripts/migrate-0.9.ts",
     "migrate:0.11": "bun run scripts/migrate-0.11.ts",
+    "migrate:0.14": "bun run scripts/migrate-0.14.ts",
     "lib:verify": "bun run scripts/verify-libs.ts",
     "lib:verify:kicad": "bun run scripts/verify-libs.ts --kicad",
     "view:verify": "bun run scripts/verify-views.ts",

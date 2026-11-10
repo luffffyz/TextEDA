@@ -67,8 +67,8 @@ export const DIAGNOSTIC_CODES = {
     domain: "syntax",
     severity: "error",
     summary: "The file uses a construct that was removed from the language",
-    hint: "Migrate the file to the current language version; the migration note is in teda.md §13.4",
-    spec: ["teda.md §13.4", "docs/adr/04-schematic/0012-one-flat-schematic-per-board.md"],
+    hint: "Migrate the file to the current language version; the migration note is in teda.md §12.4",
+    spec: ["teda.md §12.4", "docs/adr/04-schematic/0012-one-flat-schematic-per-board.md"],
   },
   "syntax.unknown-field": {
     domain: "syntax",
@@ -132,21 +132,21 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     summary: "Not a valid board id",
     hint: "A board id is lower-case letters, digits and hyphens, starting with a letter",
-    spec: ["spec/teda.md §8.1"],
+    spec: ["spec/pcb.md §1"],
   },
   "syntax.net-invalid": {
     domain: "syntax",
     severity: "error",
-    summary: "Invalid system net row: the name, the members or the number of members is wrong",
-    hint: "A system net row is written as `NAME: <board_id>.<port_id> …` and needs at least two members",
-    spec: ["spec/teda.md §8.2"],
+    summary: "[DEPRECATED] Invalid system net row: the name, the members or the number of members is wrong",
+    hint: "This code belonged to the removed `system` description; project-level interconnects use root module-port endpoints",
+    spec: ["spec/teda.md §12.4"],
   },
   "syntax.port-ref-invalid": {
     domain: "syntax",
     severity: "error",
-    summary: "Not a valid port reference",
-    hint: "A port reference is written as <board_id>.<port_id>",
-    spec: ["spec/teda.md §8.2"],
+    summary: "[DEPRECATED] Not a valid system port reference",
+    hint: "This code belonged to the removed `system` description; use project-root module-port endpoints",
+    spec: ["spec/teda.md §12.4"],
   },
 
   // ---- value: values and dimensions ----
@@ -154,19 +154,19 @@ export const DIAGNOSTIC_CODES = {
     domain: "value",
     severity: "error",
     summary: "Invalid length value (format, unit or dimension)",
-    spec: ["teda.md §10.2"],
+    spec: ["teda.md §9.2"],
   },
   "value.angle-invalid": {
     domain: "value",
     severity: "error",
     summary: "Invalid angle value",
-    spec: ["teda.md §10.2"],
+    spec: ["teda.md §9.2"],
   },
   "value.ratio-invalid": {
     domain: "value",
     severity: "error",
     summary: "Invalid ratio value",
-    spec: ["teda.md §10.2"],
+    spec: ["teda.md §9.2"],
   },
   "value.pad-number-invalid": {
     domain: "value",
@@ -256,7 +256,7 @@ export const DIAGNOSTIC_CODES = {
     domain: "value",
     severity: "error",
     summary: "Unknown pin electrical type",
-    spec: ["teda.md §10.1"],
+    spec: ["teda.md §9.1"],
   },
   "value.pin-column-invalid": {
     domain: "value",
@@ -606,15 +606,15 @@ export const DIAGNOSTIC_CODES = {
   "ref.unknown-board": {
     domain: "ref",
     severity: "error",
-    summary: "Reference to a board that does not exist in this project",
-    hint: "A procurement file belongs to a board: use the board id of a design/sch/<board_id>.teda file",
+    summary: "Reference to a physical PCB that does not exist in this project",
+    hint: "A procurement file belongs to a physical PCB: use the id of a design/pcb/<pcb_id>.teda file",
     spec: ["spec/procurement.md §1"],
   },
   "ref.board-id-mismatch": {
     domain: "ref",
     severity: "error",
-    summary: "The board id declared in the procurement file header does not match the file name",
-    hint: "Make the board id declared in the file header match the file name",
+    summary: "The PCB id declared in the procurement file header does not match the file name",
+    hint: "Make the PCB id declared in the file header match the file name",
     spec: ["spec/procurement.md §1"],
   },
   "ref.unknown-instance": {
@@ -622,6 +622,13 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     summary: "Reference to a nonexistent instance",
     spec: ["teda.md §7.2"],
+  },
+  "ref.unknown-interconnect": {
+    domain: "ref",
+    severity: "error",
+    summary: "A reference names an interconnect absent from the project root",
+    hint: "Declare the interconnect in the root schematic, or correct or remove the reference",
+    spec: ["spec/teda.md §7.7", "docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md D3", "docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md D4"],
   },
   "ref.unknown-net": {
     domain: "ref",
@@ -650,12 +657,26 @@ export const DIAGNOSTIC_CODES = {
     hint: "A net may have at most one port; use a different net if you need multiple breakouts",
     spec: ["spec/module.md §3"],
   },
+  "ref.duplicate-interconnect": {
+    domain: "ref",
+    severity: "error",
+    summary: "An interconnect id is declared more than once in the project root",
+    hint: "Give each root interconnect a unique id",
+    spec: ["spec/module.md §6", "spec/teda.md §7.6", "docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md D3"],
+  },
   "ref.unknown-module": {
     domain: "ref",
     severity: "error",
     summary: "Reference to a module id that has no module file",
     hint: "Add the module file under modules/, or change the referenced module id",
     spec: ["spec/module.md §4"],
+  },
+  "ref.unknown-module-instance": {
+    domain: "ref",
+    severity: "error",
+    summary: "A PCB ownership row references a module instance absent from the project root",
+    hint: "Declare the module instance in the root schematic, or remove it from the PCB modules section",
+    spec: ["spec/pcb.md §4.1", "spec/pcb.md §5.2", "docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md D2"],
   },
   "ref.module-id-mismatch": {
     domain: "ref",
@@ -692,6 +713,13 @@ export const DIAGNOSTIC_CODES = {
     hint: "A no_connect port is not connected to anything; remove the reference",
     spec: ["spec/module.md §3"],
   },
+  "ref.pin-off-endpoint-net": {
+    domain: "ref",
+    severity: "error",
+    summary: "An interconnect pin mapping references a pin outside its endpoint port's module-local net",
+    hint: "Map pins from the module-local nets exposed by the interconnect's endpoint ports",
+    spec: ["spec/module.md §6", "spec/teda.md §7.7", "docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md D3"],
+  },
 
   "ref.unknown-project": {
     domain: "ref",
@@ -710,9 +738,9 @@ export const DIAGNOSTIC_CODES = {
   "ref.duplicate-board": {
     domain: "ref",
     severity: "error",
-    summary: "The same board is listed twice",
-    hint: "List every board of the system once",
-    spec: ["spec/teda.md §8.1"],
+    summary: "[DEPRECATED] The same board is listed twice in a system description",
+    hint: "The `system` description type has been removed",
+    spec: ["spec/teda.md §12.4"],
   },
   "ref.duplicate-bus": {
     domain: "ref",
@@ -724,31 +752,31 @@ export const DIAGNOSTIC_CODES = {
   "ref.duplicate-net": {
     domain: "ref",
     severity: "error",
-    summary: "The same system net is defined twice",
-    hint: "Give every system net its own row; a net that spans lines uses a continuation row",
-    spec: ["spec/teda.md §8.2"],
+    summary: "[DEPRECATED] The same system net is defined twice",
+    hint: "The `system` description type has been removed; declare project nets in the root schematic",
+    spec: ["spec/teda.md §12.4"],
   },
 
   "ref.unknown-system-board": {
     domain: "ref",
     severity: "error",
-    summary: "The system names a board the project does not have",
-    hint: "Declare the board in `[boards.<id>]` in project.toml, or drop it from the system's boards section",
-    spec: ["spec/teda.md §8.1"],
+    summary: "[DEPRECATED] A system names a board the project does not have",
+    hint: "The `system` description type has been removed; declare physical boards as PCBs",
+    spec: ["spec/teda.md §12.4"],
   },
   "ref.unknown-system-port": {
     domain: "ref",
     severity: "error",
-    summary: "The system references a port the board does not declare",
-    hint: "Declare the port in the board's ports section, or reference a port that exists",
-    spec: ["spec/teda.md §8.2"],
+    summary: "[DEPRECATED] A system references a port the board does not declare",
+    hint: "The `system` description type has been removed; use root module-port endpoints",
+    spec: ["spec/teda.md §12.4"],
   },
   "ref.system-net-conflict": {
     domain: "ref",
     severity: "error",
-    summary: "One board net is in two system nets",
-    hint: "One board net belongs to one system net; two system nets sharing it would short them together",
-    spec: ["spec/teda.md §8.2"],
+    summary: "[DEPRECATED] One board net belongs to two system nets",
+    hint: "The `system` description type has been removed; declare cross-PCB paths as root interconnects",
+    spec: ["spec/teda.md §12.4"],
   },
 
   // ---- net: net integrity ----
@@ -959,6 +987,27 @@ export const DIAGNOSTIC_CODES = {
     summary: "The pcb's place references an instance that does not exist in the flattened sch result",
     spec: ["spec/pcb.md §5.2"],
   },
+  "bind.instance-not-owned": {
+    domain: "bind",
+    severity: "error",
+    summary: "A PCB placement references an instance owned by another PCB",
+    hint: "Place only instances of module instances declared in this PCB's modules section",
+    spec: ["spec/pcb.md §4.4", "spec/pcb.md §5.2", "docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md D2"],
+  },
+  "bind.instance-split": {
+    domain: "bind",
+    severity: "error",
+    summary: "A module instance is declared as owned by multiple PCBs",
+    hint: "Declare each project module instance in exactly one PCB's modules section",
+    spec: ["spec/pcb.md §5.2", "docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md D2"],
+  },
+  "bind.instance-unowned": {
+    domain: "bind",
+    severity: "error",
+    summary: "A project module instance is not owned by any PCB",
+    hint: "Declare the module instance in exactly one PCB's modules section",
+    spec: ["spec/pcb.md §5.2", "docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md D2"],
+  },
   "bind.pad-unplaced": {
     domain: "bind",
     severity: "error",
@@ -1063,9 +1112,9 @@ export const DIAGNOSTIC_CODES = {
   "bind.system-voltage-mismatch": {
     domain: "bind",
     severity: "error",
-    summary: "The voltage ranges of the boards a system net connects do not overlap",
-    hint: "Check the voltage constraints of the boards the system net connects; one of them is outside the other's range",
-    spec: ["spec/teda.md §8.2", "spec/teda.md §11"],
+    summary: "[DEPRECATED] The voltage ranges of the boards a system net connects do not overlap",
+    hint: "The `system` description type and its voltage cross-check have been removed",
+    spec: ["spec/teda.md §12.4"],
   },
   "drc.silk-small": {
     domain: "drc",
@@ -1133,7 +1182,7 @@ export const DIAGNOSTIC_CODES = {
     domain: "cli",
     severity: "error",
     summary: "The project holds no description that can be compiled",
-    hint: "Add a board description (sch/<board_id>.teda), a PCB description, or a library file; or point at the right project directory",
+    hint: "Add the root schematic (design/sch/main.teda), a PCB description (design/pcb/<pcb_id>.teda), or a library file; or point at the right project directory",
     spec: [],
   },
 
@@ -1141,14 +1190,14 @@ export const DIAGNOSTIC_CODES = {
     domain: "cli",
     severity: "error",
     summary: "The board has no description to export",
-    hint: "A board needs both design/sch/<board_id>.teda (the pads come from its devices) and design/pcb/<board_id>.teda (the copper)",
+    hint: "A PCB export needs the project root design/sch/main.teda for pads and pin nets, and design/pcb/<pcb_id>.teda for its physical copper",
     spec: ["spec/pcb.md §8"],
   },
 
   // ---- view: the schematic view layer (S1) ----
-  // Only the codes the view parser emits are registered here; the board <-> print page cross-check
-  // and the readability checks register theirs when they land (the registry is the source of truth
-  // for what is actually emitted, ADR-0003).
+  // The parser's codes, the board <-> print page cross-check's codes and the readability checks'
+  // codes all live here: the registry is the source of truth for what is actually emitted
+  // (ADR-0003).
   "view.out-of-sheet": {
     domain: "view",
     severity: "error",
@@ -1302,6 +1351,81 @@ export const DIAGNOSTIC_CODES = {
     summary: "Nets with two or more members are drawn on no print page of the board",
     hint: "Draw each as a wire between two of its pins, or put a label on its net",
     spec: ["spec/schematic-view.md §9.2"],
+  },
+  "view.interconnect-id-mismatch": {
+    domain: "view",
+    severity: "error",
+    summary: "A drawn interconnect restates endpoints that differ from the project root",
+    hint: "Copy the interconnect endpoints declared by the project root",
+    spec: ["spec/schematic-view.md §9.1", "docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md D3, D4"],
+  },
+  "view.interconnect-not-drawn": {
+    domain: "view",
+    severity: "warning",
+    summary: "A project interconnect is drawn on no print page",
+    hint: "Draw the declared interconnect on a topology or detail page",
+    spec: ["spec/schematic-view.md §9.2", "docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md D3, D4"],
+  },
+
+  "view.modules-not-drawn": {
+    domain: "view",
+    severity: "warning",
+    summary: "Project module instances are drawn on no print page",
+    hint: "Draw each project module instance on a topology or detail page",
+    spec: ["spec/schematic-view.md §9.2"],
+  },
+
+  // ---- view: the module overview (ADR-0067 D5) ----
+  // The board owns the composition and the port bindings; the overview only draws them, so every
+  // disagreement between the page and the board is reported in favour of the board.
+  "view.module-not-placed": {
+    domain: "view",
+    severity: "error",
+    summary: "[DEPRECATED] A module instance has no frame on a page",
+    hint: "Use view.modules-not-drawn for project-wide coverage; page-local module frames are optional",
+    spec: ["spec/schematic-view.md §9.2"],
+  },
+  "view.module-duplicate": {
+    domain: "view",
+    severity: "error",
+    summary: "A module instance is drawn in more than one frame on the overview page",
+    hint: "Keep one frame per module instance and drop the others",
+    spec: ["spec/schematic-view.md §9.1", "docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md D5"],
+  },
+  "view.module-unknown-instance": {
+    domain: "view",
+    severity: "error",
+    summary: "The overview page draws a module instance the board does not have",
+    hint: "Draw a module instance the board declares, or add it to the board's modules section",
+    spec: ["spec/schematic-view.md §9.1", "docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md D5"],
+  },
+  "view.module-id-mismatch": {
+    domain: "view",
+    severity: "error",
+    summary: "An overview frame names another module than the board binds to that instance",
+    hint: "Draw the module the board binds to this module instance",
+    spec: ["spec/schematic-view.md §9.1", "docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md D5"],
+  },
+  "view.module-port-not-drawn": {
+    domain: "view",
+    severity: "error",
+    summary: "A wire ends at a module port this page does not draw",
+    hint: "Add a module_port row for the port, or end the wire at a pin the page draws",
+    spec: ["spec/schematic-view.md §9.1", "docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md D5"],
+  },
+  "view.module-port-wrong-net": {
+    domain: "view",
+    severity: "error",
+    summary: "A module port is bound to another board net than the wire that ends at it",
+    hint: "The board binds a module port to a net: draw the wire on the net the board binds",
+    spec: ["spec/schematic-view.md §9.1", "docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md D5"],
+  },
+  "view.wire-crosses-module": {
+    domain: "view",
+    severity: "error",
+    summary: "An overview wire crosses a module box",
+    hint: "Route the wire around the module box: a wire through a module frame hides the boundary",
+    spec: ["spec/schematic-view.md §9.1", "docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md D5"],
   },
 } as const satisfies Record<string, DiagnosticCodeEntry>;
 

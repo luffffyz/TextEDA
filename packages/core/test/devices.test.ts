@@ -131,7 +131,7 @@ describe("declaration checks", () => {
 });
 
 describe("value checks", () => {
-  const at = { file: "design/sch/b.teda", line: 12, col: 5 };
+  const at = { file: "design/sch/main.teda", line: 12, col: 5 };
 
   test("a member of the closed set is accepted", () => {
     expect(checkDeviceParamValue("dielectric", "X7R", at)).toEqual([]);

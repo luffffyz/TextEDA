@@ -1,0 +1,168 @@
+{
+  "constraints": [
+    {
+      "max_uv": 0,
+      "min_uv": 0,
+      "subject": "GND",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 5500000,
+      "min_uv": 4500000,
+      "subject": "VIN",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "V3V3",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "V3V3_SENSE",
+      "type": "voltage"
+    }
+  ],
+  "format": "0.14",
+  "instances": [
+    {
+      "component": "cap-mlcc-0402",
+      "id": "M1.C1",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        },
+        {
+          "name": "dielectric",
+          "text": "X7R"
+        }
+      ],
+      "uid": "IDrtqdyy"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "M1.R1",
+      "params": [
+        {
+          "name": "value",
+          "value": 10000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDs6518y"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "M1.U1",
+      "uid": "ID5swfwb"
+    }
+  ],
+  "ir_version": "0.19",
+  "modules": [
+    {
+      "instance_id": "M1",
+      "module_id": "tie-board",
+      "ports": [
+        {
+          "id": "GND",
+          "net": "GND",
+          "pins": [
+            "M1.C1.2",
+            "M1.R1.2",
+            "M1.U1.2"
+          ]
+        },
+        {
+          "id": "V3V3",
+          "net": "V3V3",
+          "pins": [
+            "M1.C1.1",
+            "M1.U1.5"
+          ]
+        },
+        {
+          "id": "V3V3_SENSE",
+          "net": "V3V3_SENSE",
+          "pins": [
+            "M1.R1.1"
+          ]
+        },
+        {
+          "id": "VIN",
+          "net": "VIN",
+          "pins": [
+            "M1.U1.1",
+            "M1.U1.3"
+          ]
+        }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "id": "GND",
+      "members": [
+        "M1.C1.2",
+        "M1.R1.2",
+        "M1.U1.2"
+      ]
+    },
+    {
+      "id": "V3V3",
+      "members": [
+        "M1.C1.1",
+        "M1.U1.5"
+      ]
+    },
+    {
+      "id": "V3V3_SENSE",
+      "members": [
+        "M1.R1.1"
+      ]
+    },
+    {
+      "id": "VIN",
+      "members": [
+        "M1.U1.1",
+        "M1.U1.3"
+      ]
+    }
+  ],
+  "ports": [
+    {
+      "id": "GND",
+      "net": "GND"
+    },
+    {
+      "id": "V3V3",
+      "net": "V3V3"
+    },
+    {
+      "id": "V3V3_SENSE",
+      "net": "V3V3_SENSE"
+    },
+    {
+      "id": "VIN",
+      "net": "VIN"
+    }
+  ],
+  "project": "main",
+  "source": {
+    "file": "design/sch/main.teda",
+    "line": 1
+  }
+}

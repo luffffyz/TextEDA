@@ -1,0 +1,23 @@
+version 0.14.0
+module multi-unit
+
+# One dual op-amp with its three-function unit structure. Units 1 and 2 are the two amplifiers;
+# unit 3 carries the shared supply pins.
+instances
+  R1  IDrv7pbd  res-22k1-0402
+  R2  IDykgsg8  res-10k-0402
+  U1  IDrqteny  opa2333
+
+nets
+  FB:       R1.2  R2.1  U1.1.IN-
+  GND:      R2.2  U1.3.V-
+  SIG_IN:   U1.1.IN+
+  SIG_MID:  R1.1  U1.1.OUT  U1.2.IN+
+  SIG_OUT:  U1.2.IN-  U1.2.OUT
+  V3V3:     U1.3.V+
+
+ports
+  GND      GND
+  SIG_IN   SIG_IN
+  SIG_OUT  SIG_OUT
+  V3V3     V3V3

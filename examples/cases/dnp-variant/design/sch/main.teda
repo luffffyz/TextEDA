@@ -1,0 +1,19 @@
+version 0.14.0
+schematic main
+
+# The project root composes the resistor module and owns the project-level
+# connectivity, external ports, and voltage constraints.
+modules
+  M1  dnp-variant
+
+nets
+  GND:   M1.GND
+  VREF:  M1.VREF
+
+ports
+  GND   GND
+  VREF  VREF
+
+constraints
+  voltage  GND   0V..0V
+  voltage  VREF  3.3V..3.3V

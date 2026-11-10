@@ -1,0 +1,14 @@
+version 0.14.0
+module dnp-variant
+
+# The module owns the resistor component fact and its internal connectivity.
+instances
+  R1  IDnphqjf  res-thick-0402  100k  ±1%
+
+nets
+  GND:   R1.2
+  VREF:  R1.1
+
+ports
+  GND   GND
+  VREF  VREF

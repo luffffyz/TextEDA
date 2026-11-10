@@ -1,0 +1,13 @@
+version 0.14.0
+module sensor-thermistor
+
+instances
+  RT1  IDzkg1gj  ntc-103at
+
+nets
+  GND:  RT1.2
+  NTC:  RT1.1
+
+ports
+  GND  GND
+  NTC  NTC

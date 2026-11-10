@@ -46,7 +46,6 @@ describe("init file set", () => {
       "design/sch",
       "design/modules",
       "design/pcb",
-      "design/system",
       "views",
       "docs",
     ]);
@@ -61,7 +60,6 @@ describe("init file set", () => {
       "design/sch/.gitkeep",
       "design/modules/.gitkeep",
       "design/pcb/.gitkeep",
-      "design/system/.gitkeep",
       "views/.gitkeep",
       "docs/README.md",
     ]);
@@ -86,7 +84,7 @@ describe("init file set", () => {
   test("the stamped format version is one this tool accepts", () => {
     // `init` must not stamp a version the tool cannot read back. The stamp is the whole language's
     // version (`project.toml` is not one description type with its own line), so it is checked
-    // against the language's supported version, not against a type's narrower window (teda.md §13.3).
+    // against the language's supported version, not against a type's narrower window (teda.md §12.3).
     const language = { required: { major: 0, minor: 0, patch: 0 }, supported: SUPPORTED_LANGUAGE };
     expect(checkVersion(CURRENT_FORMAT, language, "project").ok).toBe(true);
   });
@@ -110,7 +108,6 @@ describe("init disk-write behavior", () => {
       expect(existsSync(join(dir, "design", "sch", ".gitkeep"))).toBe(true);
       expect(existsSync(join(dir, "design", "modules", ".gitkeep"))).toBe(true);
       expect(existsSync(join(dir, "design", "pcb", ".gitkeep"))).toBe(true);
-      expect(existsSync(join(dir, "design", "system", ".gitkeep"))).toBe(true);
       expect(existsSync(join(dir, "external", "libs"))).toBe(false);
       expect(existsSync(join(dir, "views", ".gitkeep"))).toBe(true);
       expect(existsSync(join(dir, "docs", "README.md"))).toBe(true);

@@ -1,0 +1,77 @@
+version 0.14.0
+schematic main
+
+modules
+  M1  power-domains
+
+nets
+  GND:     M1.GND
+  VDD01:   M1.VDD01
+  VDD02:   M1.VDD02
+  VDD03:   M1.VDD03
+  VDD04:   M1.VDD04
+  VDD05:   M1.VDD05
+  VDD06:   M1.VDD06
+  VDD07:   M1.VDD07
+  VDD08:   M1.VDD08
+  VDD09:   M1.VDD09
+  VDD10:   M1.VDD10
+  VDD11:   M1.VDD11
+  VDD12:   M1.VDD12
+  VDD13:   M1.VDD13
+  VDD14:   M1.VDD14
+  VDD15:   M1.VDD15
+  VDD16:   M1.VDD16
+  VDD17:   M1.VDD17
+  VDD18:   M1.VDD18
+  VDD19:   M1.VDD19
+  VDD20:   M1.VDD20
+  VDD_IN:  M1.VDD_IN
+
+ports
+  GND     GND
+  VDD01   VDD01
+  VDD02   VDD02
+  VDD03   VDD03
+  VDD04   VDD04
+  VDD05   VDD05
+  VDD06   VDD06
+  VDD07   VDD07
+  VDD08   VDD08
+  VDD09   VDD09
+  VDD10   VDD10
+  VDD11   VDD11
+  VDD12   VDD12
+  VDD13   VDD13
+  VDD14   VDD14
+  VDD15   VDD15
+  VDD16   VDD16
+  VDD17   VDD17
+  VDD18   VDD18
+  VDD19   VDD19
+  VDD20   VDD20
+  VDD_IN  VDD_IN
+
+constraints
+  voltage  GND     0V..0V
+  voltage  VDD_IN  4.5V..5.5V
+  voltage  VDD01   3.135V..3.465V
+  voltage  VDD02   3.135V..3.465V
+  voltage  VDD03   3.135V..3.465V
+  voltage  VDD04   3.135V..3.465V
+  voltage  VDD05   3.135V..3.465V
+  voltage  VDD06   3.135V..3.465V
+  voltage  VDD07   3.135V..3.465V
+  voltage  VDD08   3.135V..3.465V
+  voltage  VDD09   3.135V..3.465V
+  voltage  VDD10   3.135V..3.465V
+  voltage  VDD11   3.135V..3.465V
+  voltage  VDD12   3.135V..3.465V
+  voltage  VDD13   3.135V..3.465V
+  voltage  VDD14   3.135V..3.465V
+  voltage  VDD15   3.135V..3.465V
+  voltage  VDD16   3.135V..3.465V
+  voltage  VDD17   3.135V..3.465V
+  voltage  VDD18   3.135V..3.465V
+  voltage  VDD19   3.135V..3.465V
+  voltage  VDD20   3.135V..3.465V

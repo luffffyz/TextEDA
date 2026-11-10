@@ -1,15 +1,14 @@
-// `schematic` description parsing: source text → board-level IR (teda.md §7, ADR-0012).
+// `schematic` description parsing: source text → project-level IR (teda.md §7, ADR-0069).
 //
-// One board = one file: `sch/<board_id>.teda` holds the board's instances, nets, ports and constraints.
-// There is no page level, no second namespace and no flattening (ADR-0012 decision 1-3).
+// The sole logical root is design/sch/main.teda. Module files hold component facts; the root
+// composes module instances, project nets, constraints, and explicit interconnect paths.
 //
-// The parser never touches the filesystem: component contents are supplied by the caller (`ComponentResolver`),
-// so the `parser` package still runs in the browser (ADR-0038 decision 1).
+// The parser never touches the filesystem: component contents are supplied by the caller
+// (`ComponentResolver`), so the `parser` package still runs in the browser (ADR-0038).
 import { irVersion } from "@texteda/ir";
 import { DEVICE_ID_RE, QUALIFIED_REF_RE } from "./ids.ts";
 import type { ComponentParamDecl } from "./component.ts";
 import type {
-  Bus,
   Constraint,
   Instance,
   Net,
@@ -150,14 +149,42 @@ function reportUnusableComponent(
 }
 
 export interface SchematicParseOptions {
-  /** Board file (relative to the project root), written into the IR's `source.file`. */
+  /** Logical root file (normally design/sch/main.teda), written into the IR's `source.file`. */
   file: string;
-  /** board_id. */
-  board: string;
-  /** Component resolver; if omitted, every `instances` row reports "component not found". */
+  /** Component resolver; if omitted, every module `instances` row reports "component not found". */
   components?: ComponentResolver;
-  /** The module files the board's `modules` section may reference (ADR-0013). */
+  /** The module files the root `modules` section may reference (ADR-0013). */
   modules?: ModuleSource[];
+
+}
+
+/**
+ * One module instance of the project: the module it instantiates and the ports that module declares.
+ *
+ * The facts come from their owners: the module file declares the ports, the project root binds them
+ * to project nets. They are not read back from the flattened IR, which has no module structure.
+ *
+ */
+export interface ModuleFacts {
+  /** Module instance id (`M1`). */
+  instance_id: string;
+  /** Module definition id (`charger-power`). */
+  module_id: string;
+  /** Stable module-instance identity, when declared. */
+  uid?: string;
+  /** The module's declared ports, in canonical order. */
+  ports: ModulePortFacts[];
+}
+
+/** One declared port of a module instance. */
+export interface ModulePortFacts {
+  /** The port id as the module declares it (`SYS_OUT`). */
+  id: string;
+  /** The project net this port is bound to, when connected. */
+  net?: string;
+  /** Complete flattened pin references on the module-local port net, before root merging. */
+  pins: string[];
+
 }
 
 export interface SchematicParseResult {
@@ -166,6 +193,12 @@ export interface SchematicParseResult {
   diagnostics: Diagnostic[];
   /** IR path → span of the record that produced it (ADR-0004 D2). Never persisted. */
   sources?: SourceMap;
+  /**
+   * The board's module composition: every module instance the board declares, with the ports its
+   * module declares and the board net each of them is bound to. The IR stays flat, so this is
+   * where the composition lives (ADR-0013 D4; ADR-0067 D5).
+   */
+  modules?: ModuleFacts[];
   /**
    * Project-scoped UIDs declared directly in the board file: board-level instances and module
    * instances (ADR-0010). Module-local UIDs are not global (the same local UID may appear in every
@@ -218,6 +251,21 @@ interface RawBus {
   members: RawBusMember[];
   line: number;
 }
+interface RawInterconnect {
+  id: string;
+  from: string;
+  to: string;
+  line: number;
+  col: number;
+}
+
+interface RawInterconnectPin {
+  interconnect: string;
+  from: string;
+  to: string;
+  line: number;
+  col: number;
+}
 
 /** One row of the board's `modules` section: a module instance and the module it instantiates. */
 interface RawModule {
@@ -233,6 +281,17 @@ interface RawModule {
 
 /** The document type of a board or module file. */
 export type DocumentKind = "schematic" | "module";
+export interface InterconnectFacts {
+  id: string;
+  from: string;
+  to: string;
+}
+
+export interface InterconnectPinFacts {
+  interconnect: string;
+  from: string;
+  to: string;
+}
 
 /** A module file the board's `modules` section may reference (the parser never touches the disk). */
 export interface ModuleSource {
@@ -256,8 +315,11 @@ export interface Document {
   constraints: RawConstraint[];
   buses: RawBus[];
   modules: RawModule[];
-}
+  interconnects: RawInterconnect[];
+  interconnectPins: RawInterconnectPin[];
 
+
+}
 export interface DocumentParseOptions {
   file: string;
   /** Which description type the file holds. Defaults to `schematic`. */
@@ -331,6 +393,10 @@ const SECTION_NAMES: Record<string, true> = {
   ports: true,
   constraints: true,
 };
+const ROOT_SECTION_NAMES: Record<string, true> = {
+  interconnects: true,
+  interconnect_pins: true,
+};
 
 /** Parse a single `schematic` or `module` document. */
 export function parseSchematicDocument(text: string, options: DocumentParseOptions): DocumentParseResult {
@@ -370,18 +436,15 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
   const typeLine = lines[1];
   const expectedType = kind;
   if (!typeLine || typeLine.cells.length !== 2 || typeLine.cells[0]!.text !== expectedType) {
-    // The `page` description type was removed in language 0.7 (ADR-0012): say so instead of "unknown type".
-    if (typeLine?.cells[0]?.text === "page") {
+    // Removed description types get a migration-specific diagnostic.
+    if (typeLine?.cells[0]?.text === "page" || typeLine?.cells[0]?.text === "system") {
       diagnostics.add(
         "error",
         "syntax.removed-construct",
-        "the `page` description type was removed in language 0.7: a board has one schematic file",
+        `the \`${typeLine.cells[0]!.text}\` description type was removed: the project has one schematic root`,
         file,
         typeLine.number,
         typeLine.cells[0]!.col,
-        {
-          hint: "merge this file's instances, nets and constraints into sch/<board_id>.teda and delete the pages section; see teda.md §13.4 and docs/adr/04-schematic/0012-one-flat-schematic-per-board.md",
-        },
       );
     } else {
       diagnostics.add("error", "syntax.header-invalid", `the second line must be ${expectedType} <id>`, file, typeLine?.number ?? 2, 1);
@@ -391,6 +454,16 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
   const id = typeLine.cells[1]!.text;
   if (!SLUG_RE.test(id)) {
     diagnostics.add("error", "syntax.invalid-identifier", `invalid id: ${id}`, file, typeLine.number, typeLine.cells[1]!.col);
+  } else if (kind === "schematic" && id !== "main") {
+    diagnostics.add(
+      "error",
+      "syntax.removed-construct",
+      `schematic id ${id} is a legacy board root; the logical project root is schematic main`,
+      file,
+      typeLine.number,
+      typeLine.cells[1]!.col,
+      { hint: "rename the file to design/sch/main.teda and write `schematic main`" },
+    );
   }
 
   const doc: Document = {
@@ -404,11 +477,14 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
     constraints: [],
     buses: [],
     modules: [],
+    interconnects: [],
+    interconnectPins: [],
   };
 
   const netIndex = new Map<string, RawNet>();
   let section: string | null = null;
   let bus: RawBus | null = null;
+  let lastBusMember: RawBusMember | null = null;
   /** The net named by the most recent net row; a continuation row adds to this net. */
   let lastNetName: string | null = null;
 
@@ -418,15 +494,24 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
     const head = cells[0]!.text;
 
     if (head === "bus") {
-      if (kind !== "schematic") {
-        diagnostics.add("error", "syntax.unknown-section", "the bus section is not allowed in a module", file, line.number, cells[0]!.col);
+      if (kind === "schematic") {
+        diagnostics.add("error", "syntax.unknown-section", "the bus section is not allowed in the schematic root; bus is module-local", file, line.number, cells[0]!.col);
         continue;
       }
       if (cells.length !== 4 || cells[2]!.text !== "=") {
         diagnostics.add("error", "syntax.row-too-short", "a bus row must be written as bus <id> = <type>", file, line.number, cells[0]!.col);
         continue;
       }
-      bus = { id: cells[1]!.text, type: cells[3]!.text, members: [], line: line.number };
+      const busId = cells[1]!.text;
+      if (doc.buses.some((item) => item.id === busId)) {
+        diagnostics.add("error", "ref.duplicate-bus", `duplicate bus id: ${busId}`, file, line.number, cells[0]!.col);
+        bus = null;
+        lastBusMember = null;
+        section = "bus";
+        continue;
+      }
+      bus = { id: busId, type: cells[3]!.text, members: [], line: line.number };
+      lastBusMember = null;
       doc.buses.push(bus);
       section = "bus";
       continue;
@@ -442,7 +527,7 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
         line.number,
         cells[0]!.col,
         {
-          hint: "merge the page files' instances, nets and constraints into this file and delete the pages section; see teda.md §13.4 and docs/adr/04-schematic/0012-one-flat-schematic-per-board.md",
+          hint: "merge the page files' instances, nets and constraints into this file and delete the pages section; see teda.md §12.4 and docs/adr/04-schematic/0012-one-flat-schematic-per-board.md",
         },
       );
       continue;
@@ -455,13 +540,32 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
       }
       section = "modules";
       bus = null;
+      lastBusMember = null;
+      lastNetName = null;
+      continue;
+    }
+
+    if (ROOT_SECTION_NAMES[head] === true) {
+      if (kind !== "schematic") {
+        diagnostics.add("error", "syntax.unknown-section", `the ${head} section is only allowed in the schematic root`, file, line.number, cells[0]!.col);
+        continue;
+      }
+      section = head;
+      bus = null;
+      lastBusMember = null;
       lastNetName = null;
       continue;
     }
 
     if (SECTION_NAMES[head] === true) {
+      if (kind === "schematic" && head === "instances") {
+        diagnostics.add("error", "syntax.unknown-section", "the instances section is not allowed in the schematic root; instances belong to modules", file, line.number, cells[0]!.col);
+        section = null;
+        continue;
+      }
       section = head;
       bus = null;
+      lastBusMember = null;
       lastNetName = null;
       continue;
     }
@@ -799,9 +903,9 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
           diagnostics.add("error", "syntax.row-too-short", "a bus member row needs at least a member name", file, line.number, cells[0]!.col);
           continue;
         }
+        let target: RawBusMember;
         if (name === CONTINUATION) {
-          const target = bus.members[bus.members.length - 1];
-          if (target === undefined) {
+          if (lastBusMember === null) {
             diagnostics.add(
               "error",
               "net.continuation-without-net",
@@ -812,10 +916,47 @@ export function parseSchematicDocument(text: string, options: DocumentParseOptio
             );
             continue;
           }
-          target.refs.push(...members);
+          target = lastBusMember;
+        } else {
+          target = bus.members.find((item) => item.member === name) ?? {
+            member: name,
+            refs: [],
+            line: line.number,
+          };
+          if (!bus.members.includes(target)) bus.members.push(target);
+          lastBusMember = target;
+        }
+        for (const ref of members) {
+          if (target.refs.includes(ref)) {
+            diagnostics.add("error", "net.duplicate-member", `pin ${ref} appears more than once in net ${bus.id}.${target.member}`, file, line.number, cells[0]!.col);
+            continue;
+          }
+          target.refs.push(ref);
+        }
+        continue;
+      }
+      case "interconnects": {
+        if (cells.length !== 3) {
+          diagnostics.add("error", "syntax.row-too-short", "an interconnect row must be written as id from to", file, line.number, cells[0]!.col);
           continue;
         }
-        bus.members.push({ member: name, refs: members, line: line.number });
+        const id = cells[0]!.text;
+        if (!SLUG_RE.test(id)) {
+          diagnostics.add("error", "syntax.invalid-identifier", `invalid interconnect id: ${id}`, file, line.number, cells[0]!.col);
+        }
+        if (doc.interconnects.some((item) => item.id === id)) {
+          diagnostics.add("error", "ref.duplicate-interconnect", `duplicate interconnect id: ${id}`, file, line.number, cells[0]!.col);
+          continue;
+        }
+        doc.interconnects.push({ id, from: cells[1]!.text, to: cells[2]!.text, line: line.number, col: cells[0]!.col });
+        continue;
+      }
+      case "interconnect_pins": {
+        if (cells.length !== 3) {
+          diagnostics.add("error", "syntax.row-too-short", "an interconnect_pins row must be written as interconnect_id from_pin to_pin", file, line.number, cells[0]!.col);
+          continue;
+        }
+        doc.interconnectPins.push({ interconnect: cells[0]!.text, from: cells[1]!.text, to: cells[2]!.text, line: line.number, col: cells[0]!.col });
         continue;
       }
       default:
@@ -945,22 +1086,10 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
     ports: new Map(boardDoc.ports.map((p) => [p.id, p.net])),
     doc: boardDoc,
   };
-  for (const inst of boardDoc.instances) {
-    const first = scope.instances.get(inst.refdes);
-    if (first !== undefined) {
-      diagnostics.add("error", "ref.duplicate-refdes", `duplicate refdes: ${inst.refdes}`, boardDoc.file, inst.line, inst.col, {
-        hint: "a refdes names one instance on this board",
-        related: [boardDoc.source.span(first.line, first.col)],
-      });
-      continue;
-    }
-    scope.instances.set(inst.refdes, inst);
-  }
 
   /* -------- module scopes -------- */
 
-  // A board composes modules (ADR-0013): each module instance brings its own instances, nets and
-  // ports. The board reaches a module only through its ports.
+  // The project root composes modules; each instance brings its own components, nets and ports.
   const moduleSources = new Map<string, ModuleSource>();
   for (const source of options.modules ?? []) moduleSources.set(source.moduleId, source);
 
@@ -982,17 +1111,6 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
       continue;
     }
     moduleRows.set(row.instanceId, { line: row.line, col: row.col });
-    if (scope.instances.has(row.instanceId)) {
-      diagnostics.add(
-        "error",
-        "ref.duplicate-refdes",
-        `module_instance_id ${row.instanceId} has the same name as a board-level refdes`,
-        boardDoc.file,
-        row.line,
-        row.col,
-      );
-      continue;
-    }
     moduleInstanceIds.add(row.instanceId);
 
     const source = moduleSources.get(row.moduleId);
@@ -1063,21 +1181,6 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
 
   const instances: Instance[] = [];
   const instanceOrigin = new Map<string, Span>();
-  for (const inst of scope.instances.values()) {
-    const facts = resolver?.resolve(inst.componentId);
-    if (!facts) {
-      reportUnusableComponent(diagnostics, resolver, inst.componentId, inst.refdes, boardDoc.file, inst.line, inst.col);
-      continue;
-    }
-    const params = resolveParams(inst, facts, boardDoc.file, diagnostics);
-    instanceOrigin.set(inst.refdes, boardDoc.source.span(inst.line, inst.col));
-    instances.push({
-      id: inst.refdes,
-      ...(inst.uid === undefined ? {} : { uid: inst.uid }),
-      component: inst.componentId,
-      ...(params.length > 0 ? { params } : {}),
-    });
-  }
   for (const module of moduleScopes) {
     for (const inst of module.scope.instances.values()) {
       const id = `${module.instanceId}.${inst.refdes}`;
@@ -1125,6 +1228,29 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
         members,
         span: module.source.span(raw.line),
       });
+    }
+    for (const bus of module.scope.doc.buses) {
+      for (const member of bus.members) {
+        const id = `${module.instanceId}.${bus.id}.${member.member}`;
+        const members: string[] = [];
+        for (const ref of member.refs) {
+          const resolved = resolvePinRef(module.scope, ref, resolver, diagnostics, "this module");
+          if (resolved !== null) members.push(`${module.instanceId}.${resolved}`);
+        }
+        moduleNets.set(id, { id, members, span: module.source.span(member.line) });
+      }
+    }
+  }
+  // Capture each port's complete local pin list before merging module nets into root nets.
+  const modulePortPins = new Map<string, string[]>();
+  for (const module of moduleScopes) {
+    for (const [portId, internalNet] of module.scope.ports) {
+      if (internalNet === NO_CONNECT) {
+        modulePortPins.set(`${module.instanceId}.${portId}`, []);
+        continue;
+      }
+      const local = moduleNets.get(`${module.instanceId}.${internalNet}`);
+      modulePortPins.set(`${module.instanceId}.${portId}`, local?.members.slice() ?? []);
     }
   }
 
@@ -1212,8 +1338,15 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
         );
         continue;
       }
-      const resolved = resolvePinRef(scope, ref, resolver, diagnostics);
-      if (resolved !== null) members.push(resolved);
+      diagnostics.add(
+        "error",
+        "ref.module-internal-ref",
+        `net ${net.name} has a non-port member ${ref}; the schematic root may reference module ports only`,
+        boardDoc.file,
+        net.line,
+        1,
+      );
+      continue;
     }
     nets.push({ id: net.name, members });
     netOrigin.set(net.name, boardDoc.source.span(net.line));
@@ -1247,62 +1380,106 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
     }
   }
 
-  /* -------- bus -------- */
-
-  const buses: Bus[] = [];
-  const busSpans: Span[] = [];
-  const busIdsSeen = new Set<string>();
-  for (const bus of boardDoc.buses) {
-    // One bus id, one block: two `bus i2c0` declarations would put two entries with the same id in the
-    // IR, and the second block's members would describe a bus the design does not have.
-    if (busIdsSeen.has(bus.id)) {
-      diagnostics.add(
-        "error",
-        "ref.duplicate-bus",
-        `bus ${bus.id} is declared more than once`,
-        boardDoc.file,
-        bus.line,
-        1,
-        { hint: "declare every member of a bus in its one block: a repeated member row merges, a repeated bus does not" },
-      );
+  const resolvedInterconnects: { id: string; from: string; to: string }[] = [];
+  const interconnectRows = new Map<string, { line: number; col: number }>();
+  const endpointModules = new Map<string, { from: { module: ModuleScope; port: string }; to: { module: ModuleScope; port: string } }>();
+  const resolveEndpoint = (text: string, line: number, col: number): { module: ModuleScope; port: string; net: string } | null => {
+    const parts = text.split(".");
+    if (parts.length !== 2) {
+      diagnostics.add("error", "syntax.invalid-ref", `invalid interconnect endpoint: ${text}`, boardDoc.file, line, col);
+      return null;
+    }
+    const module = moduleScopes.find((item) => item.instanceId === parts[0]);
+    if (!module) {
+      diagnostics.add("error", "ref.unknown-instance", `interconnect endpoint references unknown module instance ${parts[0]}`, boardDoc.file, line, col);
+      return null;
+    }
+    const port = parts[1]!;
+    const internalNet = module.scope.ports.get(port);
+    if (internalNet === undefined) {
+      diagnostics.add("error", "ref.unknown-port", `module ${module.instanceId} does not declare port ${port}`, boardDoc.file, line, col);
+      return null;
+    }
+    if (internalNet === NO_CONNECT) {
+      diagnostics.add("error", "ref.no-connect-port", `port ${text} is declared no_connect and cannot be an interconnect endpoint`, boardDoc.file, line, col);
+      return null;
+    }
+    const net = portBinding.get(module.instanceId)?.get(port);
+    if (net === undefined) {
+      diagnostics.add("error", "ref.unbound-port", `port ${text} is not connected to a project net`, boardDoc.file, line, col);
+      return null;
+    }
+    return { module, port, net };
+  };
+  for (const raw of boardDoc.interconnects) {
+    const from = resolveEndpoint(raw.from, raw.line, raw.col);
+    const to = resolveEndpoint(raw.to, raw.line, raw.col);
+    if (from === null || to === null) continue;
+    if (from.module.instanceId === to.module.instanceId) {
+      diagnostics.add("error", "value.invalid-value", `interconnect ${raw.id} endpoints must belong to different module instances`, boardDoc.file, raw.line, raw.col);
       continue;
     }
-    busIdsSeen.add(bus.id);
-    // A member row that names a member already named above merges into that member's net, exactly as
-    // a repeated net row does in the `nets` section (§7.2).
-    const memberRefs = new Map<string, { refs: string[]; line: number }>();
-    for (const member of bus.members) {
-      const seen = memberRefs.get(member.member);
-      if (seen === undefined) memberRefs.set(member.member, { refs: [...member.refs], line: member.line });
-      else seen.refs.push(...member.refs);
+    if (from.net !== to.net) {
+      diagnostics.add("error", "value.invalid-value", `interconnect ${raw.id} endpoints ${raw.from} and ${raw.to} are not bound to the same project net`, boardDoc.file, raw.line, raw.col);
+      continue;
     }
-    const busNets: string[] = [];
-    for (const [member, source] of memberRefs) {
-      const netId = `${bus.id}.${member}`;
-      const members: string[] = [];
-      for (const ref of source.refs) {
-        const resolved = resolvePinRef(scope, ref, resolver, diagnostics);
-        if (resolved === null) continue;
-        if (members.includes(resolved)) {
-          diagnostics.add(
-            "error",
-            "net.duplicate-member",
-            `pin ${ref} appears more than once in net ${netId}`,
-            boardDoc.file,
-            source.line,
-            1,
-            { hint: "a pin belongs to a net once" },
-          );
-          continue;
-        }
-        members.push(resolved);
-      }
-      nets.push({ id: netId, members });
-      busNets.push(netId);
-    }
-    buses.push({ id: bus.id, type: bus.type, nets: busNets });
-    busSpans.push(boardDoc.source.span(bus.line));
+    resolvedInterconnects.push({ id: raw.id, from: raw.from, to: raw.to });
+    interconnectRows.set(raw.id, { line: raw.line, col: raw.col });
+    endpointModules.set(raw.id, { from: { module: from.module, port: from.port }, to: { module: to.module, port: to.port } });
   }
+
+  const resolvedInterconnectPins: { interconnect: string; from: string; to: string }[] = [];
+  const resolvedInterconnectPinSpans: Span[] = [];
+  for (const raw of boardDoc.interconnectPins) {
+    const endpoints = endpointModules.get(raw.interconnect);
+    if (!endpoints) {
+      diagnostics.add("error", "value.invalid-value", `interconnect pin mapping references unknown or invalid interconnect ${raw.interconnect}`, boardDoc.file, raw.line, raw.col);
+      continue;
+    }
+    const resolvePin = (text: string, module: ModuleScope, endpoint: string): string | null => {
+      const localRef = text.startsWith(`${module.instanceId}.`) ? text.slice(module.instanceId.length + 1) : text;
+      const resolved = resolvePinRef(module.scope, localRef, resolver, diagnostics, "this module");
+      if (resolved === null) return null;
+      const flattened = `${module.instanceId}.${resolved}`;
+      if (!(modulePortPins.get(`${module.instanceId}.${endpoint}`) ?? []).includes(flattened)) {
+        diagnostics.add("error", "ref.pin-off-endpoint-net", `pin ${text} is not on interconnect endpoint ${module.instanceId}.${endpoint}`, boardDoc.file, raw.line, raw.col);
+        return null;
+      }
+      return flattened;
+    };
+    const from = resolvePin(raw.from, endpoints.from.module, endpoints.from.port);
+    const to = resolvePin(raw.to, endpoints.to.module, endpoints.to.port);
+    if (from === null || to === null) continue;
+    resolvedInterconnectPins.push({ interconnect: raw.interconnect, from, to });
+    resolvedInterconnectPinSpans.push(boardDoc.source.span(raw.line, raw.col));
+  }
+
+  /* -------- module facts -------- */
+
+  // The board's module composition: every module instance it declares, the ports that module
+  // declares, and the board net each port is bound to. The facts come from their owners — the
+  // module file declares the ports, the board file binds them — and never from the flattened IR,
+  // which has no module structure (ADR-0013 D4). The composition lives here, beside the IR, for
+  // the checks that ask what the board is made of (ADR-0067 D5).
+  const modules: ModuleFacts[] = moduleScopes.map((module) => {
+    const bound = portBinding.get(module.instanceId);
+    return {
+      instance_id: module.instanceId,
+      module_id: module.moduleId,
+      ...(module.uid === undefined ? {} : { uid: module.uid }),
+      ports: [...module.scope.ports.entries()]
+        .map(([portId]): ModulePortFacts => {
+          const net = bound?.get(portId);
+          return {
+            id: portId,
+            ...(net === undefined ? {} : { net }),
+            pins: (modulePortPins.get(`${module.instanceId}.${portId}`) ?? []).slice().sort(pinRefCompare),
+          };
+        })
+        .sort((a, b) => byteCompare(a.id, b.id)),
+    };
+  });
+  modules.sort((a, b) => naturalCompare(a.instance_id, b.instance_id));
 
   /* -------- canonical order -------- */
 
@@ -1311,8 +1488,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
   for (const net of nets) net.members.sort(pinRefCompare);
   nets.sort((a, b) => byteCompare(a.id, b.id));
 
-  // Connectivity rules live in `@texteda/core` (ADR-0038 / backlog F19): this file only lays out the facts—
-  // the board's nets, each instance's pins, which nets carry board ports, and the locations.
+  // Connectivity checks receive flattened project nets, component pins and project-level ports.
   const pins: ConnectivityPin[] = [];
   for (const instance of instances) {
     const facts = resolver?.resolve(instance.component);
@@ -1373,13 +1549,49 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
   const constraints: Constraint[] = [];
   const constraintSpans: Span[] = [];
   for (const raw of boardDoc.constraints) {
-    const constraint = buildConstraint(raw, scope, resolver, diagnostics);
+    const resolveRootSubject = (text: string, netOnly: boolean): string | null => {
+      if (scope.nets.has(text)) return text;
+      const parts = text.split(".");
+      if (parts.length === 2) {
+        const module = moduleScopes.find((item) => item.instanceId === parts[0]);
+        if (module !== undefined) {
+          const portId = parts[1]!;
+          const portNet = module.scope.ports.get(portId);
+          if (portNet === undefined) {
+            diagnostics.add("error", "ref.unknown-port", `module ${module.instanceId} does not declare port ${portId}`, boardDoc.file, raw.line, raw.col);
+            return null;
+          }
+          if (portNet === NO_CONNECT) {
+            diagnostics.add("error", "ref.no-connect-port", `port ${text} is declared no_connect`, boardDoc.file, raw.line, raw.col);
+            return null;
+          }
+          const net = portBinding.get(module.instanceId)?.get(portId);
+          if (net === undefined) {
+            diagnostics.add("error", "ref.unbound-port", `port ${text} is not connected to a project net`, boardDoc.file, raw.line, raw.col);
+            return null;
+          }
+          return net;
+        }
+      }
+      if (parts.length >= 3 && moduleInstanceIds.has(parts[0]!)) {
+        if (netOnly) {
+          diagnostics.add("error", "ref.unknown-net", `net ${text} does not exist`, boardDoc.file, raw.line, raw.col);
+          return null;
+        }
+        const module = moduleScopes.find((item) => item.instanceId === parts[0]);
+        if (!module) return null;
+        const local = resolvePinRef(module.scope, parts.slice(1).join("."), resolver, diagnostics, "this module");
+        return local === null ? null : `${module.instanceId}.${local}`;
+      }
+      diagnostics.add("error", netOnly || !text.includes(".") ? "ref.unknown-net" : "ref.unknown-instance", `constraint subject ${text} does not exist`, boardDoc.file, raw.line, raw.col);
+      return null;
+    };
+    const constraint = buildConstraint(raw, scope, resolver, diagnostics, resolveRootSubject);
     if (constraint === null) continue;
     constraints.push(constraint);
     constraintSpans.push(boardDoc.source.span(raw.line, raw.col));
   }
   for (const module of moduleScopes) {
-    // A module's constraint names a module-local net or pin; the IR carries the flattened name.
     for (const raw of module.scope.doc.constraints) {
       const constraint = buildConstraint(raw, module.scope, resolver, diagnostics);
       if (constraint === null) continue;
@@ -1400,38 +1612,51 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
   instances.sort((a, b) => naturalCompare(a.id, b.id));
   nets.sort((a, b) => byteCompare(a.id, b.id));
   ports.sort((a, b) => byteCompare(a.id, b.id));
+  resolvedInterconnects.sort((a, b) => byteCompare(a.id, b.id));
+  const sortedInterconnectPins = resolvedInterconnectPins
+    .map((pin, index) => ({ ...pin, span: resolvedInterconnectPinSpans[index]! }))
+    .sort((a, b) => byteCompare(a.interconnect, b.interconnect) || pinRefCompare(a.from, b.from) || pinRefCompare(a.to, b.to));
+  const interconnectPins = sortedInterconnectPins.map(({ span: _span, ...pin }) => pin);
 
   const ir: Schematic = {
     ir_version: irVersion,
     format: boardDoc.version,
     source: { file: boardDoc.file, line: 1 },
-    board: options.board,
+    project: "main",
+    modules,
     instances,
     nets,
     ...(ports.length > 0 ? { ports } : {}),
-    ...(buses.length > 0 ? { buses } : {}),
     ...(constraints.length > 0 ? { constraints } : {}),
+    ...(resolvedInterconnects.length > 0 ? { interconnects: resolvedInterconnects } : {}),
+    ...(interconnectPins.length > 0 ? { interconnect_pins: interconnectPins } : {}),
   };
 
-  // IR path → span (ADR-0004 D2). Built after the canonical ordering, so the index in the pointer is
-  // the index in the shard, not the index in the source file.
+  // IR path → span (ADR-0004 D2). Build after canonical ordering so indices match the shard.
   const sources: SourceMap = new Map();
   recordAll(sources, "/instances", instances, (instance) => instanceOrigin.get(instance.id));
   recordAll(sources, "/nets", nets, (net) => netOrigin.get(net.id));
   recordAll(sources, "/ports", ports, (port) => portOrigin.get(port.id));
+  recordAll(sources, "/modules", modules, (module) => {
+    const row = moduleRows.get(module.instance_id);
+    return row === undefined ? undefined : boardDoc.source.span(row.line, row.col);
+  });
+  modules.forEach((module, index) => {
+    const source = moduleScopes.find((item) => item.instanceId === module.instance_id);
+    if (!source) return;
+    for (const [portIndex, port] of module.ports.entries()) {
+      const row = source.scope.doc.ports.find((item) => item.id === port.id);
+      if (row !== undefined) sources.set(`/modules/${index}/ports/${portIndex}`, source.source.span(row.line, row.col));
+    }
+  });
   constraints.forEach((_, index) => sources.set(`/constraints/${index}`, constraintSpans[index]!));
-  buses.forEach((_, index) => sources.set(`/buses/${index}`, busSpans[index]!));
+  resolvedInterconnects.forEach((interconnect, index) => {
+    const row = interconnectRows.get(interconnect.id);
+    if (row !== undefined) sources.set(`/interconnects/${index}`, boardDoc.source.span(row.line, row.col));
+  });
+  sortedInterconnectPins.forEach((pin, index) => sources.set(`/interconnect_pins/${index}`, pin.span));
 
   const sourceUids = [
-    ...boardDoc.instances
-      .filter((instance) => instance.uid !== undefined)
-      .map((instance) => ({
-        uid: instance.uid!,
-        kind: "instance" as const,
-        id: instance.refdes,
-        line: instance.line,
-        col: instance.col,
-      })),
     ...boardDoc.modules
       .filter((module) => module.uid !== undefined)
       .map((module) => ({
@@ -1443,7 +1668,17 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
       })),
   ];
 
-  return { ok: !diagnostics.hasError, ir, diagnostics: diagnostics.items, sources, sourceUids };
+  return {
+    ok: !diagnostics.hasError,
+    ir,
+    diagnostics: diagnostics.items,
+    sources,
+    sourceUids,
+    // The composition travels with the IR: the checks that ask what the board is made of need it,
+    // and the IR itself stays flat (ADR-0013 D4). An empty list is a legal state — a board may
+    // compose no module at all.
+    modules,
+  };
 }
 
 /* ------------------------------------------------------------------ value helpers */
@@ -1602,6 +1837,7 @@ function buildConstraint(
   scope: Scope,
   resolver: ComponentResolver | undefined,
   diagnostics: Diagnostics,
+  subjectResolver?: (text: string, netOnly: boolean) => string | null,
 ): Constraint | null {
   const file = scope.doc.file;
   const fail = (message: string, expected?: string, actual?: string): null => {
@@ -1614,6 +1850,7 @@ function buildConstraint(
 
   // subject: nets first, then pin references.
   const resolveSubject = (text: string, netOnly: boolean): string | null => {
+    if (subjectResolver !== undefined) return subjectResolver(text, netOnly);
     if (scope.nets.has(text) || scope.busNets.has(text)) return text;
     if (netOnly || !text.includes(".")) {
       diagnostics.add("error", "ref.unknown-net", `net ${text} does not exist`, file, raw.line, raw.col);

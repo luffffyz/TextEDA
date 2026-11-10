@@ -1,7 +1,10 @@
 {
-  "ir_version": "0.15",
-  "format": "0.9.1",
-  "board": "demo",
+  "ir_version": "0.19",
+  "format": "0.14",
+  "pcb": "demo",
+  "modules": [
+    "M1"
+  ],
   "board_thickness_nm": 1600000,
   "stackup": [
     { "layer": "F.Cu", "type": "copper", "thickness_nm": 35000, "kind": "signal" },

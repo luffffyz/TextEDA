@@ -1,0 +1,310 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:texteda:ir:0.18:module-view",
+  "title": "TextEDA IR v0.18 — module view shard",
+  "description": "The reusable drawing of one module definition: where the module's own symbols sit, how its wires run, where its labels and interface ports are drawn. The drawing has its own bounds and no electrical authority — it names the module's existing instances, nets and ports, and the module file stays their only authority. Lengths are integer nanometers, angles integer millidegrees (ADR-0006). The origin is the drawing's upper-left corner, +x right, +y down. See ADR-0068, ADR-0035, ADR-0067.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ir_version",
+    "format",
+    "module_id",
+    "bounds",
+    "place"
+  ],
+  "properties": {
+    "ir_version": {
+      "$ref": "urn:texteda:ir:0.18:common#/$defs/ir_version",
+      "description": "IR contract version, currently always 0.18."
+    },
+    "format": {
+      "$ref": "urn:texteda:ir:0.18:common#/$defs/format_version",
+      "description": "Language version of the .teda file that produced this shard; see teda.md §13."
+    },
+    "source": {
+      "$ref": "urn:texteda:ir:0.18:common#/$defs/source_ref",
+      "description": "Source-file location: path relative to the project root plus an optional line number."
+    },
+    "module_id": {
+      "$ref": "urn:texteda:ir:0.18:common#/$defs/slug",
+      "description": "The module this drawing draws, e.g. charger-power. Resolved from the file name views/modules/<module_id>.module-view.teda; it must be the module whose definition the drawing refers to."
+    },
+    "bounds": {
+      "type": "object",
+      "description": "The extent of this module drawing. The local origin is the upper-left corner of the bounds, +x right and +y down; every drawn point must lie inside them (ADR-0068 D2).",
+      "additionalProperties": false,
+      "required": [
+        "width_nm",
+        "height_nm"
+      ],
+      "properties": {
+        "width_nm": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Drawing width."
+        },
+        "height_nm": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Drawing height."
+        }
+      }
+    },
+    "place": {
+      "type": "array",
+      "description": "Where each component instance of the module sits in the drawing, sorted by instance id.",
+      "items": {
+        "$ref": "#/$defs/place"
+      }
+    },
+    "field": {
+      "type": "array",
+      "description": "Optional manual positions for the Reference and Value fields, in symbol-local coordinates; rows are sorted by instance_id then name.",
+      "items": {
+        "$ref": "#/$defs/field"
+      }
+    },
+    "junction": {
+      "type": "array",
+      "description": "Named drawing-graph junctions, sorted by id. Junctions do not create schematic connectivity.",
+      "items": {
+        "$ref": "#/$defs/junction"
+      }
+    },
+    "wire": {
+      "type": "array",
+      "description": "Wire polylines, one per drawn run; several wires may belong to the same net.",
+      "items": {
+        "$ref": "#/$defs/wire"
+      }
+    },
+    "label": {
+      "type": "array",
+      "description": "Net name labels; the text shown is the net id itself, never an override.",
+      "items": {
+        "$ref": "#/$defs/label"
+      }
+    },
+    "port": {
+      "type": "array",
+      "description": "The drawn symbol of each module port; a port names an existing port of the module, it never creates one.",
+      "items": {
+        "$ref": "#/$defs/port"
+      }
+    },
+    "text": {
+      "type": "array",
+      "description": "Free-text annotations; no electrical meaning.",
+      "items": {
+        "$ref": "#/$defs/text"
+      }
+    },
+    "note": {
+      "$ref": "urn:texteda:ir:0.18:common#/$defs/note",
+      "description": "Free text; canonical JSON has no comments, this is the substitute (ADR-0005 rule 8)."
+    }
+  },
+  "$defs": {
+    "module_endpoint_ref": {
+      "type": "string",
+      "pattern": "^([A-Z]+[0-9]+\\.[A-Za-z0-9_+-]+|[A-Za-z0-9_+-]+)$",
+      "description": "A module-local pin reference (<refdes>.<pin_number>, e.g. U1.5), a module-local port id (e.g. SYS_OUT), or a declared junction id. Every id resolves against the module definition this drawing belongs to; a module drawing never names a board instance."
+    },
+    "place": {
+      "type": "object",
+      "description": "The position and rotation of one component instance of the module.",
+      "additionalProperties": false,
+      "required": [
+        "instance_id",
+        "x_nm",
+        "y_nm"
+      ],
+      "properties": {
+        "instance_id": {
+          "$ref": "urn:texteda:ir:0.18:common#/$defs/refdes",
+          "description": "The module's own instance id, e.g. U1. Must exist in the module's instances. The drawing names ids, it does not define them; the module instance prefix (M1.) belongs to the board, not to this drawing."
+        },
+        "x_nm": {
+          "type": "integer",
+          "description": "Symbol origin, x from the drawing's upper-left corner."
+        },
+        "y_nm": {
+          "type": "integer",
+          "description": "Symbol origin, y from the drawing's upper-left corner, increasing downward."
+        },
+        "rot_mdeg": {
+          "type": "integer",
+          "description": "Symbol rotation, clockwise positive, millidegrees; reduced modulo 360000. Omitted means 0."
+        },
+        "unit": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Which unit of a multi-unit symbol to draw. Omitted means unit 1."
+        }
+      }
+    },
+    "field": {
+      "type": "object",
+      "description": "A manual position for one visible symbol field. Coordinates use the symbol's local axes: +x right and +y up. Absence means the renderer chooses the automatic position.",
+      "additionalProperties": false,
+      "required": [
+        "instance_id",
+        "name",
+        "x_nm",
+        "y_nm"
+      ],
+      "properties": {
+        "instance_id": {
+          "$ref": "urn:texteda:ir:0.18:common#/$defs/refdes"
+        },
+        "name": {
+          "enum": [
+            "Reference",
+            "Value"
+          ]
+        },
+        "x_nm": {
+          "type": "integer",
+          "description": "Field anchor x in symbol-local coordinates, nanometres. +x is right."
+        },
+        "y_nm": {
+          "type": "integer",
+          "description": "Field anchor y in symbol-local coordinates, nanometres. +y is up."
+        }
+      }
+    },
+    "junction": {
+      "type": "object",
+      "description": "A named view-only node in the module drawing graph.",
+      "additionalProperties": false,
+      "required": ["id", "x_nm", "y_nm"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9_+-]+$" },
+        "x_nm": { "type": "integer", "description": "Junction position, x from the drawing's upper-left corner." },
+        "y_nm": { "type": "integer", "description": "Junction position, y from the drawing's upper-left corner, increasing downward." }
+      }
+    },
+    "wire": {
+      "type": "object",
+      "description": "One polyline of one module net between named pin, port or junction endpoints, optionally bending through given points.",
+      "additionalProperties": false,
+      "required": ["net", "from_pin", "to_pin"],
+      "properties": {
+        "net": {
+          "$ref": "urn:texteda:ir:0.18:common#/$defs/net_id",
+          "description": "The module net this wire draws. Pin endpoints must be members of it in the module's nets."
+        },
+        "from_pin": {
+          "$ref": "#/$defs/module_endpoint_ref",
+          "description": "Start endpoint identity: a module-local pin, a module-local port, or a declared junction."
+        },
+        "to_pin": {
+          "$ref": "#/$defs/module_endpoint_ref",
+          "description": "End endpoint identity, with the same endpoint kinds as `from_pin`."
+        },
+        "points": {
+          "type": "array",
+          "description": "Bend points in the order they are traversed. Omitted means a straight wire.",
+          "items": { "$ref": "#/$defs/point" }
+        }
+      }
+    },
+    "label": {
+      "type": "object",
+      "description": "A net name shown at a point in the module drawing.",
+      "additionalProperties": false,
+      "required": [
+        "net",
+        "x_nm",
+        "y_nm"
+      ],
+      "properties": {
+        "net": {
+          "$ref": "urn:texteda:ir:0.18:common#/$defs/net_id",
+          "description": "The module net whose name is shown. The label text is this id; it cannot be overridden."
+        },
+        "x_nm": {
+          "type": "integer",
+          "description": "Label position, x from the drawing's upper-left corner."
+        },
+        "y_nm": {
+          "type": "integer",
+          "description": "Label position, y from the drawing's upper-left corner, increasing downward."
+        }
+      }
+    },
+    "port": {
+      "type": "object",
+      "description": "The drawn symbol of one module port.",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "x_nm",
+        "y_nm"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-]+$",
+          "description": "Module port id, e.g. SYS_OUT. The port must be declared by the module this drawing belongs to; the port's name is the module's outward-facing one."
+        },
+        "x_nm": {
+          "type": "integer",
+          "description": "Port position, x from the drawing's upper-left corner."
+        },
+        "y_nm": {
+          "type": "integer",
+          "description": "Port position, y from the drawing's upper-left corner, increasing downward."
+        },
+        "rot_mdeg": {
+          "type": "integer",
+          "description": "Port rotation, clockwise positive, millidegrees; reduced modulo 360000. Omitted means 0."
+        }
+      }
+    },
+    "text": {
+      "type": "object",
+      "description": "A free-text annotation in the module drawing.",
+      "additionalProperties": false,
+      "required": [
+        "x_nm",
+        "y_nm",
+        "text"
+      ],
+      "properties": {
+        "x_nm": {
+          "type": "integer",
+          "description": "Text position, x from the drawing's upper-left corner."
+        },
+        "y_nm": {
+          "type": "integer",
+          "description": "Text position, y from the drawing's upper-left corner, increasing downward."
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 2048,
+          "description": "The annotation text."
+        }
+      }
+    },
+    "point": {
+      "type": "object",
+      "description": "A point in the module drawing's local coordinates.",
+      "additionalProperties": false,
+      "required": [
+        "x_nm",
+        "y_nm"
+      ],
+      "properties": {
+        "x_nm": {
+          "type": "integer",
+          "description": "x from the drawing's upper-left corner."
+        },
+        "y_nm": {
+          "type": "integer",
+          "description": "y from the drawing's upper-left corner, increasing downward."
+        }
+      }
+    }
+  }
+}

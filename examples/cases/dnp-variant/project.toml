@@ -1,0 +1,15 @@
+[project]
+name = "dnp-variant"
+version = "0.1.0"
+format = "0.11"
+description = "Case 9 of the ten: a project variant leaves a generic component unpopulated"
+license = "Apache-2.0"
+status = "draft"
+default_variant = "lite"
+
+[variants.default]
+description = "fully populated"
+
+[variants.lite]
+description = "omit the resistor line from the fitted build"
+dnp = ["res-thick-0402"]

@@ -1,0 +1,15 @@
+{
+  "ir_version": "0.19",
+  "format": "0.9.1",
+  "project": "main",
+  "page": "buck-5v",
+  "module_place": [
+    {
+      "instance_id": "M1",
+      "module_id": "buck-5v",
+      "x_nm": 40000000,
+      "y_nm": 30000000,
+      "rot_mdeg": 45000
+    }
+  ]
+}

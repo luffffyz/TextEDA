@@ -1,0 +1,28 @@
+version 0.14.0
+schematic main
+
+# The project's one logical root. Component facts live in the reusable module under
+# design/modules/; this file composes its ports into project nets and keeps project-level
+# ports and constraints.
+modules
+  M1  debug-header
+
+nets
+  GND:    M1.GND
+  NRST:   M1.NRST
+  SWCLK:  M1.SWCLK
+  SWDIO:  M1.SWDIO
+  SWO:    M1.SWO
+  VTREF:  M1.VTREF
+
+ports
+  GND    GND
+  NRST   NRST
+  SWCLK  SWCLK
+  SWDIO  SWDIO
+  SWO    SWO
+  VTREF  VTREF
+
+constraints
+  voltage  GND    0V..0V
+  voltage  VTREF  1.8V..5.5V

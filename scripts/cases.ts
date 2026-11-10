@@ -2,14 +2,14 @@
 // compiled IR and whose diagnostics are pinned under `expected/`.
 //
 // Why a case is a whole project rather than a snippet: the language's risk is not the syntax of one
-// line, it is whether the tables stay readable and the IR stays correct when a real board is written
-// with them. A snippet cannot show that a 200-pin device or a three-unit amplifier compiles into the
-// shape the contract promises.
+// line, it is whether the tables stay readable and the IR stays correct when a project composes
+// its modules and root interconnects. A snippet cannot show how a 200-pin device or three-unit amplifier
+// compiles into the shape the contract promises.
 //
 // What is pinned:
 //
 //   expected/ir/**        every IR shard, byte for byte (canonical JSON)
-//   expected/netlist.txt  the connectivity projection of every board, in board order
+//   expected/netlist.txt  the connectivity projection of the project root
 //   expected/manifest.json the manifest without `tool_version` (a release bump is not a language change)
 //   expected/diagnostics.json  code + severity + file + line, sorted; the wording is not pinned,
 //                          because a reworded message is not a different design
@@ -101,12 +101,10 @@ function runCase(id: string, update: boolean): CaseResult {
   const manifestBytes = `${JSON.stringify(manifest, null, 2)}\n`;
   const diagnostics = pinDiagnostics(checkProject(dir).diagnostics, dir);
   const diagnosticsBytes = `${JSON.stringify(diagnostics, null, 2)}\n`;
-  // The netlist is what every downstream consumer reads, and it is a projection of the IR rather
-  // than of the source; pinning it catches a projection change the IR alone would not show.
-  const netlists = analyzeProject(dir)
-    .analyses.filter((analysis) => analysis.ir !== undefined)
-    .map((analysis) => formatNetlist(toNetlist(analysis.ir!)));
-  const netlistBytes = netlists.join("\n");
+  // The netlist is one project-wide logical view downstream consumers read, and a projection of the
+  // root IR rather than of any PCB; pinning it catches a projection change the IR alone would not show.
+  const schematic = analyzeProject(dir).main.ir;
+  const netlistBytes = schematic === undefined ? "" : formatNetlist(toNetlist(schematic));
 
   if (update) {
     rmSync(join(expected, "ir"), { recursive: true, force: true });

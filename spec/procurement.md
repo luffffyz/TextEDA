@@ -1,6 +1,6 @@
 # `procurement`: which part to buy
 
-> Specification: the `procurement` description type (since language 0.9), the selection rows that bind a generic device to a purchasable part, and the two files a board's procurement state is written in.
+> Specification: the `procurement` description type (since language 0.9), the selection rows that bind a generic device to a purchasable part, and the two files a physical PCB's procurement state is written in.
 > Decision: `docs/adr/07-devices/0029-the-procurement-layer.md`; the device model it builds on: `docs/adr/07-devices/0024-the-device-kind-is-part-or-generic.md`; the kind vocabulary: `docs/adr/07-devices/0024-the-device-kind-is-part-or-generic.md`; the library trust rules: `docs/adr/08-libraries/0033-libraries-are-unverified-facts.md`; the project tree: `docs/adr/03-project/0008-project-tree-has-owners.md`.
 
 ## 0. What it is
@@ -9,13 +9,15 @@
 
 | | Design (`schematic`) | Procurement (`procurement`) | Devices (`assets/components/`) |
 |---|---|---|---|
-| What it is | what the board is made of | what is bought for it | what a device is |
-| File | `design/sch/<board_id>.teda` | `assets/procurement/{primary,alternatives}/<board_id>.teda` | `assets/components/**/<id>.teda` |
+| What it is | what the project is logically made of | what is bought for one physical PCB | what a device is |
+| File | `design/sch/main.teda` | `assets/procurement/{primary,alternatives}/<pcb_id>.teda` | `assets/components/**/<id>.teda` |
 | Vocabulary | generic **or** part | generic → part | the generic and the part |
 | Standing | normative | primary: normative; alternatives: advisory | normative |
-| If you delete it | the board loses its circuit | the board loses its sourcing | the devices are gone |
+| If you delete it | the project loses its circuit | that PCB loses its sourcing | the devices are gone |
 
-In one sentence: **the design says what is needed, the procurement layer says what is bought, the library says what a part is.** No file says two of those at once.
+In the project-level logical model, a root module instance belongs wholly to one physical PCB. A procurement file is scoped to that PCB's owned module instances; it never aggregates instances owned by another PCB. The schematic remains the source of required design lines, while the selected PCB's `modules` list supplies the scope.
+
+In one sentence: **the design says what is needed, the procurement layer says what is bought for each PCB, the library says what a part is.** No file says two of those at once.
 
 The selection is a **project decision**: it depends on what the project can buy, from which channel, at what price. It is not a property of the device, so it does not belong in a shared library, and it is not a property of the circuit, so it does not belong in the schematic.
 
@@ -27,15 +29,13 @@ procurement mcu-board
 role primary
 ```
 
-- The file lives at `assets/procurement/primary/<board_id>.teda` (the primary selections) or `assets/procurement/alternatives/<board_id>.teda` (the second sources). The tree is the one in
+- The file lives at `assets/procurement/primary/<pcb_id>.teda` (the primary selections) or `assets/procurement/alternatives/<pcb_id>.teda` (the second sources). The tree is the one in
   [ADR-0008](../docs/adr/03-project/0008-project-tree-has-owners.md) decision 1.
-- The `board_id` in the file header must match the file name, otherwise it is an error (the same rule as `component` and `module`).
-- The `board_id` must be a board of this project (a `schematic` file for it exists). A selection always belongs to a board, because a BOM is a board's
-  ([ADR-0015](../docs/adr/04-schematic/0015-flattening-and-the-net-set.md)).
+- The `pcb_id` in the file header must match the file name, otherwise it is an error (the same rule as `component` and `module`). The current parser and IR retain the property name `board` for this physical PCB identity.
+- The `pcb_id` must be a physical PCB of this project (a `design/pcb/<pcb_id>.teda` file exists). A selection belongs to that PCB and is checked only against the generic design lines owned by its `modules` list; the logical root is `design/sch/main.teda`.
 - `role` is `primary` or `alternatives`, and it must agree with the directory the file is in. The two files have the same grammar; only the role and the
   standing differ.
-- The `procurement` type exists since language **0.9**; a file below 0.9 cannot be a `procurement` file. Every `.teda` file declares the language version
-  (currently `0.11.0`); `procurement`'s reader floor is 0.9 and the ceiling is the language's current version (`teda.md` §13.1, §13.3).
+- The `procurement` type exists since language **0.9**; a file below 0.9 cannot be a `procurement` file. Every `.teda` file declares the language version (currently `0.14.0`); `procurement`'s reader floor is 0.9 and the ceiling is the language's current version (`teda.md` §12.1, §12.3).
 
 ## 2. Sections
 
@@ -65,14 +65,14 @@ selections
   resolving the generic; the separator makes the row readable on its own. `:` is already the nets-section token, `=` already binds a type to a value, and
   neither of them can terminate an open-ended list.
 
-A row is one **BOM line**, not one instance. The same generic with the same parameters may appear on the board twenty times; it gets one row.
+A row is one **BOM line**, not one instance. The same generic with the same parameters may appear on the physical PCB twenty times; it gets one row.
 
 ### 3.1 A part needs no row
 
 A selection always points **from a generic to a part**. A device the design names as a part is already bought as itself:
 
 ```text
-# design/sch/mcu-board.teda
+# design/sch/main.teda, flattened instance M3.U1
 instances
   U1 stm32l4:stm32f407vgt6
 ```
@@ -113,11 +113,11 @@ The part's own ratings are what the comparison reads: they live in the part file
 
 | | Primary | Alternatives |
 |---|---|---|
-| File | `assets/procurement/primary/<board_id>.teda` | `assets/procurement/alternatives/<board_id>.teda` |
+| File | `assets/procurement/primary/<pcb_id>.teda` | `assets/procurement/alternatives/<pcb_id>.teda` |
 | Section | `selections` | `selections` |
 | `role` | `primary` | `alternatives` |
 | Rows per generic line | exactly one | zero or more |
-| Standing | normative — enters the project hash and the board hash | advisory — enters the advisory hash only |
+| Standing | normative — enters the project hash and this PCB's board hash | advisory — enters the advisory hash only |
 | A broken row | error | warning (error in strict mode) |
 
 The two files are separate files, not two sections of one file, because each file produces exactly one IR shard with exactly one classification
@@ -149,7 +149,7 @@ The marker does not go into the MPN cell: the exported BOM is consumed by a part
 ([ADR-0022](../docs/adr/06-manufacturing/0022-jlc-prototype-delivery.md)), and a part number that reads `unsourced` would be ordered as if it were a part. An empty cell plus
 an explicit marker is both honest and consumable.
 
-The BOM is written by `texteda bom <project dir> <board_id>`: a table with the device id, the part number, the parameter values, the quantity, the
+The BOM is written by `texteda bom <project dir> <pcb_id>`: a table with the device id, the part number, the parameter values, the quantity, the
 state, the instances and a note. `--json` prints the same content as a machine payload. The state is `bought`, `unsourced` or `not-required` — the
 line that says `-> not-required` carries no part number and the state `not-required`, which is different from `unsourced`: nothing was ordered because
 there is nothing to order, not because nobody has ordered it yet.
@@ -190,13 +190,12 @@ The procurement descriptions compile to one shard each:
 
 | Source | Shard | Classification |
 |---|---|---|
-| `assets/procurement/primary/<board_id>.teda` | `boards/<board_id>/procurement.json` | normative |
-| `assets/procurement/alternatives/<board_id>.teda` | `boards/<board_id>/procurement-alternatives.json` | advisory |
+| `assets/procurement/primary/<pcb_id>.teda` | `boards/<pcb_id>/procurement.json` | normative |
+| `assets/procurement/alternatives/<pcb_id>.teda` | `boards/<pcb_id>/procurement-alternatives.json` | advisory |
 
-The primary shard is a board shard, so it takes part in the board hash: changing the part a board is built from changes that board's identity, and the review
-of that board has to be redone. The alternatives shard is not in the board hash and not in the project hash.
+The primary shard is a PCB-scoped normative shard, so it takes part in the project hash and that PCB's board hash: changing the part a PCB is built from changes its build identity, and its review has to be redone. The alternatives shard is not in the board hash and not in the project hash.
 
-The shard's shape is specified in `schemas/ir/v0.6/procurement.schema.json` ([ADR-0006](../docs/adr/02-ir/0006-ir-shards-and-hashes.md) decision 2).
+The shard's shape is specified in `schemas/ir/v0.19/procurement.schema.json` ([ADR-0006](../docs/adr/02-ir/0006-ir-shards-and-hashes.md) decision 2).
 Both shards have a producer: `texteda ir` writes them, `texteda compile --procurement` compiles the primary one, and `texteda check` parses and
 validates both.
 

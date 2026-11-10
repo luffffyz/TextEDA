@@ -1,4 +1,4 @@
-# `.teda` 格式规范（v0.9.2，草案）
+# `.teda` 格式规范（v0.14，草案）
 
 状态：草案。`AGENTS.md` 记录设计决策与边界，本文件定义具体格式。两者冲突时，以 `AGENTS.md` 的不变量为准，并修本文件。
 
@@ -11,17 +11,16 @@
 `.teda` 是**一行一事实**的文本格式：文件头声明类型，段（section）放表，表行的列由该段的 schema 解释。
 
 ```
-version 0.9.2
+version 0.14.0
 schematic main
 
-instances
-  R1  res-th-0402  10k  ±1%
-  U1  tps7a02
+modules
+  M1  IDp8x2n4  charger-power
+  M2  buck-5v
 
 nets
-  GND:   U1.GND  R1.2
-  VIN:   U1.IN  U1.EN
-  VOUT:  U1.OUT  R1.1
+  GND:   M1.GND  M2.GND
+  SYS:   M1.SYS_OUT  M2.SYS_IN
 ```
 
 ---
@@ -48,23 +47,26 @@ nets
 | 末尾 | 必须有换行 |
 | 大小写 | 敏感 |
 
-九种文件类型：
+十种文件类型：
 
 | 类型 | 位置 | 说明 |
 |---|---|---|
 | `component` | `assets/components/**/<component_id>.teda` | 器件定义一个文件（`part` 与 `generic` 同在这个目录），可放子目录 |
-| `schematic` | `design/sch/<board_id>.teda` | 一块板一个文件（v0.7 起：板内不再有页面文件） |
-| `pcb` | `design/pcb/<board_id>.teda` | 可后置，可为空 |
-| `system` | `design/system/<system_id>.teda` | 多板连接描述，一份系统一个文件（v0.2 新增） |
-| `footprint` | `assets/footprints/<family>/<footprint_id>.teda` | 库产物：一个封装的规范几何，目录是**封装族**（v0.4 新增；见本节末的分类规则） |
-| `symbol` | `assets/symbols/<category>/<symbol_id>.teda` | 库产物：一个符号的视图，目录是**器件类别**（v0.5 新增；见本节末的分类规则） |
-| `view` | `views/<board_id>/<page_id>.view.teda` | 一块板的一个"打印页"：S1 视图层（v0.6 新增，v0.7 起引用板级 id，语法见 `spec/schematic-view.md`） |
-| `module` | `design/modules/<module_id>.teda` | 板内的一个模块：带端口、持有电气事实（v0.8 新增，语法见 `spec/module.md`） |
-| `procurement` | `assets/procurement/{primary,alternatives}/<board_id>.teda` | 一块板的采购选料：通用器件 → 买哪颗（v0.9 新增，语法见 `spec/procurement.md`） |
+| `schematic` | `design/sch/main.teda` | **工程的逻辑根**，一个工程恰好一份（0.14 起；类型 id 固定为 `main`） |
+| `module` | `design/modules/<module_id>.teda` | 可复用模块：带端口、**持有全部器件事实**（0.8 新增，语法见 `spec/module.md`） |
+| `pcb` | `design/pcb/<pcb_id>.teda` | **一块物理 PCB** 的实现描述，可以多份、可后置（0.4 新增，0.14 起声明所属模块实例，语法见 `spec/pcb.md`） |
+| `footprint` | `assets/footprints/<family>/<footprint_id>.teda` | 库产物：一个封装的规范几何，目录是**封装族**（0.4 新增；见本节末的分类规则） |
+| `symbol` | `assets/symbols/<category>/<symbol_id>.teda` | 库产物：一个符号的视图，目录是**器件类别**（0.5 新增；见本节末的分类规则） |
+| `view` | `views/<page_id>.view.teda` | An advisory project print page: the S1 drawing layer（0.6；0.14 起按工程组织，语法见 `spec/schematic-view.md`） |
+| `module_view` | `views/modules/<module_id>.module-view.teda` | A reusable, module-local drawing with independent `bounds`（0.13；语法见 `spec/schematic-view.md` §12） |
+| `sheet_template` | `views/templates/<template_id>.sheet-template.teda` | Static sheet furniture and its page extent（0.13；语法见 `spec/schematic-view.md` §13） |
+| `procurement` | `assets/procurement/{primary,alternatives}/<pcb_id>.teda` | 一块 PCB 的采购选料：通用器件 → 买哪颗（0.9 新增，语法见 `spec/procurement.md`；id 是它所属 PCB 的 `pcb_id`） |
 
-文件名必须等于头部 id；不一致报错。`assets/components/` 允许子目录，子目录只用于分类；`component_id` 取文件名（不含 `.teda`），不取相对路径，同一 id 在 `assets/components/` 树内必须唯一。顶层目录与文件类型必须一致（`assets/components/` 只放 `component`，`design/modules/` 只放 `module`，以此类推）；`design/sch/<board_id>.teda` 是板的文件（`schematic`）；打印页（`view`）是独立描述类型，放在独立根目录 `views/<board_id>/<page_id>.view.teda`，靠 `.view` 后缀与目录区分（`view <page_id>`，见 [ADR-0035](../docs/adr/09-view/0035-the-view-layer-is-a-drawing.md)）。`assets/procurement/primary/` 与 `assets/procurement/alternatives/` 只放 `procurement` 文件，文件名是板 id，两者的区别是**哈希级别**（主料规范、备料附注），不是语法（v0.9）。工程树整体按 `docs/adr/03-project/0008-project-tree-has-owners.md`（本表其余行的路径待同步）。
+文件名必须等于头部 id；不一致报错。`assets/components/` 允许子目录，子目录只用于分类；`component_id` 取文件名（不含 `.teda`），不取相对路径，同一 id 在 `assets/components/` 树内必须唯一。顶层目录与文件类型必须一致（`assets/components/` 只放 `component`，`design/modules/` 只放 `module`，`design/pcb/` 只放 `pcb`，以此类推）。打印页（`view`）是独立描述类型，放在独立根目录 `views/` 下，文件名为 `<page_id>.view.teda`，靠 `.view` 后缀区分（`view <page_id>`，见 [ADR-0035](../docs/adr/09-view/0035-the-view-layer-is-a-drawing.md)）。`assets/procurement/primary/` 与 `assets/procurement/alternatives/` 只放 `procurement` 文件，两者的区别是**哈希级别**（主料规范、备料附注），不是语法（0.9）。工程树整体按 `docs/adr/03-project/0008-project-tree-has-owners.md`。
 
-**分类目录**（v0.9.2 起，[ADR-0049](../docs/adr/08-libraries/0049-assets-are-filed-by-what-they-are.md)）：三种资产各自按**自己那根轴**分目录，目录名一律是分类、不进 id、不进文件内容；引用写 `<分类>:<id>`，分类就是那个目录名。
+**0.14 的根迁移是破坏性的，无兼容路径**：`design/sch/` 下除 `main.teda` 以外的板级原理图、`design/system/*.teda`、`views/<board_id>/` 的板级打印页都不再合法。工程里的电路只有一份真源（逻辑根），板与板之间怎么连只有一条路（根的 `interconnects`）。见到旧构造报 `ref.legacy-board-root` / `ref.legacy-system-description`（error）。
+
+**分类目录**（0.9.2 起，[ADR-0049](../docs/adr/08-libraries/0049-assets-are-filed-by-what-they-are.md)）：三种资产各自按**自己那根轴**分目录，目录名一律是分类、不进 id、不进文件内容；引用写 `<分类>:<id>`，分类就是那个目录名。
 
 - 器件：`assets/components/<category>/<component_id>.teda`，类别是**这粒料是干什么的**（`passives` / `power` / `regulators` / `sensors` / `mcu` / `indicators` / `mechanical` 之类，词表开放、由作者命名）。
 - 符号：`assets/symbols/<category>/<symbol_id>.teda`，用**器件那根轴**——一个符号归到它所画器件所在的类别；同一个符号被不同类别的器件共用时，由作者选一个。
@@ -81,22 +83,21 @@ nets
 | 类型 | 形态 | 说明 |
 |---|---|---|
 | 空行 | 仅空白 | 忽略 |
-| 注释 | `#` 为第一个非空白字符 | 整行忽略；v0.1 不支持行尾注释 |
+| 注释 | `#` 为第一个非空白字符 | 整行忽略；0.1 起不支持行尾注释 |
 | 版本行 | `version <ver>` | 必须是最前面的有效行 |
 | 类型行 | `<file_type> <id>` | 必须在版本行之后 |
-| 段头 | 单独一个保留字，如 `instances` | 由保留字集合识别，不靠缩进 |
+| 段头 | 单独一个保留字，如 `modules` | 由保留字集合识别，不靠缩进 |
 | 标量 | `key value...` | 只能出现在第一个段之前 |
 | 行 | ≥2 个空白分隔的单元格 | 属于当前段 |
-| 指令 | `bus <id> = <type>` | 仅 `schematic` |
 
 关键规则：
 
-- **段头是“单个保留字”**。`instances` 单独一行是段头；`instances x` 是行或错误，取决于当前段。
-- **缩进无语义**。`  U1 tps7a02` 与 `U1 tps7a02` 等价；缩进只为阅读。
+- **段头是“单个保留字”**。`modules` 单独一行是段头；`modules x` 是行或错误，取决于当前段。
+- **缩进无语义**。`  M1 charger-power` 与 `M1 charger-power` 等价；缩进只为阅读。
 - **标量只在第一个段之前**。进入段之后，所有非段头、非空、非注释行都按行解析。
 - **注释只整行**。`#` 出现在值或单元格中间时是普通字符（避免截断 URL 片段）。
-- **`:` 只用于 net/bus 成员行**。`name: member...` 表示“名字 → 成员列表”；其余段是固定列元组，不加冒号。
-- **冒号与续行同域**。只有“名字 + 不定长列表”的行（`nets`、`bus` 成员）才既用冒号界定名字与列表的边界，又可能长到一行放不下，所以也只有它们支持续行：首列是裸 `:` 的行延续上一行命名的 net。其余段要么列数固定（`instances`、`ports`、`constraints`），要么是不定长的一串**元组单元格**（`trace`、`zone`、`keepout`、`outline`，每个点是一格），都不需要续行。
+- **`:` 只用于 net 成员行**。`name: member...` 表示“名字 → 成员列表”；其余段是固定列元组，不加冒号。
+- **冒号与续行同域**。只有“名字 + 不定长列表”的 `nets` 行既用冒号界定名字与列表的边界，又可能长到一行放不下，所以也只有它们支持续行：首列是裸 `:` 的行延续上一行命名的 net。其余段要么列数固定（`modules`、`ports`、`constraints`、`interconnects`、`interconnect_pins`），要么是不定长的一串**元组单元格**（`trace`、`zone`、`keepout`、`outline`，每个点是一格），都不需要续行。
 
 ---
 
@@ -110,22 +111,24 @@ nets
 
 | 名称 | 规则 | 示例 |
 |---|---|---|
-| `component_id` / `board_id` / `page_id` | `[a-z][a-z0-9-]*` | `tps7a02`, `res-thick-0402`, `ch32v307vct6` |
-| 器件引用（`component_id` 出现处） | `[a-z][a-z0-9-]*` | `tps7a02`（`<lib>:<id>` 已撤销，见 §13.4） |
-| `refdes` | `[A-Z]+[0-9]+` | `U1`, `R10`, `LED1` |
+| `component_id` / `module_id` / `pcb_id` / `page_id` / `interconnect_id` | `[a-z][a-z0-9-]*` | `tps7a02`, `buck-5v`, `main-stack`, `pwr-l2` |
+| 器件引用（`component_id` 出现处） | `[a-z][a-z0-9-]*` | `tps7a02`（`<lib>:<id>` 已撤销，见 §12.4） |
+| `module_instance_id` | `M` + 数字，`^M[0-9]+$` | `M1`, `M2`, `M10`（保留形状，见 §7.1） |
+| `refdes` | `[A-Z]+[0-9]+` | `U1`, `R10`, `LED1`（板级根不再有实例，refdes 只出现在模块内与 pcb 引用里） |
+| `port_id` | 同 `net_id` | `SYS_OUT`, `VIN_IN` |
 | `net_id` | `[A-Za-z0-9_+-]+(\.[A-Za-z0-9_+-]+)*` | `VBUS`, `USB_DP`, `i2c0.scl` |
 | 引脚名 | `[A-Za-z0-9_+-]+` | `PA0`, `VREF+`, `OSC_IN` |
 | 键 / 段名 | `[a-z][a-z0-9_]*` | `mpn`, `physical_only` |
 
 ### 4.3 单元格
 
-单元格是不含空白的连续字符。v0.1 **不支持引号、转义、跨行单元格**。需要空格的自由文本（厂商名、描述）只能写在标量里。
+单元格是不含空白的连续字符。0.1 **不支持引号、转义、跨行单元格**。需要空格的自由文本（厂商名、描述）只能写在标量里。
 
 **坐标元组是一个单元格**（0.11 起，[ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) D1）。一个几何量——点、尺寸、偏移——写成不带空白的 `[a,b]` / `[a,b,c]`，括号内不允许空白；元数由消费它的那一列固定，**不从行内数出来**。
 
 | 形态 | 写法 | 例 |
 |---|---|---|
-| 点 | `[x,y]` | `M2.U1  [140.0,105.0]  0` |
+| 点 | `[x,y]` | `M1.U1  [140.0,105.0]  0` |
 | 尺寸 | `[w,h]` | `1  smd  roundrect  [-0.95,0.95]  [1.1,0.6]` |
 | 偏移 | `[x,y,z]` | `model body.step offset=[0,0,1.5]` |
 
@@ -154,38 +157,41 @@ description USB hub with 2 downstream ports
 
 | 形式 | 含义 |
 |---|---|
-| `U1.PA0` | refdes + 引脚名（名称不唯一时改用编号） |
-| `U1.1` | refdes + 引脚编号 |
-| `U1.2.OUT` | 多单元器件：refdes + unit + 引脚名 |
-| `i2c0.scl` | net 名（bus 成员） |
+| `M1.PA0` | 模块实例 + 模块内 refdes + 引脚名（名称不唯一时改用编号） |
+| `M1.R1.2` | 模块实例 + 模块内 refdes + 引脚编号 |
+| `M1.2.OUT` | 多单元器件：模块实例 + 模块内 refdes + unit + 引脚名 |
+| `M1.SYS_OUT` | 模块实例端口（net 成员、interconnect 端点） |
+| `M1.VOUT` | net 名（模块内 net 展平后的限定名） |
 
 解析顺序：先按名称匹配；名称不存在则按编号；两者都命中不同引脚时报“歧义”，要求改用编号。
 
-**匹配到多个引脚就是歧义，不取第一个**：`U1.OUT` 在双运放上命中单元 1 与单元 2 的 `OUT`，报 `ref.ambiguous-pin`，提示写 `U1.1.OUT`；同一单元内重名的引脚（两个 `GND`）同样报歧义，提示改用编号。静默取第一个会把线接到错误的单元上，而图上看不出区别。
+**匹配到多个引脚就是歧义，不取第一个**：`M1.OUT` 在双运放上命中单元 1 与单元 2 的 `OUT`，报 `ref.ambiguous-pin`，提示写 `M1.1.OUT`；同一单元内重名的引脚（两个 `GND`）同样报歧义，提示改用编号。静默取第一个会把线接到错误的单元上，而图上看不出区别。
 
 ### 4.6 数字与单位
 
-数字为十进制，可带前缀与单位。单位由列类型提供时可以省略。详见 §10.2。
+数字为十进制，可带前缀与单位。单位由列类型提供时可以省略。详见 §9.2。
 
 ---
 
 ## 5. 文件头与版本
 
 ```
-version 0.9.2
-component tps7a02
+version 0.14.0
+schematic main
 ```
 
 - 版本行必须是第一条有效行；类型行必须是第二条。
-- 版本行写的是**语言版本**：全语言一个号，每个 `.teda` 文件都写同一个（当前号见 §13.1）。版本号的形式与各位的含义见 §13；接受规则见 §13.3。PATCH 位不参与判定。遇到更高版本默认报错；放宽要显式开关（见 [ADR-0005](../docs/adr/02-ir/0005-ir-representation.md) 的前向兼容约定）。
-- 类型行与目录必须一致。
-- 头部 id 与文件名必须一致。
+- 版本行写的是**语言版本**：全语言一个号，每个 `.teda` 文件都写同一个（当前号见 §12.1）。版本号的形式与各位的含义见 §12；接受规则见 §12.3。PATCH 位不参与判定。遇到更高版本默认报错；放宽要显式开关（见 [ADR-0005](../docs/adr/02-ir/0005-ir-representation.md) 的前向兼容约定）。
+- 类型行与目录必须一致。`schematic` 的 id 固定为 `main`：逻辑根一个工程只有一份，写别的 id 报错。
+- 头部 id 与文件名必须一致（`design/sch/main.teda` ↔ `schematic main`）。
 
 ---
 
 ## 6. `component` 文件
 
-器件文件构成工程的**器件库**，而库是工程内容的一部分（它进 IR 分片、进工程哈希，[ADR-0006](../docs/adr/02-ir/0006-ir-shards-and-hashes.md)）。所以一个器件文件可以暂时没人用（为还没画的改版备料），但**没人用要被说出来**：既没有板子放置、也没有采购文件选中的器件报 `library.device-unused`（warning）——否则库会在多个作者之间无声地膨胀。
+器件文件构成工程的**器件库**，而库是工程内容的一部分（它进 IR 分片、进工程哈希，[ADR-0006](../docs/adr/02-ir/0006-ir-shards-and-hashes.md)）。所以一个器件文件可以暂时没人用（为还没画的改版备料），但**没人用要被说出来**：既没有被任何模块的 `instances` 放置、也没有采购文件选中的器件报 `library.device-unused`（warning）——否则库会在多个作者之间无声地膨胀。
+
+**器件不直接属于任何板**：器件文件只描述"这颗料是什么"，不带位置、不带网络、不带板归属。放置与归属是模块定义与模块实例的事（§7.1、`spec/module.md`）；这是 0.14 根迁移的一部分——以前 `design/sch/<board_id>.teda` 可以直接放器件（旧 §7.1 的 `instances` 段），现在所有器件事实都在 `design/modules/<module_id>.teda` 里（[ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1）。
 
 ### 6.1 标量（段之前）
 
@@ -209,7 +215,7 @@ component tps7a02
 
 `provenance` 是**声明**不是证明：没有签名、没有 strict mode（[ADR-0033](../docs/adr/08-libraries/0033-libraries-are-unverified-facts.md) D1）。校验只管形状——`reviewed` 缺归属是错误（`value.provenance-invalid`），因为不可归属的声明比没有声明更糟。
 
-`category` 是**器件类别**，取值是**开放集合**：不设封闭目录，库里没有的类别直接用，小写加下划线。它只做分类，不参与校验逻辑分支；与文件头的类型（`component` / `schematic` / `pcb` / `system`）无关。
+`category` 是**器件类别**，取值是**开放集合**：不设封闭目录，库里没有的类别直接用，小写加下划线。它只做分类，不参与校验逻辑分支；与文件头的类型（`component` / `schematic` / `pcb`）无关。
 
 **封装名不在器件文件里**。器件只引用一个 `footprint`（`lib:name`），封装代号由封装文件自己写（`package_code`，见 `spec/footprint.md` §2）：封装代号是**焊盘图案**的名字（`0402`、`SOT-23-5`、`LQFP-100`），两个字段说同一件事、且没人校验它们一致，所以删掉一个（决策见 [ADR-0028](../docs/adr/07-devices/0028-package-code-and-3d-models.md) decision 1）。
 
@@ -217,7 +223,7 @@ component tps7a02
 
 `component` 描述类型同时描述两种不同的东西，用 `kind` 显式区分，**从不推断**（决策见 [ADR-0024](../docs/adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D1；词汇与目录见 [ADR-0024](../docs/adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D6、D7）：
 
-| `kind` | 身份 | `mpn` | `params` | 典型 `instances` 行 |
+| `kind` | 身份 | `mpn` | `params` | 典型 `instances` 行（在 `module` 文件里） |
 |---|---|---|---|---|
 | `part` | 一个制造商料号 | **必填** | 不写（身份封闭） | `U1 tps5430ddar` |
 | `generic` | 一个通用器件类别（类别 + 构造 + 封装） | **禁止** | 至少一列必填的 `value` | `C1 cap-tantalum-7343 220uF 10V` |
@@ -307,7 +313,7 @@ params
 - **容差必填 = 不给采购自由发挥**：不写容差，等于授权采购在这一类里随便挑；写了，它就在设计给定的包络里挑。必填集合因此是**一组完整要求**（`100nF ±10% 16V X7R`），不是半份。
 - **容差同时就是最坏情况**：`10k ±1%` 是区间 [9.9kΩ, 10.1kΩ]。评估器要在这段区间上判约束，而不是在标称值上判——设计保证"凡是它允许的件，电路都对"。**限制采购的那个数，就是分析必须扛住的那个数**：一个数，两个用途（评估器是 [ADR-0025](../docs/adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) 的 open point 与 `docs/backlog.md` F42 的事）。
 - 钽电容与电解电容的罐体随耐压变（[ADR-0028](../docs/adr/07-devices/0028-package-code-and-3d-models.md) 自己就是拿这条拒绝它们带封装包络的），所以耐压是要求的一部分。
-- 电阻的功率额定值由封装决定（0402 厚膜惯例 1/16W），但**三件事要分开**：件自己的额定值写在件的 `ratings` 段里（它是件的事实）；设计需要的**最低功率能力**写在实例行的 `power` 参数里（它是采购要求，见 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D1）；设计的**耗散上限**是**约束**（`power R1.1 63mW`）。三者在 `texteda check` 里会合：阻性器件的做最坏耗散 `ΔV²/R` 同时比这三条边界（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D11、§7.4）。**封装惯例不在语言里，在工具的器件表里**（[ADR-0027](../docs/adr/07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md)）：片式电阻的功率底线按 `(construction, package_code)` 查表（0402 = 62.5mW、0603 = 100mW……），而厚膜是同一封装的最低档，所以这张表给的是**底线**而不是猜测买了哪颗件——超过底线意味着这个封装的任何标准件都扛不住（确定的违规），不超过不证明通过了（高功率档的件确实存在，要它就把要求写出来）。底线**只在没有任何声明时**生效：设计的耗散上限、行的 `power` 要求、件的 `power` 额定值，哪一个说了话，就按它比。
+- 电阻的功率额定值由封装决定（0402 厚膜惯例 1/16W），但**三件事要分开**：件自己的额定值写在件的 `ratings` 段里（它是件的事实）；设计需要的**最低功率能力**写在实例行的 `power` 参数里（它是采购要求，见 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D1）；设计的**耗散上限**是**约束**（`power M1.R1.1 63mW`）。三者在 `texteda check` 里会合：阻性器件的做最坏耗散 `ΔV²/R` 同时比这三条边界（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D11、§7.3）。**封装惯例不在语言里，在工具的器件表里**（[ADR-0027](../docs/adr/07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md)）：片式电阻的功率底线按 `(construction, package_code)` 查表（0402 = 62.5mW、0603 = 100mW……），而厚膜是同一封装的最低档，所以这张表给的是**底线**而不是猜测买了哪颗件——超过底线意味着这个封装的任何标准件都扛不住（确定的违规），不超过不证明通过了（高功率档的件确实存在，要它就把要求写出来）。底线**只在没有任何声明时**生效：设计的耗散上限、行的 `power` 要求、件的 `power` 额定值，哪一个说了话，就按它比。
 - `sat_current` 是角色（§6.2.1），但**选填**：它要不要写取决于设计有没有峰值电流；"峰值电流会不会让磁饱和"是**比对**，那是 `docs/backlog.md` F42 的事。
 
 **必填只保证"写出来了"**：解析器强制 `instances` 行给齐每个必填列，所以规格写在源码里。**写出来**与**验证**是两件事（决策见 [ADR-0025](../docs/adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) D6）：现在有一样东西拿件去比要求——采购层拿选中的件自己的 `ratings` 逐角色比这组要求（`spec/procurement.md` §3.3）；**还没有**的东西是拿要求去比电路：没有检查器拿电容的耐压去比它所在的网，也没有评估器在这段容差区间上判约束（`docs/backlog.md` F42）。
@@ -329,7 +335,7 @@ pins
 
 - 编号全局唯一。
 - 名称可以重复（两个地脚都叫 `GND` 没问题），但同一 `unit` 内的 `alt` 名称不得与别的引脚名撞车；默认 `unit=1`。
-- 引脚类型见 §10.1。
+- 引脚类型见 §9.1。
 - `pins` 对指向**自建符号**的器件是**必填**：自建 `symbol` 只描述视图，不带引脚名与电气类型（[ADR-0031](../docs/adr/08-libraries/0031-symbol-format.md)），事实只能内联。
 - 可以省略的唯一情形：`symbol` 指向**自带引脚事实**的第三方库（如 KiCad `.kicad_sym`），此时引脚由库解析、`pins_source = symbol`。自建符号不能成为这个来源。
 - 两种来源同时存在时**内联优先**（用于修正库里的错误）；差异由校验报告输出，不静默采用。
@@ -350,7 +356,7 @@ ratings
 |---|---|---|
 | 是谁的 | 设计的 | 件的 |
 | 是什么 | `instances` 行要填的列 | 这颗件自己的取值 |
-| 谁填 | 板（每个实例一份） | 件文件（每个额定值一份） |
+| 谁填 | 模块定义（每个实例一份） | 件文件（每个额定值一份） |
 | 允许的 `kind` | 只有 `generic` | 只有 `part` |
 
 - 角色名取 §6.2.1 的封闭角色词表；`type` 必须是该角色的量纲（`value` 除外：件的量纲由这一行自己写，因为件不声明 `construction`）。
@@ -363,81 +369,64 @@ ratings
 
 ---
 
-## 7. `schematic` 文件
+## 7. `schematic` 文件：工程的逻辑根
 
-### 7.1 `instances` 段
+### 7.1 `modules` 段
 
-`assets/components/` 存器件定义（`part` 与 `generic` 同在一个目录）；本段存放置实例，同一 `component_id` 可被多行引用。
+**一个工程的电路 = 一个根文件 + 若干模块定义。** 根文件 `design/sch/main.teda` 组合模块实例、给出项目级 net 与端口；模块体在 `design/modules/<module_id>.teda`，**持有全部器件事实**（`instances` / `nets` / `constraints`，语法见 `spec/module.md`），决策见 `docs/adr/04-schematic/0013-modules-compose-boards.md` 与 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md)。
 
 ```
-instances
-  R1  ID7k3m9q  res-th-0402       10k   ±1%
-  C1  IDk2m8q4  cap-tantalum-7343  220uF  10V
-  U1  IDp8x2n4  tps7a02
+modules
+  M1  IDp8x2n4  charger-power
+  M2  IDk2m8q4  buck-5v
 ```
 
-列：`refdes [uid] component_id [param...]`。
+列：`<module_instance_id> [uid] <module_id>`。
 
-- `uid` 是实例的**稳定身份**（`ID` + 6 个 Crockford Base32 小写字符，共 8 位；决策见 [ADR-0010](../docs/adr/03-project/0010-instance-identity-is-a-uid.md)）。它由实例创建时生成一次，之后不可变、不复用；工程内唯一。第二个单元格以 `ID` 开头时按 UID 解析，因此旧行（`refdes component_id ...`）仍然合法；`0.9` 起新文件应写 UID，缺失由 `texteda check` 报 `value.instance-uid-missing`（warning，不阻断旧文件迁移）。
-- UID **不是** refdes：改 refdes 不改 UID；`fmt` 永不生成、改写或删除 UID。重复 UID 在任何入口都是 error（`value.duplicate-instance-uid`），不会被静默改写。
-- 模块内的实例写自己的本地 UID；展平后的板级 UID 是 `<模块实例 UID>/<本地 UID>`（如 `IDp8x2n4/IDk2m8q4`），本地 UID 可以在不同模块实例里重复。
-
-- `component_id` 是**器件引用**（§4.2）：在 `assets/components/` 树中按文件名找到，同一 id 只允许一个文件。工程里每个器件都是本工程自己的文件——外部库是**模板**，用 `texteda lib import` 一次拷贝进来（做法见 `docs/guides/library-import.md`）。
-- 额外列与该器件 `params` 段**声明的顺序**一一对应（不按名字或类型猜）；`optional` 列只能从右往左省略，`required` 列不能省略。
-- `kind: part` 的实例行只有 `refdes` 与 `component_id`；`kind: generic` 的实例行带上它的参数（值的列必填）。
-- `refdes` 在本文件内唯一。板只有一份原理图文件，板内没有第二套命名空间（v0.7 起，§7.6）。
-- 封装不在 `instances` 行写，由器件文件决定。
+- `<module_instance_id>` 形状 `^M[0-9]+$`（`M1`、`M2`…；层级标记 `M`，[ADR-0012](../docs/adr/04-schematic/0012-one-flat-schematic-per-board.md)）。这个形状是保留形状，根文件不再有其他实例命名空间与它撞（旧规则"板级 refdes 不得占用 M+数字"随板级实例一起退役）。
+- `uid` 是模块实例的**稳定身份**（§7.1 通用 UID 规则：`ID` + 6 个 Crockford Base32 小写字符；决策见 [ADR-0010](../docs/adr/03-project/0010-instance-identity-is-a-uid.md)）。展平后的实例 UID 是 `<模块实例 UID>/<本地 UID>`（如 `IDp8x2n4/IDk2m8q4`），本地 UID 可以在不同模块实例里重复。
+- `<module_id>` 必须有 `design/modules/<module_id>.teda`（否则 `ref.unknown-module`）；同一模块定义可被多次实例化（`M1`、`M2` 都指 `buck-5v`），展平后是两份电气相同的拷贝。
+- 根文件**没有** `instances` 段：器件不直接放在根里，所有器件都在某个模块定义里（[ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1）。写了 `instances` 段报 `syntax.unknown-section`（error）。
+- **每个模块实例整只属于恰好一块物理 PCB**；归属写在 PCB 文件的 `modules` 段里（`spec/pcb.md` §4.1），根不写归属。可复用定义可以实例化到不同 PCB（`buck-5v` 同时上 `pwr-l1` 与 `pwr-l2`），但**一个实例**只能被一块 PCB 拥有；跨板的功能拆成两个模块实例 + 一条显式 `interconnects` 行（§7.5）。归属与物理连通性的全局校验在 core（`spec/pcb.md` §5.2），不在 parser。
 
 ### 7.2 `nets` 段
 
+根的 `nets` 是**项目逻辑成员表**：它只声明哪些模块端口（以及经端口暴露的模块内 net）属于同一个项目级节点。它不碰器件引脚——根文件里没有器件。
+
 ```
 nets
-  GND:   U1.GND  R1.2
-  :      U2.GND  C1.2
-  VIN:   U1.IN  U1.EN
-  VOUT:  U1.OUT  R1.1
+  GND:   M1.GND  M2.GND
+  SYS:   M1.SYS_OUT  M2.SYS_IN
+  VIN:   M1.DC_IN
 ```
 
 - 首个单元格是 net 名，可带尾随 `:`；`:` 单独成格也接受。canonical form 写成 `name:`，成员之间至少两个空格。
-- 其余单元格是引脚引用。
+- 其余单元格是**模块端口引用**（`M1.SYS_OUT`）；模块内部引脚（`M1.U1.VIN`）不可直接出现在根 net 里——模块外的世界只见端口（`ref.module-internal-ref`，error）。**例外**：模块实例的裸限定 net 名不是成员形式——展平后模块内 net 以 `M1.VCC` 的限定名出现在 IR，但根源文件不写它；根源只写端口引用。
 - **续行**：首个单元格是**裸 `:`** 的行，是上一 net 行的延续——它给上一行命名的 net 增加成员。续行的标志是显式的符号，不是缩进（§3：缩进不表达任何含义）；续行成员与首行成员对齐到同一列。
 - 续行必须跟在某个 net 行之后，否则报错（`net.continuation-without-net`）。连续多行续行都归属同一个 net。
-- **同名 net 行可重复出现并合并成员**：`nets` 段的同名行、以及同一个 `bus` 块内同名的成员行，都合并成一个 net。重复判断的键是 **net 上下文**——同一个 bus 块的不同成员 net（如 `sda:` 与 `scl:`）各自维护成员列表；同一个引脚只有在**同一个** net 的成员列表里重复出现才算错误（`net.duplicate-member`，error），跨 net 重复由 `net.pin-in-two-nets` 报错。
-- 只有一个成员的 net 合法，但 ERC 给出警告。
-- 每个引脚最多属于一个 net；未连接且不是 `no_connect` 的引脚给出警告。
+- **同名 net 行可重复出现并合并成员**：`nets` 段的同名行合并成一个 net。同一个模块端口只有在**同一个** net 的成员列表里重复出现才算错误（`net.duplicate-member`，error）；同一端口被并进两条 net 报 `net.port-in-two-nets`（error，§10 规则 8）。
+- **单成员的 net 合法**（例如上例 `VIN:`）：它是"这个项目级节点目前只有一个口"，通常是留给 interconnect 端点或将来分支的。端口引用指向 `no_connect` 端口报 `ref.no-connect-port`（error）。
+- **net 名在根级唯一**；模块内部的 net 名是模块自己的命名空间（`spec/module.md` §2），展平后带 `M` 限定名。撞名由作者改名解决（工具不限定名、不重编号）。
+- 根 net **不隐含任何跨板铜连接**（§7.5、`spec/pcb.md` §0）：两个端口写进同一个根 net，说的是"逻辑上是同一个节点"，不是"铜从这块板连到那块板"。同名的两个根 net 与两条 PCB 内铜网之间也**永远不**因名字相等而连通——名字从不建立连接，连接只来自成员行（根）或 `connect`（PCB 内）或 `interconnects` 行（跨板）。
 
-### 7.3 `bus` 指令（可选）
-
-```
-bus i2c0 = I2C
-  scl: U1.PA8  U2.SCL
-  sda: U1.PA9  U2.SDA
-```
-
-- `bus <bus_id> = <type>` 开始一个 bus 块，直到下一个段头或指令。
-- 成员行格式同 `nets`，包括续行：裸 `:` 的行给上一个 bus 成员行增加引脚。
-- 成员 net 的全名是 `<bus_id>.<member>`，例如 `i2c0.scl`。
-- **一个 bus id 只允许一个块**：`bus i2c0` 出现两次报 `ref.duplicate-bus`（error），第二个块不进入 IR。重复的**成员行**（同一个 `<member>` 写两次）会像 `nets` 的重复行一样合并；重复的**引脚**只在同一个成员 net 内报 `net.duplicate-member`（error）——不同成员 net 之间不互相判重。
-- bus 成员 net 是普通 net：`ports` 与 `constraints` 可以直接点名 `<bus_id>.<member>`（解析顺序同 §4.5，先 net 后引脚引用）。
-- v0.1 的 bus 类型只有命名意义，不做协议校验。
-
-### 7.4 `constraints` 段
+### 7.3 `constraints` 段
 
 ```
 constraints
-  voltage  U1.VDD   3.0V..3.6V
+  voltage  M2.SYS_IN   3.0V..3.6V
+  voltage  M1.VOUT     4.85V..5.15V
   diff     USB_DP  USB_DN  90Ω  ±10%
 ```
 
-约束段也是表：列间至少两个空格，同段内按最宽单元格对齐（§12）。
+约束段也是表：列间至少两个空格，同段内按最宽单元格对齐（§11）。
 
-第一列是约束类型，列数与语义由类型决定：
+第一列是约束类型，列数与语义由类型决定；主语可以是**根 net**、**模块端口引用**（`M2.SYS_IN`）或展平后的实例引脚（`M2.U1.VDD`，工具在展平视图中解析）：
 
 | 约束类型 | 形式 |
 |---|---|
 | `voltage` | `voltage <pin 或 net> <min>..<max>` |
 | `current` | `current <pin 或 net> <max>` |
-| `power` | `power <component 或 net> <max>` |
+| `power` | `power <pin> <max>` |
 | `impedance` | `impedance <net> <value>` |
 | `length` | `length <net> <min>..<max>` |
 | `diff` | `diff <netA> <netB> <impedance> [tolerance]` |
@@ -451,7 +440,7 @@ constraints
 
 `stress = max(|max(a) − min(b)|, |max(b) − min(a)|)`
 
-器件的电压能力来自 `instances` 行的 `voltage` 列（通用件：设计要求）或器件自己的 `ratings`（`kind: part`：事实，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)）。能力低于应力报 `design.rating-exceeded`；两端的 net 有一个没有窗口、或器件不是两引脚时**不比较**，并在一块板一条的 `design.stress-unknown`（note）里报出数量——没比较不等于通过。容差不参与比较（器件独立漂移，语言还无法声明相关性），降额是项目政策而不是检查器的常数：比的是"能不能扛"，不是"留了多少裕量"。
+器件的电压能力来自 `instances` 行的 `voltage` 列（通用件：设计要求）或器件自己的 `ratings`（`kind: part`：事实，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)）。能力低于应力报 `design.rating-exceeded`；两端的 net 有一个没有窗口、或器件不是两引脚时**不比较**，并在一条 `design.stress-unknown`（note）里报出数量——没比较不等于通过。容差不参与比较（器件独立漂移，语言还无法声明相关性），降额是项目政策而不是检查器的常数：比的是"能不能扛"，不是"留了多少裕量"。
 
 **耗散同理**（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)）：阻性器件（主量是 `resistance` 的两引脚器件）的最坏耗散是 `P = stress² / R`，`stress` 就是上式那一段窗口差，`R` 取实例行的 `value`（通用件）或件的 `value` 额定值。上界有三处来源，比较取**最紧的那一条**：
 
@@ -465,15 +454,15 @@ constraints
 
 三处都没说话时，还有一条**兜底**的边界：片式电阻的**封装底线**——同一封装的最低档（厚膜）的功率额定值，按 `(construction, package_code)` 查器件的规则表（`0402` = 62.5mW，[ADR-0027](../docs/adr/07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md)）。它是**下界**：超过它意味着这个封装的任何标准件都扛不住，违规是确定的；不超过它不证明通过了（更高档的件存在，也需要更高档就把要求写出来）。底线**只在三处都没有声明时**才用，声明了就以声明为准——`power 1W` 的 2010 行买的是 1W 的件，封装惯例不许反过来质疑它。
 
-两端有一个没有窗口、器件不是两引脚、或封装代号这张表不认（例如按 IEC 写成 `1005`）时**不比较**，计入 `design.power-unknown`（note，一块板一条，按原因分列）。
+两端有一个没有窗口、器件不是两引脚、或封装代号这张表不认（例如按 IEC 写成 `1005`）时**不比较**，计入 `design.power-unknown`（note，按原因分列）。
 
 **这是上界，不是实测**：它假设两端同时到达各自窗口的极端，所以两端窗口相同时它给 0——而实际耗散可以不是 0（电流由谁承担，语言还没说，`current VOUT 3A` 不指成员）。因此它只能报违规、不能证明通过。同一个道理，串在两条声明窗口的**交流/阻尼**元件（RC 缓冲的串联电阻）上，这个上界没有物理意义：设计不该给这种位置写耗散上限。
 
-`power` 约束的**主语必须是引脚**（`R1.1`、`M1.R1.1`）：耗散属于器件实例，不属于 net；写 net 的 `power` 约束当前不参与任何比较，也不报错（net 的功率预算还没有语义）。
+`power` 约束的**主语必须是引脚**（`M1.R1.1`）：耗散属于器件实例，不属于 net；写 net 的 `power` 约束当前不参与任何比较，也不报错（net 的功率预算还没有语义）。
 
-### 7.5 `ports` 段（可选，v0.2 引入）
+### 7.4 `ports` 段（可选）
 
-`port` 是**板的 `net` 的对外名字**。系统级描述消费板级端口（§8）。
+`port` 是**根 `net` 的对外名字**。跨板 interconnect 的端点、打印页的端口符号消费它（§7.5、`spec/schematic-view.md`）。
 
 ```
 ports
@@ -487,81 +476,75 @@ ports
 - `net` 必须是本文件 `nets` 段里已存在的 `net`；不存在即报错（`port` 不创建节点）。
 - 同一个 `net` 最多被一个 `port` 引用。
 - `port` 不新增连通性：它引用的仍然是原来那些 `net`。
-- 板级 `ports` 声明这块板对外的接口，`system` 文件用它连接多块板（§8）。
 
----
+### 7.5 `interconnects` 段（可选）
 
-### 7.6 一块板 = 一份原理图文件 + 若干模块（v0.8 引入）
-
-一块板 = 一份 `design/sch/<board_id>.teda` + 若干个模块文件。板内**没有**第二套绘制划分：没有 `pages` 段，没有 `page` 描述类型。板内**有**一层逻辑层次：**模块**——带端口、持有电气事实，语法见 `spec/module.md`，决策见 `docs/adr/04-schematic/0013-modules-compose-boards.md`。
-
-- 板文件里有一个 `modules` 段，列出模块实例（`M1  IDp8x2n4  charger-power`）；模块体在 `design/modules/<module_id>.teda`。模块实例行同样带稳定 UID（§7.1）；模块内的实例本地 UID 展平后带模块实例 UID 作前缀。
-- 板级 `instances` 与模块并存：不属于任何模块的器件直接写在板文件里，用普通 `refdes`。
-- `refdes` 与 `net` 名在**板级**唯一；模块内部有**自己的一套** `refdes` 与 `net` 名，展平后带 `M` 限定名（`M1.R1`、`M1.VCC`）。撞名由作者改名解决（工具不限定名、不重编号）。
-- 模块端口与板级 net 的绑定写在板级 `nets` 段（成员可以是 `M2.VOUT` 这样的模块端口引用）。
-- 展平后的板级 IR 是**扁平的**：一张实例表、一张 net 表，不含模块结构（IR 契约仍是平表；`instance.uid` 是附加身份字段，见 [ADR-0010](../docs/adr/03-project/0010-instance-identity-is-a-uid.md)）。
-- 板的 `ports` 段是它对外的唯一接口（§7.5）。
-- 板内的**绘制划分**（"这块图画不下"、评审想分块看）属于**视图层**：`views/<board_id>/<page_id>.view.teda` 是一个**打印页**，它引用板级的 `instance_id` 与 `net_id`（模块实例化之后是 `M1.U1`），语法见 `spec/schematic-view.md`。打印页可以随时丢弃、随时重画；删掉全部打印页，板的逻辑依然完整、可校验、可导网表。
-- **BOM**：行 = (`component_id`, 参数字典, 变体状态)，聚合键**不含** `refdes`；数量 = 板上的实物数（模块实例化几次就算几份）。详见 §11。
-- **层次只有一层**：模块不能再嵌套模块（backlog F13）。模块实例 id 带层级标记 `M`（`M1.R1`）。模块是**带端口的层次**，不是可丢弃的绘制划分，两者不混用。
-
----
-
-## 8. `system` 文件（多板连接，v0.2 引入）
-
-一块板一个 `sch`；板与板之间怎么连，由独立的 `system` 描述表达。决策与理由见 `docs/adr/03-project/0009-board-linking.md`。
+**跨板的物理连接是一条显式事实**。两块 PCB 之间"这里有一根线/一条电缆"，逻辑根的 net 成员**说不出来**——net 成员只合并逻辑节点（§7.2），所以 0.14 给它专属的段，端点是**模块端口**：
 
 ```
-version 0.9.2
-system cabinet
-
-boards
-  amp
-  ctrl
-
-nets
-  GND:  amp.GND  ctrl.GND
-  SYS:  amp.SYS_IN  ctrl.SYS_OUT
+interconnects
+  ic1  M1.SYS_OUT  M2.SYS_IN
+  ic2  M1.GND      M2.GND
 ```
 
-### 8.1 `boards` 段
+列：`<interconnect_id> <from-endpoint> <to-endpoint>`。
 
-列：`board_id`。
+- `<interconnect_id>` 形状同 `module_id`（§4.2），**在根文件内唯一**（重复报 `ref.duplicate-interconnect`）。
+- 端点是**模块端口引用** `<module_instance_id>.<port_id>`（`M1.SYS_OUT`）。两端必须指向**不同**模块实例的端口；同一实例的两侧端口是模块内部的事，不是 interconnect（报错）。模块内 net 与内部引脚不可作为端点（`ref.module-internal-ref`）。
+- 端点指向的 port 必须在该模块定义的 `ports` 段声明（`ref.unknown-port`）；指向 `no_connect` 端口报错（`ref.no-connect-port`）。
+- **语义**：`from` 端口所属的模块内 net 与 `to` 端口所属的模块内 net，通过这条**显式的物理路径**连接。它回答"两块板之间哪里有线"，与根 net 成员（逻辑节点归属）、PCB 内 `connect`（一块板内部的连续铜箔）三者互相独立、互不推导：**相等的 net 名从不 imply interconnect**（§7.2），一条 interconnect 也从不要求两端 net 同名。
+- 一条 interconnect 是**一条物理路径的声明**，不是一根具体的电缆型号：线束与连接器选型仍不在语言里（§14）。**引脚级映射**（连接器 A 的 2 号脚接连接器 B 的 5 号脚）是可选补充段，见 §7.6。
+- interconnect 不进入 PCB 的 `connect`（那是板内铜）；它也不改写任何模块的内部连通性——删掉全部 interconnect 行，两块 PCB 各自仍然成立，只是跨板路径没有声明（检查器报出，见 §10 规则 9）。
+- **视图只渲染，不创建**：打印页可以画 interconnect，但删掉或改动页面不改变 interconnect 事实（`spec/module.md` §7.2、`spec/schematic-view.md`）。
 
-- `board_id` 必须在 `project.toml` 的 `[boards]` 中存在。
-- 该板必须有 `design/sch/<board_id>.teda`；`pcb` 可缺省。
-- 同一块板可以出现在多个 `system` 文件里。
+### 7.6 `interconnect_pins` 段（可选）
 
-### 8.2 `nets` 段
+当 interconnect 的两端都是**连接器类模块实例**、且引脚映射重要时，用它声明端点侧的引脚映射。它是**连接器/电缆的针脚对照**，**不是 net 成员表**——写成它不会把任何引脚并进任何 net。
 
-列：`system_net : <board_id>.<port_id> ...`。
+```
+interconnects
+  ic1  M1.PWR  M2.PWR
 
-- 成员是 **port 引用**（`<board_id>.<port_id>`），不是引脚引用。
-- 引用的 `port` 必须在该板 `sch` 的 `ports` 段里声明。
-- 一条系统 `net` 至少两个成员；成员可以是多块板（星形连接）。
-- 同一块板的同一个 `net` 不能被并进两条系统 `net`（那是短路）。
-- 语义：这些 port 指向的板内 `net` 是同一个系统级节点；板内两端的 `net` 名可以不同。
-- 跨板电气约束写在各自 `sch` 的 `constraints` 段；两侧都写且区间不相交时报错（§11 第 9 条）。
+interconnect_pins
+  ic1  M1.J1.1  M2.J1.1
+  ic1  M1.J1.2  M2.J1.2
+```
 
-### 8.3 与其它描述的关系
+列：`<interconnect_id> <from-endpoint-pin> <to-endpoint-pin>`。
 
-- `system` 不改写任何板的内部连通性；删掉 `system` 文件，两块板照样成立。
-- `sch` 不能引用 `system` 里的 `system_net`：板不知道自己在系统里的位置。
-- 跨板的线束与连接器对不属于 v0.2（见 §15）。
+- 第一列必须指向 §7.5 已声明的 `interconnect_id`（否则报错）。
+- 端点引脚引用是**展平后的完整引脚引用** `<module_instance_id>.<refdes>.<pin>`（`M1.J1.1`、`M2.J1.2`）。它必须落在对应端点**所属模块实例的模块内 net** 上（端口暴露的那条 net），否则报 `ref.pin-off-endpoint-net`（error）。
+- 一条 interconnect 的 `interconnect_pins` 行数不限；某条 interconnect 没有引脚映射就**不写行**——没有"空映射"。
+- 引脚映射**不改变逻辑连通性**：两个引脚是否同 net 仍由模块内部的 `nets` 段决定；本段只说"电缆/排针把这两个脚接到一起"（校验发现映射两侧不同 net 时报 warning——它是连接器对照表与逻辑图的分歧，不是第二条连通性真源）。
+- 未被任何 `interconnect_pins` 行覆盖的 interconnect：端点级路径（§7.5）就是全部事实，多引脚连接器内部的逐脚对应由连接器器件自己的引脚名约定承担。
+
+### 7.7 展平与 IR（[ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1）
+
+根源文件**不含器件事实**，但展平后的 schematic IR **必然含**——普通消费者（netlist、BOM、约束检查、渲染）拿到的还是一张实例表 + 一张 net 表：
+
+- **必填字段**：`ir_version`、`format`、`project`（常量 `main`）、`modules`、`instances`、`nets`。
+- `instances` = 全部模块定义的实例展平结果，实例 id 带 `M` 限定（`M1.U1`），UID 路径化（`IDp8x2n4/IDk2m8q4`）。根文件本身零器件（[ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1），实例全部来自模块（`spec/module.md` §5）。
+- `nets` = 根 net 合并模块端口后得到的**扁平 net 表**；模块内部 net 名合并进根 net 后消失（`spec/module.md` §5）。
+- **`modules` 数组**：每项 `{ instance_id, module_id, uid?, ports: [{ id, net?, pins: string[] }] }`。`ports[].pins` 是该模块本地端口 net 在**根 net 合并之前**的完整归一化展平引脚引用（如 `M1.U1.VIN`）；`net` 是端口指向的模块内 net 名。ports/pins 被保留，是为了**校验端点映射**（`interconnects` 端点、PCB 归属校验）时不用从归属关系反推；根 net 合并后这些本地 net 名在 `nets` 表里不再出现。
+- **`interconnects` 数组**：每项 `{ id, from, to }`，端点是 `M1.PORT` 形式的模块端口引用。
+- **`interconnect_pins` 数组**：每项 `{ interconnect, from, to }`，引脚引用是 `M1.J1.1` 形式的展平引脚引用。
+- **可选数组为空时省略**（`interconnects`、`interconnect_pins`）；必填字段恒在。
+- IR 契约版本 **v0.19**（`schemas/ir/`；`v0.18` 保持不变）。`modules` / `interconnects` / `interconnect_pins` 分片是**规范**分片（`normative: true`）：归属与跨板路径进工程哈希。
+- **归属与物理连通性的全局校验在 core，不在 parser**：parser 只管每份文件的形状与本地引用；"每个实例恰好属于一块 PCB""interconnect 端点两侧的物理路径成立"由 `texteda check` 汇总全部文件后执行（`spec/pcb.md` §5.2）。
 
 ---
 
-## 9. `pcb` 文件
+## 8. `pcb` 文件
 
 `pcb` 描述的具体段定义在 **`spec/pcb.md`**（分描述规范）。本节只给定位与三条底线。
 
-定位：`pcb` 表达 **B0（PCB 物理事实）**，与 `sch` 平级、共享同一身份空间（`net_id`、实例 ID、pad 号 ↔ 引脚编号）。决策与取舍见 `docs/adr/05-pcb/0016-agent-first-pcb-description.md`。
+定位：`pcb` 表达 **一块物理 PCB 的实现事实**，是逻辑根的**实现**而不是第二份连通性真源。0.14 起每个 `design/pcb/<pcb_id>.teda` 必须**声明它拥有哪些模块实例**（必需的 `modules` 段，`spec/pcb.md` §4.1）；`connect` / `trace` / `via` / `zone` 只表达**这块板内部的**连续铜箔。决策与取舍见 `docs/adr/05-pcb/0016-agent-first-pcb-description.md` 与 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md)。
 
-段集（v0.4）：`stackup` · `outline` · `place` · `connect` · `trace` · `via` · `zone` · `keepout` · `rules` · `silk` · `physical_only` · `deviation`。
+段集（0.14）：`modules`（新增）· `stackup` · `outline` · `place` · `connect` · `trace` · `via` · `zone` · `keepout` · `rules` · `silk` · `physical_only` · `deviation`。
 
 三条底线：
 
-1. **连通性只由逻辑模型决定**。`connect` 段显式声明哪两个 pad 之间有连续铜箔；几何不作为连通性真源。
+1. **板内连通性只由逻辑模型 + 本板的 `connect` 决定**。`connect` 段显式声明哪两个 pad 之间有连续铜箔；几何不作为连通性真源；**net 名相等从不 imply 跨板连通**（§7.2、§7.5）。
 2. **物理专属实体进 `physical_only`，逻辑偏差进 `deviation`**；两者都必须进校验报告（偏差白名单见 `AGENTS.md` §4.4）。
 3. **派生层不进 IR**：绘图参数、丝印排版、铜皮填充结果、量测文本、UUID 与内部序号一律不存。
 
@@ -569,15 +552,15 @@ nets
 
 ---
 
-## 10. 类型与单位
+## 9. 类型与单位
 
-### 10.1 引脚电气类型
+### 9.1 引脚电气类型
 
 `input`、`output`、`bidirectional`、`tri_state`、`passive`、`power_in`、`power_out`、`power`、`open_collector`、`open_emitter`、`polarized`、`no_connect`、`unspecified`。
 
 其中 `power` 表示地/参考节点；`power_in` 表示供电输入；`polarized` 表示**有极性**的引脚（正负不可互换，通用器件本身声明 `polarized yes`）。
 
-### 10.2 单位与前缀
+### 9.2 单位与前缀
 
 | 量 | 单位 | 示例 |
 |---|---|---|
@@ -603,94 +586,95 @@ nets
 
 ---
 
-## 11. 校验规则
+## 10. 校验规则
 
-按顺序执行；任一错误阻止导出。
+按顺序执行；任一错误阻止导出。**每份文件先做本地校验（本节规则 1–8）；归属与物理连通性的全局校验在 core 汇总全部文件后执行（规则 9、14），不在 parser**（[ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1）。
 
-1. 文件头：版本、文件类型、id/文件名、顶层目录/类型一致；`assets/components/` 的子目录只做分类，不参与 `component_id`。
+1. 文件头：版本、文件类型、id/文件名、顶层目录/类型一致；`schematic` 的 id 固定 `main`；`assets/components/` 的子目录只做分类，不参与 `component_id`。
 2. 词法：未知段、未知键、单元格数量、非法标识符。
 3. 器件：`instances` 引用的 id 存在；`params` 数量/类型匹配；引脚编号唯一，引脚名在 `unit` 内唯一；`symbol` 指向自建库时必须有 `pins` 段（自建符号不带引脚事实）；`category` 为通用无源件且 `params` 含 `value` 时 `mpn` 可省，否则必须有 `mpn`；`lcsc` 若出现必须匹配 `C[0-9]+`。
-4. 连接：引脚引用可解析；每个引脚最多一个 net；`no_connect` 不得连接；单成员 net 警告（**按板级 net 判**：带板级端口的 net 不算单成员，那个引脚是往板外走的）。
+4. 连接（模块内）：引脚引用可解析；每个引脚最多一个 net；`no_connect` 不得连接；单成员 net 警告（带端口的 net 不算单成员，那个引脚是往模块外走的）。
 5. 约束：subject 存在；单位/量纲兼容；区间有效。
 6. 变体（`project.toml`）：`dnp`/`nofit` 引用的 component_id 存在。
-7. sch↔pcb（两者都存在时）：按 `AGENTS.md` §4.4 的绑定规则。
-8. 端口（`ports` 段）：引用的 `net` 存在；`port_id` 不重复；同一个 `net` 最多被一个 `port` 引用。
-9. 系统（`system` 文件）：`boards` 的 `board_id` 在 `project.toml` 的 `[boards]` 中存在且有 `sch` 文件；`nets` 成员是已声明的 `port`；每条系统 `net` 至少两个成员；同一块板的同一个 `net` 不被并进两条系统 `net`；两侧电压约束区间不相交时报错。
-10. canonical form（§12）：不满足的文件在 `fmt --check` 下报错；`fmt` 修复后语义不变。
-11. 板（v0.8）：一块板一份 `schematic` 文件 + 若干 `module` 文件；`refdes` 与 `net` 名在**板级**唯一（模块内部另有自己的一套）；没有 `pages` 段、没有 `page` 文件（见到即报错，见迁移说明）；模块实例 id 是 `M` + 数字，板级 `refdes` 不得占用这个形式。
-12. BOM：行 = (`component_id`, 参数字典, 变体状态)；聚合键不含 `refdes`；数量 = 板上的实物数。
-13. 变体：只影响 BOM 与制造，不改变连通性；引用 `component_id` 作用于该型号的所有实例，引用稳定 id 只作用于该实例；不影响 ERC 结果。
-14. pcb（`pcb` 文件存在时）：按 `spec/pcb.md` §5.2 执行；sch↔pcb 绑定与偏差白名单见 `AGENTS.md` §4.4。
+7. 模块（`module` 文件）：按 `spec/module.md` §6 执行；`design/modules/<module_id>.teda` 存在、头部 id 与文件名一致、端口合法。
+8. 根（`schematic` 文件）：`modules` 行的 `module_id` 存在；net 成员是**已声明的模块端口**（模块内部引脚不可直达，`ref.module-internal-ref`）；同一端口不被并进两条根 net（`net.port-in-two-nets`）；`ports` 引用的根 net 存在、`port_id` 不重复、同一 net 最多一个 port；`interconnects` 端点是已声明端口、两端不同实例、`interconnect_id` 唯一；`interconnect_pins` 的第一列指向已声明的 interconnect、引脚引用落在端点所属的模块实例内。没有任何模块实例的根报错（空工程的电路还是空的，不给静默通过）。
+9. **归属与 interconnect 的全局校验（core）**：每个模块实例被**恰好一块** PCB 的 `modules` 段声明（零块/两块都是 error）；`interconnects` 端点两侧的模块实例**分属不同 PCB**（同一 PCB 内的连接走模块内部 net 与 PCB `connect`，不走 interconnect）；未被任何 interconnect 触及的跨板端口对不判定（语言不做"应该有连线"的猜测）。
+10. canonical form（§11）：不满足的文件在 `fmt --check` 下报错；`fmt` 修复后语义不变。
+11. BOM：行 = (`component_id`, 参数字典, 变体状态)；聚合键不含 `refdes`；数量 = 工程里的实物数（同一模块定义在多处实例化就算多份）。
+12. 变体：只影响 BOM 与制造，不改变连通性；引用 `component_id` 作用于该型号的所有实例，引用稳定 id 只作用于该实例；不影响 ERC 结果。
+13. legacy 构造：`design/sch/` 下的其他 `schematic` 文件、`design/system/` 的 `system` 描述、`views/<board_id>/` 的板级打印页，见到即报 `ref.legacy-board-root` / `ref.legacy-system-description`（error，迁移说明见 §12.4 的 0.14 条目）。
+14. pcb（`pcb` 文件存在时）：按 `spec/pcb.md` §5.2 执行；sch↔pcb 绑定、模块归属与偏差白名单见 `AGENTS.md` §4.4 与 `spec/pcb.md` §5.2。
 15. footprint（库文件存在时）：按 `spec/footprint.md` §7 执行；库级检查（引脚号比对、DRC）不在这层。
 16. symbol（库文件存在时）：按 `spec/symbol.md` §7 执行；库级检查（与 `component` 的引脚号集合比对）不在这层。
-17. procurement（`procurement` 文件存在时，v0.9）：按 `spec/procurement.md` §3.2 与 §7 执行。通用器件能解析且是通用器件、件能解析且是件、件有 `mpn`、件的 `params` 覆盖通用器件的、件的 `footprint` 等于通用器件的 `footprint`、件不是被工程派生件遮蔽的库件。**主料违反是 error，备料违反是 warning**（严格模式下 error）；源文件本身解析失败一律是 error。通用器件行没有选料 → warning（unsourced）；选中的件板上没用到 → warning。
+17. procurement（`procurement` 文件存在时，0.9）：按 `spec/procurement.md` §3.2 与 §7 执行。通用器件能解析且是通用器件、件能解析且是件、件有 `mpn`、件的 `params` 覆盖通用器件的、件的 `footprint` 等于通用器件的 `footprint`、件不是被工程派生件遮蔽的库件。**主料违反是 error，备料违反是 warning**（严格模式下 error）；源文件本身解析失败一律是 error。通用器件行没有选料 → warning（unsourced）；选中的件板上没用到 → warning。
 
 诊断格式：`file:line:col: <severity> <code>: <message>`；`--json` 输出同字段。严重级别：`error` / `warning`。
 
 ---
 
-## 12. Canonical form
+## 11. Canonical form
 
 `fmt` 必须满足：`parse(fmt(x))` 与 `parse(x)` 语义相同，且 `fmt(fmt(x)) == fmt(x)`。
 
 规则：
 
 1. 段顺序固定：
+   - schematic（根）：`modules`、`nets`、`ports`、`constraints`、`interconnects`、`interconnect_pins`
    - component：`params`、`pins`
-   - schematic：`instances`、`nets`、`ports`、`bus`、`constraints`
-   - system：`boards`、`nets`
-   - pcb：见 `spec/pcb.md` §6.1（`stackup`、`outline`、`place`、`connect`、`trace`、`via`、`zone`、`keepout`、`rules`、`silk`、`physical_only`、`deviation`）
+   - module：见 `spec/module.md` §2（`instances`、`nets`、`ports`、`constraints`）
+   - pcb：见 `spec/pcb.md` §6.1（`modules`、`stackup`、`outline`、`place`、`connect`、`trace`、`via`、`zone`、`keepout`、`rules`、`silk`、`physical_only`、`deviation`）
    - footprint：`pads`、`graphics`；标量顺序与行的排序见 `spec/footprint.md` §8
    - symbol：`pins`、`body`；标量顺序与行的排序见 `spec/symbol.md` §8
-   - view：`place`、`field`、`wire`、`label`、`port`、`text`；标量顺序与行的排序见 `spec/schematic-view.md` §11
+   - view：`place`、`field`、`wire`、`label`、`port`、`text`、`module`、`module_port`；标量顺序与行的排序见 `spec/schematic-view.md` §11
    - procurement：`selections`（唯一段）；标量只有 `role`
-2. 行排序（名称一律按 ASCII 字节序；`instances` 的 refdes 按自然序，数字按数值比较）：
-   - `instances` 按 refdes 自然序
+2. 行排序（名称一律按 ASCII 字节序；实例 id 按自然序，数字按数值比较）：
+   - `modules` 按 `module_instance_id` 自然序
    - `nets` 按 net 名
-   - `nets` 的成员按引脚引用自然序：先比实例（自然序，数字按数值比较），再比引脚（编号按数值，名称按自然序）
+   - `nets` 的成员按引用自然序（先比实例 id，数字按数值比较；端口引用按 `port_id`）
    - `ports` 按 port_id
-   - system 的 `boards` 按 board_id
-   - system `nets` 的成员按 `<board_id>.<port_id>` 字典序
+   - `interconnects` 按 `interconnect_id`；`interconnect_pins` 按 `(interconnect_id, from, to)`
    - `pins` 按编号数值
    - `params` 保持源文件顺序（声明顺序即实例行的列序）；`required` 列必须排在 `optional` 列之前，否则报错
    - pcb 各段的排序与归一见 `spec/pcb.md` §6.2
-   - procurement 的 `selections` 按左键文本排序：通用器件 id 按 ASCII，参数按声明顺序逐个按 ASCII（IR 里按解析后的值排序，见 §12 规则 9）
+   - procurement 的 `selections` 按左键文本排序：通用器件 id 按 ASCII，参数按声明顺序逐个按 ASCII（IR 里按解析后的值排序，见 §11 规则 9）
    - `constraints` 保持源文件顺序
 3. 列对齐：同段内按最宽单元格对齐，列间至少两个空格。**procurement 行不对齐**：两行的列含义不同（某通用器件的第一个参数不是另一通用器件的第一个参数），对齐会暗示不存在的对应关系；procurement 行的单元格之间用**一个**空格，`->` 前后各一个空格。
 4. 段之间一个空行；无行尾空白；文件末尾一个换行。
 5. 整行注释保留，并跟随其后的行移动。
 6. 单元格内容不变，只调整分隔空白：表段单元格之间至少两个空格并对齐；标量行（"键 + 值"）用单个空格分隔，多单元格的值（如 `description`）按单元格重排，连续空白归一。
-7. `net` 行的 canonical 形式：网名紧贴冒号（`SYS:`），冒号后至少两个空格，成员之间至少两个空格；同段内所有行的成员起始列相同。`ports` 与 `boards` 行同样按最宽单元格对齐。
+7. `net` 行的 canonical 形式：网名紧贴冒号（`SYS:`），冒号后至少两个空格，成员之间至少两个空格；同段内所有行的成员起始列相同。`ports`、`interconnects` 行同样按最宽单元格对齐。
 8. **宽行折行**：同一个 net 的所有成员（跨行、跨同名行、跨续行合并后）按规则 2 排序，然后折行使每行不超过 **80 列**。首行带网名，续行的首列是裸 `:`，续行成员与首行成员对齐到同一列。折行只影响排版，不影响语义：同一份描述无论写成几行，编译出的 IR 相同。
 9. **文本顺序与 IR 顺序可以不同**。canonical form 只看文本，因此成员按**源码写的形式**排序（写编号就按编号比，写名字就按名字比）；IR 里的成员一律是引脚**编号**，按编号排序。两者各自确定且幂等，同一份描述的 IR 与源文件的行序、行内成员序都无关。
 
 ---
 
-## 13. 版本与兼容
+## 12. 版本与兼容
 
-### 13.1 版本号的形式
+### 12.1 版本号的形式
 
 `version` 为 `MAJOR.MINOR[.PATCH]`，三位各自无前导零。**PATCH 位可省略，省略即 0**：`0.6` 与 `0.6.0` 是同一个版本，IR 里只存一种写法（`0.6`）。
 
-**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.11.0**。
+**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.14.0**。
 
 各描述类型接受的**下界**是当前 reader 仍支持的最早表面形态；它可以晚于类型的历史引入版本。上界对所有描述类型都是同一个——语言当前版本。
 
 | 描述类型 | reader 下界 | 说明 |
 |---|---|---|
-| `schematic` | `0.1` | Introduced at 0.1; a board-level schematic description |
-| `module` | `0.8` | Introduced at 0.8; a module description |
-| `procurement` | `0.9` | Introduced at 0.9; procurement selections |
-| `view` | `0.11` | Introduced at 0.6; board-level references from 0.7; coordinate tuples require 0.11 |
-| `pcb` | `0.11` | Introduced at 0.4; flat-board rewrite at 0.7; coordinate tuples require 0.11 |
+| `schematic` | `0.14` | Introduced at 0.1; **the single project logical root from 0.14** (board-local schematics removed, `system` removed) |
+| `module` | `0.8` | Introduced at 0.8; owns all component facts since 0.14 |
+| `pcb` | `0.14` | Introduced at 0.4; flat-board rewrite at 0.7; coordinate tuples require 0.11; **required `modules` section from 0.14** |
+| `procurement` | `0.9` | Introduced at 0.9; procurement selections, keyed by `pcb_id` from 0.14 |
+| `view` | `0.14` | Introduced at 0.6; board-level references from 0.7; coordinate tuples require 0.11; 0.12/0.13 constructs version-gated; **project-scoped under `views/` from 0.14** |
+| `module_view` | `0.13` | Introduced at 0.13 by ADR-0068; reusable module-local drawing |
+| `sheet_template` | `0.13` | Introduced at 0.13 by ADR-0068; static sheet furniture |
 | `footprint` | `0.11` | Introduced at 0.4; coordinate tuples require 0.11 |
 | `symbol` | `0.11` | Introduced at 0.5; coordinate tuples require 0.11 |
-| `system` | `0.2` | Introduced at 0.2; inter-board connections |
 | `component` | `0.1` | Introduced at 0.1; component descriptions |
 
 `packages/parser/src/version.ts` 的 reader-floor 表实现接受下界；`packages/parser/test/version-spec.test.ts` 将其与本表钉在一起。类型引入版本是历史事实，保留在说明列中；它不决定 reader floor。
 
-在 `0.x` 阶段，兼容澄清和诊断改进走 PATCH；新增段或字段、以及**改变已接受文件的表面形态**走 MINOR，并且必须有显式决策记录（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D5）。`0.10.0` 由 [ADR-0055](../docs/adr/09-view/0055-schematic-fields-are-view-overrides.md) 引入 `view` 的 `field` 段；`0.11.0` 由 [ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) 把坐标统一成一个括号元组单元格——这次是破坏性变更，带迁移说明与 `bun run migrate:0.11`。
+在 `0.x` 阶段，兼容澄清和诊断改进走 PATCH；新增段或字段、以及**改变已接受文件的表面形态**走 MINOR，并且必须有显式决策记录（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D5）。`0.10.0` 由 [ADR-0055](../docs/adr/09-view/0055-schematic-fields-are-view-overrides.md) 引入 `view` 的 `field` 段；`0.11.0` 由 [ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) 把坐标统一成一个括号元组单元格；`0.12.0` 由 [ADR-0067](../docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md) 加入 module overview/detail 页、module-port 绘图与 `size` 页尺寸声明；`0.13.0` 由 [ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) 加入 `module_view`、`sheet_template`、`template` 与 `module_place`；`0.14.0` 由 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) 收拢工程根并删除板级/系统旧构造。
+
 
 | 位 | 什么时候动 | 动它意味着 |
 |---|---|---|
@@ -698,38 +682,61 @@ nets
 | MINOR | 加描述类型、加段、加字段——老文件继续合法 | 增量变更，老文件不用改 |
 | PATCH | **不改变"哪些文件合法"**的改动：加诊断码、改诊断文案、澄清规则、收紧本来就非法的检查 | 行为变更，兼容性不变 |
 
-**`1.0` 是保留号**：它表示语言表面冻结（见 §13.2），只能由收敛决策产生，不会被“计数”走到。`1.0` 之前的一切版本号都在 `0.x` 线里，彼此可比。决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D6、D10。
+**`1.0` 是保留号**：它表示语言表面冻结（见 §12.2），只能由收敛决策产生，不会被“计数”走到。`1.0` 之前的一切版本号都在 `0.x` 线里，彼此可比。决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D6、D10。
 
 一条硬规则：**PATCH 永远不破坏兼容性**。所以实现了 `MAJOR.MINOR` 的工具接受它的**任意** PATCH（判定时忽略 PATCH 位），`0.6.1` 的文件能被只懂 `0.6` 的工具正常读。
 
-### 13.2 1.0 是什么
+> 0.14 是一次**语义上的 MAJOR**（删除描述类型与段、改变根的形状），按 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D5 的例程记为 MINOR + 显式迁移：`0.x` 线内 MAJOR 位不动，破坏性变更走 MINOR 并附迁移说明（0.7 的先例同此）。
+
+### 12.2 1.0 是什么
 
 `1.0` 是**里程碑，不是用完的计数**：达到 1.0 需要一次显式决策（一份 ADR），表示"语言表面冻结"——之后只出 PATCH 版本（`1.0.1`、`1.0.2`…），不再加描述类型、段与字段。
 
-**版本线的合并已经发生**（2026-10-27，决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md)）：九条类型版本线合成一个语言版本号，语言走到 `0.9.1`。合并不是冻结——表面还在动，十用例语料还没齐（`docs/backlog.md` F12）——所以 `1.0` 仍然是保留号，触发条件还是那份决策要写的东西：没有待做的破坏性或增量表面变更，且十个困难用例语料已经存在。
+**版本线的合并已经发生**（2026-10-27，决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md)）：九条类型版本线合成一个语言版本号。合并不是冻结——表面还在动，十用例语料还没齐（`docs/backlog.md` F12）——所以 `1.0` 仍然是保留号，触发条件还是那份决策要写的东西：没有待做的破坏性或增量表面变更，且十个困难用例语料已经存在。
 
 所以版本号涨得快不意味着快到 1.0：日常的澄清与诊断改进走 PATCH 位，只有真正的语言增量才动 MINOR，而 MINOR 步在 `0.x` 阶段需要一份决策记录。
 
 **`1.0` 之后如果确实要改表面，那是新的 MAJOR（`2.0`）**，带迁移说明与迁移脚本——`1.x` 线因此只有 `1.0`、`1.0.1`、`1.0.2`……，不会有 `1.1`–`1.9`（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D6）。
 
-### 13.3 接受规则
+### 12.3 接受规则
 
 一个文件被接受，当且仅当：
 
 1. 版本号是合法的 `MAJOR.MINOR[.PATCH]`（否则 `format.invalid-version`）；
 2. MAJOR 与工具支持的 MAJOR 相同（否则 `format.unsupported-version`）；
-3. MINOR **不低于该描述类型的 reader 下界**（§13.1 的表）——`view` 与 `symbol` 文件不能写 `0.10`，即使某个文件没有使用 `field` 段；`procurement` 文件仍可写 `0.9`；
-4. MINOR **不高于语言当前的 MINOR**——上界对所有描述类型都是同一个：今天 `symbol` 文件与 `view` 文件的上界一样，都是语言当前版本。
+3. MINOR **不低于该描述类型的 reader 下界**（§12.1 的表）；
+4. MINOR **不高于语言当前的 MINOR**——上界对所有描述类型都是同一个：语言当前版本。
 
 上界是统一的语言版本；reader 下界则是该类型当前仍支持的最早表面形态，可能晚于类型的历史引入版本。表面形态发生破坏性变化时，下界可以随显式迁移一起前移。
 
-`project.toml` 的 `format` 是**语言版本**（§13.1 的当前号），`texteda init` 写的就是它；IR 的 `format` 字段记的是源文件自己声明的版本（canonical 写法）。IR 契约版本 `ir_version` 是另一条线，不随语言版本动（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D8）。
+`project.toml` 的 `format` 是**语言版本**（§12.1 的当前号），`texteda init` 写的就是它；IR 的 `format` 字段记的是源文件自己声明的版本（canonical 写法）。IR 契约版本 `ir_version` 是另一条线，不随语言版本动（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D8）。
 
-PATCH 位不参与判定（见 §13.1 的硬规则）。
+PATCH 位不参与判定（见 §12.1 的硬规则）。
 
-### 13.4 版本沿革
+### 12.4 版本沿革
 
 语言的每次版本变化在这里留一条，最新的在前。每条写明改了什么，并指向决定它的那份记录。
+
+#### 0.14.0 — One project root, explicit PCB ownership（2026-11-09）
+
+- **一个工程一个逻辑根**（决策见 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1）：`design/sch/main.teda` 是唯一的 `schematic` 描述，id 固定 `main`。它组合模块实例（`modules` 段）、给出项目级 `nets` / `ports` / `constraints`，并新增 `interconnects` 段（跨板物理路径，端点是模块端口）与可选 `interconnect_pins` 段（连接器/电缆引脚映射，不是 net 成员）。根文件**不再有 `instances` 段**：全部器件事实在 `design/modules/<module_id>.teda`（module 文件的解析行为不变）。
+- **删除板级与系统旧构造，无兼容路径**：`design/sch/<board_id>.teda`（板级原理图，板 id ≠ `main`）、`system` 描述类型（`design/system/*.teda`）、`views/<board_id>/` 板级打印页全部不再合法（`ref.legacy-board-root` / `ref.legacy-system-description`）。`[boards.<id>]` 键改为物理 PCB 的元数据表。
+- **PCB 拥有模块实例**：`design/pcb/<pcb_id>.teda` 新增必需的 `modules` 段，列出它拥有的模块实例；每个模块实例整只属于恰好一块 PCB，可复用定义可在不同 PCB 各自实例化。`procurement` 文件名改用 `pcb_id`。PCB 的 `connect` / `trace` 只表达板内连续铜箔；net 名相等从不 imply interconnect。归属与物理连通性的全局校验在 core，不在 parser。
+- **视图按工程组织**：打印页迁到 `views/<page_id>.view.teda`（project 常量 `main`；`place` 可选）。
+- **IR 契约到 `v0.19`**（`v0.18` 保持不变）：schematic 根的必填字段是 `ir_version` / `format` / `project`（常量 `main`）/ `modules` / `instances` / `nets`——根源没有器件，但展平 IR 必有（普通消费者拿到的仍是实例表 + net 表）；`modules` 项是 `{instance_id, module_id, uid?, ports:[{id, net?, pins:string[]}]}`，`ports[].pins` 是根 net 合并**之前**的模块本地端口 net 的完整归一化展平引脚引用；`interconnects` 项 `{id, from, to}`（端点 `M1.PORT`）；`interconnect_pins` 项 `{interconnect, from, to}`（引脚引用 `M1.J1.1`）；可选数组为空时省略。`modules` / `interconnects` / `interconnect_pins` 分片是规范分片，进工程哈希。
+- **Reader floors**：`schematic` → `0.14`（根形状重写），`pcb` → `0.14`（必需 `modules` 段），`view` → `0.14`（工程作用域）；`module` 保持 `0.8`、`procurement` 保持 `0.9`、`module_view` / `sheet_template` 保持 `0.13`、`footprint` / `symbol` 保持 `0.11`。`system` 类型从表中删除。
+
+#### 0.13.0 — Reusable module drawings and sheet templates（2026-11-08）
+
+- Adds `module_view` and `sheet_template` descriptions, plus the `template` scalar and `module_place` section for composed `view` pages. Module drawings have independent required `bounds`; templates provide static furniture and page `size`. Composition uses the exact right-angle transforms and port-binding rules in `spec/schematic-view.md` §§12–14. No page role is selected by page ID ([ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md)).
+- `view` keeps its `0.11` reader floor; constructs introduced in 0.12 and 0.13 require those declared language versions. The new `module_view` and `sheet_template` types have reader floors of `0.13`.
+- The IR contract advances to `v0.18`; `v0.17` remains immutable. The new module-view and sheet-template shards and the optional `template` and `module_place` fields on schematic-view shards are advisory (`normative: false`) and do not affect normative hashes or netlist content.
+
+#### 0.12.0 — Hierarchical module views and a custom page size（2026-11-08）
+
+- The `view` description gains `module` and `module_port` sections for a drawing-only overview, conventionally on page `main`; module-port wire endpoints draw board bindings. Page IDs do not select roles: any page ID may be a detail or composed page, and detail pages may mix and split module components. Board and module descriptions remain the sole electrical authority ([ADR-0067](../docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md)).
+- `size [width,height]` is the canonical page-size scalar. `sheet [width,height]` remains accepted as an alias, but both together are an error. Formatting follows the source file's version: 0.11 writes `sheet`, 0.12 writes `size`. The omitted-size default remains A4 landscape.
+- The `view` reader floor stays `0.11`; the additive constructs require version `0.12`. The IR contract advances to `v0.17`; `v0.16` remains unchanged.
 
 #### 0.11.0 — A coordinate tuple is one cell（2026-11-08）
 
@@ -764,15 +771,15 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
 #### 0.9 — 采购层与实例 UID（2026-10-22）
 
 - 新增 `procurement` 描述类型——一块板的采购选料（决策见 [ADR-0029](../docs/adr/07-devices/0029-the-procurement-layer.md)，语法见 `spec/procurement.md`）。选料是**决定**不是事实：主料进工程哈希与板哈希，备料只进 advisory 哈希。**已落地**（2026-10-23）：解析器与 canonical fmt（`packages/parser`）、IR 契约 **v0.6** 的 `procurement` 分片（规范的主料分片 + 附注的备料分片）、`texteda compile --procurement` 与 `texteda check` 的接线。**未落地**：选料与件额定值的比对检查、BOM 输出（`docs/backlog.md` F35）。
-- 同一次改动里，`schematic` 与 `module` 的实例行可带稳定 UID（`refdes IDxxxxxx …`、`M1 IDxxxxxx module_id`；决策见 [ADR-0010](../docs/adr/03-project/0010-instance-identity-is-a-uid.md)，2026-10-25）。IR 契约到 **v0.14**，`instance` 多一个可选 `uid`；展平后的模块实例 UID 形如 `IDmodule/IDlocal`。这不是引用重写：`nets` 成员、`view` 摆位、`pcb` 摆位仍按显示名引用。
+- 同一次改动里，实例行可带稳定 UID（`refdes IDxxxxxx …`、`M1 IDxxxxxx module_id`；决策见 [ADR-0010](../docs/adr/03-project/0010-instance-identity-is-a-uid.md)，2026-10-25）。IR 契约到 **v0.14**，`instance` 多一个可选 `uid`；展平后的模块实例 UID 形如 `IDmodule/IDlocal`。这不是引用重写：`nets` 成员、`view` 摆位、`pcb` 摆位仍按显示名引用。
 
 #### 0.8 — 模块（2026-10-22）
 
-- 新增 `module` 描述类型、`sch` 的 `modules` 段、模块端口与板级 net 的绑定、板内展平（决策见 [ADR-0013](../docs/adr/04-schematic/0013-modules-compose-boards.md)，语法见 `spec/module.md`）。板内重新有了**一层逻辑层次**：模块持有电气事实，带端口；绘制划分仍在视图层的打印页里。**IR 契约不变**（仍是 0.2）：板级 IR 是展平结果，不含模块结构。
+- 新增 `module` 描述类型、模块端口与上层 net 的绑定、展平（决策见 [ADR-0013](../docs/adr/04-schematic/0013-modules-compose-boards.md)，语法见 `spec/module.md`）。层次里**有一层逻辑结构**：模块持有电气事实，带端口；绘制划分在视图层的打印页里。**IR 契约不变**（当时仍是 0.2）：上层 IR 是展平结果，不含模块结构。
 
 #### 0.7 — 一块板一份原理图，页面变打印页（2026-10-21）
 
-- **删除**：`page` 描述类型、`sch` 的 `pages` 段、页内命名空间与展平。一块板只有一份 `schematic` 文件；绘制划分移到视图层，成为**打印页**（决策见 [ADR-0012](../docs/adr/04-schematic/0012-one-flat-schematic-per-board.md)）。`view` 文件的 `place` / `wire` / `label` / `port` 改为引用**板级** id（决策同前）。
+- **删除**：`page` 描述类型、`sch` 的 `pages` 段、页内命名空间与展平；绘制划分移到视图层，成为**打印页**（决策见 [ADR-0012](../docs/adr/04-schematic/0012-one-flat-schematic-per-board.md)）。
 - **迁移 0.6 → 0.7**（`bun run migrate:0.7 <project dir>` 做机械部分）：
   1. 把每个页面文件的 `instances`、`nets`、`constraints` 并进板文件；页面的 `ports` 行删掉，板根里引用页面端口的 net 行改成板级 net 本身。
   2. 板内撞名的 `refdes` 与 `net` 由作者改名（工具不替你决定，报错并列出冲突）。
@@ -782,7 +789,7 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
 
 #### 0.6 — 视图层（2026-10-21）
 
-- 新增 `view` 描述类型——原理图的 S1 视图层，页面文件的孪生文件（决策见 [ADR-0035](../docs/adr/09-view/0035-the-view-layer-is-a-drawing.md)，语法见 `spec/schematic-view.md`）。
+- 新增 `view` 描述类型——原理图的 S1 视图层（决策见 [ADR-0035](../docs/adr/09-view/0035-the-view-layer-is-a-drawing.md)，语法见 `spec/schematic-view.md`）。
 
 #### 0.5 — 符号（2026-10-20）
 
@@ -796,9 +803,9 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
 
 - 新增 `page` 描述类型、`sch` 的 `pages` 段、板内展平与 BOM 计数规则（决策见 [ADR-0015](../docs/adr/04-schematic/0015-flattening-and-the-net-set.md)）。**这两项在 `0.7` 被删除**（见上）。
 
-#### 0.2 — 端口与 system（2026-10-20）
+#### 0.2 — 端口（2026-10-20）
 
-- 新增 `sch` 的 `ports` 段、`system` 描述类型（决策见 [ADR-0009](../docs/adr/03-project/0009-board-linking.md)）。未使用新构造的文件保持旧号。
+- 新增 `sch` 的 `ports` 段（决策见 [ADR-0009](../docs/adr/03-project/0009-board-linking.md)）。未使用新构造的文件保持旧号。
 
 #### 0.1 — 语言的起点（2026-10-20）
 
@@ -819,42 +826,42 @@ PATCH 位不参与判定（见 §13.1 的硬规则）。
   - **改法**（同上没有需要迁移的旧文件）：
     1. 删掉器件文件里的 `package` 行。
     2. 把封装代号搬到对应的封装文件：写 `package_code <代号>`，封装文件的版本行改成 `0.4.1`。同一焊盘图案上出现两个不同代号时由作者决定留哪个。
-- `component` 描述类型：`0.1.2` → `0.1.3`（PATCH，2026-10-23）。**改名与合目录**：`kind` 的第二个取值 `family` 改名为 `generic`（"族"是厂商的词：STM32F4 族、LM35 族说的都是厂商的产品线；我们这里说的是"没有厂商的器件类别"，行业里叫 generic），两种器件**合并到同一个目录** `assets/components/**`，`kind` 只写在文件里、不再从目录推断（决策见 [ADR-0024](../docs/adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D6、D7）。**这是破坏性变更**（`kind family` 的老文件不再合法），按合并前的规矩走 PATCH 位（类型版本线只增 PATCH），改法见下：
+- `component` 描述类型：`0.1.2` → `0.1.3`（PATCH，2026-10-23）。**改名与合目录**：`kind` 的第二个取值 `family` 改名为 `generic`，两种器件**合并到同一个目录** `assets/components/**`，`kind` 只写在文件里、不再从目录推断（决策见 [ADR-0024](../docs/adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D6、D7）。**这是破坏性变更**（`kind family` 的老文件不再合法），按合并前的规矩走 PATCH 位（类型版本线只增 PATCH），改法见下：
   - **改法**（本项目尚无外部使用者，没有需要迁移的旧文件；下面是改动的机械部分）：
     1. 器件文件里的 `kind family` 改成 `kind generic`；id、`construction`、`polarized`、`params` 一律不动。
     2. `assets/families/**` 下的文件移到 `assets/components/**`（按类别放进对应子目录）。
-    3. 通用器件文件的版本行改成 `0.1.3`；`kind: part` 的文件内容没变，版本行保持 `0.1.2`（合并前的规矩：没用新构造的文件保持旧号；今天的接受规则见 §13.3）。
+    3. 通用器件文件的版本行改成 `0.1.3`；`kind: part` 的文件内容没变，版本行保持 `0.1.2`（合并前的规矩：没用新构造的文件保持旧号；今天的接受规则见 §12.3）。
     4. 库里的器件同理；`lib:id` 的限定名规则不变。
 - `component` 描述类型：`0.1.3` → `0.1.4`（PATCH，2026-10-23）。**词表封闭 + 必填列按构造收紧**：`construction` 变成封闭取值集（§6.1.1）；`params` 的角色名与量纲分工写进 §6.2；必填列按 `construction` 收紧（§6.2.2）；`dielectric` 的取值变成封闭集合（§6.2.1）。**这是破坏性变更**（`construction` 拼错、介质拼错、以及缺必填列的老文件不再合法），按合并前的规矩走 PATCH 位（类型版本线只增 PATCH），决策见 [ADR-0025](../docs/adr/07-devices/0025-device-vocabulary-and-parameter-roles.md)。**改法**：
   1. `construction` 改成封闭取值集里的写法（`mlcc` / `film` / `tantalum` / `electrolytic` / `thick` / `thin` / `shielded` / `molded`）。
   2. 按 §6.2.2 给每种 `construction` 补齐必填列（例：`mlcc` 补 `dielectric`，`tantalum` 把 `voltage` 提为必填）。
   3. `dielectric` 的取值改成 IEC 60068-4 的码（`X7R` / `X5R` / `C0G` …），不归一化、不收别名。
-  4. 通用器件文件的版本行改成 `0.1.4`；`kind: part` 的文件内容没变，版本行保持原号（合并前的规矩：没用新构造的文件保持旧号；今天的接受规则见 §13.3）。
+  4. 通用器件文件的版本行改成 `0.1.4`；`kind: part` 的文件内容没变，版本行保持原号（合并前的规矩：没用新构造的文件保持旧号；今天的接受规则见 §12.3）。
   - **已落地**：上表的规则表在 `packages/core`（`devices/rules.ts`），由 `texteda check` 执行（决策见 [ADR-0025](../docs/adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) D7）。
 - `footprint` 描述类型：`0.4` → `0.4.1`（PATCH，2026-10-22）。新增 `package_code` 标量：这块焊盘图案的封装代号（`0402`、`SOT-23-5`、`LQFP-100`），供厂商与评审读（决策见 [ADR-0028](../docs/adr/07-devices/0028-package-code-and-3d-models.md) decision 1）。加字段在 `0.x` 阶段也走 PATCH 位；没写 `package_code` 的文件仍然合法（代号通常已经在封装 id 里），但库级检查（`bun run lib:verify`）要求每个封装都写明自己的代号。
-- `component` 描述类型：`0.1.4` → `0.1.5`（PATCH，2026-10-23）。新增 `ratings` 段：`kind: part` 的件在这里写自己的额定值（`role type value`），`kind: generic` 不得写、`kind: part` 仍不得写 `params`（决策见 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)）。**IR 契约随之到 0.4**（`component` 分片多了 `ratings`）。用到 `ratings` 的件文件写 `version 0.1.5`；没写的件文件版本行不变（合并前的规矩：没用新构造的文件保持旧号；今天的接受规则见 §13.3）。
+- `component` 描述类型：`0.1.4` → `0.1.5`（PATCH，2026-10-23）。新增 `ratings` 段：`kind: part` 的件在这里写自己的额定值（`role type value`），`kind: generic` 不得写、`kind: part` 仍不得写 `params`（决策见 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)）。**IR 契约随之到 0.4**（`component` 分片多了 `ratings`）。用到 `ratings` 的件文件写 `version 0.1.5`；没写的件文件版本行不变（合并前的规矩：没用新构造的文件保持旧号；今天的接受规则见 §12.3）。
 - `component` 描述类型：`0.1.5` → `0.1.6`（PATCH，2026-10-24）。新增 `provenance` 标量与 `verified_by` / `verified_on`：器件自己声明事实的来源与核对状态（决策见 [ADR-0034](../docs/adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md) decision 5，取代 [ADR-0033](../docs/adr/08-libraries/0033-libraries-are-unverified-facts.md) 的派生件）。**IR 契约随之到 v0.12**（`component` 分片多了 `provenance`）。**改法**：不写这三个标量的文件保持原号；`texteda lib import` 写出的文件是 `0.1.6` + `provenance generated`。
 - `component` / `symbol` / `footprint` 三种描述（2026-10-24）：各新增一个可选标量 `rev`——**该文件的事实最后确立的那个发布名**（不是格式 `version`，不是库整体版本），信任记录按它逐字匹配（决策见 [ADR-0034](../docs/adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md) D6）。版本线：`component 0.1.6` → `0.1.7`、`symbol 0.5` → `0.5.1`、`footprint 0.4.1` → `0.4.2`（PATCH；**IR 契约随之到 v0.13**）。**改法**：不写 `rev` 的文件保持原号——`rev` 是可选的，没有信任记录时它什么也不影响；`texteda lib import` 写出的器件是 `0.1.7`，并在没有 `rev` 的文件里盖上一个（几何文件保持它自己的版本行：patch 位不决定接受与否）。**同批改动**：`library.toml` 的 `[library] rev` 与 `[[trust]]` 的行级 `rev` 删除，条目的写法变成 `<id>@<rev>`（`docs/guides/library-import.md` §3）。
 - **契约更正**（2026-10-24，`v0.13` 原地修，不抬契约号）：`common.schema.json` 的 `layer_name` 模式原先拒绝 `*`，而同一个 schema 的说明、`spec/footprint.md` §3 与解析器都写着“通孔焊盘用 `*.Cu` / `*.Mask`”——于是**任何通孔封装都过不了契约**（`syntax` 过了，`contract.schema-violation` 挡在门口）。模式改为允许 `*`，解析器的 `LAYER_RE` 同步，并补了通孔正例夹具（`tests/schemas/valid/footprint/th-header.json`）。**为什么原地修**：字段、类型、语义都没变，改的是与自身说明矛盾的一条正则；抬一个契约号会让“v0.13 的 IR 到底能不能有通孔封装”变成两个答案。触发用例：`examples/cases/nc-pins`。
 - **撤销**（2026-10-24）：`project.toml` 的 `[libs]` 表（连同 `content_hash` 与 `bun run lib:hash`）。工程不引用外部库；自建资产就在 `assets/`，作为规范分片进构建身份。旧文件里的 `[libs.*]` 现在报 `syntax.unknown-field`，消息直说改法；`init` 也不再建 `external/libs/`（决策见 [ADR-0034](../docs/adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md) decision 15）。
 - **撤销**（2026-10-24）：`libref` 描述类型（`external/libs/<name>.toml`）与器件引用的 `<lib>:<id>` 限定形式。工程不再消费 `external/libs/**` 里的树；外部库是模板，用 `texteda lib import` 拷进 `assets/`（决策见 [ADR-0034](../docs/adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md) D2）。旧工程里的 `external/libs/<name>.toml` 与限定 id 现在分别报 `ref.library-in-tree` 与 `ref.library-qualified-id`；改法：删掉锚点与树，重新 `lib import` 你要用的器件。
-- **收严**（2026-10-24，`schematic`，PATCH 位不动）：**引脚引用命中多个引脚就是歧义**。`U1.OUT` 在双运放上同时命中单元 1 与单元 2 的 `OUT`，以前静默取第一个，现在报 `ref.ambiguous-pin` 并提示写 `U1.1.OUT`；同一单元内重名的引脚（两个 `GND`）同样报歧义，提示改用编号（§4.5）。**改法**：多单元器件的 net 成员写成 `<refdes>.<unit>.<pin>`；重名引脚改用编号。**为什么算 PATCH**：它不新增构造，只把一条一直写在规范里、实现却没执行的规则（"名称不唯一时改用编号"）接上——而它咬到的正是**已经在做错事**的文件（把线接到错误的单元上），与 §13.1 里 PATCH 位那条规则（"对本来就该报错的文件收严"）同类。触发用例：`examples/cases/dual-opamp-multi-unit`（`docs/backlog.md` F12）。
+- **收严**（2026-10-24，`schematic`，PATCH 位不动）：**引脚引用命中多个引脚就是歧义**。`U1.OUT` 在双运放上同时命中单元 1 与单元 2 的 `OUT`，以前静默取第一个，现在报 `ref.ambiguous-pin` 并提示写 `U1.1.OUT`；同一单元内重名的引脚（两个 `GND`）同样报歧义，提示改用编号（§4.5）。**改法**：多单元器件的 net 成员写成 `<refdes>.<unit>.<pin>`；重名引脚改用编号。**为什么算 PATCH**：它不新增构造，只把一条一直写在规范里、实现却没执行的规则（"名称不唯一时改用编号"）接上——而它咬到的正是**已经在做错事**的文件（把线接到错误的单元上），与 §12.1 里 PATCH 位那条规则（"对本来就该报错的文件收严"）同类。触发用例：`examples/cases/dual-opamp-multi-unit`（`docs/backlog.md` F12）。
 - `pcb` 描述类型：`0.7` → `0.7.1`（PATCH，2026-10-22）。`physical_only` 的实体**有位置**了：行是 `<id> <type> <x> <y> [args…]`（`spec/pcb.md` §4.11），`cutout` 的参考点是矩形左下角，其余是圆心。同时**删除** `test_point` 形态——测试点是 `sch` 里的单引脚器件，不是 `pcb` 的实体（决策见 [ADR-0014](../docs/adr/04-schematic/0014-connectivity-has-one-authority.md) D8/D9/D11）。**这是破坏性变更**（老的 `physical_only` 行与 `test_point` 行不再合法），按合并前的规矩走 PATCH 位（类型版本线只增 PATCH）。**IR 契约随之到 0.9**（`pcb` 分片：`mounting` / `fiducial` / `stitching` 多了 `x_nm` / `y_nm`，`test_point` 变体删除）。**改法**：
   1. 每个 `physical_only` 行在类型后面插两个坐标（mm，默认单位），写在板框里给它定的位置。
   2. `test_point` 行改成 `sch` 里的单引脚器件（不采购的写 `kind generic`），走普通 net 成员规则；`pcb` 里只保留它的封装放置。
   3. 用到位置的 `pcb` 文件写 `version 0.7.1`；没写 `physical_only` 的 `pcb` 文件版本行不变。
-- 类型版本线已随 2026-10-27 的合并退役：一个语言版本号，PATCH 位只增不减（见 §13.1 / §13.2，决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md)）。
+- 类型版本线已随 2026-10-27 的合并退役：一个语言版本号，PATCH 位只增不减（见 §12.1 / §12.2，决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md)）。
 - 未知构造默认报错；放宽要显式开关（见 ADR-0005 的前向兼容约定）。**这是 `0.x` 阶段版本号只走 PATCH 位的安全依据**：不懂新构造的工具会报错停下，不会误读文件。
-- 所有破坏性变更必须写明改了什么、怎么改（见本节）；`fmt` 不自动跨 MAJOR 迁移。破坏性变更的机械部分由迁移脚本做（`bun run migrate:0.7`、`bun run migrate:0.9`），其余由作者决定：工具不替人改名、不替人决定事实。
+- 所有破坏性变更必须写明改了什么、怎么改（见本节）；`fmt` 不自动跨迁移。破坏性变更的机械部分由迁移脚本做（`bun run migrate:0.7`、`bun run migrate:0.9`），其余由作者决定：工具不替人改名、不替人决定事实。
 
 ---
 
-## 14. 完整示例
+## 13. 完整示例
 
 `assets/components/regulators/tps7a02.teda`（一个 `part`）：
 
 ```
-version 0.9.2
+version 0.14.0
 component tps7a02
 
 kind         part
@@ -876,7 +883,7 @@ pins
 `assets/components/passives/cap-tantalum-7343.teda`（一个 `generic`）：
 
 ```
-version 0.9.2
+version 0.14.0
 component cap-tantalum-7343
 
 kind         generic
@@ -898,113 +905,81 @@ pins
   2  N  polarized
 ```
 
-`design/sch/main.teda`：
+`design/modules/power.teda`（模块定义：**全部器件事实在这里**）：
 
 ```
-version 0.9.2
-schematic main
+version 0.14.0
+module power
 
 instances
-  R1  res-th-0402  10k  ±1%
   U1  tps7a02
+  R1  res-th-0402  10k  ±1%
 
 nets
   GND:   U1.GND  R1.2
-  VIN:   U1.IN  U1.EN
-  VOUT:  U1.OUT  R1.1
+  VIN:   U1.IN  U1.EN  R1.1
+  VOUT:  U1.OUT
 
 ports
-  GND     GND
-  VIN_IN  VIN
+  GND   GND
+  PWR   VIN
 ```
 
-`design/sch/aux.teda`：
+`design/sch/main.teda`（**工程的逻辑根**，一个工程恰好一份）：
 
 ```
-version 0.9.2
-schematic aux
+version 0.14.0
+schematic main
 
-instances
-  R1  res-th-0402  10k  ±1%
-  U1  tps7a02
+modules
+  M1  IDp8x2n4  power
+  M2  IDk2m8q4  aux
 
 nets
-  GND:  U1.GND  R1.2
-  VIN:  U1.IN  R1.1
+  GND:   M1.GND  M2.GND
+  SYS:   M1.PWR  M2.PWR
 
 ports
-  GND     GND
-  VIN_IN  VIN
-```
-
-`design/sch/power.teda`（一块板 = 一份文件，两个电路写在同一份里）：
-
-```
-version 0.9.2
-schematic power
-
-instances
-  R1   res-th-0402       100k   ±1%
-  R2   res-th-0402       10k    ±1%
-  U1   bq24610rger
-  U2   tps7a02
-
-nets
-  GND:    U1.GND  R1.2  U2.GND  R2.2
-  VFB:    U1.VFB  R1.1  U2.OUT  R2.1
-
-ports
-  GND  GND
+  GND      GND
+  SYS_OUT  SYS
 
 constraints
-  voltage  VFB   2.079V..2.121V
+  voltage  SYS  3.0V..5.5V
+
+interconnects
+  ic1  M1.PWR  M2.PWR
 ```
 
-板内的 `refdes` 与 `net` 名唯一；两个电路的撞名由作者改名（上面两块电路的 `R1` 分别写成 `R1` 与 `R2`）。BOM 按 (`component_id`, 参数字典) 聚合：两块电路里的同型号同参数件合并成一行、数量相加。
+两块 PCB 各自声明拥有的模块实例（`design/pcb/pwr-l1.teda`、`design/pcb/pwr-l2.teda`，语法见 `spec/pcb.md` §4.1）：`M1` 属于 `pwr-l1`，`M2` 属于 `pwr-l2`；跨板的 `ic1` 是一条显式物理路径，不是任何 net 名的巧合。展平后的 IR 是**扁平的**：一张实例表（`M1.U1`、`M2.U1`…）、一张 net 表，不含模块结构（§7.7；IR 契约 v0.19）。
 
-`design/sch/power/charger.view.teda`（同一个板的第一个打印页，画给评审看）：
+`views/charger.view.teda`（工程打印页，画给评审看）：
 
 ```
-version 0.11.0
+version 0.14.0
 view charger
 
 place
-  R1  [40,30]  0
-  U1  [80,30]  0
+  M1  [40,30]  0
+  M2  [80,30]  0
 
 wire
-  VFB  U1.VFB  R1.1
+  SYS  M1.PWR  M2.PWR
 ```
 
-打印页引用**板级**的 `refdes` 与 `net` 名；它不创建任何连接，删掉它，板照样成立（语法见 `spec/schematic-view.md`）。
-
-`design/system/main-stack.teda`：
-
-```
-version 0.9.2
-system main-stack
-
-boards
-  aux
-  main
-
-nets
-  GND:  aux.GND  main.GND
-  VIN:  aux.VIN_IN  main.VIN_IN
-```
+打印页引用**根级**的模块实例与 net 名；它不创建任何连接，删掉它，工程照样成立（语法见 `spec/schematic-view.md`）。
 
 ---
 
-## 15. 尚未定义
+## 14. 尚未定义
 
 以下未定或明确不支持：
 
 - 行尾注释、引号单元格、转义、跨行值。
-- `blocks` 板内层次（`module` 已落地，见 `spec/module.md`；backlog F13 的其余部分：参数、嵌套、跨工程库包）。
-- 板内**绘制**划分：一块板可以有多个打印页，但那是视图层的事（`docs/adr/04-schematic/0012-one-flat-schematic-per-board.md`）；逻辑的划分只有模块这一层。
-- 一个 `port` 暴露多个 `net`；板外端点（适配器、电池、负载）；跨板线束与连接器对（见 `docs/adr/03-project/0009-board-linking.md`）。
+- `blocks` 层次（`module` 已落地，见 `spec/module.md`；backlog F13 的其余部分：参数、嵌套、跨工程库包）。
+- 一个 `port` 暴露多个 `net`；板外端点（适配器、电池、负载）；跨板**线束与连接器选型**（`interconnects` 声明路径本身，`docs/adr/03-project/0009-board-linking.md`）。
+- interconnect 的端点级引脚映射之外的事实（电缆型号、线规、差分 twin）。
 - 生成器 / 循环 / 条件（事实层禁止；生成器在语言之外、产物是表，见 `docs/adr/01-language/0001-fact-layer-has-no-expressions.md`）。
-- 表达式语言；v0.2 只允许约束里的比较与区间（值层与组合层不受事实层禁令约束，见 `docs/adr/01-language/0001-fact-layer-has-no-expressions.md` D4）。
+- 表达式语言；0.2 起只允许约束里的比较与区间（值层与组合层不受事实层禁令约束，见 `docs/adr/01-language/0001-fact-layer-has-no-expressions.md` D4）。
 - PCB 几何语法的剩余项（圆弧走线、圆弧板框、微孔、布局约束、封装几何是否内联）：见 `spec/pcb.md` §7。
 - `logical_only` 的标记语法（`physical_only` 见 `spec/pcb.md` §4.11）。
 - 多单元器件的引用简写（`U1B.OUT`）。
@@ -1020,15 +995,14 @@ file       = header, { line }, EOF ;
 header     = { blank | comment }, version_line, { blank | comment }, type_line ;
 version_line = WS0, "version", WS1, version, WS0, NL ;
 type_line  = WS0, file_type, WS1, id, WS0, NL ;
-file_type  = "component" | "schematic" | "pcb" | "system" | "footprint" | "symbol" | "view" ;
+file_type  = "component" | "schematic" | "module" | "pcb" | "footprint" | "symbol" | "view" ;
 version    = digit, ".", digit ;
 
-line       = blank | comment | section | scalar | directive | row | single_row ;
+line       = blank | comment | section | scalar | row | single_row ;
 blank      = WS0, NL ;
 comment    = WS0, "#", { any - NL }, NL ;
 section    = WS0, section_name, WS0, NL ;
 scalar     = WS0, key, WS1, value, NL ;
-directive  = WS0, "bus", WS1, id, WS1, "=", WS1, bus_type, WS0, NL ;
 row        = WS0, cell, WS1, cell, { WS1, cell }, WS0, NL ;
 single_row = WS0, cell, WS0, NL ;
 
@@ -1037,9 +1011,9 @@ cell       = non_ws, { non_ws } ;
 non_ws     = any - ( " " | "\t" | NL ) ;
 key        = lower, { lower | digit | "_" } ;
 id         = lower, { lower | digit | "-" } ;
-bus_type   = upper, { upper | digit | "_" } ;
-section_name = "params" | "pins" | "instances" | "nets" | "ports" | "boards"
-             | "constraints" | "stackup" | "outline" | "place" | "connect" | "trace"
+section_name = "params" | "pins" | "instances" | "nets" | "ports" | "modules"
+             | "constraints" | "interconnects" | "interconnect_pins"
+             | "stackup" | "outline" | "place" | "connect" | "trace"
              | "via" | "zone" | "keepout" | "rules" | "silk" | "physical_only"
              | "deviation" | "pads" | "graphics" | "body"
              | "wire" | "label" | "text" ;
@@ -1051,16 +1025,14 @@ WS1        = ( " " | "\t" ), { " " | "\t" } ;
 
 1. `version_line` 是第一条有效行，`type_line` 是第二条；空行/注释可夹在中间。
 2. `scalar` 只能出现在 `type_line` 之后、第一个 `section` 之前。
-3. `row` 只能出现在 `section` 或 `bus` 块内。
+3. `row` 只能出现在 `section` 内。
 4. `section_name` 必须属于当前文件类型：
    - `component`：`params`、`pins`
-   - `schematic`：`instances`、`nets`、`ports`、`constraints`（板级另有 `modules` 段）
+   - `schematic`（根，id 固定 `main`）：`modules`、`nets`、`ports`、`constraints`、`interconnects`、`interconnect_pins`
    - `module`：`instances`、`nets`、`ports`、`constraints`
-   - `system`：`boards`、`nets`
-   - `pcb`：`stackup`、`outline`、`place`、`connect`、`trace`、`via`、`zone`、`keepout`、`rules`、`silk`、`physical_only`、`deviation`
+   - `pcb`：`modules`、`stackup`、`outline`、`place`、`connect`、`trace`、`via`、`zone`、`keepout`、`rules`、`silk`、`physical_only`、`deviation`
    - `footprint`：`pads`、`graphics`
    - `symbol`：`pins`、`body`
-   - `view`：`place`、`wire`、`label`、`port`、`text`
-5. 单单元格的非空行只能是 `section`；唯一例外是 `system` 的 `boards` 段，那里的单单元格行是 `board_id` 数据行（`single_row`）。
-6. `bus` 指令只出现在 `schematic`，canonical form 中位于 `nets` 之后、`constraints` 之前。
-7. `id` 的具体字符集按 §4.2；net 名允许 `.`、`+`、`-`，与文件 id 不同。
+   - `view`：`place`、`field`、`wire`、`label`、`port`、`text`、`module`、`module_port`
+5. 单单元格的非空行只能是 `section`。
+6. `id` 的具体字符集按 §4.2；net 名允许 `.`、`+`、`-`，与文件 id 不同；`module_instance_id` 是保留形状 `^M[0-9]+$`。

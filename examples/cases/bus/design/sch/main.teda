@@ -1,0 +1,21 @@
+version 0.14.0
+schematic main
+
+modules
+  M1  sensor-hub
+
+nets
+  I2C_SCL:  M1.I2C_SCL
+  I2C_SDA:  M1.I2C_SDA
+  PWR_GND:  M1.PWR_GND
+  PWR_VDD:  M1.PWR_VDD
+
+ports
+  I2C_SCL  I2C_SCL
+  I2C_SDA  I2C_SDA
+  PWR_GND  PWR_GND
+  PWR_VDD  PWR_VDD
+
+constraints
+  voltage  PWR_GND  0V..0V
+  voltage  PWR_VDD  3.0V..3.6V

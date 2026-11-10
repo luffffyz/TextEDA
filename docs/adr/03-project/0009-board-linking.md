@@ -3,8 +3,8 @@
 Status: Accepted
 Date: 2026-10-20
 Scope: Decides: that boards are linked in a separate `system` description, and that a schematic never references another board. Does not decide: what a port is — see `spec/teda.md` §8.
-Related: [ADR-0008](0008-project-tree-has-owners.md), [ADR-0014](../04-schematic/0014-connectivity-has-one-authority.md)
-Impact: `spec/teda.md` §7.5, §8; `spec/project.md` §1
+Related: [ADR-0008](0008-project-tree-has-owners.md), [ADR-0014](../04-schematic/0014-connectivity-has-one-authority.md), [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md)
+> **Current linking contract (2026-11-09):** the decisions below that split project logic per board are superseded by [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md). A project now has one logical root, `design/sch/main.teda`, which owns project ports and declares cross-board connection in its `interconnects` and optional `interconnect_pins` sections; there are no board-local schematic roots, no `system` descriptions, and no `design/system/` files (ADR-0069 D1, D3, D6). The version history in Decision 5 is kept as the record of its day; current versioning and migration are in ADR-0069 D6.
 
 ## Background
 
@@ -17,6 +17,8 @@ The project is a multi-board system (in the reference project: `charger` + `buck
 In real projects, inter-board connection is an **interface problem**: which node of which board leaves the board, over which wire / which connector pair, and into which node of the other board. This kind of information belongs neither to the internal circuit of any single board nor to project metadata, so it needs a place of its own.
 
 ## Decision
+
+Decisions 1–3 are superseded as current contract by [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md): the project logic root owns project ports, there are no `system` descriptions, and cross-board connection is declared in the root's `interconnects` and optional `interconnect_pins` sections (ADR-0069 D1, D3). They are kept below as the record of the model they replaced.
 
 1. **Board side**: `sch` gains an optional `ports` segment that declares "which nodes does this board expose to the outside".
 
@@ -68,14 +70,14 @@ In real projects, inter-board connection is an **interface problem**: which node
 
 ## Consequences
 
-- A board remains a unit that can be reviewed and exported on its own; the system description is an **extra** layer — delete it and both boards still stand.
-- Cross-board connectivity now has a single source of truth (the `system` file), so the "SYS is 9V in board A's netlist but 5V in board B's netlist" kind of situation — each side telling its own story — can no longer happen.
-- The board-to-board interface (`port`) becomes a checkable object: non-overlapping voltage ranges on the two sides, or one node merged into two system nets, can be reported as errors instead of being caught by the human eye during review.
+- At the time of this record, a board remained a unit that could be reviewed and exported on its own, and the system description was an **extra** layer — delete it and both boards still stood. As current contract ([ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md) D1, D4), the project logic is one root, there is no `system` layer to delete, and the discardable layer around the logic is the view layer.
+- Cross-board connectivity has a single source of truth, so the "SYS is 9V in board A's netlist but 5V in board B's netlist" kind of situation — each side telling its own story — can no longer happen. Under this record that truth was the `system` file; under [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md) it is the root's `nets` and `interconnects` (D1, D3).
+- The board-to-board interface became a checkable object: non-overlapping voltage ranges on the two sides, or one node merged into two system nets, could be reported as errors instead of being caught by the human eye during review. Under this record the checked objects were ports and system nets; under [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md) D3 they are the root's interconnect endpoints and `interconnect_pins` rows.
 - Cost: one more description type, one more directory, one more set of check rules.
 
 ## Follow-up (out of scope for this ADR)
 
 - One `port` exposing several `net`s (grouping all the signals of one physical connector into one interface group).
-- Endpoints outside the boards (adapter, battery, load): `system` will need a third member kind (`external`), to be discussed in v0.3.
+- Endpoints outside the boards (adapter, battery, load): this record's `system` model was to grow a third member kind (`external`); how to declare external endpoints remains open and is not decided by [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md) (see its Scope).
 - How wire harnesses and connector pairs (the "declared in pairs" note in `AGENTS.md` §4.1) relate to the net merging of this ADR.
 - Intra-board `module` hierarchy: orthogonal to this ADR, still to be discussed along the table boundaries of `AGENTS.md` §5.3.

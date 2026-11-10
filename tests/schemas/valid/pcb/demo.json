@@ -1,10 +1,13 @@
 {
-  "ir_version": "0.15",
-  "format": "0.9.1",
+  "ir_version": "0.19",
+  "format": "0.14",
   "source": {
-    "file": "pcb/demo.teda"
+    "file": "design/pcb/demo.teda"
   },
-  "board": "demo",
+  "pcb": "demo",
+  "modules": [
+    "M1"
+  ],
   "board_thickness_nm": 1600000,
   "stackup": [
     {
@@ -47,14 +50,14 @@
   ],
   "place": [
     {
-      "instance_id": "R1",
+      "instance_id": "M1.R1",
       "x_nm": 5000000,
       "y_nm": 7500000,
       "rot_mdeg": 0,
       "side": "top"
     },
     {
-      "instance_id": "R2",
+      "instance_id": "M1.R2",
       "x_nm": 12000000,
       "y_nm": 7500000,
       "rot_mdeg": 90000,
@@ -63,12 +66,12 @@
   ],
   "connect": [
     {
-      "a": "R1.1",
-      "b": "R2.2"
+      "a": "M1.R1.1",
+      "b": "M1.R2.2"
     },
     {
-      "a": "R1.2",
-      "b": "R2.1"
+      "a": "M1.R1.2",
+      "b": "M1.R2.1"
     }
   ],
   "trace": [

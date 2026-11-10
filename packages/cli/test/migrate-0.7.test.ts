@@ -42,7 +42,7 @@ describe("migration 0.6 -> 0.7", () => {
     expect(existsSync(join(dir, "sch", "demo", "sense.teda"))).toBe(false);
 
     const board = readFileSync(join(dir, "sch", "demo.teda"), "utf8");
-    expect(board.startsWith("version 0.11\nschematic demo\n")).toBe(true);
+    expect(board.startsWith("version 0.14\nschematic demo\n")).toBe(true);
     // Both pages' instances are in the board, with no page prefix.
     for (const refdes of ["C1", "C2", "R1", "R2", "U1", "U2"]) {
       expect(board).toContain(`  ${refdes}  `);
@@ -63,7 +63,7 @@ describe("migration 0.6 -> 0.7", () => {
     const dir = copyFixture();
     expect(runMigration(dir).code).toBe(0);
     const view = readFileSync(join(dir, "sch", "demo", "power.view.teda"), "utf8");
-    expect(view.startsWith("version 0.11\nview power\n")).toBe(true);
+    expect(view.startsWith("version 0.14\nview power\n")).toBe(true);
     expect(view).toContain("GND  C1.2  U1.GND");
     // The view still names the board's instances.
     expect(view).toContain("U1  [100.0,40.0]");
@@ -73,8 +73,9 @@ describe("migration 0.6 -> 0.7", () => {
     const dir = copyFixture();
     expect(runMigration(dir).code).toBe(0);
     const pcb = readFileSync(join(dir, "pcb", "demo.teda"), "utf8");
-    expect(pcb.startsWith("version 0.11\npcb demo\n")).toBe(true);
+    expect(pcb.startsWith("version 0.14\npcb demo\n")).toBe(true);
     expect(pcb).not.toContain("P1.");
+    expect(pcb).not.toContain("\nmodules\n");
     expect(pcb).toContain("  C1  [10,10]  0  top");
     expect(pcb).toContain("  C1.1  U1.1");
   });

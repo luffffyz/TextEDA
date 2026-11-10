@@ -96,53 +96,48 @@ export const TOOLS: readonly Tool[] = [
   {
     name: "texteda_view_metrics",
     description:
-      "Measure one print page: sheet use, counts, label and text gaps, wire length, crossings, wires through bodies, and how far each label is from its net.",
+      "Measure one project-wide print page: sheet use, counts, label and text gaps, wire length, crossings, wires through bodies, and how far each label is from its net.",
     parameters: {
       type: "object",
       properties: {
         project_dir: { type: "string", description: "The project directory." },
-        board: { type: "string", description: "The board id." },
-        page: { type: "string", description: "The print page id." },
+        page: { type: "string", description: "The project print page id." },
       },
-      required: ["project_dir", "board", "page"],
+      required: ["project_dir", "page"],
     },
     annotations: { readOnlyHint: true, idempotentHint: true },
     run(args) {
       const dir = projectDir(args);
-      const board = text(args, "board");
       const page = text(args, "page");
-      if (dir === undefined || board === undefined || page === undefined) {
-        return failed("project_dir, board and page are required");
+      if (dir === undefined || page === undefined) {
+        return failed("project_dir and page are required");
       }
-      return buildViewMetrics({ root: dir, board, page, json: false });
+      return buildViewMetrics({ root: dir, page, json: false });
     },
   },
   {
     name: "texteda_view_render",
     description:
-      "Draw one print page as an SVG file, with the same renderer the review app uses. Writes dist/view/<board>/<page>.svg unless out says otherwise.",
+      "Draw one project-wide print page as an SVG file, with the same renderer the review app uses. Writes dist/view/<page>.svg unless out says otherwise.",
     parameters: {
       type: "object",
       properties: {
         project_dir: { type: "string", description: "The project directory." },
-        board: { type: "string", description: "The board id." },
-        page: { type: "string", description: "The print page id." },
-        out: { type: "string", description: "Where to write the SVG; defaults to dist/view/<board>/<page>.svg." },
+        page: { type: "string", description: "The project print page id." },
+        out: { type: "string", description: "Where to write the SVG; defaults to dist/view/<page>.svg." },
       },
-      required: ["project_dir", "board", "page"],
+      required: ["project_dir", "page"],
     },
     annotations: { idempotentHint: true },
     run(args) {
       const dir = projectDir(args);
-      const board = text(args, "board");
       const page = text(args, "page");
-      if (dir === undefined || board === undefined || page === undefined) {
-        return failed("project_dir, board and page are required");
+      if (dir === undefined || page === undefined) {
+        return failed("project_dir and page are required");
       }
       const out = text(args, "out");
       return buildViewRender({
         root: dir,
-        board,
         page,
         json: false,
         ...(out === undefined ? {} : { outFile: out }),
@@ -152,32 +147,30 @@ export const TOOLS: readonly Tool[] = [
   {
     name: "texteda_view_rewire",
     description:
-      "Bring a print page's wiring back onto its pins after a part moved: the interior corners keep their coordinates, the ends are put back where the pins are. Reports the wires it could not fix.",
+      "Bring a project print page's wiring back onto its pins after a part moved: the interior corners keep their coordinates, the ends are put back where the pins are. Reports the wires it could not fix.",
     parameters: {
       type: "object",
       properties: {
         project_dir: { type: "string", description: "The project directory." },
-        board: { type: "string", description: "The board id." },
-        page: { type: "string", description: "The print page id." },
+        page: { type: "string", description: "The project print page id." },
         dry_run: { type: "boolean", description: "Report what would change without writing the page." },
       },
-      required: ["project_dir", "board", "page"],
+      required: ["project_dir", "page"],
     },
     annotations: { idempotentHint: true },
     run(args) {
       const dir = projectDir(args);
-      const board = text(args, "board");
       const page = text(args, "page");
-      if (dir === undefined || board === undefined || page === undefined) {
-        return failed("project_dir, board and page are required");
+      if (dir === undefined || page === undefined) {
+        return failed("project_dir and page are required");
       }
-      return buildViewRewire({ root: dir, board, page, dryRun: flag(args, "dry_run"), json: false });
+      return buildViewRewire({ root: dir, page, dryRun: flag(args, "dry_run"), json: false });
     },
   },
   {
     name: "texteda_ir",
     description:
-      "Build the project's IR shard tree: canonical JSON per description, a manifest with one SHA-256 per shard, the project hash and the per-board hashes.",
+      "Build the project's IR shard tree: canonical JSON per description, a manifest with one SHA-256 per shard, the project hash and the per-PCB hashes.",
     parameters: {
       type: "object",
       properties: {
@@ -197,12 +190,11 @@ export const TOOLS: readonly Tool[] = [
   {
     name: "texteda_netlist",
     description:
-      "The board's connectivity as a netlist: the nets, their members and the pins they join. Refuses to build one from a design that has errors.",
+      "The project's connectivity as a netlist: the nets, their members and the pins they join. Refuses to build one from a design that has errors.",
     parameters: {
       type: "object",
       properties: {
         project_dir: { type: "string", description: "The project directory." },
-        board: { type: "string", description: "Only this board; every board when absent." },
       },
       required: ["project_dir"],
     },
@@ -210,8 +202,7 @@ export const TOOLS: readonly Tool[] = [
     run(args) {
       const dir = projectDir(args);
       if (dir === undefined) return failed("project_dir is required");
-      const board = text(args, "board");
-      const built = buildNetlist({ root: dir, ...(board === undefined ? {} : { board }) });
+      const built = buildNetlist({ root: dir });
       if (!built.ok || built.value === undefined) return built;
       return { ok: true, value: built.value.payload };
     },

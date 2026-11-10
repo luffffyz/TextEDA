@@ -1,8 +1,27 @@
 {
-  "ir_version": "0.15",
+  "ir_version": "0.19",
   "format": "0.9.1",
-  "board": "demo",
-  "instances": [{ "id": "R1", "component": "r-0402" }],
-  "nets": [{ "id": "GND", "members": ["R1.2"] }],
-  "extra_key": true
+  "instances": [
+    {
+      "id": "M1.R1",
+      "component": "r-0402"
+    }
+  ],
+  "nets": [
+    {
+      "id": "GND",
+      "members": [
+        "M1.R1.2"
+      ]
+    }
+  ],
+  "extra_key": true,
+  "project": "main",
+  "modules": [
+    {
+      "instance_id": "M1",
+      "module_id": "demo",
+      "ports": []
+    }
+  ]
 }

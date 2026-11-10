@@ -85,7 +85,6 @@ export {
   type Selection,
 } from "./procurement/rules.ts";
 
-export { checkSystem, type SystemFacts } from "./system/rules.ts";
 
 export {
   checkReviews,

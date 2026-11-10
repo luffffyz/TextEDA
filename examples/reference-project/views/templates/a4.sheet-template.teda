@@ -1,0 +1,48 @@
+version 0.13
+sheet_template a4
+
+size [297,210]
+
+# A4 landscape sheet furniture: the border, the title block, a notes table and a logo mark.
+#
+# A template is literal artwork (ADR-0068 D3). It says nothing about the board that uses it: no
+# project metadata, no variables, no net names, no page-specific facts. A page that names this
+# template takes its size — 297 x 210 mm — as the page's own extent, and draws the furniture below
+# underneath whatever the page places.
+#
+# Every row carries its own id, so the furniture can be referred to, and every coordinate sits
+# inside the template's size on the 0.5 mm drawing lattice (ADR-0059 D1).
+#
+# The logo is a polyline, not an image: the file stays self-contained, with no external asset and
+# nothing to resolve at render time.
+line
+  NOTES_C1  [40,160]     [40,172]
+  NOTES_H1  [10,172]     [180,172]
+  NOTES_H2  [10,186]     [180,186]
+  TITLE_C1  [237,160]    [237,175]
+  TITLE_C2  [237,187.5]  [237,200]
+  TITLE_R1  [187,175]    [287,175]
+  TITLE_R2  [187,187.5]  [287,187.5]
+
+rect
+  FRAME      [10,10]    [287,200]
+  NOTES_BOX  [10,160]   [180,200]
+  TITLE_BOX  [187,160]  [287,200]
+
+polyline
+  LOGO_MARK  [26,16]  [19,25]  [24,25]  [21,32]  [28,23]  [23,23]  [25,19]
+
+text
+  LOGO_NAME  [16,36]      TextEDA
+  NOTES_T1   [14,164]     Item
+  NOTES_T2   [44,164]     Note
+  NOTES_T3   [14,178]     1
+  NOTES_T4   [44,178]     Sizes are millimetres; the origin is the upper-left corner
+  NOTES_T5   [14,192]     2
+  NOTES_T6   [44,192]     Module drawings are placed on the sheet, never scaled
+  TITLE_T1   [191,164]    Title
+  TITLE_T2   [241,164]    Revision
+  TITLE_T3   [191,179]    Sheet
+  TITLE_T4   [241,179]    Date
+  TITLE_T5   [191,191.5]  Drawn by
+  TITLE_T6   [241,191.5]  Checked

@@ -40,20 +40,20 @@ const CASES: { tool: string; args: string[]; call: Record<string, unknown> }[] =
   },
   {
     tool: "texteda_view_metrics",
-    args: ["view", "metrics", "PROJECT", "charger-buck/buck-5v", "--json"],
-    call: { project_dir: "PROJECT", board: "charger-buck", page: "buck-5v" },
+    args: ["view", "metrics", "PROJECT", "buck-5v", "--json"],
+    call: { project_dir: "PROJECT", page: "buck-5v" },
   },
   {
     tool: "texteda_view_render",
-    args: ["view", "render", "PROJECT", "charger-buck/buck-5v", "--json"],
-    call: { project_dir: "PROJECT", board: "charger-buck", page: "buck-5v" },
+    args: ["view", "render", "PROJECT", "buck-5v", "--json"],
+    call: { project_dir: "PROJECT", page: "buck-5v" },
   },
   {
     // The charger-power page is a placement sketch with no wire: the rewire has nothing to do,
     // and the tool says the same as the verb.
     tool: "texteda_view_rewire",
-    args: ["view", "rewire", "PROJECT", "charger-buck/charger-power", "--json"],
-    call: { project_dir: "PROJECT", board: "charger-buck", page: "charger-power" },
+    args: ["view", "rewire", "PROJECT", "charger-power", "--json"],
+    call: { project_dir: "PROJECT", page: "charger-power" },
   },
   {
     tool: "texteda_ir",
@@ -62,8 +62,8 @@ const CASES: { tool: string; args: string[]; call: Record<string, unknown> }[] =
   },
   {
     tool: "texteda_netlist",
-    args: ["netlist", "PROJECT", "--board", "charger-buck", "--json"],
-    call: { project_dir: "PROJECT", board: "charger-buck" },
+    args: ["netlist", "PROJECT", "--json"],
+    call: { project_dir: "PROJECT" },
   },
   {
     tool: "texteda_bom",

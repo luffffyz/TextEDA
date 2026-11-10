@@ -10,7 +10,8 @@ const MM = 1_000_000;
 const schematic: Schematic = {
   ir_version: irVersion,
   format: "0.8",
-  board: "b",
+  project: "main",
+  modules: [],
   instances: [],
   nets: [
     { id: "GND", members: ["U1.2", "R1.2"] },
@@ -63,7 +64,7 @@ const view = (wires: NonNullable<SchematicView["wire"]>): SchematicView =>
   ({
     ir_version: irVersion,
     format: "0.8",
-    board: "b",
+    project: "main",
     page: "p",
     sheet: { width_nm: 100 * MM, height_nm: 100 * MM },
     place: [],
@@ -169,6 +170,29 @@ describe("viewMetrics", () => {
     };
     const metrics = viewMetrics({ view: view(wires), schematic, geometry: withObstacle });
     expect(metrics.wires_through_bodies).toBe(1);
+  });
+
+  test("uses the custom page size and includes module frames in content bounds", () => {
+    const moduleView: SchematicView = {
+      ...view([]),
+      sheet: { width_nm: 80 * MM, height_nm: 50 * MM },
+      module: [{ instance_id: "M1", module_id: "power", x_nm: 10 * MM, y_nm: 20 * MM, width_nm: 30 * MM, height_nm: 10 * MM }],
+      module_port: [{ id: "M1.OUT", x_nm: 40 * MM, y_nm: 25 * MM }],
+    };
+    const metrics = viewMetrics({
+      view: moduleView,
+      schematic,
+      geometry: {
+        symbols: [],
+        fields: [],
+        texts: [],
+        modules: [{ instance_id: "M1", box: { min_x_nm: 10 * MM, min_y_nm: 20 * MM, max_x_nm: 40 * MM, max_y_nm: 30 * MM } }],
+      },
+    });
+
+    expect(metrics.sheet).toEqual({ width_nm: 80 * MM, height_nm: 50 * MM });
+    expect(metrics.content).toEqual({ min_x_nm: 10 * MM, min_y_nm: 20 * MM, max_x_nm: 40 * MM, max_y_nm: 30 * MM });
+    expect(metrics.content_fill_ppm).toBe(75_000);
   });
 
   test("an empty page measures zero without inventing content", () => {

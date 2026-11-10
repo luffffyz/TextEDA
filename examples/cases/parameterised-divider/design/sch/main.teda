@@ -1,0 +1,23 @@
+version 0.14.0
+schematic main
+
+modules
+  M1  divider-network
+
+nets
+  GND:   M1.GND
+  TAP1:  M1.TAP1
+  TAP2:  M1.TAP2
+  TAP3:  M1.TAP3
+  VREF:  M1.VREF
+
+ports
+  GND   GND
+  VREF  VREF
+
+constraints
+  voltage  GND   0V..0V
+  voltage  VREF  3.3V..3.3V
+  voltage  TAP1  2.2V..2.2V
+  voltage  TAP2  1.1V..1.1V
+  voltage  TAP3  1.65V..1.65V

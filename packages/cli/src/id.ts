@@ -7,15 +7,15 @@
 // Usage:
 //   texteda id <project dir> [--count N] [--json]
 //
-// The generator avoids every UID it can see in the project's board and module sources, including
-// module-local UIDs. A source file that cannot be parsed is an error: a hidden UID must not become
-// a collision later.
+// The generator avoids every UID it can see in the project's root schematic and module sources,
+// including module-local UIDs. A source file that cannot be parsed is an error: a hidden UID must not
+// become a collision later.
 import { randomInt } from "node:crypto";
 import { existsSync } from "node:fs";
 import { parseSchematicDocument } from "@texteda/parser";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
 import { hintFor } from "@texteda/ir/diagnostics";
-import { listBoards, loadBoard, loadModules } from "./project.ts";
+import { loadSchematic, loadModules } from "./project.ts";
 
 /** The Crockford Base32 alphabet used by an instance UID (ADR-0010). */
 export const CROCKFORD_ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz";
@@ -30,7 +30,7 @@ export interface ProjectUidSources {
 }
 
 /**
- * Read every board and module source and collect the UIDs they declare.
+ * Read the root schematic and every module source and collect the UIDs they declare.
  *
  * A UID is project-scoped. Module-local UIDs are collected as bare tokens too: the flattened path
  * is the module-instance token plus this token, so avoiding every existing token is enough.
@@ -50,10 +50,9 @@ export function collectProjectUidSources(root: string): ProjectUidSources {
     }
   };
 
-  for (const board of listBoards(root)) {
-    const loaded = loadBoard(root, board);
-    if (loaded === null) continue;
-    collect(parseSchematicDocument(loaded.text, { file: loaded.file, kind: "schematic" }));
+  const schematic = loadSchematic(root);
+  if (schematic !== null) {
+    collect(parseSchematicDocument(schematic.text, { file: schematic.file, kind: "schematic" }));
   }
   for (const source of loadModules(root)) {
     collect(parseSchematicDocument(source.text, { file: source.file, kind: "module" }));

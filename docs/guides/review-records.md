@@ -14,7 +14,7 @@ decision is the reason.
 | The accountable person | `project.toml` → `[project] owner` | one name |
 
 A **round** is one review pass over one target. The `round_id` is a short slug, unique in the
-project: `mcu-board-sch-r1`, `mcu-board-sch-r2`, `charger-buck-pcb-r1`, `tps7a02-correction-1`.
+project: `main-sch-r1`, `main-sch-r2`, `charger-buck-pcb-r1`, `tps7a02-correction-1`.
 
 Reviews are **not a description type**. They are not in the language, they have no schema, they
 produce no IR shard, and they change no hash. A project may accumulate hundreds of notes; prose
@@ -49,7 +49,7 @@ verdict = "accepted"
 
 | Field | Value |
 |---|---|
-| `target` | `board:<board_id>`, `page:<board_id>/<page_id>` or `component:<component_id>` |
+| `target` | `board:<board_id>`, `page:<page_id>` or `component:<component_id>` |
 | `owner` | The accountable person (see below) |
 | `date` | `YYYY-MM-DD` |
 | `verdict` | `accepted`, `declined` or `deferred` |

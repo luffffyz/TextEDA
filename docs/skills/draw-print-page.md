@@ -3,8 +3,8 @@
 > **Status**: the commands and expected outputs below were run on
 > `examples/reference-project` on 2026-11-04.
 > **Audience**: agents (humans can follow it too).
-> **Scope**: `views/<board_id>/<page_id>.view.teda` only. A drawing never changes
-> `design/**`, `assets/**`, the netlist, the BOM or the PCB.
+> **Scope**: `views/<page_id>.view.teda` only. A drawing never changes
+> `design/**`, `assets/**`, the netlist, the BOM or any PCB.
 > **Not in scope**: diagnosing a page that already exists and is wrong — that is
 > [`repair-print-page.md`](repair-print-page.md).
 
@@ -36,21 +36,24 @@ The commands used below:
 | Command | What it does |
 |---|---|
 | `bun run texteda check <project>` | Parse, contract validation, ERC, binding and drawing checks. Errors block; warnings do not. |
-| `bun run texteda view metrics <project> <board>/<page>` | The drawing's numbers: sheet use, counts, label/text gaps, wire length, crossings, bodies. |
-| `bun run texteda view rewire <project> <board>/<page> [--dry-run]` | Bring the wiring back onto the pins after a part moved; the interior corners keep their place. |
-| `bun run texteda view render <project> <board>/<page> [--out <file>]` | Write the page's drawing as an SVG file (same renderer as the review app). |
-| `bun run preview view <board>/<page> [--project <project>] [--out <dir>]` | Render one page to SVG and print its path. |
+| `bun run texteda view metrics <project> <page_id>` | The drawing's numbers: sheet use, counts, label/text gaps, wire length, crossings, bodies. |
+| `bun run texteda view rewire <project> <page_id> [--dry-run]` | Bring the wiring back onto the pins after a part moved; the interior corners keep their place. |
+| `bun run texteda view render <project> <page_id> [--out <file>]` | Write the page's drawing as an SVG file (same renderer as the review app). |
+| `bun run preview view <page_id> [--project <project>] [--out <dir>]` | Render one project page to SVG and print its path. |
 | `bun run texteda review <project> [--out <file>]` | Serve the single review surface on `127.0.0.1`; `--out` writes the same self-contained, read-only HTML. |
 | `bun run fmt:teda <project>` / `bun run fmt:teda --check <project>` | Canonicalise the view; `--check` is the gate. |
 
 The page needs two inputs:
+1. the **logical** design (`design/sch/main.teda` plus modules and components) — the source
+   of project-wide nets, ports, interconnects and pins;
+2. the **view** file (`views/<page_id>.view.teda`) — the only source of positions and
+   wires for that page.
 
-1. the **logical** design (`design/sch/<board_id>.teda` plus modules and components) — the source
-   of nets and pins;
-2. the **view** file (`views/<board_id>/<page_id>.view.teda`) — the only source of positions and
-   wires.
+A project with no view file has no drawing. That is legal; do not invent one.
 
-A board with no view file has no drawing. That is legal; do not invent one.
+The conventional project overview is `views/main.view.teda`; it may show module boxes, ports, and
+declared interconnects without a `place` section. A topology-only overview is valid and is distinct
+from the component-placement workflow below.
 
 **Every coordinate the page stores is anchored on the `0.5 mm` lattice**, in both axes: a `place`
 origin, a `field` anchor (symbol-local), a `wire` bend, a `label` position, a `port` position, a
@@ -78,7 +81,7 @@ A screenshot is an input to the author's eyes, **not to the parser**. Use it for
 Hard limits:
 
 - **Never take connectivity from the image.** Net membership and pin binding come from
-  `design/sch/**`; a view wire must name pins that the logical net already contains
+  `design/sch/main.teda` and its modules; a view wire must name pins that the logical net already contains
   (`view.pin-net-mismatch` is an error). Deriving a netlist from geometry breaks the project's
   invariant 2; the image cannot overrule the logical IR.
 - **A screenshot of a different circuit is only inspiration.** Do not copy its net names or part
@@ -121,13 +124,11 @@ Procedure:
      name coordinates, and route after acceptance. A view with `place` and no `wire` section is
      legal; `view metrics` will report `nets undrawn`, which is expected at this stage. This page
      is not the review artifact.
-2. **Inventory the flattened nets.** Export the logical board's machine-readable netlist before
-   routing:
+2. **Inventory the flattened nets.** Export the project's machine-readable netlist before routing:
 
    ```sh
-   bun run texteda netlist examples/reference-project --board charger-buck --json
+   bun run texteda netlist examples/reference-project --json
    ```
-
    Use each net's `id` and `members` (`<instance>.<pin>`) as the complete pin inventory, including
    module instances after flattening. The netlist is logical truth, not a page drawing: route only
    pins belonging to each listed net, and do not infer membership from symbols, labels, or images.
@@ -235,7 +236,7 @@ bun run view:verify examples/reference-project
 Expected:
 
 ```
-view:verify ok — 2 print page(s) on the 0.5 mm lattice
+view:verify ok — 3 print page(s) on the 0.5 mm lattice
 ```
 
 This is the gate for the lattice rule (§1). It reports every coordinate that is off the lattice,
@@ -250,13 +251,13 @@ bun run texteda check examples/reference-project
 Expected tail (the counts move with the project):
 
 ```
-Checked 2 boards: 0 errors, 136 warnings (stages: parse 47 · contract 0 · design 94)
+Checked the project schematic and 2 PCBs: 0 errors, 201 warnings (stages: parse 47 · contract 0 · design 156)
 ```
 
-Errors block the build; warnings do not. `view.*` warnings are drawing findings, not circuit
-errors. Use `--json` when a script needs the payload. A project check covers every board and page;
-for this page's gate, inspect only `view.*` diagnostics whose location is this page's view file.
-Exclude `view.nets-not-drawn` from that page-local set: it is a board-level count and may reflect
+Errors block the build; warnings do not. Use `--json` when a script needs the payload. A project check covers the logical root, every
+physical PCB and every view page; for this page's gate, inspect only `view.*` diagnostics whose
+location is this page's view file.
+Exclude `view.nets-not-drawn` from that page-local set: it is a project-level count and may reflect
 nets drawn on another page (or deliberately omitted from a partial research page). Require zero
 other page-local `view.*` warnings, and still fix every project error. Do not mistake unrelated
 pages' warnings for this page's findings.
@@ -264,13 +265,12 @@ pages' warnings for this page's findings.
 ### 3.2 Measure the page
 
 ```sh
-bun run texteda view metrics examples/reference-project charger-buck/buck-5v
+bun run texteda view metrics examples/reference-project buck-5v
 ```
-
 Expected shape (the numbers move with the page):
 
 ```
-charger-buck/buck-5v — 297.0 × 210.0 mm sheet
+buck-5v — 297.0 × 210.0 mm sheet
 content   x 20.0..241.5  y 14.0..121.6 mm  (38.2% of the sheet)
 counts    9 instances, 10 labels, 2 ports, 1 notes, 17 wires, 30 nets undrawn
 spacing   label min gap 5.7 mm, text min gap 5.7 mm
@@ -284,13 +284,13 @@ Read it as:
   number, not a rule: a crossing with no dot is not a connection, so a few are legal;
 - `label min gap` / `text min gap` must be **> 0** (no overlap);
 - `net texts all sit on their nets` means every label/port's anchor is on its net;
-- `nets undrawn` is a board-level count; a research page may legitimately be nonzero, but a
+- `nets undrawn` is a project-level count; a research page may legitimately be nonzero, but a
   finished page should say 0.
 
 ### 3.3 Look at it
 
 ```sh
-bun run preview view charger-buck/buck-5v --project examples/reference-project
+bun run preview view buck-5v --project examples/reference-project
 ```
 
 The SVG path is printed; open it or embed it. For the interactive review, run
@@ -300,7 +300,7 @@ For a legible visual review, render the current page and inspect a crop rather t
 whole-sheet image at fit-to-page scale:
 
 ```sh
-bun run texteda view render examples/reference-project charger-buck/buck-5v --out /tmp/page.svg
+bun run texteda view render examples/reference-project buck-5v --out /tmp/page.svg
 ```
 
 Crop the SVG by changing its root `viewBox` to the region of interest (sheet coordinates in mm)
@@ -328,7 +328,7 @@ Errors first; warnings are triage, not a gate.
 
 | Code | Meaning | Repair |
 |---|---|---|
-| `ref.unknown-instance` / `ref.unknown-net` / `ref.unknown-port` | The view names an id the board does not have | Fix the id; do not add a second source of truth |
+| `ref.unknown-instance` / `ref.unknown-net` / `ref.unknown-port` | The view names an id the project does not have | Fix the id; do not add a second source of truth |
 | `view.pin-not-placed` | A wire names a pin whose instance is not in the `place` section | Place the instance, or drop the wire |
 | `view.pin-net-mismatch` | A wire endpoint pin is not a member of the row's net | Change the endpoint or the net; the logical netlist wins |
 | `view.out-of-sheet` | A record sits outside the sheet | Move it inside |
@@ -380,7 +380,7 @@ the text belongs somewhere else, and expect it to stay there while its symbol mo
 - [ ] `view:verify <project>` passes: every coordinate on the `0.5 mm` lattice (§1).
 - [ ] `texteda check <project>` has **0 errors**; page-local `view.*` findings are filtered by
       this page's view-file location, with `view.nets-not-drawn` treated as the documented
-      board-level exception and no other page-local warning left unexplained.
+      project-level exception and no other page-local warning left unexplained.
 - [ ] `view metrics` says `0 through a body` and both text gaps `> 0`; crossings are reported but
       are not a failure (no dot means not connected).
 - [ ] `fmt:teda --check <project>` passes.

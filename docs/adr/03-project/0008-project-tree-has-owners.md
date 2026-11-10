@@ -3,8 +3,7 @@
 Status: Accepted
 Date: 2026-10-22
 Scope: Decides: the ownership model of the project tree — own assets, referenced material, derivations — and what `texteda init` creates. Does not decide: the IR shard layout — see ADR-0006.
-Related: [ADR-0006](../02-ir/0006-ir-shards-and-hashes.md), [ADR-0009](0009-board-linking.md), [ADR-0013](../04-schematic/0013-modules-compose-boards.md), [ADR-0029](../07-devices/0029-the-procurement-layer.md), [ADR-0034](../08-libraries/0034-trust-in-a-library-you-do-not-own.md), [ADR-0049](../08-libraries/0049-assets-are-filed-by-what-they-are.md), [ADR-0060](0060-a-write-keeps-the-bytes-it-replaced.md).
-Impact: `spec/project.md` §1, §2; `packages/cli/src/init.ts`; `AGENTS.md` §9
+Related: [ADR-0006](../02-ir/0006-ir-shards-and-hashes.md), [ADR-0009](0009-board-linking.md), [ADR-0013](../04-schematic/0013-modules-compose-boards.md), [ADR-0029](../07-devices/0029-the-procurement-layer.md), [ADR-0034](../08-libraries/0034-trust-in-a-library-you-do-not-own.md), [ADR-0049](../08-libraries/0049-assets-are-filed-by-what-they-are.md), [ADR-0060](0060-a-write-keeps-the-bytes-it-replaced.md), [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md)
 
 ## Background
 
@@ -45,35 +44,26 @@ project.
 ```text
 my-board-project/
 ├── project.toml
-│
-├── assets/                 # what this project owns: device assets + procurement decisions
+├── assets/                     # project-owned device assets and procurement decisions
 │   ├── symbols/  footprints/  components/
 │   └── procurement/
-│       ├── primary/<board_id>.teda        # normative
-│       └── alternatives/<board_id>.teda   # advisory
-
-The procurement files are named after the **board** they belong to: a selection is scoped to a
-board, because a BOM is a board's ([ADR-0029](../07-devices/0029-the-procurement-layer.md) decision 1).
-│
-├── external/               # what this project references but does not own
-│   ├── simulation/         # simulation models, vendored when the licence allows
-│   └── cache/              # local cache of documents (datasheets); gitignored, not in the IR
-│
-├── design/                 # the circuit — the truth
-│   ├── sch/                # sch/<board_id>.teda
-│   ├── pcb/
-│   ├── modules/
-│   └── system/
-│
-├── views/                  # the drawings: hand-written, discardable, outside the build
-│   └── <board_id>/<page_id>.view.teda
-│
-├── docs/                   # design intent, review records, analysis evidence
-└── dist/                   # derived artifacts
+│       ├── primary/<pcb_id>.teda
+│       └── alternatives/<pcb_id>.teda
+├── external/                   # referenced material and local caches
+│   ├── simulation/
+│   └── cache/                   # gitignored datasheets
+├── design/                     # normative project logic and physical implementations
+│   ├── sch/main.teda           # sole logical root
+│   ├── pcb/<pcb_id>.teda
+│   └── modules/
+├── views/<page_id>.view.teda   # project-level advisory drawings
+├── docs/
+└── dist/
 ```
 
-Seven roots. A reader sees what the project owns, what it borrows, what it describes, what it
-draws, and what it produced.
+Procurement is scoped to a physical PCB, because a BOM describes one physical implementation
+([ADR-0029](../07-devices/0029-the-procurement-layer.md) decision 1). The `system` description
+type and board-local schematic files were removed by [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md).
 
 **There is one directory for devices, not two.** The `families/` directory is gone, because the
 kind of a device is a fact of the device file and not a fact of the path
@@ -167,30 +157,33 @@ project's own.
 
 ### 8. `design/` groups the circuit descriptions
 
-`design/sch/`, `design/pcb/`, `design/modules/` and `design/system/` move under `design/`. They are all descriptions of
-this project's circuit, and grouping them keeps the root short.
+`design/sch/`, `design/pcb/` and `design/modules/` move under `design/`. The project has one logical root at
+`design/sch/main.teda`; physical PCB descriptions live at `design/pcb/<pcb_id>.teda`. There is no
+`design/system/` description type after [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md).
 
-The print pages keep their own root and their per-board grouping:
-`views/<board_id>/<page_id>.view.teda` ([ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md),
-[ADR-0012](../04-schematic/0012-one-flat-schematic-per-board.md), [ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md)).
+The print pages keep their own project-level root:
+`views/<page_id>.view.teda` ([ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md),
+[ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md) D4).
 
 ### 9. The IR shard layout is decoupled from the source tree
 
 Amends [ADR-0006](../02-ir/0006-ir-shards-and-hashes.md) decision 2. Shards are laid out **by kind**, and the
 mapping back to the source file is carried by the `source.file` field that every shard already
-has ([ADR-0006](../02-ir/0006-ir-shards-and-hashes.md) decision 1):
+has ([ADR-0006](../02-ir/0006-ir-shards-and-hashes.md) decision 1). The current `v0.19` layout
+uses the single project root and physical PCB identities defined in [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md) D1 and D5:
 
 ```text
 dist/ir/
 ├── manifest.json
-├── boards/<board_id>/schematic.json
-├── boards/<board_id>/pcb.json
-├── boards/<board_id>/view/<page_id>.json
+├── project/schematic.json
+├── boards/<pcb_id>/pcb.json
+├── views/<page_id>.json
 ├── symbols/<lib>/<symbol_id>.json
 ├── footprints/<lib>/<footprint_id>.json
 ├── components/<component_id>.json
-├── boards/<board_id>/procurement.json
-└── boards/<board_id>/procurement-alternatives.json
+├── boards/<pcb_id>/procurement.json
+├── boards/<pcb_id>/procurement-alternatives.json
+└── project.json
 ```
 
 The source tree is reorganised for readers; the shard layout is an interface for tools, and
@@ -201,8 +194,10 @@ authoritative mapping, so nothing is lost by not mirroring.
 
 `texteda init <dir>` creates `project.toml` and the directories: `assets/{symbols,footprints,
 components}`, `assets/procurement/{primary,alternatives}`, `external/simulation`,
-`design/{sch,pcb,modules,system}`, `views/`, `docs/`. `external/cache/` is not created — it is a
-local cache and gitignored.
+`design/{sch,pcb,modules}`, `views/`, `docs/`. `external/cache/` is not created — it is a
+local cache and gitignored. The project logical root is `design/sch/main.teda`; physical PCB
+descriptions are `design/pcb/<pcb_id>.teda`, and project-level advisory pages are
+`views/<page_id>.view.teda` ([ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md)).
 
 ### 11. The tree shape is now frozen
 

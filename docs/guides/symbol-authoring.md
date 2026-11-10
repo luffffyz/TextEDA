@@ -105,7 +105,7 @@ pins
 bun run compile:symbol assets/symbols/power/bq24610rger.teda --out dist/ir/symbols/power/bq24610rger.json
 ```
 
-IR 是 `symbol` kind（契约 `schemas/ir/v0.15/symbol.schema.json`），单位全是整数纳米/毫度。`symbol.library` 取的是文件所在的分类目录（`power`），派生它不需要 `--library`；只有目录名不是分类名时才需要覆盖。
+IR 是 `symbol` kind（契约 `schemas/ir/v0.17/symbol.schema.json`），单位全是整数纳米/毫度。`symbol.library` 取的是文件所在的分类目录（`power`），派生它不需要 `--library`；只有目录名不是分类名时才需要覆盖。
 
 ### 5. 导出成 KiCad 产物
 

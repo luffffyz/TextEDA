@@ -8,14 +8,15 @@
 //
 //   dist/ir/
 //   ├── manifest.json                  # shard paths + sha256 per shard + the project hash
-//   ├── boards/<board_id>/schematic.json
-//   ├── boards/<board_id>/pcb.json
-//   ├── boards/<board_id>/view/<page_id>.json
+//   ├── project/schematic.json         # the one logical root (normative)
+//   ├── boards/<pcb_id>/pcb.json       # one physical PCB implementation
+//   ├── views/<page_id>.json           # project print pages (advisory)
 //   ├── symbols/<lib>/<symbol_id>.json
 //   ├── footprints/<lib>/<footprint_id>.json
 //   ├── components/<component_id>.json
-//   ├── project.json                   # the project file's metadata
-//   └── systems/<system_id>.json
+//   ├── module-views/<module_id>.json   # a reusable module drawing (advisory, ADR-0068 D5)
+//   ├── sheet-templates/<template_id>.json # a reusable sheet template (advisory, ADR-0068 D5)
+//   └── project.json                   # the project file's metadata
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import { irVersion, schemaDiagnosticsToDiagnostics, validate, type SchemaKind, type SourceMap } from "@texteda/ir";
@@ -25,12 +26,13 @@ import { buildIdentityDocument, type IdentityDocument } from "./identity.ts";
 import {
   canonicalJson,
   parseFootprint,
+  parseModuleView,
   parsePcb,
   parseProcurement,
   parseProjectToml,
   parseSchematic,
+  parseSheetTemplate,
   parseSymbol,
-  parseSystem,
   parseView,
 } from "@texteda/parser";
 import { PROCUREMENT_ROLES } from "@texteda/parser";
@@ -38,20 +40,22 @@ import { LAYOUT } from "./paths.ts";
 import { locateWith } from "./locate.ts";
 import { checkProjectInstanceUids, type ProjectUidInput } from "./uids.ts";
 import {
-  listBoards,
+  listPcbs,
   listProcurement,
-  listSystems,
-  loadBoard,
   loadComponents,
+  loadModuleViews,
   loadModules,
   loadPcb,
   loadProcurement,
   loadProject,
+  loadSchematic,
+  loadSheetTemplates,
+  loadViews,
 } from "./project.ts";
 
 /** One compiled shard: canonical bytes plus the hash of those bytes. */
 export interface IrShard {
-  /** Shard path relative to the IR root, e.g. `boards/charger-buck/schematic.json`. */
+  /** Shard path relative to the IR root, e.g. `boards/controller/pcb.json`. */
   path: string;
   /** The contract the shard is validated against. */
   kind: SchemaKind;
@@ -92,7 +96,7 @@ export interface IrTree {
   projectHash: string;
   /** Advisory hash: the same aggregation over the advisory shards. Absent when there are none. */
   advisoryHash?: string | undefined;
-  /** Board hash per board id: the same aggregation over that board's normative shards. */
+  /** Board hash per PCB id: the same aggregation over that PCB's normative shards. */
   boardHashes: Map<string, string>;
   /** Parse and contract diagnostics of every compiled description. */
   diagnostics: Diagnostic[];
@@ -135,7 +139,7 @@ export function buildIrTree(root: string): IrTree {
   const components = loadComponents(root);
   const resolver = components.resolver;
   const modules = loadModules(root);
-  /** Per-board UID declarations, checked across the project before hashes are computed (ADR-0010). */
+  /** The project's one root schematic's UIDs, checked before hashes are computed (ADR-0010). */
   const uidInputs: ProjectUidInput[] = [];
 
   // The devices: one shard per file, at `components/<id>.json`. A component is a fact of the build
@@ -154,41 +158,42 @@ export function buildIrTree(root: string): IrTree {
     });
   }
 
-  for (const board of listBoards(root)) {
-    const loaded = loadBoard(root, board);
-    if (!loaded) continue;
-    const schematic = parseSchematic(loaded.text, {
-      file: loaded.file,
-      board,
+  const schematicSource = loadSchematic(root);
+  if (schematicSource) {
+    const schematic = parseSchematic(schematicSource.text, {
+      file: schematicSource.file,
       components: resolver,
       modules,
     });
     diagnostics.push(...schematic.diagnostics);
     uidInputs.push({
-      board,
-      file: loaded.file,
+      board: "main",
+      file: schematicSource.file,
       ...(schematic.sourceUids === undefined ? {} : { sourceUids: schematic.sourceUids }),
       ...(schematic.ir === undefined ? {} : { ir: schematic.ir }),
       ...(schematic.sources === undefined ? {} : { sources: schematic.sources }),
     });
     if (schematic.ir) {
       drafts.push({
-        path: `boards/${board}/schematic.json`,
+        path: "project/schematic.json",
         kind: "schematic",
-        source: loaded.file,
+        source: schematicSource.file,
         normative: true,
         ir: schematic.ir,
         sources: schematic.sources,
       });
     }
+  }
 
-    const pcb = loadPcb(root, board);
+  const pcbs = listPcbs(root);
+  for (const pcbId of pcbs) {
+    const pcb = loadPcb(root, pcbId);
     if (pcb) {
-      const parsed = parsePcb(pcb.text, { file: pcb.file, board });
+      const parsed = parsePcb(pcb.text, { file: pcb.file, pcb: pcbId });
       diagnostics.push(...parsed.diagnostics);
       if (parsed.ir) {
         drafts.push({
-          path: `boards/${board}/pcb.json`,
+          path: `boards/${pcbId}/pcb.json`,
           kind: "pcb",
           source: pcb.file,
           normative: true,
@@ -198,22 +203,22 @@ export function buildIrTree(root: string): IrTree {
       }
     }
 
-    // The procurement layer: which parts this board is built from (normative) and which parts
+    // The procurement layer: which parts this PCB is built from (normative) and which parts
     // could replace them (advisory). A second source does not change the build, so only the
     // primary enters the build identity (ADR-0029 decision 13, ADR-0006 decision 9).
     for (const role of PROCUREMENT_ROLES) {
-      const procurement = loadProcurement(root, board, role);
+      const procurement = loadProcurement(root, pcbId, role);
       if (!procurement) continue;
       const parsed = parseProcurement(procurement.text, {
         file: procurement.file,
-        board,
+        board: pcbId,
         role,
         components: resolver,
       });
       diagnostics.push(...parsed.diagnostics);
       if (parsed.ir) {
         drafts.push({
-          path: `boards/${board}/procurement${role === "alternatives" ? "-alternatives" : ""}.json`,
+          path: `boards/${pcbId}/procurement${role === "alternatives" ? "-alternatives" : ""}.json`,
           kind: "procurement",
           source: procurement.file,
           normative: role === "primary",
@@ -222,27 +227,56 @@ export function buildIrTree(root: string): IrTree {
         });
       }
     }
+  }
 
-    // A print page's drawing is a separate description (ADR-0035); it is not part of the schematic shard.
-    for (const view of loaded.views) {
-      const parsed = parseView(view.text, {
-        file: view.file,
-        board,
+  // A print page's drawing is separate from the logical root (ADR-0035); it is advisory.
+  for (const view of loadViews(root)) {
+    const parsed = parseView(view.text, { file: view.file });
+    diagnostics.push(...parsed.diagnostics);
+    if (parsed.ir) {
+      drafts.push({
+        path: `views/${view.pageId}.json`,
+        kind: "schematic-view",
+        source: view.file,
+        // A print page is a drawing, not a build input: nothing that is built depends on where
+        // a label sits (ADR-0035 decision 5).
+        normative: false,
+        ir: parsed.ir,
+        sources: parsed.sources,
       });
-      diagnostics.push(...parsed.diagnostics);
-      if (parsed.ir) {
-        drafts.push({
-          path: `boards/${board}/view/${view.pageId}.json`,
-          kind: "schematic-view",
-          source: view.file,
-          // A print page is a drawing, not a build input: nothing that is built depends on where
-          // a label sits (ADR-0035 decision 5).
-          normative: false,
-          ir: parsed.ir,
-          sources: parsed.sources,
-        });
-      }
     }
+  }
+
+  // The reusable view artifacts (ADR-0068 D1): a module drawing shows one module definition, a
+  // sheet template is the static furniture of a page. Neither is a build input — nothing that is
+  // built depends on where a label sits — so both shards are advisory: they change the advisory
+  // hash and the view diagnostics, never the project hash or a PCB hash (ADR-0068 D5).
+  for (const source of loadModuleViews(root)) {
+    const parsed = parseModuleView(source.text, { file: source.file });
+    diagnostics.push(...parsed.diagnostics);
+    if (!parsed.ir) continue;
+    drafts.push({
+      path: `module-views/${source.moduleId}.json`,
+      kind: "module-view",
+      source: source.file,
+      normative: false,
+      ir: parsed.ir,
+      sources: parsed.sources,
+    });
+  }
+
+  for (const source of loadSheetTemplates(root)) {
+    const parsed = parseSheetTemplate(source.text, { file: source.file });
+    diagnostics.push(...parsed.diagnostics);
+    if (!parsed.ir) continue;
+    drafts.push({
+      path: `sheet-templates/${source.templateId}.json`,
+      kind: "sheet-template",
+      source: source.file,
+      normative: false,
+      ir: parsed.ir,
+      sources: parsed.sources,
+    });
   }
 
   const libraries: {
@@ -280,7 +314,7 @@ export function buildIrTree(root: string): IrTree {
     }
   }
 
-  // The project file: the project's own metadata, the board list, the variants.
+  // The project file: the project's own metadata, the PCB list, the variants.
   const project = loadProject(root);
   diagnostics.push(...project.diagnostics);
   if (project.ir) {
@@ -293,32 +327,18 @@ export function buildIrTree(root: string): IrTree {
     });
   }
 
-  // The systems: how the boards are wired to each other. A system is part of the design, so it
-  // enters the build identity.
-  for (const source of listSystems(root)) {
-    const parsed = parseSystem(readFileSync(join(root, source.file), "utf8"), { file: source.file });
-    diagnostics.push(...parsed.diagnostics);
-    if (!parsed.ir) continue;
-    drafts.push({
-      path: `systems/${source.systemId}.json`,
-      kind: "system",
-      source: source.file,
-      normative: true,
-      ir: parsed.ir,
-    });
-  }
 
   diagnostics.push(...checkProjectInstanceUids(uidInputs));
 
-  // A procurement file belongs to a board: one whose design exists (spec/procurement.md §1).
-  const boards = new Set(listBoards(root));
+  // A procurement file belongs to a PCB: one whose design exists (spec/procurement.md §1).
+  const pcbIds = new Set(pcbs);
   for (const file of listProcurement(root)) {
-    if (boards.has(file.board)) continue;
+    if (pcbIds.has(file.board)) continue;
     diagnostics.push({
       code: "ref.unknown-board",
       severity: "error",
       message: `board ${file.board} not found: ${file.file} selects parts for a board this project does not have`,
-      hint: `a procurement file belongs to a board: use the board id of a design/sch/${file.board}.teda file`,
+      hint: `a procurement file belongs to a PCB: use the PCB id of a design/pcb/${file.board}.teda file`,
       location: { file: file.file, line: 2, col: 1 },
     });
   }
@@ -356,10 +376,10 @@ export function buildIrTree(root: string): IrTree {
   const projectHash = aggregateShardHash(normative);
   const advisoryHash = advisory.length > 0 ? aggregateShardHash(advisory) : undefined;
   const boardHashes = new Map<string, string>();
-  for (const board of listBoards(root)) {
-    const prefix = `boards/${board}/`;
+  for (const pcbId of pcbs) {
+    const prefix = `boards/${pcbId}/`;
     const subset = normative.filter((entry) => entry.path.startsWith(prefix));
-    if (subset.length > 0) boardHashes.set(board, aggregateShardHash(subset));
+    if (subset.length > 0) boardHashes.set(pcbId, aggregateShardHash(subset));
   }
 
   const manifest: IrManifest = {
@@ -378,7 +398,7 @@ export function buildIrTree(root: string): IrTree {
       code: "cli.empty-project",
       severity: "error",
       message: `No description with a producer was found in ${root}`,
-      hint: "Add a board description (design/sch/<board_id>.teda), a PCB description, or a library file; or point at the right project directory",
+      hint: "Add the root schematic (design/sch/main.teda), a PCB description (design/pcb/<pcb_id>.teda), or a library file; or point at the right project directory",
     });
   } else {
     const manifestCheck = validate("manifest", manifest);

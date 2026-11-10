@@ -1,10 +1,11 @@
 // Contract tests for the review app's model (`texteda review`, ADR-0035).
 //
-// The app is only as honest as the payload it is handed: every board either has a drawing or says
-// why it does not, and the document a reviewer looks at is the one CI attaches. Both are checked
-// here against the reference project, whose state is known (two print pages, one board without a
-// view file).
+// The app is only as honest as the payload it is handed: the logical root either has drawings or
+// says why it does not, and the document a reviewer looks at is the one CI attaches. Both are checked
+// here against the reference project, whose state is known (three print pages and two physical PCBs).
 import { describe, expect, test } from "bun:test";
+import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderReviewHtml } from "../src/review.ts";
@@ -17,15 +18,15 @@ describe("review model", () => {
   const model = buildReviewModel(referenceProject);
   const board = (id: string) => model.boards.find((candidate) => candidate.id === id);
 
-  test("every board under design/sch is listed, drawn or not", () => {
-    expect(model.boards.map((candidate) => candidate.id).sort()).toEqual(["charger-buck", "mcu-board"]);
+  test("the logical schematic root is listed and drawn", () => {
+    expect(model.boards.map((candidate) => candidate.id).sort()).toEqual(["main"]);
   });
 
   test("a page is drawn from the view file, at the sheet's own size", () => {
     const pages = model.drawings.filter(
-      (candidate) => candidate.kind === "sch" && candidate.board === "charger-buck",
+      (candidate) => candidate.kind === "sch" && candidate.board === "main",
     );
-    expect(pages.map((page) => page.page)).toEqual(["buck-5v", "charger-power"]);
+    expect(pages.map((page) => page.page)).toEqual(["buck-5v", "charger-power", "composed"]);
     for (const page of pages) {
       expect(page.problems).toEqual([]);
       expect(page.svg).toContain("<svg");
@@ -74,23 +75,32 @@ describe("review model", () => {
     }
   });
 
-  test("a board with no view file says so instead of inventing a drawing", () => {
-    const mcu = board("mcu-board");
-    expect(model.drawings.some((candidate) => candidate.kind === "sch" && candidate.board === "mcu-board")).toBe(
-      false,
-    );
-    expect(mcu?.note).toContain("no view file");
-    // No view file does not mean no logic: the board's instances and nets are still there.
-    expect(mcu?.instances.length).toBeGreaterThan(0);
-    expect(mcu?.nets.length).toBeGreaterThan(0);
+  test("a project with no view file says so without losing schematic data", () => {
+    const project = mkdtempSync(join(tmpdir(), "texteda-review-no-view-"));
+    try {
+      cpSync(referenceProject, project, { recursive: true });
+      rmSync(join(project, "views"), { recursive: true, force: true });
+
+      const noViewModel = buildReviewModel(project);
+      const main = noViewModel.boards.find((candidate) => candidate.id === "main");
+      expect(noViewModel.drawings.some((candidate) => candidate.kind === "sch" && candidate.board === "main")).toBe(
+        false,
+      );
+      expect(main?.note).toContain("no view file");
+      // No view file does not mean no logic: the root's instances and nets are still there.
+      expect(main?.instances.length).toBeGreaterThan(0);
+      expect(main?.nets.length).toBeGreaterThan(0);
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
   });
 
   test("a selected instance carries the facts a reviewer asks for", () => {
-    const instance = board("charger-buck")?.instances.find((candidate) => candidate.id === "M2.C1");
+    const instance = board("main")?.instances.find((candidate) => candidate.id === "M2.C1");
     expect(instance?.component).toBe("cap-mlcc-1210");
     expect(instance?.params).toContain("10uF");
     expect(instance?.nets).toEqual(["GND", "SYS"]);
-    expect(instance?.file).toBe("design/sch/charger-buck.teda");
+    expect(instance?.file).toBe("design/sch/main.teda");
     expect(instance?.symbol).toBe("passives:c");
     expect(instance?.footprint).toBe("chip:chip-1210");
   });
@@ -98,10 +108,10 @@ describe("review model", () => {
   test("a selection carries the source locations behind it", () => {
     // ADR-0004 D6: the app can name the row in the board/module file, the placement on the page, and the
     // device files without re-parsing anything in the browser.
-    const instance = model.sources["instance:charger-buck/M2.C1"] ?? [];
+    const instance = model.sources["instance:main/M2.C1"] ?? [];
     expect(instance.map((location) => location.kind)).toEqual(["instance", "pcb-place", "view-place"]);
     expect(instance[0]).toMatchObject({ file: "design/modules/buck-5v.teda", line: 10 });
-    const net = model.sources["net:charger-buck/SYS"] ?? [];
+    const net = model.sources["net:main/SYS"] ?? [];
     expect(net.map((location) => location.kind)).toContain("net");
     // The page draws the net with a run: the page carries no label for it.
     expect(net.map((location) => location.kind)).toContain("view-wire");

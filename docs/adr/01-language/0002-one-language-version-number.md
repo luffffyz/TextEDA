@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-27
 Scope: Decides: that the language has one version number, that additive language changes may take an explicitly recorded MINOR step while compatible clarifications take PATCH, and that each description type has a reader floor which may advance when an explicit breaking surface migration requires it. Does not decide: when the surface is frozen — `1.0` is reserved for that, see `spec/teda.md` §13.2.
-Related: [ADR-0001](0001-fact-layer-has-no-expressions.md), [ADR-0006](../02-ir/0006-ir-shards-and-hashes.md), [ADR-0011](../03-project/0011-renumbering-is-a-code-executed-rename.md), [ADR-0041](../10-process/0041-documentation-has-one-authority-per-fact.md), [ADR-0055](../09-view/0055-schematic-fields-are-view-overrides.md), [ADR-0065](0065-a-coordinate-tuple-is-one-cell.md)
+Related: [ADR-0001](0001-fact-layer-has-no-expressions.md), [ADR-0006](../02-ir/0006-ir-shards-and-hashes.md), [ADR-0011](../03-project/0011-renumbering-is-a-code-executed-rename.md), [ADR-0041](../10-process/0041-documentation-has-one-authority-per-fact.md), [ADR-0055](../09-view/0055-schematic-fields-are-view-overrides.md), [ADR-0065](0065-a-coordinate-tuple-is-one-cell.md), [ADR-0068](../09-view/0068-reusable-module-drawings-and-sheet-templates.md)
 Impact: `spec/teda.md` §13; `packages/parser/src/version.ts`; `scripts/migrate-0.9.ts`; `scripts/migrate-0.11.ts`; `examples/**`
 
 ## Background

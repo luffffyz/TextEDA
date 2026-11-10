@@ -3,8 +3,12 @@
 import { describe, expect, test } from "bun:test";
 import { parsePcb } from "../src/pcb.ts";
 
-const valid = `version 0.11
+const valid = `version 0.14
 pcb main
+
+modules
+  M1
+
 board_thickness 1.6mm
 
 stackup
@@ -19,11 +23,11 @@ outline
   [0.0,30.0]
 
 place
-  U1     [12.0,12.0]  0    top
-  C1     [18.0,12.0]  90   bottom
+  M1.U1     [12.0,12.0]  0    top
+  M1.C1     [18.0,12.0]  90   bottom
 
 connect
-  U1.4  C1.1
+  M1.U1.4  M1.C1.1
 
 rules
   clearance  0.2mm
@@ -36,18 +40,18 @@ rules
   min_width  0.15mm
 `;
 
-const parse = (text: string, board = "main") => parsePcb(text, { file: "pcb/main.teda", board });
+const parse = (text: string, pcb = "main") => parsePcb(text, { file: "pcb/main.teda", pcb });
 
-const codes = (text: string, board = "main") => parse(text, board).diagnostics.map((d) => d.code);
+const codes = (text: string, pcb = "main") => parse(text, pcb).diagnostics.map((d) => d.code);
 
 describe("complete file", () => {
   test("compiles an IR aligned with the schema", () => {
     const result = parse(valid);
     expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
     const ir = result.ir!;
-    expect(ir.board).toBe("main");
-    expect(ir.format).toBe("0.11");
-    expect(ir.board_thickness_nm).toBe(1_600_000);
+    expect(ir.pcb).toBe("main");
+    expect(ir.modules).toEqual(["M1"]);
+    expect(ir.format).toBe("0.14");
     expect(ir.stackup).toHaveLength(3);
     expect(ir.stackup[1]).toEqual({
       type: "dielectric",
@@ -56,22 +60,22 @@ describe("complete file", () => {
       material: "FR4",
       er_ppm: 4_300_000,
     });
-    expect(ir.place.map((item) => item.instance_id)).toEqual(["C1", "U1"]);
+    expect(ir.place.map((item) => item.instance_id)).toEqual(["M1.C1", "M1.U1"]);
     expect(ir.place[1]).toEqual({
-      instance_id: "U1",
+      instance_id: "M1.U1",
       x_nm: 12_000_000,
       y_nm: 12_000_000,
       rot_mdeg: 0,
       side: "top",
     });
-    expect(ir.connect).toEqual([{ a: "C1.1", b: "U1.4" }]);
+    expect(ir.connect).toEqual([{ a: "M1.C1.1", b: "M1.U1.4" }]);
     expect(ir.rules).toContainEqual({ type: "diff", net_a: "USB_DP", net_b: "USB_DN", impedance_mohm: 90_000, gap_nm: 200_000 });
     expect(ir.rules).toContainEqual({ type: "paste", ratio_ppm: 900_000, offset_nm: -20_000 });
   });
 
   test("row order and member order do not affect IR bytes", () => {
     const shuffled = valid
-      .replace("  U1     [12.0,12.0]  0    top\n  C1     [18.0,12.0]  90   bottom", "  C1     [18.0,12.0]  90   bottom\n  U1     [12.0,12.0]  0    top");
+      .replace("  M1.U1     [12.0,12.0]  0    top\n  M1.C1     [18.0,12.0]  90   bottom", "  M1.C1     [18.0,12.0]  90   bottom\n  M1.U1     [12.0,12.0]  0    top");
     expect(JSON.stringify(parse(shuffled).ir)).toBe(JSON.stringify(parse(valid).ir));
   });
 
@@ -169,11 +173,12 @@ trace
 });
 
 describe("errors", () => {
-  test("id does not match the board", () => {
+  test("id does not match the pcb", () => {
     expect(codes(valid, "other")).toContain("ref.pcb-id-mismatch");
   });
 
   test("missing required section", () => {
+    expect(codes(valid.replace("modules\n  M1\n", ""))).toContain("syntax.unknown-section");
     expect(codes(valid.replace(/rules\n  clearance.*\n/g, ""))).toContain("syntax.unknown-section");
   });
 
@@ -190,7 +195,7 @@ describe("errors", () => {
   });
 
   test("same instance placed twice", () => {
-    expect(codes(valid.replace("  C1     [18.0,12.0]  90   bottom", "  U1     [18.0,12.0]  90   bottom"))).toContain("value.duplicate-instance");
+    expect(codes(valid.replace("  M1.C1     [18.0,12.0]  90   bottom", "  M1.U1     [18.0,12.0]  90   bottom"))).toContain("value.duplicate-instance");
   });
 
   test("unknown rule type / unknown section / wrong column count", () => {

@@ -61,7 +61,7 @@
     "pins_source": "inline",
     "symbol": "analog:opa2333"
   },
-  "ir_version": "0.15",
+  "ir_version": "0.19",
   "source": {
     "file": "assets/components/analog/opa2333.teda",
     "line": 1

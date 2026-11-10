@@ -1,0 +1,292 @@
+{
+  "constraints": [
+    {
+      "max_uv": 0,
+      "min_uv": 0,
+      "subject": "PWR_GND",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3600000,
+      "min_uv": 3000000,
+      "subject": "PWR_VDD",
+      "type": "voltage"
+    }
+  ],
+  "format": "0.14",
+  "instances": [
+    {
+      "component": "hdr-1x4-254",
+      "id": "M1.H1",
+      "uid": "ID6hv1af"
+    },
+    {
+      "component": "jst-sh-4",
+      "id": "M1.J1",
+      "uid": "IDfp6f16"
+    },
+    {
+      "component": "jst-sh-4",
+      "id": "M1.J2",
+      "uid": "IDbhxg83"
+    },
+    {
+      "component": "jst-sh-4",
+      "id": "M1.J3",
+      "uid": "IDe0tafm"
+    },
+    {
+      "component": "jst-sh-4",
+      "id": "M1.J4",
+      "uid": "IDh2ey48"
+    },
+    {
+      "component": "jst-sh-4",
+      "id": "M1.J5",
+      "uid": "IDdye73d"
+    },
+    {
+      "component": "jst-sh-4",
+      "id": "M1.J6",
+      "uid": "IDj7nbrs"
+    },
+    {
+      "component": "jst-sh-4",
+      "id": "M1.J7",
+      "uid": "IDajm6zd"
+    },
+    {
+      "component": "jst-sh-4",
+      "id": "M1.J8",
+      "uid": "ID3ww4a8"
+    },
+    {
+      "component": "jst-sh-4",
+      "id": "M1.J9",
+      "uid": "ID73f4qn"
+    },
+    {
+      "component": "jst-sh-4",
+      "id": "M1.J10",
+      "uid": "ID33b82n"
+    },
+    {
+      "component": "jst-sh-4",
+      "id": "M1.J11",
+      "uid": "IDa9rgf5"
+    },
+    {
+      "component": "jst-sh-4",
+      "id": "M1.J12",
+      "uid": "IDdj8k7y"
+    },
+    {
+      "component": "jst-sh-4",
+      "id": "M1.J13",
+      "uid": "ID5z6fts"
+    },
+    {
+      "component": "jst-sh-4",
+      "id": "M1.J14",
+      "uid": "ID8cz7r6"
+    }
+  ],
+  "ir_version": "0.19",
+  "modules": [
+    {
+      "instance_id": "M1",
+      "module_id": "sensor-hub",
+      "ports": [
+        {
+          "id": "I2C_SCL",
+          "net": "I2C_SCL",
+          "pins": [
+            "M1.H1.4",
+            "M1.J1.4",
+            "M1.J2.4",
+            "M1.J3.4",
+            "M1.J4.4",
+            "M1.J5.4",
+            "M1.J6.4",
+            "M1.J7.4",
+            "M1.J8.4",
+            "M1.J9.4",
+            "M1.J10.4",
+            "M1.J11.4",
+            "M1.J12.4",
+            "M1.J13.4",
+            "M1.J14.4"
+          ]
+        },
+        {
+          "id": "I2C_SDA",
+          "net": "I2C_SDA",
+          "pins": [
+            "M1.H1.3",
+            "M1.J1.3",
+            "M1.J2.3",
+            "M1.J3.3",
+            "M1.J4.3",
+            "M1.J5.3",
+            "M1.J6.3",
+            "M1.J7.3",
+            "M1.J8.3",
+            "M1.J9.3",
+            "M1.J10.3",
+            "M1.J11.3",
+            "M1.J12.3",
+            "M1.J13.3",
+            "M1.J14.3"
+          ]
+        },
+        {
+          "id": "PWR_GND",
+          "net": "PWR_GND",
+          "pins": [
+            "M1.H1.1",
+            "M1.J1.1",
+            "M1.J2.1",
+            "M1.J3.1",
+            "M1.J4.1",
+            "M1.J5.1",
+            "M1.J6.1",
+            "M1.J7.1",
+            "M1.J8.1",
+            "M1.J9.1",
+            "M1.J10.1",
+            "M1.J11.1",
+            "M1.J12.1",
+            "M1.J13.1",
+            "M1.J14.1"
+          ]
+        },
+        {
+          "id": "PWR_VDD",
+          "net": "PWR_VDD",
+          "pins": [
+            "M1.H1.2",
+            "M1.J1.2",
+            "M1.J2.2",
+            "M1.J3.2",
+            "M1.J4.2",
+            "M1.J5.2",
+            "M1.J6.2",
+            "M1.J7.2",
+            "M1.J8.2",
+            "M1.J9.2",
+            "M1.J10.2",
+            "M1.J11.2",
+            "M1.J12.2",
+            "M1.J13.2",
+            "M1.J14.2"
+          ]
+        }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "id": "I2C_SCL",
+      "members": [
+        "M1.H1.4",
+        "M1.J1.4",
+        "M1.J2.4",
+        "M1.J3.4",
+        "M1.J4.4",
+        "M1.J5.4",
+        "M1.J6.4",
+        "M1.J7.4",
+        "M1.J8.4",
+        "M1.J9.4",
+        "M1.J10.4",
+        "M1.J11.4",
+        "M1.J12.4",
+        "M1.J13.4",
+        "M1.J14.4"
+      ]
+    },
+    {
+      "id": "I2C_SDA",
+      "members": [
+        "M1.H1.3",
+        "M1.J1.3",
+        "M1.J2.3",
+        "M1.J3.3",
+        "M1.J4.3",
+        "M1.J5.3",
+        "M1.J6.3",
+        "M1.J7.3",
+        "M1.J8.3",
+        "M1.J9.3",
+        "M1.J10.3",
+        "M1.J11.3",
+        "M1.J12.3",
+        "M1.J13.3",
+        "M1.J14.3"
+      ]
+    },
+    {
+      "id": "PWR_GND",
+      "members": [
+        "M1.H1.1",
+        "M1.J1.1",
+        "M1.J2.1",
+        "M1.J3.1",
+        "M1.J4.1",
+        "M1.J5.1",
+        "M1.J6.1",
+        "M1.J7.1",
+        "M1.J8.1",
+        "M1.J9.1",
+        "M1.J10.1",
+        "M1.J11.1",
+        "M1.J12.1",
+        "M1.J13.1",
+        "M1.J14.1"
+      ]
+    },
+    {
+      "id": "PWR_VDD",
+      "members": [
+        "M1.H1.2",
+        "M1.J1.2",
+        "M1.J2.2",
+        "M1.J3.2",
+        "M1.J4.2",
+        "M1.J5.2",
+        "M1.J6.2",
+        "M1.J7.2",
+        "M1.J8.2",
+        "M1.J9.2",
+        "M1.J10.2",
+        "M1.J11.2",
+        "M1.J12.2",
+        "M1.J13.2",
+        "M1.J14.2"
+      ]
+    }
+  ],
+  "ports": [
+    {
+      "id": "I2C_SCL",
+      "net": "I2C_SCL"
+    },
+    {
+      "id": "I2C_SDA",
+      "net": "I2C_SDA"
+    },
+    {
+      "id": "PWR_GND",
+      "net": "PWR_GND"
+    },
+    {
+      "id": "PWR_VDD",
+      "net": "PWR_VDD"
+    }
+  ],
+  "project": "main",
+  "source": {
+    "file": "design/sch/main.teda",
+    "line": 1
+  }
+}

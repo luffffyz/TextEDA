@@ -13,7 +13,8 @@ const MM = 1_000_000;
 const schematic: Schematic = {
   ir_version: irVersion,
   format: "0.8",
-  board: "b",
+  project: "main",
+  modules: [],
   instances: [],
   nets: [
     { id: "GND", members: ["U1.2", "R1.2"] },
@@ -44,21 +45,26 @@ const geometry = (overrides: Partial<ReadabilityGeometry> = {}): ReadabilityGeom
   ...overrides,
 });
 
-const view = (wires: NonNullable<SchematicView["wire"]>, texts: { label?: unknown[]; port?: unknown[]; text?: unknown[] }): SchematicView =>
+const view = (
+  wires: NonNullable<SchematicView["wire"]>,
+  texts: { label?: unknown[]; port?: unknown[]; text?: unknown[] },
+  modulePorts: { id: string; x_nm: number; y_nm: number }[] = [],
+): SchematicView =>
   ({
     ir_version: irVersion,
     format: "0.8",
-    board: "b",
+    project: "main",
     page: "p",
     place: [],
     ...(wires.length > 0 ? { wire: wires } : {}),
+    ...(modulePorts.length > 0 ? { module_port: modulePorts } : {}),
     ...texts,
   }) as unknown as SchematicView;
 
-const facts = (v: SchematicView, g: ReadabilityGeometry): ReadabilityFacts => ({
-  file: "views/b/p.view.teda",
+const facts = (v: SchematicView, g: ReadabilityGeometry, board: Schematic = schematic): ReadabilityFacts => ({
+  file: "views/p.view.teda",
   view: v,
-  schematic,
+  schematic: board,
   geometry: g,
 });
 
@@ -68,6 +74,34 @@ const gndWire = {
   from_pin: "R1.2",
   to_pin: "U1.2",
 };
+
+// The overview: two module boxes with a port on the frame of each, joined by one board net.
+const moduleBoxes = [
+  { instance_id: "M1", box: { min_x_nm: 10 * MM, min_y_nm: 10 * MM, max_x_nm: 30 * MM, max_y_nm: 20 * MM } },
+  { instance_id: "M2", box: { min_x_nm: 50 * MM, min_y_nm: 10 * MM, max_x_nm: 70 * MM, max_y_nm: 20 * MM } },
+];
+
+/** M1's port sits on M1's right frame, M2's on M2's left frame: where the overview draws them. */
+const modulePorts = [
+  { id: "M1.PORT", x_nm: 30 * MM, y_nm: 15 * MM },
+  { id: "M2.PORT", x_nm: 50 * MM, y_nm: 15 * MM },
+];
+
+/** The board net the two module ports are bound to. */
+const sysWire = { net: "SYS", from_pin: "M1.PORT", to_pin: "M2.PORT" };
+
+const overviewSchematic: Schematic = {
+  ...schematic,
+  nets: [...schematic.nets, { id: "SYS", members: ["M1.PORT", "M2.PORT"] }],
+};
+
+const moduleGeometry = (overrides: Partial<ReadabilityGeometry> = {}): ReadabilityGeometry => ({
+  symbols: [],
+  texts: [],
+  fields: [],
+  modules: moduleBoxes,
+  ...overrides,
+});
 
 describe("checkReadability", () => {
   test("a clean drawing reports nothing", () => {
@@ -103,7 +137,7 @@ describe("checkReadability", () => {
     expect(out.map((d) => d.code)).toEqual(["view.label-not-on-net"]);
     expect(out[0]!.severity).toBe("warning");
     // No locator was handed in, so the finding names the file only: the line was in the record.
-    expect(out[0]!.location).toEqual({ file: "views/b/p.view.teda", line: 1, col: 1 });
+    expect(out[0]!.location).toEqual({ file: "views/p.view.teda", line: 1, col: 1 });
   });
 
   test("a label on a net's wiring drawn on no page is not reported (the coverage check owns that gap)", () => {
@@ -441,5 +475,75 @@ describe("checkReadability", () => {
     expect(checkReadability(facts(view([gndWire, { net: "GND", from_pin: "A.1", to_pin: "B.1" }], {}), g))).toEqual(
       [],
     );
+  });
+
+  test("a wire that crosses a module box is reported", () => {
+    // M3 sits between M1 and M2, so the overview's own wire runs straight through its frame.
+    const g = moduleGeometry({
+      modules: [
+        ...moduleBoxes,
+        { instance_id: "M3", box: { min_x_nm: 35 * MM, min_y_nm: 10 * MM, max_x_nm: 45 * MM, max_y_nm: 20 * MM } },
+      ],
+    });
+    const out = checkReadability(facts(view([sysWire], {}, modulePorts), g, overviewSchematic));
+    expect(out.map((d) => d.code)).toEqual(["view.wire-crosses-module"]);
+    expect(out[0]!.severity).toBe("error");
+    expect(out[0]!.data).toEqual({
+      page: "p",
+      net: "SYS",
+      module: "M3",
+      x_nm: 35 * MM,
+      y_nm: 15 * MM,
+      through_nm: 10 * MM,
+    });
+    expect(out[0]!.message).toContain("through the box of module M3");
+  });
+
+  test("a wire may touch the frame of the module whose port it ends on", () => {
+    // The overview's own wire: it starts on M1's frame and ends on M2's frame, at the module ports
+    // it connects. That is the one place a wire may meet a module box.
+    const out = checkReadability(facts(view([sysWire], {}, modulePorts), moduleGeometry(), overviewSchematic));
+    expect(out).toEqual([]);
+  });
+
+  test("a wire that runs through the box of the module whose port it ends on is reported", () => {
+    // The port is drawn inside M1's box instead of on its frame, so the wire leaves the module by
+    // crossing its boundary: the own endpoint is not a licence to run through the box.
+    const ports = [{ id: "M1.PORT", x_nm: 20 * MM, y_nm: 15 * MM }, modulePorts[1]!];
+    const out = checkReadability(facts(view([sysWire], {}, ports), moduleGeometry(), overviewSchematic));
+    expect(out.map((d) => d.code)).toEqual(["view.wire-crosses-module"]);
+    expect(out[0]!.data).toMatchObject({ page: "p", net: "SYS", module: "M1", through_nm: 10 * MM });
+  });
+
+  test("a module port endpoint resolves through its own coordinates, not through a pin", () => {
+    // A decoy: a symbol `M1` with a pin `PORT` inside M1's own box. `M1.PORT` names the module
+    // port, so the wire starts on M1's frame — not at the pin, which would run it through the box.
+    const g = moduleGeometry({
+      symbols: [
+        {
+          instance_id: "M1",
+          box: { min_x_nm: 13 * MM, min_y_nm: 13 * MM, max_x_nm: 17 * MM, max_y_nm: 17 * MM },
+          pins: new Map([["PORT", { x_nm: 15 * MM, y_nm: 15 * MM }]]),
+        },
+      ],
+    });
+    const out = checkReadability(facts(view([sysWire], {}, modulePorts), g, overviewSchematic));
+    expect(out.map((d) => d.code)).not.toContain("view.wire-crosses-module");
+
+    // The same wire, read from the net: a label on the module port sits on the net it names.
+    const labelled = moduleGeometry({
+      ...g,
+      texts: [
+        {
+          kind: "label",
+          text: "SYS",
+          x_nm: 30 * MM,
+          y_nm: 15 * MM,
+          box: { min_x_nm: 30 * MM, min_y_nm: 14 * MM, max_x_nm: 35 * MM, max_y_nm: 16 * MM },
+          subject: "SYS",
+        },
+      ],
+    });
+    expect(checkReadability(facts(view([sysWire], {}, modulePorts), labelled, overviewSchematic))).toEqual([]);
   });
 });

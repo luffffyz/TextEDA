@@ -1,0 +1,31 @@
+version 0.14.0
+pcb divider-network
+
+board_thickness  1.6
+
+modules
+  M1
+
+stackup
+  F.Cu     copper      0.035  signal
+  prepreg  dielectric  1.53   FR4     4.3
+  B.Cu     copper      0.035  signal
+
+outline
+  [0,0]
+  [40,0]
+  [40,30]
+  [0,30]
+
+place
+
+connect
+
+rules
+  clearance  0.2
+  width  0.3
+  via  0.6  0.3
+  mask  0.05
+  paste  0.9  -0.02
+  thermal  0.25  0.4
+  min_width  0.15

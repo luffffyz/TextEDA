@@ -8,7 +8,7 @@
 // The test therefore measures the *growth*, not the absolute time: a machine's speed is not the
 // contract, but "four times the page must not cost sixteen times the work" is.
 import { describe, expect, test } from "bun:test";
-import { rmSync, writeFileSync } from "node:fs";
+import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { planLayout } from "../src/layout.ts";
@@ -20,9 +20,9 @@ const referenceProject = join(fileURLToPath(new URL("../../../", import.meta.url
 function cost(n: number, w: number, l: number): number {
   const dir = makeBenchProject(referenceProject, n, w, l);
   try {
-    writeFileSync(join(dir, "views/charger-buck/bench.view.teda"), benchPage(n, w, l));
+    // makeBenchProject writes the generated page at the project-level view path consumed by planLayout.
     const start = performance.now();
-    const plan = planLayout(dir, { ...BENCH_REQUEST, places: [...BENCH_REQUEST.places] });
+    const plan = planLayout(dir, { page: BENCH_REQUEST.page, places: [...BENCH_REQUEST.places] });
     const ms = performance.now() - start;
     expect(plan.changed).toBe(true);
     return ms;

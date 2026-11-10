@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.15",
+  "ir_version": "0.19",
   "project": {
     "description": "Case 4 of the ten: one module, two instances, one board",
     "format": "0.11",

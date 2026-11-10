@@ -1,31 +1,36 @@
 {
-  "ir_version": "0.15",
+  "ir_version": "0.19",
   "shards": [
     {
-      "path": "boards/divider-network/schematic.json",
-      "sha256": "2cf90d08f85e9a3c4798a59e13ffb3e642500fead09bcbd3ef3219b398a17d83",
+      "path": "boards/divider-network/pcb.json",
+      "sha256": "24f1065c3c877b2f12eb28de6ee96d646b86255d36496cfc9c6a277b9a1f8d94",
       "normative": true
     },
     {
       "path": "components/res-thick-0402.json",
-      "sha256": "0562167f021577a540a02078c3842a0a501142c919756be1550c689a3bdf6b4d",
+      "sha256": "a3f063ff0d2c8422293e851f4e3bbfc2177299a981f3533a69bec0f230f475aa",
       "normative": true
     },
     {
       "path": "footprints/chip/chip-0402.json",
-      "sha256": "39da6b6d0d8a5a6df6b8ed1ee0b51b77b6c5a0e581b41e06d4c4d9da7ccf1e33",
+      "sha256": "48de49078ff357157ce9d47e15390e7a18b3d8a3642ab8a74da848e49d034f67",
       "normative": true
     },
     {
       "path": "project.json",
-      "sha256": "31fa46537859c99118c4fcc251ae8bf071c2e4294afe993ba4f353b7b5ee1473",
+      "sha256": "55ac6dda0cc200879384e7feeb1144cfccfc17d5170c4fae7079ff5c6a5dc849",
+      "normative": true
+    },
+    {
+      "path": "project/schematic.json",
+      "sha256": "10d817dedd5ba664bcaaa7464ad648cd0343236ebd441c785ff716231ab3a2fc",
       "normative": true
     },
     {
       "path": "symbols/passives/r.json",
-      "sha256": "352da16646143241e3f20cd8d7fb16405f095f55b0aa078cda00152534e239f1",
+      "sha256": "6f15c2d8b79e2186b2bcc752d171763af3aec60ea7d104d14a200f2d0b8f3786",
       "normative": true
     }
   ],
-  "source_hash": "dd4ccf17265274de6410d9044bb4152f37744834d0552f13a37ad90b63452a16"
+  "source_hash": "f8d4b0e680addd3a871a5bce2503fbc2038d8ba5bf70c72f4de8387ec773029a"
 }

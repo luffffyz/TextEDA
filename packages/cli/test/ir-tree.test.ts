@@ -25,10 +25,10 @@ describe("IR shard tree layout", () => {
   const paths = tree.shards.map((shard) => shard.path);
 
   test("every description with a producer becomes a shard", () => {
-    expect(paths).toContain("boards/charger-buck/schematic.json");
+    expect(paths).toContain("project/schematic.json");
     expect(paths).toContain("boards/charger-buck/pcb.json");
-    expect(paths).toContain("boards/charger-buck/view/buck-5v.json");
-    expect(paths).toContain("boards/mcu-board/schematic.json");
+    expect(paths).toContain("views/buck-5v.json");
+    expect(paths).toContain("boards/mcu-board/pcb.json");
     expect(paths).toContain("symbols/passives/r.json");
     expect(paths).toContain("footprints/chip/chip-0402.json");
     expect(paths).toContain("components/bq24610rger.json");
@@ -77,12 +77,12 @@ describe("IR shard tree layout", () => {
   test("the advisory identity index names every selectable identity", () => {
     // ADR-0004 D6: the review app needs identity → source locations, but this index is not a
     // shard and never enters a hash.
-    expect(tree.identity.identities["instance:charger-buck/M2.C1"]?.map((location) => location.kind)).toEqual([
+    expect(tree.identity.identities["instance:main/M2.C1"]?.map((location) => location.kind)).toEqual([
       "instance",
       "pcb-place",
       "view-place",
     ]);
-    expect(tree.identity.identities["net:charger-buck/SYS"]?.map((location) => location.kind)).toContain("net");
+    expect(tree.identity.identities["net:main/SYS"]?.map((location) => location.kind)).toContain("net");
     expect(tree.identity.identities["component:cap-mlcc-1210"]?.[0]?.file).toBe(
       "assets/components/passives/cap-mlcc-1210.teda",
     );
@@ -128,7 +128,7 @@ describe("IR shard tree hashes", () => {
         identities: Record<string, unknown[]>;
       };
       expect(identity.version).toBe(1);
-      expect(identity.identities["instance:mcu-board/U1"]).toBeDefined();
+      expect(identity.identities["instance:main/M3.U1"]).toBeDefined();
       expect(tree.manifest.shards.some((shard) => shard.path === "identity.json")).toBe(false);
     } finally {
       rmSync(out, { recursive: true, force: true });
@@ -165,7 +165,7 @@ describe("IR shard tree hashes", () => {
 
   test("a print page is a drawing, not a build input: its shard is advisory", () => {
     // ADR-0035 decision 5: moving a label in a print page must not change the build identity.
-    const pages = tree.manifest.shards.filter((s) => s.path.includes("/view/"));
+    const pages = tree.manifest.shards.filter((s) => s.path.startsWith("views/"));
     expect(pages.length).toBeGreaterThan(0);
     for (const page of pages) expect(page.normative).toBe(false);
   });
@@ -187,7 +187,7 @@ describe("IR shard tree hashes", () => {
     try {
       cpSync(referenceProject, project, { recursive: true });
       const before = buildIrTree(project);
-      const page = join(project, "views", "charger-buck", "buck-5v.view.teda");
+      const page = join(project, "views", "buck-5v.view.teda");
       const text = readFileSync(page, "utf8");
       // The page ships without a label, so the one this moves is the test's own.
       const labelled = `${text}\nlabel\n  GND  [130.0,122.5]\n`;
@@ -245,7 +245,7 @@ describe("IR shard tree pruning", () => {
       writeIrTree(out, tree);
       expect(existsSync(join(out, "stale.json"))).toBe(false);
       expect(existsSync(join(out, "boards", "gone"))).toBe(false);
-      expect(existsSync(join(out, "boards", "charger-buck", "schematic.json"))).toBe(true);
+      expect(existsSync(join(out, "boards", "charger-buck", "pcb.json"))).toBe(true);
     } finally {
       rmSync(out, { recursive: true, force: true });
     }
@@ -272,7 +272,7 @@ describe("texteda ir", () => {
       const result = runIr(["ir", referenceProject, "--out", out]);
       expect(result.code).toBe(0);
       expect(existsSync(join(out, "manifest.json"))).toBe(true);
-      expect(existsSync(join(out, "boards", "charger-buck", "schematic.json"))).toBe(true);
+      expect(existsSync(join(out, "project", "schematic.json"))).toBe(true);
       expect(result.stdout).toContain("Project hash:");
     } finally {
       rmSync(out, { recursive: true, force: true });
@@ -331,7 +331,7 @@ describe("texteda ir", () => {
     const project = tempDir();
     try {
       mkdirSync(join(project, "design/sch"), { recursive: true });
-      writeFileSync(join(project, "design/sch", "broken.teda"), "schematic broken\ninstances\n  ???\n");
+      writeFileSync(join(project, "design/sch", "main.teda"), "schematic main\ninstances\n  ???\n");
       const result = runIr(["ir", project]);
       expect(result.code).toBe(1);
       expect(existsSync(join(project, "dist", "ir", "manifest.json"))).toBe(false);

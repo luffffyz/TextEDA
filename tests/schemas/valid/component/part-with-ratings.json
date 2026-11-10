@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.15",
+  "ir_version": "0.19",
   "format": "0.9.1",
   "source": { "file": "assets/components/parts/c-0402-x7r-10uf-16v.teda" },
   "component": {

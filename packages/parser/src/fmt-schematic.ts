@@ -29,9 +29,9 @@ export interface SchematicFormatResult {
 }
 
 /** The sections of a board file, in canonical order. */
-const BOARD_SECTIONS = ["modules", "instances", "nets", "ports", "bus", "constraints"] as const;
+const BOARD_SECTIONS = ["modules", "nets", "ports", "constraints", "interconnects", "interconnect_pins"] as const;
 /** The sections of a module file, in canonical order (no `modules`: the hierarchy is one level deep). */
-const MODULE_SECTIONS = ["instances", "nets", "ports", "constraints"] as const;
+const MODULE_SECTIONS = ["instances", "nets", "bus", "ports", "constraints"] as const;
 
 /** One row (comments attach to the row that follows). */
 interface Row {

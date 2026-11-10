@@ -16,8 +16,8 @@ Three things a person used to want from a design tool, and where each of them ac
 
 | Surface | What changes | Where it lives |
 |---|---|---|
-| instances and nets | the logical truth | `design/sch/<board>.teda` |
-| where the parts sit, where the wires run | the drawing | `views/<board>/<page>.view.teda` (the page), `design/pcb/<board>.teda` (the board) |
+| instances and nets | the logical truth | `design/sch/main.teda` — the project's one logical root |
+| where the parts sit, where the wires run | the drawing | `views/<page_id>.view.teda` (project print page), `design/pcb/<pcb_id>.teda` (physical PCB) |
 | electrical rules | the checks | `texteda check` |
 
 All three are files or commands the agent owns. The schematic IR carries no geometry at all — an
@@ -33,7 +33,7 @@ pointing.
 
 Two of those three surfaces are not worth fighting over with a person: the agent edits the
 schematic file and runs the checks better than a form would. The third is different. **Position is
-the one fact that language carries badly.** "Move U1 a little left of the divider" asks the agent
+the one fact that language carries badly.** "Move M1.U1 a little left of the divider" asks the agent
 to guess millimetres it cannot see, and it is exactly the kind of instruction that produces a
 plausible-looking wrong answer. A person's judgement of where a part sits is worth keeping, and
 the cheap, exact channel for it is a pointer, not a sentence. That is the whole reason the plugin
@@ -81,8 +81,8 @@ half is `packages/viewer/src/client.ts`. Neither knows what a plugin is, and nei
 
 ### D3. The plugin writes positions, and nothing else
 
-The plugin's one write is the print page's `place` rows: where a symbol sits and how it is
-rotated. Nothing else.
+The plugin's one write is the project print page's `place` rows at `views/<page_id>.view.teda`:
+where a symbol sits and how it is rotated. Nothing else.
 
 Three things keep that write from becoming a second truth:
 
@@ -125,9 +125,11 @@ commands — is decided in [ADR-0044](../10-process/0044-the-agent-surface-is-a-
 ### D5. The person's gestures are look, select, ask, place
 
 Hover highlights by identity; a click selects; a selection becomes a brief that the agent
-receives; a drag moves a symbol on the sheet and writes the `place` row (D3).
+receives; a drag moves a project instance on a project-wide print page and writes that page's
+`place` row (D3). Flattened component instance IDs are project-wide and qualified as
+`<module_instance_id>.<local_id>`; for example, `M1.U1`.
 
-The brief is a request, not an edit. "U1 is where I pointed — move it and re-route what it
+The brief is a request, not an edit. "M1.U1 is where I pointed — move it and re-route what it
 disturbs" is work the agent does in the file, through the CLI, with the whole project in view. The
 drag is the exception, and it is narrow: it says *where*, and never *what*.
 
@@ -137,10 +139,11 @@ never changes the build.
 
 ### D6. The scopes are explicit
 
-A plugin instance shows one scope at a time: `sch` (the print pages, with the schematic's logic
-behind them) or `pcb` (the board canvas). They are different drawings over different IR shards,
-so they do not share a mode bar, and the findings, the definitions menu and the routes are scoped
-to the scope on screen. The standalone app grows the same split.
+A plugin instance shows one scope at a time: `sch` (the project's print pages, with the logical
+root `design/sch/main.teda` behind them) or `pcb` (one physical PCB canvas, identified by its
+`pcb_id`). They are different drawings over different IR shards, so they do not share a mode bar,
+and the findings, the definitions menu and the routes are scoped to the scope on screen. The
+standalone app grows the same split.
 
 ### D7. The standalone app survives as the bridge
 

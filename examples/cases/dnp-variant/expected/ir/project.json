@@ -1,0 +1,24 @@
+{
+  "ir_version": "0.19",
+  "project": {
+    "default_variant": "lite",
+    "description": "Case 9 of the ten: a project variant leaves a generic component unpopulated",
+    "format": "0.11",
+    "name": "dnp-variant",
+    "status": "draft",
+    "version": "0.1.0"
+  },
+  "variants": [
+    {
+      "description": "fully populated",
+      "id": "default"
+    },
+    {
+      "description": "omit the resistor line from the fitted build",
+      "dnp": [
+        "res-thick-0402"
+      ],
+      "id": "lite"
+    }
+  ]
+}

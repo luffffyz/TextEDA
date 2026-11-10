@@ -1,49 +1,60 @@
-// `texteda compile`: compile a board's schematic into an IR shard (canonical JSON).
+// `texteda compile`: compile one project description into an IR shard (canonical JSON).
+//
+// The project's logic has one root (ADR-0069 D1): `design/sch/main.teda` composes the module
+// definitions of `design/modules/`, and each physical implementation is its own `pcb` description
+// at `design/pcb/<pcb_id>.teda` (ADR-0069 D2). Procurement stays board-scoped (spec/procurement.md):
+// a file selects the parts of one PCB.
 //
 // Usage:
-//   texteda compile <project dir> <board_id>              print canonical JSON
-//   texteda compile <project dir> <board_id> --json       print only the diagnostic payload (ADR-0003)
-//   texteda compile <project dir> <board_id> --out <file>  write the IR to a file
-import { existsSync, readFileSync } from "node:fs";
+//   texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb] [--procurement]
+// The default compiles the one logical root; the id selects a physical PCB for `--pcb` or procurement.
 import { schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
 import { diagnosticsToPayload } from "@texteda/ir/diagnostics";
 import { canonicalJson, parsePcb, parseProcurement, parseSchematic } from "@texteda/parser";
-import { join } from "node:path";
-import { LAYOUT } from "./paths.ts";
-import { loadBoard, loadComponents, loadModules, loadProcurement } from "./project.ts";
+import { LAYOUT, MAIN_SCHEMATIC_ID } from "./paths.ts";
+import { loadComponents, loadModules, loadPcb, loadProcurement, loadSchematic } from "./project.ts";
 import { writeOut } from "./output.ts";
 
 export interface CompileOptions {
   /** Project root directory. */
   root: string;
-  /** Board id. */
+  /** Existing positional id; selects a physical PCB for `--pcb` and `--procurement`. */
   board: string;
   /** Emit only the diagnostic payload. */
   json: boolean;
   /** IR output file; defaults to stdout (in `--json` mode the IR only goes through `--out`). */
   outFile?: string | undefined;
-  /** Compile `pcb/<board>.teda` instead of the schematic. */
+  /** Compile the physical PCB `design/pcb/<board>.teda` instead of the logical root. */
   pcb?: boolean | undefined;
-  /** Compile the board's procurement file instead of the schematic. */
+  /** Compile the PCB's primary procurement file instead of the logical root. */
   procurement?: boolean | undefined;
 }
 
 /**
- * Compile one board. Returns the process exit code: 0 success, 1 errors present, 2 usage or missing file.
+ * Compile one description of the project. Returns the process exit code: 0 success, 1 errors present, 2 usage or missing file.
  */
 export function runCompile(options: CompileOptions): number {
   const { root, board, json, outFile } = options;
   if (options.pcb === true) return runCompilePcb({ root, board, json, outFile });
   if (options.procurement === true) return runCompileProcurement({ root, board, json, outFile });
-  const loaded = loadBoard(root, board);
-  if (!loaded) {
-    console.error(`Board root file not found: ${LAYOUT.sch}/${board}.teda`);
+  return runCompileSchematic({ root, json, outFile });
+}
+
+/** Compile the logical root (`design/sch/main.teda`, `schemas/ir/v0.19/schematic.schema.json`). */
+function runCompileSchematic(options: {
+  root: string;
+  json: boolean;
+  outFile: string | undefined;
+}): number {
+  const { root, json, outFile } = options;
+  const source = loadSchematic(root);
+  if (!source) {
+    console.error(`Logical root not found: ${LAYOUT.sch}/${MAIN_SCHEMATIC_ID}.teda`);
     return 2;
   }
   const { resolver, problems } = loadComponents(root);
-  const result = parseSchematic(loaded.text, {
-    file: loaded.file,
-    board,
+  const result = parseSchematic(source.text, {
+    file: source.file,
     components: resolver,
     modules: loadModules(root),
   });
@@ -85,9 +96,8 @@ export function runCompile(options: CompileOptions): number {
   return 0;
 }
 
-/** Compile `pcb/<board>.teda`. Same contract as the schematic (`schemas/ir/v0.5/pcb.schema.json`). */
 /**
- * Compile the board's primary procurement file (`assets/procurement/primary/<board>.teda`).
+ * Compile the PCB's primary procurement file (`assets/procurement/primary/<board>.teda`).
  *
  * The primary is the normative one: it is the parts the board is built from. The alternatives are
  * advisory and reach the shard tree through `texteda ir`.
@@ -147,6 +157,7 @@ function runCompileProcurement(options: {
   return 0;
 }
 
+/** Compile one physical PCB (`design/pcb/<board>.teda`, `schemas/ir/v0.19/pcb.schema.json`). */
 function runCompilePcb(options: {
   root: string;
   board: string;
@@ -154,13 +165,12 @@ function runCompilePcb(options: {
   outFile: string | undefined;
 }): number {
   const { root, board, json, outFile } = options;
-  const path = join(root, LAYOUT.pcb, `${board}.teda`);
-  if (!existsSync(path)) {
+  const source = loadPcb(root, board);
+  if (!source) {
     console.error(`PCB description not found: ${LAYOUT.pcb}/${board}.teda`);
     return 2;
   }
-  const file = `${LAYOUT.pcb}/${board}.teda`;
-  const result = parsePcb(readFileSync(path, "utf8"), { file, board });
+  const result = parsePcb(source.text, { file: source.file, pcb: board });
   for (const diagnostic of result.diagnostics) {
     const where = diagnostic.location
       ? `${diagnostic.location.file}:${diagnostic.location.line}:${diagnostic.location.col}: `

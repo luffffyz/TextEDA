@@ -36,7 +36,7 @@ export function benchPage(n: number, w: number, l: number): string {
     labels.push(`  NET  [${(25 + (k % 30) * 3).toFixed(1)},${(35 + Math.floor(k / 30) * 3).toFixed(1)}]`);
   }
   return [
-    "version 0.11",
+    "version 0.14.0",
     "view bench",
     "",
     "sheet [2000,2000]",
@@ -64,6 +64,6 @@ export const BENCH_REQUEST = {
 export function makeBenchProject(referenceProject: string, n: number, w: number, l: number): string {
   const dir = mkdtempSync(join(tmpdir(), "texteda-apply-bench-"));
   cpSync(referenceProject, dir, { recursive: true });
-  writeFileSync(join(dir, "views/charger-buck/bench.view.teda"), benchPage(n, w, l));
+  writeFileSync(join(dir, "views/bench.view.teda"), benchPage(n, w, l));
   return dir;
 }

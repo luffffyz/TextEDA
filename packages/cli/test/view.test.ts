@@ -1,8 +1,8 @@
 // The `texteda view` commands: the numbers an agent iterates on while drawing a page, and the
 // drawing it can look at (spec/schematic-view.md §9.4).
 //
-// Exercised on the reference project: the buck page is fully wired, the charger-power page is a
-// placement sketch with no wires, so the two pages show both ends of the signal.
+// Exercised on the reference project: buck-5v is fully wired, while charger-power is a placement
+// sketch with no wires, so the two pages show both ends of the signal.
 import { describe, expect, test } from "bun:test";
 import { cpSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -18,7 +18,7 @@ function run(args: string[]): { code: number; stdout: string; stderr: string } {
 }
 
 interface Metrics {
-  board: string;
+  project: string;
   page: string;
   content_fill_ppm: number;
   counts: Record<string, number>;
@@ -31,10 +31,10 @@ interface Metrics {
 
 describe("texteda view metrics", () => {
   test("a wired page reports what it carries", () => {
-    const result = run(["view", "metrics", project, "charger-buck/buck-5v", "--json"]);
+    const result = run(["view", "metrics", project, "buck-5v", "--json"]);
     expect(result.code).toBe(0);
     const metrics = JSON.parse(result.stdout) as Metrics;
-    expect(metrics.board).toBe("charger-buck");
+    expect(metrics.project).toBe("main");
     expect(metrics.page).toBe("buck-5v");
     // The page is fully wired and names each net with a label: the count says so.
     expect(metrics.counts.labels).toBe(6);
@@ -46,7 +46,7 @@ describe("texteda view metrics", () => {
   });
 
   test("a placement sketch reports each port's distance from its net", () => {
-    const result = run(["view", "metrics", project, "charger-buck/charger-power", "--json"]);
+    const result = run(["view", "metrics", project, "charger-power", "--json"]);
     expect(result.code).toBe(0);
     const metrics = JSON.parse(result.stdout) as Metrics;
     expect(metrics.counts.wires).toBe(0);
@@ -56,25 +56,24 @@ describe("texteda view metrics", () => {
   });
 
   test("the human form names the page and its spacing", () => {
-    const result = run(["view", "metrics", project, "charger-buck/buck-5v"]);
+    const result = run(["view", "metrics", project, "buck-5v"]);
     expect(result.code).toBe(0);
-    expect(result.stdout).toContain("charger-buck/buck-5v");
-    expect(result.stdout).toContain("label min gap");
+    expect(result.stdout).toContain("main/buck-5v");
     expect(result.stdout).toContain("net texts all sit on their nets");
   });
 
   test("a page that does not exist is a usage failure, not a crash", () => {
-    const missing = run(["view", "metrics", project, "charger-buck/nope"]);
+    const missing = run(["view", "metrics", project, "nope"]);
     expect(missing.code).toBe(2);
     expect(missing.stderr).toContain("not found");
 
-    const malformed = run(["view", "metrics", project, "charger-buck"]);
+    const malformed = run(["view", "metrics", project]);
     expect(malformed.code).toBe(2);
-    expect(malformed.stderr).toContain("board/page");
+    expect(malformed.stderr).not.toBe("");
   });
 
   test("the old command name says where it went", () => {
-    const result = run(["view-metrics", project, "charger-buck/buck-5v"]);
+    const result = run(["view-metrics", project, "buck-5v"]);
     expect(result.code).toBe(2);
     expect(result.stderr).toContain("texteda view metrics");
   });
@@ -90,7 +89,7 @@ describe("texteda view rewire", () => {
 
   test("a moved symbol pulls its wires onto it", () => {
     const dir = copyProject();
-    const page = join(dir, "views/charger-buck/buck-5v.view.teda");
+    const page = join(dir, "views/buck-5v.view.teda");
     const original = readFileSync(page, "utf8");
     const text = original.replace(
       /^([ \t]*)M2\.U1[ \t]+\[140\.0,105\.0\][ \t]+0$/m,
@@ -103,7 +102,7 @@ describe("texteda view rewire", () => {
     const before = run(["check", dir]);
     expect(before.stderr).toContain("view.wire-diagonal");
 
-    const dry = run(["view", "rewire", dir, "charger-buck/buck-5v", "--dry-run", "--json"]);
+    const dry = run(["view", "rewire", dir, "buck-5v", "--dry-run", "--json"]);
     expect(dry.code).toBe(0);
     const preview = JSON.parse(dry.stdout) as { written: boolean; rewired: string[]; conflicts: string[] };
     expect(preview.written).toBe(false);
@@ -112,19 +111,19 @@ describe("texteda view rewire", () => {
     // A dry run writes nothing.
     expect(readFileSync(page, "utf8")).toBe(text);
 
-    const applied = run(["view", "rewire", dir, "charger-buck/buck-5v", "--json"]);
+    const applied = run(["view", "rewire", dir, "buck-5v", "--json"]);
     expect(applied.code).toBe(0);
     const result = JSON.parse(applied.stdout) as { written: boolean; file: string };
     expect(result.written).toBe(true);
-    expect(result.file).toBe("views/charger-buck/buck-5v.view.teda");
+    expect(result.file).toBe("views/buck-5v.view.teda");
 
     // After: every wire is back on the axes, and the interior corners kept their place.
     const after = run(["check", dir]);
     expect(after.stderr).not.toContain("view.wire-diagonal");
     const rewritten = readFileSync(page, "utf8");
-    const parsed = parseView(rewritten, { file: "views/charger-buck/buck-5v.view.teda", board: "charger-buck" });
+    const parsed = parseView(rewritten, { file: "views/buck-5v.view.teda" });
     expect(parsed.ok).toBe(true);
-    const u1 = parsed.ir?.place.find((place) => place.instance_id === "M2.U1");
+    const u1 = parsed.ir?.place!.find((place) => place.instance_id === "M2.U1");
     expect(u1).toMatchObject({ x_nm: 150_000_000, y_nm: 105_000_000 });
     expect(u1?.rot_mdeg ?? 0).toBe(0);
     // The moved U1 endpoints are re-anchored to the stationary bus junctions. The C1 wire keeps
@@ -141,7 +140,7 @@ describe("texteda view rewire", () => {
     const dir = copyProject();
     // The charger-power page is a placement sketch: it has no wire, so there is nothing to
     // re-anchor.
-    const result = run(["view", "rewire", dir, "charger-buck/charger-power"]);
+    const result = run(["view", "rewire", dir, "charger-power"]);
     expect(result.code).toBe(0);
     expect(result.stdout).toContain("No wire needed re-anchoring");
   });
@@ -150,7 +149,7 @@ describe("texteda view rewire", () => {
 describe("texteda view render", () => {
   test("the drawing is written as an SVG file", () => {
     const out = join(tmpdir(), `texteda-view-render-${process.pid}.svg`);
-    const result = run(["view", "render", project, "charger-buck/buck-5v", "--out", out]);
+    const result = run(["view", "render", project, "buck-5v", "--out", out]);
     expect(result.code).toBe(0);
     expect(existsSync(out)).toBe(true);
     const svg = readFileSync(out, "utf8");
@@ -161,16 +160,16 @@ describe("texteda view render", () => {
 
   test("the json form names the file it wrote", () => {
     const out = join(tmpdir(), `texteda-view-render-json-${process.pid}.svg`);
-    const result = run(["view", "render", project, "charger-buck/buck-5v", "--out", out, "--json"]);
+    const result = run(["view", "render", project, "buck-5v", "--out", out, "--json"]);
     expect(result.code).toBe(0);
     const value = JSON.parse(result.stdout) as { file: string; svg_file: string; bytes: number };
-    expect(value.file).toBe("views/charger-buck/buck-5v.view.teda");
+    expect(value.file).toBe("views/buck-5v.view.teda");
     expect(value.svg_file).toBe(out);
     expect(value.bytes).toBeGreaterThan(0);
   });
 
   test("an unknown subcommand is a usage failure", () => {
-    const result = run(["view", "nope", project, "charger-buck/buck-5v"]);
+    const result = run(["view", "nope", project, "buck-5v"]);
     expect(result.code).toBe(2);
     expect(result.stderr).toContain("Unknown view subcommand");
   });

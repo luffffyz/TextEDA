@@ -23,7 +23,7 @@
     "pins_source": "inline",
     "symbol": "sensors:thermistor"
   },
-  "ir_version": "0.15",
+  "ir_version": "0.19",
   "source": {
     "file": "assets/components/sensors/ntc-103at.teda",
     "line": 1

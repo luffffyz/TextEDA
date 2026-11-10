@@ -113,12 +113,11 @@ my-board/
 │   ├── footprints/
 │   └── procurement/          # primary/ + alternatives/
 ├── design/                   # 电路源码
-│   ├── sch/<board>.teda
-│   ├── pcb/<board>.teda
-│   ├── modules/<module>.teda
-│   └── system/<system>.teda
+│   ├── sch/main.teda         # 唯一的逻辑根
+│   ├── pcb/<pcb_id>.teda     # 物理 PCB 描述
+│   └── modules/<module_id>.teda
 ├── views/
-│   └── <board>/<page>.view.teda  # S1 打印页；进仓库、不进构建身份
+│   └── <page_id>.view.teda   # S1 打印页；进仓库、不进构建身份
 ├── docs/                     # 意图、评审记录、证据
 ├── external/                 # 外购材料；cache/ 本地且被忽略
 └── dist/                     # 生成输出；已 gitignore

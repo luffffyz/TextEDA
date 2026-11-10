@@ -3,8 +3,9 @@
 Status: Accepted
 Date: 2026-10-22
 Scope: Decides: that the view is an independent description type with its own file, schema and shard, that it is a drawing rather than a build input, and that deterministic `Reference` / `Value` field placement is the renderer's limited automatic-placement exception. Does not decide: the renderer's full implementation or other layout policy — see ADR-0036 and ADR-0055.
-Related: [ADR-0004](../01-language/0004-source-spans.md), [ADR-0012](../04-schematic/0012-one-flat-schematic-per-board.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0037](0037-review-records-and-attribution.md), [ADR-0055](0055-schematic-fields-are-view-overrides.md), [ADR-0059](0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md), [ADR-0060](../03-project/0060-a-write-keeps-the-bytes-it-replaced.md), [ADR-0061](0061-a-move-carries-only-what-belonged-to-the-net.md), [ADR-0062](0062-a-run-may-end-at-a-port.md), [ADR-0063](0063-a-run-is-shortened-only-along-the-lines-it-was-drawn-on.md), [ADR-0064](0064-automatic-fields-are-placed-for-the-page.md).
-Impact: `spec/schematic-view.md`; `packages/parser` (the `view` description type); `packages/viewer/**`; `packages/cli` (the `review` command); `schemas/ir/**` (the view shard)
+Related: [ADR-0004](../01-language/0004-source-spans.md), [ADR-0012](../04-schematic/0012-one-flat-schematic-per-board.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0037](0037-review-records-and-attribution.md), [ADR-0055](0055-schematic-fields-are-view-overrides.md), [ADR-0059](0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md), [ADR-0060](../03-project/0060-a-write-keeps-the-bytes-it-replaced.md), [ADR-0061](0061-a-move-carries-only-what-belonged-to-the-net.md), [ADR-0062](0062-a-run-may-end-at-a-port.md), [ADR-0063](0063-a-run-is-shortened-only-along-the-lines-it-was-drawn-on.md), [ADR-0064](0064-automatic-fields-are-placed-for-the-page.md), [ADR-0067](0067-hierarchical-module-views-and-custom-page-size.md), [ADR-0068](0068-reusable-module-drawings-and-sheet-templates.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md)
+
+> **Project scope (2026-11-09):** [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) supersedes the board-scoped file layout and hash wording of D1, D2, D3, D5 and D12: print pages are project-wide (`views/<page_id>.view.teda`, advisory `views/<page_id>.json` shards) and reference project-level ids, and the project hash covers the logical root plus every physical PCB. This record's core decisions — an independent view description type, a hand-written drawing outside the build identity, a renderer that draws and never places — remain current.
 
 ## Background
 
@@ -60,8 +61,8 @@ signed manufacturing package?* — answers the question on its own: a print page
 
 The schematic view is a new description type, not a field inside the schematic IR.
 
-- A separate file per page: `views/<board_id>/<page_id>.view.teda`.
-- A separate IR shard: `dist/ir/boards/<board_id>/view/<page_id>.json`.
+- A separate file per page: `views/<page_id>.view.teda` (formerly `views/<board_id>/<page_id>.view.teda`; [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4 made the pages project-wide).
+- A separate advisory IR shard: `views/<page_id>.json` (formerly `dist/ir/boards/<board_id>/view/<page_id>.json`; [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D5).
 - Its own schema kind and its own spec file.
 
 The view description carries only what a drawing needs: where each symbol sits, how the wires
@@ -73,20 +74,20 @@ disagreed with the logic would be a defect, reported like any other, not a secon
 The minimal shape, as a fragment:
 
 ```teda
-version 0.1
-view mcu-board/main
+version 0.14
+view main
 
 place
-  U1    40  30  0
-  C1    20  30  90
-  R1    60  30  0
+  M1.U1    40  30  0
+  M1.C1    20  30  90
+  M1.R1    60  30  0
 
 wire
-  VDD   U1.5  C1.1
-  VDD   C1.1  U2.3
+  VDD   M1.U1.5  M1.C1.1
+  VDD   M1.C1.1  M2.U1.3
 
 label
-  VDD   U1.5  3.3
+  VDD   M1.U1.5  3.3
 ```
 
 The concrete problem this solves: a 200-pin BGA sheet with 40 labels cannot be reviewed by
@@ -97,14 +98,13 @@ make the sheet readable, and it is the thing the readability checks measure agai
 ### D2. Print pages live in their own root, beside the circuit and not inside it
 
 ```text
-my-board-project/
+my-project/
 ├── design/                          # the circuit — the truth
-│   ├── sch/<board_id>.teda
-│   ├── pcb/<board_id>.teda
-│   ├── modules/<module_id>.teda
-│   └── system/<system_id>.teda
+│   ├── sch/main.teda                # the project's one logical root
+│   ├── pcb/<pcb_id>.teda
+│   └── modules/<module_id>.teda
 └── views/                           # the drawings — hand-written, discardable, not the build
-    └── <board_id>/<page_id>.view.teda
+    └── <page_id>.view.teda
 ```
 
 - **`design/` holds the circuit and nothing else.** Every consumer that scans the circuit layer
@@ -112,13 +112,16 @@ my-board-project/
   discardable, rebuildable by hand or by an agent, and outside the build identity. Putting it in
   `design/` would force every one of those consumers to learn to skip it — the same mistake as
   putting a derived thing in a source directory.
-- **The name collision disappears.** The board file and the board's pages live in different roots,
-  and no directory holds two kinds of thing.
-- **The board grouping survives.** `views/<board_id>/` holds the pages of one board, one file per
-  page. Which pages a board has is still one directory listing, and the review UI can open a
-  board's drawings from one place.
-- The IR shard path does not change. Moving the source file changes no hash, because the shard
-  layout is decoupled from the source tree.
+- **The name collision disappears.** The root file and the pages live in different roots, and no
+  directory holds two kinds of thing — `design/sch/` holds exactly one file, `main.teda`
+  ([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1).
+- **The project grouping.** `views/` holds the project's pages, one file per page. Which pages the
+  project has is still one directory listing, and the review UI lists `main` first and the
+  remaining page ids in ASCII order
+  ([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4).
+- The IR shard layout is decoupled from the source tree: moving the source file changes no hash.
+  [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D5 later
+  moved the view shards to advisory `views/<page_id>.json` paths.
 
 ### D3. A view is authored source, not a derived artifact
 
@@ -129,8 +132,9 @@ toolchain, because nothing in it knows how to choose the positions. A file that 
 regenerated is a source file; a source file that the project owns belongs in the project tree.
 
 What the layer table says about S1 — that it may be discarded — therefore means *discardable as
-truth*, not *regenerable*: a board whose views are deleted is still a valid board, still
-checkable, still exportable; it simply has no drawing.
+truth*, not *regenerable*: a project whose views are deleted still has valid logic — still
+checkable, still exportable to a netlist; it simply has no drawing
+([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4).
 
 ### D4. A view is hand-written, tracked, and outside the build
 
@@ -151,17 +155,20 @@ by D5. "Tracked" and "normative" are different properties: a file can be tracked
 part of the build.
 
 The consequence worth stating plainly: **deleting `views/` does not invalidate anything that was
-built.** The board remains valid, its hash is unchanged, and its manufacturing package stands.
+built.** The normative hashes are unchanged, the root logic and the PCB checks stand, and the
+manufacturing packages stand
+([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4).
 Rebuilding the drawing is work, but it is not a rebuild of the design.
 
 ### D5. A view shard is advisory: it is not part of the build identity
-
-- The **project hash** covers the build: the schematic, the pcb, the symbols, the footprints, the
-  devices, and the primary procurement selections.
+- The **project hash** covers the build: the project's logical root, every physical PCB
+  implementation, the symbols, the footprints, the devices, and the primary procurement selections
+  ([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D5).
 - The **advisory hash** covers everything else in the project: the procurement alternatives and
   **the print pages**.
-- The **board hash** covers the board's normative shards only. A page's drawing is not part of
-  the board's build identity.
+- The **board hash** covers one PCB's normative physical-board shards only
+  ([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D5). A
+  page's drawing is not part of any build identity.
 
 The criterion is unchanged and is applied consistently: *would changing this invalidate a signed
 manufacturing package?* Moving a label does not, so a label move changes neither the project
@@ -188,9 +195,9 @@ symbol-local coordinates, so moving or rotating the symbol carries the override 
 the row returns the field to the deterministic automatic position. The source of the field identity
 and text remains the schematic instance; the view stores only drawing overrides.
 
-The exception does not change the no-view rule. A board with a logical description but no view file
-still has no drawing, and the renderer has no fallback arrangement for symbols or wires. Layout
-solving remains out of scope.
+The exception does not change the no-view rule. A project with a logical description but no view
+file still has no drawing, and the renderer has no fallback arrangement for symbols or wires.
+Layout solving remains out of scope.
 
 The previous rule's reasons still apply to every other object:
 
@@ -285,28 +292,30 @@ The requirement is on the writer, not on the user. A human editing a view file b
 as part of their edit; the UI has no such step available, so it must produce canonical bytes
 itself.
 
-### D11. A view that disagrees with the board is still an error
+### D11. A view that disagrees with the project logic is still an error
 
 Classifying a page as advisory says nothing about whether it is *correct*. The cross-check that D1
-requires — every instance, pin and net a view references must exist in the board, and the view
-must not restate electrical facts — remains mandatory, and a violation is an error.
+requires — every instance, pin and net a view references must exist in the project logic, and the
+view must not restate electrical facts — remains mandatory, and a violation is an error.
 
 The distinction is between *what the project asserts* and *what the project contains*. A page that
 references a nonexistent instance asserts something false, and that is an error. A page that is
 merely laid out differently asserts nothing about the build, and that is a difference in content,
 not a defect.
 
-### D12. The view still speaks the board's identity language
+### D12. The view still speaks the project's identity language
 
-A view references the board's ids verbatim, in whatever shape they have — `R1`, `M1.R1`, `M1.VCC`,
-`U1.5`. A view does not define identity; it borrows it. Moving the file to `views/` changes
+A view references the project's ids verbatim, in whatever shape they have — `M1.R1`, `M1.VCC`,
+`M1.U1.5`, an interconnect id
+([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4). A
+view does not define identity; it borrows it. Moving the file to `views/` changes
 nothing about what it may reference.
 
 ## Consequences
 
 - **The logical IR stays clean.** S0 and S1 remain separable, and a project that only needs a
   netlist never has to describe a drawing.
-- **A board can be logically complete but not drawable.** This is a legitimate state that the
+- **A project can be logically complete but not drawable.** This is a legitimate state that the
   CLI, the LSP, and the reviewer must report honestly rather than paper over.
 - **The view layer is part of the contract layer.** `spec/`, `schemas/`, and `examples/` for the
   view type are permanently open, and a third-party implementation may produce its own view
@@ -317,7 +326,8 @@ nothing about what it may reference.
   drawing is a frozen artifact with a hash.
 - **A label move does not invalidate a manufacturing package.** The drawing and the build are
   versioned separately, and both are traceable.
-- **Deleting `views/` is not a rebuild.** The board is still valid and its artifacts still stand.
+- **Deleting `views/` is not a rebuild.** The root logic, the PCB checks and the netlists are
+  unchanged ([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4).
 - **The review UI is disposable.** Being a web bundle means it can be rewritten without touching
   the contract, which is the same property the view layer itself has.
 - **The desktop shell question stays open on purpose.** Deferring it keeps the only irreversible

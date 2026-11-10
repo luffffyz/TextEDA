@@ -1,14 +1,20 @@
 [
   {
-    "code": "bind.not-checked",
-    "severity": "note",
-    "file": "design/sch/sensor-hub.teda",
+    "code": "bind.instance-unplaced",
+    "severity": "warning",
+    "file": "design/pcb/sensor-hub.teda",
     "line": 1
   },
   {
     "code": "design.stress-unknown",
     "severity": "note",
-    "file": "design/sch/sensor-hub.teda",
+    "file": "design/sch/main.teda",
     "line": 1
+  },
+  {
+    "code": "value.instance-uid-missing",
+    "severity": "warning",
+    "file": "design/sch/main.teda",
+    "line": 8
   }
 ]

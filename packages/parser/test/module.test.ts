@@ -1,21 +1,18 @@
-// Unit tests for the module layer (spec/module.md, ADR-0013).
+// Unit tests for module composition beneath the project schematic root (ADR-0013, ADR-0069).
 //
-// A board composes modules; a module owns its refdes and net names and exposes them through ports.
-// The IR stays flat: the module's instances and nets carry the `M` prefix, and a port merges the
-// module's net into a board-level net.
-//
-// Positive cases use minimal inline sources; negative cases break exactly one thing and the
-// diagnostic code must line up.
+// Component instances and local nets belong to modules. The project root binds declared module
+// ports into project nets and records explicit interconnects separately from net membership.
+// Positive cases use minimal inline sources; negative cases break one contract at a time.
 import { describe, expect, test } from "bun:test";
 import { parseSchematic, type ModuleSource } from "../src/schematic.ts";
 import { loadResolver } from "./project.ts";
 
 const resolver = loadResolver();
 
-/** A module with two resistors: one net (VCC) with a port, one net (IN) without. */
+/** One module with an internal net and a two-pin project port. */
 const moduleText = [
-  "version 0.8",
-  "module m1",
+  "version 0.14.0",
+  "module power",
   "",
   "instances",
   "  R1  res-thick-0402  10k  ±1%",
@@ -33,74 +30,107 @@ const moduleText = [
   "",
 ].join("\n");
 
-/** A board that instantiates the module and binds its port. */
-const boardText = [
-  "version 0.8",
-  "schematic b",
+/** Two module instances merge their declared ports into one project net. */
+const projectText = [
+  "version 0.14.0",
+  "schematic main",
   "",
   "modules",
-  "  M1  m1",
-  "",
-  "instances",
-  "  R9  res-thick-0402  10k  ±1%",
+  "  M1  power",
+  "  M2  power",
   "",
   "nets",
-  "  VCC:  M1.VCC_OUT  R9.1",
+  "  VCC:  M1.VCC_OUT  M2.VCC_OUT",
   "",
   "ports",
   "  VCC_3V3  VCC",
   "",
+  "interconnects",
+  "  link1  M1.VCC_OUT  M2.VCC_OUT",
+  "",
+  "interconnect_pins",
+  "  link1  M1.R1.2  M2.R1.2",
+  "",
 ].join("\n");
 
 function moduleSource(moduleId: string, text = moduleText): ModuleSource {
-  return { moduleId, file: `modules/${moduleId}.teda`, text };
+  return { moduleId, file: `design/modules/${moduleId}.teda`, text };
 }
 
-function parse(board: string, modules: ModuleSource[] = [moduleSource("m1")]) {
-  return parseSchematic(board, { file: "sch/b.teda", board: "b", components: resolver, modules });
+function parse(project: string, modules: ModuleSource[] = [moduleSource("power")]) {
+  return parseSchematic(project, {
+    file: "design/sch/main.teda",
+    components: resolver,
+    modules,
+  });
 }
 
-describe("module composition", () => {
-  const result = parse(boardText);
+describe("project module composition", () => {
+  const result = parse(projectText, [moduleSource("power")]);
 
-  test("no error diagnostics", () => {
+  test("no error diagnostics and a valid project root", () => {
     expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
     expect(result.ok).toBe(true);
+    expect(result.ir!.project).toBe("main");
+    expect(result.ir!.format).toBe("0.14");
   });
 
-  test("the module's instances carry the module instance id", () => {
-    expect(result.ir!.instances.map((i) => i.id)).toEqual(["M1.R1", "M1.R2", "R9"]);
-  });
-
-  test("a net without a port keeps its qualified name", () => {
-    const net = result.ir!.nets.find((n) => n.id === "M1.IN")!;
-    expect(net.members).toEqual(["M1.R1.1"]);
-  });
-
-  test("a port merges the module's net into the board's net", () => {
-    const net = result.ir!.nets.find((n) => n.id === "VCC")!;
-    expect(net.members).toEqual(["M1.R1.2", "M1.R2.1", "R9.1"]);
-    // The module's own name is gone: the board's net took its place.
-    expect(result.ir!.nets.map((n) => n.id)).not.toContain("M1.VCC");
-  });
-
-  test("the module's constraint lands on the net it constrains", () => {
-    // VCC was merged into the board's net, so the constraint names the board's net.
-    expect(result.ir!.constraints).toEqual([
-      { type: "voltage", subject: "VCC", min_uv: 3_000_000, max_uv: 3_600_000 },
+  test("module instances own every flattened component instance", () => {
+    expect(result.ir!.instances.map((i) => i.id)).toEqual([
+      "M1.R1",
+      "M1.R2",
+      "M2.R1",
+      "M2.R2",
+    ]);
+    expect(result.modules!.map((m) => [m.instance_id, m.module_id])).toEqual([
+      ["M1", "power"],
+      ["M2", "power"],
     ]);
   });
 
-  test("a constraint on an unmerged net keeps the qualified name", () => {
-    const board = boardText.replace(
-      "  voltage  VCC  3.0V..3.6V",
-      "  voltage  VCC  3.0V..3.6V\n  voltage  IN   0V..1V",
+  test("unbound module-local nets keep their qualified names", () => {
+    expect(result.ir!.nets.find((n) => n.id === "M1.IN")!.members).toEqual(["M1.R1.1"]);
+    expect(result.ir!.nets.find((n) => n.id === "M2.IN")!.members).toEqual(["M2.R1.1"]);
+  });
+
+  test("module ports merge into a project net and retain their flattened pins", () => {
+    const net = result.ir!.nets.find((n) => n.id === "VCC")!;
+    expect(net.members).toEqual(["M1.R1.2", "M1.R2.1", "M2.R1.2", "M2.R2.1"]);
+    expect(result.ir!.nets.map((n) => n.id)).not.toContain("M1.VCC");
+    expect(result.modules!.map((module) => module.ports[0])).toEqual([
+      { id: "VCC_OUT", net: "VCC", pins: ["M1.R1.2", "M1.R2.1"] },
+      { id: "VCC_OUT", net: "VCC", pins: ["M2.R1.2", "M2.R2.1"] },
+    ]);
+  });
+
+  test("module constraints resolve to the project net they constrain", () => {
+    expect(result.ir!.constraints).toContainEqual({
+      type: "voltage",
+      subject: "VCC",
+      min_uv: 3_000_000,
+      max_uv: 3_600_000,
+    });
+  });
+
+  test("root ports and explicit interconnect facts remain distinct", () => {
+    expect(result.ir!.ports).toEqual([{ id: "VCC_3V3", net: "VCC" }]);
+    expect(result.ir!.interconnects).toEqual([
+      { id: "link1", from: "M1.VCC_OUT", to: "M2.VCC_OUT" },
+    ]);
+    expect(result.ir!.interconnect_pins).toEqual([
+      { interconnect: "link1", from: "M1.R1.2", to: "M2.R1.2" },
+    ]);
+  });
+
+  test("an unmerged module constraint keeps its qualified local net", () => {
+    const module = moduleSource(
+      "power",
+      moduleText.replace(
+        "  voltage  VCC  3.0V..3.6V",
+        "  voltage  VCC  3.0V..3.6V\n  voltage  IN   0V..1V",
+      ),
     );
-    const module = moduleSource("m1", moduleText.replace(
-      "  voltage  VCC  3.0V..3.6V",
-      "  voltage  VCC  3.0V..3.6V\n  voltage  IN   0V..1V",
-    ));
-    const result = parse(board, [module]);
+    const result = parse(projectText, [module]);
     expect(result.ir!.constraints).toContainEqual({
       type: "voltage",
       subject: "M1.IN",
@@ -110,103 +140,118 @@ describe("module composition", () => {
   });
 });
 
-describe("module diagnostics", () => {
-  test("a module id without a file", () => {
-    const result = parse(boardText, []);
+describe("module and interconnect diagnostics", () => {
+  test("a module id without a corresponding file", () => {
+    const result = parse(projectText, []);
     expect(result.diagnostics.map((d) => d.code)).toContain("ref.unknown-module");
   });
 
-  test("a module whose header id does not match the file name", () => {
-    // The file is modules/other.teda, but its header declares `module m1`.
-    const board = boardText.replace("  M1  m1", "  M1  other");
-    const result = parse(board, [moduleSource("other", moduleText)]);
+  test("a module header id must match its file id", () => {
+    const project = projectText.replace("  M1  power", "  M1  other");
+    const result = parse(project, [moduleSource("other")]);
     expect(result.diagnostics.map((d) => d.code)).toContain("ref.module-id-mismatch");
   });
 
-  test("a board net naming a port the module does not declare", () => {
-    const board = boardText.replace("M1.VCC_OUT", "M1.NOPE");
-    const result = parse(board);
+  test("a project net naming a port the module does not declare", () => {
+    const project = projectText.replace("M1.VCC_OUT", "M1.NOPE");
+    const result = parse(project);
     expect(result.diagnostics.map((d) => d.code)).toContain("ref.unknown-port");
   });
 
-  test("a module port that no board net binds", () => {
-    const board = boardText.replace("  VCC:  M1.VCC_OUT  R9.1", "  VCC:  R9.1");
-    const result = parse(board);
+  test("a module port that no project net binds", () => {
+    const project = projectText.replace("  VCC:  M1.VCC_OUT  M2.VCC_OUT", "  VCC:  M2.VCC_OUT");
+    const result = parse(project);
     expect(result.diagnostics.map((d) => d.code)).toContain("ref.unbound-port");
   });
 
-  test("a module port bound to two board nets", () => {
-    const board = boardText.replace(
-      "  VCC:  M1.VCC_OUT  R9.1",
-      "  VCC:  M1.VCC_OUT  R9.1\n  VCC2: M1.VCC_OUT",
+  test("a module port cannot belong to two project nets", () => {
+    const project = projectText.replace(
+      "  VCC:  M1.VCC_OUT  M2.VCC_OUT",
+      "  VCC:  M1.VCC_OUT  M2.VCC_OUT\n  OTHER: M1.VCC_OUT",
     );
-    const result = parse(board);
+    const result = parse(project);
     expect(result.diagnostics.map((d) => d.code)).toContain("net.port-in-two-nets");
   });
 
-  test("a board net reaching into a module's internals", () => {
-    const board = boardText.replace("M1.VCC_OUT", "M1.R1.2");
-    const result = parse(board);
+  test("a project net cannot reach into a module's internals", () => {
+    const project = projectText.replace("M1.VCC_OUT", "M1.R1.2");
+    const result = parse(project);
     expect(result.diagnostics.map((d) => d.code)).toContain("ref.module-internal-ref");
   });
 
-  test("a board refdes taking the module instance form", () => {
-    const board = boardText.replace("  R9  res-thick-0402  10k  ±1%", "  M1  res-thick-0402  10k  ±1%");
-    const result = parse(board);
-    expect(result.diagnostics.map((d) => d.code)).toContain("syntax.invalid-identifier");
-  });
-
-  test("a module instance id that is not M plus digits", () => {
-    const board = boardText.replace("  M1  m1", "  X1  m1");
-    const result = parse(board);
-    expect(result.diagnostics.map((d) => d.code)).toContain("syntax.invalid-identifier");
-  });
-
-  test("a module file below the language version that introduced the type", () => {
-    const result = parse(boardText, [moduleSource("m1", moduleText.replace("version 0.8", "version 0.7"))]);
-    expect(result.diagnostics.map((d) => d.code)).toContain("format.unsupported-version");
-  });
-
-  test("a module that contains modules: the hierarchy is one level deep", () => {
-    const nested = moduleText.replace(
-      "instances",
-      "modules\n  M9  other\n\ninstances",
-    );
-    const result = parse(boardText, [moduleSource("m1", nested)]);
+  test("root-level component instances are not permitted", () => {
+    const project = projectText.replace("\ninterconnects\n", "\ninstances\n  R9  res-thick-0402  10k  ±1%\n\ninterconnects\n");
+    const result = parse(project);
     expect(result.diagnostics.map((d) => d.code)).toContain("syntax.unknown-section");
   });
 
-  test("a port declared no_connect needs no board net", () => {
-    const module = moduleSource(
-      "m1",
-      moduleText.replace("  VCC_OUT  VCC", "  VCC_OUT  VCC\n  SPARE    no_connect"),
-    );
-    const result = parse(boardText, [module]);
-    expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+  test("a module instance id is an M-number", () => {
+    const project = projectText.replace("  M1  power", "  X1  power");
+    const result = parse(project);
+    expect(result.diagnostics.map((d) => d.code)).toContain("syntax.invalid-identifier");
   });
 
-  test("a board net binding a no_connect port", () => {
-    const module = moduleSource(
-      "m1",
-      moduleText.replace("  VCC_OUT  VCC", "  VCC_OUT  VCC\n  SPARE    no_connect"),
-    );
-    const board = boardText.replace("  VCC:  M1.VCC_OUT  R9.1", "  VCC:  M1.VCC_OUT  R9.1\n  X:  M1.SPARE");
-    const result = parse(board, [module]);
+  test("module definitions below their type's language floor are rejected", () => {
+    const result = parse(projectText, [moduleSource("power", moduleText.replace("version 0.14.0", "version 0.7"))]);
+    expect(result.diagnostics.map((d) => d.code)).toContain("format.unsupported-version");
+  });
+
+  test("a module cannot contain another modules section", () => {
+    const nested = moduleText.replace("instances", "modules\n  M9  other\n\ninstances");
+    const result = parse(projectText, [moduleSource("power", nested)]);
+    expect(result.diagnostics.map((d) => d.code)).toContain("syntax.unknown-section");
+  });
+
+  test("a no_connect module port needs no project net", () => {
+    const module = moduleSource("power", moduleText.replace("  VCC_OUT  VCC", "  VCC_OUT  VCC\n  SPARE    no_connect"));
+    const result = parse(projectText, [module]);
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(result.modules![0]!.ports.find((p) => p.id === "SPARE")).toEqual({ id: "SPARE", pins: [] });
+  });
+
+  test("a project net cannot bind a no_connect module port", () => {
+    const module = moduleSource("power", moduleText.replace("  VCC_OUT  VCC", "  VCC_OUT  VCC\n  SPARE    no_connect"));
+    const project = projectText.replace("  VCC:  M1.VCC_OUT  M2.VCC_OUT", "  VCC:  M1.VCC_OUT  M2.VCC_OUT\n  X:    M1.SPARE");
+    const result = parse(project, [module]);
     expect(result.diagnostics.map((d) => d.code)).toContain("ref.no-connect-port");
   });
 
-  test("two module ports on one net inside the module", () => {
-    const module = moduleSource("m1", moduleText.replace("  VCC_OUT  VCC", "  VCC_OUT  VCC\n  VCC2     VCC"));
-    const result = parse(boardText, [module]);
+  test("two module ports cannot expose the same module net", () => {
+    const module = moduleSource("power", moduleText.replace("  VCC_OUT  VCC", "  VCC_OUT  VCC\n  VCC2     VCC"));
+    const result = parse(projectText, [module]);
     expect(result.diagnostics.map((d) => d.code)).toContain("ref.duplicate-port-net");
   });
 
-  test("a module instance can be instantiated twice", () => {
-    const board = boardText
-      .replace("  M1  m1", "  M1  m1\n  M2  m1")
-      .replace("  VCC:  M1.VCC_OUT  R9.1", "  VCC:  M1.VCC_OUT  M2.VCC_OUT  R9.1");
-    const result = parse(board);
-    expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
-    expect(result.ir!.instances.map((i) => i.id)).toEqual(["M1.R1", "M1.R2", "M2.R1", "M2.R2", "R9"]);
+  test("an interconnect's endpoints must belong to the same project net", () => {
+    const moduleText2 = moduleText.replace("module power", "module other").replace("  VCC_OUT  VCC", "  VCC_OUT  VCC\n  IN_PORT  IN");
+    const project = projectText
+      .replace("M2  power", "M2  other")
+      .replace("  VCC:  M1.VCC_OUT  M2.VCC_OUT", "  VCC:  M1.VCC_OUT  M2.VCC_OUT\n  IN:   M2.IN_PORT")
+      .replace("link1  M1.VCC_OUT  M2.VCC_OUT", "link1  M1.VCC_OUT  M2.IN_PORT");
+    const result = parse(project, [moduleSource("power"), moduleSource("other", moduleText2)]);
+    expect(result.diagnostics.map((d) => d.code)).toContain("value.invalid-value");
+  });
+
+  test("an interconnect cannot connect two ports on one module instance", () => {
+    const module = moduleText.replace("  VCC_OUT  VCC", "  VCC_OUT  VCC\n  IN_PORT  IN");
+    const project = projectText.replace("link1  M1.VCC_OUT  M2.VCC_OUT", "link1  M1.VCC_OUT  M1.VCC_OUT");
+    const result = parse(project, [moduleSource("power", module)]);
+    expect(result.diagnostics.map((d) => d.code)).toContain("value.invalid-value");
+  });
+
+  test("an interconnect pin mapping must belong to each endpoint port net", () => {
+    const project = projectText.replace("link1  M1.R1.2  M2.R1.2", "link1  M1.R1.1  M2.R1.2");
+    const result = parse(project);
+    expect(result.diagnostics.map((d) => d.code)).toContain("ref.pin-off-endpoint-net");
+  });
+
+  test("a module definition can be instantiated more than once", () => {
+    expect(parse(projectText).diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(parse(projectText).ir!.instances.map((i) => i.id)).toEqual([
+      "M1.R1",
+      "M1.R2",
+      "M2.R1",
+      "M2.R2",
+    ]);
   });
 });

@@ -698,6 +698,7 @@ export function parseFootprint(text: string, options: ParseOptions): ParseResult
 
   const ir: Footprint = {
     ir_version: irVersion,
+    format: verdict.text,
     source: { file, line: 1 },
     footprint: finalBody,
   };

@@ -1,0 +1,18 @@
+version 0.11
+component res-thick-0402
+
+kind         generic
+category     resistor
+construction thick
+polarized    no
+
+symbol passives:r
+footprint chip:chip-0402
+params
+  value      resistance  required
+  tolerance  percent     required
+  power      power       optional
+
+pins
+  1  A  passive
+  2  B  passive

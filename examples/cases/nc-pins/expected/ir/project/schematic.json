@@ -1,0 +1,159 @@
+{
+  "constraints": [
+    {
+      "max_uv": 0,
+      "min_uv": 0,
+      "subject": "GND",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 5500000,
+      "min_uv": 1800000,
+      "subject": "VTREF",
+      "type": "voltage"
+    }
+  ],
+  "format": "0.14",
+  "instances": [
+    {
+      "component": "hdr-2x5-127",
+      "id": "M1.J1",
+      "uid": "IDty8s4q"
+    },
+    {
+      "component": "res-10k-0402",
+      "id": "M1.R1",
+      "uid": "IDv66dfw"
+    }
+  ],
+  "ir_version": "0.19",
+  "modules": [
+    {
+      "instance_id": "M1",
+      "module_id": "debug-header",
+      "ports": [
+        {
+          "id": "GND",
+          "net": "GND",
+          "pins": [
+            "M1.J1.3",
+            "M1.J1.5"
+          ]
+        },
+        {
+          "id": "GNDDetect",
+          "pins": []
+        },
+        {
+          "id": "NRST",
+          "net": "NRST",
+          "pins": [
+            "M1.J1.10",
+            "M1.R1.1"
+          ]
+        },
+        {
+          "id": "SWCLK",
+          "net": "SWCLK",
+          "pins": [
+            "M1.J1.4"
+          ]
+        },
+        {
+          "id": "SWDIO",
+          "net": "SWDIO",
+          "pins": [
+            "M1.J1.2"
+          ]
+        },
+        {
+          "id": "SWO",
+          "net": "SWO",
+          "pins": [
+            "M1.J1.6"
+          ]
+        },
+        {
+          "id": "VTREF",
+          "net": "VTREF",
+          "pins": [
+            "M1.J1.1",
+            "M1.R1.2"
+          ]
+        }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "id": "GND",
+      "members": [
+        "M1.J1.3",
+        "M1.J1.5"
+      ]
+    },
+    {
+      "id": "NRST",
+      "members": [
+        "M1.J1.10",
+        "M1.R1.1"
+      ]
+    },
+    {
+      "id": "SWCLK",
+      "members": [
+        "M1.J1.4"
+      ]
+    },
+    {
+      "id": "SWDIO",
+      "members": [
+        "M1.J1.2"
+      ]
+    },
+    {
+      "id": "SWO",
+      "members": [
+        "M1.J1.6"
+      ]
+    },
+    {
+      "id": "VTREF",
+      "members": [
+        "M1.J1.1",
+        "M1.R1.2"
+      ]
+    }
+  ],
+  "ports": [
+    {
+      "id": "GND",
+      "net": "GND"
+    },
+    {
+      "id": "NRST",
+      "net": "NRST"
+    },
+    {
+      "id": "SWCLK",
+      "net": "SWCLK"
+    },
+    {
+      "id": "SWDIO",
+      "net": "SWDIO"
+    },
+    {
+      "id": "SWO",
+      "net": "SWO"
+    },
+    {
+      "id": "VTREF",
+      "net": "VTREF"
+    }
+  ],
+  "project": "main",
+  "source": {
+    "file": "design/sch/main.teda",
+    "line": 1
+  }
+}

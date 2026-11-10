@@ -1,9 +1,9 @@
 # Skill: Build a TextEDA Project from Scratch
 
-> **Status**: first draft (2026-10-21). Every command below has been run; the outputs are copied from real runs (see the checklist in §12).
-> **No executable form yet** — scripting it and gating it are steps 2 and 3 of [F23](../backlog.md); this file is maintained by hand for now.
+> **Status**: maintained by hand. The original draft (2026-10-21) recorded commands and outputs from the then-current model; those runs are historical, not verification of the workflow below.
+> **Historical follow-up**: the original proposal to script and gate this guide is preserved in §13 (F23).
 > **Audience**: agents (humans can follow it too).
-> **Endpoint**: today it reaches a **netlist + `.kicad_sym` + `.kicad_mod`**; it does **not** reach `.kicad_pcb` or Gerber (why, in §10).
+> **Endpoint**: the current workflow reaches a project-wide netlist, KiCad symbol/footprint libraries, and Gerber/Excellon files for a physical PCB. It does **not** export `.kicad_pcb` or `.kicad_sch` (see §10).
 
 This file is English on purpose: a skill is an operating manual for an agent, not a design document
 (see AGENTS.md §12).
@@ -30,25 +30,29 @@ read". A step that does not say "on failure, look at code X" is not finished.
 
   | Kind | Run from | Example |
   |---|---|---|
-  | CLI commands (`init` / `check` / `compile` / `netlist`) | the repository root, or anywhere (the project is a positional argument) | `bun run texteda check /tmp/demo` |
+  | CLI commands (`init` / `id` / `check` / `compile` / `netlist` / `bom` / `export gerbers`) | the repository root, or anywhere (the project is a positional argument) | `bun run texteda check /tmp/demo` |
   | Repository scripts that touch the library (`compile:symbol` / `export:symbol` / `compile:footprint` / `export:footprint`) | **inside the project directory** (the script path points back at `$REPO`, the data paths are project-relative) | `cd /tmp/demo && bun run $REPO/scripts/export-symbol.ts dist/c.json --component assets/components/passives/cap-mlcc-0402.teda --out dist/c.kicad_sym` |
 
   Why the library scripts run inside the project: the `source.file` they write into the IR must be
   a path **relative to the current directory** (an IR contract requirement), and the data files
   live in the project anyway.
 
-- Core CLI commands (`bun run texteda <subcommand>`):
+Core CLI commands used in this guide (`bun run texteda <subcommand>`):
 
 | Command | What it does | Output |
 |---|---|---|
-| `texteda init <dir>` | Scaffold an empty project | directories + `project.toml` |
-| `texteda id <dir> [--count N]` | Print unused project-scoped instance UIDs | one UID per line; `--json` for machines |
-| `texteda check <dir>` | Parse → contract validation → ERC | diagnostics (human readable; `--json` for machines) |
-| `texteda compile <dir> <board>` | One board file → board-level IR | IR JSON (stdout, or `--out`) |
-| `texteda netlist <dir>` | The connectivity projection of the IR | netlist text |
+| `texteda init <dir> [--force] [--name <project name>]` | Create project metadata and skeleton directories | `project.toml`, directory placeholders, and `docs/README.md` |
+| `texteda id <project dir> [--count N] [--json]` | Print unused project-scoped instance UIDs | one UID per line or JSON |
+| `texteda check <project dir> [--json]` | Check the project schematic and physical PCB descriptions | diagnostics (human readable or JSON) |
+| `texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb] [--procurement]` | Compile the project root by default; `--pcb` selects a physical PCB description and `--procurement` its primary procurement description | IR JSON or diagnostics |
+| `texteda netlist <project dir> [--json] [--out <file>]` | Project-wide connectivity projection | netlist |
+| `texteda bom <project dir> <board_id> [--json] [--out <file>]` | Build the BOM for one physical PCB | BOM |
+| `texteda export gerbers <project dir> <board_id> [--out <dir>] [--json]` | Export one physical PCB's manufacturing layers | Gerber and Excellon files |
 
-- **The CLI has no `export` subcommand**: KiCad symbol/footprint export goes through repository
-  scripts (§8), and those take the **IR JSON**, not the `.teda` file.
+The default `compile` mode always reads `design/sch/main.teda`. The CLI requires its second
+positional `<board_id>` argument even in this mode, but it does not change the selected input unless
+`--pcb` or `--procurement` is supplied. Symbol and footprint exports are repository scripts (§9)
+that take IR JSON, not `.teda`; Gerber/Excellon export is the CLI command above.
 
 ## 2. Step 0: create the project
 
@@ -56,28 +60,40 @@ read". A step that does not say "on failure, look at code X" is not finished.
 bun run texteda init /tmp/demo
 ```
 
-```
-Created project demo: /tmp/demo
-```
-
-What you get (**and nothing else**):
+`init` creates this skeleton (empty leaf directories contain `.gitkeep` placeholders):
 
 ```
 project.toml
-assets/symbols/  assets/footprints/  assets/components/
-assets/procurement/{primary,alternatives}/
-external/simulation/
-design/{sch,pcb,modules,system}/  views/  docs/README.md
+assets/
+├── symbols/.gitkeep
+├── footprints/.gitkeep
+├── components/.gitkeep
+└── procurement/
+    ├── primary/.gitkeep
+    └── alternatives/.gitkeep
+external/
+└── simulation/.gitkeep
+design/
+├── sch/.gitkeep
+├── modules/.gitkeep
+└── pcb/.gitkeep
+views/.gitkeep
+docs/README.md
 ```
+
+`init` creates only `project.toml`, these directory placeholders, and `docs/README.md`; it creates
+**no `.teda` source files**. The library files and circuit descriptions are yours to write (§3 and
+§6). See [`spec/project.md`](../../spec/project.md) for the project metadata contract. The tree
+follows ownership (AGENTS.md §9, ADR-0008): `assets/` is what the project owns,
+`external/` is what it borrows, `design/` is the circuit, `views/` is project-wide drawing data, and
+`docs/` is project documentation.
 
 Two traps:
 
-1. **`init` creates the tree, not the content** — every directory above comes back empty (a
-   `.gitkeep` each). The library files themselves are yours to write (§3). The tree is organised by
-   ownership (AGENTS.md §9, ADR-0008): `assets/` is what the project owns, `external/` is what it
-   borrows, `design/` is the circuit, `views/` is the drawings.
-2. **`init` does not reach the network, does not fetch templates and does not create `dist/`**. The
-   output is deterministic: the same project name yields byte-identical files.
+1. **`init` creates the tree, not the content**. The empty leaf directories have `.gitkeep`; parent
+   directories contain their children. There is no pre-populated schematic, module, PCB, or view.
+2. **`init` does not reach the network, fetch templates, or create `dist/`**. The output is
+   deterministic: the same project name yields byte-identical files.
 
 ## 3. Step 1: the library (symbol + footprint)
 
@@ -190,9 +206,8 @@ What matters:
   (`value.component-kind-invalid`).
 - The `params` section declares **the extra columns an instance row may carry** (name, type,
   required/optional). Their order is the order the instance row supplies them in.
-- A schematic **must not define a device inline**; it references an id under `assets/components/`.
-  A missing id is an error (`ref.unknown-component`) — no network lookup, no
-  silent downgrade.
+- A module **must not define a device inline**; it references an id under `assets/components/`. A
+  missing id is an error (`ref.unknown-component`) — no network lookup, no silent downgrade.
 - **The pin table is the identity boundary**: only attributes that do not change a pin's electrical
   behaviour may be `params` (value, tolerance, voltage rating, ESR). The footprint is a fixed
   attribute, never a parameter; the package code is **not** in the device file at all — the
@@ -209,79 +224,85 @@ If the assets came from someone else's library, the copy was made with `texteda 
 each file carries one header comment saying where it came from. Editing the file is normal work;
 to pick up a newer template, import again from the new revision and diff.
 
-## 6. Step 4: the schematic
+## 6. Step 4: the project root, modules, and physical PCBs
 
-One board file `design/sch/demo.teda` (a board is one schematic file; see `teda.md` §7):
+ADR-0069 defines one project-wide logical root: `design/sch/main.teda`. It composes reusable module
+definitions from `design/modules/<module_id>.teda`; component instances, local nets, ports, and
+constraints belong to those module definitions. The root declares module instances and project-wide
+nets, ports, constraints, and explicit interconnects. It does not contain a board-local `instances`
+table, and there are no active system descriptions or alternate schematic roots.
+
+The following syntax example assumes both module definitions exist, expose the shown ports, and are
+assigned to different physical PCBs. It is not a complete project produced by `init`:
 
 ```
-version 0.9.2
-schematic demo
+version 0.14.0
+schematic main
 
-instances
-  R1  IDr1a2b3  res-thick-0402  10k
-  R2  IDr2c4d5  res-thick-0402  10k
-  C1  IDc1e6f7  cap-mlcc-0402  100nF
+modules
+  M1  IDp8x2n4  charger-power
+  M2  buck-5v
 
 nets
-  VCC  R1.1 C1.1
-  MID  R1.2 R2.1
-  GND  R2.2 C1.2
+  GND:  M1.GND  M2.GND
+  SYS:  M1.SYS_OUT  M2.SYS_IN
+
+interconnects
+  ic1  M1.SYS_OUT  M2.SYS_IN
 ```
 
-- An `instances` row is `refdes  [uid]  component_id  <param values…>`; the number and order of the
-  values come from the component's `params` section (§4). The UID is the project-scoped stable
-  identity ([ADR-0010](../adr/03-project/0010-instance-identity-is-a-uid.md)); generate one with
-  `texteda id <dir> --count N`, then paste it. A missing UID is a warning on a 0.9 file, not a
-  silent default.
-- A `nets` row is `net_name  <pin>…`, where a pin is written `refdes.pin_number` — the **number**,
-  not the name (names are ambiguous on alternate functions).
-- A pin belongs to exactly one net (`net.pin-in-two-nets`).
-- **A board may be composed of modules** (`design/modules/<module_id>.teda` + a `modules` section in the
-  board file, `spec/module.md`). A board that fits in one file needs none — modules are optional.
+The syntax and ownership rules are in [ADR-0069](../adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md),
+[`spec/teda.md`](../../spec/teda.md) §7, and [`spec/module.md`](../../spec/module.md). A physical PCB
+is separate: `design/pcb/<pcb_id>.teda` has a required `modules` section assigning each root module
+instance to exactly one PCB. Reusing a module definition means instantiating it; one instance cannot
+be split across PCBs.
+
+A logical net shared by modules on different PCBs does **not** imply physical continuity. The root
+must declare an `interconnects` entry between the module ports; optional `interconnect_pins` map
+those logical endpoints to physical connector pins. Copper, placement, and board-local routing
+remain in the corresponding physical PCB description. See [`spec/pcb.md`](../../spec/pcb.md) §4.1
+and [`spec/teda.md`](../../spec/teda.md) §§7.5–7.7.
+
+Print pages are also project-wide, with no PCB parent or per-board view directory. Each page lives
+at `views/<page_id>.view.teda`; `views/main.view.teda` can serve as a topology overview showing
+module boxes, ports, and explicit interconnects. Pages draw the project; they do not define circuit
+connectivity or PCB ownership. See [`spec/schematic-view.md`](../../spec/schematic-view.md) §§0.2,
+1.1, and 4.2–4.4.
 
 ## 7. Step 5: check → compile → netlist
+
+The commands below assume the project root, module definitions, and physical PCB source files have
+been authored; `init` creates only the empty directory skeleton. Then check the project:
 
 ```sh
 bun run texteda check /tmp/demo
 ```
 
-```
-Checked 1 boards: 0 errors, 0 warnings (stages: parse 0 · contract 0 · design 0)
-```
+`check` validates the project schematic and its physical PCB descriptions. The three stages are
+**parse** (syntax), **contract** (IR against the schema), and **design** (ERC); `--json` emits the
+machine-readable payload (ADR-0003).
 
-The three stages are **parse** (syntax), **contract** (IR against the schema) and **design** (ERC).
-`--json` emits the machine-readable payload (ADR-0003).
+The default compile mode compiles only the fixed project root, `design/sch/main.teda`, and the
+netlist is project-wide:
 
 ```sh
-bun run texteda compile /tmp/demo demo --out /tmp/demo/dist/schematic.json
+bun run texteda compile /tmp/demo main --out /tmp/demo/dist/schematic.json
 bun run texteda netlist /tmp/demo
 ```
 
-```
-# netlist demo (ir 0.1)
-GND: C1.2 R2.2
-MID: R1.2 R2.1
-VCC: C1.1 R1.1
-
-# components 3
-C1 cap-mlcc-0402
-R1 res-thick-0402
-R2 res-thick-0402
-```
-
-A missing parent directory of `--out` is **created for you** (`dist/` is created by the export
-commands, not by `init`).
-
-The netlist is only the **connectivity projection**: topology, no values and no footprints (those
-belong to the BOM).
+The CLI requires a second positional argument named `<board_id>` even in default root mode; `main`
+fills that syntactic slot here, but without a selector it does not choose a physical PCB. `--out`
+creates a missing parent directory (`init` itself does not create `dist/`). The netlist carries only
+connectivity, not component parameters or footprints.
 
 ## 8. Step 6: source the parts (the procurement layer)
 
-The design says what it needs; the procurement layer says what is bought. It is a **decision**, not
-a fact of the circuit, so it lives in its own file and only the primary one changes the build's
+The design says what the project needs; procurement says what is bought for a **physical PCB**. It
+is a decision, not a circuit fact, so it lives in its own file keyed by that PCB's id. A primary
+procurement description applies to the module instances owned by that PCB and affects that build's
 identity.
 
-`assets/procurement/primary/demo.teda`:
+For the physical PCB described by `design/pcb/demo.teda`, the primary procurement file is `assets/procurement/primary/demo.teda`:
 
 ```
 version 0.9.2
@@ -292,14 +313,20 @@ selections
   res-thick-0402  10k  ±1%  ->  rc0402fr-0710kl
 ```
 
-The row reads `<generic> <requirement…> -> <part>`: the left side is the line the design asks for,
-the right side is the part that satisfies it. The part has to be a `kind: part` device with a part
-number, the same land pattern as the generic, and ratings that meet the line.
+The row reads `<generic> <requirement…> -> <part>`: the left side is the line the modules assigned
+to this PCB require; the right side is the part that satisfies it. The part has to be a `kind: part`
+device with a part number, the same land pattern as the generic, and ratings that meet the line.
+
+See [`spec/procurement.md`](../../spec/procurement.md) for the procurement and BOM contracts.
 
 ```sh
 bun run texteda check /tmp/demo
 bun run texteda bom /tmp/demo demo
 ```
+
+The CSV below is retained output from the original guide run; in the current model, the `demo`
+argument names the physical PCB whose assigned module instances and procurement description feed
+the BOM:
 
 ```
 component_id,mpn,params,quantity,status,refdes,note
@@ -314,9 +341,9 @@ is nothing to order for this line, which is different from "nobody has ordered i
 `texteda check` reports a line nobody sourced as a **warning**, not an error: an unfinished
 sourcing is not a broken design.
 
-A second source goes in `assets/procurement/alternatives/demo.teda` (same syntax, `role
-alternatives`). It is advisory: switching to it does not change the build's hash, and a broken row
-there is a warning instead of an error.
+A second source for that same physical PCB goes in `assets/procurement/alternatives/demo.teda`
+(same syntax, `role alternatives`). It is advisory: switching to it does not change the build's
+hash, and a broken row there is a warning instead of an error.
 
 ## 9. Step 7: export the KiCad library (two steps)
 
@@ -345,14 +372,14 @@ by pin number, and the two pin number sets must match.
 
 | Wanted | Status today |
 |---|---|
-| Netlist (connectivity) | ✅ `texteda netlist` |
+| Project-wide netlist | ✅ `texteda netlist` |
 | KiCad symbol / footprint libraries | ✅ the two-step chain in §9 |
+| Gerber / Excellon for a physical PCB | ✅ `texteda export gerbers <project dir> <board_id> [--out <dir>] [--json]` |
 | `.kicad_pcb` board file | ❌ **there is no exporter in the repository**. The file in `docs/trial-run/charger-buck/` was produced by a one-off prototype (its README says "not in the repository"). The exporter is scoped in [F23](../backlog.md) step 5 |
-| Gerber / Excellon | ❌ no writer yet ([F15](../backlog.md)) |
 | KiCad schematic (`.kicad_sch`) | ❌ ([F16](../backlog.md)) |
 
-**The skill must not pretend it reaches Gerber.** A step whose dependency is missing ends at "this
-is as far as it goes".
+Gerber/Excellon export is implemented for a physical PCB description; the missing board-file
+exporter means this skill does not produce a `.kicad_pcb`. These are separate output formats.
 
 ## 11. When it breaks
 
@@ -376,33 +403,31 @@ ones you actually hit:
 | `net GND has only one member C1.2` | `drc.single-member-net` (warning) | Ignore it if the net really has one pin; otherwise something is not connected |
 | A pin appears in no net | `net.pin-unassigned` (warning) | Connect it, or mark it `no_connect` in the component file |
 
-One symptom that is easy to misread: **a misspelled section name is reported as a column error on
-the wrong row**. The parser keeps reading the unknown line as a data row, so the error lands on the
-row after it. Writing `netss` instead of `nets` reports `instances row needs at least 2 columns`.
-When a "column error" points at a row that looks fine, look at the **line above it** first.
+When a parser reports a row or column error at a line that looks valid, inspect the section header
+and data row above it: an unknown section name can be read as a data row, shifting the reported
+location. Diagnose from the reported code and surrounding lines rather than only the highlighted
+row.
 
-## 12. Checklist (run this after changing the skill)
+## 12. Documentation checklist
 
-- [ ] `init` produces exactly §2 (nothing more, nothing less)
-- [ ] The library directories are created **by hand**, not expected from `init`
-- [ ] The component file name matches the header id; the `params` section matches the instance
-      row's column count
-- [ ] `project.toml` has no `[libs]` table (it was withdrawn; the assets are the library)
-- [ ] `check` reports zero errors
-- [ ] `compile` produces the IR; `netlist` produces the connectivity
-- [ ] `bom` lists every line of the board, with the selected part's number where there is one
-- [ ] The symbol export carried `--component`; both pin number sets match
-- [ ] The library scripts ran **inside the project directory** (`$REPO/...` points back at the repo)
-- [ ] No step depends on a command that does not exist in the repository (§10 is accurate)
+- [ ] `init` is documented as creating only `project.toml`, skeleton directories/placeholders, and `docs/README.md`; no `.teda` files
+- [ ] The sole logical root is `design/sch/main.teda`; reusable definitions live in `design/modules/`
+- [ ] Each physical PCB is `design/pcb/<pcb_id>.teda` and owns each assigned module instance exactly once
+- [ ] Cross-PCB paths are explicit root `interconnects`; project-wide view pages are flat under `views/`
+- [ ] The CLI signatures and default root compile behavior match the current CLI
+- [ ] Procurement and BOM guidance are scoped to a physical PCB
+- [ ] The stated export endpoints match the implemented CLI and repository scripts
 
-## 13. Still to do
+## 13. Historical follow-ups
+
+The following notes preserve the original draft's follow-up list; check current implementation
+before treating an item as open:
 
 1. **Executable form**: `scripts/skill-new-project.ts` (build a minimal project → `check` with zero
    errors → export → assert the products exist and are byte-reproducible), plus
    `bun run skill:new-project` and a gate. See [F23](../backlog.md).
 2. **Board file exporter** (`pcb` IR → `.kicad_pcb`): move the one-off prototype from
    `docs/trial-run/` into `packages/exporter`.
-3. **Gerber / Excellon writer** (F15); only then does this skill's endpoint move from netlist to
-   manufacturing files.
-4. **Mark the dependency of every step**: this file currently lists the missing endpoints in §10;
-   once it is scripted, each step should carry its own "what this depends on" marker.
+3. **Gerber / Excellon writer** (F15): this historical to-do has since been implemented as
+   `texteda export gerbers`; see §10 for the current endpoint.
+4. **Mark the dependency of every step**: the scripted version should mark each step's dependencies.

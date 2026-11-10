@@ -1,4 +1,4 @@
-# Reviewing a board in the browser
+# Reviewing a project in the browser
 
 `texteda review` serves one interaction surface: the project's drawings, drawn by the renderer, with
 hover, selection, explicit schematic move/rotate actions, and an optional Source panel. PCB drawings
@@ -20,7 +20,6 @@ The server prints the URL it is listening on:
 
 ```
 review reference-project at http://127.0.0.1:4719/
-2 boards, 141 diagnostics
 ```
 
 It binds `127.0.0.1` only and answers three routes: `/` (the document) and two write routes, `POST
@@ -43,8 +42,8 @@ the drawing.
 
 | Column | What it is |
 |---|---|
-| left | Folded by default. The project and its build hash, the drawings grouped by kind (print pages, board canvases, library symbols, library footprints), what the current print page measures, then the findings from `texteda check` (errors, then warnings, then notes). The first five show; "show all N" opens the rest. A finding that names an object carries a **show** button: it takes the reviewer to that object on the drawing. |
-| right | The current drawing with explicit actions above it, and a status line naming the source file, the size, and what the drawing is made of. It also reports what the selection is: its instance id, device, and the nets its pins land on. |
+| left | Folded by default. The project and its build hash, the drawings grouped by kind (print pages, PCB canvases, library symbols, library footprints), what the current print page measures, then the findings from `texteda check` (errors, then warnings, then notes). The first five show; "show all N" opens the rest. A finding that names an object carries a **show** button: it takes the reviewer to that object on the drawing. |
+| right | The current drawing with explicit actions above it, and a status line naming the source file, the size, and what the drawing is made of. It also reports what the selection is: its project-level instance id, device, and the nets its pins land on. |
 
 There is no details panel. A selection's facts are the ones the status line already prints, and
 everything else a reviewer wants — the symbol, the footprint, the spec — is one `Enter` away in the
@@ -69,7 +68,7 @@ it is repainted whenever the state it describes changes.
 
 ## What `M` can move
 
-A symbol, a field override, a net label, and a board port all move on the sheet the same way:
+A symbol, a field override, a net label, and a project port all move on the sheet the same way:
 select, press `M`, drag, and the offset snaps to the `0.5 mm` lattice. A label is addressed by the
 net it names and a port by its `port_id`, and the write stores the position the app sends
 (ADR-0056 D2). A note — a free `text` row — does not move: nothing in the language says what a
@@ -98,10 +97,14 @@ The app shows **drawings**, and there are four kinds of them
 
 | Kind | What it is | Where it comes from |
 |---|---|---|
-| print page | the page a reviewer reads: the symbols, the wires, the labels and the ports | `views/<board_id>/<page_id>.view.teda` |
-| board canvas | the board as it is placed: outline, pads, copper, silkscreen | `design/pcb/<board_id>.teda` |
+| print page | the page a reviewer reads: the symbols, the wires, the labels and the ports | `views/<page_id>.view.teda` |
+| PCB canvas | the physical PCB as it is placed: outline, pads, copper, silkscreen | `design/pcb/<pcb_id>.teda` |
 | symbol | one symbol of the project, drawn with the pins of a device that uses it (ADR-0031) | `assets/symbols/<category>/<id>.teda` |
 | footprint | one footprint of the project: its pads and its graphics | `assets/footprints/<family>/<id>.teda` |
+
+The project logic comes from `design/sch/main.teda`. Print pages use project-level `page_id`s and
+reference its project-level module-instance IDs, flattened instance and net IDs, and interconnect
+IDs. PCB canvases use the physical `pcb_id` in their source path.
 
 The sidebar lists them grouped by kind, in that order. The kind blocks fold; the two library kinds
 go one level further, by the classification directory the file sits in — a symbol's device
@@ -117,22 +120,21 @@ after the pointer leaves. The arrow keys walk the drawings of the same kind, in 
 shows them — the print pages among themselves, the symbols among themselves — and reaching one
 inside a closed class opens it.
 
-- **A board with no print page is listed, not drawn.** The reference project's `mcu-board` has a
-  schematic and no print page; the app says so on the canvas and draws nothing (ADR-0035 decision 6).
-  It does not invent a layout. What it does show is the board's instances as chips: the logic is
-  there even when the drawing is not, and clicking a chip reports that instance's facts.
+- **A project with no print page has no schematic drawing.** If `views/` contains no print pages,
+  the app says so and draws no schematic canvas (ADR-0035 decision 6). It does not invent a layout.
+  The project's flattened instances remain available as chips, and clicking one reports its facts.
 - **A drawing that cannot be drawn says why** and is marked in the list.
 
-### The board canvas
+### The PCB canvas
 
-The board's own canvas, drawn from the `pcb` description and the footprints it places — the answer
-to "where did this part land, and what copper is it on". It is read-only by design: the copper, the
-zones and the spacing belong to the agent-driven layout loop, not to a browser
-([ADR-0017](../adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)). Clicking lights one net's
-pads, tracks and vias, and the status line names it; a part's reference and value are printed only
-where the board's `silk` section says so (spec/pcb.md §4.10), so the canvas shows what the board
-will print. Here the click is resolved from the drawing's own objects, so what is picked is what
-was drawn — a pad, a track, a via — and not an invisible box around it.
+The PCB's own canvas, drawn from the physical PCB description at `design/pcb/<pcb_id>.teda` and the
+footprints it places — the answer to "where did this part land, and what copper is it on". It is
+read-only by design: the copper, the zones and the spacing belong to the agent-driven layout loop,
+not to a browser ([ADR-0017](../adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)). Clicking
+lights one net's pads, tracks and vias, and the status line names it; a part's reference and value
+are printed only where the PCB's `silk` section says so (spec/pcb.md §4.10), so the canvas shows what
+the board will print. Here the click is resolved from the drawing's own objects, so what is picked is
+what was drawn — a pad, a track, a via — and not an invisible box around it.
 
 ## One interaction surface
 
@@ -199,8 +201,9 @@ The recomputation costs a scan of the page, not a scan per row, so it grows with
 than with its square (ADR-0061 D3).
 
 The browser never writes files. The server owns canonical parsing and writing, and these actions
-write only `views/<board_id>/<page_id>.view.teda`; they do not write `design/**`, IR shards, project
-hashes or build hashes. The write goes through a temporary name and an atomic rename, so a reader
+write only `views/<page_id>.view.teda`; they do not write `design/**` (including
+`design/sch/main.teda` and `design/pcb/<pcb_id>.teda`), IR shards, project hashes or build hashes.
+The write goes through a temporary name and an atomic rename, so a reader
 sees either the old page or the new one — never half of each — and the bytes the write replaced are
 kept under `dist/backups/`, so a page that was moved by mistake can be put back. The standalone
 server's full capability accepts fields and source. The DSH
@@ -222,7 +225,7 @@ otherwise still shows the relative file and line.
 |---|---|
 | hover a symbol / label / port | The element is outlined in the app's layer and the facts appear at the bottom and on the right. Moving off it releases the mark and the status line goes back to describing the page. The SVG is not regenerated. Hovering one net label lights every place that net is named. |
 | click | Selects it: a slightly thicker outline and a wash, kept while the pointer moves away. It does not open a file. |
-| `Enter` or double-click the selection | Opens the definitions menu: the board/module row, print-page placement, PCB placement, component, symbol, footprint and pin rows for an instance; the board net row and every view wire/label for a net. Choosing a row opens `vscode://file/<absolute path>:<line>:<col>`. |
+| `Enter` or double-click the selection | Opens the definitions menu: the project/module-instance row, print-page placement, PCB placement, component, symbol, footprint and pin rows for an instance; the project net row and every view wire/label for a net. Choosing a row opens `vscode://file/<absolute path>:<line>:<col>`. |
 | click empty paper, or `Esc` | With the definitions menu open, `Esc` closes the menu first; a second `Esc` (or a click on empty paper) drops the selection. |
 | drag | Pans. |
 | wheel | Zooms about the cursor. The sheet is re-rendered as vectors at the new size, so it never goes soft in between. |
@@ -267,17 +270,18 @@ says how much of the sheet it takes and how far it is from comfortable
 - **No live routing.** An explicit schematic move keeps the existing wire geometry in the local
   preview; it never searches for a new path or routes around a symbol. `Apply` reports stale or
   conflicting wiring for the CLI/agent workflow instead of repairing it in the browser.
-- **Board editing.** The board canvas is read-only: moving a part on the board, routing copper,
+- **PCB editing.** The PCB canvas is read-only: moving a part on a physical PCB, routing copper,
   editing the stackup belong to the agent-driven layout loop
   ([ADR-0017](../adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)), not to the review app.
 - **A write from the static report.** `--out` has no server, so nothing can be applied or saved.
-- **Note anchors** (`[instance:U3]` prefixes), which are an open point of
+- **Note anchors** (`[instance:M1.U1]` prefixes), which are an open point of
   [ADR-0037](../adr/09-view/0037-review-records-and-attribution.md).
 
 ## When it looks wrong
 
-- `0 boards` — the project has no `design/sch/<board>.teda`; the model lists only boards that have a
-  schematic. Point the command at the project root, not at `design/`.
+- **No schematic drawing** — the project is missing a usable `design/sch/main.teda` or has no
+  project print page at `views/<page_id>.view.teda`. Point the command at the project root, not at
+  `design/`.
 - `Apply` or `Save` disabled — either the current host capability does not permit that action, or the
   document was written by `--out`. The button's title says which.
 - A page marked as a problem — its file failed to parse or the cross-check refused it; the status

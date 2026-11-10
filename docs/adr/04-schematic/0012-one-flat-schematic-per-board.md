@@ -3,8 +3,8 @@
 Status: Accepted
 Date: 2026-10-21
 Scope: Decides: that a board has one schematic file and one namespace, that the `page` description type is gone, and that a review partition is a print page in the view layer. Does not decide: the module hierarchy — see ADR-0013; nor the view layer's own shape — see ADR-0035.
-Related: [ADR-0006](../02-ir/0006-ir-shards-and-hashes.md), [ADR-0013](0013-modules-compose-boards.md), [ADR-0014](0014-connectivity-has-one-authority.md), [ADR-0015](0015-flattening-and-the-net-set.md), [ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md)
-Impact: `spec/teda.md` §7, §13; `spec/schematic-view.md`; `schemas/ir/**`; `packages/parser`, `packages/core`, `packages/cli`, `packages/renderer`; `scripts/migrate-0.7.ts`; `examples/reference-project/`
+Related: [ADR-0006](../02-ir/0006-ir-shards-and-hashes.md), [ADR-0013](0013-modules-compose-boards.md), [ADR-0014](0014-connectivity-has-one-authority.md), [ADR-0015](0015-flattening-and-the-net-set.md), [ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md)
+> **Current partition contract (2026-11-09):** the one-schematic-per-board and board-level view decisions below are superseded by [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md). Project logic has one root, `design/sch/main.teda`, and one project-wide namespace; there are no board-local schematic roots, and print pages live at `views/<page_id>.view.teda` referencing project-level ids and interconnect ids (ADR-0069 D1, D4). The removal of the `page` type, the print-page principle, the level tag `M` (D5), and the modules decision (D6) stand. D7 records the 0.6 → 0.7 migration; current versioning and migration are in ADR-0069 D6.
 
 ## Background
 
@@ -39,48 +39,64 @@ The level tag that went with the pages is settled here too. A design has levels,
 flattening the level survives only in the *name*: board-root names are bare (`R1`, `GND`), a
 qualified name is `<instance_id>.<local>` (`M1.R1`, `M1.VCC`). The tag that marks the level is a
 reserved character, and it reaches the silkscreen, so it is one character: `M` for a module
-instance. `P` went with the pages and is free again; `MOD` is not used.
+instance. `P` went with the pages and is free again; `MOD` is not used. The board roots named here
+belong to this record's model; under [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1
+there are no board-local schematic roots.
 
 ## Decision
 
 ### D1. One schematic file per board
 
-`design/sch/<board_id>.teda` is the board's only logical description. The `page` description type
+`design/sch/<board_id>.teda` was the board's only logical description. The `page` description type
 and the `pages` section are **removed**. A board's `instances`, `nets`, `ports` and `constraints`
-live in that one file.
+lived in that one file. As current contract, the project's only logical description is the root,
+`design/sch/main.teda`, and there are no board-local schematic files; the one-file, one-namespace
+rule applies to the project ([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1).
 
 ### D2. One namespace per board
 
 `refdes` and net names are unique inside the board's schematic file. Collisions are the author's to
 resolve, by renaming — the tool no longer qualifies names and no longer renumbers them at export.
+As current contract the namespace is the project's, not a board's: module-instance ids are globally
+unique and flattened names carry the `<module_instance_id>.<local_id>` form
+([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1).
 
-The reference project resolves them by **renumbering into the board sequence** (the buck's `C1`..
-`C4` become `C19`..`C22`, its `U1` becomes `U2`, …) and by **prefixing the nets of the second
-circuit** (`BOOT` → `BOOT`, `PH` → `BUCK_PH`, `VFB` → `BUCK_VFB`). Renumbering keeps the
-silkscreen short; the net prefix keeps the sub-circuit readable in the flat list.
+The reference project resolved them by **renumbering into the board sequence** (the buck's `C1`..
+`C4` became `C19`..`C22`, its `U1` became `U2`, …) and by **prefixing the nets of the second
+circuit** (`BOOT` → `BOOT`, `PH` → `BUCK_PH`, `VFB` → `BUCK_VFB`). Renumbering kept the
+silkscreen short; the net prefix kept the sub-circuit readable in the flat list.
 
 ### D3. Ports are the board's external interface, and nothing else
 
-The board's `ports` section stays as it is and still names board nets; a `system` description still
-consumes it (see ADR-0009). **Page ports and port binding are removed**: a net that crosses what
-used to be a page boundary is now simply a board net, declared once, in one place.
+The board's `ports` section stayed as it was and named board nets; a `system` description consumed
+it (see ADR-0009). As current contract, the root schematic owns project ports, and there are no
+board-local schematic roots or `system` descriptions to consume them
+([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1).
+**Page ports and port binding are removed**: a net that crosses what used to be a page boundary is
+declared once, in one place.
 
 ### D4. The partition moves to the view layer, as a print page
 
-`views/<board_id>/<page_id>.view.teda` is a **print page** of the drawing: a print / format unit
-that nothing but the renderer reads. It references **board-level** instance ids and net ids, so the
-drawing and the logic are compared by string equality, with no name resolution in between.
+`views/<board_id>/<page_id>.view.teda` was a **print page** of the drawing: a print / format unit
+that nothing but the renderer reads. It referenced **board-level** instance ids and net ids, so the
+drawing and the logic were compared by string equality, with no name resolution in between. As
+current contract ([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4), print pages live at
+`views/<page_id>.view.teda` and reference project-level instance and net ids plus interconnect ids;
+the print-page principle — a discardable drawing unit compared to the logic by string equality —
+stands.
 
-The view's id **vocabulary** is the board's, not a subset of it: a board-level `instance_id` may be
+The view's id **vocabulary** is the logic's, not a subset of it: an `instance_id` may be
 module-qualified (`M1.U1`), and the view names it as it is — `M1.U1.5` for a pin, `M1.VCC` for a
 module-internal net. The view names ids, it never defines them, so it has no reason to know less
-than the board does.
+than the logic does.
 
-The view layer's *shape* does not change (see ADR-0035): the same `place` / `wire` / `label` /
-`port` / `text` sections, the same file layout, the same shard path. What changes is the meaning
-of the ids it names: they were page-local, they are now board-level.
+The view layer's *shape* is not changed by this decision (see ADR-0035): the same `place` / `wire` /
+`label` / `port` / `text` sections. What this decision changed was the meaning of the ids it names:
+they stopped being page-local. What changed later is the file layout and shard path: print pages now
+live at `views/<page_id>.view.teda` as advisory project shards
+([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4, D5).
 
-A print page never creates connectivity: it draws board nets and board ports that already exist.
+A print page never creates connectivity: it draws nets, ports and interconnects that already exist.
 
 ### D5. The level tag is one character, and it is `M`
 
@@ -135,17 +151,22 @@ ADR-0013.
 
 ## Consequences
 
-- **The source is one file per board.** One namespace, one place to look for a net, no port
-  duplication, no qualified names to read.
-- **The price is a long file and no source partition.** A board with sixty parts and thirty nets is
-  a long `schematic` file. The partition that remains is the *view*, and it is discardable: the
+- **The source is one file.** One namespace, one place to look for a net, no port duplication, no
+  export-qualified names to read — one file per board under this record, one file per project under
+  [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1.
+- **The price is a long file and no source partition.** A project with sixty parts and thirty nets
+  is a long `schematic` file. The partition that remains is the *view*, and it is discardable: the
   logical description stays valid whether or not anyone draws it. The gap — a source that cannot
-  be chunked for review — is tracked in `docs/backlog.md`; the eventual answer is **modules**, which
-  are a hierarchy level with ports, not a drawing partition, and therefore not discardable.
+  be chunked for review — was tracked in `docs/backlog.md`; the answer was **modules** (ADR-0013),
+  which are a hierarchy level with ports, not a drawing partition, and therefore not discardable,
+  and which now compose the project root
+  ([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1).
 - **The BOM is unchanged in meaning**: one board = one BOM, aggregated over the flat instance list;
   the aggregation key is (`component_id`, parameters, variant status), not the refdes (see ADR-0029).
-- **The `pcb` description gets simpler**: it references board-level instance ids and net names; no
-  `P2.` prefixes, no port indirection.
+- **The `pcb` description gets simpler**: it references instance ids and net names directly; as
+  current contract those are its assigned module instances and the flattened project nets
+  ([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D2) —
+  no `P2.` prefixes, no port indirection.
 - **The IR shrinks**: `pages`, `instance.page` and `port.page` are gone, so a consumer of a
   schematic shard no longer has to understand a second namespace to read it.
 - **The names say what they are.** `M1.VCC` in a `pcb` file is a module net; the level cannot be

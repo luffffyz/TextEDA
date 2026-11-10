@@ -1,0 +1,32 @@
+version 0.14.0
+view composed
+
+# A composed page: a sheet template, a module drawing placed on it, and project-level wiring.
+#
+# `template a4` is the only extent this page has. The template's 297 x 210 mm is the page's size, so
+# the page declares no size of its own (ADR-0068 D4). The module drawing keeps its own 145 x 40 mm:
+# a page places a drawing, it never scales one — that is the difference between the drawing's local
+# bounds and the page's size.
+#
+# The same drawing is placed twice: once as it was drawn, once turned a quarter turn. A placement
+# names the project's module instance (M2) and the module it draws (buck-5v); the drawing is looked up
+# by that module id, so one drawing serves every page that wants it, as often as it wants it.
+#
+# The wiring is project-level. The project's ports reach the module through the module's ports, on
+# the nets the project root binds them to: GND and VOUT_5V are project ports, M2.GND and M2.VOUT
+# are the module instance's ports. The module drawing itself says nothing about those nets — it is a drawing.
+module_place
+  M2  buck-5v  [45.0,20.0]  0
+  M2  buck-5v  [235.0,15.0]  90
+
+wire
+  GND  GND  M2.GND
+  VOUT  VOUT_5V  M2.VOUT
+
+port
+  GND      [40.0,56.5]  180
+  VOUT_5V  [196.0,36.5]  0
+
+text
+  [20.0,150.0]  Composed page: the buck-5v module drawing, placed twice on one A4 sheet.
+  [20.0,154.0]  The project's ports GND and VOUT_5V reach the module through the module's own ports.

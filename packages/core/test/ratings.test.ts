@@ -7,7 +7,7 @@ import type { Schematic } from "@texteda/ir/schematic";
 
 const TWO_PIN: RatingDevice = { pins: ["1", "2"], ratings: {} };
 
-/** A board with the given instances, nets and windows; everything else is empty. */
+/** A project schematic with direct synthetic instances; ratings do not require module ownership. */
 function board(options: {
   instances: { id: string; component: string }[];
   nets: { id: string; members: string[] }[];
@@ -16,16 +16,16 @@ function board(options: {
 }): Schematic {
   return {
     ir_version: irVersion,
-    format: "0.8",
-    board: "b",
+    format: "0.19",
+    project: "main",
+    modules: [],
     instances: options.instances.map((instance) => ({
       ...instance,
-      line: 10,
       ...(options.params?.[instance.id] ? { params: options.params[instance.id]! } : {}),
     })),
     nets: options.nets.map((net) => ({ id: net.id, members: net.members })),
     constraints: options.constraints ?? [],
-  } as Schematic;
+  };
 }
 
 const VOLTAGE = (subject: string, min_uv: number, max_uv: number) =>

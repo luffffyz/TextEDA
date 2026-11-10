@@ -1,0 +1,213 @@
+{
+  "constraints": [
+    {
+      "max_uv": 0,
+      "min_uv": 0,
+      "subject": "GND",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3300000,
+      "min_uv": 3300000,
+      "subject": "VREF",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 2200000,
+      "min_uv": 2200000,
+      "subject": "TAP1",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 1100000,
+      "min_uv": 1100000,
+      "subject": "TAP2",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 1650000,
+      "min_uv": 1650000,
+      "subject": "TAP3",
+      "type": "voltage"
+    }
+  ],
+  "format": "0.14",
+  "instances": [
+    {
+      "component": "res-thick-0402",
+      "id": "M1.R1",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDnphqjf"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "M1.R2",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDpynvkp"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "M1.R3",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "IDts5dqz"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "M1.R4",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID4kxgem"
+    },
+    {
+      "component": "res-thick-0402",
+      "id": "M1.R5",
+      "params": [
+        {
+          "name": "value",
+          "value": 100000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 10000
+        }
+      ],
+      "uid": "ID4nq9r2"
+    }
+  ],
+  "ir_version": "0.19",
+  "modules": [
+    {
+      "instance_id": "M1",
+      "module_id": "divider-network",
+      "ports": [
+        {
+          "id": "GND",
+          "net": "GND",
+          "pins": [
+            "M1.R3.2",
+            "M1.R5.2"
+          ]
+        },
+        {
+          "id": "TAP1",
+          "net": "TAP1",
+          "pins": [
+            "M1.R1.2",
+            "M1.R2.1"
+          ]
+        },
+        {
+          "id": "TAP2",
+          "net": "TAP2",
+          "pins": [
+            "M1.R2.2",
+            "M1.R3.1"
+          ]
+        },
+        {
+          "id": "TAP3",
+          "net": "TAP3",
+          "pins": [
+            "M1.R4.2",
+            "M1.R5.1"
+          ]
+        },
+        {
+          "id": "VREF",
+          "net": "VREF",
+          "pins": [
+            "M1.R1.1",
+            "M1.R4.1"
+          ]
+        }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "id": "GND",
+      "members": [
+        "M1.R3.2",
+        "M1.R5.2"
+      ]
+    },
+    {
+      "id": "TAP1",
+      "members": [
+        "M1.R1.2",
+        "M1.R2.1"
+      ]
+    },
+    {
+      "id": "TAP2",
+      "members": [
+        "M1.R2.2",
+        "M1.R3.1"
+      ]
+    },
+    {
+      "id": "TAP3",
+      "members": [
+        "M1.R4.2",
+        "M1.R5.1"
+      ]
+    },
+    {
+      "id": "VREF",
+      "members": [
+        "M1.R1.1",
+        "M1.R4.1"
+      ]
+    }
+  ],
+  "ports": [
+    {
+      "id": "GND",
+      "net": "GND"
+    },
+    {
+      "id": "VREF",
+      "net": "VREF"
+    }
+  ],
+  "project": "main",
+  "source": {
+    "file": "design/sch/main.teda",
+    "line": 1
+  }
+}

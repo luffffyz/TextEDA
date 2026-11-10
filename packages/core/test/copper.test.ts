@@ -10,8 +10,9 @@ const mm = (value: number) => Math.round(value * 1_000_000);
 
 const schematic: Schematic = {
   ir_version: irVersion,
-  format: "0.7",
-  board: "b",
+  format: "0.19",
+  project: "main",
+  modules: [],
   instances: [
     { id: "A", component: "r" },
     { id: "B", component: "r" },
@@ -21,8 +22,9 @@ const schematic: Schematic = {
 
 const pcbBase: Pcb = {
   ir_version: irVersion,
-  format: "0.7",
-  board: "b",
+  format: "0.19",
+  pcb: "b",
+  modules: [],
   board_thickness_nm: 1_600_000,
   stackup: [
     { type: "copper", layer: "F.Cu", thickness_nm: 35_000, kind: "signal" },
@@ -41,6 +43,7 @@ const pcbBase: Pcb = {
   connect: [{ a: "A.1", b: "B.1" }],
   rules: [{ type: "clearance", value_nm: 200_000 }],
 };
+
 
 /** Two pads per part at ±0.5mm, radius 0.3mm (a "circumscribed circle" of a small land). */
 const pads: InstancePads[] = ["A", "B"].map((id) => ({

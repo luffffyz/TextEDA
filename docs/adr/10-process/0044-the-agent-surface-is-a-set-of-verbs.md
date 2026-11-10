@@ -90,17 +90,20 @@ MCP server for our own harness, or let MCP become a place where behaviour is def
 
 ### D6. The print page's verbs live under one noun
 
-The verbs that act on the print page (S1) are `texteda view metrics`, `texteda view rewire` and
-`texteda view render`. They are grouped because the print page is the description type the
-language already names `view` (`views/<board>/<page>.view.teda`, `spec/schematic-view.md`), and
-because a verb should read the same as the tool that mirrors it: `texteda view metrics` and
-`texteda_view_metrics` are one name in two spellings the model already knows.
+The verbs that act on project print pages (S1) are `texteda view metrics`, `texteda view rewire` and
+`texteda view render`. They are grouped because the print-page description type the language names
+`view` (`views/<page_id>.view.teda`, `spec/schematic-view.md`), and because a verb should read the
+same as the tool that mirrors it: `texteda view metrics` and `texteda_view_metrics` are one name in
+two spellings the model already knows. Each command takes a project directory and page ID; the page
+references project-level module-instance, flattened component/net, project-port and interconnect IDs,
+not board-local identities.
 
 `review` (the app), `check` (the project), `ir` and `compile` stay at the top level: none of them
 is scoped to one page. The precedent for a two-level command is `texteda export gerbers`.
 
-Naming discipline, so the words keep meaning one thing each: `view` is the print page, `sch` is
-the schematic, `pcb` is the board. The app's scopes (`sch`, `pcb`) name the same two things.
+Naming discipline, so the words keep meaning one thing each: `view` is the project print page, `sch`
+is the project logical schematic root, and `pcb` is the physical board. The app's scopes (`sch`,
+`pcb`) name the same two things.
 
 ### D7. The catalogue is machine-readable
 

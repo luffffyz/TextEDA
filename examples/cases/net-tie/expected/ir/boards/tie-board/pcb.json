@@ -1,26 +1,25 @@
 {
-  "board": "tie-board",
   "board_thickness_nm": 1600000,
   "connect": [
     {
-      "a": "C1.1",
-      "b": "U1.5"
+      "a": "M1.C1.1",
+      "b": "M1.U1.5"
     },
     {
-      "a": "C1.2",
-      "b": "U1.2"
+      "a": "M1.C1.2",
+      "b": "M1.U1.2"
     },
     {
-      "a": "R1.1",
-      "b": "U1.5"
+      "a": "M1.R1.1",
+      "b": "M1.U1.5"
     },
     {
-      "a": "R1.2",
-      "b": "U1.2"
+      "a": "M1.R1.2",
+      "b": "M1.U1.2"
     },
     {
-      "a": "U1.1",
-      "b": "U1.3"
+      "a": "M1.U1.1",
+      "b": "M1.U1.3"
     }
   ],
   "deviation": [
@@ -30,8 +29,11 @@
       "type": "net_tie"
     }
   ],
-  "format": "0.11",
-  "ir_version": "0.15",
+  "format": "0.14",
+  "ir_version": "0.19",
+  "modules": [
+    "M1"
+  ],
   "outline": [
     {
       "x_nm": 0,
@@ -50,23 +52,24 @@
       "y_nm": 30000000
     }
   ],
+  "pcb": "tie-board",
   "place": [
     {
-      "instance_id": "C1",
+      "instance_id": "M1.C1",
       "rot_mdeg": 0,
       "side": "top",
       "x_nm": 10000000,
       "y_nm": 20000000
     },
     {
-      "instance_id": "R1",
+      "instance_id": "M1.R1",
       "rot_mdeg": 0,
       "side": "top",
       "x_nm": 30000000,
       "y_nm": 20000000
     },
     {
-      "instance_id": "U1",
+      "instance_id": "M1.U1",
       "rot_mdeg": 0,
       "side": "top",
       "x_nm": 20000000,

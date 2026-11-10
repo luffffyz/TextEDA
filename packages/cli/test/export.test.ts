@@ -2,7 +2,7 @@
 // that has a real pour. The numbers here are anchors measured when the fill landed (ADR-0018); if the
 // kernel or the policy changes, they move and the test says so instead of drifting quietly.
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { area, normalize, type Point } from "@texteda/geom";
@@ -208,13 +208,17 @@ describe("export gerbers on the reference board", () => {
 
   test("a board without a pcb description is refused, not silently empty", () => {
     const dir = mkdtempSync(join(tmpdir(), "texteda-fab-"));
+    const missingPcbProject = mkdtempSync(join(tmpdir(), "texteda-fab-project-"));
     try {
-      const result = runExport({ root: project, board: "mcu-board", outDir: dir, json: true });
+      cpSync(project, missingPcbProject, { recursive: true });
+      rmSync(join(missingPcbProject, "design", "pcb", "mcu-board.teda"));
+      const result = runExport({ root: missingPcbProject, board: "mcu-board", outDir: dir, json: true });
       expect(result.exitCode).toBe(1);
       expect(result.files).toEqual([]);
       expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toContain("cli.export-no-board");
     } finally {
       rmSync(dir, { recursive: true, force: true });
+      rmSync(missingPcbProject, { recursive: true, force: true });
     }
   });
 

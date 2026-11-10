@@ -1,0 +1,109 @@
+version 0.14.0
+pcb mcu-board
+
+board_thickness  1.6
+
+modules
+  M3
+
+stackup
+  F.Cu     copper      0.035  signal
+  prepreg  dielectric  1.53   FR4     4.3
+  B.Cu     copper      0.035  signal
+
+outline
+  [0,0]
+  [70,0]
+  [70,50]
+  [0,50]
+
+place
+  M3.C1  [25,18]  0  top
+  M3.C10  [47,36]  0  top
+  M3.C11  [29,14]  0  top
+  M3.C12  [41,14]  0  top
+  M3.C13  [16,32]  0  top
+  M3.C2  [25,21]  0  top
+  M3.C3  [25,24]  0  top
+  M3.C4  [25,27]  0  top
+  M3.C5  [25,30]  0  top
+  M3.C6  [25,33]  0  top
+  M3.C7  [25,36]  0  top
+  M3.C8  [42,36]  0  top
+  M3.C9  [55,29]  0  top
+  M3.D1  [17,39]  0  top
+  M3.R1  [20,32]  0  top
+  M3.R2  [12,14]  0  top
+  M3.R3  [22,39]  0  top
+  M3.SW1  [12,24]  0  top
+  M3.U1  [35,24]  0  top
+  M3.U2  [55,18]  0  top
+  M3.Y1  [35,14]  0  top
+
+connect
+  M3.C1.1  M3.C2.1
+  M3.C1.2  M3.C2.2
+  M3.C10.1  M3.C8.1
+  M3.C10.1  M3.R1.2
+  M3.C10.2  M3.C11.2
+  M3.C10.2  M3.C9.2
+  M3.C11.1  M3.U1.12
+  M3.C11.2  M3.C12.2
+  M3.C12.1  M3.U1.13
+  M3.C12.2  M3.C13.2
+  M3.C13.1  M3.R1.1
+  M3.C13.2  M3.D1.1
+  M3.C2.1  M3.C3.1
+  M3.C2.2  M3.C3.2
+  M3.C3.1  M3.C4.1
+  M3.C3.2  M3.C4.2
+  M3.C4.1  M3.C5.1
+  M3.C4.2  M3.C5.2
+  M3.C5.1  M3.C6.1
+  M3.C5.2  M3.C6.2
+  M3.C6.1  M3.C7.1
+  M3.C6.2  M3.C7.2
+  M3.C7.1  M3.C8.1
+  M3.C7.2  M3.C8.2
+  M3.C8.2  M3.C9.2
+  M3.C9.1  M3.U2.3
+  M3.D1.1  M3.R2.2
+  M3.D1.2  M3.R3.2
+  M3.R1.1  M3.SW1.1
+  M3.R1.2  M3.R3.1
+  M3.R2.1  M3.U1.94
+  M3.R2.2  M3.SW1.3
+  M3.R3.1  M3.U1.6
+  M3.SW1.1  M3.SW1.2
+  M3.SW1.2  M3.U1.14
+  M3.SW1.3  M3.SW1.4
+  M3.SW1.4  M3.U1.20
+  M3.U1.100  M3.U1.21
+  M3.U1.100  M3.U1.50
+  M3.U1.10  M3.U1.27
+  M3.U1.10  M3.U2.2
+  M3.U1.11  M3.U1.28
+  M3.U1.11  M3.U1.50
+  M3.U1.12  M3.Y1.3
+  M3.U1.13  M3.Y1.1
+  M3.U1.19  M3.U1.20
+  M3.U1.19  M3.U1.49
+  M3.U1.21  M3.U2.5
+  M3.U1.22  M3.U1.6
+  M3.U1.22  M3.U1.75
+  M3.U1.27  M3.U1.99
+  M3.U1.28  M3.U1.75
+  M3.U1.49  M3.U1.74
+  M3.U1.74  M3.U1.99
+  M3.U2.1  M3.U2.3
+  M3.U2.2  M3.Y1.2
+  M3.Y1.2  M3.Y1.4
+
+rules
+  clearance  0.2
+  width  0.3
+  via  0.6  0.3
+  mask  0.05
+  paste  0.9  -0.02
+  thermal  0.25  0.4
+  min_width  0.15

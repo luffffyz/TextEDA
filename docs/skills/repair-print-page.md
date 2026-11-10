@@ -1,7 +1,7 @@
 # Skill: Repair a Print Page That Already Exists
 
 > **Audience**: agents (humans can follow it too).
-> **Scope**: diagnosing and repairing an existing `views/<board_id>/<page_id>.view.teda`.
+> **Scope**: diagnosing and repairing an existing project view `views/<page_id>.view.teda`.
 > **Not in scope**: drawing a page for the first time — that is
 > [`draw-print-page.md`](draw-print-page.md).
 > **Status**: the commands and expected outputs below were run on
@@ -53,16 +53,16 @@ text.
 
 When a full rewire is explicitly authorized, use this sequence:
 
-1. **Snapshot the source.** Copy the complete `views/<board_id>/<page_id>.view.teda` file to an
-   immutable working snapshot before changing it. The snapshot must include the current places,
-   labels, ports, fields, notes, and text, not just the wire rows. It is the rollback and the
-   comparison point for the operation.
+1. **Snapshot the source.** Copy the complete `views/<page_id>.view.teda` file to an immutable
+   working snapshot before changing it. The snapshot must include the current places, labels, ports,
+   fields, notes, and text, not just the wire rows. It is the rollback and the comparison point for
+   the operation.
 2. **Refresh the authorities.** Generate a fresh review payload for the current page and read pin
    points, symbol boxes, and text boxes from the renderer's current geometry. At the same time,
-   load the board schematic with its modules expanded (`parseSchematic` with `loadModules`) and
-   derive flattened logical net membership from that IR. Do not infer membership from the old
-   wires, a screenshot, or a stale coordinate table; the schematic supplies membership and the
-   renderer supplies coordinates.
+   load the project schematic root `design/sch/main.teda` with its modules expanded (`parseSchematic`
+   with `loadModules`) and derive flattened project-level logical net membership from that IR. Do not
+   infer membership from the old wires, a screenshot, or a stale coordinate table; the project root
+   supplies membership and the renderer supplies coordinates.
 3. **Remove only wires.** In the working view, delete every `wire` row and no other row. Keep the
    page version, placements, labels, ports, fields, notes, and other text exactly as page source.
    Do not regenerate the page or replace its non-wire drawing state.
@@ -72,9 +72,19 @@ When a full rewire is explicitly authorized, use this sequence:
    Each pin endpoint must be a member of the named net; route around body, pin-stroke, and text
    boxes; approach pins along their permitted axis; and put labels and ports on their own nets.
    Never use the deleted rows as a topology or bend template.
-5. **Verify coverage and connectivity.** Make a net-by-net coverage table: every page-visible member pin must be an endpoint of at least one new row, every wire endpoint must belong to that logical net, and each intended page port must be connected. Also verify that, for each drawn net, all of its page-visible member pins and intended page ports lie in one single connected geometric graph through the new wire rows and their endpoint contacts. Endpoint membership and coverage alone are insufficient: the checker can accept disconnected wire subtrees that carry the same net, and matching net names alone do not prove geometric continuity. Before completion, perform an explicit visual/topology check by tracing every drawn net in the rendered page and confirming that each such graph is continuous from every visible member pin to every intended port. A page may intentionally omit a board-level net, but that exception must be page-local and understood; a board-wide `nets-not-drawn` count is not proof that the page's visible pins are covered.
+5. **Verify coverage and connectivity.** Make a net-by-net coverage table: every page-visible member
+   pin must be an endpoint of at least one new row, every wire endpoint must belong to that logical
+   net, and each intended page port must be connected. Also verify that, for each drawn net, all of
+   its page-visible member pins and intended page ports lie in one single connected geometric graph
+   through the new wire rows and their endpoint contacts. Endpoint membership and coverage alone are
+   insufficient: the checker can accept disconnected wire subtrees that carry the same net, and
+   matching net names alone do not prove geometric continuity. Before completion, perform an explicit
+   visual/topology check by tracing every drawn net in the rendered page and confirming that each such
+   graph is continuous from every visible member pin to every intended port. A page may intentionally
+   omit a project-level net, but that exception must be page-local and understood; a project-wide
+   `nets-not-drawn` count is not proof that the page's visible pins are covered.
 6. **Inspect page-local diagnostics.** Run the project check in JSON mode, then filter it to this
-   board/page and inspect its `view.*` findings. Resolve page-local wire, pin, body, label, port,
+   page and inspect its `view.*` findings. Resolve page-local wire, pin, body, label, port,
    and text findings before judging the result; do not let diagnostics from another page stand in
    for this page's evidence.
 7. **Measure the page.** Run `view metrics` for this page and record wire count and length,
@@ -106,7 +116,6 @@ renderer.
 ```sh
 bun run texteda review examples/reference-project --out /tmp/review.html
 ```
-
 The HTML embeds one JSON payload with, per page, a `symbols` array (each entry carries `box` and
 `pins`), plus `texts` and `fields` ink boxes. That geometry is **authoritative**: it comes out of
 the same `schematicGeometry` the checker uses, so a coordinate read from there is the coordinate
@@ -116,6 +125,8 @@ A quick way to read one page's numbers:
 
 ```sh
 bun run texteda review examples/reference-project --out /tmp/review.html
+```
+```sh
 python3 - <<'PY'
 import re, io, json
 s = io.open('/tmp/review.html', encoding='utf-8').read()
@@ -218,7 +229,7 @@ counted against the `junction` rows.
 
 ```sh
 grep -o 'data-ref="junction:[^"]*"' /tmp/page.svg | wc -l   # one graph dot per declared junction
-grep -c '^  [A-Za-z0-9_+-]*  *\[' examples/reference-project/views/charger-buck/buck-5v.view.teda   # rows declared
+grep -c '^  [A-Za-z0-9_+-]*  *\[' examples/reference-project/views/buck-5v.view.teda   # rows declared
 ```
 
 The two graph-dot counts agree. A `pin-junction:*` circle without a `junction` row is expected when a
@@ -231,7 +242,7 @@ for another render: replace the root element's `width` / `height` / `viewBox` wi
 interest and a matching canvas size.
 
 ```sh
-bun run texteda view render examples/reference-project charger-buck/buck-5v --out /tmp/page.svg
+bun run texteda view render examples/reference-project buck-5v --out /tmp/page.svg
 python3 - <<'PY'
 import re, io
 s = io.open('/tmp/page.svg', encoding='utf-8').read()
@@ -261,16 +272,16 @@ layer, sum the segment lengths and compare with `|dx| + |dy|` between its first 
 The same walk yields the `junction` layer's `circle` primitives with their nets — that is where
 the reader believes the connections are.
 
-The prerequisites are the same ones the review app uses: the board's schematic compiled with its
-modules, and the instances built from the symbol library. `parseSchematic` expands the modules,
-so a page that names `M2.C1` needs the `modules` option — without it the renderer refuses the
-page with `no symbol facts for placed instance M2.C1`.
+The prerequisites are the same ones the review app uses: the project schematic root
+`design/sch/main.teda` compiled with its modules, and the instances built from the symbol library.
+`parseSchematic` expands the modules, so a page that names `M2.C1` needs the `modules` option —
+without it the renderer refuses the page with `no symbol facts for placed instance M2.C1`.
 
 ```ts
 import { readFileSync } from "node:fs";
 import { parseSchematic, parseView } from "@texteda/parser";
 import { renderSchematic } from "@texteda/renderer";
-import { loadComponents, loadModules, loadBoard } from "./packages/cli/src/project.ts";
+import { loadComponents, loadModules, loadSchematic, loadViews } from "./packages/cli/src/project.ts";
 import { loadSymbolLibrary, schematicInstances } from "./packages/cli/src/symbols.ts";
 
 const root = "examples/reference-project";
@@ -278,9 +289,9 @@ const { resolver, shards } = loadComponents(root);
 const symbolLibrary = loadSymbolLibrary(root);
 const componentOf = (id: string) => shards.find((s) => s.id === id)?.ir.component;
 
-const loaded = loadBoard(root, "charger-buck")!;
+const loaded = loadSchematic(root)!;
 const schematic = parseSchematic(loaded.text, {
-  file: loaded.file, board: "charger-buck", components: resolver, modules: loadModules(root),
+  file: loaded.file, components: resolver, modules: loadModules(root),
 }).ir!;
 const instances = schematicInstances(
   schematic,
@@ -289,7 +300,8 @@ const instances = schematicInstances(
   symbolLibrary,
 );
 
-const view = parseView(readFileSync(`${root}/views/charger-buck/buck-5v.view.teda`, "utf8"), { file: "v" }).ir!;
+const viewSource = loadViews(root).find((source) => source.pageId === "buck-5v")!;
+const view = parseView(readFileSync(`${root}/${viewSource.file}`, "utf8"), { file: viewSource.file }).ir!;
 const doc = renderSchematic(view, instances);
 
 for (const p of doc.primitives) {
@@ -387,14 +399,14 @@ Loop against numbers, not pixels.
 ```sh
 bun run view:verify examples/reference-project          # the 0.5 mm lattice gate
 bun run texteda check examples/reference-project --json  # 0 errors; no view.* on this page
-bun run texteda view metrics examples/reference-project charger-buck/buck-5v
-bun run texteda view render examples/reference-project charger-buck/buck-5v --out /tmp/page.svg
+bun run texteda view metrics examples/reference-project buck-5v
+bun run texteda view render examples/reference-project buck-5v --out /tmp/page.svg
 bun run fmt:teda examples/reference-project
 bun run fmt:teda --check examples/reference-project
 ```
 
 When filtering the check output, keep the `view.*` findings and drop `view.nets-not-drawn` (a
-board-level count that a partial page may legitimately have). Require **zero other** `view.*`
+project-level count that a partial page may legitimately have). Require **zero other** `view.*`
 warnings.
 
 Acceptance:
@@ -435,8 +447,8 @@ page is what changed — **fix the page, never the tests**.
   the repository's, or run it with the repository as `cwd`.
 - `formatComponent` does not exist: `component` files have no canonical formatter. A "format
   everything" smoke therefore covers footprint / symbol / schematic / module / view / pcb /
-  procurement / system only.
-- `texteda view render` writes `dist/view/<board>/<page>.svg` unless `--out` says otherwise.
+  procurement and project metadata only.
+- `texteda view render` writes `dist/view/<page>.svg` unless `--out` says otherwise.
 
 ## 12. What not to do
 

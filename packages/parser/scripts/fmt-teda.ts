@@ -23,7 +23,6 @@ import {
   formatProcurement,
   formatSchematic,
   formatSymbol,
-  formatSystem,
   formatView,
 } from "../src/index.ts";
 
@@ -127,8 +126,6 @@ for (const { file, fromDirectory } of files) {
     result = formatView(text, { file });
   } else if (type === "procurement") {
     result = formatProcurement(text, { file });
-  } else if (type === "system") {
-    result = formatSystem(text, { file });
   } else if (fromDirectory) {
     continue;
   } else {

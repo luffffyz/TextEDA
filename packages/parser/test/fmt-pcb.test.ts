@@ -5,9 +5,11 @@ import { describe, expect, test } from "bun:test";
 import { formatPcb } from "../src/fmt-pcb.ts";
 import { parsePcb } from "../src/pcb.ts";
 
-const messy = `version 0.11
+const messy = `version 0.14
 # header comment must be kept
 pcb main
+modules
+  M1
 board_thickness 1.6mm
 stackup
   B.Cu    copper     0.035mm   signal
@@ -19,10 +21,10 @@ outline
   [40.0,0.0]
   [0.0,0.0]
 place
-  U1  [12,12]  0    top
-  C1  [18,12]  90   bottom
+  M1.U1  [12,12]  0    top
+  M1.C1  [18,12]  90   bottom
 connect
-  C1.1  U1.4
+  M1.C1.1  M1.U1.4
 trace
   USB_DN F.Cu 0.3mm  [8.0,6.0]  [12.0,6.0]
   USB_DP F.Cu 0.3mm  [12.0,4.0]  [8.0,4.0]
@@ -51,7 +53,7 @@ function section(name: string): string[] {
   return rows;
 }
 
-const irOf = (text: string) => JSON.stringify(parsePcb(text, { file: "pcb/main.teda", board: "main" }).ir);
+const irOf = (text: string) => JSON.stringify(parsePcb(text, { file: "pcb/main.teda", pcb: "main" }).ir);
 
 describe("fmt invariants", () => {
   test("semantic preservation: parse(fmt(x)) and parse(x) produce the same IR", () => {
@@ -80,7 +82,7 @@ describe("normalization (spec §6.2)", () => {
   });
 
   test("connect: pairs sorted by byte order internally, rows sorted by pair", () => {
-    expect(text).toContain("connect\n  C1.1  U1.4");
+    expect(text).toContain("connect\n  M1.C1.1  M1.U1.4");
   });
 
   test("trace: reversed as a whole when the start is greater than the end, rows sorted by (net, layer, start)", () => {

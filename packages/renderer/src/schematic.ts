@@ -4,7 +4,10 @@
 // symbol geometry come from the caller's symbol and component facts; field anchors are resolved
 // here from either view overrides or deterministic painted-body placement.
 import type { SchematicView } from "@texteda/ir/schematic-view";
-import { pinDirection, type SvgDoc, type SvgPrimitive, type SvgText } from "./svg.ts";
+import type { ModuleView } from "@texteda/ir/module-view";
+import { pinDirection, type SvgDoc, type SvgPrimitive } from "./svg.ts";
+import type { ModulePlace } from "@texteda/ir/schematic-view";
+import type { SheetTemplate } from "@texteda/ir/sheet-template";
 import { textAdvance } from "@texteda/core/font";
 import { renderSymbol, type SymbolBody, type SymbolPart } from "./symbol.ts";
 import { resolveSchematicFields } from "./field-placement.ts";
@@ -37,11 +40,59 @@ export interface SchematicInstance {
   value?: string;
 }
 
-type Place = SchematicView["place"][number];
+type Place = NonNullable<SchematicView["place"]>[number];
 type Wire = NonNullable<SchematicView["wire"]>[number];
 type Label = NonNullable<SchematicView["label"]>[number];
 type Port = NonNullable<SchematicView["port"]>[number];
 type Note = NonNullable<SchematicView["text"]>[number];
+
+/**
+ * A module box on an overview page (a view `module` row).
+ *
+ * The rows are optional in the IR (contract v0.17): a page without modules draws exactly what it
+ * drew before. The shape is declared here so the renderer reads the rows the same way whether the
+ * IR type names them or not.
+ *
+ * `module_id` is read but never drawn: which module an instance instantiates is a fact of the
+ * board file, and a drawing does not carry it (ADR-0067 D4).
+ */
+export interface ViewModuleBox {
+  /** The module instance the box draws (`M1`). */
+  readonly instance_id: string;
+  /** The module the instance instantiates (`charger-power`). */
+  readonly module_id: string;
+  /** The box's upper-left corner, nanometres from the sheet's upper-left corner. */
+  readonly x_nm: number;
+  readonly y_nm: number;
+  /** The box's own size, nanometres -- not the page's size. */
+  readonly width_nm: number;
+  readonly height_nm: number;
+}
+
+/** A module port mark on an overview page (a view `module_port` row). */
+export interface ViewModulePort {
+  /** The port's id with its module instance prefix (`M1.SYS_OUT`). */
+  readonly id: string;
+  /** Where the port is drawn, nanometres from the sheet's upper-left corner. */
+  readonly x_nm: number;
+  readonly y_nm: number;
+}
+
+/** The view with its optional module rows (IR contract v0.17). */
+type WithModuleRows = SchematicView & {
+  readonly module?: readonly ViewModuleBox[];
+  readonly module_port?: readonly ViewModulePort[];
+};
+
+/** The module boxes this page draws; a page without modules has none. */
+export function viewModuleBoxes(view: SchematicView): readonly ViewModuleBox[] {
+  return (view as WithModuleRows).module ?? [];
+}
+
+/** The module ports this page draws; a page without modules has none. */
+export function viewModulePorts(view: SchematicView): readonly ViewModulePort[] {
+  return (view as WithModuleRows).module_port ?? [];
+}
 
 /** Wire stroke width (0.1524mm, KiCad's 6 mil default). */
 const WIRE_WIDTH_NM = 152_400;
@@ -51,6 +102,11 @@ const WIRE_WIDTH_NM = 152_400;
  */
 const JUNCTION_RADIUS_NM = 457_200;
 const FRAME_WIDTH_NM = 127_000;
+/**
+ * Module port mark: a small ring drawn on the module's boundary. The mark says where the port is
+ * drawn; what it is bound to is the board file's business (ADR-0067 D4).
+ */
+const MODULE_PORT_RADIUS_NM = 500_000;
 
 interface Point {
   x: number;
@@ -298,6 +354,124 @@ export interface SchematicRenderOptions {
   readonly automaticFields?: boolean;
 }
 
+/** Symbol facts for one module's local instances. */
+export type ModuleDrawingInstances = ReadonlyMap<string, SchematicInstance>;
+
+/** Reusable drawings and their module-local component facts, keyed by module id. */
+export interface PageComposition {
+  readonly template?: SheetTemplate;
+  readonly drawings: ReadonlyMap<string, ModuleView>;
+  readonly moduleInstances: ReadonlyMap<string, ModuleDrawingInstances>;
+}
+
+/** Render a reusable module drawing on its own bounds, without borrowing page coordinates. */
+export function renderModuleDrawing(
+  drawing: ModuleView,
+  instances: ModuleDrawingInstances,
+  options: SchematicRenderOptions = {},
+): SvgDoc {
+  const view = moduleSchematicView(drawing);
+  const doc = renderSchematic(view, instances, options);
+  return { ...doc, title: drawing.module_id };
+}
+
+/** Compute readability geometry for a reusable module drawing in its own local bounds. */
+export function moduleGeometry(
+  drawing: ModuleView,
+  instances: ModuleDrawingInstances,
+  options: SchematicRenderOptions = {},
+): SheetGeometry {
+  return schematicGeometry(moduleSchematicView(drawing), instances, options);
+}
+
+function moduleSchematicView(drawing: ModuleView): SchematicView {
+  return {
+    ir_version: drawing.ir_version,
+    format: drawing.format,
+    project: "main",
+    page: "module",
+    sheet: drawing.bounds,
+    place: drawing.place,
+    ...(drawing.field === undefined ? {} : { field: drawing.field }),
+    ...(drawing.junction === undefined ? {} : { junction: drawing.junction }),
+    ...(drawing.wire === undefined ? {} : { wire: drawing.wire }),
+    ...(drawing.label === undefined ? {} : { label: drawing.label }),
+    ...(drawing.port === undefined ? {} : { port: drawing.port.map((port) => ({ ...port, rot_mdeg: port.rot_mdeg ?? 0 })) }),
+    ...(drawing.text === undefined ? {} : { text: drawing.text }),
+  };
+}
+
+/** Render a page with its static template and each explicitly placed module drawing. */
+export function renderComposedPage(
+  view: SchematicView,
+  instances: ReadonlyMap<string, SchematicInstance>,
+  composition: PageComposition,
+  options: SchematicRenderOptions = {},
+): SvgDoc {
+  return renderPage(view, instances, options, composition);
+}
+
+
+function compareModulePlacements(a: ModulePlace, b: ModulePlace): number {
+  const instance = a.instance_id < b.instance_id ? -1 : a.instance_id > b.instance_id ? 1 : 0;
+  if (instance !== 0) return instance;
+  return a.x_nm - b.x_nm || a.y_nm - b.y_nm || (a.rot_mdeg ?? 0) - (b.rot_mdeg ?? 0) || (a.module_id < b.module_id ? -1 : a.module_id > b.module_id ? 1 : 0);
+}
+
+function moduleRotation(rot: ModulePlace["rot_mdeg"]): 0 | 90 | 180 | 270 {
+  return ((rot ?? 0) / 1000) as 0 | 90 | 180 | 270;
+}
+
+function transformModulePoint(
+  bounds: { width_nm: number; height_nm: number },
+  placement: ModulePlace,
+  u: number,
+  v: number,
+): Point {
+  const x = placement.x_nm;
+  const y = placement.y_nm;
+  switch (moduleRotation(placement.rot_mdeg)) {
+    case 90: return { x: x + bounds.height_nm - v, y: y + u };
+    case 180: return { x: x + bounds.width_nm - u, y: y + bounds.height_nm - v };
+    case 270: return { x: x + v, y: y + bounds.width_nm - u };
+    default: return { x: x + u, y: y + v };
+  }
+}
+
+function transformModulePrimitive(
+  primitive: SvgPrimitive,
+  bounds: { width_nm: number; height_nm: number },
+  placement: ModulePlace,
+): SvgPrimitive {
+  const point = (x: number, y: number): Point => transformModulePoint(bounds, placement, x, y);
+  switch (primitive.kind) {
+    case "line": {
+      const a = point(primitive.x1, primitive.y1); const b = point(primitive.x2, primitive.y2);
+      return { ...primitive, x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+    }
+    case "rect": {
+      const corners = [point(primitive.x1, primitive.y1), point(primitive.x1, primitive.y2), point(primitive.x2, primitive.y1), point(primitive.x2, primitive.y2)];
+      return { ...primitive, x1: Math.min(...corners.map((p) => p.x)), y1: Math.min(...corners.map((p) => p.y)), x2: Math.max(...corners.map((p) => p.x)), y2: Math.max(...corners.map((p) => p.y)) };
+    }
+    case "circle": { const c = point(primitive.cx, primitive.cy); return { ...primitive, cx: c.x, cy: c.y }; }
+    case "arc": { const a = point(primitive.x1, primitive.y1); const m = point(primitive.xm, primitive.ym); const b = point(primitive.x2, primitive.y2); return { ...primitive, x1: a.x, y1: a.y, xm: m.x, ym: m.y, x2: b.x, y2: b.y }; }
+    case "poly":
+    case "polyline": return { ...primitive, points: primitive.points.map((p) => point(p.x, p.y)) };
+    case "text": { const p = point(primitive.x, primitive.y); return { ...primitive, x: p.x, y: p.y, ...(primitive.rotateMdeg === undefined ? {} : { rotateMdeg: (primitive.rotateMdeg + (placement.rot_mdeg ?? 0)) % 360_000 }) }; }
+    case "pin": { const p = point(primitive.x, primitive.y); return { ...primitive, x: p.x, y: p.y, rotMdeg: (primitive.rotMdeg + (placement.rot_mdeg ?? 0)) % 360_000 }; }
+    case "pad": { const p = point(primitive.x, primitive.y); return { ...primitive, x: p.x, y: p.y, ...(primitive.rotationMdeg === undefined ? {} : { rotationMdeg: (primitive.rotationMdeg + (placement.rot_mdeg ?? 0)) % 360_000 }) }; }
+  }
+}
+
+function templatePrimitives(template: SheetTemplate): SvgPrimitive[] {
+  const out: SvgPrimitive[] = [];
+  for (const row of template.line ?? []) out.push({ kind: "line", x1: row.start.x_nm, y1: row.start.y_nm, x2: row.end.x_nm, y2: row.end.y_nm, widthNm: FRAME_WIDTH_NM, layer: "template", ref: `template:${row.id}` });
+  for (const row of template.rect ?? []) out.push({ kind: "rect", x1: Math.min(row.start.x_nm, row.end.x_nm), y1: Math.min(row.start.y_nm, row.end.y_nm), x2: Math.max(row.start.x_nm, row.end.x_nm), y2: Math.max(row.start.y_nm, row.end.y_nm), widthNm: FRAME_WIDTH_NM, fill: "none", layer: "template", ref: `template:${row.id}` });
+  for (const row of template.polyline ?? []) out.push({ kind: "polyline", points: row.points.map((p) => ({ x: p.x_nm, y: p.y_nm })), widthNm: FRAME_WIDTH_NM, fill: "none", layer: "template", ref: `template:${row.id}` });
+  for (const row of template.text ?? []) out.push({ kind: "text", x: row.x_nm, y: row.y_nm, text: row.text, sizeNm: NOTE_SIZE_NM, anchor: "start", role: "text", layer: "template", ref: `template:${row.id}` });
+  return out;
+}
+
 /**
  * Draw one print page: the sheet frame, every placed symbol, the wire runs, then the labels, ports and notes.
  *
@@ -310,22 +484,83 @@ export function renderSchematic(
   instances: ReadonlyMap<string, SchematicInstance>,
   options: SchematicRenderOptions = {},
 ): SvgDoc {
+  return renderPage(view, instances, options, undefined);
+}
+
+/**
+ * The page as it is drawn, with the composition it may carry.
+ *
+ * A page that composes a template and module drawings (ADR-0068 D4) is drawn by the same code
+ * path as a plain page: the composition only adds furniture and placed drawings, and a page
+ * without a composition draws exactly what it drew before.
+ */
+function renderPage(
+  view: SchematicView,
+  instances: ReadonlyMap<string, SchematicInstance>,
+  options: SchematicRenderOptions,
+  composition: PageComposition | undefined,
+): SvgDoc {
   const primitives: SvgPrimitive[] = [];
+
+  // The page's own extent. A page that names a sheet template takes the template's size as its
+  // extent (ADR-0068 D4); a page without one keeps the size it declares.
+  const sheet = composition?.template?.size ?? view.sheet;
+  if (!sheet) {
+    throw new Error(
+      `schematic view: page ${view.project}/${view.page} has neither a sheet size nor a template`,
+    );
+  }
 
   // The sheet itself, at the view's declared size (origin = upper-left, +y down).
   primitives.push({
     kind: "rect",
     x1: 0,
     y1: 0,
-    x2: view.sheet.width_nm,
-    y2: view.sheet.height_nm,
+    x2: sheet.width_nm,
+    y2: sheet.height_nm,
     widthNm: FRAME_WIDTH_NM,
     fill: "none",
     layer: "sheet",
   });
 
+  // The sheet template's furniture: static artwork, drawn under everything else.
+  if (composition?.template) {
+    primitives.push(...templatePrimitives(composition.template));
+  }
+
+  // The overview's module boxes. A box carries its own position and size, and its boundary *is*
+  // the module's boundary on this page (ADR-0067 D4): the drawn rectangle is the rectangle the
+  // view names, corner and extent alike.
+  for (const box of viewModuleBoxes(view)) {
+    primitives.push({
+      kind: "rect",
+      x1: Math.min(box.x_nm, box.x_nm + box.width_nm),
+      y1: Math.min(box.y_nm, box.y_nm + box.height_nm),
+      x2: Math.max(box.x_nm, box.x_nm + box.width_nm),
+      y2: Math.max(box.y_nm, box.y_nm + box.height_nm),
+      widthNm: FRAME_WIDTH_NM,
+      fill: "none",
+      layer: "module",
+      ref: `module:${box.instance_id}`,
+    });
+  }
+
+  // A module port is drawn where the view stores it, on the boundary of the module it belongs to.
+  for (const port of viewModulePorts(view)) {
+    primitives.push({
+      kind: "circle",
+      cx: port.x_nm,
+      cy: port.y_nm,
+      rNm: MODULE_PORT_RADIUS_NM,
+      widthNm: WIRE_WIDTH_NM,
+      fill: "none",
+      layer: "module_port",
+      ref: `module-port:${port.id}`,
+    });
+  }
+
   const placed = new Map<string, { place: Place; instance: SchematicInstance }>();
-  for (const place of view.place) {
+  for (const place of view.place ?? []) {
     if (placed.has(place.instance_id)) {
       throw new Error(`schematic view: instance ${place.instance_id} is placed twice`);
     }
@@ -345,13 +580,46 @@ export function renderSchematic(
   const endpointPoints = new Map<string, Point>();
   for (const port of view.port ?? []) endpointPoints.set(port.id, { x: port.x_nm, y: port.y_nm });
   for (const junction of view.junction ?? []) endpointPoints.set(junction.id, { x: junction.x_nm, y: junction.y_nm });
+  // A module port is an endpoint kind of its own: on an overview a run may end on one
+  // (ADR-0067 D3). It is not a pin, so it gets its own map.
+  const modulePortPoints = new Map<string, Point>();
+  for (const port of viewModulePorts(view)) modulePortPoints.set(port.id, { x: port.x_nm, y: port.y_nm });
+  if (composition && view.module_place && view.module_place.length > 0) {
+    for (const placement of [...view.module_place].sort(compareModulePlacements)) {
+      const drawing = composition.drawings.get(placement.module_id);
+      if (!drawing) throw new Error(`schematic view: no module drawing ${placement.module_id}`);
+      const localInstances = composition.moduleInstances.get(placement.module_id);
+      if (!localInstances) throw new Error(`schematic view: no instance facts for module drawing ${placement.module_id}`);
+      for (const port of drawing.port ?? []) {
+        const id = `${placement.instance_id}.${port.id}`;
+        if (!modulePortPoints.has(id)) modulePortPoints.set(id, transformModulePoint(drawing.bounds, placement, port.x_nm, port.y_nm));
+      }
+    }
+  }
+  if (composition && view.module_place && view.module_place.length > 0) {
+    for (const placement of [...view.module_place].sort(compareModulePlacements)) {
+      const drawing = composition.drawings.get(placement.module_id);
+      if (!drawing) throw new Error(`schematic view: no module drawing ${placement.module_id}`);
+      const localInstances = composition.moduleInstances.get(placement.module_id);
+      if (!localInstances) throw new Error(`schematic view: no instance facts for module drawing ${placement.module_id}`);
+      const moduleDoc = renderModuleDrawing(drawing, localInstances, options);
+      for (const primitive of moduleDoc.primitives) {
+        if (primitive.kind === "rect" && primitive.layer === "sheet") {
+          primitives.push(transformModulePrimitive({ ...primitive, layer: "module", ref: `module:${placement.instance_id}` }, drawing.bounds, placement));
+          continue;
+        }
+        primitives.push(transformModulePrimitive(primitive, drawing.bounds, placement));
+      }
+    }
+  }
+
   // Wires first: they run underneath the symbols, so a wire that ends on a pin is covered by the pin line.
   const implicitPinJunctions = new Map<string, Point>();
   for (const wire of view.wire ?? []) {
     const points = [
-      wireEndpoint(placed, endpointPoints, wire.from_pin, "from_pin"),
+      wireEndpoint(placed, endpointPoints, modulePortPoints, wire.from_pin, "from_pin"),
       ...(wire.points ?? []).map((p) => ({ x: p.x_nm, y: p.y_nm })),
-      wireEndpoint(placed, endpointPoints, wire.to_pin, "to_pin"),
+      wireEndpoint(placed, endpointPoints, modulePortPoints, wire.to_pin, "to_pin"),
     ];
     if (points.length < 2) continue;
     primitives.push({
@@ -366,6 +634,8 @@ export function renderSchematic(
     for (let endpoint = 0; endpoint < 2; endpoint += 1) {
       const ref = endpoint === 0 ? wire.from_pin : wire.to_pin;
       if (!ref.includes(".")) continue;
+      // A module port endpoint is an interface, not a pin: there is no pin stroke to meet.
+      if (modulePortPoints.has(ref)) continue;
       const pin = pinGeometry(placed, ref);
       if (hasPerpendicularApproach(points, endpoint === 0, pin.direction)) {
         implicitPinJunctions.set(pointKey(pin.point), pin.point);
@@ -426,7 +696,7 @@ export function renderSchematic(
 
   return {
     kind: "schematic",
-    title: `${view.board}/${view.page}`,
+    title: `${view.project}/${view.page}`,
     orientation: "y-down",
     primitives,
   };
@@ -435,6 +705,7 @@ export function renderSchematic(
 function wireEndpoint(
   placed: ReadonlyMap<string, { place: Place; instance: SchematicInstance }>,
   endpoints: ReadonlyMap<string, Point>,
+  modulePorts: ReadonlyMap<string, Point>,
   ref: string,
   column: string,
 ): Point {
@@ -446,6 +717,10 @@ function wireEndpoint(
     }
     return at;
   }
+  // A dotted id names a module port when this page draws one with that id: a module port is an
+  // interface, not a pin (ADR-0067 D3).
+  const modulePort = modulePorts.get(ref);
+  if (modulePort) return modulePort;
   const { instance: instanceId, pin } = splitPinRef(ref);
   const entry = placed.get(instanceId);
   if (!entry) {
@@ -511,7 +786,7 @@ function pageLayout(
     ? new Map<string, FieldPlacement>()
     : placePageFields(pageFacts(view, instances, RENDERER_PROJECTION));
   const symbols = new Map<string, SvgPrimitive[]>();
-  for (const place of view.place) {
+  for (const place of view.place ?? []) {
     const instance = instances.get(place.instance_id);
     if (!instance) continue;
     symbols.set(
@@ -619,6 +894,8 @@ export interface SheetText {
 /** A placed symbol: the box of its **drawn body** (text excluded) and its pin connection points. */
 export interface SheetSymbol {
   readonly instance_id: string;
+  /** Distinguishes repeated occurrences of one placed module drawing. */
+  readonly occurrence_id?: string;
   readonly box: SheetBox;
   readonly pins: ReadonlyMap<string, { readonly x_nm: number; readonly y_nm: number }>;
 }
@@ -632,6 +909,8 @@ export interface SheetSymbol {
  */
 export interface SheetField {
   readonly instance_id: string;
+  /** Distinguishes repeated occurrences of one placed module drawing. */
+  readonly occurrence_id?: string;
   /** The symbol's field name (`Reference` / `Value`). */
   readonly name: string;
   /** What is actually printed: the instance's designator or value, not the symbol's placeholder. */
@@ -645,11 +924,121 @@ export interface SheetField {
 }
 
 
+/**
+ * A module box on the page: the rectangle an overview draws for one module instance.
+ *
+ * The box is the module's boundary on this page and nothing else: it says where the module is
+ * drawn, never what is inside it (ADR-0067 D4).
+ */
+export interface SheetModule {
+  readonly instance_id: string;
+  readonly box: SheetBox;
+}
+
 export interface SheetGeometry {
   readonly texts: readonly SheetText[];
   /** Text the symbols drew (Reference / Value), in the same coordinates as `texts`. */
   readonly fields: readonly SheetField[];
   readonly symbols: readonly SheetSymbol[];
+  /**
+   * The module boxes the page draws (an overview page's frames).
+   *
+   * Always there: an empty list on a page without modules. Optional in the type so that a caller
+   * that only knows about symbols can hand back an empty page without inventing a module list.
+   */
+  readonly modules?: readonly SheetModule[];
+}
+/** Geometry for a page with placed module drawings, including canonical module-port endpoints. */
+export interface ComposedSheetGeometry extends SheetGeometry {
+  /** Transformed `<module_instance>.<port>` endpoints; duplicate placements resolve to the first canonical occurrence. */
+  readonly modulePortPoints: ReadonlyMap<string, { readonly x_nm: number; readonly y_nm: number }>;
+}
+
+/** Transform an axis-aligned geometry box by its four corners, preserving exact quadrant placement. */
+function transformModuleBox(box: SheetBox, drawing: ModuleView, placement: ModulePlace): SheetBox {
+  const corners = [
+    transformModulePoint(drawing.bounds, placement, box.min_x_nm, box.min_y_nm),
+    transformModulePoint(drawing.bounds, placement, box.min_x_nm, box.max_y_nm),
+    transformModulePoint(drawing.bounds, placement, box.max_x_nm, box.min_y_nm),
+    transformModulePoint(drawing.bounds, placement, box.max_x_nm, box.max_y_nm),
+  ];
+  return {
+    min_x_nm: Math.min(...corners.map((point) => point.x)),
+    min_y_nm: Math.min(...corners.map((point) => point.y)),
+    max_x_nm: Math.max(...corners.map((point) => point.x)),
+    max_y_nm: Math.max(...corners.map((point) => point.y)),
+  };
+}
+
+/**
+ * Compute readability geometry for a composed page. Module-local geometry is transformed using
+ * the same placement convention as `renderComposedPage`; every placement row contributes a
+ * separate occurrence, even when its module instance id repeats.
+ */
+export function composedGeometry(
+  view: SchematicView,
+  instances: ReadonlyMap<string, SchematicInstance>,
+  composition: PageComposition,
+  options: SchematicRenderOptions = {},
+): ComposedSheetGeometry {
+  const base = schematicGeometry(view, instances, options);
+  const texts: SheetText[] = [...base.texts];
+  const fields: SheetField[] = [...base.fields];
+  const symbols: SheetSymbol[] = [...base.symbols];
+  const modulePortPoints = new Map<string, { x_nm: number; y_nm: number }>();
+
+  for (const port of viewModulePorts(view)) modulePortPoints.set(port.id, { x_nm: port.x_nm, y_nm: port.y_nm });
+  const placements = [...(view.module_place ?? [])].sort(compareModulePlacements);
+  for (const [occurrenceIndex, placement] of placements.entries()) {
+    const occurrenceId = `${placement.instance_id}@${occurrenceIndex}`;
+    const drawing = composition.drawings.get(placement.module_id);
+    if (!drawing) throw new Error(`schematic view: no module drawing ${placement.module_id}`);
+    const localInstances = composition.moduleInstances.get(placement.module_id);
+    if (!localInstances) throw new Error(`schematic view: no instance facts for module drawing ${placement.module_id}`);
+    for (const place of drawing.place) {
+      if (!localInstances.has(place.instance_id)) {
+        throw new Error(`schematic view: no symbol facts for placed instance ${place.instance_id}`);
+      }
+    }
+
+    const local = moduleGeometry(drawing, localInstances, options);
+    for (const symbol of local.symbols) {
+      const pins = new Map<string, { x_nm: number; y_nm: number }>();
+      for (const [number, point] of symbol.pins) {
+        pins.set(number, (() => {
+          const transformed = transformModulePoint(drawing.bounds, placement, point.x_nm, point.y_nm);
+          return { x_nm: transformed.x, y_nm: transformed.y };
+        })());
+      }
+      symbols.push({
+        instance_id: `${placement.instance_id}.${symbol.instance_id}`,
+        occurrence_id: occurrenceId,
+        box: transformModuleBox(symbol.box, drawing, placement),
+        pins,
+      });
+    }
+    for (const field of local.fields) {
+      fields.push({
+        ...field,
+        instance_id: `${placement.instance_id}.${field.instance_id}`,
+        occurrence_id: occurrenceId,
+        box: transformModuleBox(field.box, drawing, placement),
+      });
+    }
+    for (const text of local.texts) {
+      const anchor = transformModulePoint(drawing.bounds, placement, text.x_nm, text.y_nm);
+      texts.push({ ...text, x_nm: anchor.x, y_nm: anchor.y, box: transformModuleBox(text.box, drawing, placement) });
+    }
+    for (const port of drawing.port ?? []) {
+      const id = `${placement.instance_id}.${port.id}`;
+      if (!modulePortPoints.has(id)) {
+        const transformed = transformModulePoint(drawing.bounds, placement, port.x_nm, port.y_nm);
+        modulePortPoints.set(id, { x_nm: transformed.x, y_nm: transformed.y });
+      }
+    }
+  }
+
+  return { ...base, texts, fields, symbols, modulePortPoints };
 }
 
 /** Bounding box of drawing primitives; text is left out on purpose (a field's width must not widen the body). */
@@ -710,9 +1099,24 @@ export function schematicGeometry(
   const texts: SheetText[] = [];
   const fields: SheetField[] = [];
   const symbols: SheetSymbol[] = [];
+  const modules: SheetModule[] = [];
   const layout = pageLayout(view, instances, options);
 
-  for (const [index, place] of view.place.entries()) {
+  // The module boxes are drawn where the view puts them, so their geometry is the rectangle the
+  // view names -- the same rectangle the reader sees.
+  for (const box of viewModuleBoxes(view)) {
+    modules.push({
+      instance_id: box.instance_id,
+      box: {
+        min_x_nm: Math.min(box.x_nm, box.x_nm + box.width_nm),
+        min_y_nm: Math.min(box.y_nm, box.y_nm + box.height_nm),
+        max_x_nm: Math.max(box.x_nm, box.x_nm + box.width_nm),
+        max_y_nm: Math.max(box.y_nm, box.y_nm + box.height_nm),
+      },
+    });
+  }
+
+  for (const [index, place] of (view.place ?? []).entries()) {
     const instance = instances.get(place.instance_id);
     if (!instance) continue; // the cross-check reports a missing instance; geometry cannot invent one
     const drawn = layout.symbols.get(place.instance_id) ?? [];
@@ -778,5 +1182,5 @@ export function schematicGeometry(
     });
   }
 
-  return { texts, fields, symbols };
+  return { texts, fields, symbols, modules };
 }

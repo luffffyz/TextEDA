@@ -16,7 +16,7 @@ import { renderSymbol } from "./symbol.ts";
 import { bodyBounds, resolveSchematicFields } from "./field-placement.ts";
 import type { SchematicInstance } from "./schematic.ts";
 
-type Place = SchematicView["place"][number];
+type Place = NonNullable<SchematicView["place"]>[number];
 type Port = NonNullable<SchematicView["port"]>[number];
 
 /** The clearance between a field and the body it belongs to, and between a field and a neighbour. */
@@ -226,7 +226,7 @@ export function pageFacts(
     ...(view.junction ?? []).map((junction) => [junction.id, { x_nm: junction.x_nm, y_nm: junction.y_nm }] as const),
   ]);
 
-  for (const place of view.place) {
+  for (const place of view.place ?? []) {
     const instance = instances.get(place.instance_id);
     if (!instance) continue; // the cross-check reports a missing instance; the geometry cannot invent one
     const unit = place.unit ?? 1;

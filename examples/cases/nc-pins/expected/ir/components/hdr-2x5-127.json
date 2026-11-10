@@ -72,7 +72,7 @@
     "pins_source": "inline",
     "symbol": "connectors:hdr-2x5"
   },
-  "ir_version": "0.15",
+  "ir_version": "0.19",
   "source": {
     "file": "assets/components/connectors/hdr-2x5-127.teda",
     "line": 1

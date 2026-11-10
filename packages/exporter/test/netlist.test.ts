@@ -7,7 +7,8 @@ import type { Schematic } from "@texteda/ir/schematic";
 const base: Schematic = {
   ir_version: irVersion,
   format: "0.4",
-  board: "b",
+  project: "main",
+  modules: [],
   instances: [
     { id: "R2", component: "res-thick-0402" },
     { id: "R1", component: "res-thick-0402" },
@@ -40,7 +41,7 @@ describe("toNetlist", () => {
   test("no values: the netlist describes only connectivity", () => {
     const text = formatNetlist(toNetlist(base));
     expect(text).not.toContain("100nF");
-    expect(text.startsWith(`# netlist b (ir ${irVersion})`)).toBe(true);
+    expect(text.startsWith(`# netlist main (ir ${irVersion})`)).toBe(true);
     expect(text).toContain("N2: R1.2 R2.2");
     expect(text).toContain("R1 res-thick-0402");
   });

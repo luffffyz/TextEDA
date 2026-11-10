@@ -3,8 +3,8 @@
 Status: Accepted
 Date: 2026-10-20
 Scope: Decides: that the schematic source is flat, and what happens to a net once the hierarchy is flattened. Does not decide: how a review partitions a board for reading — that is a print page, see ADR-0012.
-Related: [ADR-0012](0012-one-flat-schematic-per-board.md), [ADR-0029](../07-devices/0029-the-procurement-layer.md)
-Impact: `spec/teda.md` §7, §7.6; `spec/module.md`
+Related: [ADR-0012](0012-one-flat-schematic-per-board.md), [ADR-0029](../07-devices/0029-the-procurement-layer.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md)
+> **Current root contract (2026-11-09):** the board-local wording below is historical and is superseded by [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1. The current flat logical source is `design/sch/main.teda`, which composes modules into one project-wide flattened instance/net model; physical PCB ownership and cross-PCB interconnects are separate facts.
 
 ## Background
 

@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.15",
+  "ir_version": "0.19",
   "source": { "file": "project.toml" },
   "project": {
     "name": "demo",

@@ -6,8 +6,7 @@ What a person looks at: the view as an independent description and a drawing, th
 
 ## Not here
 
-- The schematic the view draws — [ADR-0012](../04-schematic/0012-one-flat-schematic-per-board.md).
-- The manufacturing output path — [ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md).
+- The project-wide logical source — [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md).
 
 ## Reading order
 
@@ -29,6 +28,10 @@ What a person looks at: the view as an independent description and a drawing, th
 16. [0062](0062-a-run-may-end-at-a-port.md) — a run may end at a port the page draws, so a port at the board's edge is a wire end and follows the port when moved.
 17. [0063](0063-a-run-is-shortened-only-along-the-lines-it-was-drawn-on.md) — a moved run keeps its drawn coordinates and loses only the corners it no longer needs, on lines it already drew.
 18. [0064](0064-automatic-fields-are-placed-for-the-page.md) — the automatic place of a field is decided for the page as a whole: a field that cannot have the place it wants steps aside.
+19. [0067](0067-hierarchical-module-views-and-custom-page-size.md) — `main` draws module composition, other pages show module internals, and page size names the drawing extent.
+20. [0068](0068-reusable-module-drawings-and-sheet-templates.md) — reusable module-local drawings and static page templates compose into schematic print pages; electrical facts stay in the schematic.
+21. [0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) — project-level views and advisory page references.
+
 
 ## Records
 
@@ -52,3 +55,6 @@ What a person looks at: the view as an independent description and a drawing, th
 | [ADR-0062](0062-a-run-may-end-at-a-port.md) | A Run May End at a Port | Accepted | 2026-11-04 |
 | [ADR-0063](0063-a-run-is-shortened-only-along-the-lines-it-was-drawn-on.md) | A Run Is Shortened Only Along the Lines It Was Drawn On | Accepted | 2026-11-04 |
 | [ADR-0064](0064-automatic-fields-are-placed-for-the-page.md) | Automatic Fields Are Placed for the Page, Not for One Symbol | Accepted | 2026-11-05 |
+| [ADR-0068](0068-reusable-module-drawings-and-sheet-templates.md) | Reusable Module Drawings and Sheet Templates | Accepted | 2026-11-08 |
+| [ADR-0067](0067-hierarchical-module-views-and-custom-page-size.md) | Hierarchical Module Views and a Custom Page Size | Accepted | 2026-11-08 |
+| [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) | One Project Logic Root, Physical PCB Implementations, and Project Views | Accepted | 2026-11-09 |

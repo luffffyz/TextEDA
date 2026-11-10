@@ -21,5 +21,3 @@ export * from "./pcb.ts";
 export * from "./fmt-pcb.ts";
 export * from "./toml.ts";
 export * from "./project.ts";
-export * from "./system.ts";
-export * from "./fmt-system.ts";

@@ -66,12 +66,12 @@ export interface VersionRange {
  *
  * The language has one version number (ADR-0002): every `.teda` file declares the version of the
  * language it was written against, and it is the same for all description types. It is the `0.x`
- * line the whole language moves on while the surface is still open (ADR-0002 D2): `0.11` is the
+ * line the whole language moves on while the surface is still open (ADR-0002 D2): `0.14` is the
  * current global MINOR, and `1.0` is a milestone reached by a decision, not a counter.
  *
  * It is also the upper bound every description type accepts — there is no per-type ceiling.
  */
-export const SUPPORTED_LANGUAGE: LanguageVersion = { major: 0, minor: 11, patch: 0 };
+export const SUPPORTED_LANGUAGE: LanguageVersion = { major: 0, minor: 14, patch: 0 };
 /** Coordinate tuples became one cell in language 0.11 (ADR-0065 D5). */
 export const TUPLE_VERSION: LanguageVersion = { major: 0, minor: 11, patch: 0 };
 
@@ -80,29 +80,40 @@ export type DescriptionType =
   | "component"
   | "footprint"
   | "module"
+  | "module_view"
   | "pcb"
   | "procurement"
   | "schematic"
+  | "sheet_template"
   | "symbol"
-  | "system"
   | "view";
 
-/** Each description type's oldest surface shape accepted by the current reader. */
+/**
+ * Each description type's oldest surface shape accepted by the current reader.
+ *
+ * Language 0.14 is the project-root/physical-board migration (ADR-0069): the `schematic`, `pcb`,
+ * and `view` floors advance to 0.14 because their accepted project/board/page ownership shapes
+ * change, and `system` is retired. Other floors only move when a revision rewrites that type's
+ * syntax (ADR-0065 D5 moved the geometry types to 0.11). A type that language 0.13 introduced
+ * (`module_view`, `sheet_template`) has its floor there: before 0.13 the type did not exist
+ * (ADR-0068 D5).
+ */
 const TYPE_READER_FLOOR: Record<DescriptionType, number> = {
   component: 1,
   footprint: 11,
   module: 8,
-  pcb: 11,
+  module_view: 13,
+  pcb: 14,
   procurement: 9,
-  schematic: 1,
+  schematic: 14,
+  sheet_template: 13,
   symbol: 11,
-  system: 2,
-  view: 11,
+  view: 14,
 };
 
 /**
  * The versions a description type accepts: from its reader floor up to the language's current
- * version. The upper bound is shared — a `symbol` file at `0.11` is understood (teda.md §13.3,
+ * version. The upper bound is shared — a `symbol` file at `0.12` is understood (teda.md §12.3,
  * ADR-0002 D4).
  */
 export function typeRange(type: DescriptionType): VersionRange {
@@ -153,7 +164,7 @@ export function checkVersion(text: string, range: VersionRange, typeName: string
       ok: false,
       code: "format.unsupported-version",
       message: `the language is at version ${formatVersion(range.supported)}: ${text} is newer`,
-      hint: `write ${formatVersion(range.supported)}, or upgrade the tool — the language has one version number for every description type (teda.md §13.3)`,
+      hint: `write ${formatVersion(range.supported)}, or upgrade the tool — the language has one version number for every description type (teda.md §12.3)`,
     };
   }
   return { ok: true, version, text: formatVersion(version) };

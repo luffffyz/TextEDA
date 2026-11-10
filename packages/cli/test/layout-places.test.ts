@@ -16,14 +16,12 @@ import { checkProject } from "../src/check.ts";
 const REFERENCE = fileURLToPath(new URL("../../../examples/reference-project", import.meta.url));
 /** A request that moves M2.U1 from (140, 105) to (150, 105) nm: a real move, no rotation. */
 const REQUEST = {
-  board: "charger-buck",
   page: "buck-5v",
   places: [{ instance_id: "M2.U1", x: 150, y: 105, rot: 0 }],
 };
 
 /** A request that moves M2.C1 and rotates it 90 degrees: the same move, at the same place. */
 const NO_MOVE_REQUEST = {
-  board: "charger-buck",
   page: "buck-5v",
   places: [{ instance_id: "M2.C1", x: 117.5, y: 96.5, rot: 90 }],
 };
@@ -110,9 +108,9 @@ function refused(fn: () => unknown): string {
 
 
 function expectU1At150(text: string, file: string): void {
-  const parsed = parseView(text, { file, board: "charger-buck" });
+  const parsed = parseView(text, { file });
   expect(parsed.ok).toBe(true);
-  const u1 = parsed.ir?.place.find((place) => place.instance_id === "M2.U1");
+  const u1 = parsed.ir?.place!.find((place) => place.instance_id === "M2.U1");
   expect(u1).toMatchObject({ x_nm: 150_000_000, y_nm: 105_000_000 });
   expect(u1?.rot_mdeg ?? 0).toBe(0);
 }
@@ -121,15 +119,15 @@ describe("layout-places: the places-only write path", () => {
   test("only the place row changes, and only that row", () => {
     const dir = scratch();
     copyProject(dir);
-    const file = pageFile("charger-buck", "buck-5v");
+    const file = pageFile("buck-5v");
     const before = content(dir, file);
 
     const outcome = applyPlaces(dir, REQUEST);
     expect(outcome.file).toBe(file);
     expect(outcome.changed).toBe(true);
 
-    const parsedBefore = parseView(before, { file, board: "charger-buck" });
-    const parsedAfter = parseView(content(dir, file), { file, board: "charger-buck" });
+    const parsedBefore = parseView(before, { file });
+    const parsedAfter = parseView(content(dir, file), { file });
     expect(parsedBefore.ok && parsedAfter.ok).toBe(true);
     expect(parsedAfter.ir!.wire).toEqual(parsedBefore.ir!.wire);
     expect(parsedAfter.ir!.label).toEqual(parsedBefore.ir!.label);
@@ -165,13 +163,13 @@ describe("layout-places: the places-only write path", () => {
     const changed = allFiles(dir)
       .filter((path) => readFileSync(path, "utf8") !== before.get(path))
       .map((path) => relative(dir, path));
-    expect(changed).toEqual(["views/charger-buck/buck-5v.view.teda"]);
+    expect(changed).toEqual(["views/buck-5v.view.teda"]);
   });
 
   test("the bytes the write replaced are kept, so a wrong move can be put back", () => {
     const dir = scratch();
     copyProject(dir);
-    const file = pageFile("charger-buck", "buck-5v");
+    const file = pageFile("buck-5v");
     const before = content(dir, file);
     const backup = join(dir, "dist", "backups", file);
 
@@ -187,13 +185,12 @@ describe("layout-places: the places-only write path", () => {
   test("a second write backs up the first write's result, not the original", () => {
     const dir = scratch();
     copyProject(dir);
-    const file = pageFile("charger-buck", "buck-5v");
+    const file = pageFile("buck-5v");
     const backup = join(dir, "dist", "backups", file);
 
     applyPlaces(dir, REQUEST);
     const afterFirst = content(dir, file);
     applyPlaces(dir, {
-      board: "charger-buck",
       page: "buck-5v",
       places: [{ instance_id: "M2.U1", x: 160, y: 105, rot: 90 }],
     });
@@ -206,17 +203,15 @@ describe("layout-places: the places-only write path", () => {
   test("a write that changes nothing leaves no backup behind", () => {
     const dir = scratch();
     copyProject(dir);
-    const file = pageFile("charger-buck", "buck-5v");
+    const file = pageFile("buck-5v");
     const before = content(dir, file);
 
     // The request asks for the position and rotation the symbol already has.
     const plan = planPlaces(dir, {
-      board: "charger-buck",
       page: "buck-5v",
       places: [{ instance_id: "M2.U1", x: 140, y: 105, rot: 0 }],
     });
     applyPlaces(dir, {
-      board: "charger-buck",
       page: "buck-5v",
       places: [{ instance_id: "M2.U1", x: 140, y: 105, rot: 0 }],
     });
@@ -230,9 +225,9 @@ describe("layout-places: the places-only write path", () => {
     const dir = scratch();
     copyProject(dir);
     applyPlaces(dir, REQUEST);
-    const written = content(dir, pageFile("charger-buck", "buck-5v"));
+    const written = content(dir, pageFile("buck-5v"));
 
-    const result = formatView(written, { file: pageFile("charger-buck", "buck-5v") });
+    const result = formatView(written, { file: pageFile("buck-5v") });
     expect(result.ok).toBe(true);
     expect(result.text).toBe(written);
   });
@@ -265,7 +260,7 @@ describe("layout-places: the places-only write path", () => {
   test("a plan writes nothing, and carries the drawing of the page as the file says it is", () => {
     const dir = scratch();
     copyProject(dir);
-    const file = pageFile("charger-buck", "buck-5v");
+    const file = pageFile("buck-5v");
     const before = content(dir, file);
 
     const plan = planPlaces(dir, REQUEST);
@@ -279,7 +274,7 @@ describe("layout-places: the places-only write path", () => {
   test("a request that carries the editor's text keeps it", () => {
     const dir = scratch();
     copyProject(dir);
-    const file = pageFile("charger-buck", "buck-5v");
+    const file = pageFile("buck-5v");
     const before = content(dir, file);
     const draft = before.replace("Every net of this module is drawn here", "Every net of this module is drawn here (edited)");
 
@@ -292,7 +287,7 @@ describe("layout-places: the places-only write path", () => {
   test("a request that moves nothing writes nothing", () => {
     const dir = scratch();
     copyProject(dir);
-    const file = pageFile("charger-buck", "buck-5v");
+    const file = pageFile("buck-5v");
     const before = content(dir, file);
 
     const outcome = applyPlaces(dir, NO_MOVE_REQUEST);
@@ -304,10 +299,10 @@ describe("layout-places: the places-only write path", () => {
   test("a rotation that is not a right angle is refused with the layout path's own words", () => {
     const dir = scratch();
     copyProject(dir);
-    const file = pageFile("charger-buck", "buck-5v");
+    const file = pageFile("buck-5v");
     const before = content(dir, file);
 
-    const request = { board: "charger-buck", page: "buck-5v", places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 45 }] };
+    const request = { page: "buck-5v", places: [{ instance_id: "M2.C1", x: 118, y: 95, rot: 45 }] };
 
     expect(refused(() => planLayout(dir, request))).toBe(refused(() => planPlaces(dir, request)));
     expect(refused(() => planPlaces(dir, request))).toBe(refused(() => applyPlaces(dir, request)));
@@ -323,10 +318,10 @@ describe("layout-places: the places-only write path", () => {
   test("a placement the page does not have is refused with the layout path's own words", () => {
     const dir = scratch();
     copyProject(dir);
-    const file = pageFile("charger-buck", "buck-5v");
+    const file = pageFile("buck-5v");
     const before = content(dir, file);
 
-    const request = { board: "charger-buck", page: "buck-5v", places: [{ instance_id: "M2.NOPE", x: 1, y: 1, rot: 0 }] };
+    const request = { page: "buck-5v", places: [{ instance_id: "M2.NOPE", x: 1, y: 1, rot: 0 }] };
 
     expect(refused(() => planLayout(dir, request))).toBe(refused(() => planPlaces(dir, request)));
     expect(refused(() => planPlaces(dir, request))).toContain("the page does not place M2.NOPE");

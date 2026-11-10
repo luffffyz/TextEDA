@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-22
 Scope: Decides: that a review is a record and not a description type, and that one project has exactly one accountable person. Does not decide: how a review is displayed — see `docs/guides/review-app.md`.
-Related: [ADR-0033](../08-libraries/0033-libraries-are-unverified-facts.md), [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0040](../10-process/0040-process-entities-outside-the-language.md)
+Related: [ADR-0033](../08-libraries/0033-libraries-are-unverified-facts.md), [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0040](../10-process/0040-process-entities-outside-the-language.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md)
 Impact: `docs/guides/review-records.md`; `docs/guides/role-reviews.md`; `packages/core/src/review/**`
 
 ## Background
@@ -97,7 +97,7 @@ date    = "2026-10-23"
 verdict = "accepted"
 ```
 
-- `target` is `board:<board_id>`, `page:<board_id>/<page_id>` or `component:<component_id>`.
+- `target` is `board:<board_id>`, `page:<page_id>` or `component:<component_id>`. A page target names a flat project print page; it has no PCB parent. The current target set has no `project:` form, so a decision on `board:<board_id>` is not project-wide sign-off.
 - `owner` is the accountable person.
 - `verdict` is `accepted`, `declined` or `deferred`.
 

@@ -1,6 +1,6 @@
 // Writing a print page back after an explicit view action (ADR-0056 D2, D3; ADR-0043 D3).
 //
-// What this file may write: `views/<board_id>/<page_id>.view.teda`, and nothing else. Moving a
+// What this file may write: `views/<page_id>.view.teda`, and nothing else. Moving a
 // symbol on a drawing is a drawing change; the circuit (`design/**`) is not touched, and no IR
 // shard, no hash and no manufacturing artifact moves (ADR-0035 D5). The bytes written are the
 // formatter's (ADR-0035 D10), so a save leaves a diff that shows the view change and nothing else.
@@ -37,14 +37,30 @@ import {
   reanchorWire,
   reseatOnNet,
   simplifyRun,
-  type ObstacleSymbol,
   type RunObstacles,
   type WireCorners,
 } from "@texteda/core";
-import { loadComponents, loadModules } from "./project.ts";
+import { loadComponents, loadModules, loadSchematic } from "./project.ts";
 import { LAYOUT } from "./paths.ts";
 import { loadSymbolLibrary, schematicInstances, type SchematicInstances } from "./symbols.ts";
-import { renderSchematic, schematicGeometry, toSvgText, type SheetGeometry } from "@texteda/renderer";
+import {
+  renderSchematic,
+  schematicGeometry,
+  toSvgText,
+  viewModulePorts,
+  type SheetGeometry,
+  type SvgDoc,
+} from "@texteda/renderer";
+
+/**
+ * Whether a wire endpoint names a module port (`M1.PORT`) rather than a pin.
+ *
+ * A module port is the module's interface, not a pin of a placed symbol (spec/schematic-view.md
+ * §5): the project binds it to a net and the page draws where it sits (ADR-0067 D4). A project-level
+ * refdes never takes the `M<number>` shape (spec/module.md §4), so the shape tells the two apart
+ * without guessing — and a module-qualified pin (`M1.U1.5`) keeps its own instance and pin.
+ */
+const MODULE_PORT_ENDPOINT = /^M[0-9]+\.[A-Za-z0-9_+-]+$/;
 
 /** One placement, as the app sends it. */
 export interface LayoutPlace {
@@ -72,7 +88,7 @@ export interface LayoutFieldRemoval {
 /**
  * A label or a port the app moved, in millimetres and sheet coordinates.
  *
- * They are placed, not wired: a label names a net and a port names a board port, and both have to
+ * They are placed, not wired: a label names a net and a port names a project port, and both have to
  * sit on that net's drawn wiring to be read (spec/schematic-view.md §6, §7). The write stores the
  * coordinates the app sends; `planLayout` reports one that lands off its net rather than silently
  * snapping it somewhere the person did not pick.
@@ -86,7 +102,6 @@ export interface LayoutText {
 }
 
 export interface LayoutRequest {
-  board: string;
   page: string;
   places: LayoutPlace[];
   /** Field overrides to set, in millimetres relative to the symbol origin. */
@@ -157,8 +172,8 @@ export interface PlacesPlan extends PlacesOutcome {
 export class LayoutError extends Error {}
 
 /** The path of a print page, relative to the project root. */
-export function pageFile(board: string, page: string): string {
-  return `${LAYOUT.views}/${board}/${page}.view.teda`;
+export function pageFile(page: string): string {
+  return `${LAYOUT.views}/${page}.view.teda`;
 }
 
 /**
@@ -187,41 +202,45 @@ export function commitPlan(root: string, plan: LayoutPlan): void {
  * only when it is a right angle, and an instance the page does not place refused — so a rounding
  * rule, a refusal or a moved instance cannot come out differently on the two paths.
  */
+type ViewPlace = NonNullable<SchematicView["place"]>[number];
+
 function computePlacements(
-  view: SchematicView,
-  request: LayoutRequest,
-  file: string,
-): { places: SchematicView["place"]; moved: Set<string> } {
-  const wanted = new Map(request.places.map((place) => [place.instance_id, place]));
-  const places = view.place.map((place) => {
-    const ask = wanted.get(place.instance_id);
-    if (ask === undefined) return place;
-    const rot = Math.round(ask.rot / 90) * 90;
-    if (Math.abs(ask.rot - rot) > 1e-9) {
-      throw new LayoutError(`${place.instance_id}: a rotation is a right angle (${ask.rot} is not)`);
-    }
-    const { rot_mdeg: _previousRotation, ...withoutRotation } = place;
-    return {
-      ...withoutRotation,
-      x_nm: Math.round(ask.x * 1_000_000),
-      y_nm: Math.round(ask.y * 1_000_000),
-      ...(rot === 0 ? {} : { rot_mdeg: rot * 1000 }),
-    };
-  });
-  for (const ask of request.places) {
-    if (!view.place.some((place) => place.instance_id === ask.instance_id)) {
-      throw new LayoutError(`${file}: the page does not place ${ask.instance_id}`);
-    }
-  }
-  const moved = new Set<string>();
-  view.place.forEach((place) => {
-    const next = places.find((candidate) => candidate.instance_id === place.instance_id);
-    if (next !== undefined && (next.x_nm !== place.x_nm || next.y_nm !== place.y_nm || next.rot_mdeg !== place.rot_mdeg)) {
-      moved.add(place.instance_id);
-    }
-  });
-  return { places, moved };
-}
+   view: SchematicView,
+   request: LayoutRequest,
+   file: string,
+ ): { places: SchematicView["place"]; moved: Set<string> } {
+   const wanted = new Map(request.places.map((place) => [place.instance_id, place]));
+   const current = view.place ?? [];
+   const places = current.map((place) => {
+     const ask = wanted.get(place.instance_id);
+     if (ask === undefined) return place;
+     const rot = Math.round(ask.rot / 90) * 90;
+     if (Math.abs(ask.rot - rot) > 1e-9) {
+       throw new LayoutError(`${place.instance_id}: a rotation is a right angle (${ask.rot} is not)`);
+     }
+     const { rot_mdeg: _previousRotation, ...withoutRotation } = place;
+     return {
+       ...withoutRotation,
+       x_nm: Math.round(ask.x * 1_000_000),
+       y_nm: Math.round(ask.y * 1_000_000),
+       ...(rot === 0 ? {} : { rot_mdeg: rot * 1000 }),
+     };
+   });
+   for (const ask of request.places) {
+     if (!current.some((place) => place.instance_id === ask.instance_id)) {
+       throw new LayoutError(`${file}: the page does not place ${ask.instance_id}`);
+     }
+   }
+   const moved = new Set<string>();
+   current.forEach((place) => {
+     const next = places.find((candidate) => candidate.instance_id === place.instance_id);
+     if (next !== undefined && (next.x_nm !== place.x_nm || next.y_nm !== place.y_nm || next.rot_mdeg !== place.rot_mdeg)) {
+       moved.add(place.instance_id);
+     }
+   });
+   // Keep an omitted place section omitted: topology-only pages are valid project pages.
+   return { places: view.place === undefined ? undefined : places, moved };
+ }
 type ViewField = NonNullable<SchematicView["field"]>[number];
 
 interface PlannedFields {
@@ -250,7 +269,7 @@ function computeFields(view: SchematicView, request: LayoutRequest, file: string
     if (seen.has(key)) throw new LayoutError(`${file}: duplicate field operation for ${operation.instance_id} ${operation.name}`);
     seen.add(key);
   }
-  const placed = new Set(view.place.map((place) => place.instance_id));
+  const placed = new Set((view.place ?? []).map((place) => place.instance_id));
   for (const operation of set) {
     if (!placed.has(operation.instance_id)) throw new LayoutError(`${file}: the page does not place ${operation.instance_id}`);
     if (!Number.isFinite(operation.x) || !Number.isFinite(operation.y)) {
@@ -380,14 +399,14 @@ function computeTexts(view: SchematicView, request: LayoutRequest, file: string)
  * plan carries the page's new source *and* the page as it would be drawn.
  */
 export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
-  const file = pageFile(request.board, request.page);
+  const file = pageFile(request.page);
   const path = join(root, file);
   if (!existsSync(path)) throw new LayoutError(`no such print page: ${file}`);
   // The editor's text is the base when there is one; the file on disk is the base otherwise.
   const text = request.text ?? readFileSync(path, "utf8");
 
-  const facts = boardFacts(root, request.board);
-  const parsed = parseView(text, { file, board: request.board });
+  const facts = projectFacts(root);
+  const parsed = parseView(text, { file });
   if (!parsed.ir) {
     const first = parsed.diagnostics.find((diagnostic) => diagnostic.severity === "error");
     throw new LayoutError(`${file}: ${first ? `${first.code}: ${first.message}` : "the page does not parse"}`);
@@ -454,8 +473,12 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
     };
   }
   const before = schematicGeometry(view, facts.instances);
-  const after = schematicGeometry({ ...view, place: newPlaces }, facts.instances);
+  const after = schematicGeometry(withPlaces(view, newPlaces), facts.instances);
 
+  // A module port is an endpoint of its own kind, drawn where the page says it sits. The layout
+  // write never moves it (ADR-0067 D4), so the same points serve the page before and after the
+  // move.
+  const modulePorts = new Map(viewModulePorts(view).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }]));
 
   // A junction is stationary when symbols move. Ports follow their authored row; pins follow symbols.
   const junctions = new Map((view.junction ?? []).map((junction) => [junction.id, { x_nm: junction.x_nm, y_nm: junction.y_nm }]));
@@ -470,10 +493,10 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
   const conflicts: string[] = [];
   const newWires = (view.wire ?? []).map((wire) => {
     if (!repairWires) return wire;
-    const fromBefore = pinPoint(before, wire.from_pin, portsBefore);
-    const toBefore = pinPoint(before, wire.to_pin, portsBefore);
-    const fromAfter = pinPoint(after, wire.from_pin, portsAfter);
-    const toAfter = pinPoint(after, wire.to_pin, portsAfter);
+    const fromBefore = pinPoint(before, wire.from_pin, portsBefore, modulePorts);
+    const toBefore = pinPoint(before, wire.to_pin, portsBefore, modulePorts);
+    const fromAfter = pinPoint(after, wire.from_pin, portsAfter, modulePorts);
+    const toAfter = pinPoint(after, wire.to_pin, portsAfter, modulePorts);
     if (!fromBefore || !toBefore || !fromAfter || !toAfter) return wire;
     const still =
       fromBefore.x_nm === fromAfter.x_nm &&
@@ -551,8 +574,8 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
   // single move.
   const pathsByNet = new Map<string, WireCorners[][]>();
   for (const wire of newWires) {
-    const from = pinPoint(after, wire.from_pin, portsAfter);
-    const to = pinPoint(after, wire.to_pin, portsAfter);
+    const from = pinPoint(after, wire.from_pin, portsAfter, modulePorts);
+    const to = pinPoint(after, wire.to_pin, portsAfter, modulePorts);
     if (from === undefined || to === undefined) continue;
     const bends = (wire.points ?? []).map((point) => ({ x_nm: point.x_nm, y_nm: point.y_nm }));
     const paths = pathsByNet.get(wire.net);
@@ -570,7 +593,7 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
   ): void => {
     for (const [net, drawn] of paths) {
       for (const member of membersOf.get(net) ?? []) {
-        const at = pinPoint(geometry, member, ports);
+        const at = pinPoint(geometry, member, ports, modulePorts);
         if (at === undefined) continue;
         drawn.push([at]);
       }
@@ -583,8 +606,8 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
   // move elsewhere on the page is no reason to pick it up and carry it to the wire.
   const oldPathsByNet = new Map<string, WireCorners[][]>();
   for (const wire of view.wire ?? []) {
-    const from = pinPoint(before, wire.from_pin, portsBefore);
-    const to = pinPoint(before, wire.to_pin, portsBefore);
+    const from = pinPoint(before, wire.from_pin, portsBefore, modulePorts);
+    const to = pinPoint(before, wire.to_pin, portsBefore, modulePorts);
     if (from === undefined || to === undefined) continue;
     const bends = (wire.points ?? []).map((point) => ({ x_nm: point.x_nm, y_nm: point.y_nm }));
     const paths = oldPathsByNet.get(wire.net);
@@ -631,10 +654,10 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
   const edited = rewritePage(text, {
     file,
     sources: parsed.sources ?? new Map(),
-    places: newPlaces
+    places: (newPlaces ?? [])
       .map((place, index) => ({ index, place }))
       .filter(({ index, place }) => {
-        const before = view.place[index]!;
+        const before = (view.place ?? [])[index]!;
         return before.x_nm !== place.x_nm || before.y_nm !== place.y_nm || before.rot_mdeg !== place.rot_mdeg;
       }),
     fields: plannedFields.set,
@@ -660,7 +683,7 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
     return { file, text, changed: false, conflicts, reseated, ...drawn, ...(stale === undefined ? {} : { stale }) };
   }
   const drawn = drawPage(
-    withFields({ ...view, place: newPlaces, wire: newWires, label: newLabels, port: newPorts }, plannedFields.fields),
+    withFields(withPlaces({ ...view, wire: newWires, label: newLabels, port: newPorts }, newPlaces), plannedFields.fields),
     facts.instances,
     automaticFields,
   );
@@ -691,14 +714,14 @@ export function applyPlaces(root: string, request: LayoutRequest): PlacesOutcome
  * the drawing shows the staleness instead of hiding it.
  */
 export function planPlaces(root: string, request: LayoutRequest): PlacesPlan {
-  const file = pageFile(request.board, request.page);
+  const file = pageFile(request.page);
   const path = join(root, file);
   if (!existsSync(path)) throw new LayoutError(`no such print page: ${file}`);
   // The editor's text is the base when there is one; the file on disk is the base otherwise.
   const text = request.text ?? readFileSync(path, "utf8");
 
-  const facts = boardFacts(root, request.board);
-  const parsed = parseView(text, { file, board: request.board });
+  const facts = projectFacts(root);
+  const parsed = parseView(text, { file });
   if (!parsed.ir) {
     const first = parsed.diagnostics.find((diagnostic) => diagnostic.severity === "error");
     throw new LayoutError(`${file}: ${first ? `${first.code}: ${first.message}` : "the page does not parse"}`);
@@ -711,14 +734,14 @@ export function planPlaces(root: string, request: LayoutRequest): PlacesPlan {
   }
 
   const stale = staleNets(view, moved);
-  const drawn = drawPage({ ...view, place: newPlaces }, facts.instances);
+  const drawn = drawPage(withPlaces(view, newPlaces), facts.instances);
   const edited = rewritePage(text, {
     file,
     sources: parsed.sources ?? new Map(),
-    places: newPlaces
+    places: (newPlaces ?? [])
       .map((place, index) => ({ index, place }))
       .filter(({ index, place }) => {
-        const before = view.place[index]!;
+        const before = (view.place ?? [])[index]!;
         return before.x_nm !== place.x_nm || before.y_nm !== place.y_nm || before.rot_mdeg !== place.rot_mdeg;
       }),
     wires: [],
@@ -741,6 +764,9 @@ function staleNets(
     for (const ref of [wire.from_pin, wire.to_pin]) {
       if (typeof ref !== "string") continue;
       if (movedPorts?.has(ref)) stale.add(wire.net);
+      // A module port names a module's interface, not a placed instance: nothing the layout write
+      // moves can leave it behind, so it never makes a net stale (spec/schematic-view.md §5).
+      if (MODULE_PORT_ENDPOINT.test(ref)) continue;
       const dot = ref.lastIndexOf(".");
       if (dot > 0 && moved.has(ref.slice(0, dot))) stale.add(wire.net);
     }
@@ -753,6 +779,14 @@ function withFields(view: SchematicView, fields: SchematicView["field"]): Schema
   delete withoutFields.field;
   return withoutFields;
 }
+/** The view with the planned component placements, preserving an omitted place section. */
+function withPlaces(view: SchematicView, places: SchematicView["place"]): SchematicView {
+  if (places !== undefined) return { ...view, place: places };
+  const withoutPlaces = { ...view };
+  delete withoutPlaces.place;
+  return withoutPlaces;
+}
+
 
 /** The view with the planned label and port positions, leaving every other fact alone. */
 function withTexts(view: SchematicView, planned: PlannedTexts): SchematicView {
@@ -763,16 +797,98 @@ function withTexts(view: SchematicView, planned: PlannedTexts): SchematicView {
   return next;
 }
 
+/** Append the advisory interconnect symbols declared by this page. */
+export function renderInterconnects(
+  view: SchematicView,
+  doc: SvgDoc,
+  modulePortPoints: ReadonlyMap<string, { x_nm: number; y_nm: number }> = new Map(),
+): SvgDoc {
+  if (view.interconnect === undefined || view.interconnect.length === 0) return doc;
+  const primitives = [...doc.primitives];
+  for (const row of view.interconnect) {
+    const from = modulePortPoints.get(row.from);
+    const to = modulePortPoints.get(row.to);
+    const x = row.x_nm ?? (from !== undefined && to !== undefined ? Math.round((from.x_nm + to.x_nm) / 2) : 0);
+    const y = row.y_nm ?? (from !== undefined && to !== undefined ? Math.round((from.y_nm + to.y_nm) / 2) : 0);
+    const rotation = row.rot_mdeg ?? 0;
+    const rotated = (dx: number, dy: number): { x: number; y: number } => {
+      switch (rotation) {
+        case 90000:
+          return { x: -dy, y: dx };
+        case 180000:
+          return { x: -dx, y: -dy };
+        case 270000:
+          return { x: dy, y: -dx };
+        default:
+          return { x: dx, y: dy };
+      }
+    };
+    const left = rotated(-6_000_000, 0);
+    const right = rotated(6_000_000, 0);
+    const ref = `interconnect:${row.id}`;
+    const identity = { ref, layer: "interconnect" };
+    primitives.push(
+      {
+        kind: "line",
+        x1: x + left.x,
+        y1: y + left.y,
+        x2: x + right.x,
+        y2: y + right.y,
+        widthNm: 350_000,
+        layer: "interconnect",
+        ref,
+      },
+      {
+        kind: "circle",
+        cx: x + left.x,
+        cy: y + left.y,
+        rNm: 1_500_000,
+        widthNm: 350_000,
+        fill: "none",
+        ...identity,
+      },
+      {
+        kind: "circle",
+        cx: x + right.x,
+        cy: y + right.y,
+        rNm: 1_500_000,
+        widthNm: 350_000,
+        fill: "none",
+        ...identity,
+      },
+      {
+        kind: "text",
+        x,
+        y: y + 3_000_000,
+        text: row.id,
+        sizeNm: 2_000_000,
+        anchor: "middle",
+        rotateMdeg: rotation,
+        role: "text",
+        ...identity,
+      },
+    );
+  }
+  return { ...doc, primitives };
+}
+
 /** The page as it is drawn: the renderer's SVG and the geometry it was drawn from. */
 function drawPage(
   view: SchematicView,
   instances: SchematicInstances,
   automaticFields = true,
 ): { svg: string; geometry: SheetGeometry } {
+  const options = { automaticFields };
   try {
-    const options = { automaticFields };
+    const doc = renderSchematic(view, instances, options);
     return {
-      svg: toSvgText(renderSchematic(view, instances, options)),
+      svg: toSvgText(
+        renderInterconnects(
+          view,
+          doc,
+          new Map(viewModulePorts(view).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }] as const)),
+        ),
+      ),
       geometry: schematicGeometry(view, instances, options),
     };
   } catch {
@@ -787,13 +903,27 @@ function drawPage(
  * The text is checked before it is written: a page that does not parse is a page the person has to
  * fix, and writing it would leave the project in a state the tools cannot read.
  */
-export function savePageSource(root: string, board: string, page: string, text: string): { file: string; changed: boolean; errors: string[] } {
-  const file = pageFile(board, page);
+export function savePageSource(root: string, page: string, text: string): { file: string; changed: boolean; errors: string[] } {
+  const file = pageFile(page);
   const formatted = formatView(text, { file });
   const errors = formatted.diagnostics
     .filter((diagnostic) => diagnostic.severity === "error")
     .map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`);
   if (errors.length > 0 || formatted.text === undefined) return { file, changed: false, errors };
+  // The page keeps the module rows and the module-port endpoints it was written with (ADR-0067
+  // D4): a save that dropped them would take the overview's boxes away, so it is not made.
+  const facts = pageFacts(text);
+  const formattedFacts = pageFacts(formatted.text);
+  if (facts.moduleRows.join("\n") !== formattedFacts.moduleRows.join("\n")) {
+    return { file, changed: false, errors: [...errors, `${file}: the formatter would drop the page's module rows`] };
+  }
+  if (facts.moduleEndpoints.join("\n") !== formattedFacts.moduleEndpoints.join("\n")) {
+    return {
+      file,
+      changed: false,
+      errors: [...errors, `${file}: the formatter would drop the page's module-port wire endpoints`],
+    };
+  }
   const path = join(root, file);
   const before = existsSync(path) ? readFileSync(path, "utf8") : "";
   if (before === formatted.text) return { file, changed: false, errors: [] };
@@ -810,18 +940,17 @@ export function savePageSource(root: string, board: string, page: string, text: 
  */
 export function renderPageSource(
   root: string,
-  board: string,
   page: string,
   text: string,
   automaticFields = true,
 ): { svg: string; errors: string[]; anchors: RowAnchor[]; geometry: SheetGeometry } {
-  const file = pageFile(board, page);
-  const parsed = parseView(text, { file, board });
+  const file = pageFile(page);
+  const parsed = parseView(text, { file });
   const errors = parsed.diagnostics
     .filter((diagnostic) => diagnostic.severity === "error")
     .map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`);
   if (!parsed.ir) return { svg: "", errors, anchors: [], geometry: { texts: [], fields: [], symbols: [] } };
-  const facts = boardFacts(root, board);
+  const facts = projectFacts(root);
   const drawn = drawPage(parsed.ir, facts.instances, automaticFields);
   return {
     ...drawn,
@@ -848,7 +977,7 @@ function rowAnchors(view: SchematicView, sources: SourceMap | undefined): RowAnc
   if (sources === undefined) return [];
   const anchors: RowAnchor[] = [];
   const line = (pointer: string): number | undefined => spanOf(sources, pointer)?.line;
-  view.place.forEach((place, index) => {
+  (view.place ?? []).forEach((place, index) => {
     const at = line(`/place/${index}`);
     if (at !== undefined) anchors.push({ key: place.instance_id, kind: "place", line: at });
   });
@@ -867,17 +996,17 @@ function rowAnchors(view: SchematicView, sources: SourceMap | undefined): RowAnc
   return anchors;
 }
 
-/** The facts a page's drawing needs: the board's schematic and the symbols it places. */
-export interface BoardFacts {
+/** The facts a page's drawing needs: the project's schematic and the symbols it places. */
+export interface ProjectFacts {
   schematic: Schematic;
   instances: SchematicInstances;
-  /** A port id → the net it names, from the board's schematic. */
+  /** A project port id → the net it names. */
   portNets: Map<string, string>;
 }
 
-export function boardFacts(root: string, board: string): BoardFacts {
-  const loaded = loadBoardFile(root, board);
-  if (!loaded) throw new LayoutError(`no such board: ${board}`);
+export function projectFacts(root: string): ProjectFacts {
+  const loaded = loadSchematic(root);
+  if (!loaded) throw new LayoutError("project root file not found: design/sch/main.teda");
   const { resolver, shards } = loadComponents(root);
   const modules = loadModules(root);
   const symbolLibrary = loadSymbolLibrary(root);
@@ -894,25 +1023,16 @@ export function boardFacts(root: string, board: string): BoardFacts {
   };
   const parsed = parseSchematic(loaded.text, {
     file: loaded.file,
-    board,
     components: resolver,
     modules,
   });
-  if (!parsed.ir) throw new LayoutError(`${loaded.file}: the board does not compile`);
+  if (!parsed.ir) throw new LayoutError(`${loaded.file}: the project schematic does not compile`);
   const schematic = parsed.ir as Schematic;
   const instances = schematicInstances(schematic, pinsOf, symbolOf, symbolLibrary, deviceOf);
   const portNets = new Map<string, string>();
   for (const port of schematic.ports ?? []) portNets.set(port.id, port.net);
   return { schematic, instances, portNets };
 }
-
-function loadBoardFile(root: string, board: string): { file: string; text: string } | undefined {
-  const file = `${LAYOUT.sch}/${board}.teda`;
-  const path = join(root, file);
-  if (!existsSync(path)) return undefined;
-  return { file, text: readFileSync(path, "utf8") };
-}
-
 /**
  * What a run must not run through, for the simplification pass.
  *
@@ -967,7 +1087,7 @@ function anchorsFor(
     if (on(label)) anchors.push({ point: { x_nm: label.x_nm, y_nm: label.y_nm }, slack_nm: slack });
   }
   for (const port of texts.ports) {
-    // A port belongs to a net through the board's ports, not through its own row. A run that ends
+    // A port belongs to a net through the project's ports, not through its own row. A run that ends
     // at the port already has it as an end, and the end is exempt; the ones that matter are the
     // ports of the net that sit on this run.
     const net = texts.portNets.get(port.id);
@@ -976,15 +1096,26 @@ function anchorsFor(
   }
   return anchors;
 }
-/** Where a run's end sits on the sheet: a pin, a drawn port, or an absolute coordinate. */
+/**
+ * Where a run's end sits on the sheet: a pin, a drawn port, a drawn module port, or an absolute
+ * coordinate.
+ *
+ * A module port resolves to where the page draws it and never to a pin of a symbol called `M1`:
+ * the two are different kinds of endpoint, and the layout write may not read one as the other
+ * (spec/schematic-view.md §5).
+ */
 export function pinPoint(
   geometry: SheetGeometry,
   ref: string | { x_nm: number; y_nm: number },
   ports?: ReadonlyMap<string, { x_nm: number; y_nm: number }>,
+  modulePorts?: ReadonlyMap<string, { x_nm: number; y_nm: number }>,
 ): { x_nm: number; y_nm: number } | undefined {
   if (typeof ref !== "string") return { x_nm: ref.x_nm, y_nm: ref.y_nm };
   const dot = ref.lastIndexOf(".");
   if (dot <= 0) return ports?.get(ref);
+  const modulePort = modulePorts?.get(ref);
+  if (modulePort !== undefined) return modulePort;
+  if (MODULE_PORT_ENDPOINT.test(ref)) return undefined;
   const instance = geometry.symbols.find((symbol) => symbol.instance_id === ref.slice(0, dot));
   return instance?.pins.get(ref.slice(dot + 1));
 }
@@ -1008,7 +1139,7 @@ export function rewritePage(
   changed: {
     file: string;
     sources: SourceMap;
-    places: { index: number; place: SchematicView["place"][number] }[];
+    places: { index: number; place: ViewPlace }[];
     fields?: { index?: number; field: ViewField }[];
     remove_fields?: { index: number }[];
     wires: { index: number; wire: NonNullable<SchematicView["wire"]>[number] }[];
@@ -1081,14 +1212,77 @@ export function rewritePage(
     const first = formatted.diagnostics.find((diagnostic) => diagnostic.severity === "error");
     throw new LayoutError(`${changed.file}: the rewritten page does not parse: ${first ? first.message : "unknown"}`);
   }
+  // A write is a drawing change and nothing else: the page keeps the language version it was
+  // written in (a 0.11 page still reads `sheet`, a 0.12 page still reads `size`; ADR-0067 D6) and
+  // keeps the module rows and the module-port endpoints it was drawn with (ADR-0067 D4). A
+  // rewrite that lost them would take the overview's boxes away, so it is refused, not written.
+  const before = pageFacts(text);
+  const after = pageFacts(formatted.text);
+  if (before.version !== undefined && after.version !== before.version) {
+    throw new LayoutError(
+      `${changed.file}: the rewrite changed the page's language version (${before.version} to ${after.version})`,
+    );
+  }
+  if (before.moduleRows.join("\n") !== after.moduleRows.join("\n")) {
+    throw new LayoutError(`${changed.file}: the rewrite would drop the page's module rows`);
+  }
+  if (before.moduleEndpoints.join("\n") !== after.moduleEndpoints.join("\n")) {
+    throw new LayoutError(`${changed.file}: the rewrite would drop the page's module-port wire endpoints`);
+  }
   return formatted.text;
+}
+
+/** What a page's source says about itself: the version it declares and the module facts it draws. */
+interface PageFacts {
+  /** The version the first line declares (`version 0.12`). */
+  version: string | undefined;
+  /** The `module` and `module_port` rows, as their cells, sorted. */
+  moduleRows: string[];
+  /** The module-port endpoints the wire rows name, sorted. */
+  moduleEndpoints: string[];
+}
+
+/**
+ * Read a page's own facts off its source.
+ *
+ * The rows are read as cells, so a rewrite that only realigns the columns still compares equal: a
+ * module box is the same box when its cells are the same, and the canonical form is what decides
+ * how they are written (spec/schematic-view.md §11).
+ */
+function pageFacts(text: string): PageFacts {
+  const facts: PageFacts = { version: undefined, moduleRows: [], moduleEndpoints: [] };
+  let section = "";
+  for (const line of lex(text)) {
+    if (line.blank || line.comment) continue;
+    const cells = line.cells.map((cell) => cell.text);
+    if (facts.version === undefined && cells[0] === "version") {
+      facts.version = cells[1];
+      continue;
+    }
+    if (cells.length === 1) {
+      section = cells[0]!;
+      continue;
+    }
+    if (section === "module" || section === "module_port") {
+      facts.moduleRows.push(`${section} ${cells.join(" ")}`);
+      continue;
+    }
+    if (section === "wire") {
+      for (const cell of cells.slice(1, 3)) {
+        if (MODULE_PORT_ENDPOINT.test(cell)) facts.moduleEndpoints.push(cell);
+      }
+    }
+  }
+  facts.moduleRows.sort();
+  facts.moduleEndpoints.sort();
+  return facts;
 }
 
 /** Insert new field overrides before comments belonging to the following section. */
 function insertFieldRows(text: string, fields: readonly ViewField[]): string {
   const lines = text.split("\n");
   const parsed = lex(text);
-  const sections = new Set(["place", "field", "junction", "wire", "label", "port", "text"]);
+  const sections = new Set(["place", "field", "module", "module_port", "junction", "wire", "label", "port", "text"]);
   const section = (line: Line): string | undefined =>
     line.cells.length === 1 && sections.has(line.cells[0]!.text) ? line.cells[0]!.text : undefined;
   const ignorable = (line: string | undefined): boolean => line === undefined || line.trim() === "" || line.trimStart().startsWith("#");

@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-22
 Scope: Decides: how a design's generic requirement becomes a purchasable part, how the BOM is keyed and counted, and how variants and second sources sit relative to that. Does not decide: the language's rating vocabulary — see ADR-0025; nor the device kinds — see ADR-0024.
-Related: [ADR-0008](../03-project/0008-project-tree-has-owners.md), [ADR-0015](../04-schematic/0015-flattening-and-the-net-set.md), [ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md), [ADR-0022](../06-manufacturing/0022-jlc-prototype-delivery.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md)
+Related: [ADR-0008](../03-project/0008-project-tree-has-owners.md), [ADR-0015](../04-schematic/0015-flattening-and-the-net-set.md), [ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md), [ADR-0022](../06-manufacturing/0022-jlc-prototype-delivery.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md)
 Impact: `spec/procurement.md`; `spec/teda.md` §6, §11; `schemas/ir/**`; `packages/core` (the procurement checks); `packages/cli` (the `texteda bom` command); `packages/ir` (the diagnostic code registry)
 
 ## Background
@@ -50,8 +50,8 @@ what the contract layer covers is the **format**, not any project's selections. 
 the tree is `assets/`, beside the project's own device assets:
 
 ```text
-assets/procurement/primary/<board_id>.teda        # the primary selections — normative
-assets/procurement/alternatives/<board_id>.teda   # the second sources — advisory
+assets/procurement/primary/<pcb_id>.teda        # the primary selections — normative
+assets/procurement/alternatives/<pcb_id>.teda   # the second sources — advisory
 ```
 
 A board's procurement state is **two files**, because its two halves have different standing. The
@@ -240,18 +240,18 @@ The procurement descriptions compile to two shards:
 
 | Source | Shard | Classification |
 |---|---|---|
-| `assets/procurement/primary/<board_id>.teda` | `boards/<board_id>/procurement.json` | normative |
-| `assets/procurement/alternatives/<board_id>.teda` | `boards/<board_id>/procurement-alternatives.json` | advisory |
+| `assets/procurement/primary/<pcb_id>.teda` | `boards/<pcb_id>/procurement.json` | normative |
+| `assets/procurement/alternatives/<pcb_id>.teda` | `boards/<pcb_id>/procurement-alternatives.json` | advisory |
 
 The primary shard holds the mapping from a generic key to a part id, and it enters the project
-hash: a different primary part is a different build.
+hash: a different primary part is a different build. Its IR `board` property stores the matching
+physical `pcb_id`.
 
-The primary is a **board** shard, so it also enters the board hash. That is the point of scoping
-a selection to a board: the part a board is built from is part of that board's identity, so
-changing it invalidates the board's review and the artifacts that carry the board hash.
+The selection scope is one physical PCB: only generic design lines in module instances listed by
+that PCB's `modules` section are checked and included in its BOM ([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D2). The primary is also part of that PCB's board hash, so changing its selected parts invalidates that PCB's review.
 
-The alternatives shard holds the second sources, and it does not enter the project hash. It
-enters the **advisory hash** instead.
+The alternatives shard holds the second sources, and it does not enter the project or board hash.
+It enters the **advisory hash** instead.
 
 ### D12. One primary selection, and any number of alternatives
 

@@ -63,15 +63,16 @@ Rules (to be written into `AGENTS.md` and the `schemas/` documentation):
 
 ### 4. On-disk layout
 
-Sharded by description, mirroring the split-file structure of `.teda`, and avoiding a single file of hundreds of MB:
+Sharded by description, avoiding a single file of hundreds of MB. In the current project-level model (ADR-0069 D5), the normative schematic root and physical PCBs are separate shards; project views are advisory:
 
 ```
 dist/ir/
-├── project.json
+├── manifest.json
+├── project/schematic.json
+├── boards/<pcb_id>/pcb.json
+├── views/<page_id>.json
 ├── components/<component_id>.json
-├── boards/<board_id>/schematic.json
-├── boards/<board_id>/pcb.json
-└── systems/<system_id>.json
+└── project.json
 ```
 
 - Renderers and exporters read files from `dist/ir/` by default (convenient for incremental debugging and diffing); they may also read a single JSON document from stdin.

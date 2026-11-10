@@ -12,6 +12,7 @@ import { renderPcb } from "../src/pcb.ts";
 function footprint(): Footprint {
   return {
     ir_version: irVersion,
+    format: "0.11",
     footprint: {
       library: "test",
       name: "two-pad",
@@ -50,8 +51,9 @@ function footprint(): Footprint {
 function pcb(): Pcb {
   return {
     ir_version: irVersion,
-    format: "0.9.1",
-    board: "b",
+    format: "0.14",
+    pcb: "b",
+    modules: ["M1"],
     board_thickness_nm: 1_600_000,
     stackup: [
       { layer: "F.Cu", type: "copper", thickness_nm: 35_000, kind: "signal" },

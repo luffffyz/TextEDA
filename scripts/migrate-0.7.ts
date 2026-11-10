@@ -6,7 +6,7 @@
 //
 // The script works on the text, not on the IR: a 0.6 file no longer parses (the `page` type and the
 // `pages` section are gone), so it reads the old shape with its own reader and writes the new shape,
-// which the current formatter then canonicalizes.
+// which the current formatter canonicalizes through a legacy-safe validation adapter below.
 //
 // What it does, per board with a `pages` section:
 //   1. merges the board root and the page files into one flat `schematic` file;
@@ -454,16 +454,40 @@ function rewritePcb(text: string, instances: Set<string>, names: Map<string, Map
 }
 
 /**
- * Write the rewritten file in the shape the current parser reads.
- *
- * A 0.6 file predates both the flat board (0.7) and the bracketed tuple (0.11), so the rewrite is
- * only half the work: the coordinates it just carried over are still in the two-cell form, which no
- * reader accepts any more. The fold comes from the same module `migrate:0.11` uses, so the two
- * migrations cannot disagree about the surface they write.
+ * Fold the legacy two-cell tuples and stamp the current language version. Historical 0.7 output still
+ * needs the validation adapters below because the active project-root grammars have since changed.
  */
 function toCurrentSurface(text: string, type: string): { text: string; problems: string[] } {
   const folded = foldFile(text, type);
   return { text: folded.text.replace(/^(\s*version\s+)\S+/m, `$1${TARGET}`), problems: folded.problems };
+}
+
+/**
+ * Validate a merged 0.7 board through the module grammar. The historical flat board has the same
+ * local sections as a module, but its `schematic <board>` header is intentionally retained in the
+ * output; the current schematic-root grammar only accepts `schematic main` and module-owned
+ * instances.
+ */
+function formatHistoricalSchematic(text: string, file: string) {
+  const boardHeader = /^schematic\s+(\S+)\s*$/m.exec(text);
+  if (boardHeader === null) return formatSchematic(text, { file, kind: "module" });
+  const moduleText = text.replace(/^schematic\s+\S+\s*$/m, "module legacy-validation");
+  const formatted = formatSchematic(moduleText, { file, kind: "module" });
+  if (!formatted.ok || formatted.text === undefined) return formatted;
+  return { ...formatted, text: formatted.text.replace(/^module legacy-validation\s*$/m, `schematic ${boardHeader[1]}`) };
+}
+
+/**
+ * Validate a historical 0.7 PCB through the current PCB grammar without adding module ownership to
+ * the migrated file. The current grammar requires a `modules` section; an empty validation-only
+ * section is inserted before `stackup` and removed from the canonical text afterward.
+ */
+function formatHistoricalPcb(text: string, file: string) {
+  const validationText = text.replace(/^stackup\s*$/m, "modules\n\nstackup");
+  const formatted = formatPcb(validationText, { file });
+  if (!formatted.ok || formatted.text === undefined) return formatted;
+  const withoutSyntheticModules = formatted.text.replace(/\n\nmodules\n\n/g, "\n\n");
+  return { ...formatted, text: withoutSyntheticModules };
 }
 
 function main(): number {
@@ -515,7 +539,7 @@ function main(): number {
     const mergedText = renderMerged(root, merged, pages);
     const folded = toCurrentSurface(mergedText, "schematic");
     for (const problem of folded.problems) fail(`sch/${name}: ${problem}`);
-    const formatted = formatSchematic(folded.text, { file: `sch/${name}` });
+    const formatted = formatHistoricalSchematic(folded.text, `sch/${name}`);
     if (!formatted.ok || formatted.text === undefined) {
       fail(
         `sch/${name}: the merged board does not compile: ${formatted.diagnostics[0]?.message ?? "unknown error"}`,
@@ -547,7 +571,7 @@ function main(): number {
       const rewrittenPcb = rewritePcb(readFileSync(pcbFile, "utf8"), instances, merged.netNames);
       const foldedPcb = toCurrentSurface(rewrittenPcb, "pcb");
       for (const problem of foldedPcb.problems) fail(`pcb/${boardId}.teda: ${problem}`);
-      const formattedPcb = formatPcb(foldedPcb.text, { file: `pcb/${boardId}.teda` });
+      const formattedPcb = formatHistoricalPcb(foldedPcb.text, `pcb/${boardId}.teda`);
       if (!formattedPcb.ok || formattedPcb.text === undefined) {
         const reason = formattedPcb.diagnostics[0]?.message ?? "unknown error";
         fail(`pcb/${boardId}.teda: the rewritten pcb description does not compile: ${reason}`);

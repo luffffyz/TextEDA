@@ -20,19 +20,28 @@ import {
   distanceToSegment,
   overlapArea,
   pinStroke,
+  segmentBoxHits,
   segmentCrossing,
   segmentInBox,
   wirePath,
   type Point,
 } from "./geometry.ts";
-import type {
+import {
+  viewModuleFacts,
+  type ReadabilityBox,
+  type ReadabilityGeometry,
+  type ReadabilitySymbol,
+  type ReadabilityText,
+} from "./facts.ts";
+
+export type {
   ReadabilityBox,
+  ReadabilityField,
   ReadabilityGeometry,
+  ReadabilityModule,
   ReadabilitySymbol,
   ReadabilityText,
 } from "./facts.ts";
-
-export type { ReadabilityBox, ReadabilityField, ReadabilityGeometry, ReadabilitySymbol, ReadabilityText } from "./facts.ts";
 
 /** mm with one decimal: the human form of a nanometre distance, small enough to read in a message. */
 function mm(nm: number): string {
@@ -65,6 +74,10 @@ export interface ReadabilityFacts {
  *
  * Each finding is a warning: the board is right and the drawing is hard to read, so it must not
  * block an export (`AGENTS.md` §6: "好看" is not testable, these four things are).
+ *
+ * The one exception is the overview's module boxes: a wire that crosses a module frame breaks a
+ * rule the overview itself states (ADR-0067 D5), so it is an error like the rest of the overview
+ * rules (`spec/schematic-view.md` §9.1).
  */
 export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
@@ -73,9 +86,14 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
   const wires = facts.view.wire ?? [];
   const nets = new Map(schematic.nets.map((net) => [net.id, net]));
   const symbols = new Map(geometry.symbols.map((symbol) => [symbol.instance_id, symbol]));
+  const modulePorts = new Map<string, Point>([
+    ...(viewModuleFacts(view).module_port ?? []).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }] as const),
+    ...(geometry.modulePortPoints ?? []),
+  ]);
   const endpointPoints = new Map<string, Point>([
     ...(view.port ?? []).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }] as const),
     ...(view.junction ?? []).map((junction) => [junction.id, { x_nm: junction.x_nm, y_nm: junction.y_nm }] as const),
+    ...modulePorts,
   ]);
   const portNet = new Map((schematic.ports ?? []).map((port) => [port.id, port.net]));
   /** Where a page record was written: the IR names the record, the parse's map gives the line. */
@@ -255,6 +273,93 @@ export function checkReadability(facts: ReadabilityFacts): Diagnostic[] {
           data: { page, net: wire.net, instance: symbol.instance_id, through_nm: Math.round(through) },
         });
       }
+    }
+  }
+
+  /**
+   * The wire's own module port on a box: the endpoint it may touch that box's frame at.
+   *
+   * A module port is named `<module_instance_id>.<port_id>`, so the endpoint says which box it
+   * belongs to. A wire that ends on another module's port owns nothing on this box.
+   */
+  const ownModulePort = (
+    wire: NonNullable<SchematicView["wire"]>[number],
+    instanceId: string,
+  ): Point | null => {
+    for (const ref of [wire.from_pin, wire.to_pin]) {
+      const point = modulePorts.get(ref);
+      if (!point) continue;
+      const dot = ref.indexOf(".");
+      if (dot <= 0 || ref.slice(0, dot) !== instanceId) continue;
+      return point;
+    }
+    return null;
+  };
+
+  /**
+   * How a wire path meets a module box: where it crosses the frame and how much of it runs inside.
+   *
+   * `own` is the wire's own module port on that box, when it has one: the frame may be touched
+   * there — the port is drawn on it — and nowhere else.
+   */
+  const moduleCrossing = (
+    path: readonly Point[],
+    box: ReadabilityBox,
+    own: Point | null,
+  ): { point: Point; through: number } | null => {
+    let crossing: Point | null = null;
+    let through = 0;
+    for (let i = 0; i + 1 < path.length; i += 1) {
+      const a = path[i]!;
+      const b = path[i + 1]!;
+      // The part of the run inside the box: where it enters is where the crossing starts.
+      const clipped = segmentInBox(a, b, box);
+      if (clipped) {
+        through += (clipped[1] - clipped[0]) * Math.hypot(b.x_nm - a.x_nm, b.y_nm - a.y_nm);
+        crossing ??= {
+          x_nm: Math.round(a.x_nm + (b.x_nm - a.x_nm) * clipped[0]),
+          y_nm: Math.round(a.y_nm + (b.y_nm - a.y_nm) * clipped[0]),
+        };
+      }
+      // A run that only touches the frame — it ends on it, grazes a corner or lies along an edge
+      // — crosses it just the same.
+      for (const hit of segmentBoxHits(a, b, box)) {
+        if (own !== null && Math.hypot(hit.x_nm - own.x_nm, hit.y_nm - own.y_nm) <= ON_LINE_NM) continue;
+        crossing ??= hit;
+      }
+    }
+    if (crossing === null) return null;
+    return { point: crossing, through };
+  };
+
+  // An overview wire may not cross a module box (ADR-0067 D5): the box is the module's boundary,
+  // and a line through it hides the boundary the reader is looking for. The one place the wire may
+  // touch the frame is its own module port: the port is drawn on the frame, and that touch is the
+  // connection the wire declares.
+  for (const [index, wire] of wires.entries()) {
+    const path = wirePath(wire, symbols, endpointPoints);
+    if (!path || path.length < 2) continue;
+    for (const module of geometry.modules ?? []) {
+      const crossing = moduleCrossing(path, module.box, ownModulePort(wire, module.instance_id));
+      if (!crossing) continue;
+      diagnostics.push({
+        code: "view.wire-crosses-module",
+        severity: "error",
+        message:
+          crossing.through > 0
+            ? `print page ${page}: the wire on net ${wire.net} runs ${mm(crossing.through)} mm through the box of module ${module.instance_id}`
+            : `print page ${page}: the wire on net ${wire.net} crosses the frame of module ${module.instance_id} at (${mmAt(crossing.point.x_nm)}, ${mmAt(crossing.point.y_nm)}) mm`,
+        hint: "route the wire around the module box: a wire through a module frame hides the boundary",
+        location: at(`/wire/${index}`),
+        data: {
+          page,
+          net: wire.net,
+          module: module.instance_id,
+          x_nm: crossing.point.x_nm,
+          y_nm: crossing.point.y_nm,
+          through_nm: Math.round(crossing.through),
+        },
+      });
     }
   }
 

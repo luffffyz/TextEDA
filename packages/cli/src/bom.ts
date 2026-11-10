@@ -12,12 +12,12 @@
 // The marker never goes into the part number cell: the exported BOM is consumed by an ordering
 // system, and a part number that reads `unsourced` would be ordered as if it were a part
 // (ADR-0022).
-import { formatQuantity, parseProcurement, parseSchematic, type QuantityKind } from "@texteda/parser";
+import { formatQuantity, parsePcb, parseProcurement, parseSchematic, type QuantityKind } from "@texteda/parser";
 import type { Procurement } from "@texteda/ir/procurement";
 import { buildBomLines } from "@texteda/core";
-import { LAYOUT } from "./paths.ts";
+import { LAYOUT, MAIN_SCHEMATIC_ID } from "./paths.ts";
 import { writeOut } from "./output.ts";
-import { loadBoard, loadComponents, loadModules, loadProcurement } from "./project.ts";
+import { loadComponents, loadModules, loadPcb, loadProcurement, loadSchematic } from "./project.ts";
 import { buildProcurementFacts } from "./procurement.ts";
 import { loadFootprintLibrary, withPackageCodes } from "./pads.ts";
 import type { VerbResult } from "./result.ts";
@@ -91,9 +91,32 @@ export interface BomValue {
  */
 export function buildBom(options: { root: string; board: string }): VerbResult<BomValue> {
   const { root, board } = options;
-  const loaded = loadBoard(root, board);
-  if (!loaded) {
-    return { ok: false, code: "cli.bad-usage", error: `Board root file not found: ${LAYOUT.sch}/${board}.teda` };
+  const schematicSource = loadSchematic(root);
+  if (!schematicSource) {
+    return {
+      ok: false,
+      code: "cli.bad-usage",
+      error: `Logical root file not found: ${LAYOUT.sch}/${MAIN_SCHEMATIC_ID}.teda`,
+    };
+  }
+  const pcbSource = loadPcb(root, board);
+  if (!pcbSource) {
+    return {
+      ok: false,
+      code: "cli.bad-usage",
+      error: `PCB description not found: ${LAYOUT.pcb}/${board}.teda`,
+    };
+  }
+  const pcbId = pcbSource.pcbId;
+  const pcb = parsePcb(pcbSource.text, { file: pcbSource.file, pcb: pcbId });
+  if (!pcb.ir) {
+    const lines = pcb.diagnostics.map((diagnostic) => {
+      const where = diagnostic.location
+        ? `${diagnostic.location.file}:${diagnostic.location.line}:${diagnostic.location.col}: `
+        : "";
+      return `${where}${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}`;
+    });
+    return { ok: false, error: lines.join("\n") };
   }
   const { resolver, problems, devices: loadedDevices } = loadComponents(root);
   if (problems.length > 0) {
@@ -101,9 +124,8 @@ export function buildBom(options: { root: string; board: string }): VerbResult<B
     return { ok: false, error: lines.join("\n") };
   }
 
-  const schematic = parseSchematic(loaded.text, {
-    file: loaded.file,
-    board,
+  const schematic = parseSchematic(schematicSource.text, {
+    file: schematicSource.file,
     components: resolver,
     modules: loadModules(root),
   });
@@ -119,11 +141,11 @@ export function buildBom(options: { root: string; board: string }): VerbResult<B
 
   const procurements: { ir: Procurement; file: string }[] = [];
   for (const role of ["primary", "alternatives"] as const) {
-    const source = loadProcurement(root, board, role);
+    const source = loadProcurement(root, pcbId, role);
     if (!source) continue;
     const parsed = parseProcurement(source.text, {
       file: source.file,
-      board,
+      board: pcbId,
       role,
       components: resolver,
     });
@@ -133,7 +155,12 @@ export function buildBom(options: { root: string; board: string }): VerbResult<B
   // The package floor (ADR-0027) is keyed by the land pattern's package code, so the devices are
   // decorated the same way `check` does it: the BOM and the check must not disagree on a selection.
   const devices = withPackageCodes(loadedDevices, loadFootprintLibrary(root));
-  const facts = buildProcurementFacts({ schematic: schematic.ir, procurements, devices });
+  const facts = buildProcurementFacts({
+    schematic: schematic.ir,
+    moduleInstances: pcb.ir.modules,
+    procurements,
+    devices,
+  });
   const lines = buildBomLines(facts);
 
   // The quantity column of a row needs the device's own parameter types, to write `10kΩ` and not
@@ -186,7 +213,7 @@ export function runBom(options: BomOptions): number {
   const built = buildBom({ root, board });
   if (!built.ok) {
     console.error(built.error ?? "The bill of materials could not be built");
-    return built.error?.startsWith("Board root file not found") ? 2 : 1;
+    return built.error?.startsWith("Logical root file not found") || built.error?.startsWith("PCB description not found") ? 2 : 1;
   }
   const text = json ? `${JSON.stringify(built.value!.payload, null, 2)}\n` : built.value!.csv;
   if (outFile) {

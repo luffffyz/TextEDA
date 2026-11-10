@@ -193,9 +193,9 @@ The write keeps what it replaced under `dist/backups/`, mirroring the page's own
 Apply above:
 
 ```sh
-ls /tmp/texteda-review-smoke/dist/backups/views/charger-buck/
-diff /tmp/texteda-review-smoke/dist/backups/views/charger-buck/buck-5v.view.teda \
-     examples/reference-project/views/charger-buck/buck-5v.view.teda
+ls /tmp/texteda-review-smoke/dist/backups/views/
+diff /tmp/texteda-review-smoke/dist/backups/views/buck-5v.view.teda \
+     examples/reference-project/views/buck-5v.view.teda
 ```
 
 The backup holds the page **as it was before the write**, so the diff against the original shows
@@ -208,8 +208,8 @@ The Apply recomputes the page, but it must not rewrite the whole drawing. Check 
 actually moved:
 
 ```sh
-diff examples/reference-project/views/charger-buck/buck-5v.view.teda \
-     /tmp/texteda-review-smoke/views/charger-buck/buck-5v.view.teda
+diff examples/reference-project/views/buck-5v.view.teda \
+     /tmp/texteda-review-smoke/views/buck-5v.view.teda
 ```
 
 With Re-anchor wires off, a single moved symbol changes its `place` row and the affected wire rows;

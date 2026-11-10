@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spanOf, schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
 import { lex } from "../src/lexer.ts";
-import { parseSchematic } from "../src/schematic.ts";
+import { parseSchematic, parseSchematicDocument, type ModuleSource } from "../src/schematic.ts";
 import { parsePcb } from "../src/pcb.ts";
 import { parseView } from "../src/view.ts";
 import { canonicalJson } from "../src/canonical.ts";
@@ -50,65 +50,82 @@ describe("lexer positions", () => {
   });
 });
 
-describe("spans of a board", () => {
-  const text = readFileSync(join(projectDir, "design/sch", "mcu-board.teda"), "utf8");
-  const result = parseSchematic(text, { file: "design/sch/mcu-board.teda", board: "mcu-board", components: resolver });
+describe("spans of a project schematic", () => {
+  const rootFile = "design/sch/main.teda";
+  const rootText = readFileSync(join(projectDir, rootFile), "utf8");
+  const rootDoc = parseSchematicDocument(rootText, { file: rootFile }).doc!;
+  const moduleSources: ModuleSource[] = [...new Set(rootDoc.modules.map((row) => row.moduleId))].map((moduleId) => ({
+    moduleId,
+    file: `design/modules/${moduleId}.teda`,
+    text: readFileSync(join(projectDir, "design/modules", `${moduleId}.teda`), "utf8"),
+  }));
+  const result = parseSchematic(rootText, { file: rootFile, components: resolver, modules: moduleSources });
   const sources = result.sources!;
+  const moduleByInstance = new Map(rootDoc.modules.map((row) => [row.instanceId, row.moduleId]));
+  const sourceByModule = new Map(moduleSources.map((source) => [source.moduleId, source]));
 
-  test("every instance and net has a span, and it points at its row", () => {
+  test("every instance and net has a span in its owning source file", () => {
     const ir = result.ir!;
     expect(ir.instances.length).toBeGreaterThan(0);
     expect(ir.nets.length).toBeGreaterThan(0);
     for (const [index, instance] of ir.instances.entries()) {
       const span = sources.get(`/instances/${index}`);
       expect(span).toBeDefined();
-      const line = text.split("\n")[span!.line - 1]!;
-      expect(line.trim().startsWith(`${instance.id} `)).toBe(true);
+      const [moduleInstance, localId] = instance.id.split(".", 2);
+      const moduleId = moduleByInstance.get(moduleInstance!);
+      const source = sourceByModule.get(moduleId!);
+      expect(span!.file).toBe(source!.file);
+      const line = source!.text.split("\n")[span!.line - 1]!;
+      expect(line.trim().startsWith(`${localId} `)).toBe(true);
     }
     for (const [index, net] of ir.nets.entries()) {
       const span = sources.get(`/nets/${index}`);
       expect(span).toBeDefined();
-      const line = text.split("\n")[span!.line - 1]!;
-      // A continuation row starts with `:`, so the net's own name may be on the row above.
-      expect(line.trim().startsWith(`${net.id}:`) || line.trim().startsWith(":")).toBe(true);
+      const prefix = net.id.match(/^(M\d+)\.(.*)$/);
+      const source = prefix === null ? { file: rootFile, text: rootText } : sourceByModule.get(moduleByInstance.get(prefix[1]!)!)!;
+      expect(span!.file).toBe(source.file);
+      const line = source.text.split("\n")[span!.line - 1]!;
+      const localId = prefix === null ? net.id : prefix[2]!;
+      expect(line.trim().startsWith(`${localId}:`) || line.trim().startsWith(":")).toBe(true);
     }
   });
 
   test("a span carries the byte offset of its own first token", () => {
     const span = sources.get("/instances/0")!;
-    const bytes = Buffer.byteLength(text.slice(0, text.indexOf(text.split("\n")[span.line - 1]!)), "utf8");
+    const firstModule = result.ir!.instances[0]!.id.split(".", 1)[0]!;
+    const source = sourceByModule.get(moduleByInstance.get(firstModule)!)!;
+    const linesBefore = source.text.split("\n").slice(0, span.line - 1).join("\n");
+    const bytes = Buffer.byteLength(`${linesBefore}${linesBefore.length > 0 ? "\n" : ""}`, "utf8");
     expect(span.byte).toBeGreaterThanOrEqual(bytes);
     expect(span.byte).toBeLessThan(bytes + 200);
   });
 
-  test("the IR is byte-identical when the source rows are reordered; the spans follow the new lines", () => {
-    const rows = text.split("\n");
-    // Swap two instance rows inside the `instances` section without touching anything else.
+  test("the IR is byte-identical when module source rows are reordered; spans follow new lines", () => {
+    const module = moduleSources.find((source) => source.moduleId === "mcu-board")!;
+    const rows = module.text.split("\n");
     const first = rows.findIndex((row) => row.trimStart().startsWith("C1 "));
     const second = rows.findIndex((row) => row.trimStart().startsWith("C2 "));
     expect(first).toBeGreaterThan(-1);
     expect(second).toBeGreaterThan(-1);
     const swapped = [...rows];
     [swapped[first], swapped[second]] = [swapped[second]!, swapped[first]!];
-
-    const reordered = parseSchematic(swapped.join("\n"), {
-      file: "design/sch/mcu-board.teda",
-      board: "mcu-board",
-      components: resolver,
-    });
+    const reorderedModules = moduleSources.map((source) => source.moduleId === "mcu-board" ? { ...source, text: swapped.join("\n") } : source);
+    const reordered = parseSchematic(rootText, { file: rootFile, components: resolver, modules: reorderedModules });
     expect(canonicalJson(reordered.ir)).toBe(canonicalJson(result.ir));
-
-    const before = sources.get("/instances/1")!;
-    const after = reordered.sources!.get("/instances/1")!;
-    expect(after.line).toBe(before.line === first + 1 ? second + 1 : first + 1);
-    expect(reordered.sources!.get("/instances/0")!.line).toBeGreaterThan(0);
+    const c1Index = result.ir!.instances.findIndex((instance) => instance.id === "M3.C1");
+    expect(c1Index).toBeGreaterThan(-1);
+    const before = sources.get(`/instances/${c1Index}`)!;
+    const after = reordered.sources!.get(`/instances/${c1Index}`)!;
+    expect(after.file).toBe(module.file);
+    expect(after.line).toBe(second + 1);
+    expect(before.line).toBe(first + 1);
   });
 });
 
 describe("spans of a pcb and a print page", () => {
   test("pcb records are located after the canonical sort", () => {
     const text = readFileSync(join(projectDir, "design/pcb", "charger-buck.teda"), "utf8");
-    const parsed = parsePcb(text, { file: "design/pcb/charger-buck.teda", board: "charger-buck" });
+    const parsed = parsePcb(text, { file: "design/pcb/charger-buck.teda", pcb: "charger-buck" });
     const ir = parsed.ir!;
     for (const [index, placement] of ir.place.entries()) {
       const span = parsed.sources!.get(`/place/${index}`)!;
@@ -118,10 +135,11 @@ describe("spans of a pcb and a print page", () => {
   });
 
   test("view records are located by their own line", () => {
-    const text = readFileSync(join(projectDir, "views", "charger-buck", "buck-5v.view.teda"), "utf8");
-    const parsed = parseView(text, { file: "views/charger-buck/buck-5v.view.teda", board: "charger-buck" });
+    const text = readFileSync(join(projectDir, "views", "charger-power.view.teda"), "utf8");
+    const parsed = parseView(text, { file: "views/charger-power.view.teda", project: "main" });
     const ir = parsed.ir!;
-    for (const [index, place] of ir.place.entries()) {
+    expect(ir.project).toBe("main");
+    for (const [index, place] of ir.place!.entries()) {
       const span = parsed.sources!.get(`/place/${index}`)!;
       expect(span.line).toBeGreaterThan(0);
       expect(span.byte).toBeGreaterThanOrEqual(0);
@@ -158,9 +176,16 @@ describe("a contract violation names the line", () => {
     expect(diagnostic!.cause?.instancePath).toBe("/nets/2");
   });
 
-  test("the reference project's shards satisfy the contract, so validation has nothing to locate", () => {
-    const text = readFileSync(join(projectDir, "design/sch", "mcu-board.teda"), "utf8");
-    const parsed = parseSchematic(text, { file: "design/sch/mcu-board.teda", board: "mcu-board", components: resolver });
+  test("the reference project satisfies the schematic contract", () => {
+    const rootFile = "design/sch/main.teda";
+    const text = readFileSync(join(projectDir, rootFile), "utf8");
+    const doc = parseSchematicDocument(text, { file: rootFile }).doc!;
+    const modules: ModuleSource[] = [...new Set(doc.modules.map((row) => row.moduleId))].map((moduleId) => ({
+      moduleId,
+      file: `design/modules/${moduleId}.teda`,
+      text: readFileSync(join(projectDir, "design/modules", `${moduleId}.teda`), "utf8"),
+    }));
+    const parsed = parseSchematic(text, { file: rootFile, components: resolver, modules });
     const check = validate("schematic", parsed.ir);
     expect(check.ok).toBe(true);
   });

@@ -180,13 +180,8 @@ html, body { height: 100%; margin: 0; background: #131416; }
 `;
 
 /**
- * The two write routes.
- *
- * Both take the board and page from the request and check them against the model the server
- * already holds: a route may only touch a print page the project actually has, so a request cannot
- * name a path of its own. The layout route either plans (the browser draws the result and the user
- * decides) or commits (the file is written and the model is rebuilt). The Source route saves the
- * explicit Source-panel draft in the formatter's form, and answers with the page as it is drawn.
+ * The two write routes. Both accept the logical project board (`main`) and a page id, and check
+ * them against the flat project-page index so a request cannot name an arbitrary path.
  */
 async function handleApi(
   root: string,
@@ -213,7 +208,7 @@ async function handleApi(
         return;
       }
       const pageId = String(body["page"]);
-      if (!index.pages.some((page) => page.board === boardId && page.page === pageId)) {
+      if (!index.pages.some((page) => page.page === pageId)) {
         send(400, { error: `no such print page: ${pageId}` });
         return;
       }
@@ -223,7 +218,7 @@ async function handleApi(
       // The editor's unsaved text, when the app holds one: the layout is computed on it and the
       // write is it with the moved rows applied, so a drag cannot discard the edit (ADR-0042 D6).
       const draft = typeof body["text"] === "string" ? { text: body["text"] } : {};
-      const request = { board: boardId, page: pageId, places, ...draft } as Parameters<typeof planLayout>[1];
+      const request = { page: pageId, places, ...draft } as Parameters<typeof planLayout>[1];
       const automaticFields = parseOptionalBoolean(body["automatic_fields"], "automatic_fields");
       const reanchorWires = parseOptionalBoolean(body["reanchor_wires"], "reanchor_wires");
       if (automaticFields !== undefined) request.automatic_fields = automaticFields;
@@ -264,7 +259,7 @@ async function handleApi(
       return;
     }
 
-    // The edit route: the source of a page the project has.
+    // The edit route: the source of a project page the project has.
     const index = reviewPageIndex(root);
     const file = String(body["file"] ?? "");
     const owner = index.pages.find((page) => page.file === file);
@@ -274,7 +269,7 @@ async function handleApi(
     }
     const text = String(body["text"] ?? "");
     if (body["save"] === true) {
-      const saved = savePageSource(root, owner.board, owner.page, text);
+      const saved = savePageSource(root, owner.page, text);
       if (saved.errors.length > 0) {
         send(400, { errors: saved.errors });
         return;
@@ -284,7 +279,7 @@ async function handleApi(
       return;
     }
     const automaticFields = parseOptionalBoolean(body["automatic_fields"], "automatic_fields");
-    const drawn = renderPageSource(root, owner.board, owner.page, text, automaticFields);
+    const drawn = renderPageSource(root, owner.page, text, automaticFields);
     send(200, {
       svg: drawn.svg,
       errors: drawn.errors,

@@ -163,10 +163,14 @@ export function schematicSource(shape: Shape, count: number): string {
           ...wrapNet("BUS", Array.from({ length: count }, (_, index) => `R${index + 1}.1`)),
           ...wrapNet("RETURN", Array.from({ length: count }, (_, index) => `R${index + 1}.2`)),
         ];
-  return ["version 0.9.2", "schematic benchmark", "", "instances", ...instances, "", "nets", ...netRows, ""].join("\n");
+  return ["version 0.14.0", "module benchmark", "", "instances", ...instances, "", "nets", ...netRows, ""].join("\n");
 }
 
-export function makeProject(root: string, shape: Shape, count: number): { schematic: string; nets: number; maxNetMembers: number } {
+export function makeProject(
+  root: string,
+  shape: Shape,
+  count: number,
+): { schematic: string; module: string; nets: number; maxNetMembers: number } {
   const component = "assets/components/passives/res-thick-0402.teda";
   const symbol = "assets/symbols/passives/r.teda";
   const footprint = "assets/footprints/chip/chip-0402.teda";
@@ -176,15 +180,19 @@ export function makeProject(root: string, shape: Shape, count: number): { schema
     copyFileSync(join(REFERENCE_ROOT, relative), destination);
   }
   mkdirSync(join(root, "design/sch"), { recursive: true });
+  mkdirSync(join(root, "design/modules"), { recursive: true });
   writeFileSync(
     join(root, "project.toml"),
-    '[project]\nname = "schematic-benchmark"\nversion = "0.1.0"\nformat = "0.9.2"\n',
+    '[project]\nname = "schematic-benchmark"\nversion = "0.1.0"\nformat = "0.11"\n',
   );
   const source = schematicSource(shape, count);
-  const schematic = join(root, "design/sch/benchmark.teda");
-  writeFileSync(schematic, source);
+  const module = join(root, "design/modules/benchmark.teda");
+  writeFileSync(module, source);
+  const schematic = join(root, "design/sch/main.teda");
+  writeFileSync(schematic, "version 0.14.0\nschematic main\n\nmodules\n  M1  benchmark\n");
   return {
     schematic,
+    module,
     nets: shape === "sparse" ? count : 2,
     maxNetMembers: shape === "sparse" ? 2 : count,
   };
@@ -203,15 +211,21 @@ function verifyGeneratedProject(root: string, count: number, expectedNets: numbe
   const result = analyzeProject(root);
   const errors = errorDiagnostics(result.diagnostics);
   if (errors.length > 0) throw new Error(`generated project has ${errors.length} error diagnostic(s):\n${errors.slice(0, 8).join("\n")}`);
-  if (result.boards.length !== 1 || result.boards[0] !== "benchmark") {
-    throw new Error(`expected only the benchmark board, got ${JSON.stringify(result.boards)}`);
+  if (result.pcbs.length !== 0) {
+    throw new Error(`expected no physical PCBs, got ${JSON.stringify(result.pcbs.map((analysis) => analysis.pcb))}`);
   }
-  const schematic = result.analyses[0]?.ir;
+  const schematic = result.main.ir;
   if (schematic === undefined) throw new Error("generated benchmark schematic did not produce IR");
   if (schematic.instances.length !== count || schematic.nets.length !== expectedNets) {
     throw new Error(
       `generated IR has ${schematic.instances.length} instances and ${schematic.nets.length} nets; expected ${count} and ${expectedNets}`,
     );
+  }
+  if (
+    schematic.instances.some((instance) => !instance.id.startsWith("M1.")) ||
+    schematic.nets.some((net) => !net.id.startsWith("M1."))
+  ) {
+    throw new Error("generated IR contains identifiers outside module instance M1");
   }
 }
 
@@ -231,8 +245,8 @@ function runWorker(root: string, count: number, expectedNets: number, repeats: n
     samples.push(Number(process.hrtime.bigint() - start) / 1_000_000);
     const errors = errorDiagnostics(result.diagnostics);
     if (errors.length > 0) throw new Error(`timed check produced errors:\n${errors.slice(0, 8).join("\n")}`);
-    if (result.boards.length !== 1 || result.boards[0] !== "benchmark") {
-      throw new Error(`timed check returned unexpected boards: ${JSON.stringify(result.boards)}`);
+    if (result.main !== "main" || result.pcbs.length !== 0) {
+      throw new Error(`timed check returned unexpected root/PCBs: ${result.main}/${JSON.stringify(result.pcbs)}`);
     }
     finalDiagnostics = result.diagnostics;
   }
@@ -281,13 +295,17 @@ function measureCase(
   const projectRoot = join(workRoot, `${shape}-${count}`);
   mkdirSync(projectRoot, { recursive: true });
   const generated = makeProject(projectRoot, shape, count);
-  const sourceBytes = statSync(generated.schematic).size;
+  const sourceBytes = statSync(generated.schematic).size + statSync(generated.module).size;
+  const sourceLines =
+    (readFileSync(generated.schematic, "utf8").split("\n").length - 1) +
+    (readFileSync(generated.module, "utf8").split("\n").length - 1);
   const projectSourceBytes = [
     "project.toml",
     "assets/components/passives/res-thick-0402.teda",
     "assets/symbols/passives/r.teda",
     "assets/footprints/chip/chip-0402.teda",
-    "design/sch/benchmark.teda",
+    "design/sch/main.teda",
+    "design/modules/benchmark.teda",
   ].reduce((total, relative) => total + statSync(join(projectRoot, relative)).size, 0);
   const child = Bun.spawnSync(
     [process.execPath, SCRIPT_PATH, "--worker", projectRoot, String(count), String(generated.nets), String(repeats), String(warmups)],
@@ -313,7 +331,7 @@ function measureCase(
     nets: generated.nets,
     max_net_members: generated.maxNetMembers,
     schematic_bytes: sourceBytes,
-    schematic_lines: readFileSync(generated.schematic, "utf8").split("\n").length - 1,
+    schematic_lines: sourceLines,
     project_source_bytes: projectSourceBytes,
     min_ms: summary.min,
     median_ms: summary.median,

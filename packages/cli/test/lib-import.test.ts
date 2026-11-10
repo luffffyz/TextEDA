@@ -61,6 +61,7 @@ function makeProject(): string {
   writeFileSync(join(root, "project.toml"), LIBRARY_PROJECT);
   mkdirSync(join(root, "assets/components"), { recursive: true });
   mkdirSync(join(root, "design/sch"), { recursive: true });
+  writeFileSync(join(root, "design/sch/main.teda"), "version 0.14.0\nschematic main\n");
   return root;
 }
 
@@ -211,7 +212,15 @@ describe("texteda lib import", () => {
       mkdirSync(join(root, "assets/footprints/project"), { recursive: true });
       writeFileSync(join(root, "assets/symbols/project/r.teda"), "version 0.5\nsymbol r\n\npins\n  1  -5.08  0  0\n  2   5.08  0  180\n");
       writeFileSync(join(root, "assets/footprints/project/chip-0402.teda"), "version 0.4.1\nfootprint chip-0402\npackage_code 0402\n");
-      writeFileSync(join(root, "design/sch/b.teda"), "version 0.3\nschematic b\n\ninstances\n  R1  res-thick-0402  10k  ±1%\n\nnets\n  GND:  R1.1\n  SIG:  R1.2\n");
+      writeFileSync(
+        join(root, "design/sch/main.teda"),
+        "version 0.14.0\nschematic main\n\nmodules\n  M1  resistor\n\nnets\n  GND:  M1.GND\n  SIG:  M1.SIG\n",
+      );
+      mkdirSync(join(root, "design/modules"), { recursive: true });
+      writeFileSync(
+        join(root, "design/modules/resistor.teda"),
+        "version 0.11\nmodule resistor\n\ninstances\n  R1  res-thick-0402  10k  ±1%\n\nnets\n  GND:  R1.1\n  SIG:  R1.2\n\nports\n  GND  GND\n  SIG  SIG\n",
+      );
 
       const base = `version 0.1.6
 component res-thick-0402

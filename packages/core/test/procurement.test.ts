@@ -47,7 +47,7 @@ function line(overrides: Partial<DesignLine> = {}): DesignLine {
     component: "res-thick-0402",
     params: { value: 10_000_000_000, tolerance: 10_000 },
     instances: ["R1"],
-    location: { file: "design/sch/b.teda", line: 10, col: 1 },
+    location: { file: "design/sch/main.teda", line: 10, col: 1 },
     ...overrides,
   };
 }

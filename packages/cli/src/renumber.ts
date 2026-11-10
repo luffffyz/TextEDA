@@ -6,9 +6,9 @@
 // `--apply` is given.
 //
 // What is renamed:
-//   - component refdes rows in a board (`R1`, `C7`, `U3`, ...);
-//   - component refdes rows inside a module definition (`R1`, ...). A module's refdes is local to
-//     its definition, so one mapping updates every `M<tag>.<old>` reference in every board that
+//   - component refdes rows inside module definitions (`R1`, `C7`, `U3`, ...); a selected PCB's
+//     module ownership determines which definitions are renumbered. A module's refdes is local to
+//     its definition, so one mapping updates every `M<tag>.<old>` reference in every PCB/page that
 //     uses that module.
 //
 // What is not renamed (ADR-0011 decision 5 and "What this does not do"):
@@ -43,6 +43,7 @@ import { basename, dirname, join, relative } from "node:path";
 import {
   formatPcb,
   formatSchematic,
+  formatModuleView,
   formatView,
   lex,
   naturalCompare,
@@ -57,7 +58,7 @@ import type { Diagnostic } from "@texteda/ir/diagnostics";
 import { checkProject } from "./check.ts";
 import { buildIrTree } from "./ir-tree.ts";
 import { LAYOUT } from "./paths.ts";
-import { listBoards, loadBoard, loadModules, loadPcb } from "./project.ts";
+import { listPcbs, loadModuleViews, loadModules, loadPcb, loadSchematic, loadViews } from "./project.ts";
 
 export type RenumberPolicy = "preserve" | "compact" | "position";
 
@@ -104,22 +105,24 @@ export interface RenumberReport {
 
 class RenumberError extends Error {}
 
-interface BoardContext {
+interface PcbContext {
   id: string;
   file: string;
   text: string;
-  doc: Document;
-  views: { file: string; text: string }[];
-  pcb: { file: string; text: string } | null;
-  /** A module tag in this board -> the module definition it instantiates. */
-  moduleByTag: Map<string, string>;
+  /** Root module instance tags owned by this physical PCB. */
+  ownedTags: Set<string>;
 }
 
 interface ProjectContext {
   root: string;
-  target: BoardContext;
-  boards: BoardContext[];
+  schematic: { file: string; text: string };
+  doc: Document;
+  moduleByTag: Map<string, string>;
+  views: { file: string; text: string }[];
+  target: PcbContext;
+  pcbs: PcbContext[];
   modules: Map<string, ModuleSource>;
+  moduleViews: Map<string, { file: string; text: string }>;
 }
 
 interface NameMaps {
@@ -170,9 +173,6 @@ function naturalNames(names: readonly string[]): string[] {
   return [...names].sort(naturalCompare);
 }
 
-function mapFromNames(names: readonly string[]): Map<string, string> {
-  return new Map(names.map((name) => [name, name]));
-}
 
 function hasChanges(map: ReadonlyMap<string, string>): boolean {
   for (const [old, next] of map) if (old !== next) return true;
@@ -189,72 +189,156 @@ function parseDoc(text: string, file: string, kind: "schematic" | "module"): Doc
   return parsed.doc;
 }
 
-function parseViews(board: BoardContext): void {
-  for (const view of board.views) {
-    const parsed = parseView(view.text, { file: view.file, board: board.id });
+function parseViews(views: readonly { file: string; text: string }[]): void {
+  for (const view of views) {
+    const parsed = parseView(view.text, { file: view.file });
     const errors = parsed.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
     if (errors.length > 0) {
       const first = errors[0]!;
       fail(`${view.file}: ${first.code}: ${first.message}`);
     }
   }
-  if (board.pcb) {
-    const parsed = parsePcb(board.pcb.text, { file: board.pcb.file, board: board.id });
-    const errors = parsed.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
-    if (errors.length > 0) {
-      const first = errors[0]!;
-      fail(`${board.pcb.file}: ${first.code}: ${first.message}`);
-    }
-  }
 }
 
-/** Read every board, module and view once. `buildIrTree` has already rejected an invalid project. */
+/** Read the logical root, reusable modules, flat project pages, and physical PCB ownership. */
 function loadContext(root: string, targetId: string): ProjectContext {
+  const schematic = loadSchematic(root);
+  if (!schematic) fail(`project has no schematic file (${LAYOUT.sch}/main.teda)`);
+  const doc = parseDoc(schematic.text, schematic.file, "schematic");
   const moduleSources = loadModules(root);
   const modules = new Map(moduleSources.map((source) => [source.moduleId, source]));
-  const boards: BoardContext[] = [];
-  for (const id of listBoards(root)) {
-    const loaded = loadBoard(root, id);
+  const moduleViews = new Map(loadModuleViews(root).map((source) => [source.moduleId, { file: source.file, text: source.text }]));
+  const views = loadViews(root).map((view) => ({ file: view.file, text: view.text }));
+  parseViews(views);
+
+  const moduleByTag = new Map(doc.modules.map((module) => [module.instanceId, module.moduleId]));
+  for (const module of doc.modules) {
+    if (!modules.has(module.moduleId)) {
+      fail(`project uses module ${module.moduleId}, but ${LAYOUT.modules}/${module.moduleId}.teda does not exist`);
+    }
+  }
+
+  const pcbs: PcbContext[] = [];
+  for (const id of listPcbs(root)) {
+    const loaded = loadPcb(root, id);
     if (!loaded) continue;
-    const doc = parseDoc(loaded.text, loaded.file, "schematic");
-    const pcbLoaded = loadPcb(root, id);
-    const board: BoardContext = {
-      id,
-      file: loaded.file,
-      text: loaded.text,
-      doc,
-      views: loaded.views.map((view) => ({ file: view.file, text: view.text })),
-      pcb: pcbLoaded ? { file: pcbLoaded.file, text: pcbLoaded.text } : null,
-      moduleByTag: new Map(doc.modules.map((module) => [module.instanceId, module.moduleId])),
-    };
-    parseViews(board);
-    boards.push(board);
+    const parsed = parsePcb(loaded.text, { file: loaded.file, pcb: id });
+    const errors = parsed.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+    if (errors.length > 0 || !parsed.ir) {
+      const first = errors[0];
+      fail(`${loaded.file}: ${first ? `${first.code}: ${first.message}` : "could not be parsed"}`);
+    }
+    pcbs.push({ id, file: loaded.file, text: loaded.text, ownedTags: new Set(parsed.ir.modules) });
   }
-  const target = boards.find((board) => board.id === targetId);
-  if (!target) fail(`board ${targetId} has no schematic file (${LAYOUT.sch}/${targetId}.teda)`);
-  for (const moduleId of new Set(target.doc.modules.map((module) => module.moduleId))) {
-    if (!modules.has(moduleId)) fail(`board ${targetId} uses module ${moduleId}, but ${LAYOUT.modules}/${moduleId}.teda does not exist`);
+  for (const pcb of pcbs) {
+    for (const tag of pcb.ownedTags) {
+      if (!moduleByTag.has(tag)) fail(`PCB ${pcb.id} claims unknown project module instance ${tag}`);
+    }
   }
-  return { root, target, boards, modules };
+  const target = pcbs.find((pcb) => pcb.id === targetId);
+  if (!target) fail(`PCB ${targetId} does not exist (${LAYOUT.pcb}/${targetId}.teda)`);
+  return {
+    root,
+    schematic: { file: schematic.file, text: schematic.text },
+    doc,
+    moduleByTag,
+    views,
+    target,
+    pcbs,
+    modules,
+    moduleViews,
+  };
 }
 
-function placementMap(board: BoardContext): Map<string, Placement> {
+function placementMap(context: ProjectContext, moduleDocs: ReadonlyMap<string, Document>): Map<string, Placement> {
+  const targetInstances = new Map<string, string>();
+  for (const tag of context.target.ownedTags) {
+    const moduleId = context.moduleByTag.get(tag);
+    if (moduleId === undefined) fail(`PCB ${context.target.id} claims unknown project module instance ${tag}`);
+    const doc = moduleDocs.get(moduleId);
+    if (!doc) fail(`module ${moduleId} is missing`);
+    for (const instance of doc.instances) targetInstances.set(`${tag}.${instance.refdes}`, tag);
+  }
+
   const placements = new Map<string, Placement>();
-  for (const view of board.views) {
-    const parsed = parseView(view.text, { file: view.file, board: board.id });
+  const tagsWithPlacements = new Set<string>();
+  for (const view of context.views) {
+    const parsed = parseView(view.text, { file: view.file });
     if (!parsed.ir) continue;
-    for (const item of parsed.ir.place) {
+    for (const item of parsed.ir.place ?? []) {
+      const tag = targetInstances.get(item.instance_id);
+      if (tag === undefined) continue;
+      tagsWithPlacements.add(tag);
       const next = { page: view.file, x: item.x_nm, y: item.y_nm };
       const previous = placements.get(item.instance_id);
       if (previous && (previous.x !== next.x || previous.y !== next.y)) {
         fail(
-          `position is ambiguous for ${board.id}/${item.instance_id}: it is placed at both ${previous.page} and ${next.page}; use --mapping`,
+          `position is ambiguous for ${context.target.id}/${item.instance_id}: it is placed at both ${previous.page} and ${next.page}; use --mapping`,
         );
       }
       if (!previous) placements.set(item.instance_id, next);
     }
   }
+  for (const tag of context.target.ownedTags) {
+    if (!tagsWithPlacements.has(tag)) {
+      fail(`position policy needs component placement evidence for PCB ${context.target.id} module instance ${tag}; use --mapping`);
+    }
+  }
   return placements;
+}
+function ownedModuleIds(context: ProjectContext): string[] {
+  const ids = new Set<string>();
+  for (const tag of context.target.ownedTags) {
+    const moduleId = context.moduleByTag.get(tag);
+    if (moduleId === undefined) fail(`PCB ${context.target.id} claims unknown project module instance ${tag}`);
+    ids.add(moduleId);
+  }
+  return [...ids].sort();
+}
+
+function computePolicyMaps(context: ProjectContext, policy: RenumberPolicy): NameMaps {
+  // The root has no component instances of its own; all refdes are local to reusable modules.
+  const maps: NameMaps = { board: new Map(), modules: new Map() };
+  const moduleIds = ownedModuleIds(context);
+
+  if (policy === "preserve") return maps;
+
+  if (policy === "compact") {
+    for (const moduleId of moduleIds) {
+      const source = context.modules.get(moduleId)!;
+      const doc = parseDoc(source.text, source.file, "module");
+      maps.modules.set(moduleId, compactMap(doc.instances.map((instance) => instance.refdes)));
+    }
+    return maps;
+  }
+
+  // position
+  const moduleDocs = new Map<string, Document>();
+  for (const moduleId of moduleIds) {
+    const source = context.modules.get(moduleId);
+    if (!source) fail(`module ${moduleId} is missing`);
+    moduleDocs.set(moduleId, parseDoc(source.text, source.file, "module"));
+  }
+  const placements = placementMap(context, moduleDocs);
+  if (placements.size === 0) {
+    fail(
+      `position policy needs module-component placement evidence: PCB ${context.target.id} has no placed owned module components; use compact, preserve, or --mapping`,
+    );
+  }
+  for (const moduleId of moduleIds) {
+    const doc = moduleDocs.get(moduleId)!;
+    const tags = [...context.target.ownedTags].filter((tag) => context.moduleByTag.get(tag) === moduleId);
+    maps.modules.set(
+      moduleId,
+      positionModuleMap(
+        moduleId,
+        doc.instances.map((instance) => instance.refdes),
+        tags,
+        placements,
+      ),
+    );
+  }
+  return maps;
 }
 
 function orderByPlacement(
@@ -326,62 +410,6 @@ function positionModuleMap(
   return map;
 }
 
-function computePolicyMaps(context: ProjectContext, policy: RenumberPolicy): NameMaps {
-  const boardNames = context.target.doc.instances.map((instance) => instance.refdes);
-  const maps: NameMaps = { board: new Map(), modules: new Map() };
-
-  if (policy === "preserve") {
-    maps.board = mapFromNames(boardNames);
-    return maps;
-  }
-
-  if (policy === "compact") {
-    maps.board = compactMap(boardNames);
-    for (const moduleId of new Set(context.target.doc.modules.map((module) => module.moduleId))) {
-      const source = context.modules.get(moduleId)!;
-      const doc = parseDoc(source.text, source.file, "module");
-      maps.modules.set(moduleId, compactMap(doc.instances.map((instance) => instance.refdes)));
-    }
-    return maps;
-  }
-
-  // position
-  const placements = placementMap(context.target);
-  if (placements.size === 0) {
-    fail(
-      `position policy needs a view with place rows: board ${context.target.id} has no print page placement; use compact, preserve, or --mapping`,
-    );
-  }
-  const orderedBoard = orderByPlacement(boardNames, (name) => placements.get(name));
-  const boardByPrefix = new Map<string, string[]>();
-  for (const name of orderedBoard) {
-    const { prefix } = splitPrefix(name);
-    const group = boardByPrefix.get(prefix);
-    if (group) group.push(name);
-    else boardByPrefix.set(prefix, [name]);
-  }
-  for (const [prefix, group] of boardByPrefix) {
-    group.forEach((old, index) => maps.board.set(old, `${prefix}${index + 1}`));
-  }
-
-  for (const moduleId of new Set(context.target.doc.modules.map((module) => module.moduleId))) {
-    const source = context.modules.get(moduleId)!;
-    const doc = parseDoc(source.text, source.file, "module");
-    const tags = context.target.doc.modules
-      .filter((module) => module.moduleId === moduleId)
-      .map((module) => module.instanceId);
-    maps.modules.set(
-      moduleId,
-      positionModuleMap(
-        moduleId,
-        doc.instances.map((instance) => instance.refdes),
-        tags,
-        placements,
-      ),
-    );
-  }
-  return maps;
-}
 
 /** Parse `old new` lines; a module-local name is written `module_id/refdes`. */
 function parseMappingFile(path: string): { board: Map<string, string>; modules: Map<string, Map<string, string>> } {
@@ -425,7 +453,8 @@ function parseMappingFile(path: string): { board: Map<string, string>; modules: 
 }
 
 function validateMaps(context: ProjectContext, maps: NameMaps, policy: string): void {
-  const boardNames = context.target.doc.instances.map((instance) => instance.refdes);
+  const boardNames: string[] = [];
+  const moduleIds = new Set(ownedModuleIds(context));
 
   const validateNamespace = (
     namespace: string,
@@ -463,7 +492,12 @@ function validateMaps(context: ProjectContext, maps: NameMaps, policy: string): 
   };
 
   validateNamespace("board", boardNames, maps.board);
-  for (const moduleId of new Set(context.target.doc.modules.map((module) => module.moduleId))) {
+  for (const moduleId of maps.modules.keys()) {
+    if (!moduleIds.has(moduleId)) {
+      fail(`${policy}: mapping names module ${moduleId}, but PCB ${context.target.id} does not own it`);
+    }
+  }
+  for (const moduleId of moduleIds) {
     const source = context.modules.get(moduleId)!;
     const doc = parseDoc(source.text, source.file, "module");
     const local = maps.modules.get(moduleId);
@@ -471,7 +505,7 @@ function validateMaps(context: ProjectContext, maps: NameMaps, policy: string): 
   }
   // A board-level name may not become a module tag: module tags are outside this namespace and are
   // never renumbered.
-  const tags = new Set(context.target.doc.modules.map((module) => module.instanceId));
+  const tags = new Set(context.moduleByTag.keys());
   for (const next of maps.board.values()) {
     if (tags.has(next)) fail(`${policy}: board refdes ${next} collides with a module instance tag`);
   }
@@ -614,7 +648,7 @@ function editSchematicSource(
 function editViewSource(
   text: string,
   file: string,
-  board: BoardContext,
+  moduleByTag: ReadonlyMap<string, string>,
   boardMap: ReadonlyMap<string, string>,
   moduleMaps: ReadonlyMap<string, ReadonlyMap<string, string>>,
 ): { text: string; changed: boolean } {
@@ -630,11 +664,11 @@ function editViewSource(
       continue;
     }
     if (section === "place") {
-      pushIfChanged(edits, line.number, line.cells[0], mapRef(first.text, boardMap, board.moduleByTag, moduleMaps));
+      pushIfChanged(edits, line.number, line.cells[0], mapRef(first.text, boardMap, moduleByTag, moduleMaps));
     } else if (section === "wire") {
       // wire <net> <pin-a> <pin-b> [x y ...]: only the two pin columns.
-      pushIfChanged(edits, line.number, line.cells[1], line.cells[1] ? mapRef(line.cells[1].text, boardMap, board.moduleByTag, moduleMaps) : undefined);
-      pushIfChanged(edits, line.number, line.cells[2], line.cells[2] ? mapRef(line.cells[2].text, boardMap, board.moduleByTag, moduleMaps) : undefined);
+      pushIfChanged(edits, line.number, line.cells[1], line.cells[1] ? mapRef(line.cells[1].text, boardMap, moduleByTag, moduleMaps) : undefined);
+      pushIfChanged(edits, line.number, line.cells[2], line.cells[2] ? mapRef(line.cells[2].text, boardMap, moduleByTag, moduleMaps) : undefined);
     }
   }
   const edited = applyEdits(text, edits);
@@ -647,11 +681,50 @@ function editViewSource(
   return { text: formatted.text, changed: edits.length > 0 };
 }
 
+/** Rewrite module-local instance and pin references in a reusable module drawing. */
+function editModuleViewSource(
+  text: string,
+  file: string,
+  localMap: ReadonlyMap<string, string>,
+): { text: string; changed: boolean } {
+  const edits: Edit[] = [];
+  let section: string | null = null;
+  for (const line of lex(text)) {
+    if (line.blank || line.comment) continue;
+    const first = line.cells[0];
+    if (!first) continue;
+    if (first.text === "version" || first.text === "module_view") continue;
+    if (["place", "field", "wire", "junction", "label", "port", "text"].includes(first.text) && line.cells.length === 1) {
+      section = first.text;
+      continue;
+    }
+    if (section === "place" || section === "field") {
+      pushIfChanged(edits, line.number, first, localMap.get(first.text));
+    } else if (section === "wire") {
+      for (const index of [1, 2]) {
+        const cell = line.cells[index];
+        if (!cell) continue;
+        const head = cell.text.split(".", 1)[0]!;
+        const next = localMap.get(head);
+        if (next !== undefined) pushIfChanged(edits, line.number, cell, `${next}${cell.text.slice(head.length)}`);
+      }
+    }
+  }
+  const edited = applyEdits(text, edits);
+  const formatted = formatModuleView(edited, { file });
+  const errors = formatted.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+  if (errors.length > 0 || formatted.text === undefined) {
+    const first = errors[0];
+    fail(`${file}: formatter refused the edited source${first ? ` (${first.code}: ${first.message})` : ""}`);
+  }
+  return { text: formatted.text, changed: edits.length > 0 };
+}
+
 /** Rewrite pcb place and connect references; nets, layers, coordinates and rules stay untouched. */
 function editPcbSource(
   text: string,
   file: string,
-  board: BoardContext,
+  moduleByTag: ReadonlyMap<string, string>,
   boardMap: ReadonlyMap<string, string>,
   moduleMaps: ReadonlyMap<string, ReadonlyMap<string, string>>,
 ): { text: string; changed: boolean } {
@@ -672,11 +745,11 @@ function editPcbSource(
       continue;
     }
     if (section === "place") {
-      pushIfChanged(edits, line.number, line.cells[0], mapRef(first.text, boardMap, board.moduleByTag, moduleMaps));
+      pushIfChanged(edits, line.number, line.cells[0], mapRef(first.text, boardMap, moduleByTag, moduleMaps));
     } else if (section === "connect") {
       for (const index of [0, 1]) {
         const cell = line.cells[index];
-        pushIfChanged(edits, line.number, cell, cell ? mapRef(cell.text, boardMap, board.moduleByTag, moduleMaps) : undefined);
+        pushIfChanged(edits, line.number, cell, cell ? mapRef(cell.text, boardMap, moduleByTag, moduleMaps) : undefined);
       }
     }
   }
@@ -728,13 +801,14 @@ function documentedNetNames(doc: Document): Set<string> {
 }
 
 /** A board's nets plus the module-local nets it can name after flattening (`M1.NET`). */
-function boardNetNames(board: BoardContext, modules: ReadonlyMap<string, ModuleSource>): Set<string> {
-  const names = documentedNetNames(board.doc);
-  for (const module of board.doc.modules) {
+/** The root schematic's nets plus module-local nets it can name after flattening (`M1.NET`). */
+function boardNetNames(doc: Document, modules: ReadonlyMap<string, ModuleSource>): Set<string> {
+  const names = documentedNetNames(doc);
+  for (const module of doc.modules) {
     const source = modules.get(module.moduleId);
     if (!source) continue;
-    const doc = parseDoc(source.text, source.file, "module");
-    for (const name of documentedNetNames(doc)) names.add(`${module.instanceId}.${name}`);
+    const moduleDoc = parseDoc(source.text, source.file, "module");
+    for (const name of documentedNetNames(moduleDoc)) names.add(`${module.instanceId}.${name}`);
   }
   return names;
 }
@@ -743,14 +817,12 @@ function boardNetNames(board: BoardContext, modules: ReadonlyMap<string, ModuleS
 function fullNameMap(context: ProjectContext, maps: NameMaps): Map<string, string> {
   const out = new Map<string, string>();
   for (const [old, next] of maps.board) if (old !== next) out.set(old, next);
-  for (const board of context.boards) {
-    for (const [tag, moduleId] of board.moduleByTag) {
-      const localMap = maps.modules.get(moduleId);
-      if (!localMap) continue;
-      for (const [old, next] of localMap) {
-        if (old === next) continue;
-        out.set(`${tag}.${old}`, `${tag}.${next}`);
-      }
+  for (const [tag, moduleId] of context.moduleByTag) {
+    const localMap = maps.modules.get(moduleId);
+    if (!localMap) continue;
+    for (const [old, next] of localMap) {
+      if (old === next) continue;
+      out.set(`${tag}.${old}`, `${tag}.${next}`);
     }
   }
   return out;
@@ -831,27 +903,27 @@ export function editProjectVariants(text: string, names: ReadonlyMap<string, str
 function editsForProject(context: ProjectContext, maps: NameMaps): { edits: SourceEdit[]; names: Map<string, string> } {
   const edits: SourceEdit[] = [];
   const names = fullNameMap(context, maps);
-  for (const board of context.boards) {
-    const boardMap = board.id === context.target.id ? maps.board : new Map<string, string>();
-    const edit = editSchematicSource(
-      board.text,
-      board.file,
-      "schematic",
-      boardMap,
-      board.moduleByTag,
-      maps.modules,
-      undefined,
-      boardNetNames(board, context.modules),
-    );
-    if (edit.changed) edits.push({ file: board.file, before: board.text, after: edit.text, changed: true });
-    for (const view of board.views) {
-      const viewEdit = editViewSource(view.text, view.file, board, boardMap, maps.modules);
-      if (viewEdit.changed) edits.push({ file: view.file, before: view.text, after: viewEdit.text, changed: true });
-    }
-    if (board.pcb) {
-      const pcbEdit = editPcbSource(board.pcb.text, board.pcb.file, board, boardMap, maps.modules);
-      if (pcbEdit.changed) edits.push({ file: board.pcb.file, before: board.pcb.text, after: pcbEdit.text, changed: true });
-    }
+  const boardMap = new Map<string, string>();
+  const schematicEdit = editSchematicSource(
+    context.schematic.text,
+    context.schematic.file,
+    "schematic",
+    boardMap,
+    context.moduleByTag,
+    maps.modules,
+    undefined,
+    boardNetNames(context.doc, context.modules),
+  );
+  if (schematicEdit.changed) {
+    edits.push({ file: context.schematic.file, before: context.schematic.text, after: schematicEdit.text, changed: true });
+  }
+  for (const view of context.views) {
+    const viewEdit = editViewSource(view.text, view.file, context.moduleByTag, boardMap, maps.modules);
+    if (viewEdit.changed) edits.push({ file: view.file, before: view.text, after: viewEdit.text, changed: true });
+  }
+  for (const pcb of context.pcbs) {
+    const pcbEdit = editPcbSource(pcb.text, pcb.file, context.moduleByTag, boardMap, maps.modules);
+    if (pcbEdit.changed) edits.push({ file: pcb.file, before: pcb.text, after: pcbEdit.text, changed: true });
   }
   for (const [moduleId, map] of maps.modules) {
     if (!hasChanges(map)) continue;
@@ -869,6 +941,11 @@ function editsForProject(context: ProjectContext, maps: NameMaps): { edits: Sour
       documentedNetNames(sourceDoc),
     );
     if (edit.changed) edits.push({ file: source.file, before: source.text, after: edit.text, changed: true });
+    const moduleView = context.moduleViews.get(moduleId);
+    if (moduleView) {
+      const viewEdit = editModuleViewSource(moduleView.text, moduleView.file, map);
+      if (viewEdit.changed) edits.push({ file: moduleView.file, before: moduleView.text, after: viewEdit.text, changed: true });
+    }
   }
   const projectFile = join(context.root, "project.toml");
   if (existsSync(projectFile) && names.size > 0) {
@@ -1040,11 +1117,6 @@ export function runRenumber(options: RenumberOptions): number {
     if (policy === "mapping") {
       const parsed = parseMappingFile(options.mapping!);
       maps = { board: parsed.board, modules: parsed.modules };
-      for (const moduleId of maps.modules.keys()) {
-        if (!context.target.doc.modules.some((module) => module.moduleId === moduleId)) {
-          fail(`mapping names module ${moduleId}, but board ${options.board} does not use it`);
-        }
-      }
     } else {
       maps = computePolicyMaps(context, policy);
     }

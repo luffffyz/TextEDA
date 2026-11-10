@@ -31,7 +31,7 @@ export interface ReviewRound {
   id: string;
   /** Notes file, relative to the project root. */
   file: string;
-  /** The target declared in the notes' heading, when it can be read (`board:<id>`, `page:<id>/<page>`, `component:<id>`). */
+  /** The target declared in the notes' heading, when it can be read (`board:<id>`, flat project `page:<page>`, `component:<id>`). */
   target?: string;
   notes: ReviewNote[];
   /** The decision file of this round, if one exists. */

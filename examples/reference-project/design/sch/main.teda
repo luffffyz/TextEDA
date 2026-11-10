@@ -1,0 +1,58 @@
+version 0.14.0
+schematic main
+
+# The project's one logical root (ADR-0069 D1). All component facts live in the reusable
+# module definitions under design/modules/; this file composes their instances, merges the
+# module ports into project nets, and declares the explicit cross-PCB paths.
+#
+# Two physical boards implement the product:
+#   charger-buck: M1 (charger-power) + M2 (buck-5v)   design/pcb/charger-buck.teda
+#   mcu-board:    M3 (mcu-board)                      design/pcb/mcu-board.teda
+#
+# A project net is a logical fact. It does not make copper continuous: the two PCBs are
+# joined only by the interconnects below (ADR-0069 D3).
+modules
+  M1  ID5w4pv5  charger-power
+  M2  IDee5b8n  buck-5v
+  M3  IDp8x2n4  mcu-board
+
+nets
+  AC_COMMON:  M1.AC_RET
+  ADAPTER_P:  M1.DC_IN
+  BOOT0:      M3.BOOT0
+  GND:        M1.GND  M2.GND  M3.GND
+  NRST:       M3.NRST
+  SWCLK:      M3.SWCLK
+  SWDIO:      M3.SWDIO
+  SYS:        M1.SYS_OUT  M2.SYS_IN
+  V3V3:       M3.VOUT_3V3
+  VBAT:       M1.BAT
+  VOUT:       M2.VOUT  M3.DC_IN
+
+# The product's external terminals.
+ports
+  AC_RET    AC_COMMON
+  BAT       VBAT
+  BOOT0     BOOT0
+  DC_IN     ADAPTER_P
+  GND       GND
+  NRST      NRST
+  SWCLK     SWCLK
+  SWDIO     SWDIO
+  VOUT_3V3  V3V3
+  VOUT_5V   VOUT
+
+constraints
+  voltage  GND   0V..0V
+  voltage  SYS   9V..19.8V
+  voltage  VBAT  9V..12.6V
+  voltage  VOUT  4.5V..5.5V
+  voltage  V3V3  3.0V..3.6V
+  current  VBAT  3A
+  current  VOUT  3A
+  current  V3V3  300mA
+
+# Cross-PCB paths. Each joins two module ports on one project net, on different PCBs.
+interconnects
+  ic1  M2.VOUT  M3.DC_IN
+  ic2  M2.GND   M3.GND

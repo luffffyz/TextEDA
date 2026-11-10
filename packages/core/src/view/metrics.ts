@@ -20,7 +20,7 @@ import {
   wirePath,
   type Point,
 } from "./geometry.ts";
-import type { ReadabilityGeometry } from "./facts.ts";
+import { viewModuleFacts, type ReadabilityGeometry } from "./facts.ts";
 
 /** One label or port with how far it sits from the net it names (0 when it is on it). */
 export interface NetTextMetric {
@@ -34,7 +34,7 @@ export interface NetTextMetric {
 }
 
 export interface ViewMetrics {
-  readonly board: string;
+  readonly project: string;
   readonly page: string;
   readonly sheet: { readonly width_nm: number; readonly height_nm: number };
   /** Box containing every drawn element; null for a page that draws nothing. */
@@ -57,7 +57,7 @@ export interface ViewMetrics {
     readonly ports: number;
     readonly notes: number;
     readonly wires: number;
-    /** Nets the board has but this page does not draw wiring for. */
+    /** Project nets this page does not draw wiring for. */
     readonly nets_undrawn: number;
   };
   /** Smallest gap between any two texts (0 = touching or overlapping); absent with fewer than two. */
@@ -74,17 +74,21 @@ export interface ViewMetrics {
   readonly net_texts: readonly NetTextMetric[];
 }
 
-/** Measure one print page against its board. Pure: geometry in, numbers out. */
+/** Measure one print page against its project. Pure: geometry in, numbers out. */
 export function viewMetrics(facts: {
   readonly view: SchematicView;
   readonly schematic: Schematic;
   readonly geometry: ReadabilityGeometry;
 }): ViewMetrics {
   const { view, schematic, geometry } = facts;
+  const sheet = view.sheet;
+  if (sheet === undefined) throw new Error("view metrics requires an effective sheet extent");
   const symbols = new Map(geometry.symbols.map((symbol) => [symbol.instance_id, symbol]));
   const endpointPoints = new Map<string, Point>([
     ...(view.port ?? []).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }] as const),
     ...(view.junction ?? []).map((junction) => [junction.id, { x_nm: junction.x_nm, y_nm: junction.y_nm }] as const),
+    ...(viewModuleFacts(view).module_port ?? []).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }] as const),
+    ...(geometry.modulePortPoints ?? []),
   ]);
   const wires = view.wire ?? [];
   const portNet = new Map((schematic.ports ?? []).map((port) => [port.id, port.net]));
@@ -160,22 +164,28 @@ export function viewMetrics(facts: {
     );
     if (hit) throughBodies += 1;
   }
-
   const content = boxUnion([
     ...geometry.symbols.map((symbol) => symbol.box),
+    ...(geometry.modules ?? []).map((module) => module.box),
     ...geometry.texts.map((text) => text.box),
+    ...(viewModuleFacts(view).module_port ?? []).map((port) => ({
+      min_x_nm: port.x_nm,
+      min_y_nm: port.y_nm,
+      max_x_nm: port.x_nm,
+      max_y_nm: port.y_nm,
+    })),
     ...paths.flatMap((entry) => entry.path.map((point) => ({ min_x_nm: point.x_nm, min_y_nm: point.y_nm, max_x_nm: point.x_nm, max_y_nm: point.y_nm }))),
   ]);
-  const sheetArea = view.sheet.width_nm * view.sheet.height_nm;
+  const sheetArea = sheet.width_nm * sheet.height_nm;
   const contentArea = content
     ? (content.max_x_nm - content.min_x_nm) * (content.max_y_nm - content.min_y_nm)
     : 0;
   const drawnNets = new Set(wires.map((wire) => wire.net));
 
   return {
-    board: view.board,
+    project: view.project,
     page: view.page,
-    sheet: { width_nm: view.sheet.width_nm, height_nm: view.sheet.height_nm },
+    sheet: { width_nm: sheet.width_nm, height_nm: sheet.height_nm },
     content,
     content_fill_ppm: sheetArea === 0 ? 0 : Math.round((contentArea / sheetArea) * 1_000_000),
     counts: {

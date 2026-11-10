@@ -80,21 +80,21 @@ export interface ReviewPcbPart {
 }
 
 /** What a drawing shows (ADR-0048). */
-export type ReviewDrawingKind = "sch" | "pcb" | "symbol" | "footprint";
+export type ReviewDrawingKind = "sch" | "pcb" | "symbol" | "footprint" | "module";
 
 /**
  * One drawing the app can show.
  *
- * The app shows drawings, not boards: a print page, a board's physical canvas, a library symbol and
- * a library footprint are four kinds of the same thing — something drawn, with a source file behind
- * it (ADR-0048). The fields that belong to one kind are absent on the others, and the kind says
- * which.
+ * The app shows drawings, not boards: a print page, a board's physical canvas, a library symbol, a
+ * library footprint and a reusable module drawing are five kinds of the same thing — something
+ * drawn, with a source file behind it (ADR-0048, ADR-0068 D2). The fields that belong to one kind
+ * are absent on the others, and the kind says which.
  */
 export interface ReviewDrawing {
   kind: ReviewDrawingKind;
   /**
    * The drawing's key in the model: `board/<board>/page/<page>`, `board/<board>/pcb`,
-   * `symbol/<lib>/<id>`, `footprint/<lib>/<id>`.
+   * `symbol/<lib>/<id>`, `footprint/<lib>/<id>`, `module/<module_id>`.
    */
   key: string;
   /** The name the sidebar shows. */
@@ -102,12 +102,17 @@ export interface ReviewDrawing {
   /**
    * What the sidebar files this drawing under, within its kind: a symbol's device category or a
    * footprint's package family — the classification directory the file sits in (ADR-0049). Absent
-   * for a print page and a board canvas, which are filed by board.
+   * for a print page, a board canvas and a module drawing, which are filed by board or by module.
    */
   group?: string;
   /** The source file, relative to the project root. */
   file: string;
-  /** The sheet's size in millimetres. */
+  /**
+   * The sheet's size in millimetres.
+   *
+   * A print page's sheet is the page's own extent; a standalone drawing's sheet is the extent of
+   * its own ink (a module drawing: its own local bounds), plus the renderer's margin.
+   */
   sheet: { w: number; h: number };
   /** The renderer's SVG, verbatim. Empty when the drawing could not be made. */
   svg: string;

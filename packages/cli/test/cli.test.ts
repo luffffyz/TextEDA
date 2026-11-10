@@ -25,8 +25,8 @@ describe("argument parsing", () => {
   test("a flag with a value does not consume a positional argument", () => {
     const root = mkdtempSync(join(tmpdir(), "texteda-cli-"));
     try {
-      const out = join(root, "mcu.json");
-      const result = run(["compile", "examples/reference-project", "mcu-board", "--out", out]);
+      const out = join(root, "pcb.json");
+      const result = run(["compile", "examples/reference-project", "mcu-board", "--pcb", "--out", out]);
       expect(result.stderr).not.toContain("cli.bad-usage");
       expect(result.code).toBe(0);
     } finally {
@@ -35,7 +35,7 @@ describe("argument parsing", () => {
   });
 
   test("a flag missing its value yields a usage error", () => {
-    const result = run(["compile", "examples/reference-project", "mcu-board", "--out"]);
+    const result = run(["compile", "examples/reference-project", "mcu-board", "--pcb", "--out"]);
     expect(result.code).toBe(2);
     expect(result.stderr).toContain("cli.bad-usage");
   });
@@ -66,8 +66,8 @@ describe("--out writes into a directory that does not exist yet", () => {
     // must work on a fresh project instead of dying with a raw ENOENT.
     const root = mkdtempSync(join(tmpdir(), "texteda-cli-out-"));
     try {
-      const out = join(root, "dist", "schematic.json");
-      const result = run(["compile", "examples/reference-project", "mcu-board", "--out", out]);
+      const out = join(root, "dist", "pcb.json");
+      const result = run(["compile", "examples/reference-project", "mcu-board", "--pcb", "--out", out]);
       expect(result.code).toBe(0);
       expect(existsSync(out)).toBe(true);
     } finally {
@@ -110,9 +110,14 @@ describe("check exit codes", () => {
     const root = mkdtempSync(join(tmpdir(), "texteda-cli-bad-"));
     try {
       mkdirSync(join(root, "design/sch"), { recursive: true });
+      mkdirSync(join(root, "design/modules"), { recursive: true });
       writeFileSync(
-        join(root, "design/sch", "b.teda"),
-        "version 0.3\nschematic b\n\ninstances\n  R1  no-such-part  10k\n",
+        join(root, "design/sch", "main.teda"),
+        "version 0.14.0\nschematic main\n\nmodules\n  M1  m\n",
+      );
+      writeFileSync(
+        join(root, "design/modules", "m.teda"),
+        "version 0.8\nmodule m\n\ninstances\n  R1  no-such-part  10k\n",
       );
       const result = run(["check", root]);
       expect(result.code).toBe(1);

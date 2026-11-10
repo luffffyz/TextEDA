@@ -23,13 +23,28 @@ describe("print-page house style", () => {
     const view = page({
       place: [{ instance_id: "U1", x_nm: nm(40), y_nm: nm(30), rot_mdeg: 0 }],
       field: [{ instance_id: "U1", name: "Value", x_nm: nm(-0.5), y_nm: nm(-2) }],
-      wire: [{ net: "V", from_pin: "U1.5", to_pin: "C1.1", points: [{ x_nm: nm(35), y_nm: nm(25) }] }],
+      module: [{ instance_id: "M1", module_id: "power", x_nm: nm(80), y_nm: nm(40), width_nm: nm(40), height_nm: nm(30) }],
+      module_port: [{ id: "M1.VIN", x_nm: nm(80), y_nm: nm(55) }],
+      wire: [{ net: "V", from_pin: "M1.VIN", to_pin: "C1.1", points: [{ x_nm: nm(35), y_nm: nm(25) }] }],
       label: [{ net: "V", x_nm: nm(35), y_nm: nm(25) }],
       port: [{ id: "P1", x_nm: nm(280), y_nm: nm(105) }],
       text: [{ x_nm: nm(20), y_nm: nm(15), text: "note" }],
     });
     expect(viewHouseStyleProblems("t", view)).toEqual([]);
   });
+
+  test("a module corner, size, and port off the lattice are reported", () => {
+    const view = page({
+      module: [{ instance_id: "M1", module_id: "power", x_nm: nm(80.25), y_nm: nm(40), width_nm: nm(40.25), height_nm: nm(30) }],
+      module_port: [{ id: "M1.VIN", x_nm: nm(80.5), y_nm: nm(55.25) }],
+    });
+    const problems = viewHouseStyleProblems("t", view);
+    expect(problems).toHaveLength(3);
+    expect(problems[0]).toContain("module M1 corner");
+    expect(problems[1]).toContain("module M1 size");
+    expect(problems[2]).toContain("module port M1.VIN");
+  });
+
 
   test("a placement off the lattice is reported", () => {
     const view = page({ place: [{ instance_id: "U1", x_nm: nm(40.25), y_nm: nm(30) }] });

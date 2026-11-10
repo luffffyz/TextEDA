@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:texteda:ir:0.19:sheet-template",
+  "title": "TextEDA IR v0.19 — sheet template shard",
+  "description": "A reusable sheet template: the static furniture of a print page — title block, table, vector logo — and the page extent it gives. The furniture is literal: no project metadata, no variables, no electrical references, no page-specific facts. Lengths are integer nanometers (ADR-0006). The origin is the template's upper-left corner, +x right, +y down. See ADR-0068, ADR-0035.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ir_version",
+    "format",
+    "template_id",
+    "size"
+  ],
+  "properties": {
+    "ir_version": {
+      "$ref": "urn:texteda:ir:0.19:common#/$defs/ir_version",
+      "description": "IR contract version, currently always 0.19."
+    },
+    "format": {
+      "$ref": "urn:texteda:ir:0.19:common#/$defs/format_version",
+      "description": "Language version of the .teda file that produced this shard; see teda.md §13."
+    },
+    "source": {
+      "$ref": "urn:texteda:ir:0.19:common#/$defs/source_ref",
+      "description": "Source-file location: path relative to the project root plus an optional line number."
+    },
+    "template_id": {
+      "$ref": "urn:texteda:ir:0.19:common#/$defs/slug",
+      "description": "The template this shard describes, e.g. a4-title-block. Resolved from the file name views/templates/<template_id>.sheet-template.teda."
+    },
+    "size": {
+      "type": "object",
+      "description": "The page extent the template gives. A page that uses this template takes this size as its own extent (ADR-0068 D4).",
+      "additionalProperties": false,
+      "required": [
+        "width_nm",
+        "height_nm"
+      ],
+      "properties": {
+        "width_nm": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Template width."
+        },
+        "height_nm": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Template height."
+        }
+      }
+    },
+    "line": {
+      "type": "array",
+      "description": "Straight furniture strokes; rows are sorted by id.",
+      "items": {
+        "$ref": "#/$defs/line"
+      }
+    },
+    "rect": {
+      "type": "array",
+      "description": "Rectangular furniture outlines; rows are sorted by id.",
+      "items": {
+        "$ref": "#/$defs/rect"
+      }
+    },
+    "polyline": {
+      "type": "array",
+      "description": "Open polylines, the shape a vector logo is drawn with; rows are sorted by id.",
+      "items": {
+        "$ref": "#/$defs/polyline"
+      }
+    },
+    "text": {
+      "type": "array",
+      "description": "Static text of the furniture; rows are sorted by id.",
+      "items": {
+        "$ref": "#/$defs/text"
+      }
+    },
+    "note": {
+      "$ref": "urn:texteda:ir:0.19:common#/$defs/note",
+      "description": "Free text; canonical JSON has no comments, this is the substitute (ADR-0005 rule 8)."
+    }
+  },
+  "$defs": {
+    "point": {
+      "type": "object",
+      "description": "A point in the template's coordinates.",
+      "additionalProperties": false,
+      "required": [
+        "x_nm",
+        "y_nm"
+      ],
+      "properties": {
+        "x_nm": {
+          "type": "integer",
+          "description": "x from the template's upper-left corner."
+        },
+        "y_nm": {
+          "type": "integer",
+          "description": "y from the template's upper-left corner, increasing downward."
+        }
+      }
+    },
+    "line": {
+      "type": "object",
+      "description": "One straight furniture stroke.",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "start",
+        "end"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-]+$",
+          "description": "Row id, unique in the template."
+        },
+        "start": {
+          "$ref": "#/$defs/point",
+          "description": "Start point of the stroke."
+        },
+        "end": {
+          "$ref": "#/$defs/point",
+          "description": "End point of the stroke."
+        }
+      }
+    },
+    "rect": {
+      "type": "object",
+      "description": "One rectangular furniture outline, given by two opposite corners.",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "start",
+        "end"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-]+$",
+          "description": "Row id, unique in the template."
+        },
+        "start": {
+          "$ref": "#/$defs/point",
+          "description": "One corner of the rectangle."
+        },
+        "end": {
+          "$ref": "#/$defs/point",
+          "description": "The opposite corner of the rectangle."
+        }
+      }
+    },
+    "polyline": {
+      "type": "object",
+      "description": "One open polyline, drawn through its points in order.",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "points"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-]+$",
+          "description": "Row id, unique in the template."
+        },
+        "points": {
+          "type": "array",
+          "minItems": 2,
+          "description": "The points of the polyline, in the order they are drawn.",
+          "items": {
+            "$ref": "#/$defs/point"
+          }
+        }
+      }
+    },
+    "text": {
+      "type": "object",
+      "description": "One static text of the furniture, drawn with the renderer's fixed view text height.",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "x_nm",
+        "y_nm",
+        "text"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-]+$",
+          "description": "Row id, unique in the template."
+        },
+        "x_nm": {
+          "type": "integer",
+          "description": "Text position, x from the template's upper-left corner."
+        },
+        "y_nm": {
+          "type": "integer",
+          "description": "Text position, y from the template's upper-left corner, increasing downward."
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 2048,
+          "description": "The text; it is literal — no field is interpolated into it."
+        }
+      }
+    }
+  }
+}

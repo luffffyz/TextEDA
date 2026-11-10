@@ -28,7 +28,7 @@ import { parseQuantity, type QuantityKind } from "./quantities.ts";
 import { checkVersion, typeRange } from "./version.ts";
 import { REV_RE } from "./ids.ts";
 
-/** Pin electrical types from `teda.md` §10.1. */
+/** Pin electrical types from `teda.md` §9.1. */
 export const PIN_TYPES: Record<string, true> = {
   input: true,
   output: true,
@@ -303,7 +303,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
         error(line.number, line.cells[0]!.col, "syntax.removed-construct", `the \`${key}\` field was removed in ${since}`, {
           expected: "no `package` line",
           actual: key,
-          hint: "the package code names the land pattern: the footprint file states it (`package_code`), the device does not (teda.md §13.4)",
+          hint: "the package code names the land pattern: the footprint file states it (`package_code`), the device does not (teda.md §12.4)",
         });
         continue;
       }
@@ -336,7 +336,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
             error(line.number, line.cells[1]!.col, "syntax.removed-construct", `the kind value \`${value}\` was renamed in ${renamedIn}`, {
               expected: "part | generic",
               actual: value,
-              hint: "the two kinds are `part` and `generic`: a generic names a device class, and the part that fills it is chosen in the procurement layer (teda.md §13.4)",
+              hint: "the two kinds are `part` and `generic`: a generic names a device class, and the part that fills it is chosen in the procurement layer (teda.md §12.4)",
             });
             break;
           }
@@ -567,7 +567,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
   if (!kindAt) {
     error(sectionLine || 1, 1, "value.component-kind-invalid", "a component file must declare its kind", {
       expected: "kind part | kind generic",
-      hint: "add a `kind` line: `part` for a specific device, `generic` for a device class (teda.md §6.1.1; migration note: teda.md §13.4)",
+      hint: "add a `kind` line: `part` for a specific device, `generic` for a device class (teda.md §6.1.1; migration note: teda.md §12.4)",
     });
   }
 

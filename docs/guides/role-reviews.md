@@ -19,7 +19,7 @@ Drop any of the three and two "roles" produce the same review with different voc
 | Role | Signs off on | Reads | Blind to |
 |---|---|---|---|
 | Requirements / product | measurable acceptance criteria per requirement | nothing machine-readable: requirements are prose ([ADR-0040](../adr/10-process/0040-process-entities-outside-the-language.md)) | the implementation |
-| System architect | interface table, power tree, clock tree | `system` shards, every board's `ports` and `constraints` | module internals |
+| System architect | interface table, power tree, clock tree | the project logical root's `ports`, `constraints`, `interconnects`, and `interconnect_pins`, plus each physical PCB's ownership description | module internals |
 | Project manager | milestones, long-lead risk register, baseline freeze | the risk list and dates | electrical detail |
 | Accountable person (`owner`) | the decision file | the notes | — (may not write notes of its own in the same round) |
 
@@ -53,7 +53,7 @@ Two failures are worth naming because they are cheap to prevent and expensive to
 The container does not change:
 
 - **one round = one target = one decision.** The roles are note authors, not extra rounds.
-- the round id names the target **and the artifact**: `mcu-board-sch-r1`, `charger-buck-pcb-r1`. A round covers **one artifact** of the board (`sch` or `pcb`), because the decision covers the round: a schematic round that also holds layout notes cannot be closed while the layout is open, and a verdict written to unblock it would then cover statements nobody examined. Two artifacts, two rounds, one decision each.
+- the round id names the artifact: `main-sch-r1`, `charger-buck-pcb-r1`. A round covers one artifact — the project logical root (`design/sch/main.teda`) or one physical PCB (`design/pcb/<pcb_id>.teda`). The existing decision-target convention has no project target, so a root round can record observations but cannot claim project-level sign-off; see the target gap below.
 - the author field carries the role, because the review is often run by agents and the person is in the commit: `- hardware (2026-10-23): ...`.
 - notes carry no verdict. Disagreement is two notes, never an average; the decision says which one the owner followed and why.
 - a note is an **observation at a date**, not a status. When its claim stops being true (a stale comment got deleted, a rating got added, a check landed), do not rewrite the note: append `→ addressed <date>: <what changed>`. A note without that line is still open, whatever the code now does — the round's decision is the only place a note is closed.
@@ -62,7 +62,7 @@ The container does not change:
 
 ### Targets the enum does not have
 
-The target enum is `board:<id>`, `page:<id>` and `component:<id>`. A review whose evidence spans boards (the cross-board wiring in a `system`, or the project's compliance targets) is recorded against the board whose evidence it cites, and its first line says so. This is an interim rule, not a design: it is the reason the first rounds below are `board:` rounds.
+The existing review decision-target convention has no project target. F64 does not expand it, so a root-wide review cannot currently be represented as a project sign-off. If a round's evidence crosses PCBs — such as project-root interconnects — or covers project-wide compliance, its first line must name that broader scope; a `board:` decision signs off only that PCB, not the project-wide finding.
 
 ## Pairs worth running first
 
@@ -78,7 +78,7 @@ The target enum is `board:<id>`, `page:<id>` and `component:<id>`. A review whos
 
 | Gap | Consequence |
 |---|---|
-| The target enum has no `system:` or `project:` | cross-board rounds must be filed against a board (see above) |
+| The target enum has no `project:` | It cannot encode sign-off for the project logical root or interconnects; do not treat a `board:` decision as project-wide sign-off |
 | Requirements, interface tables and analyses are outside the language ([ADR-0040](../adr/10-process/0040-process-entities-outside-the-language.md)) | requirement coverage can never be a `check` result; it is a reviewer's judgement with citations |
 | `owner` is an accepted `project.toml` key but is deliberately outside the IR ([ADR-0037](../adr/09-view/0037-review-records-and-attribution.md) D5) | nothing downstream can read who is accountable from a shard; `check` reads `project.toml` directly |
 

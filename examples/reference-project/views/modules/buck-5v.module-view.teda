@@ -1,0 +1,89 @@
+version 0.13
+module_view buck-5v
+
+bounds [145,40]
+
+# The 5V buck module, drawn once, on its own, at its own size.
+#
+# This is the reusable drawing of the module `buck-5v` (design/modules/buck-5v.teda). It belongs to
+# no page: a page places it, as many times and at as many angles as it likes (ADR-0068 D2).
+#
+# `bounds [145,40]` is this drawing's own extent, not a page size. The local origin is the upper-left
+# corner, +x points right and +y points down, and every coordinate below sits inside those
+# 145 x 40 mm. A page that places the drawing maps it into the page without scaling — the drawing
+# keeps its size, the page keeps its own.
+#
+# The identities here are the module's own: `U1` is the module's U1, `VOUT` is the module's VOUT
+# net, and the three ports are the module's own interface ports (GND, SYS_IN, VOUT). No board name
+# appears here — which board net a port lands on is the board's decision, made when the board places
+# this drawing (ADR-0068 D4).
+#
+# This is the compact, independent local-coordinate drawing of the buck module. It is reusable and
+# is not the board's full-scale print page; the board page and this drawing intentionally have
+# different bounds. The module's own references below omit the board's `M2.` prefixes, and its
+# VOUT_5V board port is replaced by the module's own VOUT port.
+place
+  C1  [17.5,11.5]  90
+  C2  [61.5,17.0]  270
+  C3  [113.5,20.5]  90
+  C4  [118.0,20.5]  90
+  D1  [76.5,23.5]  90
+  L1  [86.5,10.5]  0
+  R1  [97.0,20.0]  90
+  R2  [97.0,30.5]  90
+  U1  [40.0,20.0]  0
+
+field
+  C3  Reference  [2.0,-3.0]
+  C4  Reference  [-2.0,-2.0]
+
+junction
+  J_GND_C1   [17.5,36.5]
+  J_GND_C3   [113.5,36.5]
+  J_GND_D1   [76.5,36.5]
+  J_GND_R2   [97.0,36.5]
+  J_GND_U16  [39.5,36.5]
+  J_GND_U19  [42.0,36.5]
+  J_PH_D1    [76.5,13.0]
+
+wire
+  BOOT  C2.1  U1.1  [61.5,23.5]
+  GND  C1.2  J_GND_C1
+  GND  C3.2  J_GND_C3
+  GND  C4.2  J_GND_C3  [118.0,36.5]
+  GND  D1.2  J_GND_D1
+  GND  GND  J_GND_C1
+  GND  J_GND_C1  J_GND_U16
+  GND  J_GND_D1  J_GND_R2
+  GND  J_GND_R2  J_GND_C3
+  GND  J_GND_U16  J_GND_U19
+  GND  J_GND_U19  J_GND_D1
+  GND  R2.2  J_GND_R2
+  GND  U1.6  J_GND_U16
+  GND  U1.9  J_GND_U19
+  PH  C2.2  J_PH_D1
+  PH  D1.1  J_PH_D1
+  PH  J_PH_D1  L1.1  [81.5,13.0]  [81.5,10.5]
+  PH  U1.8  C2.2  [58.0,16.0]  [58.0,13.0]
+  SYS  C1.1  U1.7  [17.5,4.5]  [40.0,4.5]
+  SYS  SYS_IN  C1.1  [10.0,7.5]
+  VOUT  C3.1  C4.1
+  VOUT  C4.1  VOUT
+  VOUT  L1.2  R1.1  [93.0,10.5]  [93.0,16.0]
+  VOUT  R1.1  C3.1  [99.0,16.0]  [99.0,16.5]
+
+label
+  BOOT  [58.0,23.5]
+  GND   [60.0,36.5]
+  PH    [68.0,13.0]
+  SYS   [30.0,4.5]
+  VFB   [50.0,30.0]
+  VOUT  [105.0,16.5]
+
+port
+  GND     [10.0,36.5]  180
+  SYS_IN  [10.0,4.5]  180
+  VOUT    [133.0,16.5]
+
+text
+  [124.0,6.0]  buck-5v

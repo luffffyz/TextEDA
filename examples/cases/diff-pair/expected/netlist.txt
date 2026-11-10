@@ -1,11 +1,11 @@
-# netlist can-node (ir 0.15)
-CANH: J1.1 R1.1 U1.7
-CANL: J1.2 R2.1 U1.6
-CAN_RX: U1.4
-CAN_TX: U1.1
-GND: C1.2 C2.2 J1.3 U1.2 U1.8
-SPLIT: C2.1 R1.2 R2.2
-V3V3: C1.1 U1.3
+# netlist main (ir 0.19)
+CANH: M1.J1.1 M1.R1.1 M1.U1.7
+CANL: M1.J1.2 M1.R2.1 M1.U1.6
+CAN_RX: M1.U1.4
+CAN_TX: M1.U1.1
+GND: M1.C1.2 M1.C2.2 M1.J1.3 M1.U1.2 M1.U1.8
+SPLIT: M1.C2.1 M1.R1.2 M1.R2.2
+V3V3: M1.C1.1 M1.U1.3
 
 port CAN_RX: CAN_RX
 port CAN_TX: CAN_TX
@@ -13,9 +13,9 @@ port GND: GND
 port V3V3: V3V3
 
 # components 6
-C1 cap-mlcc-0402
-C2 cap-mlcc-0402
-J1 hdr-1x3-254
-R1 res-thick-0402
-R2 res-thick-0402
-U1 sn65hvd230
+M1.C1 cap-mlcc-0402
+M1.C2 cap-mlcc-0402
+M1.J1 hdr-1x3-254
+M1.R1 res-thick-0402
+M1.R2 res-thick-0402
+M1.U1 sn65hvd230

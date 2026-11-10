@@ -117,9 +117,9 @@ function part(): SchematicInstance {
 function view(over: Partial<SchematicView> = {}): SchematicView {
   return {
     ir_version: irVersion,
-    format: "0.7",
-    source: { file: "sch/b/p.view.teda", line: 1 },
-    board: "b",
+    format: "0.14",
+    source: { file: "views/p.view.teda", line: 1 },
+    project: "main",
     page: "p",
     sheet: { width_nm: 297_000_000, height_nm: 210_000_000 },
     place: [{ instance_id: "C1", x_nm: 100_000_000, y_nm: 100_000_000, rot_mdeg: 90_000 }],

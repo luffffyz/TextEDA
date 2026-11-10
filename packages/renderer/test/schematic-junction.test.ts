@@ -64,9 +64,9 @@ function view(
     ids,
     view: {
       ir_version: irVersion,
-      format: "0.7",
-      source: { file: "views/b/p.view.teda", line: 1 },
-      board: "b",
+      format: "0.14",
+      source: { file: "views/p.view.teda", line: 1 },
+      project: "main",
       page: "p",
       sheet: { width_nm: 297_000_000, height_nm: 210_000_000 },
       place: ids.map((id) => place(id, spots[id]![0], spots[id]![1])),

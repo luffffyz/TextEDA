@@ -3,6 +3,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { canonicalJson, formatDiagnostic, parseFootprint } from "../src/index.ts";
+import { validate } from "@texteda/ir";
 
 const example = readFileSync("examples/reference-project/assets/footprints/sot/sot-23-5.teda", "utf8");
 
@@ -16,6 +17,13 @@ describe("example footprint", () => {
   test("compiles successfully with no diagnostics", () => {
     expect(result.diagnostics.map(formatDiagnostic)).toEqual([]);
     expect(result.ok).toBe(true);
+  });
+
+  test("normalizes a zero patch in the emitted language format", () => {
+    const result = parse(example.replace(/^version [^\n]+/, "version 0.11.0"));
+    expect(result.ok).toBe(true);
+    expect(result.ir!.format).toBe("0.11");
+    expect(validate("footprint", result.ir!)).toEqual({ ok: true, errors: [] });
   });
 
   test("lengths converted to integer nanometers, ratios to parts per million", () => {
@@ -111,7 +119,7 @@ describe("error location", () => {
   });
 
   test("version above the supported maximum reports an error", () => {
-    const result = parse(["version 0.12", "footprint t", "", "pads", "  1 smd rect [0,0] [1,1]"].join("\n"));
+    const result = parse(["version 0.15", "footprint t", "", "pads", "  1 smd rect [0,0] [1,1]"].join("\n"));
     expect(result.ok).toBe(false);
     expect(result.diagnostics[0]!.code).toBe("format.unsupported-version");
   });

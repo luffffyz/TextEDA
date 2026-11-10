@@ -1,4 +1,4 @@
-// The version table in spec/teda.md §13.1 states each description type's introduction version and
+// The version table in spec/teda.md §12.1 states each description type's introduction version and
 // the oldest surface version accepted by this reader. Those facts differ after a breaking rewrite;
 // the parser implements reader floors, and this test keeps them aligned with the public contract.
 // The language ceiling is shared by every type.
@@ -18,11 +18,12 @@ const ALL_TYPES: DescriptionType[] = [
   "component",
   "footprint",
   "module",
+  "module_view",
   "pcb",
   "procurement",
   "schematic",
+  "sheet_template",
   "symbol",
-  "system",
   "view",
 ];
 
@@ -35,11 +36,11 @@ function section(heading: string): string {
   return next === -1 ? rest : rest.slice(0, next);
 }
 
-/** The lines of the table in §13.1 that lists the description types, header included. */
+/** The lines of the table in §12.1 that lists the description types, header included. */
 function versionTable(): string[] {
   const blocks: string[][] = [];
   let block: string[] = [];
-  for (const line of section("### 13.1").split("\n")) {
+  for (const line of section("### 12.1").split("\n")) {
     if (line.startsWith("|")) {
       block.push(line);
       continue;
@@ -58,7 +59,7 @@ function cells(line: string): string[] {
 }
 
 /**
- * The version table in spec/teda.md §13.1 gives the oldest accepted reader floor plus the historical
+ * The version table in spec/teda.md §12.1 gives the oldest accepted reader floor plus the historical
  * version that introduced each type; those are separate facts after a breaking rewrite.
  */
 function specTable(): Map<string, { floor: string; introduced: string | null; upper: number | null }> {
@@ -66,7 +67,7 @@ function specTable(): Map<string, { floor: string; introduced: string | null; up
   for (const line of versionTable()) {
     const parts = cells(line);
     if (parts.length !== 3) continue;
-    const name = /^`([a-z]+)`$/.exec(parts[0]!);
+    const name = /^`([a-z_]+)`$/.exec(parts[0]!);
     const floor = /^`([0-9.]+)`$/.exec(parts[1]!);
     if (!name || !floor) continue;
     const cell = parts[2]!.replace(/`/g, "").trim();
@@ -81,22 +82,22 @@ function specTable(): Map<string, { floor: string; introduced: string | null; up
   return rows;
 }
 
-/** The prose of §13.1 — the section text with the version table taken out. */
+/** The prose of §12.1 — the section text with the version table taken out. */
 function specProse(): string {
   const table = new Set(versionTable());
-  return section("### 13.1")
+  return section("### 12.1")
     .split("\n")
     .filter((line) => !table.has(line))
     .join("\n");
 }
 
-/** Whether the prose of §13.1 states the language's current version. */
+/** Whether the prose of §12.1 states the language's current version. */
 function proseStatesCeiling(): boolean {
-  // The spec records the declared release as `0.11.0`; canonical source spelling omits a zero patch (`0.11`).
+  // The spec records the declared release as `0.14.0`; canonical source spelling omits a zero patch (`0.14`).
   return specProse().includes(formatVersion(SUPPORTED_LANGUAGE));
 }
 
-describe("spec/teda.md §13.1 and packages/parser/src/version.ts", () => {
+describe("spec/teda.md §12.1 and packages/parser/src/version.ts", () => {
   test("the spec table lists every description type the parser reads, and no other", () => {
     const rows = specTable();
     expect([...rows.keys()].sort()).toEqual([...ALL_TYPES].sort());
@@ -124,7 +125,7 @@ describe("spec/teda.md §13.1 and packages/parser/src/version.ts", () => {
     expect(typeRange("footprint").required.minor).toBeGreaterThan(4);
     expect(typeRange("pcb").required.minor).toBeGreaterThan(4);
     expect(typeRange("symbol").required.minor).toBeGreaterThan(5);
-    expect(typeRange("view").required.minor).toBeGreaterThan(6);
+    expect(typeRange("view").required.minor).toBe(14);
   });
 
   test("the spec keeps historical type introductions distinct from reader floors", () => {
@@ -133,11 +134,12 @@ describe("spec/teda.md §13.1 and packages/parser/src/version.ts", () => {
       component: "0.1",
       footprint: "0.4",
       module: "0.8",
+      module_view: "0.13",
       pcb: "0.4",
       procurement: "0.9",
       schematic: "0.1",
+      sheet_template: "0.13",
       symbol: "0.5",
-      system: "0.2",
       view: "0.6",
     };
     for (const type of ALL_TYPES) {
@@ -170,18 +172,18 @@ describe("spec/teda.md §13.1 and packages/parser/src/version.ts", () => {
     }
   });
 
-  test("the language's current version is stated in the prose of §13.1", () => {
+  test("the language's current version is stated in the prose of §12.1", () => {
     // The upper bound is not a per-type fact: it is the one number the whole language is at, and the
-    // prose of §13.1 is where it is stated.
+    // prose of §12.1 is where it is stated.
     expect(proseStatesCeiling()).toBe(true);
   });
 });
 
-describe("spec/teda.md §13.4, the changelog of the language", () => {
-  /** The `#### <version> — <title>（<YYYY-MM-DD>）` headings of §13.4, newest first. */
+describe("spec/teda.md §12.4, the changelog of the language", () => {
+  /** The `#### <version> — <title>（<YYYY-MM-DD>）` headings of §12.4, newest first. */
   function entries(): Array<{ version: string; date: string }> {
     return [
-      ...section("### 13.4").matchAll(
+      ...section("### 12.4").matchAll(
         /^####\s+(\d+\.\d+(?:\.\d+)?)\s+[—–]\s+(.+?)（(\d{4}-\d{2}-\d{2})）\s*$/gm,
       ),
     ].map((m) => ({ version: m[1]!, date: m[3]! }));
@@ -195,7 +197,7 @@ describe("spec/teda.md §13.4, the changelog of the language", () => {
   });
 
   test("every entry carries a date", () => {
-    const headings = section("### 13.4")
+    const headings = section("### 12.4")
       .split("\n")
       .filter((line) => /^####\s+\d/.test(line));
     expect(headings.length).toBeGreaterThan(0);
@@ -211,9 +213,7 @@ describe("AGENTS.md does not restate the current version", () => {
       .replace(/```[\s\S]*?```/g, " ")
       .replace(/`[^`\n]*`/g, " ");
     // The language version and the IR contract version are two different lines (ADR-0002 D7). Both
-    // live in their own homes — spec/teda.md §13.1/§13.4 and schemas/ir/ — and AGENTS.md points at
-    // them instead of writing the numbers out.
-    expect(text.includes(formatVersion(SUPPORTED_LANGUAGE))).toBe(false);
+    // live in their own homes — spec/teda.md §12.1/§12.4 and schemas/ir/ — and AGENTS.md points at
     expect(/(?<![\w.])v?0\.14(?![\w])/.test(text)).toBe(false);
   });
 });

@@ -6,7 +6,7 @@
 > - **方向**（§1、§3、§5）——设计意图，**可被 ADR 推翻**；推翻时改本文件，不算"违反规矩"。
 > - **实现现状**——**以代码、测试、ADR、backlog 为准**；本文件只标注"已落地 / 只有设计 / 未落地"。细节过期不算违规，标注错了要改。
 >
-> 状态（2026-10-27）：**工具链起步，描述层与校验层已能用**。已能走完：`init` → 解析 + `fmt` → `check`（ERC / 绑定 / 器件 / 选料 / 评审轮次）→ `netlist` / `bom` / `ir` 分片树 → 符号 / 封装 / 打印页 SVG → `.kicad_mod` / `.kicad_sym` → 分层 Gerber + Excellon → `review` 只读评审。**未落地**：KiCad 原理图导出、`.kicad_pcb` 导出、`fab` 描述、布局 / 布线（agent 驱动，未建）、遮蔽件选料、模块参数 / 嵌套、conformance 语料、困难用例语料（已写了哪些看 `examples/cases/`）。**权威在别处**：包与契约的现状看 `packages/*/` 与 `schemas/ir/`（语言与 IR 契约的现行版本号见 `spec/teda.md` §13.1），每项工作的现状与验收看 `docs/backlog.md`，每条决策看 `docs/adr/`——本文件不复述。
+> 状态（2026-10-27）：**工具链起步，描述层与校验层已能用**。已能走完：`init` → 解析 + `fmt` → `check`（ERC / 绑定 / 器件 / 选料 / 评审轮次）→ `netlist` / `bom` / `ir` 分片树 → 符号 / 封装 / 打印页 SVG → `.kicad_mod` / `.kicad_sym` → 分层 Gerber + Excellon → `review` 只读评审。**未落地**：KiCad 原理图导出、`.kicad_pcb` 导出、`fab` 描述、布局 / 布线（agent 驱动，未建）、遮蔽件选料、模块参数 / 嵌套、conformance 语料、困难用例语料（已写了哪些看 `examples/cases/`）。**权威在别处**：包与契约的现状看 `packages/*/` 与 `schemas/ir/`（语言与 IR 契约的现行版本号见 `spec/teda.md` §12.1），每项工作的现状与验收看 `docs/backlog.md`，每条决策看 `docs/adr/`——本文件不复述。
 > 标记约定：**已定** = 不再讨论；**提议** = 默认按此执行，可被 ADR 推翻；**待定** = 未决定，不要擅自选边。**未落地** = 只有设计，没有实现。
 
 ---
@@ -32,7 +32,7 @@
 
 - 一套面向硬件项目的领域语言：`project`、`board`、`schematic`、`pcb`、`fab`、`variant`；需求 / 分块 / 分析证据为可选的轻量实体。
 - 一个类型化 IR 及其 schema（契约在 `schemas/ir/`，字段参考见生成的 `docs/ir-reference.md`）；实现层的公开 TypeScript 包入口、CLI/agent surface 与源码导航见生成的 `docs/api-reference/README.md` 及分包参考页。
-- 一个检查器：单位 / 量纲、引脚存在性、电气类型、net 完整性、约束断言、**sch↔pcb 一致性**、**器件额定值 vs 声明窗口**。**现状：已落地**——契约层（Ajv + schema）、连通性 ERC 与器件规则在 `packages/core`，绑定校验、跨板系统校验、采购选料校验；额定值只做了两引脚器件的**电压**（[ADR-0026](docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D8）与**耗散**（[ADR-0026](docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D11），多引脚端子语法已定（[ADR-0026](docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D4）但检查器未实现；电流仍未定。
+- 一个检查器：单位 / 量纲、引脚存在性、电气类型、net 完整性、约束断言、**sch↔pcb 一致性**、**器件额定值 vs 声明窗口**。**现状：已落地**——契约层（Ajv + schema）、连通性 ERC 与器件规则在 `packages/core`，绑定校验、项目级 interconnect 与物理 PCB 归属校验、采购选料校验；额定值只做了两引脚器件的**电压**（[ADR-0026](docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D8）与**耗散**（[ADR-0026](docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D11），多引脚端子语法已定（[ADR-0026](docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D4）但检查器未实现；电流仍未定。
 - 一个参考渲染器和一个导出器（KiCad，见 [ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md)）。**现状**：渲染器覆盖符号、封装与原理图打印页（[ADR-0036](docs/adr/09-view/0036-our-own-reference-renderer.md)、[ADR-0035](docs/adr/09-view/0035-the-view-layer-is-a-drawing.md)），板 ↔ 打印页交叉校验与可读性检查已落地（F3）；导出器出 `.kicad_mod` / `.kicad_sym` 与**分层 Gerber + Excellon**（[ADR-0018](docs/adr/05-pcb/0018-copper-fill-uses-a-geometry-kernel.md) D9、D10）。网表（`texteda netlist`）已落地；BOM 走采购层（`texteda bom`），下单格式未做（[ADR-0022](docs/adr/06-manufacturing/0022-jlc-prototype-delivery.md)、F14）。
 - 一套一致性测试（conformance），让别人能独立实现渲染器。**现状：未存在**。
 
@@ -75,13 +75,13 @@
 7. **未知构造默认报错**，不静默忽略；要放宽得先写决策记录。
 8. **单位进字面量**（`3.3V`、`100nF`、`90Ω`）；语义位置上没有单位来源的数字必须报错。
 9. **默认值必须写进规范**，并且可以省略；不允许"必须显式写默认值"的设计。
-10. **版本化**：语言和 IR 都有版本号，破坏性变更必须附迁移脚本与迁移说明。**语言只有一个版本号**（全语言共享一个号，各描述类型只保留"诞生于"这个下界），此后只走 PATCH 位；IR 契约是另一条独立的线。**现行号码**见 `spec/teda.md` §13.1 与 `packages/parser/src/version.ts`；决策见 [ADR-0002](docs/adr/01-language/0002-one-language-version-number.md)。
+10. **版本化**：语言和 IR 都有版本号，破坏性变更必须附迁移脚本与迁移说明。**语言只有一个版本号**（全语言共享一个号，各描述类型只保留"诞生于"这个下界），此后只走 PATCH 位；IR 契约是另一条独立的线。**现行号码**见 `spec/teda.md` §12.1 与 `packages/parser/src/version.ts`；决策见 [ADR-0002](docs/adr/01-language/0002-one-language-version-number.md)。
 11. **产物可追溯**：导出的 Gerber / 图 / 网表携带 `source_hash + tool_version`（+ 渲染 seed，如适用）。
 12. **sch 与 pcb 是两个独立描述**，共享同一身份空间（`component_id`、`pin_number`、`net_id`）。
 13. **pcb 不得隐式增删逻辑连接**：任何偏差（net tie、测试点、缝合孔、分地）必须显式声明，并出现在校验报告里。
 14. **逻辑专属 / 物理专属元素必须显式标记**（`logical_only` / `physical_only`），不得靠"缺省即某一边"推断。
-15. **板间连接只在 `system` 描述里声明**：`sch` 不引用别的板，`system` 也不改写板内连通性（[ADR-0009](docs/adr/03-project/0009-board-linking.md)）。
-16. **一块板 = 一份原理图描述、一个 BOM、一个 PCB**：板内不再有 `page` 描述类型与 `pages` 段（已撤销，迁移说明见 `spec/teda.md` §13.4）；评审时的分块由 S1 的**打印页**承担——只画板级 net，不产生独立 BOM，也不改写连通性（[ADR-0012](docs/adr/04-schematic/0012-one-flat-schematic-per-board.md)）。
+15. **板间连接只在项目逻辑根里显式声明**：`design/sch/main.teda` 的 `interconnects` / `interconnect_pins` 连接不同物理 PCB 上的模块端口；根的逻辑 net 不等于 PCB 铜连续性，`system` 描述与 board-local schematic 已退役（[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1–D3）。
+16. **一个项目 = 一份逻辑根；一块物理 PCB = 一个 PCB 描述、一个 BOM**：`design/sch/main.teda` 统一项目逻辑，`design/pcb/<pcb_id>.teda` 的 `modules` 段声明每个模块实例的唯一物理归属；打印页是项目级 `views/<page_id>.view.teda`，不产生独立 BOM，也不改写连通性（[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1–D5）。旧构造的迁移说明见 `spec/teda.md` §12.4。
 17. **pcb 描述只存物理事实与规则意图**：不存绘图参数、丝印排版、编辑器状态与派生缓存；连通性由 `connect` 段与 sch 决定；人在 KiCad 里的改动**不回写** IR（[ADR-0016](docs/adr/05-pcb/0016-agent-first-pcb-description.md)）。
 18. **IR 的对外表示是 canonical JSON，契约是 JSON Schema**：数值只用整数，不写浮点；缺省字段省略而不是写 `null`；落盘必须字节可复现，`source_hash` = SHA-256(canonical 字节)。决策见 [ADR-0005](docs/adr/02-ir/0005-ir-representation.md)；分片与哈希见 [ADR-0006](docs/adr/02-ir/0006-ir-shards-and-hashes.md) D1、D8；契约在 `schemas/ir/`。
 19. **契约层永久开源**：`spec/**`、`schemas/ir/**`、`examples/**`、`tests/**` 永远公开、可实现、可再分发，**不得改为闭源或加附加限制**；实现层（`packages/**`）可另行许可，但不得把私有扩展混进契约层。项目按**纯开源技术规范**定位：**没有商业计划与收入模型**，回报方式只有一种：**被采用**（[ADR-0039](docs/adr/10-process/0039-licensing-and-open-standard.md)）。
@@ -95,7 +95,7 @@
 |---|---|---|---|
 | PRJ | 项目：系统、板、变体、元数据 | **不能** | 结构化程度低，但身份与版本必须精确 |
 | S0 | 原理图逻辑：器件、引脚、net、约束 | **不能** | 唯一逻辑真源，必须精确可校验 |
-| S1 | 原理图视图：符号位置、走线、标签 | **可以**，不进构建身份（但文件必须留） | 给人评审用。**独立描述类型** `view`（`views/<board_id>/<page_id>.view.teda`，打印页，**独立根目录**，不进 `design/`）+ 独立 IR 分片；**手写的源文件、进仓库**（渲染器只画不摆），分片是附注类——移动标签不改工程哈希与板哈希（[ADR-0035](docs/adr/09-view/0035-the-view-layer-is-a-drawing.md) D1、D5） |
+| S1 | 原理图视图：符号位置、走线、标签 | **可以**，不进构建身份（但文件必须留） | 给人评审用。**独立描述类型** `view`（`views/<page_id>.view.teda`，项目级打印页，**独立根目录**，不进 `design/`）+ 独立 IR 分片；**手写的源文件、进仓库**（渲染器只画不摆），分片是附注类——移动标签不改工程哈希（[ADR-0035](docs/adr/09-view/0035-the-view-layer-is-a-drawing.md) D1、D5；[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4） |
 | B0 | PCB 物理：叠层、坐标、层、过孔、走线 | **不能**自由 | 决定阻抗、串扰、回流、散热、爬电 |
 | B1 | PCB 预览 / 3D / 走线检查视图 | **可以** | 派生 |
 | M0 | 制造：Gerber / 钻孔 / BOM / 贴片 | **不能** | 校验后冻结，带版本与哈希（**冻结的是发布，不是每一次构建**：每个制造包带 `source_hash`；见 [ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md) D8） |
@@ -110,9 +110,9 @@
 
 | 横切主题 | 事实住在哪 |
 |---|---|
-| 单位与量纲、引脚电气类型 | `spec/teda.md` §10 |
-| Canonical form（规范化、排序、数值） | `spec/teda.md` §12；`spec/pcb.md` §6 |
-| 版本号与接受规则 | `spec/teda.md` §13；`packages/parser/src/version.ts` |
+| 单位与量纲、引脚电气类型 | `spec/teda.md` §9 |
+| Canonical form（规范化、排序、数值） | `spec/teda.md` §11；`spec/pcb.md` §6 |
+| 版本号与接受规则 | `spec/teda.md` §12；`packages/parser/src/version.ts` |
 | 诊断码与严重度 | `packages/ir/src/diagnostics/codes.ts`；生成的 `docs/error-codes.md`（[ADR-0003](docs/adr/01-language/0003-diagnostic-error-codes.md)） |
 | IR 字段与单位 | 生成的 `docs/ir-reference.md` |
 | 实现 API：先查名字 / 签名 / 行号 | 生成的 `docs/api-reference/packages/<pkg>.md`（每个包一张表：导出名、kind、签名、摘要、`文件#L行号`）。不知道符号叫什么、在哪个文件时从这里查，比猜名字 grep 或读 `index.ts` 便宜 |
@@ -126,8 +126,8 @@
 
 | 事实 | 住在哪 |
 |---|---|
-| `Project` / `Board` / `Variant` 语义；sch 与 pcb 平级、可各自缺席 | `spec/teda.md` §7；`spec/project.md` §1 |
-| 跨板连接（`system` 描述、ports） | `spec/teda.md` §7.5、§8；[ADR-0009](docs/adr/03-project/0009-board-linking.md) |
+| `Project` / `Board` / `Variant` 语义；项目逻辑根与物理 PCB 平级、可各自缺席 | `spec/teda.md` §7；`spec/project.md` §1；[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) |
+| 跨板连接（根的 `interconnects` / `interconnect_pins`、项目级 ports） | `spec/teda.md` §7.5、§8；[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1、D3 |
 | 变体只影响 BOM 与制造，不改连通性、不影响 ERC | `spec/teda.md` §11；[ADR-0015](docs/adr/04-schematic/0015-flattening-and-the-net-set.md) |
 | 采购层（选料、BOM、备料不进哈希） | `spec/procurement.md`；[ADR-0029](docs/adr/07-devices/0029-the-procurement-layer.md) |
 | `fab` 描述（形态已定，实现为零） | [ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md) |
@@ -141,8 +141,8 @@
 | 器件实例、引脚、net、约束的段与列 | `spec/teda.md` §7、§7.1–§7.4 |
 | **BOM 聚合键** =（`component_id`，参数字典，变体状态），**不含** refdes；数量 = 实物数 | `spec/teda.md` §11；`spec/procurement.md` §5 |
 | 显式区分三种"没连"：floating（漏连，错误）/ no_connect（有意悬空）/ dnp（不贴） | `spec/teda.md` §7.2 |
-| 模块（源码层展平；实例 id 带 `M<数字>.` 前缀，模块内 net 带前缀） | `spec/teda.md` §7.6；`spec/module.md`；[ADR-0013](docs/adr/04-schematic/0013-modules-compose-boards.md)、[ADR-0012](docs/adr/04-schematic/0012-one-flat-schematic-per-board.md) |
-| 打印页与视图（只画不摆；不重复电气事实；坏视图由人重做，不得重绘覆盖） | `spec/schematic-view.md`；[ADR-0035](docs/adr/09-view/0035-the-view-layer-is-a-drawing.md) D6、[ADR-0012](docs/adr/04-schematic/0012-one-flat-schematic-per-board.md) D4、[ADR-0035](docs/adr/09-view/0035-the-view-layer-is-a-drawing.md) D3 |
+| 模块（源码层展平；实例 id 带 `M<数字>.` 前缀，模块内 net 带前缀） | `spec/teda.md` §7.6；`spec/module.md`；[ADR-0013](docs/adr/04-schematic/0013-modules-compose-boards.md)、[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1 |
+| 打印页与视图（只画不摆；不重复电气事实；坏视图由人重做，不得重绘覆盖） | `spec/schematic-view.md`；[ADR-0035](docs/adr/09-view/0035-the-view-layer-is-a-drawing.md) D6、[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4 |
 | 实例稳定身份 `uid`（工程内唯一） | [ADR-0010](docs/adr/03-project/0010-instance-identity-is-a-uid.md) |
 | 模块参数 / 嵌套 / 跨工程模块库（未落地） | `spec/module.md` §10；F13 |
 
@@ -194,7 +194,7 @@
 
 ## 5. Surface syntax（**提议**，未冻结）
 
-格式本体在 `spec/teda.md` §2–§5（文件、词法、行类型、文件头与版本）与 §12（canonical form）；分描述语法在各自规范（`spec/symbol.md`、`spec/footprint.md`、`spec/pcb.md`、`spec/schematic-view.md`、`spec/module.md`、`spec/procurement.md`）。本节只留三条边界：
+格式本体在 `spec/teda.md` §2–§5（文件、词法、行类型、文件头与版本）与 §11（canonical form）；分描述语法在各自规范（`spec/symbol.md`、`spec/footprint.md`、`spec/pcb.md`、`spec/schematic-view.md`、`spec/module.md`、`spec/procurement.md`）。本节只留三条边界：
 
 1. **主形式只有表格一种，不引入链式记法**；组合用带端口的块，规则归检查器（[ADR-0001](docs/adr/01-language/0001-fact-layer-has-no-expressions.md) D7）。
 2. **事实层没有表达式**：值是终值字面量，没有控制流、循环、条件；生成器在语言之外、产物是表（[ADR-0001](docs/adr/01-language/0001-fact-layer-has-no-expressions.md) D3）。
@@ -216,7 +216,7 @@
 
 ### 5.3 表格的边界（提议）
 
-表格只负责"事实"，不负责"组合"和"规则"：器件清单 / net 成员 / 引脚绑定 / 变体用表；层次与复用用 `module` + 端口；计算值不进语言（[ADR-0001](docs/adr/01-language/0001-fact-layer-has-no-expressions.md)）；量词规则归检查器；生成器 / 循环不支持（[ADR-0001](docs/adr/01-language/0001-fact-layer-has-no-expressions.md) D3）。两个已知风险：**宽行**（net 行按 80 列折行，续行首列是裸 `:`，折行只影响排版）与**稀疏元数据**（放旁表，主表只留每个类型都有的列）。细则见 `spec/teda.md` §12。
+体用表；层次与复用用 `module` + 端口；计算值不进语言（[ADR-0001](docs/adr/01-language/0001-fact-layer-has-no-expressions.md)）；量词规则归检查器；生成器 / 循环不支持（[ADR-0001](docs/adr/01-language/0001-fact-layer-has-no-expressions.md) D3）。两个已知风险：**宽行**（net 行按 80 列折行，续行首列是裸 `:`，折行只影响排版）与**稀疏元数据**（放旁表，主表只留每个类型都有的列）。细则见 `spec/teda.md` §11。
 
 ---
 
@@ -253,7 +253,7 @@
 | 非确定性渲染 | 每版图都变，评审失效 | 冻结产物 + 锚定布局（§6） |
 | 回写覆盖 | 重渲染冲掉手工调整 | 稳定 ID + patch 模型（不变量 5） |
 | 规模 | >100 器件后上下文爆炸 | 层次化（模块）+ 生成器；分块只归 S1 打印页 |
-| **绘制分块被当成逻辑分块** | 给逻辑加了页面、端口与限定名 | 分块归 S1 打印页，逻辑只有一份板文件（[ADR-0012](docs/adr/04-schematic/0012-one-flat-schematic-per-board.md)） |
+| **绘制分块被当成逻辑分块** | 给逻辑加了页面、端口与限定名 | 分块归 S1 项目级打印页，逻辑只有一份项目根（[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1、D4） |
 | **pcb 变成 KiCad 的翻版** | 段集照抄 `.kicad_pcb`，继承绘图参数与缓存 | 丢弃清单与段集见 `spec/pcb.md` §4；[ADR-0016](docs/adr/05-pcb/0016-agent-first-pcb-description.md) |
 | 假验证 | "图好看"当成"电路对" | 机器校验等价是硬门槛（不变量 4） |
 | 导出边界 | 非网格坐标导入 KiCad 后断网 | 导出前量化 / 吸附，导出后跑连通性比对 |
@@ -284,21 +284,22 @@
 1. **仓库根只留入口、构建配置与目录**：入口是 `AGENTS.md` / `README*` / `LICENSE` / `NOTICE`，构建配置是 `package.json` / `bun.lock` / `tsconfig.base.json`；产物、素材、临时脚本不进根目录。工具脚本在 `scripts/`（共用工具在 `scripts/lib/`，生成器在 `packages/ir/scripts/`）。**语言总规范在 `spec/teda.md`**，`spec/` 其余文件是分描述规范；IR 的契约在 `schemas/ir/`（契约版本就是目录名）。
 
 2. **工程目录按归属分组**（决策见 [ADR-0008](docs/adr/03-project/0008-project-tree-has-owners.md)）：自有器件资产与选料放 `assets/`，引用但不自有的材料放 `external/`（外部库只作**模板**，`texteda lib import` 拷进 `assets/` 后就是自有资产；数据手册本体在 `external/cache/`，不入库不进 IR），电路描述收进 `design/`，画在 `views/`（手写、进仓库、不参与构建身份）。库信任模型见 [ADR-0033](docs/adr/08-libraries/0033-libraries-are-unverified-facts.md)，器件语义拆分见 [ADR-0024](docs/adr/07-devices/0024-the-device-kind-is-part-or-generic.md)，打印页的地位见 [ADR-0035](docs/adr/09-view/0035-the-view-layer-is-a-drawing.md)；工作项见 F25 / F26 / F29 / F30。
-3. **`init` 契约**：`bun run texteda init <dir>` 只建目录与 `project.toml`、`docs/README.md`；目标目录非空时拒绝执行（`--force` 才覆盖），不合并、不猜测；不联网、不拉模板、不生成 `dist/`；输出确定性（不写时间戳、不写随机 ID）。键表见 `spec/project.md` §1、§2。多板按描述类型分目录（`design/sch/` / `design/pcb/` / `design/modules/` / `design/system/`），打印页是独立描述类型、独立根目录 `views/`；扩展名统一 `.teda`，由目录与首行区分描述类型。`project.toml` 只承载项目元数据，**不承载电路、不承载库引用**（库是模板）；板间连接走 `system` 描述。
+3. **`init` 契约**：`bun run texteda init <dir>` 只建目录与 `project.toml`、`docs/README.md`；目标目录非空时拒绝执行（`--force` 才覆盖），不合并、不猜测；不联网、不拉模板、不生成 `dist/`；输出确定性（不写时间戳、不写随机 ID）。键表见 `spec/project.md` §1、§2。多板按描述类型分目录（`design/sch/` / `design/pcb/` / `design/modules/`），逻辑根固定为 `design/sch/main.teda`；项目级打印页在 `views/`，文件名为 `<page_id>.view.teda`；扩展名统一 `.teda`，由目录与首行区分描述类型。`project.toml` 只承载项目元数据，**不承载电路、不承载库引用**（库是模板）；板间连接写在逻辑根的 `interconnects` 段。
 4. **`dist/ir/` 的分片树**（`texteda ir` 写出，每片一份 canonical JSON；决策见 [ADR-0005](docs/adr/02-ir/0005-ir-representation.md)、[ADR-0006](docs/adr/02-ir/0006-ir-shards-and-hashes.md)）：
 
 ```
 dist/ir/
 ├── manifest.json                          # 分片路径 + 每片 sha256 + 分类 + 工程哈希 + advisory_hash
-├── boards/<board_id>/schematic.json
-├── boards/<board_id>/pcb.json
-├── boards/<board_id>/view/<page_id>.json
-├── boards/<board_id>/procurement.json     # 主料（规范）/ procurement-alternatives.json（附注）
-├── components/<component_id>.json         # 自有器件
+├── project/schematic.json                 # 项目逻辑根（规范）
+├── boards/<pcb_id>/pcb.json               # 物理 PCB 实现（规范）
+├── boards/<pcb_id>/procurement.json       # 主料（规范）/ procurement-alternatives.json（附注）
+├── views/<page_id>.json                   # 项目级打印页（附注）
 ├── symbols/<category>/<symbol_id>.json
 ├── footprints/<family>/<footprint_id>.json
-├── project.json
-└── systems/<system_id>.json
+├── components/<component_id>.json
+├── module-views/<module_id>.json           # 可复用模块图（附注）
+├── sheet-templates/<template_id>.json      # 图纸模板（附注）
+└── project.json                            # 工程元数据
 ```
 
 分片布局按种类固定，不镜像源码树（[ADR-0008](docs/adr/03-project/0008-project-tree-has-owners.md) decision 9），映射由每片自带的 `source.file` 承担（[ADR-0006](docs/adr/02-ir/0006-ir-shards-and-hashes.md) decision 2）。**分片分两类**：规范分片进工程哈希，附注分片（打印页、备料）进 `advisory_hash`；板哈希只算该板的规范分片。哈希规则（每片 sha256 取落盘 canonical 字节；工程哈希 = 规范分片按路径排序后 `<path>:<sha256>\n` 拼接再 sha256）见 [ADR-0006](docs/adr/02-ir/0006-ir-shards-and-hashes.md) decision 9。**工程有 error 时一分片都不写**，输出目录里树不拥有的文件会被删掉（陈旧分片会改哈希）。**工程哈希目前仍会变**（分片带着 `source.file`，路径一变字节就变），解耦见 F29。
@@ -318,15 +319,15 @@ dist/ir/
 | `bun run view:verify` | 打印页坐标全部锚在 `0.5 mm` 晶格上 | [ADR-0059](docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1 |
 | `bun run check:links` | 跨引用可解析（链接、章节、ADR 编号、backlog 项、ADR 索引与头部格式） | 本文件 §12 |
 | `bun run check:public` | 公开仓库历史扫描（PDF / 凭据 / 绝对路径 / 邮箱 / license / NOTICE） | [ADR-0039](docs/adr/10-process/0039-licensing-and-open-standard.md) decision 1 |
-| `bun run fmt:teda --check .` | canonical 格式 | `spec/teda.md` §12 |
+| `bun run fmt:teda --check .` | canonical 格式 | `spec/teda.md` §11 |
 | `bun run cases:check` | 用例语料与期望 IR / 诊断一致 | `examples/cases/` |
 | `bun run texteda check <dir>` | 工程校验：ERC / 绑定 / 器件 / 选料 / 评审轮次 | `spec/teda.md` §11；`spec/pcb.md` §5.2 |
 | `bun run texteda ir <dir>` | IR 分片树与哈希 | [ADR-0006](docs/adr/02-ir/0006-ir-shards-and-hashes.md) |
-| `bun run texteda export gerbers <dir> <board>` | 分层 Gerber + Excellon | `spec/pcb.md` §8 |
-| `bun run texteda bom <dir> <board>` | 物料表 | `spec/procurement.md` §5 |
-| `bun run texteda view metrics <dir> <board>/<page>` | 打印页的量：图幅占用、文字间隙、走线长与交叉 | `spec/schematic-view.md` §9.4 |
-| `bun run texteda view rewire <dir> <board>/<page>` | 把走线锚回引脚（挪动器件之后的收尾） | `spec/schematic-view.md` §9.4.1 |
-| `bun run texteda renumber <dir> <board>` | 全局改名的 dry run / apply | [ADR-0011](docs/adr/03-project/0011-renumbering-is-a-code-executed-rename.md)；`docs/guides/renumbering.md` |
+| `bun run texteda export gerbers <dir> <pcb_id>` | 分层 Gerber + Excellon | `spec/pcb.md` §8 |
+| `bun run texteda bom <dir> <pcb_id>` | 物料表 | `spec/procurement.md` §5 |
+| `bun run texteda view metrics <dir> <page_id>` | 项目打印页的量：图幅占用、文字间隙、走线长与交叉 | `spec/schematic-view.md` §9.4 |
+| `bun run texteda view rewire <dir> <page_id>` | 把走线锚回引脚（挪动器件之后的收尾） | `spec/schematic-view.md` §9.4.1 |
+| `bun run texteda renumber <dir> <pcb_id>` | 全局改名的 dry run / apply | [ADR-0011](docs/adr/03-project/0011-renumbering-is-a-code-executed-rename.md)；`docs/guides/renumbering.md` |
 | `bun run texteda id <dir>` | 生成未使用的实例 `uid` | [ADR-0010](docs/adr/03-project/0010-instance-identity-is-a-uid.md) |
 | `bun run texteda lib import <name> --from <dir> --rev <tag>` | 外部库拷成自有资产 | `docs/guides/library-import.md`；[ADR-0034](docs/adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md) |
 | `bun run texteda tools --json` | 工具清单（名字 / 描述 / JSON Schema），宿主据此适配 | [ADR-0044](docs/adr/10-process/0044-the-agent-surface-is-a-set-of-verbs.md) D7、D8 |
@@ -354,9 +355,9 @@ dist/ir/
 2. 表达式 / 参数化到什么程度？**原则已定、本条未关**：事实层的值是终值字面量，生成器在语言之外；受限表达式的引入条件已写死（十用例的"20 路电源域"证明表宽到不可用 + 常量算术 + 另起 ADR + 迁移脚本），**十用例跑完前保持待定**（[ADR-0001](docs/adr/01-language/0001-fact-layer-has-no-expressions.md)、F12）。
 3. 器件库来源？**已定**：自建库用 `.teda` 写，KiCad 格式是导出产物（[ADR-0030](docs/adr/08-libraries/0030-footprint-format-and-geometry.md)、[ADR-0031](docs/adr/08-libraries/0031-symbol-format.md)）。
 4. 导出优先 KiCad 还是 Circuit JSON？**已定**：KiCad（[ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md)）。
-5. sch / pcb 的权威边界？**已定**：sch 决定连通性、pcb 只实现；偏差白名单封闭四类，白名单之外一律 error（[ADR-0014](docs/adr/04-schematic/0014-connectivity-has-one-authority.md) D1–D3，形状见 `spec/pcb.md` §4.11 / §4.12）。
-6. 是否支持 pcb-only？**已定：没有**——一块板总有一份原理图；逆向与外部网表走导入器（[ADR-0014](docs/adr/04-schematic/0014-connectivity-has-one-authority.md) D5 / D6、F36）。
-7. 多板连接器建模放哪层？**已定**：板在 `sch` 的 `ports` 段暴露节点，跨板连接在独立的 `system` 描述（[ADR-0009](docs/adr/03-project/0009-board-linking.md)）。
+5. sch / pcb 的权威边界？**已定**：sch 的项目逻辑根决定连通性，pcb 只实现；偏差白名单封闭四类，白名单之外一律 error（[ADR-0014](docs/adr/04-schematic/0014-connectivity-has-one-authority.md) D1–D3，形状见 `spec/pcb.md` §4.11 / §4.12；[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1–D3）。
+6. 是否支持 pcb-only？**已定：没有**——项目总有一份逻辑根；逆向与外部网表走导入器（[ADR-0014](docs/adr/04-schematic/0014-connectivity-has-one-authority.md) D5 / D6；F36）。
+7. 多板连接器建模放哪层？**已定**：项目逻辑根的 `ports` 暴露节点，跨 PCB 连接在根的 `interconnects` / `interconnect_pins` 段声明；没有 active `system` 描述（[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1、D3）。
 8. 变体影响 BOM 还是也影响校验？**已定**：只影响 BOM 与制造，**不改变连通性**、不影响 ERC（[ADR-0015](docs/adr/04-schematic/0015-flattening-and-the-net-set.md)）。
 9. 从现有 KiCad 工程反向导入？**已决定延后**：一切导入器决策一并延后，期间不写半成品入口；重开条件按事件不按日历（F36）。
 10. `Requirement` / `Block` / `Analysis` 进语言吗？**已定：都不进**——它们是流程产物，不是设计输入；`Block` 与 `module` 是正交的两轴（[ADR-0040](docs/adr/10-process/0040-process-entities-outside-the-language.md) D1 / D2）。

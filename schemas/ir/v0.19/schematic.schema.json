@@ -1,0 +1,552 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:texteda:ir:0.19:schematic",
+  "title": "TextEDA IR v0.19 — schematic shard",
+  "description": "Project schematic IR: the one logical root of a project. It composes module descriptions from design/modules/; all component instances and electrical facts belong to modules, and the root has no component instances of its own. The IR stays flat for ordinary consumers: instances/nets/ports carry flattened names (<module_instance_id>.<local_id>), while the modules segment carries the module-instance ownership and module-port records needed to validate physical assignments and interconnect endpoints. Equal local net names in separate module instances never merge by themselves: a flattened project net exists only through the root's nets segment, and net-name equality never supplies a physical interconnect (ADR-0069 D1/D3). Source: design/sch/main.teda. See ADR-0069, ADR-0012, ADR-0006 decision 5.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ir_version",
+    "format",
+    "project",
+    "modules",
+    "instances",
+    "nets"
+  ],
+  "properties": {
+    "ir_version": {
+      "const": "0.19",
+      "description": "IR contract version, currently always 0.19."
+    },
+    "format": {
+      "$ref": "urn:texteda:ir:0.19:common#/$defs/format_version",
+      "description": "Language version of the .teda file that produced this shard."
+    },
+    "source": {
+      "$ref": "urn:texteda:ir:0.19:common#/$defs/source_ref",
+      "description": "Source-file location: path relative to the project root plus an optional line number. For the root this is design/sch/main.teda."
+    },
+    "project": {
+      "const": "main",
+      "description": "Project-level logical root identity. design/sch/main.teda is the only logical root; there are no board-local schematic files and no system descriptions (ADR-0069 D1)."
+    },
+    "modules": {
+      "type": "array",
+      "description": "The root's module instances in declaration order. Module-instance identities are owned here and are globally unique within the project; the same module definition may be instantiated many times. Flattened instance and internal-net names remain <module_instance_id>.<local_id>. Rows retain the module's ports and their component pin refs so endpoint mappings can be validated without inferring ownership.",
+      "items": {
+        "$ref": "#/$defs/module_instance"
+      }
+    },
+    "instances": {
+      "type": "array",
+      "description": "All component instances of the project, flattened from the module descriptions: an instance inside a module instance carries the module prefix (M1.U1). The root itself declares no components.",
+      "items": {
+        "$ref": "#/$defs/instance"
+      }
+    },
+    "nets": {
+      "type": "array",
+      "description": "All project nets. A flattened project net merges the module ports listed here; equal local net names in separate module instances never merge by themselves.",
+      "items": {
+        "$ref": "#/$defs/net"
+      }
+    },
+    "ports": {
+      "type": "array",
+      "description": "Project-level ports of the logical root, connecting to external interfaces.",
+      "items": {
+        "$ref": "#/$defs/port"
+      }
+    },
+    "buses": {
+      "type": "array",
+      "description": "Bus definition, declaring a group of project nets as one bus.",
+      "items": {
+        "$ref": "#/$defs/bus"
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "description": "Root constraints are project-wide; module constraints flatten onto their module-local or root-bound net as before (ADR-0069 D1).",
+      "items": {
+        "$ref": "#/$defs/constraint"
+      }
+    },
+    "interconnects": {
+      "type": "array",
+      "description": "Explicit cross-PCB connections between module-port endpoints, separate from nets and copper (ADR-0069 D3). Both endpoints of one interconnect must belong to the same root project net and be implemented by different PCBs. Equal net names never imply an interconnect: these facts are declared, not inferred.",
+      "items": {
+        "$ref": "#/$defs/interconnect"
+      }
+    },
+    "interconnect_pins": {
+      "type": "array",
+      "description": "Optional terminal mapping for connector or cable conductors (ADR-0069 D3). Each row names an interconnect and one pin on each endpoint module; each pin must belong to that endpoint port's module-local net. One interconnect may have multiple pin-pair rows. Omitted entirely when no connector/cable terminal mapping is modeled — the interconnect still explicitly declares the port-to-port path.",
+      "items": {
+        "$ref": "#/$defs/interconnect_pin"
+      }
+    },
+    "note": {
+      "$ref": "urn:texteda:ir:0.19:common#/$defs/note",
+      "description": "Free text; canonical JSON has no comments, this is the substitute."
+    }
+  },
+  "$defs": {
+    "module_instance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instance_id",
+        "module_id",
+        "ports"
+      ],
+      "properties": {
+        "instance_id": {
+          "type": "string",
+          "pattern": "^M[0-9]+$",
+          "description": "Module-instance identity owned by the root and globally unique within the project, shape M1, M2, … (spec/module.md §5); the prefix of every flattened instance/net name of this instance (M1.U1, M1.VFB). Reused module definitions keep per-instance identities."
+        },
+        "module_id": {
+          "$ref": "urn:texteda:ir:0.19:common#/$defs/slug",
+          "description": "The module definition composed from design/modules/<module_id>.teda; project-local and possibly instantiated more than once."
+        },
+        "uid": {
+          "type": "string",
+          "pattern": "^ID[0-9a-hjkmnp-tv-z]{6}$",
+          "description": "Stable module-instance identity (ADR-0010): ID plus six lowercase Crockford Base32 characters."
+        },
+        "ports": {
+          "type": "array",
+          "description": "The module instance's ports as declared by its definition, retained so interconnect endpoints and pin mappings can be resolved without inferring ownership. Port nets are the module-local nets before root net merging.",
+          "items": {
+            "$ref": "#/$defs/module_port"
+          }
+        },
+        "note": {
+          "$ref": "urn:texteda:ir:0.19:common#/$defs/note",
+          "description": "Free text; canonical JSON has no comments, this is the substitute."
+        }
+      }
+    },
+    "module_port": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "pins"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-]+$",
+          "description": "Port name, the name visible outside the module; the local part of an interconnect endpoint <module_instance_id>.<port>."
+        },
+        "net": {
+          "$ref": "urn:texteda:ir:0.19:common#/$defs/net_id",
+          "description": "Module-local net the port connects to, before root net merging; omitted for an unconnected port."
+        },
+        "pins": {
+          "type": "array",
+          "description": "Full normalized flattened component pin refs belonging to this port's module-local net, e.g. M1.U1.4 — the component pins this port presents.",
+          "items": {
+            "$ref": "urn:texteda:ir:0.19:common#/$defs/pin_ref"
+          }
+        },
+        "note": {
+          "$ref": "urn:texteda:ir:0.19:common#/$defs/note",
+          "description": "Free text; canonical JSON has no comments, this is the substitute."
+        }
+      }
+    },
+    "instance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "component"
+      ],
+      "properties": {
+        "uid": {
+          "type": "string",
+          "pattern": "^ID[0-9a-hjkmnp-tv-z]{6}(/ID[0-9a-hjkmnp-tv-z]{6})?$",
+          "description": "Stable instance identity (ADR-0010): ID plus six lowercase Crockford Base32 characters. A module-local instance is qualified by its module instance uid, e.g. IDp8x2n4/IDk2m8q4. Absent in pre-0.9 files."
+        },
+        "id": {
+          "$ref": "urn:texteda:ir:0.19:common#/$defs/instance_id",
+          "description": "Flattened display name of the project's flat instance list: U1, or M1.U1 for an instance inside module instance M1. It remains the key used by net members and placements; the stable identity is `uid` (ADR-0010)."
+        },
+        "component": {
+          "$ref": "urn:texteda:ir:0.19:common#/$defs/device_ref",
+          "description": "Device reference (component_id), bare: every device the project reads is its own file under assets/components/ (ADR-0034)."
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:texteda:ir:0.19:common#/$defs/param_value"
+          },
+          "description": "Ordered as declared in the component's params section; optional columns may be omitted."
+        },
+        "dnp": {
+          "type": "boolean",
+          "description": "Whether it is not placed (unmounted but occupies a spot)."
+        },
+        "logical_only": {
+          "type": "boolean",
+          "description": "E.g. power flags: exist only at the logical layer and produce no physical entity."
+        },
+        "note": {
+          "$ref": "urn:texteda:ir:0.19:common#/$defs/note",
+          "description": "Free text; canonical JSON has no comments, this is the substitute."
+        }
+      }
+    },
+    "net": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "members"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "urn:texteda:ir:0.19:common#/$defs/net_id",
+          "description": "The net name is the identity key: GND, VFB, or a module-qualified flattened name (M1.VFB)."
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:texteda:ir:0.19:common#/$defs/pin_ref"
+          },
+          "description": "Flattened pin references of the project net, in numbered form (M1.U1.4). A single-member net is legal but draws an ERC warning."
+        },
+        "note": {
+          "$ref": "urn:texteda:ir:0.19:common#/$defs/note",
+          "description": "Free text; canonical JSON has no comments, this is the substitute."
+        }
+      }
+    },
+    "port": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "net"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-]+$",
+          "description": "Project port name, the name visible outside the project."
+        },
+        "net": {
+          "$ref": "urn:texteda:ir:0.19:common#/$defs/net_id",
+          "description": "Project net name the port connects to (net_id)."
+        }
+      }
+    },
+    "bus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "nets"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-]+$",
+          "description": "Bus name, unique within the project."
+        },
+        "type": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_+-]+$",
+          "description": "As of v0.4 this is only a naming convention; no protocol validation is performed."
+        },
+        "nets": {
+          "type": "array",
+          "description": "List of project net names the bus contains.",
+          "items": {
+            "$ref": "urn:texteda:ir:0.19:common#/$defs/net_id"
+          }
+        }
+      }
+    },
+    "endpoint_ref": {
+      "type": "string",
+      "pattern": "^M[0-9]+\\.[A-Za-z0-9_+-]+$",
+      "description": "Interconnect endpoint: <module_instance_id>.<port>, e.g. M1.PORT. The port must be declared by that module instance's ports segment."
+    },
+    "pin_endpoint_ref": {
+      "type": "string",
+      "pattern": "^M[0-9]+\\.[A-Z]+[0-9]+\\.[A-Za-z0-9_+-]+$",
+      "description": "Pin endpoint of an interconnect_pin row: <module_instance_id>.<instance_id>.<pin_number>, e.g. M1.J1.1 — a component pin of the endpoint module instance; each pin must belong to that endpoint port's module-local net."
+    },
+    "interconnect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "from",
+        "to"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "urn:texteda:ir:0.19:common#/$defs/slug",
+          "description": "Interconnect identity, unique within the project; views reference it by this ID and can neither create nor remove the fact."
+        },
+        "from": {
+          "$ref": "#/$defs/endpoint_ref",
+          "description": "One endpoint as <module_instance_id>.<port>. Both endpoints must belong to the same root project net and be implemented by different PCBs (ADR-0069 D2/D3)."
+        },
+        "to": {
+          "$ref": "#/$defs/endpoint_ref",
+          "description": "The other endpoint as <module_instance_id>.<port>. Equal net names on separate PCBs do not supply this fact; it is declared here, never inferred."
+        },
+        "note": {
+          "$ref": "urn:texteda:ir:0.19:common#/$defs/note",
+          "description": "Free text; canonical JSON has no comments, this is the substitute."
+        }
+      }
+    },
+    "interconnect_pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interconnect",
+        "from",
+        "to"
+      ],
+      "properties": {
+        "interconnect": {
+          "$ref": "urn:texteda:ir:0.19:common#/$defs/slug",
+          "description": "The interconnect id this pin pair maps; one interconnect may have multiple rows."
+        },
+        "from": {
+          "$ref": "#/$defs/pin_endpoint_ref",
+          "description": "Connector/cable terminal on the `from` side: <module_instance_id>.<instance_id>.<pin_number>, e.g. M1.J1.1. The pin must belong to the endpoint port's module-local net."
+        },
+        "to": {
+          "$ref": "#/$defs/pin_endpoint_ref",
+          "description": "Connector/cable terminal on the `to` side: <module_instance_id>.<instance_id>.<pin_number>, e.g. M2.J1.1. The pin must belong to the endpoint port's module-local net."
+        },
+        "note": {
+          "$ref": "urn:texteda:ir:0.19:common#/$defs/note",
+          "description": "Free text; canonical JSON has no comments, this is the substitute."
+        }
+      }
+    },
+    "net_or_pin_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_+-]+(\\.[A-Za-z0-9_+-]+)*$",
+      "description": "The subject can be a net (flattened name) or a pin reference; the two share the same shape and the parser resolves ambiguity by context."
+    },
+    "constraint": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "subject",
+            "min_uv",
+            "max_uv"
+          ],
+          "properties": {
+            "type": {
+              "const": "voltage",
+              "description": "Constraint type: voltage maximum."
+            },
+            "subject": {
+              "$ref": "#/$defs/net_or_pin_ref",
+              "description": "Constraint subject: flattened net name or pin reference."
+            },
+            "min_uv": {
+              "type": "integer",
+              "description": "Voltage minimum, µV."
+            },
+            "max_uv": {
+              "type": "integer",
+              "description": "Voltage maximum, µV."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "subject",
+            "max_na"
+          ],
+          "properties": {
+            "type": {
+              "const": "current",
+              "description": "Constraint type: current maximum."
+            },
+            "subject": {
+              "$ref": "#/$defs/net_or_pin_ref",
+              "description": "Constraint subject: flattened net name or pin reference."
+            },
+            "max_na": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Current maximum, nA."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "subject",
+            "max_uw"
+          ],
+          "properties": {
+            "type": {
+              "const": "power",
+              "description": "Constraint type: power-dissipation maximum."
+            },
+            "subject": {
+              "$ref": "#/$defs/net_or_pin_ref",
+              "description": "Constraint subject: flattened net name or pin reference."
+            },
+            "max_uw": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Power-dissipation maximum, µW."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "net",
+            "value_mohm"
+          ],
+          "properties": {
+            "type": {
+              "const": "impedance",
+              "description": "Constraint type: target impedance."
+            },
+            "net": {
+              "$ref": "urn:texteda:ir:0.19:common#/$defs/net_id",
+              "description": "Constraint subject: flattened project net name."
+            },
+            "value_mohm": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Target impedance value, mΩ."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "net",
+            "min_nm",
+            "max_nm"
+          ],
+          "properties": {
+            "type": {
+              "const": "length",
+              "description": "Constraint type: trace-length range."
+            },
+            "net": {
+              "$ref": "urn:texteda:ir:0.19:common#/$defs/net_id",
+              "description": "Constraint subject: flattened project net name."
+            },
+            "min_nm": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Length minimum, nm."
+            },
+            "max_nm": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Length maximum, nm."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "net_a",
+            "net_b",
+            "impedance_mohm"
+          ],
+          "properties": {
+            "type": {
+              "const": "diff",
+              "description": "Constraint type: differential-pair impedance."
+            },
+            "net_a": {
+              "$ref": "urn:texteda:ir:0.19:common#/$defs/net_id",
+              "description": "Flattened project net name of the positive side of the differential pair."
+            },
+            "net_b": {
+              "$ref": "urn:texteda:ir:0.19:common#/$defs/net_id",
+              "description": "Flattened project net name of the negative side of the differential pair."
+            },
+            "impedance_mohm": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Differential impedance value, mΩ."
+            },
+            "tolerance_ppm": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Allowed tolerance of the differential impedance, ppm."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "net_a",
+            "net_b",
+            "op",
+            "length_nm"
+          ],
+          "properties": {
+            "type": {
+              "const": "skew",
+              "description": "Constraint type: length difference between two nets."
+            },
+            "net_a": {
+              "$ref": "urn:texteda:ir:0.19:common#/$defs/net_id",
+              "description": "Flattened project net name of the first net compared."
+            },
+            "net_b": {
+              "$ref": "urn:texteda:ir:0.19:common#/$defs/net_id",
+              "description": "Flattened project net name of the second net compared."
+            },
+            "op": {
+              "enum": [
+                "<",
+                "<=",
+                ">",
+                ">="
+              ],
+              "description": "Comparison operator applied to the length difference of the two nets."
+            },
+            "length_nm": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Length-difference threshold, nm."
+            }
+          }
+        }
+      ]
+    }
+  }
+}

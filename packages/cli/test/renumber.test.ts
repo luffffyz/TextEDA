@@ -3,7 +3,7 @@
 // The command is exercised through the CLI because flags, dry-run/apply and output are part of its
 // contract. Small pure checks cover the formatter boundary and the `project.toml` variant scanner.
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -83,8 +83,10 @@ describe("renumber mapping and references", () => {
     expect(read(join(root, "design/modules/buck-5v.teda"))).toBe(before);
   });
 
-  test("a module mapping updates the module source, the view and the pcb, and leaves other modules alone", () => {
+  test("a module-qualified mapping updates its project references and preserves other ownership", () => {
     const root = copyProject(reference);
+    const otherView = read(join(root, "views/charger-power.view.teda"));
+    const otherPcb = read(join(root, "design/pcb/mcu-board.teda"));
     const other = read(join(root, "design/modules/charger-power.teda"));
     const result = run([
       "renumber",
@@ -99,44 +101,48 @@ describe("renumber mapping and references", () => {
     expect(instanceRows(source).map((row) => row[0])).toContain("C9");
     expect(instanceRows(source).map((row) => row[0])).not.toContain("C1");
     expect(read(join(root, "design/modules/charger-power.teda"))).toBe(other);
-    expect(read(join(root, "views/charger-buck/buck-5v.view.teda"))).toContain("M2.C9");
-    expect(read(join(root, "design/pcb/charger-buck.teda"))).toContain("M2.C9");
+    const page = read(join(root, "views/buck-5v.view.teda"));
+    expect(page).toContain("  M2.C9  [117.5,96.5]  90");
+    expect(page).not.toContain("  M2.C1  [117.5,96.5]  90");
+    expect(otherView).toBe(read(join(root, "views/charger-power.view.teda")));
+    expect(read(join(root, "design/pcb/charger-buck.teda"))).toContain("  M2.C9  [23,18]  270  top");
+    expect(read(join(root, "design/pcb/charger-buck.teda"))).not.toContain("  M2.C1  [23,18]  270  top");
+    expect(otherPcb).toBe(read(join(root, "design/pcb/mcu-board.teda")));
   });
 
   test("compact closes the gap left by a mapping", () => {
     const root = copyProject(reference);
-    expect(run(["renumber", root, "mcu-board", "--mapping", mappingFile(["R1 R5"]), "--apply"]).code).toBe(0);
+    expect(run(["renumber", root, "mcu-board", "--mapping", mappingFile(["mcu-board/R1 R5"]), "--apply"]).code).toBe(0);
     const compact = run(["renumber", root, "mcu-board", "--policy", "compact", "--apply"]);
     expect(compact.code).toBe(0);
     expect(compact.stdout).toContain("R2 -> R1");
     expect(compact.stdout).toContain("R5 -> R3");
-    const rows = instanceRows(read(join(root, "design/sch/mcu-board.teda"))).map((row) => row[0]);
+    const rows = instanceRows(read(join(root, "design/modules/mcu-board.teda"))).map((row) => row[0]);
     expect(rows.filter((row) => /^R[0-9]+$/.test(row ?? ""))).toEqual(["R1", "R2", "R3"]);
   });
 
   test("preserve keeps the existing numbers", () => {
     const root = copyProject(reference);
-    const before = read(join(root, "design/sch/mcu-board.teda"));
+    const before = read(join(root, "design/modules/mcu-board.teda"));
     const result = run(["renumber", root, "mcu-board", "--policy", "preserve", "--apply"]);
     expect(result.code).toBe(0);
     expect(result.stdout).toContain("No changes.");
-    expect(read(join(root, "design/sch/mcu-board.teda"))).toBe(before);
+    expect(read(join(root, "design/modules/mcu-board.teda"))).toBe(before);
   });
 
-  test("position follows the view from top to bottom, then left to right", () => {
+  test("position follows project-page placements from top to bottom, then left to right", () => {
     const root = copyProject(reference);
-    mkdirSync(join(root, "views", "mcu-board"), { recursive: true });
     writeFileSync(
-      join(root, "views", "mcu-board", "main.view.teda"),
+      join(root, "views", "main.view.teda"),
       [
-        "version 0.11",
+        "version 0.14.0",
         "view main",
         "",
         "place",
-        "  C1  [20,0]  0",
-        "  R1  [0,20]  0",
-        "  R2  [0,0]   0",
-        "  R3  [10,10] 0",
+        "  M3.C1  [20,0]  0",
+        "  M3.R1  [0,20]  0",
+        "  M3.R2  [0,0]   0",
+        "  M3.R3  [10,10] 0",
         "",
       ].join("\n"),
     );
@@ -144,37 +150,37 @@ describe("renumber mapping and references", () => {
     expect(result.code).toBe(0);
     expect(result.stdout).toContain("R2 -> R1");
     expect(result.stdout).toContain("R1 -> R3");
-    const rows = instanceRows(read(join(root, "design/sch/mcu-board.teda")));
+    const rows = instanceRows(read(join(root, "design/modules/mcu-board.teda")));
     expect(rows.find((row) => row[0] === "R1")?.[1]).toBe("IDf069y5"); // the instance that was R2
     expect(rows.find((row) => row[0] === "R3")?.[1]).toBe("ID0gm2vz"); // the instance that was R1
   });
 
-  test("position refuses to guess when there is no view", () => {
+  test("position refuses to guess when no project page places the target module", () => {
     const root = copyProject(reference);
-    const before = read(join(root, "design/sch/mcu-board.teda"));
+    const before = read(join(root, "design/modules/mcu-board.teda"));
+    expect(read(join(root, "views/buck-5v.view.teda"))).toContain("M2.C1");
     const result = run(["renumber", root, "mcu-board", "--policy", "position"]);
     expect(result.code).toBe(1);
-    expect(result.stderr).toContain("no print page placement");
-    expect(read(join(root, "design/sch/mcu-board.teda"))).toBe(before);
+    expect(result.stderr).toContain("position policy needs component placement evidence");
+    expect(read(join(root, "design/modules/mcu-board.teda"))).toBe(before);
   });
 
-  test("position refuses an instance placed at two different coordinates", () => {
+  test("position refuses a project instance placed at two different coordinates", () => {
     const root = copyProject(reference);
-    mkdirSync(join(root, "views", "mcu-board"), { recursive: true });
     writeFileSync(
-      join(root, "views", "mcu-board", "main.view.teda"),
-      ["version 0.11", "view main", "", "place", "  R1  [0,0] 0", "  R1  [10,10] 0", ""].join("\n"),
+      join(root, "views", "main.view.teda"),
+      ["version 0.14.0", "view main", "", "place", "  M3.R1  [0,0] 0", "  M3.R1  [10,10] 0", ""].join("\n"),
     );
     const result = run(["renumber", root, "mcu-board", "--policy", "position"]);
     expect(result.code).toBe(1);
-    expect(result.stderr).toContain("mcu-board/R1");
+    expect(result.stderr).toContain("M3.R1");
     expect(result.stderr).toContain("ambiguous");
   });
 
   test("the CLI rejects conflicting flags", () => {
     const root = copyProject(reference);
     expect(run(["renumber", root, "mcu-board", "--apply", "--dry-run"]).code).toBe(2);
-    expect(run(["renumber", root, "mcu-board", "--policy", "compact", "--mapping", mappingFile(["R1 R5"])]).code).toBe(2);
+    expect(run(["renumber", root, "mcu-board", "--policy", "compact", "--mapping", mappingFile(["mcu-board/R1 R5"])]).code).toBe(2);
     expect(run(["renumber", root, "mcu-board", "--policy", "mapping"]).code).toBe(2);
   });
 
@@ -188,28 +194,28 @@ describe("renumber mapping and references", () => {
 
   test("a collision or a prefix change is rejected before any write", () => {
     const root = copyProject(reference);
-    const before = read(join(root, "design/sch/mcu-board.teda"));
-    const collision = run(["renumber", root, "mcu-board", "--mapping", mappingFile(["R1 R2"]), "--apply"]);
+    const before = read(join(root, "design/modules/mcu-board.teda"));
+    const collision = run(["renumber", root, "mcu-board", "--mapping", mappingFile(["mcu-board/R1 R2"]), "--apply"]);
     expect(collision.code).toBe(1);
     expect(collision.stderr).toContain("would be assigned to both R1 and R2");
-    expect(read(join(root, "design/sch/mcu-board.teda"))).toBe(before);
+    expect(read(join(root, "design/modules/mcu-board.teda"))).toBe(before);
 
-    const prefix = run(["renumber", root, "mcu-board", "--mapping", mappingFile(["R1 C1"]), "--apply"]);
+    const prefix = run(["renumber", root, "mcu-board", "--mapping", mappingFile(["mcu-board/R1 C1"]), "--apply"]);
     expect(prefix.code).toBe(1);
     expect(prefix.stderr).toContain("changes the prefix");
-    expect(read(join(root, "design/sch/mcu-board.teda"))).toBe(before);
+    expect(read(join(root, "design/modules/mcu-board.teda"))).toBe(before);
   });
 
   test("constraint pin subjects follow the rename", () => {
     const root = copyProject(reference);
-    const boardFile = join(root, "design/sch/mcu-board.teda");
+    const moduleFile = join(root, "design/modules/mcu-board.teda");
     writeFileSync(
-      boardFile,
-      read(boardFile).replace("constraints\n", "constraints\n  power    R1.1    2mW\n"),
+      moduleFile,
+      read(moduleFile).replace("constraints\n", "constraints\n  power    R1.1    2mW\n"),
     );
-    const result = run(["renumber", root, "mcu-board", "--mapping", mappingFile(["R1 R9"]), "--apply"]);
+    const result = run(["renumber", root, "mcu-board", "--mapping", mappingFile(["mcu-board/R1 R9"]), "--apply"]);
     expect(result.code).toBe(0);
-    const source = read(boardFile);
+    const source = read(moduleFile);
     expect(source).toMatch(/power\s+R9\.1\s+2mW/);
     expect(source).not.toMatch(/power\s+R1\.1\s+2mW/);
   });
@@ -238,17 +244,18 @@ describe("renumber mapping and references", () => {
   test("a module port reference is not an instance reference", () => {
     const root = copyProject(reference);
     rmSync(join(root, "views"), { recursive: true, force: true });
-    rmSync(join(root, "design/pcb"), { recursive: true, force: true });
     const moduleFile = join(root, "design/modules/buck-5v.teda");
     writeFileSync(
       moduleFile,
       read(moduleFile).replace("ports\n  GND     GND", "ports\n  C1      BOOT\n  GND     GND"),
     );
-    const boardFile = join(root, "design/sch/charger-buck.teda");
+    const rootFile = join(root, "design/sch/main.teda");
     writeFileSync(
-      boardFile,
-      read(boardFile).replace("\nports\n", "\n  TAP:  M2.C1\n\nports\n"),
+      rootFile,
+      read(rootFile).replace("nets\n", "nets\n  TAP:        M2.C1\n"),
     );
+    const pcbFile = join(root, "design/pcb/charger-buck.teda");
+    writeFileSync(pcbFile, read(pcbFile).replaceAll("M2.BOOT", "TAP"));
     const result = run([
       "renumber",
       root,
@@ -258,7 +265,7 @@ describe("renumber mapping and references", () => {
       "--apply",
     ]);
     expect(result.code).toBe(0);
-    const board = read(boardFile);
+    const board = read(rootFile);
     expect(board).toMatch(/TAP:\s+M2\.C1/);
     expect(board).not.toMatch(/TAP:\s+M2\.C9/);
     expect(read(moduleFile)).toMatch(/^  C9\s/m);
@@ -271,11 +278,11 @@ describe("renumber mapping and references", () => {
       root,
       "multi-unit",
       "--mapping",
-      mappingFile(["R1 R3", "U1 U2"]),
+      mappingFile(["multi-unit/R1 R3", "multi-unit/U1 U2"]),
       "--apply",
     ]);
     expect(result.code).toBe(0);
-    const source = read(join(root, "design/sch/multi-unit.teda"));
+    const source = read(join(root, "design/modules/multi-unit.teda"));
     const machine = source.replace(/^#.*$/gm, "");
     expect(machine).toContain("R3.2");
     expect(machine).toContain("U2.2.OUT");
@@ -294,7 +301,7 @@ describe("renumber mapping and references", () => {
       "--apply",
     ]);
     expect(result.code).toBe(0);
-    const view = read(join(root, "views/charger-buck/buck-5v.view.teda"));
+    const view = read(join(root, "views/buck-5v.view.teda"));
     expect(view).toContain("M2.U5.1");
     expect(view).toContain("M2.BOOT");
     expect(view).not.toContain("M2.U1.1");
@@ -302,9 +309,9 @@ describe("renumber mapping and references", () => {
 
   test("bus members follow the rename while bus and net names stay", () => {
     const root = copyProject(busCase);
-    const result = run(["renumber", root, "sensor-hub", "--mapping", mappingFile(["J1 J20"]), "--apply"]);
+    const result = run(["renumber", root, "sensor-hub", "--mapping", mappingFile(["sensor-hub/J1 J20"]), "--apply"]);
     expect(result.code).toBe(0);
-    const source = read(join(root, "design/sch/sensor-hub.teda"));
+    const source = read(join(root, "design/modules/sensor-hub.teda"));
     expect(source).toContain("J20.1");
     expect(source).not.toMatch(/\bJ1\./);
     expect(source).toContain("bus pwr = PWR");
@@ -350,8 +357,8 @@ describe("renumber boundaries", () => {
 
   test("fmt never renumbers, even when the rows have a gap", () => {
     const source = [
-      "version 0.9",
-      "schematic b",
+      "version 0.14.0",
+      "module b",
       "",
       "instances",
       "  R1  ID000001  res 10k",
@@ -359,7 +366,7 @@ describe("renumber boundaries", () => {
       "  R5  ID000003  res 10k",
       "",
     ].join("\n");
-    const result = formatSchematic(source, { file: "design/sch/b.teda" });
+    const result = formatSchematic(source, { file: "design/modules/b.teda", kind: "module" });
     expect(result.ok).toBe(true);
     expect(result.text).toContain("R1");
     expect(result.text).toContain("R2");
@@ -368,16 +375,19 @@ describe("renumber boundaries", () => {
   });
 });
 describe("renumber markdown scoping and io errors", () => {
-  test("bare board refdes are only reported in board-owned markdown", () => {
+  test("module-qualified MCU refdes are only reported in board-owned markdown", () => {
     const root = copyProject(reference);
-    const map = mappingFile(["R1 R9"]);
+    const mcuDocs = join(root, "docs", "mcu-board-components.md");
+    writeFileSync(mcuDocs, `${read(mcuDocs)}\nThe reset resistor is M3.R1.\n`);
+    const map = mappingFile(["mcu-board/R1 R9"]);
     const result = run(["renumber", root, "mcu-board", "--json", "--mapping", map]);
     expect(result.code).toBe(0);
     const report = JSON.parse(result.stdout) as RenumberReport;
-    const bare = report.markdown.filter((hit) => hit.old === "R1");
-    expect(bare.length).toBeGreaterThan(0);
-    expect(bare.every((hit) => /mcu-board-components|mcu-board-sch-r1/.test(hit.file))).toBe(true);
-    expect(bare.every((hit) => !/charger-buck|README\.md/.test(hit.file))).toBe(true);
+    const mcuHits = report.markdown.filter((hit) => hit.old === "M3.R1");
+    expect(mcuHits.length).toBeGreaterThan(0);
+    expect(mcuHits.every((hit) => /mcu-board-components|mcu-board-sch-r1/.test(hit.file))).toBe(true);
+    expect(mcuHits.every((hit) => hit.new === "M3.R9")).toBe(true);
+    expect(mcuHits.every((hit) => !/charger-buck|README\.md/.test(hit.file))).toBe(true);
   });
 
   test("module-qualified refdes are still reported in charger-buck docs", () => {
@@ -394,9 +404,9 @@ describe("renumber markdown scoping and io errors", () => {
   test("an unwritable directory is an actionable renumber error, not a stack trace", () => {
     if (typeof process.getuid === "function" && process.getuid() === 0) return;
     const root = copyProject(reference);
-    chmodSync(join(root, "views", "charger-buck"), 0o555);
+    chmodSync(join(root, "views"), 0o555);
     const result = run(["renumber", root, "charger-buck", "--mapping", mappingFile(["buck-5v/U1 U5"]), "--apply"]);
-    chmodSync(join(root, "views", "charger-buck"), 0o755);
+    chmodSync(join(root, "views"), 0o755);
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("renumber: cannot write the renumbered sources");
     expect(result.stderr).toContain(root);

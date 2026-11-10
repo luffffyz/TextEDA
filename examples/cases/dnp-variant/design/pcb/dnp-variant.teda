@@ -1,0 +1,27 @@
+version 0.14.0
+pcb dnp-variant
+
+board_thickness  1.6
+
+modules
+  M1
+
+stackup
+  F.Cu     copper      0.035  signal
+  prepreg  dielectric  1.53   FR4     4.3
+  B.Cu     copper      0.035  signal
+
+outline
+  [0,0]
+  [40,0]
+  [40,30]
+  [0,30]
+
+place
+
+connect
+
+rules
+  clearance  0.2
+  width  0.3
+  via  0.6  0.3

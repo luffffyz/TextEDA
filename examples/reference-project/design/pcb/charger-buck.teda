@@ -1,9 +1,11 @@
-version 0.11
+version 0.14.0
 pcb charger-buck
 
-# The buck module's parts on the board. The instance ids are the board's flat ids: the buck is
-# module M2, so its parts are M2.C1 ... M2.U1 (spec/module.md §5).
 board_thickness  1.6
+
+modules
+  M1
+  M2
 
 stackup
   F.Cu     copper      0.035  signal
