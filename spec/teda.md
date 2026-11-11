@@ -53,7 +53,7 @@ nets
 |---|---|---|
 | `component` | `assets/components/**/<component_id>.teda` | 器件定义一个文件（`part` 与 `generic` 同在这个目录），可放子目录 |
 | `schematic` | `design/sch/main.teda` | **工程的逻辑根**，一个工程恰好一份（0.14 起；类型 id 固定为 `main`） |
-| `module` | `design/modules/<module_id>.teda` | 可复用模块：带端口、**持有全部器件事实**（0.8 新增，语法见 `spec/module.md`） |
+| `module` | `design/sch/modules/<module_id>.teda` | 可复用模块：带端口、**持有全部器件事实**（0.8 新增，语法见 `spec/module.md`） |
 | `pcb` | `design/pcb/<pcb_id>.teda` | **一块物理 PCB** 的实现描述，可以多份、可后置（0.4 新增，0.14 起声明所属模块实例，语法见 `spec/pcb.md`） |
 | `footprint` | `assets/footprints/<family>/<footprint_id>.teda` | 库产物：一个封装的规范几何，目录是**封装族**（0.4 新增；见本节末的分类规则） |
 | `symbol` | `assets/symbols/<category>/<symbol_id>.teda` | 库产物：一个符号的视图，目录是**器件类别**（0.5 新增；见本节末的分类规则） |
@@ -62,7 +62,7 @@ nets
 | `sheet_template` | `views/templates/<template_id>.sheet-template.teda` | Static sheet furniture and its page extent（0.13；语法见 `spec/schematic-view.md` §13） |
 | `procurement` | `assets/procurement/{primary,alternatives}/<pcb_id>.teda` | 一块 PCB 的采购选料：通用器件 → 买哪颗（0.9 新增，语法见 `spec/procurement.md`；id 是它所属 PCB 的 `pcb_id`） |
 
-文件名必须等于头部 id；不一致报错。`assets/components/` 允许子目录，子目录只用于分类；`component_id` 取文件名（不含 `.teda`），不取相对路径，同一 id 在 `assets/components/` 树内必须唯一。顶层目录与文件类型必须一致（`assets/components/` 只放 `component`，`design/modules/` 只放 `module`，`design/pcb/` 只放 `pcb`，以此类推）。打印页（`view`）是独立描述类型，放在独立根目录 `views/` 下，文件名为 `<page_id>.view.teda`，靠 `.view` 后缀区分（`view <page_id>`，见 [ADR-0035](../docs/adr/09-view/0035-the-view-layer-is-a-drawing.md)）。`assets/procurement/primary/` 与 `assets/procurement/alternatives/` 只放 `procurement` 文件，两者的区别是**哈希级别**（主料规范、备料附注），不是语法（0.9）。工程树整体按 `docs/adr/03-project/0008-project-tree-has-owners.md`。
+文件名必须等于头部 id；不一致报错。`assets/components/` 允许子目录，子目录只用于分类；`component_id` 取文件名（不含 `.teda`），不取相对路径，同一 id 在 `assets/components/` 树内必须唯一。顶层目录与文件类型必须一致（`assets/components/` 只放 `component`，`design/sch/modules/` 只放 `module`，`design/pcb/` 只放 `pcb`，以此类推）。打印页（`view`）是独立描述类型，放在独立根目录 `views/` 下，文件名为 `<page_id>.view.teda`，靠 `.view` 后缀区分（`view <page_id>`，见 [ADR-0035](../docs/adr/09-view/0035-the-view-layer-is-a-drawing.md)）。`assets/procurement/primary/` 与 `assets/procurement/alternatives/` 只放 `procurement` 文件，两者的区别是**哈希级别**（主料规范、备料附注），不是语法（0.9）。工程树整体按 `docs/adr/03-project/0008-project-tree-has-owners.md`。
 
 **0.14 的根迁移是破坏性的，无兼容路径**：`design/sch/` 下除 `main.teda` 以外的板级原理图、`design/system/*.teda`、`views/<board_id>/` 的板级打印页都不再合法。工程里的电路只有一份真源（逻辑根），板与板之间怎么连只有一条路（根的 `interconnects`）。见到旧构造报 `ref.legacy-board-root` / `ref.legacy-system-description`（error）。
 
@@ -191,7 +191,7 @@ schematic main
 
 器件文件构成工程的**器件库**，而库是工程内容的一部分（它进 IR 分片、进工程哈希，[ADR-0006](../docs/adr/02-ir/0006-ir-shards-and-hashes.md)）。所以一个器件文件可以暂时没人用（为还没画的改版备料），但**没人用要被说出来**：既没有被任何模块的 `instances` 放置、也没有采购文件选中的器件报 `library.device-unused`（warning）——否则库会在多个作者之间无声地膨胀。
 
-**器件不直接属于任何板**：器件文件只描述"这颗料是什么"，不带位置、不带网络、不带板归属。放置与归属是模块定义与模块实例的事（§7.1、`spec/module.md`）；这是 0.14 根迁移的一部分——以前 `design/sch/<board_id>.teda` 可以直接放器件（旧 §7.1 的 `instances` 段），现在所有器件事实都在 `design/modules/<module_id>.teda` 里（[ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1）。
+**器件不直接属于任何板**：器件文件只描述"这颗料是什么"，不带位置、不带网络、不带板归属。放置与归属是模块定义与模块实例的事（§7.1、`spec/module.md`）；这是 0.14 根迁移的一部分——以前 `design/sch/<board_id>.teda` 可以直接放器件（旧 §7.1 的 `instances` 段），现在所有器件事实都在 `design/sch/modules/<module_id>.teda` 里（[ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1）。
 
 ### 6.1 标量（段之前）
 
@@ -373,7 +373,7 @@ ratings
 
 ### 7.1 `modules` 段
 
-**一个工程的电路 = 一个根文件 + 若干模块定义。** 根文件 `design/sch/main.teda` 组合模块实例、给出项目级 net 与端口；模块体在 `design/modules/<module_id>.teda`，**持有全部器件事实**（`instances` / `nets` / `constraints`，语法见 `spec/module.md`），决策见 `docs/adr/04-schematic/0013-modules-compose-boards.md` 与 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md)。
+**一个工程的电路 = 一个根文件 + 若干模块定义。** 根文件 `design/sch/main.teda` 组合模块实例、给出项目级 net 与端口；模块体在 `design/sch/modules/<module_id>.teda`，**持有全部器件事实**（`instances` / `nets` / `constraints`，语法见 `spec/module.md`），决策见 `docs/adr/04-schematic/0013-modules-compose-boards.md` 与 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md)。
 
 ```
 modules
@@ -385,7 +385,7 @@ modules
 
 - `<module_instance_id>` 形状 `^M[0-9]+$`（`M1`、`M2`…；层级标记 `M`，[ADR-0012](../docs/adr/04-schematic/0012-one-flat-schematic-per-board.md)）。这个形状是保留形状，根文件不再有其他实例命名空间与它撞（旧规则"板级 refdes 不得占用 M+数字"随板级实例一起退役）。
 - `uid` 是模块实例的**稳定身份**（§7.1 通用 UID 规则：`ID` + 6 个 Crockford Base32 小写字符；决策见 [ADR-0010](../docs/adr/03-project/0010-instance-identity-is-a-uid.md)）。展平后的实例 UID 是 `<模块实例 UID>/<本地 UID>`（如 `IDp8x2n4/IDk2m8q4`），本地 UID 可以在不同模块实例里重复。
-- `<module_id>` 必须有 `design/modules/<module_id>.teda`（否则 `ref.unknown-module`）；同一模块定义可被多次实例化（`M1`、`M2` 都指 `buck-5v`），展平后是两份电气相同的拷贝。
+- `<module_id>` 必须有 `design/sch/modules/<module_id>.teda`（否则 `ref.unknown-module`）；同一模块定义可被多次实例化（`M1`、`M2` 都指 `buck-5v`），展平后是两份电气相同的拷贝。
 - 根文件**没有** `instances` 段：器件不直接放在根里，所有器件都在某个模块定义里（[ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1）。写了 `instances` 段报 `syntax.unknown-section`（error）。
 - **每个模块实例整只属于恰好一块物理 PCB**；归属写在 PCB 文件的 `modules` 段里（`spec/pcb.md` §4.1），根不写归属。可复用定义可以实例化到不同 PCB（`buck-5v` 同时上 `pwr-l1` 与 `pwr-l2`），但**一个实例**只能被一块 PCB 拥有；跨板的功能拆成两个模块实例 + 一条显式 `interconnects` 行（§7.5）。归属与物理连通性的全局校验在 core（`spec/pcb.md` §5.2），不在 parser。
 
@@ -596,7 +596,7 @@ interconnect_pins
 4. 连接（模块内）：引脚引用可解析；每个引脚最多一个 net；`no_connect` 不得连接；单成员 net 警告（带端口的 net 不算单成员，那个引脚是往模块外走的）。
 5. 约束：subject 存在；单位/量纲兼容；区间有效。
 6. 变体（`project.toml`）：`dnp`/`nofit` 引用的 component_id 存在。
-7. 模块（`module` 文件）：按 `spec/module.md` §6 执行；`design/modules/<module_id>.teda` 存在、头部 id 与文件名一致、端口合法。
+7. 模块（`module` 文件）：按 `spec/module.md` §6 执行；`design/sch/modules/<module_id>.teda` 存在、头部 id 与文件名一致、端口合法。
 8. 根（`schematic` 文件）：`modules` 行的 `module_id` 存在；net 成员是**已声明的模块端口**（模块内部引脚不可直达，`ref.module-internal-ref`）；同一端口不被并进两条根 net（`net.port-in-two-nets`）；`ports` 引用的根 net 存在、`port_id` 不重复、同一 net 最多一个 port；`interconnects` 端点是已声明端口、两端不同实例、`interconnect_id` 唯一；`interconnect_pins` 的第一列指向已声明的 interconnect、引脚引用落在端点所属的模块实例内。没有任何模块实例的根报错（空工程的电路还是空的，不给静默通过）。
 9. **归属与 interconnect 的全局校验（core）**：每个模块实例被**恰好一块** PCB 的 `modules` 段声明（零块/两块都是 error）；`interconnects` 端点两侧的模块实例**分属不同 PCB**（同一 PCB 内的连接走模块内部 net 与 PCB `connect`，不走 interconnect）；未被任何 interconnect 触及的跨板端口对不判定（语言不做"应该有连线"的猜测）。
 10. canonical form（§11）：不满足的文件在 `fmt --check` 下报错；`fmt` 修复后语义不变。
@@ -719,7 +719,7 @@ PATCH 位不参与判定（见 §12.1 的硬规则）。
 
 #### 0.14.0 — One project root, explicit PCB ownership（2026-11-09）
 
-- **一个工程一个逻辑根**（决策见 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1）：`design/sch/main.teda` 是唯一的 `schematic` 描述，id 固定 `main`。它组合模块实例（`modules` 段）、给出项目级 `nets` / `ports` / `constraints`，并新增 `interconnects` 段（跨板物理路径，端点是模块端口）与可选 `interconnect_pins` 段（连接器/电缆引脚映射，不是 net 成员）。根文件**不再有 `instances` 段**：全部器件事实在 `design/modules/<module_id>.teda`（module 文件的解析行为不变）。
+- **一个工程一个逻辑根**（决策见 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1）：`design/sch/main.teda` 是唯一的 `schematic` 描述，id 固定 `main`。它组合模块实例（`modules` 段）、给出项目级 `nets` / `ports` / `constraints`，并新增 `interconnects` 段（跨板物理路径，端点是模块端口）与可选 `interconnect_pins` 段（连接器/电缆引脚映射，不是 net 成员）。根文件**不再有 `instances` 段**：全部器件事实在 `design/sch/modules/<module_id>.teda`（module 文件的解析行为不变）。
 - **删除板级与系统旧构造，无兼容路径**：`design/sch/<board_id>.teda`（板级原理图，板 id ≠ `main`）、`system` 描述类型（`design/system/*.teda`）、`views/<board_id>/` 板级打印页全部不再合法（`ref.legacy-board-root` / `ref.legacy-system-description`）。`[boards.<id>]` 键改为物理 PCB 的元数据表。
 - **PCB 拥有模块实例**：`design/pcb/<pcb_id>.teda` 新增必需的 `modules` 段，列出它拥有的模块实例；每个模块实例整只属于恰好一块 PCB，可复用定义可在不同 PCB 各自实例化。`procurement` 文件名改用 `pcb_id`。PCB 的 `connect` / `trace` 只表达板内连续铜箔；net 名相等从不 imply interconnect。归属与物理连通性的全局校验在 core，不在 parser。
 - **视图按工程组织**：打印页迁到 `views/<page_id>.view.teda`（project 常量 `main`；`place` 可选）。
@@ -905,7 +905,7 @@ pins
   2  N  polarized
 ```
 
-`design/modules/power.teda`（模块定义：**全部器件事实在这里**）：
+`design/sch/modules/power.teda`（模块定义：**全部器件事实在这里**）：
 
 ```
 version 0.14.0

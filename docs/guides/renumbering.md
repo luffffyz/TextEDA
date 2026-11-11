@@ -57,7 +57,7 @@ buck-5v/C1 C9
 - `#` starts a comment; blank lines are ignored.
 - All component refdes are module-local; there is no board-level or root-level refdes namespace.
   Write a module-local name as `<module_id>/<old>`, prefixed with the **module definition id** (the
-  file name under `design/modules/`), not the globally unique project module instance tag.
+  file name under `design/sch/modules/`), not the globally unique project module instance tag.
 - The new name must keep the old prefix.
 - A mapping whose old name is gone and whose new name is present is treated as already applied, so
   running the same mapping twice is a no-op.

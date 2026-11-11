@@ -23,8 +23,8 @@ const rootText = readFileSync(join(projectDir, rootFile), "utf8");
 const rootDoc = parseSchematicDocument(rootText, { file: rootFile }).doc!;
 const referenceModules: ModuleSource[] = [...new Set(rootDoc.modules.map((row) => row.moduleId))].map((moduleId) => ({
   moduleId,
-  file: `design/modules/${moduleId}.teda`,
-  text: readFileSync(join(projectDir, "design/modules", `${moduleId}.teda`), "utf8"),
+  file: `design/sch/modules/${moduleId}.teda`,
+  text: readFileSync(join(projectDir, "design/sch/modules", `${moduleId}.teda`), "utf8"),
 }));
 const referenceResult = parseSchematic(rootText, {
   file: rootFile,
@@ -40,7 +40,7 @@ function parseFlatModule(
   components: Parameters<typeof parseSchematic>[1]["components"] = resolver,
 ) {
   const moduleText = sourceText;
-  const moduleFile = "design/modules/test.teda";
+  const moduleFile = "design/sch/modules/test.teda";
   const doc = parseSchematicDocument(moduleText, { file: moduleFile, kind: "module" }).doc;
   const netNames = new Set<string>();
   const ports = doc?.ports ?? [];
@@ -206,7 +206,7 @@ describe("module facts (spec/module.md §7.2)", () => {
     const facts = parseSchematic(projectText, {
       file: rootFile,
       components: resolver,
-      modules: [{ moduleId: "m1", file: "design/modules/m1.teda", text: moduleText }],
+      modules: [{ moduleId: "m1", file: "design/sch/modules/m1.teda", text: moduleText }],
     });
 
     test("every declared port has complete flattened pins", () => {
@@ -276,7 +276,7 @@ describe("stable instance UIDs (ADR-0010)", () => {
     const composed = parseSchematic(projectText, {
       file: rootFile,
       components: resolver,
-      modules: [{ moduleId: "m", file: "design/modules/m.teda", text: moduleText }],
+      modules: [{ moduleId: "m", file: "design/sch/modules/m.teda", text: moduleText }],
     });
     expect(composed.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
     const m1 = composed.ir!.instances.find((i) => i.id === "M1.R1")!;
@@ -312,7 +312,7 @@ describe("stable instance UIDs (ADR-0010)", () => {
     const composed = parseSchematic(projectText, {
       file: rootFile,
       components: resolver,
-      modules: [{ moduleId: "m", file: "design/modules/m.teda", text: moduleText }],
+      modules: [{ moduleId: "m", file: "design/sch/modules/m.teda", text: moduleText }],
     });
     expect(composed.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
     expect(composed.ir!.instances.find((i) => i.id === "M1.R1")!.uid).toBe("ID7k3m9q");
@@ -462,7 +462,7 @@ describe("negative cases", () => {
     const result = parseFlatModule(moduleText.replace("10k", "10k 1% 2W 3X"));
     const diagnostic = result.diagnostics.find((d) => d.code === "value.param-count-mismatch")!;
     // The row is the place to fix; the declaration is the file that decides how many columns there are.
-    expect(diagnostic.location).toMatchObject({ file: "design/modules/test.teda", line: 5 });
+    expect(diagnostic.location).toMatchObject({ file: "design/sch/modules/test.teda", line: 5 });
     const related = diagnostic.related ?? [];
     expect(related).toHaveLength(1);
     expect(related[0]!.file).toContain("res-thick-0402.teda");
@@ -567,7 +567,7 @@ describe("negative cases", () => {
   test("diagnostics carry file, line, and column", () => {
     const result = parseFlatModule(moduleText.replace("10k", "10V"));
     const diagnostic = result.diagnostics.find((d) => d.code === "value.invalid-param")!;
-    expect(diagnostic.location).toEqual({ file: "design/modules/test.teda", line: 5, col: 3 });
+    expect(diagnostic.location).toEqual({ file: "design/sch/modules/test.teda", line: 5, col: 3 });
   });
 });
 

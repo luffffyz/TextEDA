@@ -8,7 +8,7 @@ module's ports merge into.
 
 | Claim | Where it lives | What the checker says |
 |---|---|---|
-| A module is a piece of circuitry, not a drawing split | `design/modules/rc-filter-2stage.teda`, instantiated by `design/sch/sensor-hub.teda` | the flat IR has no module left in it: the board shard lists `M1.C1`, `M2.C1` … as ordinary instances and `M1.MID`, `M2.MID` as ordinary nets. The module file produces **no shard of its own** — only its parts survive, inside the board |
+| A module is a piece of circuitry, not a drawing split | `design/sch/modules/rc-filter-2stage.teda`, instantiated by `design/sch/sensor-hub.teda` | the flat IR has no module left in it: the board shard lists `M1.C1`, `M2.C1` … as ordinary instances and `M1.MID`, `M2.MID` as ordinary nets. The module file produces **no shard of its own** — only its parts survive, inside the board |
 | The same module may be instantiated twice | the board's `modules` section: `M1` and `M2`, both `rc-filter-2stage` | nothing special — the two instances are two sets of instances. `M1.R1` and `M2.R1` are the same part in two places |
 | A port merges a module net into a board net | the module's `ports` section and the board's `nets` section: `M1.IN` in `SIG1`, `M1.OUT` in `OUT1`, `M1.GND` in `GND` | the ordinary rules then apply to the merged net: `GND` carries both modules' capacitors and the board's thermistor, and one window covers all of them |
 | A net with no port stays inside the module | the module's `MID` net: no port names it | it lands as `M1.MID` / `M2.MID`, and the module's own `voltage MID 0V..3.3V` lands with it — the constraint does not leak into the board's nets |

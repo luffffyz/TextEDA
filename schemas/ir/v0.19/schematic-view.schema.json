@@ -295,12 +295,12 @@
         },
         "from": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_+-]+$",
+          "pattern": "^M[0-9]+\\.[A-Za-z0-9_+-]+$",
           "description": "The drawn start endpoint: the interconnect's `from` module port <module_instance_id>.<port>, e.g. M1.PORT. Must be the endpoint the root declares, drawn as an identity only."
         },
         "to": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_+-]+$",
+          "pattern": "^M[0-9]+\\.[A-Za-z0-9_+-]+$",
           "description": "The drawn end endpoint: the interconnect's `to` module port <module_instance_id>.<port>, e.g. M2.PORT. Must be the endpoint the root declares, drawn as an identity only."
         },
         "x_nm": {

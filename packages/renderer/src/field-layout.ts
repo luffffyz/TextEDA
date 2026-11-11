@@ -14,6 +14,7 @@ import { textAdvance } from "@texteda/core/font";
 import type { SchematicView } from "@texteda/ir/schematic-view";
 import { renderSymbol } from "./symbol.ts";
 import { bodyBounds, resolveSchematicFields } from "./field-placement.ts";
+import { pinDirection } from "./svg.ts";
 import type { SchematicInstance } from "./schematic.ts";
 
 type Place = NonNullable<SchematicView["place"]>[number];
@@ -23,6 +24,8 @@ type Port = NonNullable<SchematicView["port"]>[number];
 const FIELD_CLEARANCE_NM = 1_000_000;
 /** How much further out a field steps when the slot next to its body is taken as well. */
 const FIELD_STEP_NM = 2_000_000;
+/** Tangential search along a body edge, on the view's half-millimetre drawing lattice. */
+const FIELD_SLIDE_NM = 500_000;
 
 /** Label, port tag and note text size, and the port tag's shape, in sheet coordinates. */
 export const LABEL_SIZE_NM = 1_270_000;
@@ -220,6 +223,8 @@ export function pageFacts(
   const fields: PageField[] = [];
   const fixed: FieldBox[] = [];
   const bodies: PageBody[] = [];
+  const texts: FieldBox[] = [];
+  const wires: PageWire[] = [];
   const pins = new Map<string, ReadonlyMap<string, Point>>();
   const endpoints = new Map<string, Point>([
     ...(view.port ?? []).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }] as const),
@@ -252,15 +257,32 @@ export function pageFacts(
     pins.set(place.instance_id, pinPoints);
 
     for (const primitive of primitives) {
-      if (primitive.kind !== "text" || primitive.role !== "field") continue;
+      if (primitive.kind !== "pin" && primitive.kind !== "text") continue;
+      if ((primitive.unit ?? 1) !== 0 && (primitive.unit ?? 1) !== unit) continue;
+      if (primitive.kind === "pin") {
+        const direction = pinDirection(primitive.rotMdeg);
+        const from = project.toSheet(place, primitive.x, primitive.y);
+        const to = project.toSheet(place,
+          primitive.x + direction.x * primitive.lengthNm,
+          primitive.y + direction.y * primitive.lengthNm);
+        wires.push({ points: [{ x_nm: from.x, y_nm: from.y }, { x_nm: to.x, y_nm: to.y }] });
+        continue;
+      }
+      const rotate = primitive.rotateMdeg === undefined
+        ? 0
+        : ((((primitive.rotateMdeg - quadrant * 90_000) % 360_000) + 360_000) % 360_000);
+      if (primitive.role !== "field") {
+        if (!primitive.hidden) {
+          const at = project.toSheet(place, primitive.x, primitive.y);
+          texts.push(textBox(at.x, at.y, primitive.text, primitive.sizeNm, primitive.anchor ?? "middle", rotate));
+        }
+        continue;
+      }
       const field = resolved.get(primitive);
       if (field === undefined) continue;
       const at = project.toSheet(place, field.x, field.y);
       // The anchor the field will be drawn with: the quarter-turn rule, else the symbol's own.
       const anchor = fieldTextAnchor(quadrant === 1 || quadrant === 3, at.x, place.x_nm) ?? primitive.anchor;
-      const rotate = primitive.rotateMdeg === undefined
-        ? 0
-        : ((((primitive.rotateMdeg - quadrant * 90_000) % 360_000) + 360_000) % 360_000);
       const box = textBox(at.x, at.y, field.text, primitive.sizeNm, anchor ?? "middle", rotate);
       // A field the author placed by hand stands where it was put; the page only routes around it.
       if (field.manual) {
@@ -281,7 +303,7 @@ export function pageFacts(
     }
   }
 
-  const texts: FieldBox[] = [
+  texts.push(
     ...(view.label ?? []).map((label) =>
       textBox(label.x_nm, label.y_nm, label.net, LABEL_SIZE_NM, "start"),
     ),
@@ -292,9 +314,8 @@ export function pageFacts(
     ...(view.text ?? []).map((note) =>
       textBox(note.x_nm, note.y_nm, note.text, NOTE_SIZE_NM, "start"),
     ),
-  ];
+  );
 
-  const wires: PageWire[] = [];
   for (const wire of view.wire ?? []) {
     const from = endpointOf(wire.from_pin, pins, endpoints);
     const to = endpointOf(wire.to_pin, pins, endpoints);
@@ -342,77 +363,55 @@ function preferredBox(field: PageField): FieldBox {
   return textBox(field.x_nm, field.y_nm, field.text, field.size_nm, field.anchor ?? "middle");
 }
 
-/**
- * The places a field can take, in the order it tries them.
- *
- * The first is the place the symbol asked for. The rest are the four sides of the body: first the
- * side opposite the one it wanted, then the two sides across, each one further out than the last.
- */
-function candidatesFor(field: PageField): Candidate[] {
-  const preferred: Candidate = {
-    x_nm: field.x_nm,
-    y_nm: field.y_nm,
-    ...(field.anchor === undefined ? {} : { anchor: field.anchor }),
-    box: preferredBox(field),
-  };
+/** Try the preferred anchor, then search the body's perimeter before increasing clearance. */
+function* candidatesFor(field: PageField, preferred: Candidate): Generator<Candidate> {
+  yield preferred;
   const body = field.body;
-  if (body === undefined) return [preferred];
+  if (body === undefined) return;
 
   const height = field.size_nm;
+  const width = preferred.box.max_x_nm - preferred.box.min_x_nm;
   const centerX = (body.min_x_nm + body.max_x_nm) / 2;
   const centerY = (body.min_y_nm + body.max_y_nm) / 2;
-  const slot = (side: Side, step: number): Candidate => {
-    const extra = step * FIELD_STEP_NM;
-    if (side === "above") {
-      const y = body.min_y_nm - FIELD_CLEARANCE_NM - extra - height / 2;
-      return {
-        x_nm: centerX,
-        y_nm: y,
-        anchor: "middle",
-        box: textBox(centerX, y, field.text, field.size_nm, "middle"),
-      };
+  // Include the corners: the text's near edge can align with the body's far edge.
+  const spanX = (body.max_x_nm - body.min_x_nm + width) / 2;
+  const spanY = (body.max_y_nm - body.min_y_nm + height) / 2;
+  const slot = (side: Side, step: number, offset: number): Candidate => {
+    const gap = FIELD_CLEARANCE_NM + step * FIELD_STEP_NM;
+    let x = centerX;
+    let y = centerY;
+    let anchor: "start" | "middle" | "end" = "middle";
+    if (side === "above" || side === "below") {
+      x += offset;
+      y = side === "above" ? body.min_y_nm - gap - height / 2 : body.max_y_nm + gap + height / 2;
+    } else {
+      x = side === "left" ? body.min_x_nm - gap : body.max_x_nm + gap;
+      y += offset;
+      anchor = side === "left" ? "end" : "start";
     }
-    if (side === "below") {
-      const y = body.max_y_nm + FIELD_CLEARANCE_NM + extra + height / 2;
-      return {
-        x_nm: centerX,
-        y_nm: y,
-        anchor: "middle",
-        box: textBox(centerX, y, field.text, field.size_nm, "middle"),
-      };
-    }
-    if (side === "left") {
-      const x = body.min_x_nm - FIELD_CLEARANCE_NM - extra;
-      return {
-        x_nm: x,
-        y_nm: centerY,
-        anchor: "end",
-        box: textBox(x, centerY, field.text, field.size_nm, "end"),
-      };
-    }
-    const x = body.max_x_nm + FIELD_CLEARANCE_NM + extra;
-    return {
-      x_nm: x,
-      y_nm: centerY,
-      anchor: "start",
-      box: textBox(x, centerY, field.text, field.size_nm, "start"),
-    };
+    return { x_nm: x, y_nm: y, anchor, box: textBox(x, y, field.text, field.size_nm, anchor) };
   };
 
-  // The side the field wanted decides which family comes first: a field that sits above or below its
-  // body tries the other vertical side before it tries a horizontal one, and the other way round.
-  const above = preferred.y_nm < body.min_y_nm;
-  const below = preferred.y_nm > body.max_y_nm;
-  const vertical = above || below;
-  const sides: Side[] = vertical
-    ? [above ? "below" : "above", "left", "right"]
-    : [preferred.x_nm < body.min_x_nm ? "right" : "left", "above", "below"];
-
-  const candidates: Candidate[] = [preferred];
-  for (const step of [0, 1, 2]) {
-    for (const side of sides) candidates.push(slot(side, step));
+  const sides: readonly Side[] = preferred.y_nm < body.min_y_nm
+    ? ["above", "below", "left", "right"]
+    : preferred.y_nm > body.max_y_nm
+      ? ["below", "above", "left", "right"]
+      : preferred.x_nm < body.min_x_nm
+        ? ["left", "right", "above", "below"]
+        : ["right", "left", "above", "below"];
+  const maxSpan = Math.max(spanX, spanY);
+  for (let step = 0; step <= 2; step += 1) {
+    for (const side of sides) yield slot(side, step, 0);
+    for (let offset = FIELD_SLIDE_NM; offset < maxSpan + FIELD_SLIDE_NM; offset += FIELD_SLIDE_NM) {
+      for (const side of sides) {
+        const span = side === "above" || side === "below" ? spanX : spanY;
+        if (offset - FIELD_SLIDE_NM >= span) continue;
+        const distance = Math.min(offset, span);
+        yield slot(side, step, distance);
+        yield slot(side, step, -distance);
+      }
+    }
   }
-  return candidates;
 }
 
 /** How much of a wire run lies inside a box: a wire that crosses a text makes it unreadable. */
@@ -434,20 +433,47 @@ function wireLengthInBox(wire: PageWire, box: FieldBox): number {
  * A field keeps the place it wants while that place touches no other field, no page text, no other
  * symbol's body and no wire run. The fields are placed in page order, and each one reserves the
  * place it wants even before it is placed, so two fields never aim at the same spot.
+ *
+ * `fieldPositions` carries the page's previous automatic placements, as a review passes them back
+ * during a drag. A field tries its previous place first and keeps it while it is free, so fields
+ * that were moved aside do not snap back when an unrelated symbol moves away; a previous place
+ * that something new covers falls back to the usual body-relative search.
  */
-export function placePageFields(facts: PageFacts): Map<string, FieldPlacement> {
+export function placePageFields(
+  facts: PageFacts,
+  fieldPositions?: ReadonlyMap<string, FieldPlacement>,
+): Map<string, FieldPlacement> {
   const placements = new Map<string, FieldPlacement>();
   const reserved = new Map<string, FieldBox>();
   for (const field of facts.fields) reserved.set(fieldKey(field), preferredBox(field));
 
   for (const field of facts.fields) {
     const key = fieldKey(field);
-    const candidates = candidatesFor(field);
-    let chosen = candidates[0]!;
-    for (const candidate of candidates) {
-      if (isFree(field, candidate.box, facts, reserved, key)) {
-        chosen = candidate;
-        break;
+    const preferred: Candidate = {
+      x_nm: field.x_nm,
+      y_nm: field.y_nm,
+      ...(field.anchor === undefined ? {} : { anchor: field.anchor }),
+      box: reserved.get(key)!,
+    };
+    let chosen: Candidate = preferred;
+    // The review's previous place, tried before the canonical search: it wins while it is free.
+    const hint = fieldPositions?.get(key);
+    if (hint !== undefined) {
+      const anchor = hint.anchor ?? field.anchor;
+      const hinted: Candidate = {
+        x_nm: hint.x_nm,
+        y_nm: hint.y_nm,
+        ...(anchor === undefined ? {} : { anchor }),
+        box: textBox(hint.x_nm, hint.y_nm, field.text, field.size_nm, anchor ?? "middle"),
+      };
+      if (isFree(field, hinted.box, facts, reserved, key)) chosen = hinted;
+    }
+    if (chosen === preferred) {
+      for (const candidate of candidatesFor(field, preferred)) {
+        if (isFree(field, candidate.box, facts, reserved, key)) {
+          chosen = candidate;
+          break;
+        }
       }
     }
     reserved.set(key, chosen.box);

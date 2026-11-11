@@ -1122,7 +1122,7 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
         boardDoc.file,
         row.line,
         row.col,
-        { expected: `modules/${row.moduleId}.teda`, data: { module_id: row.moduleId } },
+        { expected: `design/sch/modules/${row.moduleId}.teda`, data: { module_id: row.moduleId } },
       );
       continue;
     }

@@ -38,12 +38,8 @@ describe("project loaders", () => {
 
   test("loads project-level advisory print pages", () => {
     const views = loadViews(projectRoot);
-    expect(views.map((view) => view.pageId)).toEqual(["buck-5v", "charger-power", "composed"]);
-    expect(views.map((view) => view.file)).toEqual([
-      "views/buck-5v.view.teda",
-      "views/charger-power.view.teda",
-      "views/composed.view.teda",
-    ]);
+    expect(views.map((view) => view.pageId)).toEqual(["main"]);
+    expect(views.map((view) => view.file)).toEqual(["views/main.view.teda"]);
     for (const view of views) {
       expect(view.text.split("\n")[1]).toBe(`view ${view.pageId}`);
     }

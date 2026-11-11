@@ -7,7 +7,7 @@
 
 **`project.toml` holds project metadata only.** It does not hold the circuit — the circuit lives in
 one project-level logical root, `design/sch/main.teda` (`spec/teda.md` §7), composed from module
-definitions in `design/modules/` and implemented by physical PCB descriptions in `design/pcb/` —
+definitions in `design/sch/modules/` and implemented by physical PCB descriptions in `design/pcb/` —
 and it does not hold library references, because a project has no library dependencies (an external
 library is a template: `texteda lib import` copies it into `assets/`, after which the files are the
 project's own).
@@ -49,7 +49,7 @@ else is added by hand when it is needed.
 - `init` writes only `name` / `version` / `format`; everything else is added when needed.
 - The logical shape of a project is fixed by the language, not by this file: **one** schematic root
   `design/sch/main.teda` owns the project's nets, ports, constraints and interconnects; module
-  definitions in `design/modules/<module_id>.teda` own every component fact; each module instance
+  definitions in `design/sch/modules/<module_id>.teda` own every component fact; each module instance
   belongs wholly to exactly one physical PCB described by `design/pcb/<pcb_id>.teda`. Per-board
   metadata (`revision`, `title`) may be recorded here under `[boards.<id>]`, but it never creates
   or re-routes anything.

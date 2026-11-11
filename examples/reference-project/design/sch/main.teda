@@ -2,7 +2,7 @@ version 0.14.0
 schematic main
 
 # The project's one logical root (ADR-0069 D1). All component facts live in the reusable
-# module definitions under design/modules/; this file composes their instances, merges the
+# module definitions under design/sch/modules/; this file composes their instances, merges the
 # module ports into project nets, and declares the explicit cross-PCB paths.
 #
 # Two physical boards implement the product:

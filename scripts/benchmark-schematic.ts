@@ -180,13 +180,13 @@ export function makeProject(
     copyFileSync(join(REFERENCE_ROOT, relative), destination);
   }
   mkdirSync(join(root, "design/sch"), { recursive: true });
-  mkdirSync(join(root, "design/modules"), { recursive: true });
+  mkdirSync(join(root, "design/sch/modules"), { recursive: true });
   writeFileSync(
     join(root, "project.toml"),
     '[project]\nname = "schematic-benchmark"\nversion = "0.1.0"\nformat = "0.11"\n',
   );
   const source = schematicSource(shape, count);
-  const module = join(root, "design/modules/benchmark.teda");
+  const module = join(root, "design/sch/modules/benchmark.teda");
   writeFileSync(module, source);
   const schematic = join(root, "design/sch/main.teda");
   writeFileSync(schematic, "version 0.14.0\nschematic main\n\nmodules\n  M1  benchmark\n");
@@ -305,7 +305,7 @@ function measureCase(
     "assets/symbols/passives/r.teda",
     "assets/footprints/chip/chip-0402.teda",
     "design/sch/main.teda",
-    "design/modules/benchmark.teda",
+    "design/sch/modules/benchmark.teda",
   ].reduce((total, relative) => total + statSync(join(projectRoot, relative)).size, 0);
   const child = Bun.spawnSync(
     [process.execPath, SCRIPT_PATH, "--worker", projectRoot, String(count), String(generated.nets), String(repeats), String(warmups)],

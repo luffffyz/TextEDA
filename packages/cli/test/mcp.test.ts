@@ -126,7 +126,7 @@ describe("the MCP server", () => {
   });
 
   test("a tool's value is the same value the command line prints", async () => {
-    const proc = Bun.spawn(["bun", "run", script, "view", "metrics", project, "buck-5v", "--json"], {
+    const proc = Bun.spawn(["bun", "run", script, "view", "metrics", project, "main", "--json"], {
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -139,7 +139,7 @@ describe("the MCP server", () => {
       method: "tools/call",
       params: {
         name: "texteda_view_metrics",
-        arguments: { project_dir: project, page: "buck-5v" },
+        arguments: { project_dir: project, page: "main" },
       },
     });
     expect(field(response?.result, "structuredContent")).toEqual(JSON.parse(stdout));

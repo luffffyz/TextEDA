@@ -34,7 +34,7 @@ describe("the DSH projection", () => {
   });
 
   test("a tool's value is the value the command line prints", async () => {
-    const proc = Bun.spawn(["bun", "run", script, "view", "metrics", project, "buck-5v", "--json"], {
+    const proc = Bun.spawn(["bun", "run", script, "view", "metrics", project, "main", "--json"], {
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -45,7 +45,7 @@ describe("the DSH projection", () => {
     expect(tool).toBeDefined();
     const value = await tool?.execute({
       project_dir: project,
-      page: "buck-5v",
+      page: "main",
     });
     expect(value).toEqual(JSON.parse(stdout));
   });
@@ -54,7 +54,7 @@ describe("the DSH projection", () => {
     const tool = dshTools().find((entry) => entry.name === "texteda_view_metrics");
     const value = await tool?.execute({
       project_dir: project,
-      page: "buck-5v",
+      page: "main",
     });
     const content = tool?.output.render({}, value);
     expect(content?.[0]?.type).toBe("text");

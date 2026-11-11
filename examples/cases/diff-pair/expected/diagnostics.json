@@ -1,11 +1,5 @@
 [
   {
-    "code": "net.pin-unassigned",
-    "severity": "warning",
-    "file": "design/modules/can-node.teda",
-    "line": 19
-  },
-  {
     "code": "bind.instance-unplaced",
     "severity": "warning",
     "file": "design/pcb/can-node.teda",
@@ -28,5 +22,11 @@
     "severity": "warning",
     "file": "design/sch/main.teda",
     "line": 5
+  },
+  {
+    "code": "net.pin-unassigned",
+    "severity": "warning",
+    "file": "design/sch/modules/can-node.teda",
+    "line": 19
   }
 ]

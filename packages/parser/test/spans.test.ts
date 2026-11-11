@@ -10,7 +10,7 @@ import { spanOf, schemaDiagnosticsToDiagnostics, validate } from "@texteda/ir";
 import { lex } from "../src/lexer.ts";
 import { parseSchematic, parseSchematicDocument, type ModuleSource } from "../src/schematic.ts";
 import { parsePcb } from "../src/pcb.ts";
-import { parseView } from "../src/view.ts";
+import { parseModuleView, parseView } from "../src/view.ts";
 import { canonicalJson } from "../src/canonical.ts";
 import { loadResolver } from "./project.ts";
 
@@ -56,8 +56,8 @@ describe("spans of a project schematic", () => {
   const rootDoc = parseSchematicDocument(rootText, { file: rootFile }).doc!;
   const moduleSources: ModuleSource[] = [...new Set(rootDoc.modules.map((row) => row.moduleId))].map((moduleId) => ({
     moduleId,
-    file: `design/modules/${moduleId}.teda`,
-    text: readFileSync(join(projectDir, "design/modules", `${moduleId}.teda`), "utf8"),
+    file: `design/sch/modules/${moduleId}.teda`,
+    text: readFileSync(join(projectDir, "design/sch/modules", `${moduleId}.teda`), "utf8"),
   }));
   const result = parseSchematic(rootText, { file: rootFile, components: resolver, modules: moduleSources });
   const sources = result.sources!;
@@ -134,11 +134,12 @@ describe("spans of a pcb and a print page", () => {
     }
   });
 
-  test("view records are located by their own line", () => {
-    const text = readFileSync(join(projectDir, "views", "charger-power.view.teda"), "utf8");
-    const parsed = parseView(text, { file: "views/charger-power.view.teda", project: "main" });
+  test("module view records are located by their own line", () => {
+    const file = "views/modules/charger-power.module-view.teda";
+    const text = readFileSync(join(projectDir, file), "utf8");
+    const parsed = parseModuleView(text, { file });
     const ir = parsed.ir!;
-    expect(ir.project).toBe("main");
+    expect(ir.module_id).toBe("charger-power");
     for (const [index, place] of ir.place!.entries()) {
       const span = parsed.sources!.get(`/place/${index}`)!;
       expect(span.line).toBeGreaterThan(0);
@@ -182,8 +183,8 @@ describe("a contract violation names the line", () => {
     const doc = parseSchematicDocument(text, { file: rootFile }).doc!;
     const modules: ModuleSource[] = [...new Set(doc.modules.map((row) => row.moduleId))].map((moduleId) => ({
       moduleId,
-      file: `design/modules/${moduleId}.teda`,
-      text: readFileSync(join(projectDir, "design/modules", `${moduleId}.teda`), "utf8"),
+      file: `design/sch/modules/${moduleId}.teda`,
+      text: readFileSync(join(projectDir, "design/sch/modules", `${moduleId}.teda`), "utf8"),
     }));
     const parsed = parseSchematic(text, { file: rootFile, components: resolver, modules });
     const check = validate("schematic", parsed.ir);

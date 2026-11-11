@@ -48,6 +48,8 @@ export interface ReviewField {
   /** Symbol-local anchor in millimetres; +x is right and +y is up. */
   x: number;
   y: number;
+  /** The rendered horizontal text alignment, preserved by transient layout preferences. */
+  anchor?: "start" | "middle" | "end";
   /** True when this field is placed by a `field` override row rather than automatically. */
   manual: boolean;
 }
@@ -134,6 +136,8 @@ export interface ReviewDrawing {
   board?: string;
   /** The print page's id (a print page): what the layout and edit writes name. */
   page?: string;
+  /** The module id (a module drawing): what the layout and edit writes name. */
+  module?: string;
   /** What the page measures (a print page): how crowded, how far, how long (ADR-0048 D6). */
   metrics?: ReviewMetrics;
 }

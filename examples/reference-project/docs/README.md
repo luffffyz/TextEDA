@@ -18,7 +18,7 @@ reference-project/
 ├── assets/footprints/      # in-house footprints, one subdirectory per package family
 ├── assets/procurement/     # selections for each physical PCB: primary/ and alternatives/
 ├── design/sch/main.teda    # the project's only logical root
-├── design/modules/         # reusable module definitions; each owns its component facts
+├── design/sch/modules/         # reusable module definitions; each owns its component facts
 ├── design/pcb/             # physical PCB implementations with explicit module ownership
 │   ├── charger-buck.teda   # owns module instances M1 and M2
 │   └── mcu-board.teda      # owns module instance M3
@@ -53,7 +53,7 @@ nets, ports, and cross-PCB interconnects; the PCB files record physical implemen
 - Trial-run baselines (DRC report, Gerber list, and KiCad project files) are retained under `docs/trial-run/charger-buck/` when generated; the field-level IR → KiCad mapping is in `docs/guides/kicad-pcb-format.md`.
 - Design documents and simulation evidence belong in `docs/`; conclusions are bound to the design version they verified.
 
-## design/modules/
+## design/sch/modules/
 
 A module is a reusable circuit definition. It owns all of its component instances, local nets,
 ports, and constraints; it is not a board-local schematic or a drawing page. An `instances` row is
@@ -80,7 +80,7 @@ for example `assets/components/passives/r-0402.teda`.
 `design/sch/main.teda` is the project's one logical root. It composes module definitions and owns
 the project-wide module-instance ids, logical net membership, project ports, constraints, and
 interconnect records. It has no component `instances` section: all component facts remain in
-`design/modules/`.
+`design/sch/modules/`.
 
 The reference composition is:
 
@@ -140,26 +140,27 @@ connectivity exercise project-root binding and whole-module ownership.
 
 ## views/
 
-Project advisory pages are flat: `views/<page_id>.view.teda` has no PCB or board parent. The
-conventional `views/main.view.teda` is a topology overview of module boxes, ports, and declared
-interconnects; detail pages may place any subset of the project's flattened components. Page
-divisions are for drawing and review only, and pages carry no electrical or copper facts. They can
-be deleted and redrawn without changing the root logic, PCB implementations, netlists, or
-physical ownership. `views/modules/` contains reusable module drawings and `views/templates/`
-contains sheet furniture; neither directory creates board-scoped pages.
+Project advisory pages are flat: `views/<page_id>.view.teda` has no PCB or board parent. This
+reference project has one page, `views/main.view.teda`, and it is a composed page: it places the
+three module drawings on an A2 template and draws the two root-declared interconnects. It does not
+redraw a module's parts — every part is drawn once, in its module's drawing. Pages carry no
+electrical or copper facts and can be deleted without changing the root logic, PCB
+implementations, netlists, or physical ownership. `views/modules/` contains the reusable module
+drawings (authored source the review app can edit) and `views/templates/` contains sheet furniture;
+neither directory creates board-scoped pages.
 
 ## Conventions
 
 - `project.toml` is the project entry point; `[project].name` matches the directory name by default.
 - All description files share the `.teda` extension; the first line distinguishes `component` / `schematic` / `module` / `pcb` / `view` / `module_view` / `sheet_template`.
-- `design/sch/main.teda` is the only schematic root. `design/modules/` holds reusable electrical definitions, `design/pcb/` holds physical implementations, and `views/<page_id>.view.teda` holds flat project advisory drawings.
+- `design/sch/main.teda` is the only schematic root. `design/sch/modules/` holds reusable electrical definitions, `design/pcb/` holds physical implementations, and `views/<page_id>.view.teda` holds flat project advisory drawings.
 - Module-instance ownership is declared by each PCB's `modules` section, not inferred from a file name, module definition, equal net name, or view page. Cross-PCB paths are declared by root `interconnects`; equal names alone never join boards.
 - Every description file carries the same language version (see [ADR-0002](../../../docs/adr/01-language/0002-one-language-version-number.md)). A file's number is the language generation it was written against; `[project].format` carries the same number.
 - Component references in `variants` use the stable `component_id`, not refdes.
 
 ## Next steps
 
-1. Keep project electrical facts in `design/modules/` and compose their instances only in `design/sch/main.teda`.
+1. Keep project electrical facts in `design/sch/modules/` and compose their instances only in `design/sch/main.teda`.
 2. For each physical PCB, list every wholly owned module instance in its `design/pcb/<pcb_id>.teda` `modules` section; do not split an instance.
 3. Add explicit root `interconnects` for each cross-PCB port path. Do not rely on equal net names to imply copper continuity.
 4. Add or revise flat advisory pages under `views/<page_id>.view.teda`; drawing changes must not duplicate logic.

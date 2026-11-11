@@ -5,7 +5,7 @@
 //   assets/components/**/*.teda        devices (one per file, id taken from the file name)
 //   design/sch/main.teda               the one logical root (ADR-0069 D1)
 //   design/pcb/<pcb_id>.teda           the physical PCB implementations (ADR-0069 D2)
-//   design/modules/<module>.teda       module definitions (spec/module.md)
+//   design/sch/modules/<module>.teda   module definitions (spec/module.md, ADR-0070)
 //   views/<page>.view.teda             a project print page (ADR-0069 D4)
 //   views/modules/<module>.module-view.teda      a reusable drawing of one module (ADR-0068 D1)
 //   views/templates/<template>.sheet-template.teda  reusable static page furniture (ADR-0068 D1)
@@ -281,7 +281,7 @@ export function loadProject(root: string): { ir?: Project; owner?: string; diagn
 }
 
 /**
- * Read the project's modules (`design/modules/<module_id>.teda`). The module id is the file name, like the
+ * Read the project's modules (`design/sch/modules/<module_id>.teda`). The module id is the file name, like the
  * component id (spec/module.md §1). Returns an empty array when the directory does not exist.
  */
 export function loadModules(root: string): ModuleSource[] {

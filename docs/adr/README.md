@@ -10,7 +10,7 @@ One flat counter, handed out in the order the records are written, starting at
 `0001`. A number names one record and nothing else: what a record is about is said by
 its folder, not by its number. A number is **never changed and never reused** — a link
 to `ADR-0006` names the same decision forever — so a new record takes the next free
-number and disturbs nothing that already exists. The next free number is `0070`.
+number and disturbs nothing that already exists. The next free number is `0072`.
 The sequence is not contiguous; gaps are normal.
 
 ## Retired
@@ -66,6 +66,7 @@ that was meant for it, and by nothing else.
 | [ADR-0010](03-project/0010-instance-identity-is-a-uid.md) | Instance Identity Is a Stable Project-Local UID, Not the Refdes | Accepted | 2026-10-25 |
 | [ADR-0011](03-project/0011-renumbering-is-a-code-executed-rename.md) | Renumbering Is a Code-Executed Global Rename, Not an Agent Edit | Accepted | 2026-10-25 |
 | [ADR-0069](03-project/0069-project-level-logical-root-and-physical-board-mapping.md) | One Project Logic Root, Physical PCB Implementations, and Project Views | Accepted | 2026-11-09 |
+| [ADR-0070](03-project/0070-module-definitions-live-under-the-schematic-tree.md) | Module Definitions Live Under the Schematic Source Tree | Accepted | 2026-11-11 |
 | [ADR-0060](03-project/0060-a-write-keeps-the-bytes-it-replaced.md) | A Write Keeps the Bytes It Replaced | Accepted | 2026-11-04 |
 
 ## Schematic
@@ -143,6 +144,7 @@ that was meant for it, and by nothing else.
 | [ADR-0064](09-view/0064-automatic-fields-are-placed-for-the-page.md) | Automatic Fields Are Placed for the Page, Not for One Symbol | Accepted | 2026-11-05 |
 | [ADR-0067](09-view/0067-hierarchical-module-views-and-custom-page-size.md) | Hierarchical Module Views and a Custom Page Size | Accepted | 2026-11-08 |
 | [ADR-0068](09-view/0068-reusable-module-drawings-and-sheet-templates.md) | Reusable Module Drawings and Sheet Templates | Accepted | 2026-11-08 |
+| [ADR-0071](09-view/0071-a-module-drawing-is-an-editable-view.md) | A Reusable Module Drawing Is an Editable View | Accepted | 2026-11-11 |
 
 ## Process
 

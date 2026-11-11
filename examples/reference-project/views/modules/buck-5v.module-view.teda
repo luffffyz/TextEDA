@@ -1,11 +1,11 @@
-version 0.13
+version 0.14.0
 module_view buck-5v
 
 bounds [145,40]
 
 # The 5V buck module, drawn once, on its own, at its own size.
 #
-# This is the reusable drawing of the module `buck-5v` (design/modules/buck-5v.teda). It belongs to
+# This is the reusable drawing of the module `buck-5v` (design/sch/modules/buck-5v.teda). It belongs to
 # no page: a page places it, as many times and at as many angles as it likes (ADR-0068 D2).
 #
 # `bounds [145,40]` is this drawing's own extent, not a page size. The local origin is the upper-left
@@ -14,14 +14,9 @@ bounds [145,40]
 # keeps its size, the page keeps its own.
 #
 # The identities here are the module's own: `U1` is the module's U1, `VOUT` is the module's VOUT
-# net, and the three ports are the module's own interface ports (GND, SYS_IN, VOUT). No board name
-# appears here — which board net a port lands on is the board's decision, made when the board places
-# this drawing (ADR-0068 D4).
-#
-# This is the compact, independent local-coordinate drawing of the buck module. It is reusable and
-# is not the board's full-scale print page; the board page and this drawing intentionally have
-# different bounds. The module's own references below omit the board's `M2.` prefixes, and its
-# VOUT_5V board port is replaced by the module's own VOUT port.
+# net, and the three ports are the module's own interface ports (GND, SYS_IN, VOUT). No project net
+# appears here — which project net a port lands on is defined by the project root when the module
+# instance is composed (ADR-0071 D3).
 place
   C1  [17.5,11.5]  90
   C2  [61.5,17.0]  270

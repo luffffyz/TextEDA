@@ -876,7 +876,7 @@
 ## `schematic`
 
 - schema: `urn:texteda:ir:0.19:schematic`
-- Project schematic IR: the one logical root of a project. It composes module descriptions from design/modules/; all component instances and electrical facts belong to modules, and the root has no component instances of its own. The IR stays flat for ordinary consumers: instances/nets/ports carry flattened names (<module_instance_id>.<local_id>), while the modules segment carries the module-instance ownership and module-port records needed to validate physical assignments and interconnect endpoints. Equal local net names in separate module instances never merge by themselves: a flattened project net exists only through the root's nets segment, and net-name equality never supplies a physical interconnect (ADR-0069 D1/D3). Source: design/sch/main.teda. See ADR-0069, ADR-0012, ADR-0006 decision 5.
+- Project schematic IR: the one logical root of a project. It composes module descriptions from design/sch/modules/; all component instances and electrical facts belong to modules, and the root has no component instances of its own. The IR stays flat for ordinary consumers: instances/nets/ports carry flattened names (<module_instance_id>.<local_id>), while the modules segment carries the module-instance ownership and module-port records needed to validate physical assignments and interconnect endpoints. Equal local net names in separate module instances never merge by themselves: a flattened project net exists only through the root's nets segment, and net-name equality never supplies a physical interconnect (ADR-0069 D1/D3). Source: design/sch/main.teda. See ADR-0069, ADR-0012, ADR-0006 decision 5.
 
 ### Top-level
 
@@ -1001,7 +1001,7 @@
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `instance_id` | string | yes | — | Module-instance identity owned by the root and globally unique within the project, shape M1, M2, … (spec/module.md §5); the prefix of every flattened instance/net name of this instance (M1.U1, M1.VFB). Reused module definitions keep per-instance identities. |
-| `module_id` | slug | yes | — | The module definition composed from design/modules/<module_id>.teda; project-local and possibly instantiated more than once. |
+| `module_id` | slug | yes | — | The module definition composed from design/sch/modules/<module_id>.teda; project-local and possibly instantiated more than once. |
 | `note` | note | no | — | Free text; canonical JSON has no comments, this is the substitute. |
 | `ports` | array<module_port> | yes | — | The module instance's ports as declared by its definition, retained so interconnect endpoints and pin mappings can be resolved without inferring ownership. Port nets are the module-local nets before root net merging. |
 | `uid` | string | no | — | Stable module-instance identity (ADR-0010): ID plus six lowercase Crockford Base32 characters. |

@@ -24,17 +24,15 @@ describe("review definition menu", () => {
       pins: ["1", "2"],
     });
     expect(locations.map((location) => location.kind)).toEqual([
-      "instance",
       "pcb-place",
-      "view-place",
+      "instance",
       "component",
       "symbol",
       "footprint",
       "component-pin",
       "component-pin",
     ]);
-    expect(locations.some((location) => location.file === "design/modules/buck-5v.teda")).toBe(true);
-    expect(locations.some((location) => location.file === "views/buck-5v.view.teda")).toBe(true);
+    expect(locations.some((location) => location.file === "design/sch/modules/buck-5v.teda")).toBe(true);
   });
 
   test("a net lists every wire and label that names it", () => {
@@ -44,8 +42,6 @@ describe("review definition menu", () => {
       selected: { kind: "text", id: "SYS" },
     });
     expect(locations.map((location) => location.kind)).toContain("net");
-    expect(locations.map((location) => location.kind)).toContain("view-wire");
-    expect(locations.map((location) => location.kind)).toContain("view-label");
   });
 });
 

@@ -14,7 +14,7 @@ component fact. It is not a drawing split, and it is not board-scoped.**
 | | Module | Print page (`view`) |
 |---|---|---|
 | What it is | A reusable circuit definition; it **owns electrical facts** (instances, nets, constraints) | A split of one drawing / printout |
-| File | `design/modules/<module_id>.teda` | `views/<page_id>.view.teda` |
+| File | `design/sch/modules/<module_id>.teda` | `views/<page_id>.view.teda` |
 | Description type | `module` | `view` |
 | If you delete it | The project loses a piece of circuitry; electrical facts are gone | The drawing is gone; the logic is untouched |
 | Does it enter the IR | **Yes**: flattened instances and nets carry an `M` qualified name | **No**: the view is a derived layer |
@@ -42,7 +42,7 @@ version 0.14.0
 module buck-5v
 ```
 
-- The file lives at `design/modules/<module_id>.teda`; `module_id` has the same shape as
+- The file lives at `design/sch/modules/<module_id>.teda`; `module_id` has the same shape as
   `component_id` (`^[a-z][a-z0-9-]*$`) and is **taken from the file name**.
 - The `module_id` in the file header must match the file name, otherwise it is an error (same rule
   as `component`, `AGENTS.md` §4.5).
@@ -172,7 +172,7 @@ ports
 |---|---|
 | `<module_instance_id>` | Module instance id, shape `^M[0-9]+$` (`M1`, `M2`, …). The level tag is `M` ([ADR-0012](../docs/adr/04-schematic/0012-one-flat-schematic-per-board.md)) |
 | `<uid>` | Optional stable module-instance UID since 0.9, shape `^ID[0-9a-hjkmnp-tv-z]{6}$` ([ADR-0010](../docs/adr/03-project/0010-instance-identity-is-a-uid.md)) |
-| `<module_id>` | Module definition id, matching `design/modules/<module_id>.teda` |
+| `<module_id>` | Module definition id, matching `design/sch/modules/<module_id>.teda` |
 
 - The same module may be instantiated several times (`M1` and `M2` both point at `buck-5v`); they
   are electrically identical (this version has no parameters, see §10).
@@ -226,7 +226,7 @@ Rules:
 
 | Code | When | Severity |
 |---|---|---|
-| `ref.unknown-module` | A `module_id` in the root `modules` section has no `design/modules/<module_id>.teda` | error |
+| `ref.unknown-module` | A `module_id` in the root `modules` section has no `design/sch/modules/<module_id>.teda` | error |
 | `ref.module-id-mismatch` | The id in the module file header does not match the file name | error |
 | `ref.unknown-port` | A root net or interconnect endpoint references a port the module does not declare | error |
 | `ref.unbound-port` | A module port is referenced by no root net / interconnect and does not say `no_connect` | error |
@@ -287,7 +287,7 @@ Print pages do **not** affect the IR: they are only a drawing. Delete every prin
 ## 8. Positive example
 
 ```
-# design/modules/buck-5v.teda
+# design/sch/modules/buck-5v.teda
 version 0.14.0
 module buck-5v
 instances
@@ -347,7 +347,7 @@ module port first.
   `docs/backlog.md` F13). Instantiating the same module several times yields electrically
   identical copies.
 - **No nesting**: a module cannot contain a module.
-- **No cross-project module library**: modules live inside the project (the `design/modules/`
+- **No cross-project module library**: modules live inside the project (the `design/sch/modules/`
   directory).
 - **No `use` / `import`**: the module id is the file name.
 - **No per-instance PCB metadata at the root**: ownership is a PCB fact (`spec/pcb.md` §4.1), not

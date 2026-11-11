@@ -83,7 +83,7 @@ describe("canonical form (schematic)", () => {
 });
 
 describe("canonical form (a module file)", () => {
-  const moduleFile = `${projectDir}/design/modules/buck-5v.teda`;
+  const moduleFile = `${projectDir}/design/sch/modules/buck-5v.teda`;
   const moduleText = readFileSync(moduleFile, "utf8");
   const moduleCanonical = fmtModule(moduleFile, moduleText);
 
@@ -113,12 +113,12 @@ describe("bus blocks (teda.md §7.3)", () => {
   test("two bus blocks both survive formatting", () => {
     // The blocks share the section name `bus` but are separate statements: keying them by the name
     // alone let the second overwrite the first, and the lost members went with it.
-    const canonical = fmtModule("design/modules/test.teda", `${header}\n  gnd:  R1.2  R2.2\n  vdd:  R1.1\n\nbus i2c0 = I2C\n  scl:  R2.1`);
+    const canonical = fmtModule("design/sch/modules/test.teda", `${header}\n  gnd:  R1.2  R2.2\n  vdd:  R1.1\n\nbus i2c0 = I2C\n  scl:  R2.1`);
     expect(canonical).toContain("bus pwr = PWR");
     expect(canonical).toContain("  gnd:  R1.2  R2.2");
     expect(canonical).toContain("bus i2c0 = I2C");
     expect(canonical).toContain("  scl:  R2.1");
-    expect(fmtModule("design/modules/test.teda", canonical)).toBe(canonical);
+    expect(fmtModule("design/sch/modules/test.teda", canonical)).toBe(canonical);
   });
 });
 
@@ -126,7 +126,7 @@ describe("negative cases", () => {
   test("no text is produced on a syntax error", () => {
     // Unknown section: the parser reports an error and the formatter produces no text.
     const text = "version 0.14.0\nmodule test\n\nwidgets\n  x  y\n";
-    const result = formatSchematic(text, { file: "design/modules/test.teda", kind: "module" });
+    const result = formatSchematic(text, { file: "design/sch/modules/test.teda", kind: "module" });
     expect(result.ok).toBe(false);
     expect(result.text).toBeUndefined();
   });
@@ -143,19 +143,19 @@ describe("continuation rows and wide nets (teda.md §7.2, §12)", () => {
 
   test("a net that fits on one line is written as one line", () => {
     // The continuation row is merged back: the wrapping is a layout decision, not a fact about the net.
-    const canonical = fmtModule("design/modules/test.teda", `${header}\n  A:  R1.1\n  :  R2.1`);
+    const canonical = fmtModule("design/sch/modules/test.teda", `${header}\n  A:  R1.1\n  :  R2.1`);
     expect(canonical).toContain("  A:  R1.1  R2.1");
     expect(canonical).not.toContain("\n  :");
   });
 
   test("members of one net are merged, whatever rows they came from", () => {
-    const canonical = fmtModule("design/modules/test.teda", `${header}\n  A:  R1.1\n  A:  R2.1`);
+    const canonical = fmtModule("design/sch/modules/test.teda", `${header}\n  A:  R1.1\n  A:  R2.1`);
     expect(canonical).toContain("  A:  R1.1  R2.1");
   });
 
   test("a wide net is wrapped into continuation rows within 80 columns", () => {
     const members = Array.from({ length: 40 }, (_, i) => `R${i}.1`);
-    const canonical = fmtModule("design/modules/test.teda", `${header}\n  A:  ${members.join("  ")}`);
+    const canonical = fmtModule("design/sch/modules/test.teda", `${header}\n  A:  ${members.join("  ")}`);
     const netLines = canonical.split("\n").filter((l) => /^  (A:|:)/.test(l));
     expect(netLines.length).toBeGreaterThan(1);
     for (const line of netLines) expect(line.length).toBeLessThanOrEqual(80);
@@ -169,7 +169,7 @@ describe("continuation rows and wide nets (teda.md §7.2, §12)", () => {
 
   test("continuation members are aligned with the first row's members", () => {
     const members = Array.from({ length: 40 }, (_, i) => `R${i}.1`);
-    const canonical = fmtModule("design/modules/test.teda", `${header}\n  A:  ${members.join("  ")}`);
+    const canonical = fmtModule("design/sch/modules/test.teda", `${header}\n  A:  ${members.join("  ")}`);
     const netLines = canonical.split("\n").filter((l) => /^  (A:|:)/.test(l));
     const columns = netLines.map((l) => l.indexOf(l.trim().split(/\s+/)[1]!));
     expect(new Set(columns).size).toBe(1);
@@ -177,14 +177,14 @@ describe("continuation rows and wide nets (teda.md §7.2, §12)", () => {
 
   test("wrapping is idempotent", () => {
     const members = Array.from({ length: 40 }, (_, i) => `R${i}.1`);
-    const canonical = fmtModule("design/modules/test.teda", `${header}\n  A:  ${members.join("  ")}`);
-    expect(fmtModule("design/modules/test.teda", canonical)).toBe(canonical);
+    const canonical = fmtModule("design/sch/modules/test.teda", `${header}\n  A:  ${members.join("  ")}`);
+    expect(fmtModule("design/sch/modules/test.teda", canonical)).toBe(canonical);
   });
 
   test("a net written on one line and the same net written in pieces format identically", () => {
     const members = ["R1.1", "R2.1"];
-    const oneLine = fmtModule("design/modules/test.teda", `${header}\n  A:  R1.1  R2.1`);
-    const twoLines = fmtModule("design/modules/test.teda", `${header}\n  A:  R1.1\n  :  R2.1`);
+    const oneLine = fmtModule("design/sch/modules/test.teda", `${header}\n  A:  R1.1  R2.1`);
+    const twoLines = fmtModule("design/sch/modules/test.teda", `${header}\n  A:  R1.1\n  :  R2.1`);
     expect(twoLines).toBe(oneLine);
   });
 });

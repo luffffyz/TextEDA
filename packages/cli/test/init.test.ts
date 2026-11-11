@@ -44,7 +44,7 @@ describe("init file set", () => {
       "assets/procurement/alternatives",
       "external/simulation",
       "design/sch",
-      "design/modules",
+      "design/sch/modules",
       "design/pcb",
       "views",
       "docs",
@@ -58,7 +58,7 @@ describe("init file set", () => {
       "assets/procurement/alternatives/.gitkeep",
       "external/simulation/.gitkeep",
       "design/sch/.gitkeep",
-      "design/modules/.gitkeep",
+      "design/sch/modules/.gitkeep",
       "design/pcb/.gitkeep",
       "views/.gitkeep",
       "docs/README.md",
@@ -106,7 +106,7 @@ describe("init disk-write behavior", () => {
       expect(existsSync(join(dir, "assets", "symbols", ".gitkeep"))).toBe(true);
       expect(existsSync(join(dir, "assets", "footprints", ".gitkeep"))).toBe(true);
       expect(existsSync(join(dir, "design", "sch", ".gitkeep"))).toBe(true);
-      expect(existsSync(join(dir, "design", "modules", ".gitkeep"))).toBe(true);
+      expect(existsSync(join(dir, "design", "sch", "modules", ".gitkeep"))).toBe(true);
       expect(existsSync(join(dir, "design", "pcb", ".gitkeep"))).toBe(true);
       expect(existsSync(join(dir, "external", "libs"))).toBe(false);
       expect(existsSync(join(dir, "views", ".gitkeep"))).toBe(true);

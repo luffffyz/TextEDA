@@ -1,0 +1,22 @@
+version 0.14.0
+sheet_template a2
+
+size [594,420]
+
+# A2 landscape furniture for the composed project page (ADR-0068 D3). Everything here is literal:
+# a border, a title block and a note. The template says nothing about this project's names or nets.
+
+rect
+  BORDER  [10.0,10.0]  [584.0,410.0]
+
+line
+  RULE_TOP     [10.0,30.0]    [584.0,30.0]
+  RULE_BOTTOM  [10.0,395.0]   [584.0,395.0]
+
+rect
+  TITLE_BOX  [440.0,395.0]  [584.0,410.0]
+
+text
+  TITLE   [20.0,22.0]   TextEDA reference project
+  REV     [450.0,402.0]  Rev A
+  NOTE    [20.0,402.0]  Module-first: each module drawing is drawn once and composed here.

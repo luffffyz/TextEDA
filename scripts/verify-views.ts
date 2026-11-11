@@ -16,7 +16,8 @@
 // an agent to silence codes instead of fixing geometry (ADR-0059 D2).
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { parseView } from "@texteda/parser";
+import { parseModuleView, parseView } from "@texteda/parser";
+import type { SchematicView } from "@texteda/ir/schematic-view";
 import { viewHouseStyleProblems } from "./lib/view-style.ts";
 
 const positional = process.argv.slice(2).filter((a) => !a.startsWith("--"));
@@ -36,14 +37,24 @@ function listPages(dir: string): string[] {
     .sort();
 }
 
+function listModuleViews(dir: string): string[] {
+  const modules = join(dir, "modules");
+  if (!statSync(modules).isDirectory()) return [];
+  return readdirSync(modules)
+    .filter((entry) => entry.endsWith(".module-view.teda") && statSync(join(modules, entry)).isFile())
+    .map((entry) => join(modules, entry))
+    .sort();
+}
+
 if (!statSync(viewsRoot).isDirectory()) {
   console.error(`✗ ${viewsRoot} does not exist — is ${projectRoot} a TextEDA project?`);
   process.exit(1);
 }
 
 const pages = listPages(viewsRoot);
-if (pages.length === 0) {
-  console.error(`✗ no print pages under ${viewsRoot}`);
+const moduleViews = listModuleViews(viewsRoot);
+if (pages.length === 0 && moduleViews.length === 0) {
+  console.error(`✗ no print pages or module drawings under ${viewsRoot}`);
   process.exit(1);
 }
 
@@ -58,8 +69,18 @@ for (const page of pages) {
   for (const problem of viewHouseStyleProblems(page, parsed.ir)) fail(problem);
 }
 
+for (const drawing of moduleViews) {
+  const parsed = parseModuleView(readFileSync(drawing, "utf8"), { file: drawing });
+  if (!parsed.ok || !parsed.ir) {
+    fail(`${drawing}: the module drawing does not parse`);
+    continue;
+  }
+  checked += 1;
+  for (const problem of viewHouseStyleProblems(drawing, parsed.ir as unknown as SchematicView)) fail(problem);
+}
+
 if (problems.length > 0) {
   console.error(`view:verify failed — ${problems.length} problem(s)`);
   process.exit(1);
 }
-console.log(`view:verify ok — ${checked} print page(s) on the 0.5 mm lattice`);
+console.log(`view:verify ok — ${pages.length} print page(s) and ${moduleViews.length} module drawing(s) on the 0.5 mm lattice`);

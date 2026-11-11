@@ -62,7 +62,7 @@ The container does not change:
 
 ### Targets the enum does not have
 
-The existing review decision-target convention has no project target. F64 does not expand it, so a root-wide review cannot currently be represented as a project sign-off. If a round's evidence crosses PCBs — such as project-root interconnects — or covers project-wide compliance, its first line must name that broader scope; a `board:` decision signs off only that PCB, not the project-wide finding.
+The existing review decision-target convention has no project target, so a root-wide review cannot currently be represented as a project sign-off. If a round's evidence crosses PCBs — such as project-root interconnects — or covers project-wide compliance, its first line must name that broader scope; a `board:` decision signs off only that PCB, not the project-wide finding.
 
 ## Pairs worth running first
 

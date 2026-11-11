@@ -234,30 +234,45 @@ function canWriteFull(): boolean {
   return canWrite() && capabilityAllowsFull(model.capability);
 }
 
+/** Whether the drawing is schematic source the app may arrange: a print page or a module drawing. */
+function isSchematicDrawing(candidate: ReviewDrawing | undefined): candidate is ReviewDrawing {
+  return candidate?.kind === "sch" || candidate?.kind === "module";
+}
+
 /** Whether the current schematic source may be edited and saved. */
 function canEditSource(): boolean {
-  return canWriteFull() && drawing()?.kind === "sch";
+  return canWriteFull() && isSchematicDrawing(drawing());
 }
 
 let layoutPreviewTicket = 0;
 
 let layoutPreviewTimer: number | undefined;
 
-/** Debounce server layout previews unless a symbol placement is pending. */
-function scheduleLayoutPreview(): void {
+/** Symbols and ports keep committed wiring while their pending copies move locally. */
+function hasPendingPlacement(): boolean {
+  if (state.pending.size > 0) return true;
+  for (const text of state.pendingTexts.values()) {
+    if (text.kind === "port") return true;
+  }
+  return false;
+}
+
+/** Debounce server layout previews unless a symbol or port placement is pending. */
+function scheduleLayoutPreview(keepPreview = false): void {
   clearTimeout(layoutPreviewTimer);
   layoutPreviewTimer = undefined;
-  if (state.pending.size > 0) {
+  if (hasPendingPlacement()) {
     layoutPreviewTicket += 1;
     if (state.layoutPreview !== null) {
       state.layoutPreview = null;
       renderStage(true);
     } else {
       renderPendingSymbolOverlay();
+      renderPendingPortOverlay();
     }
     return;
   }
-  if (state.layoutPreview !== null) {
+  if (!keepPreview && state.layoutPreview !== null) {
     state.layoutPreview = null;
     renderStage(true);
   }
@@ -269,23 +284,26 @@ function scheduleLayoutPreview(): void {
 }
 
 async function requestLayoutPreview(): Promise<void> {
-  if (state.pending.size > 0) {
+  if (hasPendingPlacement()) {
     renderPendingSymbolOverlay();
+    renderPendingPortOverlay();
     return;
   }
   const current = drawing();
-  if (!canWriteFull() || current?.kind !== "sch") {
+  if (!canWriteFull() || !isSchematicDrawing(current)) {
     state.layoutPreview = null;
     renderStage(true);
     return;
   }
   const ticket = ++layoutPreviewTicket;
+  const fieldPositions = automaticFieldPositions();
   try {
     const payload = await postJson("/api/layout", {
-      board: current.board ?? "",
-      page: current.page ?? "",
+      board: current.kind === "module" ? "" : current.board ?? "",
+      ...(current.kind === "module" ? { module: current.module ?? "" } : { page: current.page ?? "" }),
       places: pendingPlaces(),
       ...(state.pendingFields.size === 0 ? {} : { fields: [...state.pendingFields.values()] }),
+      ...(fieldPositions === undefined ? {} : { field_positions: fieldPositions }),
       ...(state.removeFields.size === 0 ? {} : { remove_fields: [...state.removeFields].flatMap((key) => {
         const identity = splitFieldKey(key);
         return identity === undefined ? [] : [identity];
@@ -313,7 +331,6 @@ async function requestLayoutPreview(): Promise<void> {
     if (previewIssues.length > 0) setStatus(`preview · ${previewIssues.join(", ")} · not applied`);
   } catch (error) {
     if (ticket !== layoutPreviewTicket) return;
-    state.layoutPreview = null;
     setStatus(`layout preview failed: ${error instanceof Error ? error.message : String(error)}`);
     renderStage(true);
   }
@@ -340,7 +357,7 @@ function renderActions(): void {
   });
   frame.actionBar.append(toggle);
   const current = drawing();
-  if (current?.kind === "sch" && capabilityAllowsFull(model.capability)) {
+  if (isSchematicDrawing(current) && capabilityAllowsFull(model.capability)) {
     const source = el("button", "action", "Source");
     source.type = "button";
     source.title = "show or hide this page's source";
@@ -368,14 +385,14 @@ function renderActions(): void {
       wires.classList.toggle("active", state.reanchorWires);
       wires.addEventListener("click", () => {
         state.reanchorWires = !state.reanchorWires;
-        state.layoutPreview = null;
-        scheduleLayoutPreview();
+        // A wire-only policy change must not flash back to the committed field layout.
+        scheduleLayoutPreview(true);
         renderAll();
       });
       frame.actionBar.append(fields, wires);
     }
   }
-  if (current?.kind === "sch") {
+  if (isSchematicDrawing(current)) {
     const apply = el("button", "action", "Apply");
     apply.type = "button";
     apply.addEventListener("click", () => {
@@ -389,7 +406,7 @@ function renderActions(): void {
     revertButton = revert;
     frame.actionBar.append(apply, revert);
   }
-  if (current?.kind === "sch" && state.sourceOpen && capabilityAllowsFull(model.capability)) {
+  if (isSchematicDrawing(current) && state.sourceOpen && capabilityAllowsFull(model.capability)) {
     const save = el("button", "action", "Save");
     save.type = "button";
     save.title = canEditSource() ? "write the page file" : "this host cannot edit source";
@@ -403,7 +420,7 @@ function renderActions(): void {
   updateActions();
 }
 function actionHint(current: ReviewDrawing | undefined): string {
-  if (current?.kind !== "sch") return "Read the drawing: hover, select, zoom, and pan.";
+  if (!isSchematicDrawing(current)) return "Read the drawing: hover, select, zoom, and pan.";
   return state.sourceOpen
     ? "Source is explicit: edit the page text on the left; drawing clicks only select."
     : "Select a symbol, press m to preview a snapped move, or r to rotate it.";
@@ -911,7 +928,7 @@ function stageDrawing():
   | undefined {
   const current = drawing();
   if (current === undefined) return undefined;
-  if (state.layoutPreview !== null && state.pending.size === 0 && current.kind === "sch") {
+  if (state.layoutPreview !== null && !hasPendingPlacement() && isSchematicDrawing(current)) {
     return {
       svg: state.layoutPreview.svg,
       sheet: current.sheet,
@@ -920,7 +937,7 @@ function stageDrawing():
       fields: state.layoutPreview.fields,
     };
   }
-  if (state.sourceOpen && current.kind === "sch") {
+  if (state.sourceOpen && isSchematicDrawing(current)) {
     return {
       svg: state.draftSvg !== "" ? state.draftSvg : current.svg,
       sheet: current.sheet,
@@ -1151,7 +1168,7 @@ function renderStage(keepSelection = false): void {
     selectionAnchor = null;
   }
   frame.status.classList.remove("error");
-  frame.sourcePane.classList.toggle("hidden", !state.sourceOpen || drawing()?.kind !== "sch");
+  frame.sourcePane.classList.toggle("hidden", !state.sourceOpen || !isSchematicDrawing(drawing()));
   const current = drawing();
   // A board canvas is picked by the drawing's own objects (a net's copper), so the page's hotspots
   // — which cover the page's symbols — must not swallow the click there.
@@ -1174,7 +1191,7 @@ function renderStage(keepSelection = false): void {
     return;
   }
 
-  if (state.sourceOpen && current.kind === "sch") {
+  if (state.sourceOpen && isSchematicDrawing(current)) {
     renderSource(current);
     return;
   }
@@ -1197,8 +1214,9 @@ function renderStage(keepSelection = false): void {
   }
   pinchSheet(svg);
   overlay(svg, shown.symbols, shown.texts, shown.fields);
-  if (state.layoutPreview === null) applyPending(svg);
+  applyPending(svg);
   renderPendingSymbolOverlay(svg, shown.symbols);
+  renderPendingPortOverlay(svg);
   if (keepSelection) paintHighlights(state.selected);
   applyTransform();
   const pending = state.pending.size + state.pendingFields.size + state.removeFields.size + state.pendingTexts.size;
@@ -1208,6 +1226,36 @@ function renderStage(keepSelection = false): void {
   );
 }
 
+/** Make an SVG overlay that shares the rendered sheet's viewport. */
+function pendingOverlayLayer(svg: SVGSVGElement, className: string, active: boolean): SVGSVGElement | null {
+  const holder = svg.parentElement;
+  holder?.querySelector(`.${className}`)?.remove();
+  if (!active || holder === null) return null;
+  const layer = svg.ownerDocument.createElementNS("http://www.w3.org/2000/svg", "svg");
+  layer.setAttribute("class", className);
+  const viewBox = svg.getAttribute("viewBox");
+  if (viewBox !== null) layer.setAttribute("viewBox", viewBox);
+  layer.setAttribute("preserveAspectRatio", svg.getAttribute("preserveAspectRatio") ?? "xMinYMin meet");
+  layer.setAttribute("width", svg.getAttribute("width") ?? "100%");
+  layer.setAttribute("height", svg.getAttribute("height") ?? "100%");
+  holder.append(layer);
+  return layer;
+}
+
+/** Clone a pending drawing object without retaining its interactive identity. */
+function pendingClone(original: SVGGElement, className: string): SVGGElement {
+  const clone = original.cloneNode(true) as SVGGElement;
+  clone.removeAttribute("data-ref");
+  clone.removeAttribute("data-net");
+  clone.setAttribute("class", className);
+  clone.setAttribute("aria-hidden", "true");
+  for (const node of clone.querySelectorAll("[data-ref], [data-net]")) {
+    node.removeAttribute("data-ref");
+    node.removeAttribute("data-net");
+  }
+  return clone;
+}
+
 /** Draw pending symbols without touching committed SVG primitives. */
 function renderPendingSymbolOverlay(
   svg?: SVGSVGElement,
@@ -1215,16 +1263,8 @@ function renderPendingSymbolOverlay(
 ): void {
   const target = svg ?? frame.canvas.querySelector<SVGSVGElement>(".sheet-svg");
   if (target === null) return;
-  const holder = target.parentElement;
-  holder?.querySelector(".pending-symbol-overlay")?.remove();
-  if (state.pending.size === 0 || holder === null) return;
-  const layer = target.ownerDocument.createElementNS("http://www.w3.org/2000/svg", "svg");
-  layer.setAttribute("class", "pending-symbol-overlay");
-  const viewBox = target.getAttribute("viewBox");
-  if (viewBox !== null) layer.setAttribute("viewBox", viewBox);
-  layer.setAttribute("preserveAspectRatio", target.getAttribute("preserveAspectRatio") ?? "xMinYMin meet");
-  layer.setAttribute("width", target.getAttribute("width") ?? "100%");
-  layer.setAttribute("height", target.getAttribute("height") ?? "100%");
+  const layer = pendingOverlayLayer(target, "pending-symbol-overlay", state.pending.size > 0);
+  if (layer === null) return;
   const originalPlaces = placedPlaces();
   const symbolsById = new Map(symbols.map((symbol) => [symbol.id, symbol]));
   for (const [id, place] of state.pending) {
@@ -1239,43 +1279,64 @@ function renderPendingSymbolOverlay(
       turn === 0 ? `translate(${dx} ${dy})` : `translate(${dx} ${dy}) rotate(${turn} ${from.x} ${from.y})`;
     for (const original of target.querySelectorAll<SVGGElement>("g[data-ref]")) {
       if (original.getAttribute("data-ref") !== `instance:${id}`) continue;
-      const clone = original.cloneNode(true) as SVGGElement;
-      clone.removeAttribute("data-ref");
-      clone.removeAttribute("data-net");
-      clone.setAttribute("class", "pending-symbol");
+      const clone = pendingClone(original, "pending-symbol");
       clone.setAttribute("transform", transform);
-      clone.setAttribute("aria-hidden", "true");
       for (const title of clone.querySelectorAll("g > title")) {
         const group = title.parentElement;
         if (!pinNumbers.has(title.textContent ?? "")) group?.remove();
         else group?.removeAttribute("display");
       }
-      for (const node of clone.querySelectorAll("[data-ref], [data-net]")) {
-        node.removeAttribute("data-ref");
-        node.removeAttribute("data-net");
-      }
       layer.append(clone);
     }
   }
-  holder.append(layer);
+}
+
+/** Keep each pending port at its committed anchor and draw its new position as a grey ghost. */
+function renderPendingPortOverlay(svg?: SVGSVGElement): void {
+  const target = svg ?? frame.canvas.querySelector<SVGSVGElement>(".sheet-svg");
+  if (target === null) return;
+  const pendingPorts = [...state.pendingTexts.values()].filter((text) => text.kind === "port");
+  const layer = pendingOverlayLayer(target, "pending-port-overlay", pendingPorts.length > 0);
+  if (layer === null) return;
+  const committedTexts = drawing()?.texts ?? [];
+  for (const pending of pendingPorts) {
+    const text = committedTexts.find((candidate) => candidate.kind === "port" && (candidate.subject ?? candidate.text) === pending.id);
+    if (text === undefined) continue;
+    let original: SVGGElement | undefined;
+    for (const group of target.querySelectorAll<SVGGElement>("g[data-ref]")) {
+      if (group.getAttribute("data-ref") === `port:${pending.id}`) {
+        original = group;
+        break;
+      }
+    }
+    if (original === undefined) continue;
+    const dx = pending.x - text.x;
+    const dy = pending.y - text.y;
+    const clone = pendingClone(original, "pending-port");
+    clone.setAttribute("transform", `translate(${dx} ${dy})`);
+    layer.append(clone);
+  }
 }
 
 
 /**
- * Pending field and text rows are drawn on top of the committed SVG. Symbol rows use the separate
- * overlay above so the committed geometry remains unchanged while the pointer moves.
+ * Pending field rows are transforms on their rendered objects. Symbol and port rows use separate
+ * overlays so their committed geometry remains visible while the pointer moves.
  */
 function applyPending(svg: SVGSVGElement): void {
   const originalPlaces = placedPlaces();
+  const shown = stageDrawing();
 
-  for (const field of drawing()?.fields ?? []) {
+  for (const field of shown?.fields ?? []) {
     const from = originalPlaces.get(field.instance_id);
     if (from === undefined) continue;
     if (state.pending.has(field.instance_id)) continue;
     const to = from;
     const key = fieldKey(field.instance_id, field.name);
     const pending = state.pendingFields.get(key);
-    if (from === to && pending === undefined) continue;
+    const moving = moveTransaction?.kind === "field"
+      && moveTransaction.id === field.instance_id && moveTransaction.name === field.name;
+    if (pending === undefined && !moving) continue;
     const targetX = pending?.x ?? field.x;
     const targetY = pending?.y ?? field.y;
     const matrix = fieldTransform(from, to, field.x, field.y, targetX, targetY);
@@ -1285,10 +1346,10 @@ function applyPending(svg: SVGSVGElement): void {
     }
   }
 
-  // A label or a port is drawn where its `data-ref` group says it is; a pending move is a plain
-  // offset on that group, because the row carries only a position and the text itself is unchanged.
-  for (const text of drawing()?.texts ?? []) {
-    if (text.kind !== "label" && text.kind !== "port") continue;
+  // A label is drawn where its `data-ref` group says it is; a pending move is a plain offset on that
+  // group, because the row carries only a position and the text itself is unchanged.
+  for (const text of shown?.texts ?? []) {
+    if (text.kind !== "label") continue;
     const id = text.subject ?? text.text;
     const pending = state.pendingTexts.get(`${text.kind}:${id}`);
     if (pending === undefined) continue;
@@ -1350,6 +1411,24 @@ function fieldKey(instanceId: string, name: ReviewField["name"]): string {
   return `${instanceId}:${name}`;
 }
 
+/** Keep still-free automatic fields where the current preview put them, without writing rows. */
+function automaticFieldPositions() {
+  if (!state.automaticFields || state.layoutPreview === null || hasPendingPlacement()) return undefined;
+  const places = placedPlaces();
+  return state.layoutPreview.fields.flatMap((field) => {
+    const place = places.get(field.instance_id);
+    if (place === undefined || field.manual || state.pendingFields.has(fieldKey(field.instance_id, field.name))) return [];
+    const at = fieldToSheet(place, field.x, field.y);
+    return [{
+      instance_id: field.instance_id,
+      name: field.name,
+      x: at.x,
+      y: at.y,
+      ...(field.anchor === undefined ? {} : { anchor: field.anchor }),
+    }];
+  });
+}
+
 function hasPendingEdits(): boolean {
   return state.pending.size > 0 || state.pendingFields.size > 0 || state.removeFields.size > 0 || state.pendingTexts.size > 0;
 }
@@ -1372,7 +1451,7 @@ function fieldForKey(key: string): ReviewField | undefined {
 }
 
 function canWriteFields(): boolean {
-  return canWriteFull() && drawing()?.kind === "sch";
+  return canWriteFull() && isSchematicDrawing(drawing());
 }
 
 function restoreAutomaticField(instanceId: string, name: ReviewField["name"]): void {
@@ -1389,6 +1468,7 @@ function restoreAutomaticField(instanceId: string, name: ReviewField["name"]): v
   else state.removeFields.delete(key);
   updateActions();
   renderStage(true);
+  scheduleLayoutPreview();
 }
 
 /**
@@ -1445,7 +1525,7 @@ function renderSource(current: ReviewDrawing): void {
     return;
   }
   pinchSheet(svg);
-  if (state.layoutPreview === null) applyPending(svg);
+  applyPending(svg);
   renderPendingSymbolOverlay(svg, shown.symbols);
   applyTransform();
   const errors = state.draftErrors;
@@ -1751,14 +1831,19 @@ async function applyPendingMoves(): Promise<void> {
     setStatus("this host cannot write these view changes");
     return;
   }
+  clearTimeout(layoutPreviewTimer);
+  layoutPreviewTimer = undefined;
+  layoutPreviewTicket += 1;
+  const fieldPositions = automaticFieldPositions();
   try {
     const payload = await postJson("/api/layout", {
-      board: board()?.id ?? "",
-      page: current.page ?? "",
+      board: current.kind === "module" ? "" : board()?.id ?? "",
+      ...(current.kind === "module" ? { module: current.module ?? "" } : { page: current.page ?? "" }),
       places,
       commit: true,
       ...(fields.length === 0 ? {} : { fields }),
       ...(remove_fields.length === 0 ? {} : { remove_fields }),
+      ...(fieldPositions === undefined ? {} : { field_positions: fieldPositions }),
       ...(texts.length === 0 ? {} : { texts }),
       ...(draft === undefined ? {} : { text: draft }),
       automatic_fields: state.automaticFields,
@@ -1773,6 +1858,14 @@ async function applyPendingMoves(): Promise<void> {
     state.pendingFields.clear();
     state.removeFields.clear();
     state.pendingTexts.clear();
+    state.layoutPreview = typeof payload["svg"] === "string" ? {
+      svg: payload["svg"],
+      symbols: (payload["symbols"] as ReviewSymbol[] | undefined) ?? [],
+      texts: (payload["texts"] as ReviewText[] | undefined) ?? [],
+      fields: (payload["fields"] as ReviewField[] | undefined) ?? [],
+      stale: (payload["stale"] as string[] | undefined) ?? [],
+      conflicts: (payload["conflicts"] as string[] | undefined) ?? [],
+    } : null;
     if (draft !== undefined) {
       state.draft = null;
       state.draftSvg = "";
@@ -1808,6 +1901,7 @@ function revertPendingMoves(): void {
   state.pendingTexts.clear();
   updateActions();
   renderStage(true);
+  scheduleLayoutPreview();
   setStatus("the pending edits were dropped");
 }
 
@@ -1897,7 +1991,7 @@ async function saveDraft(): Promise<void> {
 /** Turn the selected symbol a quarter turn and keep that edit pending. */
 function rotateSelected(): void {
   const current = drawing();
-  if (current?.kind !== "sch" || state.selected?.kind !== "symbol") return;
+  if (!isSchematicDrawing(current) || state.selected?.kind !== "symbol") return;
   if (!canWrite()) {
     setStatus("this document cannot write: run `texteda review` to serve the app");
     return;
@@ -1950,6 +2044,8 @@ type MoveTransaction =
       offsetY: number;
       originalPending: PendingField | undefined;
       originalRemoval: boolean;
+      /** Restore the displayed layout, not a server preview containing this move. */
+      originalPreview: LayoutPreview | null;
       start: { x: number; y: number };
       moved: boolean;
     }
@@ -2015,7 +2111,7 @@ function samePlace(a: ReviewPlace, b: PendingPlace): boolean {
 function beginMove(): boolean {
   const current = drawing();
   const selected = state.selected;
-  if (current?.kind !== "sch" || state.sourceOpen || selected === null) return false;
+  if (!isSchematicDrawing(current) || state.sourceOpen || selected === null) return false;
   if (!canWrite()) {
     setStatus("this document cannot write: run `texteda review` to serve the app");
     return true;
@@ -2063,6 +2159,7 @@ function beginMove(): boolean {
       offsetY: local.y - y,
       originalPending: originalPending === undefined ? undefined : clonePendingField(originalPending),
       originalRemoval: state.removeFields.has(key),
+      originalPreview: state.layoutPreview,
       start,
       moved: false,
     };
@@ -2165,13 +2262,17 @@ function updateFieldMove(move: Extract<MoveTransaction, { kind: "field" }>, poin
     else state.pendingFields.set(key, clonePendingField(move.originalPending));
     if (move.originalRemoval) state.removeFields.add(key);
     else state.removeFields.delete(key);
+    if (state.layoutPreview !== move.originalPreview) {
+      state.layoutPreview = move.originalPreview;
+      renderStage(true);
+    }
   } else {
     state.pendingFields.set(key, { instance_id: move.id, name: move.name, x, y });
     state.removeFields.delete(key);
   }
   applyPendingToCanvas();
   updateActions();
-  scheduleLayoutPreview();
+  scheduleLayoutPreview(true);
   const current = state.pendingFields.get(key);
   setStatus(current === undefined
     ? `${move.name} · unchanged · not applied`
@@ -2201,6 +2302,7 @@ function cancelMove(): void {
   const move = moveTransaction;
   if (move === null) return;
   restoreMove(move);
+  if (move.kind === "field") state.layoutPreview = move.originalPreview;
   moveTransaction = null;
   dragging = null;
   pressed = null;
@@ -2211,7 +2313,7 @@ function cancelMove(): void {
   clearSelection();
   updateActions();
   renderStage(true);
-  scheduleLayoutPreview();
+  scheduleLayoutPreview(move.kind === "field");
   setStatus("the current move was cancelled");
 }
 
@@ -2259,6 +2361,7 @@ function applyPendingToCanvas(): void {
   if (svg === null) return;
   applyPending(svg);
   renderPendingSymbolOverlay(svg);
+  renderPendingPortOverlay(svg);
 }
 
 const stopDrag = (event: PointerEvent): void => {

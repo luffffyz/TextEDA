@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-22
 Scope: Decides: that modules are composed by a logic root (the board file when accepted; the project-level root since [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md)), that a module file holds the electrical truth, and that the IR stays flat. Does not decide: module parameters, nesting and a cross-project module library — see `spec/module.md` §10.
-Related: [ADR-0001](../01-language/0001-fact-layer-has-no-expressions.md), [ADR-0008](../03-project/0008-project-tree-has-owners.md), [ADR-0010](../03-project/0010-instance-identity-is-a-uid.md), [ADR-0012](0012-one-flat-schematic-per-board.md), [ADR-0040](../10-process/0040-process-entities-outside-the-language.md), [ADR-0067](../09-view/0067-hierarchical-module-views-and-custom-page-size.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md)
+Related: [ADR-0001](../01-language/0001-fact-layer-has-no-expressions.md), [ADR-0008](../03-project/0008-project-tree-has-owners.md), [ADR-0010](../03-project/0010-instance-identity-is-a-uid.md), [ADR-0012](0012-one-flat-schematic-per-board.md), [ADR-0040](../10-process/0040-process-entities-outside-the-language.md), [ADR-0067](../09-view/0067-hierarchical-module-views-and-custom-page-size.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md), [ADR-0070](../03-project/0070-module-definitions-live-under-the-schematic-tree.md)
 
 > **Project scope (2026-11-09):** [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) supersedes this record's board-scoped composition: the module-composing root is the project-level `design/sch/main.teda` (no board-local schematic files, no root-level component instances), every module instance is implemented by exactly one PCB, cross-PCB paths are explicit `interconnects`, and print pages are project-wide (`views/<page_id>.view.teda`). The module layer's shape — module files own the electrical truth, a flat IR for ordinary consumers, the `M` tag, no nesting and no parameters — remains current where that record does not change it.
 
@@ -53,7 +53,7 @@ likes — dozens is unremarkable.
 
 ### 2. The module body is a file, named by its id
 
-`design/modules/<module_id>.teda`, with `module_id` taken from the file name, like `component_id`
+`design/sch/modules/<module_id>.teda`, with `module_id` taken from the file name, like `component_id`
 (`AGENTS.md` §4.5). The root's `modules` section references it by id. Modules are project-local
 for now; a module library across projects is a later decision (`docs/backlog.md` F10).
 

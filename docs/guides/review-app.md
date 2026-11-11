@@ -42,7 +42,7 @@ the drawing.
 
 | Column | What it is |
 |---|---|
-| left | Folded by default. The project and its build hash, the drawings grouped by kind (print pages, PCB canvases, library symbols, library footprints), what the current print page measures, then the findings from `texteda check` (errors, then warnings, then notes). The first five show; "show all N" opens the rest. A finding that names an object carries a **show** button: it takes the reviewer to that object on the drawing. |
+| left | Folded by default. The project and its build hash, the drawings grouped by kind (print pages, module drawings, PCB canvases, library symbols, library footprints), what the current print page measures, then the findings from `texteda check` (errors, then warnings, then notes). The first five show; "show all N" opens the rest. A finding that names an object carries a **show** button: it takes the reviewer to that object on the drawing. |
 | right | The current drawing with explicit actions above it, and a status line naming the source file, the size, and what the drawing is made of. It also reports what the selection is: its project-level instance id, device, and the nets its pins land on. |
 
 There is no details panel. A selection's facts are the ones the status line already prints, and
@@ -85,6 +85,10 @@ extends or shortens the run to reach it, so the port stays on the wire
 ([ADR-0062](../adr/09-view/0062-a-run-may-end-at-a-port.md) D4). When the port only sits *near* a
 run, moving it off the net is the case below.
 
+Until **Apply**, a moved port and its wires stay at their committed positions; only a muted grey
+copy marks the pending port position, just as for a moved symbol. Pending symbol or port moves
+use local overlays rather than a server layout preview. Apply commits the move.
+
 A moved label or port that lands off its net is **reported, not snapped back**: `check` says
 `view.label-not-on-net` / `view.port-not-on-net` and the status line carries the distance. An
 explicit position is a decision (ADR-0056 D6); the automatic reseat that a symbol move triggers
@@ -92,12 +96,13 @@ abstains from rows the person placed by hand.
 
 ## What the app shows
 
-The app shows **drawings**, and there are four kinds of them
-([ADR-0048](../adr/09-view/0048-the-review-app-shows-drawings.md) D1):
+The app shows **drawings**, and there are five kinds of them
+([ADR-0048](../adr/09-view/0048-the-review-app-shows-drawings.md) D1, [ADR-0068](../adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) D2):
 
 | Kind | What it is | Where it comes from |
 |---|---|---|
 | print page | the page a reviewer reads: the symbols, the wires, the labels and the ports | `views/<page_id>.view.teda` |
+| module drawing | one module's reusable picture, at its own bounds; editable like a page | `views/modules/<module_id>.module-view.teda` |
 | PCB canvas | the physical PCB as it is placed: outline, pads, copper, silkscreen | `design/pcb/<pcb_id>.teda` |
 | symbol | one symbol of the project, drawn with the pins of a device that uses it (ADR-0031) | `assets/symbols/<category>/<id>.teda` |
 | footprint | one footprint of the project: its pads and its graphics | `assets/footprints/<family>/<id>.teda` |
@@ -140,8 +145,8 @@ what was drawn — a pad, a track, a via — and not an invisible box around it.
 
 There is no review, layout or edit mode. The current drawing determines which explicit actions are
 available. All drawings share hover, selection, definitions, navigation, zoom and pan. A schematic
-print page additionally exposes placement actions when its host can write; the PCB and library
-drawings remain read-only.
+drawing — a print page or a module drawing — additionally exposes placement and source actions when
+its host can write; the PCB and library drawings remain read-only.
 
 ### Selection and definitions
 
@@ -154,9 +159,11 @@ drawings remain read-only.
 
 ### Schematic placement actions
 
-Placement is a local transaction on the current schematic print page. It is available to a standalone
-server and to a host with `write: "layout"`; a places-only host with `write: "places"` may move
-placements but cannot edit fields or source.
+Placement is a local transaction on the current schematic drawing: a print page or a reusable
+module drawing. It is available to a standalone server and to a host with `write: "layout"`; a
+places-only host with `write: "places"` may move placements but cannot edit fields or source. A
+module drawing's write targets `views/modules/<module_id>.module-view.teda`, and one drawing serves
+every placement of that module (ADR-0071).
 
 - **`m` starts movement** only after a schematic symbol or permitted field is selected. The preview
   uses the existing `snapPlacement()` path and its 0.5 mm grid (ADR-0057). Pointer movement changes the local
@@ -176,13 +183,24 @@ placements but cannot edit fields or source.
 
 The full-write schematic action bar has two independent, default-off preview controls. **Auto fields**
 places only page-level `Reference` and `Value` fields to avoid collisions; it does not move symbols.
-When off, fields stay at their symbol-local anchors and follow symbol translation and rotation; the
-page-level collision placement pass does not run. Turn it on only when the preview should place fields
-to avoid collisions. **Re-anchor wires** controls the moved-endpoint re-anchor and path-simplification
+It searches around each field's own symbol body, including positions along all four edges, before
+trying a larger clearance. A manually moved field stays where it was put; automatic fields avoid it
+along with other text, symbol bodies, visible pin strokes and wire runs. When off, fields stay at their symbol-local
+anchors and follow symbol translation and rotation; the page-level collision placement pass does
+not run. **Re-anchor wires** controls the moved-endpoint re-anchor and path-simplification
 pass. When off, a moved or rotated pin endpoint keeps its identity and the wire keeps every authored
 bend; the affected net is reported stale until an explicit rewire. When on, pin endpoints follow the
 moved symbols through the existing re-anchor behavior. Neither setting implies the other. Both
 controls are sent to the server for preview and Apply; they do not change the DSH places-only contract.
+The initial drawing and its hotspots use the same default-off field policy as layout previews. A
+wire-only toggle or field drag keeps the current field layout visible until its response arrives;
+neither temporarily falls back to the initial drawing's field positions. Local field movement is
+relative to that displayed layout, including an automatic placement already returned by the server.
+Preview and Apply send the current automatic anchors and text alignment as transient preferences:
+a still-free field keeps its place; a newly blocked field uses the ordinary avoidance search. These
+preferences never become manual `field` rows. Escape restores the layout from before the current
+field move and leaves earlier pending edits intact. A real collision introduced by a manual field
+can still move automatic fields.
 
 ### What the Apply writes
 

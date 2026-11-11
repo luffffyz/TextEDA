@@ -1,79 +1,73 @@
-# Module drawings, sheet templates and composed pages
+# Module drawings and the composed project page
 
 This directory holds the reusable module drawings of the reference project. A module drawing is a
 view artifact with an extent of its own: it draws one module definition, and a print page places
 it. It is advisory — it draws electrical facts, it never states them
 ([ADR-0068](../../../../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md)).
 
-Language `0.14.0` introduced the three kinds of artifact this example shows. All of them live under
-`views/`, and all of them are optional: a project with no module drawings and no template still
-validates, still exports a netlist, and still draws its available print pages.
+The example is module-first: every module is drawn once, on its own, and the project page composes
+the drawings. There is no second, full-scale detail page that redraws the same module
+([ADR-0071](../../../../docs/adr/09-view/0071-a-module-drawing-is-an-editable-view.md) D3).
 
 | file | what it is |
 |---|---|
-| `views/modules/buck-5v.module-view.teda` | the module drawing of the module `buck-5v` (`design/modules/buck-5v.teda`); local bounds 145 × 40 mm |
-| `views/templates/a4.sheet-template.teda` | A4 landscape sheet furniture — border, title block, notes table, logo; size 297 × 210 mm |
-| `views/composed.view.teda` | a project print page that uses the template, places the module drawing and wires project ports and nets to the module's ports |
+| `views/modules/charger-power.module-view.teda` | the drawing of `charger-power` (`design/sch/modules/charger-power.teda`), a placement study; local bounds 300 × 210 mm |
+| `views/modules/buck-5v.module-view.teda` | the drawing of `buck-5v` (`design/sch/modules/buck-5v.teda`), wired; local bounds 145 × 40 mm |
+| `views/modules/mcu-board.module-view.teda` | the drawing of `mcu-board` (`design/sch/modules/mcu-board.teda`), a placement study; local bounds 270 × 190 mm |
+| `views/templates/a2.sheet-template.teda` | A2 landscape sheet furniture — border, title block, note; size 594 × 420 mm |
+| `views/main.view.teda` | the project's only print page: it places the three drawings on the template and draws the declared interconnects |
 
-## The module drawing
+## The module drawings
 
-`views/modules/buck-5v.module-view.teda` is headed `module_view buck-5v` and declares its own
-extent with `bounds [145,40]`. The local origin is the drawing's upper-left corner, `+x` points
-right and `+y` points down. The extent belongs to the drawing, not to a page: a page that places
-the drawing maps it into the page without scaling, so the drawing keeps its 145 × 40 mm and the
-page keeps its own size.
+Each file is headed `module_view <module_id>` and declares its own `bounds`. The local origin is the
+drawing's upper-left corner, `+x` points right and `+y` points down. The extent belongs to the
+drawing, not to a page: a page that places the drawing maps it into the page without scaling, so
+each drawing keeps its own size and the page keeps its own.
 
-The identities in the file are the module's own — `U1` is the module's `U1`, `VOUT` is the module's `VOUT`
-net, and the three ports (`GND`, `SYS_IN`, `VOUT`) are the module's interface ports. The
-file names no project net: which project net a module-instance port belongs to is defined by the
-project root when that instance is composed. A page references that project-level module instance
-when it places the drawing. The geometry is the reusable drawing for the `buck-5v` module, corresponding
-to the project detail page (`views/buck-5v.view.teda`) with the project's `M2.` prefixes dropped,
-the project's `VOUT_5V` port replaced by the module's own `VOUT` port, and the module's `SYS_IN`
-input port drawn at the module boundary where the project's `SYS` net reaches it.
+The identities in a drawing are the module's own — `U1` is the module's `U1`, `VOUT` is the module's
+`VOUT` net, and the ports are the module's interface ports. The file names no project net: which
+project net a module-instance port belongs to is defined by the project root when that instance is
+composed. A page references that project-level module instance when it places the drawing.
+
+A drawing is authored source, and the review app edits it as a drawing: move, rotate, field
+placement, label and port moves, and the Source panel. An edit is a module-level change: one module
+has one drawing, so every page that places it draws the new picture
+([ADR-0071](../../../../docs/adr/09-view/0071-a-module-drawing-is-an-editable-view.md) D3).
+
+The `buck-5v` drawing is wired. The `charger-power` and `mcu-board` drawings are placement studies:
+the parts sit on a review grid and the wire runs are laid out during review, one net at a time. A
+placement-only drawing is legal; the readability checks report the nets that are not drawn.
 
 ## The sheet template
 
-`views/templates/a4.sheet-template.teda` is headed `sheet_template a4` and declares
-`size [297,210]`. Everything in it is literal furniture: a border, a title block, a notes table and
-a logo mark drawn as a polyline. The template says nothing about the project that uses it — no
-project metadata, no net names, no page-specific facts. A page that names the template takes the
-template's size as the page's own extent, so such a page declares no `size` of its own.
+`views/templates/a2.sheet-template.teda` is headed `sheet_template a2` and declares
+`size [594,420]`. Everything in it is literal furniture: a border, a title block and a note. The
+template says nothing about the project that uses it — no project metadata, no net names, no
+page-specific facts. A page that names the template takes the template's size as the page's own
+extent, so such a page declares no `size` of its own.
 
 ## The composed page
 
-`views/composed.view.teda` puts the two together:
+`views/main.view.teda` is the project's only print page. It uses the template for its extent and
+furniture and places the three drawings on it:
 
-- `template a4` gives the page its extent — the page is A4 landscape, 297 × 210 mm, and the
-  template's furniture is drawn underneath whatever the page places;
-- `module_place` places the module drawing: `M2  buck-5v  [45.0,20.0]  0` and
-  `M2  buck-5v  [235.0,15.0]  90`. The row names the project's module instance (`M2`), the module it
-  draws (`buck-5v`), the page position of the drawing's upper-left corner and the rotation. The
-  second placement is the same drawing turned a quarter turn: the drawing is looked up by the
-  module id, so one drawing serves every page that wants it, as often as it wants it;
-- the `wire` section is project-level: the project's ports `GND` and `VOUT_5V` reach module instance
-  `M2` through its ports `M2.GND` and `M2.VOUT`, on the project nets defined by `design/sch/main.teda`.
-  The module drawing knows nothing about those project net bindings.
+- `module_place` names the project's module instance (`M1`, `M2`, `M3`), the module it draws, the
+  page position of the drawing's upper-left corner and the rotation. The drawing is looked up by the
+  module id, so one drawing serves every placement of that module;
+- `interconnect` draws the two root-declared cross-PCB joins `ic1` (`M2.VOUT` ↔ `M3.DC_IN`) and
+  `ic2` (`M2.GND` ↔ `M3.GND`). The row restates the root's endpoints; it cannot create, remove or
+  re-endpoint the fact;
+- every part is drawn once, inside its module's drawing. The page has no component `place` of its
+  own.
 
-The page is where the two extents meet: the drawing is 145 × 40 mm, the page is 297 × 210 mm, and
-nothing is scaled to make them fit.
-
-## Two names differ from the original request
-
-- **The module drawing is `buck-5v`, not `power`.** The file name of a module drawing is the
-  module id, and the reference project has modules `charger-power`, `buck-5v`, and `mcu-board`.
-  There is no module called `power`, so the drawing uses the id that exists — `buck-5v`, the compact
-  5 V converter used by the project.
-- **The composed page is `views/composed.view.teda`, not `views/reference/`.** A print page lives at
-  `views/<page_id>.view.teda`; here the page id is `composed`. The project root
-  `design/sch/main.teda` owns the module instance `M2` and its project-level net bindings.
-  `views/modules/` and `views/templates/` hold reusable artifacts; physical PCB ownership remains
-  in `design/pcb/<pcb_id>.teda`.
+The page is where the extents meet: the drawings keep their own sizes, the page is A2 landscape,
+and nothing is scaled to make them fit. A drawing that no longer fits moves or grows the page, not
+the drawing.
 
 ## What these files are not
 
-None of them changes the circuit. The module drawing and the template are drawing artifacts: they
+None of them changes the circuit. The module drawings and the template are drawing artifacts: they
 can be deleted, and the project still validates, still exports the same netlist and still draws its
-pages. The electrical truth of `buck-5v` is in `design/modules/buck-5v.teda`; the project's module
-instances, nets, ports, constraints and interconnects are in `design/sch/main.teda`. Physical board
-implementation facts are in `design/pcb/<pcb_id>.teda`.
+pages. The electrical truth of `buck-5v` is in `design/sch/modules/buck-5v.teda`; the project's
+module instances, nets, ports, constraints and interconnects are in `design/sch/main.teda`.
+Physical board implementation facts are in `design/pcb/<pcb_id>.teda`.

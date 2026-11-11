@@ -3,14 +3,23 @@
 //
 // Exercised on the reference project: buck-5v is fully wired, while charger-power is a placement
 // sketch with no wires, so the two pages show both ends of the signal.
-import { describe, expect, test } from "bun:test";
-import { cpSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { afterAll, describe, expect, test } from "bun:test";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { parseView } from "@texteda/parser";
 
 const script = join(import.meta.dir, "../scripts/texteda.ts");
-const project = join(import.meta.dir, "../../../examples/reference-project");
+const referenceProject = join(import.meta.dir, "../../../examples/reference-project");
+
+// These tests exercise the page verbs. The reference project is module-first now, so the scratch
+// copy restores the two historical detail pages the verbs take a page id for; the module drawings
+// are covered by the review tests.
+const project = mkdtempSync(join(tmpdir(), "texteda-view-test-"));
+cpSync(referenceProject, project, { recursive: true });
+writeFileSync(join(project, "views", "buck-5v.view.teda"), readFileSync(join(import.meta.dir, "fixtures", "legacy-buck.view.teda")));
+writeFileSync(join(project, "views", "charger-power.view.teda"), readFileSync(join(import.meta.dir, "fixtures", "legacy-charger.view.teda")));
+afterAll(() => rmSync(project, { recursive: true, force: true }));
 
 function run(args: string[]): { code: number; stdout: string; stderr: string } {
   const proc = Bun.spawnSync(["bun", "run", script, ...args], { stdout: "pipe", stderr: "pipe" });

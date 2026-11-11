@@ -279,7 +279,7 @@ export type PinEndpointRef = string;
 export type NetOrPinRef = string;
 
 /**
- * Project schematic IR: the one logical root of a project. It composes module descriptions from design/modules/; all component instances and electrical facts belong to modules, and the root has no component instances of its own. The IR stays flat for ordinary consumers: instances/nets/ports carry flattened names (<module_instance_id>.<local_id>), while the modules segment carries the module-instance ownership and module-port records needed to validate physical assignments and interconnect endpoints. Equal local net names in separate module instances never merge by themselves: a flattened project net exists only through the root's nets segment, and net-name equality never supplies a physical interconnect (ADR-0069 D1/D3). Source: design/sch/main.teda. See ADR-0069, ADR-0012, ADR-0006 decision 5.
+ * Project schematic IR: the one logical root of a project. It composes module descriptions from design/sch/modules/; all component instances and electrical facts belong to modules, and the root has no component instances of its own. The IR stays flat for ordinary consumers: instances/nets/ports carry flattened names (<module_instance_id>.<local_id>), while the modules segment carries the module-instance ownership and module-port records needed to validate physical assignments and interconnect endpoints. Equal local net names in separate module instances never merge by themselves: a flattened project net exists only through the root's nets segment, and net-name equality never supplies a physical interconnect (ADR-0069 D1/D3). Source: design/sch/main.teda. See ADR-0069, ADR-0012, ADR-0006 decision 5.
  */
 export interface Schematic {
   /**
@@ -355,7 +355,7 @@ export interface ModuleInstance {
    */
   instance_id: string;
   /**
-   * The module definition composed from design/modules/<module_id>.teda; project-local and possibly instantiated more than once.
+   * The module definition composed from design/sch/modules/<module_id>.teda; project-local and possibly instantiated more than once.
    */
   module_id: string;
   /**

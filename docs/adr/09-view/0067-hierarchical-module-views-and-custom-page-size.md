@@ -233,4 +233,4 @@ Therefore the overview may not invent, move or re-bind anything:
 ## Implementation status
 
 This record decides the design. The parser, the IR contract, the renderer, the checks and the
-reference pages are implemented; the completed work is tracked in `docs/backlog.md` F61.
+reference pages are implemented.

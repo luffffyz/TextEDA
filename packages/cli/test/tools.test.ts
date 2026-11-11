@@ -40,20 +40,20 @@ const CASES: { tool: string; args: string[]; call: Record<string, unknown> }[] =
   },
   {
     tool: "texteda_view_metrics",
-    args: ["view", "metrics", "PROJECT", "buck-5v", "--json"],
-    call: { project_dir: "PROJECT", page: "buck-5v" },
+    args: ["view", "metrics", "PROJECT", "main", "--json"],
+    call: { project_dir: "PROJECT", page: "main" },
   },
   {
     tool: "texteda_view_render",
-    args: ["view", "render", "PROJECT", "buck-5v", "--json"],
-    call: { project_dir: "PROJECT", page: "buck-5v" },
+    args: ["view", "render", "PROJECT", "main", "--json"],
+    call: { project_dir: "PROJECT", page: "main" },
   },
   {
-    // The charger-power page is a placement sketch with no wire: the rewire has nothing to do,
+    // The composed main page has no page-level wire: the rewire has nothing to do,
     // and the tool says the same as the verb.
     tool: "texteda_view_rewire",
-    args: ["view", "rewire", "PROJECT", "charger-power", "--json"],
-    call: { project_dir: "PROJECT", page: "charger-power" },
+    args: ["view", "rewire", "PROJECT", "main", "--json"],
+    call: { project_dir: "PROJECT", page: "main" },
   },
   {
     tool: "texteda_ir",

@@ -216,9 +216,9 @@ describe("texteda lib import", () => {
         join(root, "design/sch/main.teda"),
         "version 0.14.0\nschematic main\n\nmodules\n  M1  resistor\n\nnets\n  GND:  M1.GND\n  SIG:  M1.SIG\n",
       );
-      mkdirSync(join(root, "design/modules"), { recursive: true });
+      mkdirSync(join(root, "design/sch/modules"), { recursive: true });
       writeFileSync(
-        join(root, "design/modules/resistor.teda"),
+        join(root, "design/sch/modules/resistor.teda"),
         "version 0.11\nmodule resistor\n\ninstances\n  R1  res-thick-0402  10k  ±1%\n\nnets\n  GND:  R1.1\n  SIG:  R1.2\n\nports\n  GND  GND\n  SIG  SIG\n",
       );
 

@@ -25,11 +25,11 @@ Component endpoints use numbered pins (`M1.U1.5`), not pin names (`M1.U1.PA0`) o
 
 ### 0.2 Project root, PCBs, and print pages
 
-The project has one logical root, `design/sch/main.teda`. Its `modules`, `nets`, `ports`, constraints, and `interconnects` describe project logic. Module definitions in `design/modules/<module_id>.teda` own component instances and their local electrical facts. Physical implementations are separate `pcb` files at `design/pcb/<pcb_id>.teda`; their module assignments and copper describe physical ownership and intra-PCB continuity, not another logical root.
+The project has one logical root, `design/sch/main.teda`. Its `modules`, `nets`, `ports`, constraints, and `interconnects` describe project logic. Module definitions in `design/sch/modules/<module_id>.teda` own component instances and their local electrical facts. Physical implementations are separate `pcb` files at `design/pcb/<pcb_id>.teda`; their module assignments and copper describe physical ownership and intra-PCB continuity, not another logical root.
 
 | | Project logic | Physical implementation | Print page |
 |---|---|---|---|
-| File | `design/sch/main.teda` and `design/modules/<module_id>.teda` | `design/pcb/<pcb_id>.teda` | `views/<page_id>.view.teda` |
+| File | `design/sch/main.teda` and `design/sch/modules/<module_id>.teda` | `design/pcb/<pcb_id>.teda` | `views/<page_id>.view.teda` |
 | Description type | `schematic` and `module` | `pcb` | `view` |
 | Identity | Project-wide module-instance, net, port, and interconnect IDs | PCB ID and its assigned project module instances | Flat project page ID; IR `project` identity is `main` |
 
@@ -177,9 +177,17 @@ The text is taken from the schematic instance: `Reference` is its instance id an
 
 Without an override, a symbol with visible painted body geometry places `Reference` above and `Value` below the body, centered on its horizontal bounds with `1 mm` clearance from painted text ink. Geometry from the selected unit and shared visible symbol geometry both count. A bodyless symbol retains its library field positions and existing quarter-turn field anchoring. This is renderer-owned default text placement; it does not place symbols or change the drawing's connectivity.
 
-The places above are the places a field *wants*. The page decides whether it gets them: the renderer places a page's fields together, in the order the page places its instances. A field keeps the place it wants while that place is free, and otherwise steps to the next free slot around its own body — the side across from the one it wanted, then the two sides at right angles to it, and each of those three again `2 mm` further out, so a field never floats more than `5 mm` from the body it names. A slot is free when the text would cover nothing else on the sheet: no other field, no label, no port tag, no note, no other symbol's painted body, and no wire run. A field's own body is not in that list — the `1 mm` clearance above is the rule that governs it — and a field an override placed by hand is not moved; the automatic fields route around it.
+The places above are the places a field *wants*. The page decides whether it gets them: the renderer places a page's fields together, in the order the page places its instances. A field keeps the place it wants while that place is free. Otherwise it searches all four sides of its own painted body, including the side it originally wanted, before moving further away. At each clearance (`1 mm`, then `3 mm`, then `5 mm`), it tries the side centres first, then offsets along each side in `0.5 mm` steps, nearest first in both directions, through the corners where the text's edge aligns with the body's edge. The preferred side is tried first, then its opposite and the two perpendicular sides. This search is relative to the body, never to another field's dragged position. A slot is free when the text would cover nothing else on the sheet: no other field, no label, no port tag, no note, no visible symbol text or pin stroke, no other symbol's painted body, and no wire run. A field's own body is governed by the clearance rule, and a field an override placed by hand is not moved; the automatic fields route around it. If no tested slot is free, the preferred position remains and the existing readability diagnostics report the unresolved collision.
 
-The result is a drawing fact, recomputed on every render like the places above, and it is never written back into the view file: an override decides its own field and nothing else. Two parts drawn close therefore keep readable designators and values, and a page that has no room left says so in the check report (`view.text-overlap`, §9.2) rather than printing one text on top of another.
+The result is a drawing fact, recomputed on every render like the places above, and it is never written back into the view file: an override decides its own field and nothing else. Two parts drawn close therefore keep readable designators and values when a free slot exists; a page that has no room left reports its unresolved collisions through the existing readability diagnostics (§9.2).
+
+An interactive layout request may supply the displayed automatic field positions as transient
+preferences, including their text anchors. Each automatic field tries its previous position first
+and retains it while it remains free under the same collision checks. Other automatic fields
+reserve their preferred positions during that pass. A blocked preference falls back to the
+ordinary body-relative search above. Explicit overrides remain fixed, and disabling automatic
+placement ignores these preferences. They are render inputs, never `field` rows or cached IR;
+the same view and preferences produce the same drawing.
 
 An override is for a position the author *wants*, not for one they need. An automatic field is
 recomputed every time the page is rendered, so it follows its symbol through an Apply; an override
@@ -676,6 +684,14 @@ port
 - 段内行按**自然序**排序（§11 的同一套规则）：`place` 按 `instance_id`，`field` 按 `(instance_id, name)`，`junction` 按 `junction_id`，`wire` 按 `(net, from_endpoint, to_endpoint)`，`label` 按 `(net, x, y)`，`port` 按 `port_id`，`text` 按 `(x, y, text)`。
 - `bounds` 是唯一的标量，canonical form 把它放在第一个段之前。
 - 缺省值可以不写（`rot` 缺省 0）；IR 里缺省字段一律省略。
+
+### 12.7 Editable source
+
+A module drawing is authored source, exactly like a print page (ADR-0035 D3, D4): a human, or an agent under instruction, moves its symbols, wires and labels, and the renderer draws what the file says. The review app exposes the same explicit placement and source actions on a module drawing that it exposes on a page — move, rotate, field override, label and port move, source edit (ADR-0071 D1).
+
+A write for a module drawing resolves to `views/modules/<module_id>.module-view.teda`, is parsed as a `module_view`, and is written in the canonical `module_view` form. It is checked in the module-local namespace: the `place` identities, `wire` / `label` nets and `port` ids must exist in the module definition, the drawing cannot add a component, pin, net or port, and every drawn coordinate stays inside `bounds` (ADR-0071 D2). A write changes the module-view shard and the advisory hash; it never writes `design/**`, a PCB, the project hash or a netlist.
+
+One module has one drawing. Every `module_place` row that names the module draws that one file, so an edit is visible on every page and every instance that places the drawing (ADR-0071 D3). A per-instance or per-page variation of a module's picture is not part of this contract.
 
 ---
 

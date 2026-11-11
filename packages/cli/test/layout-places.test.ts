@@ -5,7 +5,7 @@
 // written bytes are the formatter's, the staleness is reported (and visible in the project's own
 // check), refusals still refuse like the layout path, and the standalone app's write is untouched.
 import { describe, expect, test } from "bun:test";
-import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -42,6 +42,9 @@ function copyProject(dir: string): void {
     recursive: true,
     filter: (source) => relative(REFERENCE, source) !== "dist",
   });
+  // The reference project is module-first; the places-only path is page-shaped, so the test uses
+  // the historical detail page kept as a fixture.
+  writeFileSync(join(dir, "views", "buck-5v.view.teda"), readFileSync(join(import.meta.dir, "fixtures", "legacy-buck.view.teda")));
 }
 
 

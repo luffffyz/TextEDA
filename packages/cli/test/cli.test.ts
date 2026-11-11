@@ -110,13 +110,13 @@ describe("check exit codes", () => {
     const root = mkdtempSync(join(tmpdir(), "texteda-cli-bad-"));
     try {
       mkdirSync(join(root, "design/sch"), { recursive: true });
-      mkdirSync(join(root, "design/modules"), { recursive: true });
+      mkdirSync(join(root, "design/sch/modules"), { recursive: true });
       writeFileSync(
         join(root, "design/sch", "main.teda"),
         "version 0.14.0\nschematic main\n\nmodules\n  M1  m\n",
       );
       writeFileSync(
-        join(root, "design/modules", "m.teda"),
+        join(root, "design/sch/modules", "m.teda"),
         "version 0.8\nmodule m\n\ninstances\n  R1  no-such-part  10k\n",
       );
       const result = run(["check", root]);

@@ -6,7 +6,7 @@ import { irVersion } from "@texteda/ir";
 import { strokeWidthFor, textStrokes } from "@texteda/core/font";
 import { describe, expect, test } from "bun:test";
 import type { SchematicView } from "@texteda/ir/schematic-view";
-import type { SvgText, SymbolBody } from "../src/index.ts";
+import type { SvgAnchor, SvgText, SymbolBody } from "../src/index.ts";
 import { extractSchematic, renderSchematic, renderSymbol, schematicGeometry, schematicProjection, toSvgText, type SchematicInstance } from "../src/index.ts";
 import { resolveSchematicFields } from "../src/field-placement.ts";
 
@@ -395,6 +395,79 @@ describe("renderSchematic", () => {
     expect(reference.x).not.toBe(101_635_000);
   });
 
+  test("finds a nearby perimeter slot when a moved value and wires block the side centres", () => {
+    const instances = new Map([["C4", { ...part(), value: "100nF" }]]);
+    for (const rot_mdeg of [0, 90_000, 180_000, 270_000]) {
+      const v = view({
+        place: [{ instance_id: "C4", x_nm: 100_000_000, y_nm: 100_000_000, rot_mdeg }],
+        field: [{ instance_id: "C4", name: "Value", x_nm: 0, y_nm: 2_500_000 }],
+        junction: [
+          { id: "LEFT", x_nm: 80_000_000, y_nm: 100_000_000 },
+          { id: "RIGHT", x_nm: 120_000_000, y_nm: 100_000_000 },
+          { id: "TOP", x_nm: 100_000_000, y_nm: 80_000_000 },
+          { id: "BOTTOM", x_nm: 100_000_000, y_nm: 120_000_000 },
+        ],
+        wire: [
+          { net: "H", from_pin: "LEFT", to_pin: "RIGHT" },
+          { net: "V", from_pin: "TOP", to_pin: "BOTTOM" },
+        ],
+      });
+      const doc = renderSchematic(v, instances);
+      const fields = fieldsOf(doc);
+      const reference = fields.find((field) => field.name === "Reference");
+      const value = fields.find((field) => field.name === "Value");
+      if (!reference || !value) throw new Error("missing C4 fields");
+      const box = paintedPageTextBounds(reference);
+      const fixed = paintedPageTextBounds(value);
+      // Both long wire runs cross every centred legacy slot, but leave the corners free.
+      expect(box.minX < 100_000_000 && box.maxX > 100_000_000).toBe(false);
+      expect(box.minY < 100_000_000 && box.maxY > 100_000_000).toBe(false);
+      expect(Math.min(box.maxX, fixed.maxX) > Math.max(box.minX, fixed.minX)
+        && Math.min(box.maxY, fixed.maxY) > Math.max(box.minY, fixed.minY)).toBe(false);
+      const body = doc.primitives.find((primitive) => primitive.kind === "rect" && primitive.layer === "symbol");
+      if (body?.kind !== "rect") throw new Error("missing C4 body");
+      const gapX = Math.max(body.x1 - body.widthNm / 2 - box.maxX, box.minX - body.x2 - body.widthNm / 2, 0);
+      const gapY = Math.max(body.y1 - body.widthNm / 2 - box.maxY, box.minY - body.y2 - body.widthNm / 2, 0);
+      expect(Math.hypot(gapX, gapY)).toBeLessThanOrEqual(5_000_000);
+      const expected = [
+        { x: 100_000_000, y: 97_500_000 },
+        { x: 102_500_000, y: 100_000_000 },
+        { x: 100_000_000, y: 102_500_000 },
+        { x: 97_500_000, y: 100_000_000 },
+      ][rot_mdeg / 90_000]!;
+      expect(value).toMatchObject(expected);
+      const expectedAnchor: SvgAnchor = (["middle", "start", "middle", "end"] as const)[rot_mdeg / 90_000]!;
+      expect(value.anchor).toBe(expectedAnchor);
+      expect(extractSchematic(doc).fields).toEqual(schematicProjection(v, instances).fields);
+    }
+  });
+
+  test("keeps an automatic field off a visible pin stroke without a page wire", () => {
+    const base = part();
+    const instance: SchematicInstance = {
+      ...base,
+      symbol: {
+        ...base.symbol,
+        pin_names_hidden: true,
+        pin_numbers_hidden: true,
+        pins: [{
+          ...base.symbol.pins[0]!,
+          at: { x_nm: 0, y_nm: 8_000_000, rotation_mdeg: 270_000 },
+          length_nm: 7_365_000,
+        }],
+      },
+    };
+    const doc = renderSchematic(view({
+      place: [{ instance_id: "C4", x_nm: 100_000_000, y_nm: 100_000_000 }],
+      wire: [],
+    }), new Map([["C4", instance]]));
+    const reference = fieldsOf(doc).find((field) => field.name === "Reference");
+    if (!reference) throw new Error("missing C4 reference");
+    const box = paintedPageTextBounds(reference);
+    expect(box.minX < 100_000_000 && box.maxX > 100_000_000
+      && box.minY < 99_365_000 && box.maxY > 92_000_000).toBe(false);
+  });
+
   test("refuses to draw an instance without symbol facts", () => {
     expect(() => renderSchematic(view(), new Map())).toThrow(/no symbol facts/);
   });
@@ -522,8 +595,8 @@ describe("renderSchematic", () => {
     const v = view({ place: [{ instance_id: "C1", x_nm: 100_000_000, y_nm: 100_000_000 }], field: manual });
     const doc = renderSchematic(v, instances, { automaticFields: false });
     const fields = fieldsOf(doc);
-    expect(fields.find((field) => field.name === "Reference")).toMatchObject({ x: 104_000_000, y: 95_000_000 });
-    expect(fields.find((field) => field.name === "Value")).toMatchObject({ x: 100_000_000, y: 102_460_500 });
+    expect(fields.find((field) => field.name === "Reference")).toMatchObject({ x: 104_000_000, y: 95_000_000, anchor: "middle" });
+    expect(fields.find((field) => field.name === "Value")).toMatchObject({ x: 100_000_000, y: 102_460_500, anchor: "middle" });
     expect(schematicGeometry(v, instances, { automaticFields: false }).symbols)
       .toEqual(schematicGeometry(v, instances).symbols);
     expect(extractSchematic(doc).fields).toEqual(schematicProjection(v, instances, { automaticFields: false }).fields);
@@ -539,5 +612,91 @@ describe("renderSchematic", () => {
     expect(projection.texts.every((text) => text.role !== "field")).toBe(true);
     expect(extracted.fields).toEqual(projection.fields);
     expect(extracted.texts).toEqual(projection.texts);
+  });
+
+  test("a previous automatic position survives when a manual obstacle moves away", () => {
+    // The page placed C4's Reference at its preferred place, a view note then covered it, and the
+    // review kept the field's previous automatic place through the drag. While the note sits
+    // there the hint is blocked and the field relocates exactly as a page without one; once the
+    // note moves away the hint is free and the field stays where the review last saw it.
+    const instances = new Map([["C4", { ...part(), value: "100nF" }]]);
+    const unblocked = view({ place: [{ instance_id: "C4", x_nm: 100_000_000, y_nm: 100_000_000 }] });
+    const preferred = fieldsOf(renderSchematic(unblocked, instances)).find((field) => field.name === "Reference");
+    if (!preferred) throw new Error("missing C4 reference");
+    const blocked = view({ place: [{ instance_id: "C4", x_nm: 100_000_000, y_nm: 100_000_000 }], text: [{ x_nm: preferred.x, y_nm: preferred.y, text: "note" }] });
+    const kept = renderSchematic(blocked, instances, {
+      fieldPositions: new Map([["C4:Reference", { x_nm: preferred.x, y_nm: preferred.y }]]),
+    });
+    const reference = fieldsOf(kept).find((field) => field.name === "Reference");
+    const expected = fieldsOf(renderSchematic(blocked, instances)).find((field) => field.name === "Reference");
+    if (!reference || !expected) throw new Error("missing C4 reference under hint");
+    // The hint is blocked by the note, so the field relocates exactly as a page without the hint.
+    expect(reference).toMatchObject({ x: expected.x, y: expected.y });
+    expect(reference).not.toMatchObject({ x: preferred.x, y: preferred.y });
+
+    // The note then moves away: the previous place is free, and the hint keeps it.
+    const released = view({ place: [{ instance_id: "C4", x_nm: 100_000_000, y_nm: 100_000_000 }], text: [{ x_nm: 20_000_000, y_nm: 20_000_000, text: "note" }] });
+    const restored = renderSchematic(released, instances, {
+      fieldPositions: new Map([["C4:Reference", { x_nm: preferred.x, y_nm: preferred.y, ...(preferred.anchor === undefined ? {} : { anchor: preferred.anchor }) }]]),
+    });
+    const back = fieldsOf(restored).find((field) => field.name === "Reference");
+    if (!back) throw new Error("missing restored C4 reference");
+    expect(back).toMatchObject({ x: preferred.x, y: preferred.y });
+    expect(extractSchematic(restored).fields).toEqual(schematicProjection(released, instances, {
+      fieldPositions: new Map([["C4:Reference", { x_nm: preferred.x, y_nm: preferred.y, ...(preferred.anchor === undefined ? {} : { anchor: preferred.anchor }) }]]),
+    }).fields);
+  });
+
+  test("a newly obstructed preference relocates and the SVG and projection agree", () => {
+    const instances = new Map([["C4", { ...part(), value: "100nF" }]]);
+    const v = view({ place: [{ instance_id: "C4", x_nm: 100_000_000, y_nm: 100_000_000 }] });
+    const free = fieldsOf(renderSchematic(v, instances)).find((field) => field.name === "Reference");
+    if (!free) throw new Error("missing C4 reference");
+    // A note now covers the preferred place: the hint is blocked, so the field falls back to the
+    // canonical body-relative search exactly as a page without the hint would.
+    const blocked = view({
+      place: [{ instance_id: "C4", x_nm: 100_000_000, y_nm: 100_000_000 }],
+      text: [{ x_nm: free.x, y_nm: free.y, text: "note" }],
+    });
+    const hinted = renderSchematic(blocked, instances, {
+      fieldPositions: new Map([["C4:Reference", { x_nm: free.x, y_nm: free.y }]]),
+    });
+    const relocated = fieldsOf(hinted).find((field) => field.name === "Reference");
+    const unhinted = fieldsOf(renderSchematic(blocked, instances)).find((field) => field.name === "Reference");
+    if (!relocated || !unhinted) throw new Error("missing C4 reference after blocking");
+    expect(relocated).not.toMatchObject({ x: free.x, y: free.y });
+    expect(relocated).toEqual(unhinted);
+    expect(extractSchematic(hinted).fields).toEqual(schematicProjection(blocked, instances, {
+      fieldPositions: new Map([["C4:Reference", { x_nm: free.x, y_nm: free.y }]]),
+    }).fields);
+  });
+
+  test("a manual field keeps its row position despite a hint", () => {
+    const instances = new Map([["C1", { ...part(), value: "10k" }]]);
+    const manual = [{ instance_id: "C1", name: "Reference" as const, x_nm: 4_000_000, y_nm: 5_000_000 }];
+    const v = view({ place: [{ instance_id: "C1", x_nm: 100_000_000, y_nm: 100_000_000 }], field: manual });
+    const options = { fieldPositions: new Map([["C1:Reference", { x_nm: 150_000_000, y_nm: 150_000_000 }]]) };
+    const doc = renderSchematic(v, instances, options);
+    const fields = fieldsOf(doc);
+    expect(fields.find((field) => field.name === "Reference")).toMatchObject({ x: 104_000_000, y: 95_000_000 });
+    expect(fields.find((field) => field.name === "Value")).toMatchObject({ x: 100_000_000, y: 102_460_500 });
+    expect(schematicGeometry(v, instances, options).fields
+      .find((field) => field.name === "Reference")).toMatchObject({ local_x_nm: 4_000_000, local_y_nm: 5_000_000, anchor: "middle" });
+    expect(extractSchematic(doc).fields).toEqual(schematicProjection(v, instances, options).fields);
+  });
+
+  test("automaticFields=false ignores hints", () => {
+    const instances = new Map([["C1", { ...part(), value: "10k" }]]);
+    const v = view({ place: [{ instance_id: "C1", x_nm: 100_000_000, y_nm: 100_000_000 }] });
+    const hinted = renderSchematic(v, instances, {
+      automaticFields: false,
+      fieldPositions: new Map([["C1:Reference", { x_nm: 150_000_000, y_nm: 150_000_000 }]]),
+    });
+    const plain = renderSchematic(v, instances, { automaticFields: false });
+    expect(fieldsOf(hinted)).toEqual(fieldsOf(plain));
+    expect(fieldsOf(hinted).find((field) => field.name === "Reference")).toMatchObject({ x: 100_000_000, y: 97_539_500 });
+    expect(fieldsOf(hinted).find((field) => field.name === "Value")).toMatchObject({ x: 100_000_000, y: 102_460_500 });
+    expect(extractSchematic(hinted).fields)
+      .toEqual(schematicProjection(v, instances, { automaticFields: false, fieldPositions: new Map([["C1:Reference", { x_nm: 150_000_000, y_nm: 150_000_000 }]]) }).fields);
   });
 });

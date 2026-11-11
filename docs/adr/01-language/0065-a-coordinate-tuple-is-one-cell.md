@@ -45,7 +45,7 @@ with commas inside, because a key=value cell cannot contain whitespace. So the l
 already knows two spellings for a point — `x y` in a table and `x,y` inside an attribute —
 and the second one is the one that behaves.
 
-`docs/backlog.md` F60 wrote the bracket form for `junction` as a local choice: "use a
+An earlier junction draft proposed the bracket form as a local choice: "use a
 bracketed coordinate tuple with no whitespace inside, `[x,y]` ... Keep ordinary
 space-separated `x y` fields unchanged elsewhere". The owner's finding is that this
 split is the defect, not the fix: **one language should not have two ways to write a

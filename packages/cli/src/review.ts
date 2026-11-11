@@ -16,7 +16,9 @@ import {
   commitPlan,
   LayoutError,
   planLayout,
+  renderModuleSource,
   renderPageSource,
+  saveModuleSource,
   savePageSource,
   type LayoutField,
   type LayoutFieldRemoval,
@@ -114,6 +116,47 @@ function parseLayoutFields(value: unknown, key: "fields" | "remove_fields"): Lay
 }
 
 /**
+ * Validate a `field_positions` array: the automatic anchors the renderer already drew, as render
+ * preferences the layout tries before its own search (ADR-0064).
+ *
+ * They are never field rows: the coordinates are sheet millimetres, fractions included. Entries must
+ * have a well-formed identity, field name, coordinates, and optional anchor; they are not page-validated.
+ */
+function parseFieldPositions(value: unknown, key: "field_positions"): (LayoutField & { anchor?: "start" | "middle" | "end" })[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new LayoutError(`${key} must be an array`);
+  return value.map((entry, index) => {
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new LayoutError(`${key}[${index}] must be an object`);
+    }
+    const object = entry as Record<string, unknown>;
+    const expected = ["instance_id", "name", "x", "y", "anchor"];
+    if (Object.keys(object).some((property) => !expected.includes(property)) || ["instance_id", "name", "x", "y"].some((property) => !(property in object))) {
+      throw new LayoutError(`${key}[${index}] must contain instance_id, name, x, y and an optional anchor`);
+    }
+    if (typeof object["instance_id"] !== "string" || object["instance_id"].length === 0) {
+      throw new LayoutError(`${key}[${index}].instance_id must be a non-empty string`);
+    }
+    if (object["name"] !== "Reference" && object["name"] !== "Value") {
+      throw new LayoutError(`${key}[${index}].name must be Reference or Value`);
+    }
+    if (typeof object["x"] !== "number" || !Number.isFinite(object["x"]) || typeof object["y"] !== "number" || !Number.isFinite(object["y"])) {
+      throw new LayoutError(`${key}[${index}].x and .y must be finite numbers`);
+    }
+    if (object["anchor"] !== undefined && object["anchor"] !== "start" && object["anchor"] !== "middle" && object["anchor"] !== "end") {
+      throw new LayoutError(`${key}[${index}].anchor must be start, middle, or end`);
+    }
+    return {
+      instance_id: object["instance_id"],
+      name: object["name"] as "Reference" | "Value",
+      x: object["x"],
+      y: object["y"],
+      ...(object["anchor"] === undefined ? {} : { anchor: object["anchor"] as "start" | "middle" | "end" }),
+    };
+  });
+}
+
+/**
  * Validate a `texts` array: the labels and ports the app moved.
  *
  * The shape is closed on purpose. A label is named by the net it carries and a port by its
@@ -202,29 +245,39 @@ async function handleApi(
     const body = JSON.parse(await readBody(request)) as Record<string, unknown>;
     if (url === "/api/layout") {
       const index = reviewPageIndex(root);
-      const boardId = body["board"];
-      if (typeof boardId !== "string" || !index.boards.has(boardId)) {
-        send(400, { error: `no such board: ${String(boardId)}` });
-        return;
-      }
-      const pageId = String(body["page"]);
-      if (!index.pages.some((page) => page.page === pageId)) {
-        send(400, { error: `no such print page: ${pageId}` });
-        return;
+      const moduleId = typeof body["module"] === "string" ? body["module"] : undefined;
+      const pageId = typeof body["page"] === "string" ? body["page"] : undefined;
+      if (moduleId !== undefined) {
+        if (!index.modules.some((drawing) => drawing.module === moduleId)) {
+          send(400, { error: `no such module drawing: ${moduleId}` });
+          return;
+        }
+      } else {
+        const boardId = body["board"];
+        if (typeof boardId !== "string" || !index.boards.has(boardId)) {
+          send(400, { error: `no such board: ${String(boardId)}` });
+          return;
+        }
+        if (pageId === undefined || !index.pages.some((page) => page.page === pageId)) {
+          send(400, { error: `no such print page: ${String(pageId)}` });
+          return;
+        }
       }
       const places = Array.isArray(body["places"]) ? (body["places"] as LayoutPlace[]) : [];
       const fields = parseLayoutFields(body["fields"], "fields");
       const remove_fields = parseLayoutFields(body["remove_fields"], "remove_fields");
+      const field_positions = parseFieldPositions(body["field_positions"], "field_positions");
       // The editor's unsaved text, when the app holds one: the layout is computed on it and the
       // write is it with the moved rows applied, so a drag cannot discard the edit (ADR-0042 D6).
       const draft = typeof body["text"] === "string" ? { text: body["text"] } : {};
-      const request = { page: pageId, places, ...draft } as Parameters<typeof planLayout>[1];
+      const request = { ...(moduleId === undefined ? { page: pageId } : { module: moduleId }), places, ...draft } as Parameters<typeof planLayout>[1];
       const automaticFields = parseOptionalBoolean(body["automatic_fields"], "automatic_fields");
       const reanchorWires = parseOptionalBoolean(body["reanchor_wires"], "reanchor_wires");
       if (automaticFields !== undefined) request.automatic_fields = automaticFields;
       if (reanchorWires !== undefined) request.reanchor_wires = reanchorWires;
       if (fields !== undefined) request.fields = fields as LayoutField[];
       if (remove_fields !== undefined) request.remove_fields = remove_fields as LayoutFieldRemoval[];
+      if (field_positions !== undefined) request.field_positions = field_positions;
       const texts = parseLayoutTexts(body["texts"], "texts");
       if (texts !== undefined) request.texts = texts as LayoutText[];
       const plan = planLayout(root, request);
@@ -259,17 +312,20 @@ async function handleApi(
       return;
     }
 
-    // The edit route: the source of a project page the project has.
+    // The edit route: the source of a page or module drawing the project has.
     const index = reviewPageIndex(root);
     const file = String(body["file"] ?? "");
-    const owner = index.pages.find((page) => page.file === file);
-    if (owner === undefined) {
-      send(400, { error: `no such print page: ${file}` });
+    const pageOwner = index.pages.find((page) => page.file === file);
+    const moduleOwner = index.modules.find((drawing) => drawing.file === file);
+    if (pageOwner === undefined && moduleOwner === undefined) {
+      send(400, { error: `no such print page or module drawing: ${file}` });
       return;
     }
     const text = String(body["text"] ?? "");
     if (body["save"] === true) {
-      const saved = savePageSource(root, owner.page, text);
+      const saved = pageOwner === undefined
+        ? saveModuleSource(root, moduleOwner!.module, text)
+        : savePageSource(root, pageOwner.page, text);
       if (saved.errors.length > 0) {
         send(400, { errors: saved.errors });
         return;
@@ -279,7 +335,9 @@ async function handleApi(
       return;
     }
     const automaticFields = parseOptionalBoolean(body["automatic_fields"], "automatic_fields");
-    const drawn = renderPageSource(root, owner.page, text, automaticFields);
+    const drawn = pageOwner === undefined
+      ? renderModuleSource(root, moduleOwner!.module, text, automaticFields)
+      : renderPageSource(root, pageOwner.page, text, automaticFields);
     send(200, {
       svg: drawn.svg,
       errors: drawn.errors,

@@ -140,6 +140,68 @@ it back. The rows name the keys that answer *now*: with nothing selected there i
 The hint's content is derived, so it must be re-read after the state changes — a hint that still
 names `M` while a move is in flight is wrong.
 
+### 4.4 A pending port does not pull the committed wire
+
+Use a port that is a wire endpoint, such as `VOUT` on the reference project's `buck-5v` module drawing.
+Keep this check on the scratch copy and do not press Apply.
+
+1. Before moving the port, capture the geometry and transforms of every
+   `.sheet-svg g[data-ref^="net:"]` group and the solid port's screen bounding box.
+2. Select the port hotspot, press `m`, move the pointer, and finish the move. The grey copy must
+   appear at the pending position; compare the solid port's box and wire geometry with the capture.
+3. Toggle Auto fields and Re-anchor wires while the port is pending. Neither control may replace
+   the committed wire geometry or start a server layout preview for that pending placement.
+4. Move the same port again and cancel with Escape. The first pending copy must return without
+   moving the solid port or wires. Revert must remove the copy without changing those primitives.
+5. Check the asynchronous case separately: with no pending placement, hold a real `/api/layout`
+   request triggered by a layout control, then move the port before releasing that request. After
+   its response arrives, the pending copy must survive and the captured wire geometry and solid
+   port position must still match. Use the actual server response, not a replacement SVG.
+
+Compare vector geometry as well as screenshots: a solid port remaining in place does not prove
+that its wire stayed there. The late-response check catches a stale server preview replacing the
+local drawing after the port move.
+
+### 4.5 Wire controls do not change field placement
+
+1. Start from a fresh scratch page with Auto fields off. Capture every
+   `.sheet-svg g[data-ref^="field:"]` group's vector geometry, transform and screen bounding box.
+2. Toggle Re-anchor wires on and off. Compare fields immediately after each click and after the
+   real `/api/layout` response. Record DOM mutations as well as the final geometry so a temporary
+   fallback layout cannot pass the check.
+3. Enable Auto fields and wait for its response. Capture this deliberately different layout as
+   the new baseline, then repeat the wire-toggle check.
+4. Hold one real layout request, toggle the wire control again, and release the older request
+   after the newer response. Neither the waiting period nor the late response may alter fields.
+5. On the scratch copy only, move a field and Apply. The selected Auto fields policy must survive
+   the rebuilt model; compare the field layout immediately before and after the commit response.
+
+### 4.6 A field drag keeps unrelated automatic fields stable
+
+Use the scratch copy's `buck-5v` module drawing with C3's fields automatic. Enable Auto fields and wait
+for the real layout response before capturing C3's Reference and Value vector geometry, transforms
+and screen boxes. Derive field positions from the current SVG rather than hard-coding coordinates.
+
+1. Select C4's Value, press `m`, and move it into free space that does not obstruct C3. Hold a
+   real `/api/layout` request while moving again. Observe DOM mutations throughout: C3 must not
+   briefly return to its default-off layout. The dragged field must follow the pointer from its
+   displayed automatic position, not from the initial model's field anchor.
+2. Release the response and compare C3 again. Move and cancel with Escape after another response
+   has arrived; the entire pre-transaction field layout must return immediately. Release an older
+   request after cancellation to prove that it cannot restore the cancelled move.
+3. Keep a field move locally, move that field a second time and cancel. The first pending position
+   must survive. Move back to the transaction's starting point and check that no stale local
+   transform remains. Repeat with C4's Reference and with Auto fields off.
+4. Revert pending edits and wait for the selected policy's layout response; no pending manual
+   field may remain visible. Restore a manual field with Backspace and check the same condition.
+5. On the scratch copy only, Apply a kept move while an older preview response is held. The
+   committed geometry must survive that late response, Auto fields must remain on, and only the
+   intended field rows may differ from the copied source.
+
+Do not assert that automatic fields can never move: separately move a manual field into an
+automatic field's space and verify that collision avoidance still runs. Never replace a held
+response with synthetic SVG; this check needs the server's actual geometry.
+
 ## 5. Proving the snap grid numerically
 
 Do not trust that a drag "looked snapped". Measure it.
@@ -194,8 +256,8 @@ Apply above:
 
 ```sh
 ls /tmp/texteda-review-smoke/dist/backups/views/
-diff /tmp/texteda-review-smoke/dist/backups/views/buck-5v.view.teda \
-     examples/reference-project/views/buck-5v.view.teda
+diff /tmp/texteda-review-smoke/dist/backups/views/modules/buck-5v.module-view.teda \
+     examples/reference-project/views/modules/buck-5v.module-view.teda
 ```
 
 The backup holds the page **as it was before the write**, so the diff against the original shows
@@ -208,8 +270,8 @@ The Apply recomputes the page, but it must not rewrite the whole drawing. Check 
 actually moved:
 
 ```sh
-diff examples/reference-project/views/buck-5v.view.teda \
-     /tmp/texteda-review-smoke/views/buck-5v.view.teda
+diff examples/reference-project/views/modules/buck-5v.module-view.teda \
+     /tmp/texteda-review-smoke/views/modules/buck-5v.module-view.teda
 ```
 
 With Re-anchor wires off, a single moved symbol changes its `place` row and the affected wire rows;

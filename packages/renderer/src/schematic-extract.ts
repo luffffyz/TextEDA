@@ -29,7 +29,7 @@ import {
   type SchematicRenderOptions,
 } from "./schematic.ts";
 import { resolveSchematicFields } from "./field-placement.ts";
-import { pageFacts, placePageFields, type FieldPlacement, type PageProjection } from "./field-layout.ts";
+import { fieldTextAnchor, pageFacts, placePageFields, type FieldPlacement, type PageProjection } from "./field-layout.ts";
 
 type Place = NonNullable<SchematicView["place"]>[number];
 type Wire = NonNullable<SchematicView["wire"]>[number];
@@ -64,6 +64,8 @@ export interface SchematicFieldProjection {
   x_nm: number;
   y_nm: number;
   rotation_mdeg?: number;
+  /** The rendered horizontal text alignment, when the drawing carries one. */
+  anchor?: "start" | "middle" | "end";
 }
 
 /** Drawn geometry in sheet coordinates. The sheet frame is projected as a size; port tags by tip and direction. */
@@ -242,10 +244,12 @@ export function schematicProjection(
   const fields: SchematicFieldProjection[] = [];
   const shapes: SchematicShapeProjection[] = [];
   // The field option is shared with rendering: disabling page placement leaves the resolved
-  // symbol-local positions intact, so the projection checks the same drawing policy.
+  // symbol-local positions intact, so the projection checks the same drawing policy. The review's
+  // previous automatic placements travel with the render options, so the projection agrees with
+  // the drawing about where each field kept its place.
   const placements: ReadonlyMap<string, FieldPlacement> = options.automaticFields === false
     ? new Map()
-    : placePageFields(pageFacts(view, instances, PROJECTION));
+    : placePageFields(pageFacts(view, instances, PROJECTION), options.fieldPositions);
 
   for (const place of view.place ?? []) {
     const entry = placed.get(place.instance_id)!;
@@ -261,12 +265,24 @@ export function schematicProjection(
         const at = placement === undefined
           ? toSheet(place, resolved.x, resolved.y)
           : { x: placement.x_nm, y: placement.y_nm };
+        // The anchor the drawing carries: the page's placement anchor when it moved the field, else
+        // the quarter-turn rule the unplaced field is drawn with, so both ends of the round trip
+        // agree with the SVG.
+        const anchor = placement?.anchor
+          ?? fieldTextAnchor(
+            (quadrantOf(place.rot_mdeg) === 1 || quadrantOf(place.rot_mdeg) === 3)
+              && primitive.role === "field",
+            Math.round(at.x),
+            place.x_nm,
+          )
+          ?? (primitive.anchor as "start" | "middle" | "end" | undefined);
         fields.push({
           instance_id: place.instance_id,
           name: primitive.name ?? "field",
           text: resolved.text,
           x_nm: Math.round(at.x),
           y_nm: Math.round(at.y),
+          ...(anchor === undefined ? {} : { anchor }),
           ...(primitive.rotateMdeg === undefined
             ? {}
             : { rotation_mdeg: ((primitive.rotateMdeg - quadrantOf(place.rot_mdeg) * 90_000) % 360_000 + 360_000) % 360_000 }),
@@ -468,6 +484,7 @@ export function extractSchematic(doc: SvgDoc): SchematicProjection {
             x_nm: primitive.x,
             y_nm: primitive.y,
             ...(primitive.rotateMdeg === undefined ? {} : { rotation_mdeg: primitive.rotateMdeg }),
+            ...(primitive.anchor === undefined ? {} : { anchor: primitive.anchor }),
           });
           break;
         }

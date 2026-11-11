@@ -6,7 +6,7 @@
 // a draft that is drawn without being written, a save that refuses a source that does not parse,
 // and a request for a page the project does not have.
 import { afterAll, describe, expect, test } from "bun:test";
-import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,6 +25,9 @@ const scratches: string[] = [];
 function scratch(): string {
   const dir = mkdtempSync(join(tmpdir(), "texteda-review-api-test-"));
   cpSync(referenceProject, dir, { recursive: true });
+  // The reference project is module-first; these page-route tests use the historical detail page
+  // kept as a fixture.
+  writeFileSync(join(dir, "views", "buck-5v.view.teda"), readFileSync(join(import.meta.dir, "fixtures", "legacy-buck.view.teda")));
   scratches.push(dir);
   return dir;
 }
@@ -88,7 +91,106 @@ async function post(
   return { status: response.status, payload: (await response.json()) as Record<string, unknown> };
 }
 
+interface ReviewBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+interface ReviewField {
+  instance_id: string;
+  name: "Reference" | "Value";
+  text: string;
+  x: number;
+  y: number;
+  anchor?: "start" | "middle" | "end";
+  manual: boolean;
+  box: ReviewBox;
+}
+
+interface FieldPosition {
+  instance_id: string;
+  name: "Reference" | "Value";
+  x: number;
+  y: number;
+  anchor?: "start" | "middle" | "end";
+}
+
+/** Turn the baseline's local field anchors into the absolute sheet positions expected by layout. */
+async function automaticFieldPositions(server: Server): Promise<{ fields: ReviewField[]; positions: FieldPosition[] }> {
+  const preview = await post(server, "/api/layout", {
+    board: "main",
+    page: "buck-5v",
+    places: [],
+    automatic_fields: true,
+  });
+  expect(preview.status).toBe(200);
+  const fields = preview.payload["fields"] as ReviewField[];
+
+  const document = await (await fetch(server.url)).text();
+  const embedded = /window\.__TEXTEDA_REVIEW__ = (.*);<\/script>/.exec(document);
+  expect(embedded).not.toBeNull();
+  const model = JSON.parse(embedded?.[1] ?? "{}") as {
+    drawings?: { file?: string; places?: { instance_id: string; x: number; y: number; rot: number }[] }[];
+  };
+  const page = model.drawings?.find((drawing) => drawing.file === pageFile);
+  const places = new Map((page?.places ?? []).map((place) => [place.instance_id, place]));
+  const positions = fields.filter((field) => !field.manual).map((field): FieldPosition => {
+    const place = places.get(field.instance_id);
+    expect(place).toBeDefined();
+    const rotation = ((place!.rot % 360) + 360) % 360;
+    const sheet = rotation === 90
+      ? { x: place!.x + field.y, y: place!.y + field.x }
+      : rotation === 180
+        ? { x: place!.x - field.x, y: place!.y + field.y }
+        : rotation === 270
+          ? { x: place!.x - field.y, y: place!.y - field.x }
+          : { x: place!.x + field.x, y: place!.y - field.y };
+    return {
+      instance_id: field.instance_id,
+      name: field.name,
+      ...sheet,
+      ...(field.anchor === undefined ? {} : { anchor: field.anchor }),
+    };
+  });
+  return { fields, positions };
+}
+
+function boxesOverlap(a: ReviewBox, b: ReviewBox): boolean {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
+
+function expectBoxWithinMillimetreConversion(actual: ReviewBox, expected: ReviewBox): void {
+  for (const key of ["x", "y", "w", "h"] as const) {
+    expect(Math.abs(actual[key] - expected[key])).toBeLessThanOrEqual(0.002);
+  }
+}
 describe("the review app's write routes", () => {
+  test("the layout route moves a module drawing without writing a page", async () => {
+    const dir = scratch();
+    const moduleFile = "views/modules/buck-5v.module-view.teda";
+    const beforeModule = readFileSync(join(dir, moduleFile), "utf8");
+    const beforePage = readFileSync(join(dir, "views/main.view.teda"), "utf8");
+    const server = await serve(dir);
+    try {
+      const request = { module: "buck-5v", places: [{ instance_id: "C1", x: 18, y: 11.5, rot: 90 }] };
+      const preview = await post(server, "/api/layout", request);
+      expect(preview.status).toBe(200);
+      expect(readFileSync(join(dir, moduleFile), "utf8")).toBe(beforeModule);
+
+      const commit = await post(server, "/api/layout", { ...request, commit: true });
+      expect(commit.status).toBe(200);
+      expect(commit.payload["changed"]).toBe(true);
+      const written = readFileSync(join(dir, moduleFile), "utf8");
+      expect(written).toContain("C1  [18.0,11.5]");
+      // A module drawing is advisory source: editing it does not touch the page or the project.
+      expect(readFileSync(join(dir, "views/main.view.teda"), "utf8")).toBe(beforePage);
+    } finally {
+      server.stop();
+    }
+  });
+
   test("the layout route plans a change without writing it", async () => {
     const dir = scratch();
     const before = readFileSync(join(dir, pageFile), "utf8");
@@ -263,6 +365,83 @@ describe("the review app's write routes", () => {
     }
   });
 
+  test("automatic field positions retain the preview geometry when a manual field moves", async () => {
+    const dir = scratch();
+    const before = readFileSync(join(dir, pageFile), "utf8");
+    const server = await serve(dir);
+    try {
+      const baseline = await automaticFieldPositions(server);
+      const request = {
+        board: "main",
+        page: "buck-5v",
+        places: [],
+        automatic_fields: true,
+        field_positions: baseline.positions,
+        fields: [{ instance_id: "M2.C4", name: "Value", x: 0, y: 20 }],
+      };
+
+      const preview = await post(server, "/api/layout", request);
+      expect(preview.status).toBe(200);
+      expect(readFileSync(join(dir, pageFile), "utf8")).toBe(before);
+      const baselineByKey = new Map(baseline.fields.map((field) => [`${field.instance_id}:${field.name}`, field]));
+      const previewFields = preview.payload["fields"] as ReviewField[];
+      const moved = previewFields.find((field) => field.instance_id === "M2.C4" && field.name === "Value");
+      expect(moved?.manual).toBe(true);
+      for (const field of previewFields) {
+        if (field.instance_id === "M2.C4" && field.name === "Value") continue;
+        const original = baselineByKey.get(`${field.instance_id}:${field.name}`);
+        expect(original).toBeDefined();
+        expect(field.anchor).toBe(original!.anchor);
+        expectBoxWithinMillimetreConversion(field.box, original!.box);
+      }
+
+      const commit = await post(server, "/api/layout", { ...request, commit: true });
+      expect(commit.status).toBe(200);
+      expect(commit.payload["changed"]).toBe(true);
+      const parsed = parseView(readFileSync(join(dir, pageFile), "utf8"), { file: pageFile });
+      expect(parsed.ok).toBe(true);
+      expect(parsed.ir?.field).toEqual([
+        { instance_id: "M2.C4", name: "Reference", x_nm: -2_000_000, y_nm: 1_500_000 },
+        { instance_id: "M2.C4", name: "Value", x_nm: 0, y_nm: 20_000_000 },
+      ]);
+    } finally {
+      server.stop();
+    }
+  });
+
+  test("automatic fields avoid a manual field that obstructs their saved position", async () => {
+    const dir = scratch();
+    const server = await serve(dir);
+    try {
+      const baseline = await automaticFieldPositions(server);
+      const before = baseline.fields.find((field) => field.instance_id === "M2.C3" && field.name === "Value");
+      expect(before).toBeDefined();
+      // Put the manual C4 field where the automatic C3 field sits. C4 is placed at [218,105.5]
+      // with a quarter turn, so the sheet-to-symbol conversion is (x, y) = (sheetY - 105.5, sheetX - 218).
+      const sheetX = before!.box.x + before!.box.w / 2;
+      const sheetY = before!.box.y + before!.box.h / 2;
+      const response = await post(server, "/api/layout", {
+        board: "main",
+        page: "buck-5v",
+        places: [],
+        automatic_fields: true,
+        field_positions: baseline.positions,
+        fields: [{ instance_id: "M2.C4", name: "Value", x: Math.round((sheetY - 105.5) * 100) / 100, y: Math.round((sheetX - 218) * 100) / 100 }],
+      });
+      expect(response.status).toBe(200);
+      const fields = response.payload["fields"] as ReviewField[];
+      const after = fields.find((field) => field.instance_id === "M2.C3" && field.name === "Value");
+      const obstacle = fields.find((field) => field.instance_id === "M2.C4" && field.name === "Value");
+      expect(after).toBeDefined();
+      expect(obstacle?.manual).toBe(true);
+      expect(boxesOverlap(before!.box, obstacle!.box)).toBe(true);
+      expect(boxesOverlap(after!.box, obstacle!.box)).toBe(false);
+      expect(after!.box).not.toEqual(before!.box);
+    } finally {
+      server.stop();
+    }
+  });
+
   test("the layout route rejects malformed, unknown, and conflicting field operations", async () => {
     const dir = scratch();
     const before = readFileSync(join(dir, pageFile), "utf8");
@@ -277,6 +456,22 @@ describe("the review app's write routes", () => {
       });
       expect(malformed.status).toBe(400);
       expect(String(malformed.payload["error"] ?? "")).toContain("finite numbers");
+      const malformedPositions = await post(server, "/api/layout", {
+        board: "main",
+        page: "buck-5v",
+        places: [],
+        field_positions: "not-an-array",
+      });
+      expect(malformedPositions.status).toBe(400);
+      expect(String(malformedPositions.payload["error"] ?? "")).toContain("field_positions must be an array");
+      const invalidAnchor = await post(server, "/api/layout", {
+        board: "main",
+        page: "buck-5v",
+        places: [],
+        field_positions: [{ instance_id: "M2.C3", name: "Value", x: 10.25, y: 20.5, anchor: "center" }],
+      });
+      expect(invalidAnchor.status).toBe(400);
+      expect(String(invalidAnchor.payload["error"] ?? "")).toContain("anchor must be start, middle, or end");
       const invalidAutomaticFields = await post(server, "/api/layout", {
         board: "main",
         page: "buck-5v",
@@ -341,12 +536,14 @@ describe("the review app's write routes", () => {
   test("the source route can suppress automatic page fields without changing source rows", async () => {
     const dir = scratch();
     const text = readFileSync(join(dir, pageFile), "utf8");
+    // The moved value blocks the reference, so enabling collision placement must have an effect.
+    const draft = text.replace("\nfield\n", "\nfield\n  M2.C1  Value  [0.0,2.5]\n");
     const server = await serve(dir);
     try {
-      const automatic = await post(server, "/api/source", { file: pageFile, text, save: false });
+      const automatic = await post(server, "/api/source", { file: pageFile, text: draft, save: false });
       const disabled = await post(server, "/api/source", {
         file: pageFile,
-        text,
+        text: draft,
         save: false,
         automatic_fields: false,
       });

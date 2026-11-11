@@ -3,8 +3,9 @@
 > **Status**: the commands and expected outputs below were run on
 > `examples/reference-project` on 2026-11-04.
 > **Audience**: agents (humans can follow it too).
-> **Scope**: `views/<page_id>.view.teda` only. A drawing never changes
-> `design/**`, `assets/**`, the netlist, the BOM or any PCB.
+> **Scope**: a print page (`views/<page_id>.view.teda`) or a module drawing
+> (`views/modules/<module_id>.module-view.teda`). A drawing never changes `design/**`, `assets/**`,
+> the netlist, the BOM or any PCB.
 > **Not in scope**: diagnosing a page that already exists and is wrong — that is
 > [`repair-print-page.md`](repair-print-page.md).
 
@@ -12,6 +13,13 @@ This file is English on purpose: a skill is an operating manual for an agent, no
 document (see `AGENTS.md` §12).
 
 Index: [`docs/skills/README.md`](README.md) lists the procedures and when to read which.
+
+> **Reference project (2026-11-11):** the example is module-first. A module's components are drawn
+> in `views/modules/<module_id>.module-view.teda`; `views/main.view.teda` composes the module
+> drawings and draws the root interconnects. The placement and wiring workflow below applies to a
+> module drawing in the app as well as to a page; the `view metrics`, `view rewire` and `view render`
+> commands still take a print-page id. The example's `buck-5v` drawing is wired; `charger-power` and
+> `mcu-board` are placement studies.
 
 ## 0. What this skill is for
 

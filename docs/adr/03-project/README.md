@@ -15,6 +15,7 @@ The project as a container: the ownership model of its tree, the project-wide lo
 4. [0011](0011-renumbering-is-a-code-executed-rename.md) — a renumbering is a rename the code performs.
 5. [0060](0060-a-write-keeps-the-bytes-it-replaced.md) — a write keeps what it replaced.
 6. [0069](0069-project-level-logical-root-and-physical-board-mapping.md) — one project logic root and explicit physical PCB ownership.
+7. [0070](0070-module-definitions-live-under-the-schematic-tree.md) — module definitions live under `design/sch/` with the root.
 
 ## Records
 
@@ -26,3 +27,4 @@ The project as a container: the ownership model of its tree, the project-wide lo
 | [ADR-0011](0011-renumbering-is-a-code-executed-rename.md) | Renumbering Is a Code-Executed Global Rename, Not an Agent Edit | Accepted | 2026-10-25 |
 | [ADR-0060](0060-a-write-keeps-the-bytes-it-replaced.md) | A Write Keeps the Bytes It Replaced | Accepted | 2026-11-04 |
 | [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md) | One Project Logic Root, Physical PCB Implementations, and Project Views | Accepted | 2026-11-09 |
+| [ADR-0070](0070-module-definitions-live-under-the-schematic-tree.md) | Module Definitions Live Under the Schematic Source Tree | Accepted | 2026-11-11 |

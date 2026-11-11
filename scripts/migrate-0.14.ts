@@ -698,6 +698,13 @@ function main(): number {
   const writes = new Map<string, string>();
   writes.set(projectFile, rewrittenFormat.text ?? "");
   writes.set(join(schematicDir, "main.teda"), mainText);
+  // Module definitions move under the schematic tree (ADR-0070). The legacy directory is the
+  // migration input; the migrated output has no design/modules/.
+  const legacyModuleDir = join(root, "design", "modules");
+  const legacyModules = entries(legacyModuleDir, root).filter((entry) => entry.isFile);
+  for (const module of legacyModules) {
+    writes.set(join(schematicDir, "modules", module.name), readFileSync(module.path, "utf8"));
+  }
   for (const board of boardById.values()) {
     if (!board.pcb || !board.pcb.file) continue;
     const rows = new Map<string, Row[]>();
@@ -767,8 +774,9 @@ function main(): number {
     ...boardFiles.map((entry) => entry.path),
     ...systemFiles.map((entry) => entry.path),
     ...legacyViews.map((page) => page.source),
+    ...legacyModules.map((entry) => entry.path),
   ];
-  const removableDirs = [systemDir, ...viewDirs.map((entry) => entry.path)];
+  const removableDirs = [systemDir, ...viewDirs.map((entry) => entry.path), legacyModuleDir];
   const stage = mkdtempSync(join(root, ".migrate-0.14-"));
   const stagedWrites: { dest: string; staged: string }[] = [];
   const targetBackups: { dest: string; backup: string }[] = [];

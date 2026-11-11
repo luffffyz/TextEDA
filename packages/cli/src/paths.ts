@@ -24,8 +24,8 @@ export const LAYOUT = {
   pcb: "design/pcb",
   /** Review rounds (ADR-0037): `docs/reviews/<round_id>.md` and `<round_id>.decision.toml`. */
   reviews: "docs/reviews",
-  /** Module definitions: `design/modules/<module_id>.teda`. */
-  modules: "design/modules",
+  /** Module definitions: `design/sch/modules/<module_id>.teda` (ADR-0070). */
+  modules: "design/sch/modules",
   /** Project print pages: `views/<page_id>.view.teda` (ADR-0069 D4). */
   views: "views",
   /** Reusable module drawings: `views/modules/<module_id>.module-view.teda` (ADR-0068 D1). */

@@ -35,9 +35,11 @@ describe("view composition invariance", () => {
       const baseline = snapshot(root);
 
       for (const relativePath of [
+        "views/modules/charger-power.module-view.teda",
         "views/modules/buck-5v.module-view.teda",
-        "views/templates/a4.sheet-template.teda",
-        "views/composed.view.teda",
+        "views/modules/mcu-board.module-view.teda",
+        "views/templates/a2.sheet-template.teda",
+        "views/main.view.teda",
       ]) {
         rmSync(join(root, relativePath));
       }

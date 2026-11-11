@@ -8,11 +8,12 @@ import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, write
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { formatView, parseView } from "@texteda/parser";
+import { formatView, parseModuleView, parseView } from "@texteda/parser";
 import { applyLayout as applyLayoutRaw, LayoutError, planLayout as planLayoutRaw, renderPageSource } from "../src/layout.ts";
 import type { LayoutRequest } from "../src/layout.ts";
 import { checkProject } from "../src/check.ts";
-import { buildReviewModel } from "../src/review-model.ts";
+import { buildIrTree } from "../src/ir-tree.ts";
+import { buildReviewModel, reviewGeometry } from "../src/review-model.ts";
 
 function planLayout(root: string, request: LayoutRequest) {
   return planLayoutRaw(root, { automatic_fields: true, reanchor_wires: true, ...request });
@@ -37,6 +38,10 @@ function scratch(): string {
     recursive: true,
     filter: (source) => relative(referenceProject, source) !== "dist",
   });
+  // The reference project is module-first; the page-level layout verbs are exercised on the
+  // historical detail page kept as a test fixture.
+  writeFileSync(join(dir, "views", "buck-5v.view.teda"), readFileSync(join(import.meta.dir, "fixtures", "legacy-buck.view.teda")));
+  writeFileSync(join(dir, "views", "charger-power.view.teda"), readFileSync(join(import.meta.dir, "fixtures", "legacy-charger.view.teda")));
   scratches.push(dir);
   return dir;
 }
@@ -191,16 +196,37 @@ describe("the layout Apply", () => {
     const dir = scratch();
     const file = "views/buck-5v.view.teda";
     const original = content(dir, file);
-    const disabled = planLayoutRaw(dir, { page: "buck-5v", places: [] });
+    // Deliberately cover C1's reference; a collision-free page need not change under Auto fields.
+    const draft = original.replace("\nfield\n", "\nfield\n  M2.C1  Value  [0.0,2.5]\n");
+    const disabled = planLayoutRaw(dir, { page: "buck-5v", places: [], text: draft });
     const automatic = planLayoutRaw(dir, {
       page: "buck-5v",
       places: [],
+      text: draft,
       automatic_fields: true,
     });
 
     expect(automatic.geometry.fields).not.toEqual(disabled.geometry.fields);
-    expect(disabled.text).toBe(original);
-    expect(disabled.text).toContain("  M2.C3  Reference  [2.0,-3.0]");
+    expect(disabled.text).toBe(draft);
+    expect(automatic.text).toBe(draft);
+    expect(content(dir, file)).toBe(original);
+  });
+
+  test("wire-only previews preserve field anchors independently of Auto fields", () => {
+    const dir = scratch();
+    const initial = buildReviewModel(dir).drawings.find((drawing) => drawing.page === "buck-5v");
+    const fields = (automatic_fields: boolean, reanchor_wires: boolean) => reviewGeometry(planLayoutRaw(dir, {
+      page: "buck-5v",
+      places: [],
+      automatic_fields,
+      reanchor_wires,
+    }).geometry).fields;
+    const localFields = fields(false, false);
+    const automaticFields = fields(true, false);
+
+    expect(initial?.fields).toEqual(localFields);
+    expect(fields(false, true)).toEqual(localFields);
+    expect(fields(true, true)).toEqual(automaticFields);
   });
 
   test("disabling wire re-anchoring leaves wire rows untouched and reports stale nets", () => {
@@ -582,8 +608,11 @@ describe("the layout Apply", () => {
     const fieldGaps = (): { key: string; gap_nm: number }[] => {
       const geometry = planLayout(dir, page).geometry;
       const bodies = new Map(geometry.symbols.map((symbol) => [symbol.instance_id, symbol.box]));
+      const fixed = new Set((parseView(content(dir, file), { file }).ir?.field ?? [])
+        .map((field) => `${field.instance_id}:${field.name}`));
       const gaps: { key: string; gap_nm: number }[] = [];
       for (const field of geometry.fields) {
+        if (fixed.has(`${field.instance_id}:${field.name}`)) continue;
         const body = bodies.get(field.instance_id);
         if (body === undefined) continue;
         const dx = Math.max(body.min_x_nm - field.box.max_x_nm, field.box.min_x_nm - body.max_x_nm, 0);
@@ -629,7 +658,10 @@ describe("a label or a port move", () => {
       y_nm: 101_500_000,
     });
     const beforeWires = parseView(fileText, { file }).ir?.wire ?? [];
-    expect(saved.ir?.wire).toEqual(beforeWires);
+    // Redundant bends may be simplified; a port move must not retarget any run.
+    expect(saved.ir?.wire?.map(({ net, from_pin, to_pin }) => ({ net, from_pin, to_pin }))).toEqual(
+      beforeWires.map(({ net, from_pin, to_pin }) => ({ net, from_pin, to_pin })),
+    );
     expect(plan.conflicts).toEqual([]);
   });
 
@@ -865,6 +897,34 @@ describe("the layout Apply keeps the drawing honest", () => {
     expect(run).toContain("J_GND_C1");
     expect(plan.text).toContain("J_GND_C1   [117.5,121.5]");
     expect(run).not.toContain("100.5");
+  });
+
+  test("a module drawing is moved and written on its own, without touching the project hash", () => {
+    const dir = scratch();
+    const before = buildIrTree(dir).projectHash;
+    const request = {
+      module: "buck-5v",
+      places: [{ instance_id: "U1", x: 41, y: 20, rot: 0 }],
+      reanchor_wires: false,
+    };
+    const plan = planLayout(dir, request);
+
+    expect(plan.file).toBe("views/modules/buck-5v.module-view.teda");
+    expect(plan.changed).toBe(true);
+    applyLayout(dir, request);
+
+    const parsed = parseModuleView(content(dir, plan.file), { file: plan.file });
+    expect(parsed.ir?.place?.find((place) => place.instance_id === "U1")).toMatchObject({
+      x_nm: 41_000_000,
+      y_nm: 20_000_000,
+    });
+    // A module drawing is advisory: moving its parts moves the drawing, not the build.
+    expect(buildIrTree(dir).projectHash).toBe(before);
+  });
+
+  test("a layout request names a page or a module drawing, not both", () => {
+    const dir = scratch();
+    expect(() => planLayout(dir, { page: "buck-5v", module: "buck-5v", places: [] })).toThrow(LayoutError);
   });
 
   test("a port this page does not draw cannot end a run", () => {

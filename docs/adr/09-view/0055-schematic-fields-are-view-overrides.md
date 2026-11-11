@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-11-01
 Scope: Decides: that schematic `Reference` and `Value` field positions are view-layer overrides in symbol-local coordinates, that the renderer supplies deterministic defaults for fields without overrides, and that only `Reference` and `Value` are in the closed field vocabulary. Does not decide: automatic placement of symbols, wires, labels, ports, or any other drawing object.
-Related: [ADR-0002](../01-language/0002-one-language-version-number.md), [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0064](0064-automatic-fields-are-placed-for-the-page.md)
+Related: [ADR-0002](../01-language/0002-one-language-version-number.md), [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0064](0064-automatic-fields-are-placed-for-the-page.md), [ADR-0071](0071-a-module-drawing-is-an-editable-view.md)
 Impact: `spec/schematic-view.md`; language version `0.10.0`; IR contract `v0.15`; `schemas/ir/v0.15/`; `packages/parser`; `packages/renderer`; `packages/cli`; `packages/viewer`
 
 ## Background

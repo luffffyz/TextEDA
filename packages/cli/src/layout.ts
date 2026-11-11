@@ -22,13 +22,16 @@ import { spanOf, type SourceMap } from "@texteda/ir";
 import type { Schematic } from "@texteda/ir/schematic";
 import type { SchematicView } from "@texteda/ir/schematic-view";
 import {
+  formatModuleView,
   formatView,
   lex,
+  parseModuleView,
   parseSchematic,
   parseView,
   type Cell,
   type Line,
 } from "@texteda/parser";
+import type { ModuleView } from "@texteda/ir/module-view";
 import {
   distanceToSegment,
   nearestOnPath,
@@ -41,14 +44,18 @@ import {
   type WireCorners,
 } from "@texteda/core";
 import { loadComponents, loadModules, loadSchematic } from "./project.ts";
+import { loadModuleFacts, type ModuleFacts } from "./module-facts.ts";
 import { LAYOUT } from "./paths.ts";
 import { loadSymbolLibrary, schematicInstances, type SchematicInstances } from "./symbols.ts";
 import {
+  moduleGeometry,
+  renderModuleDrawing,
   renderSchematic,
   schematicGeometry,
   toSvgText,
   viewModulePorts,
   type SheetGeometry,
+  type SchematicRenderOptions,
   type SvgDoc,
 } from "@texteda/renderer";
 
@@ -102,7 +109,10 @@ export interface LayoutText {
 }
 
 export interface LayoutRequest {
-  page: string;
+  /** The print page to edit. Exactly one of `page` and `module` is required. */
+  page?: string;
+  /** The reusable module drawing to edit (its module id). */
+  module?: string;
   places: LayoutPlace[];
   /** Field overrides to set, in millimetres relative to the symbol origin. */
   fields?: LayoutField[];
@@ -112,6 +122,8 @@ export interface LayoutRequest {
   texts?: LayoutText[];
   /** Place Reference/Value fields around the whole page; defaults to true. */
   automatic_fields?: boolean;
+  /** Previous automatic anchors in sheet millimetres; render preferences, never override rows. */
+  field_positions?: (LayoutField & { anchor?: "start" | "middle" | "end" })[];
   /** Re-anchor affected wires after moves; defaults to true. This does not search for routes. */
   reanchor_wires?: boolean;
 
@@ -174,6 +186,29 @@ export class LayoutError extends Error {}
 /** The path of a print page, relative to the project root. */
 export function pageFile(page: string): string {
   return `${LAYOUT.views}/${page}.view.teda`;
+}
+
+/** The path of a reusable module drawing, relative to the project root. */
+export function moduleFile(module: string): string {
+  return `${LAYOUT.moduleViews}/${module}.module-view.teda`;
+}
+
+/** Which view file a layout request edits: one page or one module drawing. */
+export interface LayoutTarget {
+  readonly kind: "page" | "module";
+  /** The page id or the module id. */
+  readonly id: string;
+  /** The file, relative to the project root. */
+  readonly file: string;
+}
+
+export function layoutTarget(request: LayoutRequest): LayoutTarget {
+  if (request.page !== undefined && request.module !== undefined) {
+    throw new LayoutError("a layout request names a page or a module drawing, not both");
+  }
+  if (request.module !== undefined) return { kind: "module", id: request.module, file: moduleFile(request.module) };
+  if (request.page !== undefined) return { kind: "page", id: request.page, file: pageFile(request.page) };
+  throw new LayoutError("a layout request needs a page or a module drawing");
 }
 
 /**
@@ -399,20 +434,39 @@ function computeTexts(view: SchematicView, request: LayoutRequest, file: string)
  * plan carries the page's new source *and* the page as it would be drawn.
  */
 export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
-  const file = pageFile(request.page);
+  const target = layoutTarget(request);
+  const file = target.file;
   const path = join(root, file);
-  if (!existsSync(path)) throw new LayoutError(`no such print page: ${file}`);
+  if (!existsSync(path)) {
+    throw new LayoutError(target.kind === "module" ? `no such module drawing: ${file}` : `no such print page: ${file}`);
+  }
   // The editor's text is the base when there is one; the file on disk is the base otherwise.
   const text = request.text ?? readFileSync(path, "utf8");
 
-  const facts = projectFacts(root);
-  const parsed = parseView(text, { file });
+  const facts = target.kind === "module" ? loadModuleFacts(root, target.id) : projectFacts(root);
+  const netMembers = target.kind === "module"
+    ? (facts as ModuleFacts).nets
+    : (facts as ProjectFacts).schematic.nets;
+  const parsed = target.kind === "module" ? parseModuleView(text, { file }) : parseView(text, { file });
   if (!parsed.ir) {
     const first = parsed.diagnostics.find((diagnostic) => diagnostic.severity === "error");
     throw new LayoutError(`${file}: ${first ? `${first.code}: ${first.message}` : "the page does not parse"}`);
   }
-  const view = parsed.ir;
+  const view = parsed.ir as unknown as SchematicView;
   const automaticFields = request.automatic_fields === true;
+  const fieldPositions: SchematicRenderOptions["fieldPositions"] = request.field_positions === undefined
+    ? undefined
+    : new Map(request.field_positions.map((field) => [`${field.instance_id}:${field.name}`, {
+      x_nm: Math.round(field.x * 1_000_000),
+      y_nm: Math.round(field.y * 1_000_000),
+      ...(field.anchor === undefined ? {} : { anchor: field.anchor }),
+    }]));
+  const draw = (candidate: SchematicView) => target.kind === "module"
+    ? drawModule(candidate as unknown as ModuleView, facts.instances, automaticFields, fieldPositions)
+    : drawPage(candidate, facts.instances, automaticFields, fieldPositions);
+  const geometryOf = (candidate: SchematicView) => target.kind === "module"
+    ? moduleGeometry(candidate as unknown as ModuleView, facts.instances)
+    : schematicGeometry(candidate, facts.instances);
   const repairWires = request.reanchor_wires === true;
 
   const { places: newPlaces, moved } = computePlacements(view, request, file);
@@ -436,7 +490,7 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
     })();
   if (moved.size === 0 && !portEndsMoved) {
     if (!plannedFields.changed && !plannedTexts.changed) {
-      const drawn = drawPage(view, facts.instances, automaticFields);
+      const drawn = draw(view);
       return {
         file,
         text,
@@ -457,11 +511,7 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
       labels: plannedTexts.labelsChanged,
       ports: plannedTexts.portsChanged,
     });
-    const drawn = drawPage(
-      withTexts(withFields(view, plannedFields.fields), plannedTexts),
-      facts.instances,
-      automaticFields,
-    );
+    const drawn = draw(withTexts(withFields(view, plannedFields.fields), plannedTexts));
     return {
       file,
       text: edited,
@@ -472,8 +522,8 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
       ...(repairWires ? {} : { stale: [] }),
     };
   }
-  const before = schematicGeometry(view, facts.instances);
-  const after = schematicGeometry(withPlaces(view, newPlaces), facts.instances);
+  const before = geometryOf(view);
+  const after = geometryOf(withPlaces(view, newPlaces));
 
   // A module port is an endpoint of its own kind, drawn where the page says it sits. The layout
   // write never moves it (ADR-0067 D4), so the same points serve the page before and after the
@@ -553,7 +603,7 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
   // a label may sit on that pin instead of on a wire (spec/schematic-view.md §6), and it has to
   // travel with the pin it named.
   const membersOf = new Map<string, string[]>();
-  for (const net of facts.schematic.nets ?? []) membersOf.set(net.id, net.members ?? []);
+  for (const net of netMembers ?? []) membersOf.set(net.id, net.members ?? []);
   for (const [net, members] of membersOf) {
     for (const member of members) {
       const dot = member.lastIndexOf(".");
@@ -653,6 +703,7 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
     : staleNets(view, moved, new Set(plannedTexts.portsChanged.map(({ port }) => port.id)));
   const edited = rewritePage(text, {
     file,
+    kind: target.kind,
     sources: parsed.sources ?? new Map(),
     places: (newPlaces ?? [])
       .map((place, index) => ({ index, place }))
@@ -679,14 +730,10 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
       }),
   });
   if (edited === text) {
-    const drawn = drawPage(view, facts.instances, automaticFields);
+    const drawn = draw(view);
     return { file, text, changed: false, conflicts, reseated, ...drawn, ...(stale === undefined ? {} : { stale }) };
   }
-  const drawn = drawPage(
-    withFields(withPlaces({ ...view, wire: newWires, label: newLabels, port: newPorts }, newPlaces), plannedFields.fields),
-    facts.instances,
-    automaticFields,
-  );
+  const drawn = draw(withFields(withPlaces({ ...view, wire: newWires, label: newLabels, port: newPorts }, newPlaces), plannedFields.fields));
   return { file, text: edited, changed: true, conflicts, reseated, ...drawn, ...(stale === undefined ? {} : { stale }) };
 }
 
@@ -714,6 +761,9 @@ export function applyPlaces(root: string, request: LayoutRequest): PlacesOutcome
  * the drawing shows the staleness instead of hiding it.
  */
 export function planPlaces(root: string, request: LayoutRequest): PlacesPlan {
+  if (request.page === undefined || request.module !== undefined) {
+    throw new LayoutError("a places-only write targets a print page");
+  }
   const file = pageFile(request.page);
   const path = join(root, file);
   if (!existsSync(path)) throw new LayoutError(`no such print page: ${file}`);
@@ -737,6 +787,7 @@ export function planPlaces(root: string, request: LayoutRequest): PlacesPlan {
   const drawn = drawPage(withPlaces(view, newPlaces), facts.instances);
   const edited = rewritePage(text, {
     file,
+    kind: "page",
     sources: parsed.sources ?? new Map(),
     places: (newPlaces ?? [])
       .map((place, index) => ({ index, place }))
@@ -877,8 +928,9 @@ function drawPage(
   view: SchematicView,
   instances: SchematicInstances,
   automaticFields = true,
+  fieldPositions?: SchematicRenderOptions["fieldPositions"],
 ): { svg: string; geometry: SheetGeometry } {
-  const options = { automaticFields };
+  const options = { automaticFields, ...(fieldPositions === undefined ? {} : { fieldPositions }) };
   try {
     const doc = renderSchematic(view, instances, options);
     return {
@@ -893,6 +945,25 @@ function drawPage(
     };
   } catch {
     // A page that cannot be drawn is reported by the check; here it is simply not drawn.
+    return { svg: "", geometry: { texts: [], fields: [], symbols: [] } };
+  }
+}
+
+/** A module drawing as it is drawn: the renderer's SVG and the geometry it was drawn from. */
+function drawModule(
+  view: ModuleView,
+  instances: SchematicInstances,
+  automaticFields = true,
+  fieldPositions?: SchematicRenderOptions["fieldPositions"],
+): { svg: string; geometry: SheetGeometry } {
+  const options = { automaticFields, ...(fieldPositions === undefined ? {} : { fieldPositions }) };
+  try {
+    return {
+      svg: toSvgText(renderModuleDrawing(view, instances, options)),
+      geometry: moduleGeometry(view, instances, options),
+    };
+  } catch {
+    // A drawing that cannot be drawn is reported by the check; here it is simply not drawn.
     return { svg: "", geometry: { texts: [], fields: [], symbols: [] } };
   }
 }
@@ -932,6 +1003,27 @@ export function savePageSource(root: string, page: string, text: string): { file
 }
 
 /**
+ * Write a module drawing's source, in the formatter's form.
+ *
+ * The same rule as a page: the text is checked before it is written, so a drawing that does not
+ * parse is never left on disk. A module drawing has no module boxes or module-port endpoints to
+ * preserve, so the page-specific formatter guards do not apply.
+ */
+export function saveModuleSource(root: string, module: string, text: string): { file: string; changed: boolean; errors: string[] } {
+  const file = moduleFile(module);
+  const formatted = formatModuleView(text, { file });
+  const errors = formatted.diagnostics
+    .filter((diagnostic) => diagnostic.severity === "error")
+    .map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`);
+  if (errors.length > 0 || formatted.text === undefined) return { file, changed: false, errors };
+  const path = join(root, file);
+  const before = existsSync(path) ? readFileSync(path, "utf8") : "";
+  if (before === formatted.text) return { file, changed: false, errors: [] };
+  writeFile(root, file, formatted.text);
+  return { file, changed: true, errors: [] };
+}
+
+/**
  * A page's source as it would be drawn, with what the parser says about it.
  *
  * The explicit Source panel shows the source and the drawing of the same text: the browser cannot
@@ -956,6 +1048,33 @@ export function renderPageSource(
     ...drawn,
     errors,
     anchors: rowAnchors(parsed.ir, parsed.sources),
+  };
+}
+
+/**
+ * A module drawing's source as it would be drawn, with what the parser says about it.
+ *
+ * The Source panel shows the same drawing for a module view that it shows for a page: the browser
+ * cannot parse a `.teda` file, so the server draws the draft here.
+ */
+export function renderModuleSource(
+  root: string,
+  module: string,
+  text: string,
+  automaticFields = true,
+): { svg: string; errors: string[]; anchors: RowAnchor[]; geometry: SheetGeometry } {
+  const file = moduleFile(module);
+  const parsed = parseModuleView(text, { file });
+  const errors = parsed.diagnostics
+    .filter((diagnostic) => diagnostic.severity === "error")
+    .map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`);
+  if (!parsed.ir) return { svg: "", errors, anchors: [], geometry: { texts: [], fields: [], symbols: [] } };
+  const facts = loadModuleFacts(root, module);
+  const drawn = drawModule(parsed.ir, facts.instances, automaticFields);
+  return {
+    ...drawn,
+    errors,
+    anchors: rowAnchors(parsed.ir as unknown as SchematicView, parsed.sources),
   };
 }
 
@@ -1138,6 +1257,8 @@ export function rewritePage(
   text: string,
   changed: {
     file: string;
+    /** The formatter and the row guards: a print page or a module drawing. */
+    kind?: "page" | "module";
     sources: SourceMap;
     places: { index: number; place: ViewPlace }[];
     fields?: { index?: number; field: ViewField }[];
@@ -1207,10 +1328,17 @@ export function rewritePage(
   let edited = applyEdits(lines, edits);
   const newFields = (changed.fields ?? []).filter(({ index }) => index === undefined).map(({ field }) => field);
   if (newFields.length > 0) edited = insertFieldRows(edited, newFields);
-  const formatted = formatView(edited, { file: changed.file });
+  const formatted = changed.kind === "module"
+    ? formatModuleView(edited, { file: changed.file })
+    : formatView(edited, { file: changed.file });
   if (formatted.text === undefined) {
     const first = formatted.diagnostics.find((diagnostic) => diagnostic.severity === "error");
-    throw new LayoutError(`${changed.file}: the rewritten page does not parse: ${first ? first.message : "unknown"}`);
+    throw new LayoutError(`${changed.file}: the rewritten drawing does not parse: ${first ? first.message : "unknown"}`);
+  }
+  if (changed.kind === "module") {
+    // A module drawing has no module rows or module-port endpoints to preserve, and the module
+    // formatter has already decided the canonical form.
+    return formatted.text;
   }
   // A write is a drawing change and nothing else: the page keeps the language version it was
   // written in (a 0.11 page still reads `sheet`, a 0.12 page still reads `size`; ADR-0067 D6) and

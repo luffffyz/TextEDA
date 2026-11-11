@@ -26,13 +26,18 @@ describe("review model", () => {
     const pages = model.drawings.filter(
       (candidate) => candidate.kind === "sch" && candidate.board === "main",
     );
-    expect(pages.map((page) => page.page)).toEqual(["buck-5v", "charger-power", "composed"]);
+    expect(pages.map((page) => page.page)).toEqual(["main"]);
     for (const page of pages) {
       expect(page.problems).toEqual([]);
       expect(page.svg).toContain("<svg");
       expect(page.sheet.w).toBeGreaterThan(0);
-      // One hotspot per symbol means the app can identify what the drawing shows.
-      expect(page.symbols.length).toBeGreaterThan(0);
+    }
+    // The composed page places module drawings; each keeps its own drawing and hotspots.
+    const modules = model.drawings.filter((candidate) => candidate.kind === "module");
+    expect(modules.map((drawing) => drawing.label).sort()).toEqual(["buck-5v", "charger-power", "mcu-board"]);
+    for (const drawing of modules) {
+      expect(drawing.problems).toEqual([]);
+      expect(drawing.symbols.length).toBeGreaterThan(0);
     }
   });
 
@@ -66,7 +71,7 @@ describe("review model", () => {
     // The buck page places generic parts (10u / 10k) and parts (tps5430ddar). The symbol files carry
     // `c` / `r` / `dc-dc-soic8` as the Value field: those must never reach the page.
     const svg =
-      model.drawings.find((candidate) => candidate.kind === "sch" && candidate.page === "buck-5v")?.svg ?? "";
+      model.drawings.find((candidate) => candidate.kind === "module" && candidate.label === "buck-5v")?.svg ?? "";
     const drawn = new Set([...svg.matchAll(/<title>([^<]*)<\/title>/g)].map((match) => match[1]));
     // Generic parts print their value column, parts print their MPN.
     for (const value of ["10uF", "10nF", "10k", "3.24k", "TPS5430DDAR"]) expect(drawn).toContain(value);
@@ -109,12 +114,15 @@ describe("review model", () => {
     // ADR-0004 D6: the app can name the row in the board/module file, the placement on the page, and the
     // device files without re-parsing anything in the browser.
     const instance = model.sources["instance:main/M2.C1"] ?? [];
-    expect(instance.map((location) => location.kind)).toEqual(["instance", "pcb-place", "view-place"]);
-    expect(instance[0]).toMatchObject({ file: "design/modules/buck-5v.teda", line: 10 });
+    // The reference page composes module drawings; it has no component place of its own, so the
+    // instance is defined in the module file and placed on a PCB, not on a page.
+    expect(instance.map((location) => location.kind)).toEqual(["pcb-place", "instance"]);
+    expect(instance.find((location) => location.kind === "instance")).toMatchObject({
+      file: "design/sch/modules/buck-5v.teda",
+      line: 10,
+    });
     const net = model.sources["net:main/SYS"] ?? [];
     expect(net.map((location) => location.kind)).toContain("net");
-    // The page draws the net with a run: the page carries no label for it.
-    expect(net.map((location) => location.kind)).toContain("view-wire");
     expect(model.sources["component:cap-mlcc-1210"]?.[0]?.file).toBe(
       "assets/components/passives/cap-mlcc-1210.teda",
     );

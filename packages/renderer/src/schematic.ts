@@ -352,6 +352,14 @@ function rotateVector(rot: 0 | 90 | 180 | 270, x: number, y: number): Point {
 export interface SchematicRenderOptions {
   /** Place Reference/Value fields around the page, or leave them at symbol-local positions. */
   readonly automaticFields?: boolean;
+  /**
+   * The page's previous automatic field placements, keyed `instance_id:name`, as a review passes
+   * them back during a drag. Only automatic fields read them: a field keeps its previous place
+   * while that place is free, and falls back to the usual search when something now covers it.
+   * Manual fields stand where their `field` row puts them, and `automaticFields: false` ignores
+   * the hints entirely.
+   */
+  readonly fieldPositions?: ReadonlyMap<string, FieldPlacement>;
 }
 
 /** Symbol facts for one module's local instances. */
@@ -784,7 +792,7 @@ function pageLayout(
 } {
   const placements = options.automaticFields === false
     ? new Map<string, FieldPlacement>()
-    : placePageFields(pageFacts(view, instances, RENDERER_PROJECTION));
+    : placePageFields(pageFacts(view, instances, RENDERER_PROJECTION), options.fieldPositions);
   const symbols = new Map<string, SvgPrimitive[]>();
   for (const place of view.place ?? []) {
     const instance = instances.get(place.instance_id);
@@ -919,6 +927,8 @@ export interface SheetField {
   readonly local_x_nm: number;
   readonly local_y_nm: number;
   readonly box: SheetBox;
+  /** The rendered horizontal text alignment: exactly what the drawn field text carries. */
+  readonly anchor?: "start" | "middle" | "end";
   /** The view record that places the instance (`/place/3`): moving the field means editing the symbol. */
   readonly ir_path?: string;
 }
@@ -1142,6 +1152,7 @@ export function schematicGeometry(
         local_x_nm: local.x,
         local_y_nm: local.y,
         box: textBox(primitive.x, primitive.y, primitive.text, primitive.sizeNm, primitive.anchor, primitive.rotateMdeg ?? 0),
+        ...(primitive.anchor === undefined ? {} : { anchor: primitive.anchor }),
         ir_path: overrideIndex >= 0 ? `/field/${overrideIndex}` : `/place/${index}`,
       });
     }

@@ -131,4 +131,18 @@ nets
     expect(existsSync(join(root, "design/sch/main.teda"))).toBe(false);
     expect(existsSync(join(root, "design/system/product.teda"))).toBe(true);
   });
+
+  test("moves module definitions under the schematic tree", () => {
+    const root = project();
+    put(root, "design/sch/demo.teda", boardRoot("demo", ["M1"], ["M1.LINK"], "EXTERNAL"));
+    put(root, "design/pcb/demo.teda", oldPcb("demo"));
+    put(root, "design/modules/connector.teda", moduleSource);
+
+    const result = run(root);
+
+    expect(result.code).toBe(0);
+    expect(existsSync(join(root, "design/sch/modules/connector.teda"))).toBe(true);
+    expect(existsSync(join(root, "design/modules"))).toBe(false);
+    expect(readFileSync(join(root, "project.toml"), "utf8")).toContain('format = "0.14"');
+  });
 });

@@ -9,11 +9,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   formatQuantity,
-  PARAM_TYPE_KINDS,
   parseModuleView,
   parsePcb,
   parseProjectToml,
-  parseQuantity,
   parseSchematic,
   parseSchematicDocument,
   parseSheetTemplate,
@@ -80,15 +78,24 @@ import {
   type DeviceFacts,
   type SchematicInstances,
 } from "./symbols.ts";
+import {
+  moduleInstances,
+  type DeviceLookup,
+} from "./module-facts.ts";
 
 /** Existing project pages, indexed without building the renderer/checker review model. */
 export function reviewPageIndex(root: string): {
   boards: Set<string>;
   pages: { page: string; file: string }[];
+  modules: { module: string; file: string }[];
 } {
   const sources = loadViews(root);
   const ordered = [...sources].sort((a, b) => (a.pageId === "main" ? -1 : b.pageId === "main" ? 1 : a.pageId.localeCompare(b.pageId)));
-  return { boards: new Set(["main"]), pages: ordered.map((view) => ({ page: view.pageId, file: view.file })) };
+  return {
+    boards: new Set(["main"]),
+    pages: ordered.map((view) => ({ page: view.pageId, file: view.file })),
+    modules: loadModuleViews(root).map((view) => ({ module: view.moduleId, file: view.file })),
+  };
 }
 
 /** Integer nanometres → millimetres, three decimals (a micrometre): the drawing's own resolution. */
@@ -176,15 +183,17 @@ function reviewPage(
     : { ...effectiveView, module_place: drawablePlacements };
   // Invalid references are reported above and excluded from composition, so they cannot block
   // valid placements or make the renderer infer module geometry.
+  // Match the review app's default-off Auto fields control, including hotspot geometry.
+  const renderOptions = { automaticFields: false };
   try {
     svg = toSvgText(
       template === undefined && placements.length === 0
-        ? renderSchematic(view, instances)
+        ? renderSchematic(view, instances, renderOptions)
         : renderComposedPage(renderView, instances, {
             ...(template?.ir === undefined ? {} : { template: template.ir }),
             drawings: composedDrawings(drawablePlacements, artifacts),
             moduleInstances: composedInstances(drawablePlacements, artifacts),
-          }),
+          }, renderOptions),
     );
   } catch (error) {
     // A view that references geometry nobody supplied cannot be drawn. The cross-check owns the
@@ -198,12 +207,12 @@ function reviewPage(
       ...(template?.ir === undefined ? {} : { template: template.ir }),
       drawings: composedDrawings(drawablePlacements, artifacts),
       moduleInstances: composedInstances(drawablePlacements, artifacts),
-    });
+    }, renderOptions);
   } catch (error) {
     // Invalid placement facts must not hide the page or the checks' authoritative diagnostics.
     problems.push(error instanceof Error ? error.message : String(error));
     try {
-      pageGeometry = schematicGeometry(effectiveView, instances);
+      pageGeometry = schematicGeometry(effectiveView, instances, renderOptions);
     } catch {
       pageGeometry = { texts: [], fields: [], symbols: [], modules: [] };
     }
@@ -453,6 +462,8 @@ interface ModuleDrawing {
   readonly moduleId: string;
   /** The drawing's file, relative to the project root. */
   readonly file: string;
+  /** The drawing's source, verbatim. */
+  readonly source: string;
   /** The parsed drawing; absent when the file does not compile. */
   readonly ir?: ModuleViewIr;
   /** Why the drawing has no ink. */
@@ -489,18 +500,6 @@ interface ViewArtifacts {
 /** What the model knows about a device: the symbol it draws and the pins it names (ADR-0031). */
 type ComponentFacts = Component["component"];
 
-interface DeviceLookup {
-  /** The device's own facts, as its component file declares them. */
-  readonly componentOf: (componentId: string) => ComponentFacts | undefined;
-  /** The device's pins: number, name and type. */
-  readonly pinsOf: (componentId: string) => readonly { number: string; name: string; type: string }[];
-  /** The symbol the device draws itself with. */
-  readonly symbolOf: (componentId: string) => string | undefined;
-  /** The device's parameters and its MPN. */
-  readonly deviceOf: (componentId: string) => DeviceFacts | undefined;
-  /** The project's symbol library. */
-  readonly symbols: ReadonlyMap<string, Symbol>;
-}
 
 /**
  * The project's reusable view artifacts, parsed (ADR-0068 D1).
@@ -537,6 +536,7 @@ function loadViewArtifacts(
     drawings.set(source.moduleId, {
       moduleId: source.moduleId,
       file: source.file,
+      source: source.text,
       ...(parsed.ir === undefined ? {} : { ir: parsed.ir }),
       problems,
       instances: definition === undefined ? new Map() : moduleInstances(definition, facts),
@@ -567,62 +567,7 @@ function loadViewArtifacts(
  * whose device or symbol is unknown is left out — the module file's own check says so, and
  * geometry cannot be invented for it.
  */
-function moduleInstances(doc: ModuleDocument, facts: DeviceLookup): SchematicInstances {
-  const instances: SchematicInstances = new Map();
-  for (const instance of doc.instances) {
-    const symbolRef = facts.symbolOf(instance.componentId);
-    const symbol = symbolRef === undefined ? undefined : facts.symbols.get(symbolRef);
-    if (symbol === undefined) continue;
-    const value = moduleValue(instance, facts);
-    instances.set(instance.refdes, {
-      symbol: symbol.symbol,
-      part: { pins: facts.pinsOf(instance.componentId).map((pin) => ({ ...pin })) },
-      ...(value === undefined ? {} : { value }),
-    });
-  }
-  return instances;
-}
 
-/**
- * The value a module instance prints, or nothing when the device has none (ADR-0024).
- *
- * The value is a fact of the instance row: the device's own value column, read with the type that
- * column declares. A part without a value column prints its MPN, exactly as the board's instances
- * do.
- */
-function moduleValue(
-  instance: ModuleDocument["instances"][number],
-  facts: DeviceLookup,
-): string | undefined {
-  const device = facts.deviceOf(instance.componentId);
-  // The rule the board's own instances use: a part without a value column prints its MPN.
-  const none = instanceValueText(
-    { id: instance.refdes, component: instance.componentId, params: [] },
-    device,
-  );
-  const decls = facts.componentOf(instance.componentId)?.params ?? [];
-  const index = decls.findIndex((decl) => decl.name === "value");
-  if (index < 0) return none;
-  const cell = instance.paramCells[index];
-  if (cell === undefined) return none;
-  const decl = decls[index]!;
-  const param = decl.type === "string"
-    ? { name: "value", text: cell }
-    : quantityParam(cell, decl.type);
-  if (param === undefined) return none;
-  return instanceValueText(
-    { id: instance.refdes, component: instance.componentId, params: [param] },
-    device,
-  );
-}
-
-/** The value column read as the quantity its type declares; nothing when the cell does not parse. */
-function quantityParam(cell: string, type: string): { name: string; value: number } | undefined {
-  const kind = PARAM_TYPE_KINDS[type];
-  if (kind === undefined) return undefined;
-  const parsed = parseQuantity(cell, kind, { code: "value.invalid-param" });
-  return parsed.ok ? { name: "value", value: parsed.value } : undefined;
-}
 
 /**
  * One symbol from the library, drawn on its own.
@@ -705,6 +650,8 @@ function reviewModuleDrawing(drawing: ModuleDrawing): ReviewDrawing {
     key: `module/${drawing.moduleId}`,
     label: drawing.moduleId,
     file: drawing.file,
+    module: drawing.moduleId,
+    source: drawing.source,
     // The drawing's own bounds, plus the margin the renderer leaves around a drawing: the sheet
     // says how much room the drawing takes, not how much room a page would give it.
     sheet: local === undefined
@@ -714,6 +661,12 @@ function reviewModuleDrawing(drawing: ModuleDrawing): ReviewDrawing {
     symbols: geometry?.symbols ?? [],
     texts: geometry?.texts ?? [],
     fields: geometry?.fields ?? [],
+    places: (drawing.ir?.place ?? []).map((place) => ({
+      instance_id: place.instance_id,
+      x: mm(place.x_nm),
+      y: mm(place.y_nm),
+      rot: Math.round((place.rot_mdeg ?? 0) / 1000),
+    })),
     problems,
   };
 }
@@ -753,6 +706,7 @@ export function reviewGeometry(geometry: SheetGeometry): {
       box: box(field.box.min_x_nm, field.box.min_y_nm, field.box.max_x_nm, field.box.max_y_nm),
       x: mm(field.local_x_nm),
       y: mm(field.local_y_nm),
+      ...(field.anchor === undefined ? {} : { anchor: field.anchor }),
       manual: field.ir_path?.startsWith("/field/") === true,
     })),
   };

@@ -83,11 +83,11 @@ export function loadComponentResolver(projectRoot: string): ComponentResolver {
 }
 
 /**
- * The project's modules (`modules/<module_id>.teda`). The module id is the file name, like the
+ * The project's modules (`design/sch/modules/<module_id>.teda`). The module id is the file name, like the
  * component id (spec/module.md §1).
  */
 export function loadModuleSources(projectRoot: string): ModuleSource[] {
-  return tedaFiles(join(projectRoot, "design/modules")).map((file) => ({
+  return tedaFiles(join(projectRoot, "design", "sch", "modules")).map((file) => ({
     moduleId: basename(file, ".teda"),
     file,
     text: readFileSync(file, "utf8"),

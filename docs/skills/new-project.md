@@ -227,7 +227,7 @@ to pick up a newer template, import again from the new revision and diff.
 ## 6. Step 4: the project root, modules, and physical PCBs
 
 ADR-0069 defines one project-wide logical root: `design/sch/main.teda`. It composes reusable module
-definitions from `design/modules/<module_id>.teda`; component instances, local nets, ports, and
+definitions from `design/sch/modules/<module_id>.teda`; component instances, local nets, ports, and
 constraints belong to those module definitions. The root declares module instances and project-wide
 nets, ports, constraints, and explicit interconnects. It does not contain a board-local `instances`
 table, and there are no active system descriptions or alternate schematic roots.
@@ -265,8 +265,10 @@ and [`spec/teda.md`](../../spec/teda.md) §§7.5–7.7.
 
 Print pages are also project-wide, with no PCB parent or per-board view directory. Each page lives
 at `views/<page_id>.view.teda`; `views/main.view.teda` can serve as a topology overview showing
-module boxes, ports, and explicit interconnects. Pages draw the project; they do not define circuit
-connectivity or PCB ownership. See [`spec/schematic-view.md`](../../spec/schematic-view.md) §§0.2,
+module boxes, ports, and explicit interconnects, or as a composed page that places reusable
+`views/modules/<module_id>.module-view.teda` drawings on a template (the reference project does the
+latter). Draw each module once, in its module drawing, and let pages compose the drawings. Pages
+draw the project; they do not define circuit connectivity or PCB ownership. See [`spec/schematic-view.md`](../../spec/schematic-view.md) §§0.2,
 1.1, and 4.2–4.4.
 
 ## 7. Step 5: check → compile → netlist
@@ -411,7 +413,7 @@ row.
 ## 12. Documentation checklist
 
 - [ ] `init` is documented as creating only `project.toml`, skeleton directories/placeholders, and `docs/README.md`; no `.teda` files
-- [ ] The sole logical root is `design/sch/main.teda`; reusable definitions live in `design/modules/`
+- [ ] The sole logical root is `design/sch/main.teda`; reusable definitions live in `design/sch/modules/`
 - [ ] Each physical PCB is `design/pcb/<pcb_id>.teda` and owns each assigned module instance exactly once
 - [ ] Cross-PCB paths are explicit root `interconnects`; project-wide view pages are flat under `views/`
 - [ ] The CLI signatures and default root compile behavior match the current CLI

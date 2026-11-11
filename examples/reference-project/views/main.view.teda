@@ -1,0 +1,23 @@
+version 0.14.0
+view main
+
+# The project's one print page (ADR-0069 D4). It composes the three module drawings of the
+# product and draws the two cross-PCB interconnects the root declares. The module drawings keep
+# their own extents; a placement never scales one (ADR-0068 D4).
+#
+#   M1  charger-power   the BQ24610 power path, on charger-buck
+#   M2  buck-5v         the TPS5430 5V converter, on charger-buck
+#   M3  mcu-board       the CH32V307 minimum system, on mcu-board
+#
+# The page draws no component placement of its own: every part is drawn once, in its module's
+# drawing (ADR-0071 D3). The interconnects are the only project-level joins it shows.
+template a2
+
+interconnect
+  ic1  M2.VOUT  M3.DC_IN  [431.5,131.0]  90
+  ic2  M2.GND   M3.GND    [390.0,140.5]  90
+
+module_place
+  M1  charger-power  [20.0,20.0]  0
+  M2  buck-5v        [350.0,20.0]  0
+  M3  mcu-board      [320.0,215.0]  0

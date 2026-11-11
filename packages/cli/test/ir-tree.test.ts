@@ -27,7 +27,9 @@ describe("IR shard tree layout", () => {
   test("every description with a producer becomes a shard", () => {
     expect(paths).toContain("project/schematic.json");
     expect(paths).toContain("boards/charger-buck/pcb.json");
-    expect(paths).toContain("views/buck-5v.json");
+    expect(paths).toContain("views/main.json");
+    expect(paths).toContain("module-views/buck-5v.json");
+    expect(paths).toContain("sheet-templates/a2.json");
     expect(paths).toContain("boards/mcu-board/pcb.json");
     expect(paths).toContain("symbols/passives/r.json");
     expect(paths).toContain("footprints/chip/chip-0402.json");
@@ -78,9 +80,8 @@ describe("IR shard tree layout", () => {
     // ADR-0004 D6: the review app needs identity → source locations, but this index is not a
     // shard and never enters a hash.
     expect(tree.identity.identities["instance:main/M2.C1"]?.map((location) => location.kind)).toEqual([
-      "instance",
       "pcb-place",
-      "view-place",
+      "instance",
     ]);
     expect(tree.identity.identities["net:main/SYS"]?.map((location) => location.kind)).toContain("net");
     expect(tree.identity.identities["component:cap-mlcc-1210"]?.[0]?.file).toBe(
@@ -180,20 +181,18 @@ describe("IR shard tree hashes", () => {
     }
   });
 
-  test("moving a label in a print page moves the advisory hash only", () => {
+  test("moving a label in a module drawing moves the advisory hash only", () => {
     // ADR-0035 decision 5: a drawing is not a build input, so a reviewer's label move must not
     // invalidate a signed manufacturing package.
     const project = tempDir();
     try {
       cpSync(referenceProject, project, { recursive: true });
       const before = buildIrTree(project);
-      const page = join(project, "views", "buck-5v.view.teda");
-      const text = readFileSync(page, "utf8");
-      // The page ships without a label, so the one this moves is the test's own.
-      const labelled = `${text}\nlabel\n  GND  [130.0,122.5]\n`;
-      const moved = labelled.replace("  GND  [130.0,122.5]", "  GND  [30.0,122.5]");
-      expect(moved).not.toBe(labelled);
-      writeFileSync(page, moved);
+      const drawing = join(project, "views", "modules", "buck-5v.module-view.teda");
+      const text = readFileSync(drawing, "utf8");
+      const moved = text.replace("  GND   [60.0,36.5]", "  GND   [62.0,36.5]");
+      expect(moved).not.toBe(text);
+      writeFileSync(drawing, moved);
       const after = buildIrTree(project);
       expect(after.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
       expect(after.shards.length).toBe(before.shards.length);

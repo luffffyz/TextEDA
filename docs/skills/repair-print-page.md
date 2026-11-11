@@ -10,6 +10,12 @@
 This file is English on purpose: a skill is an operating manual for an agent, not a design
 document (see `AGENTS.md` §12).
 
+
+> **Reference project (2026-11-11):** the example is module-first. Its wired drawing is now the
+> `buck-5v` module drawing, `views/modules/buck-5v.module-view.teda`; the `buck-5v` print page is
+> gone. Open that drawing in `texteda review` for the interaction route. The command examples below
+> use a page id and remain valid for pages; they do not take a module-drawing id.
+
 Index: [`docs/skills/README.md`](README.md) lists the procedures and when to read which.
 
 ## 0. What this skill is for
@@ -229,7 +235,7 @@ counted against the `junction` rows.
 
 ```sh
 grep -o 'data-ref="junction:[^"]*"' /tmp/page.svg | wc -l   # one graph dot per declared junction
-grep -c '^  [A-Za-z0-9_+-]*  *\[' examples/reference-project/views/buck-5v.view.teda   # rows declared
+grep -c '^  [A-Za-z0-9_+-]*  *\[' examples/reference-project/views/modules/buck-5v.module-view.teda   # rows declared
 ```
 
 The two graph-dot counts agree. A `pin-junction:*` circle without a `junction` row is expected when a

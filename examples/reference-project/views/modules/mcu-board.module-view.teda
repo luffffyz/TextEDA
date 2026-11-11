@@ -1,0 +1,43 @@
+version 0.14.0
+module_view mcu-board
+
+bounds [270,190]
+
+# The CH32V307 minimum system, drawn once, on its own (ADR-0068 D2). This is a placement study:
+# the parts sit on a review grid and the wire runs are laid out during review. The identities are
+# the module's own: U1 is the module's U1, VOUT_3V3 is one of its interface ports. No project net
+# or project port appears here (ADR-0071 D3).
+place
+  C1    [20.0,140.0]  0
+  C2    [45.0,140.0]  0
+  C3    [70.0,140.0]  0
+  C4    [95.0,140.0]  0
+  C5    [120.0,140.0]  0
+  C6    [145.0,140.0]  0
+  C7    [170.0,140.0]  0
+  C8    [195.0,140.0]  0
+  C9    [220.0,140.0]  0
+  C10   [245.0,140.0]  0
+  C11   [20.0,160.0]  0
+  C12   [45.0,160.0]  0
+  C13   [70.0,160.0]  0
+  D1    [95.0,160.0]  0
+  R1    [120.0,160.0]  0
+  R2    [145.0,160.0]  0
+  R3    [170.0,160.0]  0
+  SW1   [200.0,35.0]  0
+  U1    [70.0,60.0]  0
+  U2    [190.0,100.0]  0
+  Y1    [200.0,70.0]  0
+
+port
+  BOOT0     [20.0,10.0]  180
+  DC_IN     [60.0,10.0]  180
+  GND       [100.0,10.0]  180
+  NRST      [140.0,10.0]  180
+  SWCLK     [180.0,10.0]  180
+  SWDIO     [220.0,10.0]  180
+  VOUT_3V3  [260.0,10.0]  180
+
+text
+  [20.0,185.0]  MCU minimum system placement; wire runs are laid out during review

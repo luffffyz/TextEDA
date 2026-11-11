@@ -37,7 +37,7 @@
 
 ## F3. 原理图的 SVG 渲染（sch renderer）
 
-**Current status**: schematic print-page rendering is **implemented**. `packages/renderer`'s `renderSchematic(view: SchematicView, instances)` draws the view IR as an `SvgDoc` (sheet frame, placed symbols, orthogonal wires, labels, ports, and annotations); callers resolve each `place.instance_id` to symbol IR and device-pin facts, so the renderer still does not touch the filesystem or perform layout. `bun run preview view <page_id>` renders a page; the reference project currently has three flat project print pages: `views/buck-5v.view.teda` (all nets wired, with GND on one bus), `views/charger-power.view.teda` (placement study whose wires are filled in net by net during review), and `views/composed.view.teda` (a composed module-drawing page). **Not implemented**: one-time manual comparison with `.kicad_sch`. The old status is recorded in [ADR-0036](adr/09-view/0036-our-own-reference-renderer.md) (symbols/footprints landed first). **Current rules (2026-10-25)**: the `view` domain has nine codes; the latest two are `view.text-on-wire` (wires crossing text, including fields drawn by symbols) and `view.wire-diagonal` (wires must use only 90-degree segments); the view coordinate grid was consequently refined from 0.1 mm to 0.01 mm, because 1.27 mm pin offsets otherwise cannot express orthogonal exits.
+**Current status**: schematic print-page rendering is **implemented**. `packages/renderer`'s `renderSchematic(view: SchematicView, instances)` draws the view IR as an `SvgDoc` (sheet frame, placed symbols, orthogonal wires, labels, ports, and annotations); callers resolve each `place.instance_id` to symbol IR and device-pin facts, so the renderer still does not touch the filesystem or perform layout. `bun run preview view <page_id>` renders a page; the reference project is module-first: it has one composed page, `views/main.view.teda`, which places the `charger-power`, `buck-5v` and `mcu-board` module drawings on an A2 template and draws the root interconnects. The `buck-5v` drawing is wired; the other two are placement studies whose wires are filled in net by net during review. **Not implemented**: one-time manual comparison with `.kicad_sch`. The old status is recorded in [ADR-0036](adr/09-view/0036-our-own-reference-renderer.md) (symbols/footprints landed first). **Current rules (2026-10-25)**: the `view` domain has nine codes; the latest two are `view.text-on-wire` (wires crossing text, including fields drawn by symbols) and `view.wire-diagonal` (wires must use only 90-degree segments); the view coordinate grid was consequently refined from 0.1 mm to 0.01 mm, because 1.27 mm pin offsets otherwise cannot express orthogonal exits.
 
 **为什么现在做**：
 
@@ -271,7 +271,7 @@
 
 ## F13. 层次（`module` / 参数）：模块层已落地，参数与嵌套仍延后
 
-**现状（2026-10-22 更新）**：**模块层已落地**（语言 0.8）——规范 `spec/module.md`、决策 [ADR-0013](adr/04-schematic/0013-modules-compose-boards.md)、解析器（`packages/parser`：`design/modules/` 段 + `module` 文件 + 端口绑定 + 展平进板级 IR）、canonical formatter、CLI（`loadBoard` 读 `design/modules/`，`check` / `compile` / `ir` 走同一路径）。参考工程里 `charger-buck` 板已改写为"两个模块 + 板级器件"。
+**现状（2026-10-22 更新）**：**模块层已落地**（语言 0.8）——规范 `spec/module.md`、决策 [ADR-0013](adr/04-schematic/0013-modules-compose-boards.md)、解析器（`packages/parser`：`design/sch/modules/` 段 + `module` 文件 + 端口绑定 + 展平进板级 IR）、canonical formatter、CLI（`loadModules` 读 `design/sch/modules/`，`check` / `compile` / `ir` 走同一路径）。参考工程里 `charger-buck` 板已改写为"两个模块 + 板级器件"。
 
 这一条原来是"层次是设计里唯一自指闭环的部分"（`AGENTS.md` §4.2 说有 module/参数/import，`teda.md` 说"草案见 `AGENTS.md` §5.3"，`AGENTS.md` §5.3 又指回 `teda.md`）。那个闭环已经拆掉：模块有规范、有语法、有解析器、有用例。
 
@@ -460,7 +460,7 @@
 
 **现状**：零件齐了，**路径没连起来**。仓库里有走完前半程要用的每一样东西，但没有一条被验证过的、从空目录走到成品的路径。
 
-- `texteda init <dir>` creates only the skeleton directories (`assets/components/`, `design/sch/` for the logical root, `design/pcb/`, `design/modules/`, and `docs/`) plus `project.toml`; it does **not** create `design/sch/main.teda` or any device, symbol, footprint, or schematic content. There is no `design/system/`.
+- `texteda init <dir>` creates only the skeleton directories (`assets/components/`, `design/sch/` for the logical root, `design/sch/modules/`, `design/pcb/`, and `docs/`) plus `project.toml`; it does **not** create `design/sch/main.teda` or any device, symbol, footprint, or schematic content. There is no `design/system/`.
 - 库的写法分散在三处：`docs/guides/symbol-authoring.md`（符号）、`docs/guides/footprint-authoring.md`（封装）、`teda.md` §6（器件）。**没有一份"一个工程该有哪些文件、它们怎么互相引用"的总账**。
 - 命令有四条（`init` / `compile` / `check` / `netlist`），但**没有一条把它们串起来的脚本**；用法只能从源码里读。CLI 也**没有 `export` 子命令**——KiCad 符号/封装导出只能走仓库脚本（`bun run export:symbol` / `export:footprint`），而且它们吃的是**IR JSON 不是 `.teda`**：`compile:symbol` / `compile:footprint` 先出 JSON，`export:symbol` 再拿 JSON **加 `--component <器件文件>`** 合并引脚事实（引脚的电学事实归 `component`，符号只写视图，[ADR-0031](adr/08-libraries/0031-symbol-format.md)）。这条两步链没人写在文档里，是最容易踩的地方。
 - **终点缺两块**：`.kicad_pcb` 板文件导出器**不在仓库里**（`docs/trial-run/charger-buck/` 那份是**一次性原型**生成的，README 明写"未进仓库"）；Gerber / Excellon 写出器也没有（F15）。
@@ -580,7 +580,7 @@
 
 **要做的事**：
 
-1. **树的重排**（机械部分，历史记录）：`assets/symbols/`、`assets/footprints/`、`assets/components/` → `assets/**`；`procurement/` → `assets/procurement/`；电路描述迁入 `design/**`；视图曾按 PCB 分目录，现由 F64 / [ADR-0069](adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4 改为平铺在 `views/<page_id>.view.teda`。新增 `external/simulation/`（`cache/` 不建，由使用者自建且 gitignore；`external/libs/` 后来也不建了——库是模板，见 [ADR-0034](adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md)）。参考工程与 CLI 路径同步改。（**2026-10-23**：件与通用器件合并到 `assets/components/**` 一个目录，不再有 `families/`——见 [ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md)。）
+1. **树的重排**（机械部分，历史记录）：`assets/symbols/`、`assets/footprints/`、`assets/components/` → `assets/**`；`procurement/` → `assets/procurement/`；电路描述迁入 `design/**`；视图曾按 PCB 分目录，现按 [ADR-0069](adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4 平铺在 `views/<page_id>.view.teda`。新增 `external/simulation/`（`cache/` 不建，由使用者自建且 gitignore；`external/libs/` 后来也不建了——库是模板，见 [ADR-0034](adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md)）。参考工程与 CLI 路径同步改。（**2026-10-23**：件与通用器件合并到 `assets/components/**` 一个目录，不再有 `families/`——见 [ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md)。）
 2. ~~**`libref` 描述类型**~~ **已撤销**（2026-10-24，[ADR-0034](adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md)）：锚点是"钉住一棵只读的树"，而我们真正要的只是"这些器件现在是我们的"。取而代之是 `texteda lib import`：拷贝 + 限定符重写 + 来源头注释 + `provenance generated`，副本可编辑，没有哈希盯着它。`spec/libref.md`、`libref` schema、parser、`lib add` 全部删除；`external/libs/` 下有库形状的树报 `ref.library-in-tree`。
 3. ~~**库 vendoring**~~ **已撤销**（同上）：编译期永不联网这一条保留（不变量 20），但"vendored 树 + 内容哈希"这一层没有了——副本是自有资产，`assets/**` 之外没有第二个器件来源。`--from <url>` 不做（门禁不联网）。
 4. **IR shard layout and source-tree decoupling**: normative project logic is `project/schematic.json`, physical PCB data is `boards/<pcb_id>/pcb.json` (with board-owned procurement shards), and advisory pages are `views/<page_id>.json`; there is no `systems/` shard. Each shard carries `source.file`; the current paths are fixed by kind rather than mirroring the source tree.
@@ -599,28 +599,6 @@
 - **树冻结**：这次改完目录形状就不再动；要改形状得再开 ADR + 再写迁移脚本（[ADR-0008](adr/03-project/0008-project-tree-has-owners.md) decision 11）。
 - **外部材料分三类，机制不同**：外部库是**模板**（拷进 `assets/` 即自有，`external/libs/` 不被读取）；数据手册只留引用（`datasheet` 字段）+ 本体在 cache，不进 IR；仿真模型 vendored 但机制未定（ADR-0008 开放点）——别给它们发明同一套声明格式。
 - 别把 `external/` 当成"第二个 assets/"：它按**归属**分，不按**种类**分。
-
----
-
-## F30. 打印页移到 `views/`，分片改为附注类（ADR-0035 的落地）
-
-**现状**：**已完成**（2026-11-09，见 [ADR-0069](adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4–D5）——项目打印页位于 `views/<page_id>.view.teda`，不再按 PCB 子目录分组；解析、CLI、参考工程与评审 UI 均按项目级 page ID 查找。视图分片是 `views/<page_id>.json`，属于 advisory，不进入项目或 PCB 规范哈希；盖章使用该页分片自己的 `sha256`。
-
-**已交付**：
-
-1. **项目级路径与查找**：每页一个 `views/<page_id>.view.teda` 源文件；`page_id` 是稳定的页面引用，不是逻辑边界，也不携带 PCB 归属。`views/main.view.teda` 是首个拓扑总览页，可只画模块框、项目端口和 interconnect，不必放置元件。
-2. **附注分类与哈希**：页面 IR 使用 `views/<page_id>.json`；修改或移动标签不改变项目逻辑、PCB 实现、项目哈希或 PCB 哈希，只改变 advisory hash 与该页分片哈希。
-3. **盖章与 UI**：渲染页面盖该页 advisory 分片的 `sha256`；评审 UI 按项目级身份索引页面、模块、PCB 与 interconnect，跳转不依赖目录层级。
-4. **项目级交叉校验**：页面只能引用已存在的项目实例、扁平实例/net、project port 与 interconnect ID；未知身份、错误的 pin/net 绑定报错。项目级覆盖率缺口（未在任何页面表示的模块或 interconnect）是 view warning，不改变逻辑事实。
-5. **文档与调用方**：`spec/schematic-view.md`、`AGENTS.md` 的 S1 描述、项目 skill、CLI/UI 与参考示例均采用“手写源文件 + advisory 分片”的项目级口径；不存在并行的 board-local view 模型。
-
-**验收**：
-
-- 只移动一个标签 → 项目逻辑、PCB 实现、`project_hash` 与 PCB hash 不变，`advisory_hash` 与该页分片 `sha256` 改变。
-- 页面路径与 IR 分片固定为 `views/<page_id>.view.teda` 与 `views/<page_id>.json`，源码目录调整不引入 board-scoped 视图身份。
-- 页面引用不存在的项目实例、net、port、pin 或 interconnect → 报错，而不是静默通过；删除或修改所有视图不会改变逻辑连通性、PCB binding 或 netlist。
-
-**注意**：S1 的“可丢弃”表示不参与构建身份，不表示可重新生成。视图是手写源、进仓库、由渲染器只画不摆；它不创建或删除项目 connectivity、PCB ownership、interconnect、pin mapping 或铜连续事实。
 
 ---
 
@@ -1004,87 +982,97 @@ DSH 侧**代码已落地**：宿主合同读的是官方 cookbook（`@deepseek-a
 
 ---
 
-## F60. Schematic-view wire trees, explicit junctions, and geometric connectivity
 
-**Status**: Implemented. Print-page wires use declared view-only junction IDs; page checks validate endpoint geometry and graph connectivity against renderer-owned pin coordinates without changing schematic connectivity.
+## F65. Place module definitions under the schematic source tree
 
-**Coordinate syntax**: settled for the whole language by [ADR-0065](adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) — a geometric tuple is one bracketed cell `[a,b]` in every description type, not just `junction`. The F60 draft's local `[x,y]` for junctions was the first instance of that rule; the "keep space-separated `x y` elsewhere" half of it is superseded, and the old two-cell form is no longer accepted under language 0.11. Bare coordinate endpoints in `wire` rows remain disallowed (D2 of that record keeps endpoints as pin/port/junction identities).
-
-**Delivered**:
-
-1. Added the view-only `junction` section with stable IDs and sheet coordinates. Junctions are drawing nodes, not schematic nets or electrical facts.
-2. Restricted wire endpoints to pin references, page ports, or declared junction IDs; removed `@x,y` endpoint support. Re-anchor-off preserves pin identity and authored bends while reporting stale nets; explicit rewire remains the repair operation.
-3. Modeled net drawings as endpoint graphs: wire rows are edges, pin/port/junction endpoints are nodes, and explicit junction IDs cannot silently join different nets.
-4. Added renderer-geometry checks for dangling endpoints and wires passing through same-net junctions without naming them; graph checks report disconnected required members, isolated junctions, wrong-net endpoints, and invalid junction degree.
-5. Preserved orthogonal-wire validation, re-anchor-on/off behavior, overlay/apply behavior, canonical formatting, round-trip projection, and the 0.5 mm view lattice.
-
-**Involved files**: `spec/schematic-view.md`, `schemas/ir/`, `packages/parser/`, `packages/core/src/view/`, `packages/renderer/`, `packages/viewer/`, `packages/ir/src/diagnostics/`, `tests/`, and affected reference views.
-
-**Acceptance**:
-
-- A net tree with one or more explicit junctions is representable with multiple two-endpoint wire rows, without coordinate endpoints.
-- Moving or rotating a placed symbol leaves every wire endpoint identity-preserving. With re-anchor enabled, affected endpoints follow the moved symbols; with re-anchor disabled, no `@x,y` fallback is written, the authored bends remain unchanged, and the affected net is reported stale until explicitly rewired.
-- A deliberately gapped wire, disconnected branch, isolated junction, and wrong-net endpoint each produce a page-local diagnostic; a valid tree passes.
-- Different-net crossings remain non-connections, same-net branches render junction dots deterministically, and all affected views pass canonical formatting, round-trip, lattice, and existing orthogonal-wire checks.
-
-**Note**: This is a view-layer drawing graph only. It must not become a second source of schematic connectivity; the board schematic remains authoritative.
-
----
-
-## F61. Hierarchical module views and custom page size
-
-**Historical record (superseded)**: F61 delivered hierarchical module views and custom page sizes under the former board-scoped organization. Its former `views/<board_id>/...` paths, board-local electrical authority, and IR v0.17 acceptance criteria are retained only as history; they are not current contracts and must not be implemented or used for new projects. The current project-wide view contract is F64 / [ADR-0069](adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md): pages live directly under `views/<page_id>.view.teda`, reference the single root schematic, and are advisory drawings. The former implementation files and tests remain historical context for the current renderer and view layer.
-
-**Current contract and acceptance**: see F64 above and [ADR-0069](adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md). F61's completed behavior remains covered where applicable by the current project-wide parser, renderer, viewer, metrics, and lattice checks; no board-local view path or board-local schematic is valid.
-
----
-
-## F62. Repair buck-5v pin junction and wire clearance
-
-**Status**: Implemented. The reference print page `examples/reference-project/views/buck-5v.view.teda` now uses a pin-axis PH approach at L1 and a cleared orthogonal VOUT route around R1; the renderer and schematic connectivity remain unchanged.
-
-**Why now**: The page is the reference evidence for schematic rendering and must not teach an incorrect junction or an unreadable pin approach.
+**Status**: Implemented (2026-11-11, [ADR-0070](adr/03-project/0070-module-definitions-live-under-the-schematic-tree.md)). Module definitions resolve only from `design/sch/modules/<module_id>.teda`; `design/sch/` is the complete project logical source and `design/pcb/` remains the physical implementation tree. The loader has no active reader or alias for `design/modules/`, `texteda init` creates the new path, and `migrate:0.14` moves a legacy module directory there. The sole root, module semantics, PCB ownership, the IR and all hash rules are unchanged.
 
 **To do**:
 
-1. Inspect the renderer-owned pin geometry and the rendered SVG around L1 and R1; do not infer coordinates from the source placement rows alone.
-2. Remove or correct the page-local source geometry that causes the L1 junction marker, without weakening the renderer's general perpendicular-pin marker rule or changing schematic connectivity.
-3. Re-route the upper R1/VOUT wire so it does not overlap the R1 symbol or pin stroke, while preserving the VOUT net endpoints and avoiding new crossings or junctions.
+1. Record the path change in a new ADR; retain `design/sch/main.teda` as the only logical root and move module definitions to `design/sch/modules/<module_id>.teda`.
+2. Update module discovery, project initialization, migration, and all parser/CLI callers to use the new path. Do not keep an active reader or alias for `design/modules/`.
+3. Move example and fixture files, update diagnostic source paths, and refresh specs, guides, skills, README files, and generated API/IR references that describe the source tree.
 
-**Involved files**: `examples/reference-project/views/buck-5v.view.teda`, `packages/renderer/src/schematic.ts` only if the defect is renderer-wide, and the focused renderer/view tests if a regression is needed.
+**Involved files**: `docs/adr/`, `spec/`, `packages/parser/`, `packages/cli/`, `scripts/migrate-0.14.ts`, `examples/`, `tests/`, `docs/`, `AGENTS.md`, and generated references.
 
 **Acceptance**:
 
-- The rendered `buck-5v` page has no `pin-junction:*` marker at L1 unless the wire truly approaches that pin perpendicularly under the renderer's defined geometry.
-- The upper wire connected to R1 does not overlap the R1 body or pin stroke in the rendered SVG.
-- The page remains canonical, stays on the 0.5 mm lattice, preserves VOUT endpoint coverage, and introduces no new page-local errors.
-- Existing different-net crossings remain dotless and schematic connectivity is unchanged.
+- `design/sch/main.teda` remains the sole logical root; module definitions resolve only from `design/sch/modules/<module_id>.teda`.
+- `texteda init`, project checks/builds, and `migrate:0.14` use the new layout; legacy `design/modules/` is not an active input path.
+- All active examples, fixtures, specifications, and procedures use the new paths; generated artifacts are current and repository gates pass.
 
-**Note**: This is a reference-view repair, not permission to relax `view.wire-crosses-pin` or to make geometric crossings authoritative.
-
+**Note**: This is a source-tree organization change only. It does not change module semantics, PCB ownership, IR meaning, or the rule that modules are project logic rather than device assets.
 
 ---
 
-## F64. Project-level logical root and multiple physical boards
+## F66. Build reference-project module drawings before the print page
 
-**Status**: Implemented and accepted by [ADR-0069](adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) (2026-11-09). The project has one logical root at `design/sch/main.teda`, physical PCB descriptions at `design/pcb/<pcb_id>.teda`, reusable module definitions under `design/modules/`, and project-wide print pages at `views/<page_id>.view.teda`. There are no board-local schematic roots, root-level component instances, `system` descriptions, or `design/system/` descriptions.
+**Status**: Implemented (2026-11-11, [ADR-0071](adr/09-view/0071-a-module-drawing-is-an-editable-view.md) D3). The reference project is module-first: `views/modules/charger-power.module-view.teda`, `views/modules/buck-5v.module-view.teda` and `views/modules/mcu-board.module-view.teda` draw the three modules independently, and the single project page `views/main.view.teda` composes them on an A2 template and draws the root interconnects. The standalone module detail pages and `composed.view.teda` are gone. The `buck-5v` drawing is wired; the other two are placement studies.
 
-**Delivered contract**:
+**To do**:
 
-1. **Project logic**: `design/sch/main.teda` composes module descriptions and owns globally unique module-instance identities, flattened project-net membership, project ports, constraints, and interconnects. Equal local net names in separate module instances do not merge without an explicit root binding. The schematic IR remains flat for ordinary consumers while carrying the ownership and port-binding records required for physical validation.
-2. **Explicit PCB ownership**: Each `design/pcb/<pcb_id>.teda` has a required `modules` section listing the project module instances implemented by that PCB. Across all PCBs each module instance occurs exactly once; one PCB may implement several instances, reusable definitions may be instantiated on different PCBs, and no instance may be split. Placement, pad, trace, via, zone, and rule facts resolve against the assigned instances and flattened project nets. A PCB `connect` edge proves copper continuity on that PCB only; sharing a project `net_id` never implies copper continuity.
-3. **Explicit interconnects**: Root `interconnects` connect exactly two module-port endpoints on different PCBs, and both endpoints belong to the same root project net. Optional `interconnect_pins` rows record connector/cable terminal mappings. Logical net membership, cross-PCB interconnect paths, and within-PCB copper continuity remain separate facts; no fact is inferred from another, and views can only reference interconnect IDs.
-4. **Project-wide views**: a composed page such as `views/composed.view.teda` may draw module drawings, project ports, and interconnect links without page-level component placements; the spec and renderer also support topology-only pages. `main` is only the conventional first-listed page ID, not a required page or role. Other overview/detail pages can cover any project logic and may place components. Pages reference existing project-level module-instance, flattened instance/net, project-port, and interconnect IDs; they never create or remove connectivity, ownership, pin mapping, interconnect, or copper facts. Missing project relationships are view warnings, not logic errors, and removing all views leaves logic, PCB checks, netlists, and normative hashes unchanged.
-5. **IR and migration**: The normative IR v0.19 layout is `project/schematic.json`, `boards/<pcb_id>/pcb.json`, and advisory `views/<page_id>.json`; there is no `systems/` shard. Language advances to `0.14.0`, reader floors for `schematic`, `pcb`, and `view` advance to `0.14`, and v0.18 remains immutable. `bun run migrate:0.14 <project dir>` performs only deterministic moves and transformations, refusing to invent module IDs, PCB assignments, or connector-pin mappings; author decisions are recorded in the migration note, with no compatibility reader or parallel legacy model.
-6. **ADR/spec/schema and callers**: ADR-0069 replaces the earlier board-local decisions; `spec/project.md`, `spec/teda.md`, `spec/module.md`, `spec/pcb.md`, `spec/schematic-view.md`, and `schemas/ir/` document the single project-level model. Parser/core/IR/renderer/exporter/CLI/viewer callers, migration handling, tests, and reference examples use that model. Reference examples cover multiple PCBs and module instances, explicit interconnects, composed and detail pages; the spec example and renderer tests cover a topology-only page, and tests cover whole-module-to-one-PCB ownership.
+1. Provide reusable `views/modules/<module_id>.module-view.teda` drawings for the modules composed into the reference project page; each drawing uses its module-local identities and can be reviewed on its own.
+2. Make `views/main.view.teda` the sole project print page, composing the module drawings and project-level links after the module drawings are complete. Remove the standalone module detail pages and the redundant `composed.view.teda` page.
+3. Update the reference-project README and drawing skill to demonstrate module drawing first, page composition last; retain a sheet template only if the final page uses it.
 
-**Acceptance evidence**:
+**Acceptance**:
 
-- One project-level logical root composes module electrical facts and expresses project-wide connectivity; no per-board schematic or drawing is a second connectivity authority.
-- Multiple `design/pcb/<pcb_id>.teda` files have explicit, validated mappings to project logic; unplaced, duplicated, cross-owned, and split module instances are rejected, and board copper continuity is never inferred from global net identity.
-- Every module instance is wholly assigned to one PCB; cross-board functions use separate module instances plus an explicit interconnect, with optional connector/cable pin mappings checked against endpoint ports.
-- Project views can show modules and interconnects without component circuitry, divide overview/detail information across pages with stable project-level references, and remain advisory drawings whose edits cannot change logic or physical facts.
-- The IR contract is v0.19 with the project/PCB/advisory shard paths above, and the migration command and refusal rules are documented; v0.18 remains unchanged.
-- Reference examples pass project checks, PCB binding checks, formatting, rendering, and view checks; removing or changing views leaves logical connectivity and netlists unchanged.
+- The reference project has exactly one `*.view.teda` project page, `views/main.view.teda`; its composed modules resolve to module drawings under `views/modules/`.
+- Every module drawing passes its module-local checks and renders; the composed page passes project checks, view metrics, formatting, lattice verification, and visual review.
+- `bun run texteda check examples/reference-project`, `bun run view:verify examples/reference-project`, and `bun run fmt:teda --check examples/reference-project` pass; removing the view artifacts does not alter project logic or netlists.
 
-**Note**: This is a project/logic/physical-boundary redesign, not an extension of the former board-local module-view feature. Preserve the distinction between logical connectivity, physical PCB copper, explicit interconnect paths, and advisory drawings.
+**Note**: This is a reference-project organization and authoring-workflow change only. It does not prohibit multiple print pages in other projects or change the view contract in [ADR-0067](adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md) and [ADR-0068](adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md).
+
+
+
+## F67. Decide whether view filenames keep their type suffixes
+
+**Status**: Proposed (2026-11-11). No ADR yet; this entry records the question, not a decision.
+
+**Current state**: the view tree already partitions its three description types by directory:
+`views/` holds `view` pages, `views/modules/` holds `module_view` drawings, and
+`views/templates/` holds `sheet_template` descriptions (`spec/schematic-view.md` §1.2). The
+filenames still repeat the type: `<page_id>.view.teda`, `<module_id>.module-view.teda`,
+`<template_id>.sheet-template.teda`. That is the opposite of the design tree's rule, where the
+directory names the type and the filename is only the id (`design/sch/main.teda`,
+`design/sch/modules/<module_id>.teda`, `design/pcb/<pcb_id>.teda`; `spec/teda.md` §3).
+
+**To do**:
+
+1. Decide the naming rule, not just the filenames: either keep the suffixes with a stated reason
+   (for example, that a view file is meant to be self-identifying when copied out of the tree), or
+   adopt directory-only typing for views.
+2. If directory-only typing is chosen, write the ADR and change the paths to
+   `views/<page_id>.teda`, `views/modules/<module_id>.teda`, and
+   `views/templates/<template_id>.teda`. The filename-to-id rule becomes "filename minus `.teda`",
+   the type line remains the authority, and the directory must match the type line.
+3. Update every producer and consumer of those paths: the view/module-view/template loaders, the
+   review app's page and source routes, layout writes, `scripts/verify-views.ts`, the init
+   skeleton, tests and fixtures, the reference project, skills and guides, and the ADRs that show
+   the old paths.
+4. Provide migration. A clean break with no legacy reader must report old-suffix files clearly;
+   otherwise a migration renames the three kinds and the old paths stop resolving. View writes are
+   advisory, so the engineering hash and netlist are unaffected, but the `source.file` recorded in
+   view shards and the advisory hash change.
+5. Keep the language grammar unchanged. This is a path and identity-presentation change, not a new
+   description type; a language-version bump is only needed if the project format treats the old
+   paths as invalid.
+
+**Involved files**: `spec/teda.md`, `spec/schematic-view.md`, `spec/module.md`,
+`docs/adr/09-view/0035-the-view-layer-is-a-drawing.md`,
+`docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md`,
+`packages/parser/`, `packages/cli/src/`, `packages/viewer/src/`, `scripts/verify-views.ts`,
+`examples/`, tests, and the view skills and guides.
+
+**Acceptance** (if implemented):
+
+- The chosen rule is recorded in an ADR and reflected in the specs.
+- Every view, module drawing and template resolves from its directory with a filename that carries
+  no type suffix, and a mismatched directory/type line is still an error.
+- The review app, CLI verbs, view verification, and the reference project use the new paths.
+- Migration or a clear legacy-path diagnostic exists; `bun test`, `bun run typecheck`,
+  `bun run gen:check`, `bun run check:links`, `bun run fmt:teda --check .`, and
+  `bun run view:verify examples/reference-project` pass.
+
+**Note**: This is a naming and migration question only. It does not change what a view is, the
+advisory/normative split, or the rule that a view never changes connectivity.

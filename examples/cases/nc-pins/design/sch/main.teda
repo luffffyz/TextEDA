@@ -2,7 +2,7 @@ version 0.14.0
 schematic main
 
 # The project's one logical root. Component facts live in the reusable module under
-# design/modules/; this file composes its ports into project nets and keeps project-level
+# design/sch/modules/; this file composes its ports into project nets and keeps project-level
 # ports and constraints.
 modules
   M1  debug-header

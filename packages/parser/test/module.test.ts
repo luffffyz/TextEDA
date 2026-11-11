@@ -54,7 +54,7 @@ const projectText = [
 ].join("\n");
 
 function moduleSource(moduleId: string, text = moduleText): ModuleSource {
-  return { moduleId, file: `design/modules/${moduleId}.teda`, text };
+  return { moduleId, file: `design/sch/modules/${moduleId}.teda`, text };
 }
 
 function parse(project: string, modules: ModuleSource[] = [moduleSource("power")]) {

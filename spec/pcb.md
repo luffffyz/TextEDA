@@ -473,10 +473,10 @@ pcb 里写的 net 名就是**展平后**的 net 名（模块内部 net 用 `<mod
 
 ## 9. 完整示例
 
-对应的逻辑根 `design/sch/main.teda` 与模块 `design/modules/power.teda` 片段（net 成员只在模块/根里声明，pcb 只引用展平后的 `net_id`）：
+对应的逻辑根 `design/sch/main.teda` 与模块 `design/sch/modules/power.teda` 片段（net 成员只在模块/根里声明，pcb 只引用展平后的 `net_id`）：
 
 ```
-# design/modules/power.teda
+# design/sch/modules/power.teda
 instances
   U1  tps7a02
   C1  cap-mlcc-0603

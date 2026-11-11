@@ -1,6 +1,6 @@
 // Contract tests for `texteda check`.
 //
-// The fixtures model the F64 project shape: one logical root schematic, reusable module
+// The fixtures model the current project shape: one logical root schematic, reusable module
 // definitions, and physical PCB ownership declared by each PCB.
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -121,8 +121,8 @@ function makeProject(
   writeFileSync(join(root, "assets/components", "res-thick-0402.teda"), COMPONENT);
   writeFileSync(join(root, "design/sch", "main.teda"), schematic);
   if (module !== null) {
-    mkdirSync(join(root, "design/modules"), { recursive: true });
-    writeFileSync(join(root, "design/modules", "m.teda"), module);
+    mkdirSync(join(root, "design/sch/modules"), { recursive: true });
+    writeFileSync(join(root, "design/sch/modules", "m.teda"), module);
   }
   for (const item of pcbs) writeFileSync(join(root, "design/pcb", `${item.id}.teda`), item.text);
   return root;
@@ -588,7 +588,7 @@ describe("library curation (ADR-0006: the shard set is the project's content)", 
   test("a broken module does not turn its devices into false orphans", () => {
     const root = makeProject();
     try {
-      writeFileSync(join(root, "design/modules", "m.teda"), "nonsense\n");
+      writeFileSync(join(root, "design/sch/modules", "m.teda"), "nonsense\n");
       const result = checkProject(root);
       expect(result.diagnostics.some((d) => d.severity === "error")).toBe(true);
       expect(result.diagnostics.filter((d) => d.code === "library.device-unused")).toEqual([]);

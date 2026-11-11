@@ -1,11 +1,5 @@
 [
   {
-    "code": "net.pin-unassigned",
-    "severity": "warning",
-    "file": "design/modules/debug-header.teda",
-    "line": 17
-  },
-  {
     "code": "bind.instance-unplaced",
     "severity": "warning",
     "file": "design/pcb/debug-header.teda",
@@ -28,5 +22,11 @@
     "severity": "warning",
     "file": "design/sch/main.teda",
     "line": 8
+  },
+  {
+    "code": "net.pin-unassigned",
+    "severity": "warning",
+    "file": "design/sch/modules/debug-header.teda",
+    "line": 17
   }
 ]

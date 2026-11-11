@@ -1,7 +1,7 @@
 // `texteda compile`: compile one project description into an IR shard (canonical JSON).
 //
 // The project's logic has one root (ADR-0069 D1): `design/sch/main.teda` composes the module
-// definitions of `design/modules/`, and each physical implementation is its own `pcb` description
+// definitions of `design/sch/modules/`, and each physical implementation is its own `pcb` description
 // at `design/pcb/<pcb_id>.teda` (ADR-0069 D2). Procurement stays board-scoped (spec/procurement.md):
 // a file selects the parts of one PCB.
 //
