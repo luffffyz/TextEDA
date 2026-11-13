@@ -259,7 +259,7 @@ bun run texteda check examples/reference-project
 Expected tail (the counts move with the project):
 
 ```
-Checked the project schematic and 2 PCBs: 0 errors, 201 warnings (stages: parse 47 · contract 0 · design 156)
+Checked the project schematic and 2 PCBs: 0 errors, 195 warnings (stages: parse 48 · contract 0 · design 149)
 ```
 
 Errors block the build; warnings do not. Use `--json` when a script needs the payload. A project check covers the logical root, every
@@ -304,7 +304,11 @@ Read it as:
 ### 3.3 Look at it
 
 ```sh
-bun run preview view buck-5v --project examples/reference-project
+bun run preview view main --project examples/reference-project
+```
+
+```
+/tmp/texteda-preview/main/main.view.svg
 ```
 
 The SVG path is printed; open it or embed it. For the interactive review, run
@@ -314,7 +318,7 @@ For a legible visual review, render the current page and inspect a crop rather t
 whole-sheet image at fit-to-page scale:
 
 ```sh
-bun run texteda view render examples/reference-project buck-5v --out /tmp/page.svg
+bun run texteda view render examples/reference-project main --out /tmp/page.svg
 ```
 
 Crop the SVG by changing its root `viewBox` to the region of interest (sheet coordinates in mm)

@@ -1,20 +1,24 @@
 # Skill: Repair a Print Page That Already Exists
 
 > **Audience**: agents (humans can follow it too).
-> **Scope**: diagnosing and repairing an existing project view `views/<page_id>.view.teda`.
+> **Scope**: diagnosing and repairing a drawing that already exists — a project print page
+> `views/<page_id>.view.teda`, or a reusable module drawing
+> `views/modules/<module_id>.module-view.teda`.
 > **Not in scope**: drawing a page for the first time — that is
 > [`draw-print-page.md`](draw-print-page.md).
 > **Status**: the commands and expected outputs below were run on
-> `examples/reference-project` on 2026-11-04.
+> `examples/reference-project` on 2026-11-13.
 
 This file is English on purpose: a skill is an operating manual for an agent, not a design
 document (see `AGENTS.md` §12).
 
-
-> **Reference project (2026-11-11):** the example is module-first. Its wired drawing is now the
-> `buck-5v` module drawing, `views/modules/buck-5v.module-view.teda`; the `buck-5v` print page is
-> gone. Open that drawing in `texteda review` for the interaction route. The command examples below
-> use a page id and remain valid for pages; they do not take a module-drawing id.
+> **Reference project (2026-11-13):** the example is module-first. Its one print page is `main`,
+> `views/main.view.teda`; that page places three module drawings and draws the two cross-PCB
+> interconnects, and carries **no wires of its own**. The wiring lives in the module drawings:
+> `views/modules/buck-5v.module-view.teda` is wired, `charger-power` and `mcu-board` are
+> placement studies. Open a drawing in `texteda review` for the interaction route. The command
+> examples below take a **print-page** id — `view render`, `view metrics` and `view png` name a
+> page, not a module drawing; a module drawing is measured with the probe in §5.
 
 Index: [`docs/skills/README.md`](README.md) lists the procedures and when to read which.
 
@@ -59,48 +63,48 @@ text.
 
 When a full rewire is explicitly authorized, use this sequence:
 
-1. **Snapshot the source.** Copy the complete `views/<page_id>.view.teda` file to an immutable
-   working snapshot before changing it. The snapshot must include the current places, labels, ports,
-   fields, notes, and text, not just the wire rows. It is the rollback and the comparison point for
-   the operation.
-2. **Refresh the authorities.** Generate a fresh review payload for the current page and read pin
-   points, symbol boxes, and text boxes from the renderer's current geometry. At the same time,
+1. **Snapshot the source.** Copy the complete drawing file (`views/<page_id>.view.teda` or
+   `views/modules/<module_id>.module-view.teda`) to an immutable working snapshot before changing
+   it. The snapshot must include the current places, labels, ports, fields, notes, and text, not
+   just the wire rows. It is the rollback and the comparison point for the operation.
+2. **Refresh the authorities.** Generate a fresh review payload for the current drawing and read
+   pin points, symbol boxes, and text boxes from the renderer's current geometry. At the same time,
    load the project schematic root `design/sch/main.teda` with its modules expanded (`parseSchematic`
    with `loadModules`) and derive flattened project-level logical net membership from that IR. Do not
    infer membership from the old wires, a screenshot, or a stale coordinate table; the project root
    supplies membership and the renderer supplies coordinates.
-3. **Remove only wires.** In the working view, delete every `wire` row and no other row. Keep the
-   page version, placements, labels, ports, fields, notes, and other text exactly as page source.
-   Do not regenerate the page or replace its non-wire drawing state.
-4. **Rebuild from logic and geometry.** For each flattened net represented on this page, map its
-   page-visible pin members (and any page port) to the fresh renderer connection points. Write new
+3. **Remove only wires.** In the working drawing, delete every `wire` row and no other row. Keep the
+   file version, placements, labels, ports, fields, notes, and other text exactly as they were. Do
+   not regenerate the drawing or replace its non-wire drawing state.
+4. **Rebuild from logic and geometry.** For each flattened net represented on this drawing, map its
+   visible pin members (and any port) to the fresh renderer connection points. Write new
    orthogonal `wire` rows from those members, splitting multi-member nets into explicit branches.
    Each pin endpoint must be a member of the named net; route around body, pin-stroke, and text
    boxes; approach pins along their permitted axis; and put labels and ports on their own nets.
    Never use the deleted rows as a topology or bend template.
-5. **Verify coverage and connectivity.** Make a net-by-net coverage table: every page-visible member
+5. **Verify coverage and connectivity.** Make a net-by-net coverage table: every visible member
    pin must be an endpoint of at least one new row, every wire endpoint must belong to that logical
-   net, and each intended page port must be connected. Also verify that, for each drawn net, all of
-   its page-visible member pins and intended page ports lie in one single connected geometric graph
+   net, and each intended port must be connected. Also verify that, for each drawn net, all of
+   its visible member pins and intended ports lie in one single connected geometric graph
    through the new wire rows and their endpoint contacts. Endpoint membership and coverage alone are
    insufficient: the checker can accept disconnected wire subtrees that carry the same net, and
    matching net names alone do not prove geometric continuity. Before completion, perform an explicit
-   visual/topology check by tracing every drawn net in the rendered page and confirming that each such
-   graph is continuous from every visible member pin to every intended port. A page may intentionally
-   omit a project-level net, but that exception must be page-local and understood; a project-wide
-   `nets-not-drawn` count is not proof that the page's visible pins are covered.
+   visual/topology check by tracing every drawn net in the rendered drawing and confirming that each
+   such graph is continuous from every visible member pin to every intended port. A drawing may
+   intentionally omit a project-level net, but that exception must be local and understood; a
+   project-wide `nets-not-drawn` count is not proof that the visible pins are covered.
 6. **Inspect page-local diagnostics.** Run the project check in JSON mode, then filter it to this
-   page and inspect its `view.*` findings. Resolve page-local wire, pin, body, label, port,
-   and text findings before judging the result; do not let diagnostics from another page stand in
-   for this page's evidence.
+   drawing and inspect its `view.*` findings. Resolve local wire, pin, body, label, port,
+   and text findings before judging the result; do not let diagnostics from another drawing stand in
+   for this one's evidence.
 7. **Measure the page.** Run `view metrics` for this page and record wire count and length,
    crossings, through-body count, and text gaps. Use those numbers to compare the rebuilt drawing
    with the intended layout and with the snapshot, while remembering that a crossing between
    different nets is legal.
-8. **Render and crop.** Render this page once, then crop the SVG around each dense or disputed area
-   as in §4. Inspect the crop for pin-axis arrivals, body or artwork crossings, label and port
-   placement, and junction dots; do not judge a whole-sheet render at its default scale.
-9. **Canonicalise last.** Run the canonical TEDA formatter on the finished view and then its
+8. **Render and crop.** Render this page once, then paint a crop of it as in §4. Inspect the crop
+   for pin-axis arrivals, body or artwork crossings, label and port placement, and junction dots;
+   do not judge a whole-sheet render at its default scale.
+9. **Canonicalise last.** Run the canonical TEDA formatter on the finished drawing and then its
    check form. The final diff should contain the authorized wire replacement plus formatter-owned
    canonical changes only; do not silently absorb unrelated placement or text edits.
 
@@ -122,65 +126,75 @@ renderer.
 ```sh
 bun run texteda review examples/reference-project --out /tmp/review.html
 ```
-The HTML embeds one JSON payload with, per page, a `symbols` array (each entry carries `box` and
-`pins`), plus `texts` and `fields` ink boxes. That geometry is **authoritative**: it comes out of
-the same `schematicGeometry` the checker uses, so a coordinate read from there is the coordinate
-the checker will measure against.
 
-A quick way to read one page's numbers:
+The HTML embeds one JSON object after `window.__TEXTEDA_REVIEW__ = `. Read it as JSON — do not
+scan for braces, and do not split it at the first `;` (a `;` can sit inside a string).
 
-```sh
-bun run texteda review examples/reference-project --out /tmp/review.html
-```
+A quick way to read one drawing's numbers:
+
 ```sh
 python3 - <<'PY'
-import re, io, json
+import io, json
 s = io.open('/tmp/review.html', encoding='utf-8').read()
-
-# The payload embeds one JSON object per page; each carries "page", "symbols", "texts", "fields".
-for m in re.finditer(r'"page"\s*:\s*"', s):
-    i = m.start(); depth = 0; j = i
-    while j > 0:
-        c = s[j]
-        if c == '}': depth += 1
-        elif c == '{':
-            if depth == 0: break
-            depth -= 1
-        j -= 1
-    depth = 0; k = j
-    while k < len(s):
-        c = s[k]
-        if c == '{': depth += 1
-        elif c == '}':
-            depth -= 1
-            if depth == 0: break
-        elif c == '"':
-            k += 1
-            while k < len(s):
-                if s[k] == '\\': k += 1
-                elif s[k] == '"': break
-                k += 1
-        k += 1
-    p = json.loads(s[j:k+1])
-    if p.get("page") != "buck-5v": continue
-    for sym in p.get("symbols", []):
-        b = sym.get("box", {})
-        pins = " ".join(f'{n}={v["x"]},{v["y"]}' for n, v in sorted(sym.get("pins", {}).items()))
-        print(f'{sym["id"]:8} box {b.get("x")}..{round(b.get("x",0)+b.get("w",0),2)} '
-              f'y {b.get("y")}..{round(b.get("y",0)+b.get("h",0),2)}  pins {pins}')
+marker = 'window.__TEXTEDA_REVIEW__ = '
+payload, _ = json.JSONDecoder().raw_decode(s, s.index(marker) + len(marker))
+for d in payload["drawings"]:
+    if d.get("page") != "main":       # a print page; use d.get("module") for a module drawing
+        continue
+    for sym in d["symbols"]:
+        b = sym["box"]
+        pins = " ".join(f'{n}={v["x"]},{v["y"]}' for n, v in sorted(sym["pins"].items()))
+        print(f'{sym["id"]:8} box {b["x"]}..{round(b["x"]+b["w"],2)} '
+              f'y {b["y"]}..{round(b["y"]+b["h"],2)}  pins {pins}')
     break
 PY
 ```
 
-Output — the page's real geometry, in millimetres:
+Output — the page's real geometry, in millimetres (the first rows of the composed page):
 
 ```text
-M2.C1    box 116..119 y 95.5..97.5  pins 1=117.5,92.5 2=117.5,100.5
-M2.C2    box 160..163 y 101..103  pins 1=161.5,106 2=161.5,98
-M2.U1    box 127.5..152.5 y 100..110  pins 1=155,108.5 2=155,106 3=155,103.5 4=125,106 ...
+M1.C1    box 41..43 y 40.5..43.5  pins 1=38,42 2=46,42
+M1.C2    box 76..78 y 40.5..43.5  pins 1=73,42 2=81,42
+M1.C3    box 111..113 y 40.5..43.5  pins 1=108,42 2=116,42
+M1.C4    box 146..148 y 40.5..43.5  pins 1=143,42 2=151,42
+M1.C5    box 181..183 y 40.5..43.5  pins 1=178,42 2=186,42
+M1.C6    box 216..218 y 40.5..43.5  pins 1=213,42 2=221,42
 ```
 
-**Do not copy coordinates out of a document into a page.** A page's geometry moves whenever a
+That geometry is **authoritative**: it comes out of the same `schematicGeometry` the checker uses,
+so a coordinate read from there is the coordinate the checker will measure against.
+
+### 2.1 Two frames, and the one you need
+
+The payload carries one entry per drawing, and each entry has **its own frame**:
+
+| Entry | Key | Frame | Instance ids |
+|---|---|---|---|
+| print page | `page/main` | the sheet, after the module drawings are placed | `M2.C1` |
+| module drawing | `module/buck-5v` | the drawing's own local bounds | `C1` |
+
+Use the frame of the file you are about to write: a repair to
+`views/modules/buck-5v.module-view.teda` is written in the module drawing's local coordinates,
+never in the composed page's. The page's frame moves with every `module_place`.
+
+To read a module drawing instead of a page, change the filter:
+
+```sh
+    if d.get("module") != "buck-5v": continue
+```
+
+Output — the module drawing's own geometry, in its local frame:
+
+```text
+C1       box 16..19 y 10.5..12.5  pins 1=17.5,7.5 2=17.5,15.5
+C2       box 60..63 y 16..18  pins 1=61.5,21 2=61.5,13
+C3       box 112..115.5 y 18.75..21.5  pins 1=113.5,16.5 2=113.5,24.5
+C4       box 116.5..119.5 y 19.5..21.5  pins 1=118,16.5 2=118,24.5
+D1       box 75..78 y 22..25  pins 1=76.5,19.5 2=76.5,27.5
+L1       box 84..89 y 9.875..10.5  pins 1=82.5,10.5 2=90.5,10.5
+```
+
+**Do not copy coordinates out of a document into a page.** A drawing's geometry moves whenever a
 part is re-placed, and a stale table of pin positions is worse than no table: it produces routes
 that miss. Read the geometry at the time of the repair.
 
@@ -188,9 +202,9 @@ What each source is good for:
 
 | Need | Source |
 |---|---|
-| Pin connection points, body boxes | `texteda review --out` → the page's `symbols` |
+| Pin connection points, body boxes | `texteda review --out` → the drawing's `symbols` |
 | Label / port / text ink boxes | the same payload's `texts` and `fields` |
-| Where a wire actually goes | the rendered SVG (`view render`, §4) |
+| Where a wire actually goes | the rendered drawing (`view render`, §4) |
 | What the checker thinks | `texteda check --json` |
 | How long a run is, how many crossings | `texteda view metrics` |
 
@@ -229,43 +243,68 @@ there and end every branch row on it. A plain two-arm corner is not a junction: 
 says so by omission. `view.wire-crossing` is **deprecated** — it is never emitted, it is kept only
 so old reports parse. Crossings show up as a number in `view metrics`, not as a diagnostic.
 
-To audit graph dots on a rendered page, compare `data-ref="junction:*"` with the page's `junction` rows. A
-perpendicular pin endpoint is a visual dot and has a `data-ref="pin-junction:*"`; it is intentionally not
-counted against the `junction` rows.
+To audit graph dots on a rendered page, compare `data-ref="junction:*"` with the drawing's
+`junction` rows. A perpendicular pin endpoint is a visual dot and has a `data-ref="pin-junction:*"`;
+it is intentionally not counted against the `junction` rows. The rows live in the file that draws
+them — the page's own `views/<page_id>.view.teda`, or the module drawing it places:
 
 ```sh
-grep -o 'data-ref="junction:[^"]*"' /tmp/page.svg | wc -l   # one graph dot per declared junction
-grep -c '^  [A-Za-z0-9_+-]*  *\[' examples/reference-project/views/modules/buck-5v.module-view.teda   # rows declared
+grep -o 'data-ref="junction:[^"]*"' /tmp/page.svg | wc -l
+awk '/^junction/{p=1;next} /^[a-z_]+/{p=0} p&&NF' examples/reference-project/views/modules/buck-5v.module-view.teda | wc -l
 ```
 
-The two graph-dot counts agree. A `pin-junction:*` circle without a `junction` row is expected when a
-wire ends perpendicularly on a pin; any other circle with no source rule is a renderer defect.
+On the reference project both counts are **7**: the composed page draws the seven junctions the
+`buck-5v` module drawing declares, and no more. A `pin-junction:*` circle without a `junction` row
+is expected when a wire ends perpendicularly on a pin (the reference page has **5** of those);
+any other circle with no source rule is a renderer defect.
 
 ## 4. Look at it: crop, do not re-render
 
-A whole-page render at the default scale is too small to judge. Crop the SVG instead of asking
-for another render: replace the root element's `width` / `height` / `viewBox` with a region of
-interest and a matching canvas size.
+A whole-page render at the default scale is too small to judge. Crop the drawing instead of asking
+for another render.
+
+`texteda view png` paints a region of the page in millimetres — the zoom a dense area needs, with
+no crop arithmetic to get wrong:
 
 ```sh
-bun run texteda view render examples/reference-project buck-5v --out /tmp/page.svg
+bun run texteda view render examples/reference-project main --out /tmp/page.svg
+bun run texteda view png examples/reference-project main --crop 420,25,444,50 --width 900 --out /tmp/page-crop.png
+```
+
+```text
+Wrote /tmp/page-crop.png (900×937 px, 34259 bytes)
+```
+
+**Where the window comes from.** The crop is in sheet millimetres, so take it from the geometry you
+just read: take the boxes of the symbols you want to look at from the payload, union them, and pad
+the union by a few millimetres. The example above is the union of the `M2.D1` and `M2.L1` boxes
+(`425 29.875 439 45`), padded by 5 mm on every side. Crop windows of roughly 40–60 mm are the
+useful size.
+
+For the vector drawing, the same window is a `viewBox` on the SVG root — one viewBox unit is one
+millimetre, so the crop's `x` / `y` are sheet coordinates:
+
+```sh
 python3 - <<'PY'
 import re, io
 s = io.open('/tmp/page.svg', encoding='utf-8').read()
-crop = re.sub(r'viewBox="[^"]*"', 'viewBox="150 78 92 48"', s, count=1)   # x y w h, in mm
-crop = re.sub(r'width="[^"]*" height="[^"]*"', 'width="920" height="480"', crop, count=1)
+crop = re.sub(r'viewBox="[^"]*"', 'viewBox="420 25 24 25"', s, count=1)   # x y w h, in mm
+crop = re.sub(r'width="[^"]*" height="[^"]*"', 'width="960" height="1000"', crop, count=1)
 io.open('/tmp/page-crop.svg', 'w', encoding='utf-8').write(crop)
 PY
 ```
 
-Then read `/tmp/page-crop.svg` as an image. Crop windows of roughly 40–60 mm are the useful size.
-
-The root element's `viewBox` is the **whole sheet** (`-2 -2 301 214` for an A4 landscape page),
-so the crop's `x` / `y` are sheet coordinates in millimetres — the same frame the `place` rows
-use, with the y axis flipped.
+The root element's `viewBox` is the **whole sheet plus a 2 mm margin** (`-2 -2 598 424` for the
+reference project's A2 page, whose sheet is `594.0 × 420.0 mm` — `view metrics` prints both), so
+the crop's `x` / `y` are sheet coordinates in millimetres — the same frame the `place` and
+`module_place` rows use, with the y axis flipped.
 
 The SVG's y axis is **flipped** relative to the `.teda` source: the model's `+y` is up, the SVG's
 is down. A source feature at `y = +2.0` appears at SVG `y = -2.0`.
+
+What you see in a crop is the drawing **and** the sheet furniture: the A2 template's rules and
+title block are drawn on the same canvas, so a grey rule may cross the artwork. A rule is not a
+net.
 
 ## 5. Measure a run against its Manhattan minimum
 
@@ -273,43 +312,55 @@ is down. A source feature at `y = +2.0` appears at SVG `y = -2.0`.
 layer, sum the segment lengths and compare with `|dx| + |dy|` between its first and last point:
 
 - ratio ≈ 1 → the run is honest, leave it;
-- ratio > ~1.5 → investigate a detour and rewrite the bend list when appropriate. This ratio is a review heuristic, not a route-quality gate; a route still needs the geometry, diagnostics, and visual review in §1.1.
+- ratio > ~1.5 → investigate a detour and rewrite the bend list when appropriate. This ratio is a
+  review heuristic, not a route-quality gate; a route still needs the geometry, diagnostics, and
+  visual review in §1.1.
+
+A ratio above 1 is **not** a defect on its own: a run that climbs over a part's body to reach a pin
+on the far side is doing exactly what it should. Ask what the run is going around before you
+shorten it.
 
 The same walk yields the `junction` layer's `circle` primitives with their nets — that is where
 the reader believes the connections are.
 
 The prerequisites are the same ones the review app uses: the project schematic root
-`design/sch/main.teda` compiled with its modules, and the instances built from the symbol library.
-`parseSchematic` expands the modules, so a page that names `M2.C1` needs the `modules` option —
-without it the renderer refuses the page with `no symbol facts for placed instance M2.C1`.
+`design/sch/main.teda` compiled with its modules, the instances built from the symbol library, and
+the module drawings the page places. A module drawing is drawn on **its own bounds** with the
+**module's own** instances (`C1`, not `M2.C1`), so measure it there — those are the coordinates the
+fix is written in.
+
+Run the probe **from the repository root** — a probe started in a temporary directory cannot resolve
+`@texteda/parser` (§11).
 
 ```ts
-import { readFileSync } from "node:fs";
 import { parseSchematic, parseView } from "@texteda/parser";
-import { renderSchematic } from "@texteda/renderer";
+import { renderModuleDrawing } from "@texteda/renderer";
 import { loadComponents, loadModules, loadSchematic, loadViews } from "./packages/cli/src/project.ts";
 import { loadSymbolLibrary, schematicInstances } from "./packages/cli/src/symbols.ts";
+import { loadPageComposition } from "./packages/cli/src/page-composition.ts";
 
 const root = "examples/reference-project";
 const { resolver, shards } = loadComponents(root);
-const symbolLibrary = loadSymbolLibrary(root);
-const componentOf = (id: string) => shards.find((s) => s.id === id)?.ir.component;
-
+const symbols = loadSymbolLibrary(root);
 const loaded = loadSchematic(root)!;
+const source = loadViews(root).find((view) => view.pageId === "main")!;
+const view = parseView(source.text, { file: source.file }).ir!;
 const schematic = parseSchematic(loaded.text, {
   file: loaded.file, components: resolver, modules: loadModules(root),
 }).ir!;
+const composition = loadPageComposition(root, view, symbols, { resolver, shards });
 const instances = schematicInstances(
   schematic,
   (id) => resolver.resolve(id)?.pins ?? [],
-  (id) => componentOf(id)?.symbol,
-  symbolLibrary,
+  (id) => shards.find((shard) => shard.id === id)?.ir.component.symbol,
+  symbols,
 );
 
-const viewSource = loadViews(root).find((source) => source.pageId === "buck-5v")!;
-const view = parseView(readFileSync(`${root}/${viewSource.file}`, "utf8"), { file: viewSource.file }).ir!;
-const doc = renderSchematic(view, instances);
+const drawing = composition.composition.drawings.get("buck-5v")!;
+const local = composition.composition.moduleInstances.get("buck-5v")!;
+const doc = renderModuleDrawing(drawing, local);
 
+const mm = (nm: number): string => (nm / 1e6).toFixed(1);
 for (const p of doc.primitives) {
   if (p.kind !== "polyline" || p.layer !== "wire") continue;
   const pts = p.points;
@@ -317,21 +368,38 @@ for (const p of doc.primitives) {
   for (let i = 1; i < pts.length; i++) drawn += Math.hypot(pts[i]!.x - pts[i-1]!.x, pts[i]!.y - pts[i-1]!.y);
   const a = pts[0]!, b = pts[pts.length - 1]!;
   const min = Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
-  if (min > 0 && drawn / min > 1.5) console.log("detour", drawn / min, pts);
+  const ratio = min > 0 ? drawn / min : 0;
+  const redundant = pts.some((q, i) => i >= 2 && q.x === pts[i-1]!.x && q.y === pts[i-1]!.y);
+  const points = pts.map((q) => `${mm(q.x)},${mm(q.y)}`).join(" ");
+  console.log(`${ratio > 1.5 ? "DETOUR" : "      "} ratio ${ratio.toFixed(2)} ${points}${redundant ? "  REDUNDANT" : ""}`);
 }
 ```
 
-Run it **from the repository root** — a probe started in a temporary directory cannot resolve
-`@texteda/parser` (§11).
+Output on the reference project — the wired module drawing has **24** runs:
+
+```text
+       ratio 1.00 61.5,21.0 61.5,23.5 55.0,23.5
+       ratio 1.00 17.5,15.5 17.5,36.5
+       ratio 1.00 113.5,24.5 113.5,36.5
+       ...
+       ratio 1.22 17.5,7.5 17.5,4.5 40.0,4.5 40.0,12.5
+       ...
+```
+
+Every run but one is honest (ratio 1.00). The one at 1.22 is the `SYS` run from `C1.1` to `U1.7`:
+it climbs over the top of the converter to reach a pin on the far side, so the length is earned.
+No run repeats a vertex — the redundant-vertex case is detected by the `REDUNDANT` marker, and the
+reference project has none today.
 
 The primitives carry **nanometres**, so divide by `1e6` for millimetres. `p.layer` is the string
 `"wire"`; the layer is on every primitive, and `p.kind` is `"polyline"` for a run.
 
-A run whose last point repeats its predecessor is a **redundant vertex** — the same finding,
-seen from the other end. The reference page has one such run, and the detour ratio exposes it.
+To measure the composed page instead of the module drawing, swap the last two lines for
+`renderComposedPage(composition.view, instances, composition.composition)` — same numbers, in the
+page's frame.
 
 Then: replace the over-long run's bends with the minimal elbow — **one** corner when the two pins
-share neither coordinate, **two** when the path must clear a body or a text. Keep the page
+share neither coordinate, **two** when the path must clear a body or a text. Keep the drawing
 canonical: write the coordinates on the grid the file already uses, then confirm the formatter is
 a fixed point.
 
@@ -364,8 +432,8 @@ These are the recurring ones on a page that is already wrong.
 - **A label must land on its own net.** Moving a label to dodge an overlap easily produces
   `view.label-not-on-net`; only label / port / text coordinates are free text, and each one has to
   sit on a wire of its net or on a pin of it.
-- **Approach a left-side pin from the left.** A run leaving a pin on the body's left edge toward
-  the right crosses the body. Go left first, then up or down, then across.
+- **Approach a left-side pin from the left.** A run leaving a pin on the body's left edge toward the
+  right crosses the body. Go left first, then up or down, then across.
 - **The checker does not see pin-graphic crossings.** It tests a wire against a pin's connection
   point and its drawn stroke, but a wire crossing a *part's artwork* is only visible in the
   render. Eyeball the crop (§4).
@@ -405,15 +473,46 @@ Loop against numbers, not pixels.
 ```sh
 bun run view:verify examples/reference-project          # the 0.5 mm lattice gate
 bun run texteda check examples/reference-project --json  # 0 errors; no view.* on this page
-bun run texteda view metrics examples/reference-project buck-5v
-bun run texteda view render examples/reference-project buck-5v --out /tmp/page.svg
+bun run texteda view metrics examples/reference-project main
+bun run texteda view render examples/reference-project main --out /tmp/page.svg
 bun run fmt:teda examples/reference-project
 bun run fmt:teda --check examples/reference-project
 ```
 
+The lattice gate covers the page and the module drawings:
+
+```text
+view:verify ok — 1 print page(s) and 3 module drawing(s) on the 0.5 mm lattice
+```
+
+The page's own numbers:
+
+```text
+main/main — 594.0 × 420.0 mm sheet
+content   x 39.5..578.8  y 23.9..401.0 mm  (81.5% of the sheet)
+counts    82 instances, 6 labels, 15 ports, 3 notes, 0 wires, 44 nets undrawn
+spacing   label min gap 7.4 mm, text min gap 7.4 mm
+wires     0.0 mm total, 0 crossings of other nets, 0 through a body
+```
+
+The page carries no wires of its own: it composes three module drawings and draws the two
+interconnects, so `0 wires` is the truth about the **page**, not about the product.
+
 When filtering the check output, keep the `view.*` findings and drop `view.nets-not-drawn` (a
-project-level count that a partial page may legitimately have). Require **zero other** `view.*`
-warnings.
+project-level count that a partial drawing may legitimately have). Require **zero other** `view.*`
+warnings:
+
+```sh
+bun run texteda check examples/reference-project --json | python3 -c "
+import json, sys
+payload = json.load(sys.stdin)
+print([d['code'] for d in payload['diagnostics'] if d['code'].startswith('view.')])
+"
+```
+
+```text
+['view.nets-not-drawn']
+```
 
 Acceptance:
 
@@ -441,20 +540,29 @@ bun run lib:verify
 
 ## 10. Fixture drift is not an implementation regression
 
-Two tests assume the reference page is already clean and that `view rewire` is a no-op on it:
-`packages/cli/test/layout-places.test.ts` and `packages/cli/test/view.test.ts`. A fixture that
-needs rewiring makes the tool see an already-fixed project. When they fail after a page edit, the
-page is what changed — **fix the page, never the tests**.
+The page-shaped verbs are exercised on a **fixture**, not on the reference project's own drawing:
+`packages/cli/test/view.test.ts` and `packages/cli/test/layout-places.test.ts` copy the reference
+project into a scratch directory and write the historical detail page
+`packages/cli/test/fixtures/legacy-buck.view.teda` into it as `views/buck-5v.view.teda`
+(`view.test.ts` also restores `legacy-charger.view.teda` the same way). Editing the reference
+project's own drawings therefore does not move these tests; editing the fixture does, and a fixture
+that needs rewiring makes the tool see an already-fixed project. When they fail after a drawing
+edit, the drawing is what changed — **fix the drawing, never the tests**.
 
 ## 11. Traps around the tooling
 
 - An ad-hoc Bun probe started from a temporary directory dies with
   `Cannot find package '@texteda/parser'`. Give the probe directory a `node_modules` symlink to
   the repository's, or run it with the repository as `cwd`.
+- The review payload is **one** JSON object after `window.__TEXTEDA_REVIEW__ = `. Read it with
+  `json.JSONDecoder().raw_decode`; splitting the file at the first `;` cuts a string in half.
 - `formatComponent` does not exist: `component` files have no canonical formatter. A "format
   everything" smoke therefore covers footprint / symbol / schematic / module / view / pcb /
   procurement and project metadata only.
 - `texteda view render` writes `dist/view/<page>.svg` unless `--out` says otherwise.
+- `view render`, `view metrics` and `view png` take a **print-page** id. A module drawing is not a
+  page: `view render examples/reference-project buck-5v` fails with `Print page buck-5v not found
+  (available: main)`. Measure a module drawing with the probe in §5.
 
 ## 12. What not to do
 
@@ -462,7 +570,9 @@ page is what changed — **fix the page, never the tests**.
   onto moved pins and reseats labels; it does not find a path, avoid bodies or pins, and it can
   leave a bend off the `0.01 mm` format resolution, which the parser then rejects as
   `value.length-invalid`.
-- Do not copy pin coordinates from any document into a page; read them at repair time (§2).
+- Do not copy pin coordinates from any document into a drawing; read them at repair time (§2).
+- Do not write coordinates in the composed page's frame into a module drawing, or the other way
+  round (§2.1).
 - Do not write a junction record, and do not draw a dot where the geometry does not make one
   (§3).
 - Do not treat a crossing as a defect to route around. It is legal, and routing around it may
@@ -471,7 +581,7 @@ page is what changed — **fix the page, never the tests**.
   `version` line first, or the page stops parsing.
 - Do not overwrite a reviewed view with a regenerated one
   ([ADR-0035](../adr/09-view/0035-the-view-layer-is-a-drawing.md)).
-- Do not edit a test to accommodate a page you changed (§10).
+- Do not edit a test to accommodate a drawing you changed (§10).
 
 ## 13. References
 
@@ -479,6 +589,8 @@ page is what changed — **fix the page, never the tests**.
 - [`spec/schematic-view.md`](../../spec/schematic-view.md) §5.1 (junctions).
 - [`spec/schematic-view.md`](../../spec/schematic-view.md) §9.2 (warnings).
 - [`spec/schematic-view.md`](../../spec/schematic-view.md) §9.5 (round-trip).
+- [`spec/rendering.md`](../../spec/rendering.md) §2–§3: the drawing commands, the two backends, and
+  what a picture is not.
 - [ADR-0042](../adr/09-view/0042-the-review-app-has-modes.md) D5, D6: what `view rewire` does
   and is not.
 - [ADR-0059](../adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1:
