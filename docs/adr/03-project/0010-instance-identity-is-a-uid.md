@@ -139,7 +139,7 @@ the current contract version lives in `schemas/ir/`.
 The language moved too: a file written before the UID existed may omit it (legacy identity), and a
 file at or above the current language version should carry it. `check` reports a missing UID as a
 warning, so an old file is not silently mistaken for a stable-identity design. The versions
-themselves are stated in `spec/teda.md` §13.1.
+themselves are stated in `spec/teda.md` §12.1.
 
 **One version number, one ceiling.** This record was written when the language had a version line
 per description type, and it moved two of them. That model is gone: the language has one version

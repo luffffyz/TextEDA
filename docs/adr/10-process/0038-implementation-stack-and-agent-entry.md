@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-21
 Scope: Decides: the implementation stack, and the single entry point an agent uses — the generated contract reference and `texteda check`. Does not decide: what the checker enforces — see `spec/teda.md` §11.
-Related: [ADR-0003](../01-language/0003-diagnostic-error-codes.md), [ADR-0039](0039-licensing-and-open-standard.md), [ADR-0041](0041-documentation-has-one-authority-per-fact.md)
+Related: [ADR-0003](../01-language/0003-diagnostic-error-codes.md), [ADR-0039](0039-licensing-and-open-standard.md), [ADR-0041](0041-documentation-has-one-authority-per-fact.md), [ADR-0045](0045-the-mcp-server-is-a-slice-we-write-ourselves.md)
 Impact: `package.json`; `tsconfig.base.json`; `packages/ir/scripts/**`; `packages/ir/src/generated/**`; `docs/ir-reference.md`
 
 ## Background

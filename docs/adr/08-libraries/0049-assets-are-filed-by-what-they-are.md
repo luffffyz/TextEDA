@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-30
 Scope: Decides: that the directory under `assets/components/`, `assets/symbols/` and `assets/footprints/` is a **classification**, that symbols use the device's axis and footprints use a package axis of their own, and that a reference to either is `<classification>:<id>`. Does not decide: the format of the symbol and the footprint themselves — see ADR-0031 and ADR-0030.
 Related: [ADR-0008](../03-project/0008-project-tree-has-owners.md), [ADR-0024](../07-devices/0024-the-device-kind-is-part-or-generic.md), [ADR-0030](0030-footprint-format-and-geometry.md), [ADR-0031](0031-symbol-format.md), [ADR-0034](0034-trust-in-a-library-you-do-not-own.md), [ADR-0048](../09-view/0048-the-review-app-shows-drawings.md)
-Impact: `spec/teda.md` §2 and §13.4; `spec/symbol.md`; `spec/footprint.md`; `packages/cli` (the library loaders, the shard writer, `lib import`); `core`/`viewer` (the review app's library listing); `examples/reference-project/assets/**`
+Impact: `spec/teda.md` §2 and §12.4; `spec/symbol.md`; `spec/footprint.md`; `packages/cli` (the library loaders, the shard writer, `lib import`); `core`/`viewer` (the review app's library listing); `examples/reference-project/assets/**`
 
 ## Background
 

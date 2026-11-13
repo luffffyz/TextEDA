@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-11-01
 Scope: Decides: how the reference renderer measures pin-number clearance perpendicular to the pin line. Does not decide: placement direction or body-side clearance, which are covered by [ADR-0050](0050-pin-number-placement-is-a-renderer-convention.md) and [ADR-0052](0052-pin-number-body-clearance-is-measured-from-symbol-body-bounds.md), or symbol source and export contracts, which remain covered by [ADR-0031](../08-libraries/0031-symbol-format.md) and [ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md).
-Related: [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0050](0050-pin-number-placement-is-a-renderer-convention.md), [ADR-0052](0052-pin-number-body-clearance-is-measured-from-symbol-body-bounds.md)
+Related: [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0050](0050-pin-number-placement-is-a-renderer-convention.md), [ADR-0052](0052-pin-number-body-clearance-is-measured-from-symbol-body-bounds.md), [ADR-0058](../08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md)
 Impact: `packages/renderer/src/symbol.ts`; `packages/renderer/test/symbol-placement.test.ts`; `docs/skills/library-authoring.md`
 
 ## Context

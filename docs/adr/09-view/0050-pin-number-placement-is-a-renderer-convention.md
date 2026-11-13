@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-11-01
 Scope: Decides: how the reference symbol renderer places visible pin-number labels. Does not decide: pin-name placement, which is covered by [ADR-0053](0053-pin-name-body-clearance-is-measured-from-symbol-body-bounds.md), or symbol-file capabilities, which remain covered by [ADR-0031](../08-libraries/0031-symbol-format.md), body-frame clearance, which is covered by [ADR-0052](0052-pin-number-body-clearance-is-measured-from-symbol-body-bounds.md), or downstream export geometry, which remains covered by [ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md).
-Related: [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0051](0051-pin-number-clearance-is-measured-from-painted-ink.md), [ADR-0052](0052-pin-number-body-clearance-is-measured-from-symbol-body-bounds.md), [ADR-0053](0053-pin-name-body-clearance-is-measured-from-symbol-body-bounds.md)
+Related: [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0051](0051-pin-number-clearance-is-measured-from-painted-ink.md), [ADR-0052](0052-pin-number-body-clearance-is-measured-from-symbol-body-bounds.md), [ADR-0053](0053-pin-name-body-clearance-is-measured-from-symbol-body-bounds.md), [ADR-0058](../08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md)
 Impact: `packages/renderer/src/symbol.ts`; `packages/renderer/test/symbol-placement.test.ts`; `docs/skills/library-authoring.md`
 
 ## Context

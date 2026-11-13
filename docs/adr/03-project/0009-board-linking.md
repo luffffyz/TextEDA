@@ -12,7 +12,7 @@ The project is a multi-board system (in the reference project: `charger` + `buck
 
 - A board cannot reference another board; otherwise board A has to follow every change made to board B, which breaks the invariant that "sch is an independent description, just like pcb" (`AGENTS.md` §2 item 12).
 - `project.toml` carries metadata only (board list, variants, library locks), not circuits.
-- Intra-board hierarchy (`module` + port mapping) is not defined yet (`AGENTS.md` §5.3, `teda.md` §15), so it cannot be passed off as inter-board connectivity.
+- Intra-board hierarchy (`module` + port mapping) is not defined yet (`AGENTS.md` §5.3, `teda.md` §14), so it cannot be passed off as inter-board connectivity.
 
 In real projects, inter-board connection is an **interface problem**: which node of which board leaves the board, over which wire / which connector pair, and into which node of the other board. This kind of information belongs neither to the internal circuit of any single board nor to project metadata, so it needs a place of its own.
 

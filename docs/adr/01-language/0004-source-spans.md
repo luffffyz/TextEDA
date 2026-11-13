@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-22
 Scope: Decides: that source positions never enter the IR, that the compiler carries a source map beside it, and that the persisted identity index is an advisory artifact. Does not decide: the grouping of a multi-site diagnostic's `related` locations — that is still open.
-Related: [ADR-0003](0003-diagnostic-error-codes.md), [ADR-0005](../02-ir/0005-ir-representation.md), [ADR-0006](../02-ir/0006-ir-shards-and-hashes.md), [ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md)
+Related: [ADR-0003](0003-diagnostic-error-codes.md), [ADR-0005](../02-ir/0005-ir-representation.md), [ADR-0006](../02-ir/0006-ir-shards-and-hashes.md), [ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md), [ADR-0042](../09-view/0042-the-review-app-has-modes.md)
 Impact: `packages/parser` (the source map the compiler builds); `packages/ir` (the diagnostic location type); `packages/cli/src/identity.ts`; `spec/**` (the position model)
 
 ## Background
@@ -111,14 +111,14 @@ Its shape is fixed by its first consumer, the review app's jump-to-source:
       {
         "kind": "instance",
         "label": "sch instance row",
-        "file": "design/modules/buck-5v.teda",
+        "file": "design/sch/modules/buck-5v.teda",
         "line": 10,
         "col": 3
       },
       {
         "kind": "view-place",
         "label": "view place (buck-5v)",
-        "file": "views/charger-buck/buck-5v.view.teda",
+        "file": "views/main.view.teda",
         "line": 12,
         "col": 3
       }
@@ -132,9 +132,9 @@ Its shape is fixed by its first consumer, the review app's jump-to-source:
   project hash, a board hash or `advisory_hash`. Moving it, deleting it or editing it changes no
   build identity.
 - **The key is the identity, the value is every place it appears.** The namespaces are
-  `instance:<board>/<id>`, `net:<board>/<id>`, `port:<board>/<id>`, `component:<component-id>`,
+  `instance:<project>/<id>`, `net:<project>/<id>`, `port:<project>/<id>`, `component:<component-id>`,
   `component-pin:<component-id>/<pin-number>`, `symbol:<lib>:<id>` and
-  `footprint:<lib>:<id>`. Board-level instances are the flattened ids (`M2.C1`), and a module-local
+  `footprint:<lib>:<id>`. A project's instances are the flattened ids (`M2.C1`), and a module-local
   row points at its module file because that is where the fact is written.
 - **Occurrences share the identity key.** A print-page `place` appends to its instance, a `wire`
   or `label` to its net, a `port` to its port, and a PCB `place` to its instance. The `kind` and

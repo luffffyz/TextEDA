@@ -158,7 +158,7 @@ attached to parts, so they are stored with the parts rather than with the footpr
 - **One statement of the package.** The land pattern file says what the package is; every device
   that sits on it says nothing about it, so the two can no longer disagree. A device file that
   still writes `package` is an error, not an unknown key — the parser reports
-  `syntax.removed-construct` and points at the note in `spec/teda.md` §13.4 — and the `package`
+  `syntax.removed-construct` and points at the note in `spec/teda.md` §12.4 — and the `package`
   and `footprint` names stay reserved as parameter columns.
 - **A library can serve several manufacturers.** The same `chip-0402` land pattern carries the
   bodies of every 0402 capacitor the project uses, each part pointing at its own model, each

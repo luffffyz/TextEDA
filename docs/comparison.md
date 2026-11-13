@@ -224,7 +224,7 @@ The comparison is only honest if the gaps are on the same page as the features:
 | No manufacturing output | the pipeline ends at KiCad import for now | backlog F15, target shape decided in [ADR-0021](adr/06-manufacturing/0021-the-manufacturing-output-path.md) |
 | Agent-facing DRC is not implemented | the agent loop has no geometric feedback yet | ADR-0017; DRC subset is planned in `packages/core` |
 | Identity is the flattened name for references | an instance has a stable `uid`, but net/view/pcb references and hashes still follow display names, so renames are not diff-stable | [ADR-0010](adr/03-project/0010-instance-identity-is-a-uid.md) |
-| No third-party conformance proof | "standard" is currently a claim backed by one reference project and 4 landed cases, not by independent implementations | backlog F12 (4 of 10 cases), deliberately deferred |
+| No third-party conformance proof | "standard" is currently a claim backed by one reference project and the landed cases, not by independent implementations | backlog F12 (nine of ten cases landed — see `examples/cases/README.md`), deliberately deferred |
 | No physical sign-off | the design is checked, but no DRC-grade rule set and no manufacturing files | by design — CAM judgement is borrowed ([ADR-0021](adr/06-manufacturing/0021-the-manufacturing-output-path.md) D2) |
 | Small, project-built library | real parts must be authored per project | by design — see [ADR-0030](adr/08-libraries/0030-footprint-format-and-geometry.md) |
 
@@ -268,7 +268,7 @@ not a reference model for the IR.
 TextEDA's claim is that the contract layer becomes the standard. That claim is ahead of the
 evidence: it needs a working agent layout/routing loop with a real DRC subset
 ([ADR-0017](adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)), the full ten-case conformance corpus
-(F12 — 4 of 10 landed), rekeying references to stable instance UIDs
+(F12 — nine of ten landed; see `examples/cases/README.md`), rekeying references to stable instance UIDs
 ([ADR-0010](adr/03-project/0010-instance-identity-is-a-uid.md)), a third-party implementation
 (F4), and a language version that reaches 1.0 ([ADR-0002](adr/01-language/0002-one-language-version-number.md)). Until
 then the honest position is: **a well-specified, machine-checkable description language with a

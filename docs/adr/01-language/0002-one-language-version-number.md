@@ -2,9 +2,9 @@
 
 Status: Accepted
 Date: 2026-10-27
-Scope: Decides: that the language has one version number, that additive language changes may take an explicitly recorded MINOR step while compatible clarifications take PATCH, and that each description type has a reader floor which may advance when an explicit breaking surface migration requires it. Does not decide: when the surface is frozen — `1.0` is reserved for that, see `spec/teda.md` §13.2.
-Related: [ADR-0001](0001-fact-layer-has-no-expressions.md), [ADR-0006](../02-ir/0006-ir-shards-and-hashes.md), [ADR-0011](../03-project/0011-renumbering-is-a-code-executed-rename.md), [ADR-0041](../10-process/0041-documentation-has-one-authority-per-fact.md), [ADR-0055](../09-view/0055-schematic-fields-are-view-overrides.md), [ADR-0065](0065-a-coordinate-tuple-is-one-cell.md), [ADR-0068](../09-view/0068-reusable-module-drawings-and-sheet-templates.md)
-Impact: `spec/teda.md` §13; `packages/parser/src/version.ts`; `scripts/migrate-0.9.ts`; `scripts/migrate-0.11.ts`; `examples/**`
+Scope: Decides: that the language has one version number, that additive language changes may take an explicitly recorded MINOR step while compatible clarifications take PATCH, and that each description type has a reader floor which may advance when an explicit breaking surface migration requires it. Does not decide: when the surface is frozen — `1.0` is reserved for that, see `spec/teda.md` §12.2.
+Related: [ADR-0001](0001-fact-layer-has-no-expressions.md), [ADR-0006](../02-ir/0006-ir-shards-and-hashes.md), [ADR-0011](../03-project/0011-renumbering-is-a-code-executed-rename.md), [ADR-0041](../10-process/0041-documentation-has-one-authority-per-fact.md), [ADR-0055](../09-view/0055-schematic-fields-are-view-overrides.md), [ADR-0065](0065-a-coordinate-tuple-is-one-cell.md), [ADR-0067](../09-view/0067-hierarchical-module-views-and-custom-page-size.md), [ADR-0068](../09-view/0068-reusable-module-drawings-and-sheet-templates.md)
+Impact: `spec/teda.md` §12; `packages/parser/src/version.ts`; `scripts/migrate-0.9.ts`; `scripts/migrate-0.11.ts`; `examples/**`
 
 ## Background
 
@@ -65,6 +65,11 @@ Each position has one meaning, and the meaning is about **which files are accept
 | MINOR | a description type, a section, or a field is added | the old files stay valid; a file may use the new construct only from this version on |
 | PATCH | **the set of accepted files does not change**: a new diagnostic code, a reworded message, a clarified rule, a stricter check on files that were already invalid | behaviour changes, compatibility does not |
 
+The MAJOR position is for a language that has passed `1.0`. Inside the `0.x` line it never moves: a
+breaking change is recorded on the MINOR position, under an explicit decision, a migration note and
+a migration script (D5). The precedents are the flat-board rewrite at `0.7` and the project-root
+rewrite at `0.14` — both changed what a file means, and both rode on MINOR.
+
 ### D2. The Language Has One Version Number
 
 Every `.teda` file declares the version of the language it was written against, and that number is
@@ -86,10 +91,13 @@ MINOR is **not above the language version the tool supports**. The patch is igno
 The reader floor is the oldest surface form that the current parser accepts for that type. It is
 usually the language version that introduced the type, but it may be raised by a later breaking
 surface rewrite. The `pcb` floor first advanced from its introduction at `0.4` to `0.7` when the
-flat-board change rewrote its shape. The `view`, `pcb`, `symbol`, and `footprint` floors are now
-`0.11`, because the coordinate-tuple rewrite changes their lexical surface. Other types retain
-their earlier floors. These reader floors are maintained in `spec/teda.md` §13.1 and
-`packages/parser/src/version.ts`; historical introduction versions remain separate facts.
+flat-board change rewrote its shape, and the coordinate-tuple rewrite later moved the geometry types
+again ([ADR-0065](0065-a-coordinate-tuple-is-one-cell.md) D5).
+
+**The current floor of each type is not restated here** — it moves with the surface, and a copy
+inside a record goes stale: `spec/teda.md` §12.1 holds the table, `packages/parser/src/version.ts`
+implements it, and `packages/parser/test/version-spec.test.ts` pins the two together. Historical
+introduction versions remain separate facts.
 
 The upper bound is the **language** version for every type, not the version at which the type last
 changed. This matters: before this rule, the `symbol` parser refused anything above `0.5` and the
@@ -106,18 +114,22 @@ diagnostic improvement remains a PATCH.
 
 A removal needs a mechanism too. Before `1.0`, a removal requires an explicit decision, a migration
 note, and a migration script; the old files may stop being valid only under that recorded decision.
-After `1.0`, only PATCH releases follow and no new description types, sections, or fields may be
+The step is recorded on the MINOR position — the MAJOR position stays `0` for the whole `0.x`
+line — and a breaking change rides on the same MINOR step as any additive change that comes with
+it. After `1.0`, only PATCH releases follow and no new description types, sections, or fields may be
 added.
 
 ### D6. `1.0` Is a Milestone, Not a Counter
 
 Reaching `1.0` requires an explicit decision, recorded as a record of its own, meaning: the
 language surface is frozen. After that only PATCH releases follow (`1.0.1`, `1.0.2`, …): no new
-description types, no new sections, no new fields. A version number that runs out is not a reason
-to ship.
+description types, no new sections, no new fields. A later change to the frozen surface is a new
+MAJOR — `2.0` — with its own migration note and migration script, so the `1.x` line holds only
+`1.0`, `1.0.1`, `1.0.2`, … . A version number that runs out is not a reason to ship.
 
-`1.0` stays reserved. It means the surface is frozen (`spec/teda.md` §13.2), which needs the
-ten-case corpus; the corpus is at four of ten (`docs/backlog.md` F12). The single-number merge is
+`1.0` stays reserved. It means the surface is frozen (`spec/teda.md` §12.2), which needs the
+ten-case corpus; the corpus is not complete yet (which cases are written:
+`examples/cases/README.md`; the item: `docs/backlog.md` F12). The single-number merge is
 not the freeze, and it does not spend the one number that means something.
 
 ### D7. One Version Module
@@ -136,7 +148,7 @@ moved and why, so the two lines can be read together.
 
 ### D9. The Changelog Lives With the Language
 
-`spec/teda.md` §13.4 is the changelog: newest first, one entry per version, saying what changed and
+`spec/teda.md` §12.4 is the changelog: newest first, one entry per version, saying what changed and
 pointing at the record that decided it. A PATCH that changes nothing but diagnostics, wording, or a
 stricter check of an already illegal file still gets an entry, because that is exactly the kind of
 change a reader of the language wants to know about.
@@ -158,7 +170,7 @@ affected description types, in which case files of those types must migrate whil
 their prior floors. The IR shard records the source file's declared language version, so only shards
 produced from changed source files acquire that format value and any resulting hash changes.
 
-Any required migration is scoped to the affected construct and documented in `spec/teda.md` §13.4.
+Any required migration is scoped to the affected construct and documented in `spec/teda.md` §12.4.
 A migration script may rewrite the affected files and update `project.toml` when explicitly run, but
 a release does not silently rewrite every `.teda` file or every project's `format` key.
 
@@ -170,7 +182,7 @@ a release does not silently rewrite every `.teda` file or every project's `forma
 - The parsers accept a file at the current language version. The upper bound is shared; each type
   keeps its reader floor, which can advance beyond its historical introduction after a breaking
   surface migration.
-- The parser gets simpler: one number and nine floors. `packages/parser/src/version.ts` loses the
+- The parser gets simpler: one number and one floor per description type. `packages/parser/src/version.ts` loses the
   per-type ceiling, and the type table keeps only the floor of each type.
 - The one construct-level gate in the parser keeps its meaning. The instance UID column is allowed
   from `0.9` (`packages/parser/src/schematic.ts`), and it reads the same way after the merge — a

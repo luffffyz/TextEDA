@@ -512,6 +512,69 @@ describe("scripts/check-links.ts", () => {
     }
   });
 
+  // The `Related:` line is how a reader walks sideways through the corpus, so a one-way edge hides
+  // half of the context from the record that is named.
+  test("requires a Related relation to be symmetric", () => {
+    const root = makeTree({
+      "docs/adr/language/0100-fact.md": `${scopedAdrFile("0100", "Fact", "Accepted", "2026-10-20")}Related: [ADR-0101](../ir/0101-other.md)\n`,
+      "docs/adr/ir/0101-other.md": scopedAdrFile("0101", "Other", "Accepted", "2026-10-20"),
+      "docs/adr/README.md": `${minimalIndex}\n${indexRow("0100", "language/0100-fact.md", "Fact", "Accepted", "2026-10-20")}\n${indexRow("0101", "ir/0101-other.md", "Other", "Accepted", "2026-10-20")}\n`,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(
+        problems.some((p) => p.includes("ADR-0100 names ADR-0101") && p.includes("does not name it back")),
+      ).toBe(true);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("accepts a symmetric Related relation", () => {
+    const root = makeTree({
+      "docs/adr/language/0100-fact.md": `${scopedAdrFile("0100", "Fact", "Accepted", "2026-10-20")}Related: [ADR-0101](../ir/0101-other.md)\n`,
+      "docs/adr/ir/0101-other.md": `${scopedAdrFile("0101", "Other", "Accepted", "2026-10-20")}Related: [ADR-0100](../language/0100-fact.md)\n`,
+      "docs/adr/README.md": `${minimalIndex}\n${indexRow("0100", "language/0100-fact.md", "Fact", "Accepted", "2026-10-20")}\n${indexRow("0101", "ir/0101-other.md", "Other", "Accepted", "2026-10-20")}\n`,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  // The corpus writes a range as `§§7.5–7.7`: two section signs, an en dash, and both ends named.
+  // The checker reads the form the corpus uses, and it checks the far end too — a range whose end
+  // does not exist is exactly the drift a single-number check would miss.
+  test("resolves a section range and checks both ends", () => {
+    const root = makeTree({
+      "spec/a.md": "# A\n\n## 4.2 Detail\n\n### 4.4 Deeper\n",
+      "prose.md": "# Prose\n\nSee `spec/a.md` §§4.2–4.4 for the detail.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems).toHaveLength(0);
+    } finally {
+      removeTree(root);
+    }
+  });
+
+  test("reports a range whose far end does not exist", () => {
+    const root = makeTree({
+      "spec/a.md": "# A\n\n## 4.2 Detail\n",
+      "prose.md": "# Prose\n\nSee `spec/a.md` §§4.2–4.9 for the detail.\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems.some((p) => p.includes("spec/a.md §4.9"))).toBe(true);
+    } finally {
+      removeTree(root);
+    }
+  });
+
   // A list that continues after the first number keeps the file it names: `a.md §3–§5, §10` says
   // three things about one file, and the second and third are not bare numbers.
   test("binds a continued list to the file it names", () => {

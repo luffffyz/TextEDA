@@ -62,7 +62,7 @@ export interface VersionRange {
 }
 
 /**
- * The language version this implementation understands (teda.md §13).
+ * The language version this implementation understands (teda.md §12).
  *
  * The language has one version number (ADR-0002): every `.teda` file declares the version of the
  * language it was written against, and it is the same for all description types. It is the `0.x`

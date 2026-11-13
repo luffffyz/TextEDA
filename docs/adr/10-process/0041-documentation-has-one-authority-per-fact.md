@@ -47,7 +47,7 @@ Two properties made this fixable rather than merely regrettable:
 
 **D1. One authority per fact; everything else holds a pointer.**
 
-A fact lives in exactly one file. The current contract version lives in `spec/teda.md` §13.1 and in
+A fact lives in exactly one file. The current contract version lives in `spec/teda.md` §12.1 and in
 `schemas/ir/v0.14/`; the `project.toml` keys live in `spec/project.md`; the KiCad size measurements
 live in `docs/comparison.md`; a package's behavior lives in its source. Anywhere else, the fact is
 either omitted or written as a pointer to the file that owns it.
@@ -65,8 +65,10 @@ Three forms are checked by `bun run check:links`:
 - a bare `§N` is accepted only if this file or some file in the tree declares that number. It is not
   resolved to a specific file, because it cannot be: most bare references name a number that more
   than one file declares. The rule that follows is D3.
-- `F12` resolves to a `## F12.` heading in `docs/backlog.md`, or to the closure list in its preamble
-  where a finished item is recorded as closed. A number that is neither is reported.
+- `F12` resolves to a `## F12.` heading in `docs/backlog.md` — the list holds the work that is still
+  open, and a finished item leaves it entirely. A number that is no longer open is reported: an
+  error in a live document, a warning in a record, which keeps the pointer it was written with. The
+  commit that removed the item is the record of what it pointed at.
 
 **D3. Write the qualified form outside the file that owns the section.**
 
@@ -93,7 +95,7 @@ Everywhere else — spec, guides, READMEs, `AGENTS.md`, `skills` — a dead poin
 D1 says a fact lives in one place. Two places are not a rule change — they are a fact that cannot
 be stated once, and such a pair has to be pinned rather than trusted.
 
-The language version table is the case. `spec/teda.md` §13.1 has to list it, because the contract
+The language version table is the case. `spec/teda.md` §12.1 has to list it, because the contract
 layer has to be readable on its own by a third-party implementer who will never open this
 repository. `packages/parser/src/version.ts` has to hold it, because the parser decides what it
 accepts. The two are not the same statement either: the spec carries the patch component of the
@@ -114,9 +116,9 @@ not that the two ends say the same thing.
 - **The current values are not in the index.** The current language version and the current IR
   contract version must not appear in `AGENTS.md` outside a code span. They are the facts that
   move, and a copy of a moving fact in the index is a copy that will be wrong. The version table
-  in `spec/teda.md` §13.1 and the directory name under `schemas/ir/` own them.
+  in `spec/teda.md` §12.1 and the directory name under `schemas/ir/` own them.
 - **The changelog's newest entry is the current version.** The language's changelog lives in
-  `spec/teda.md` §13.4, one entry per version, newest first. A version that is not in the changelog
+  `spec/teda.md` §12.4, one entry per version, newest first. A version that is not in the changelog
   cannot be the current one, which is what makes "record a changelog entry" a rule with teeth
   instead of a habit.
 

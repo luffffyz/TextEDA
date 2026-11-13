@@ -3,6 +3,7 @@
 Status: Accepted
 Date: 2026-11-08
 Scope: Decides: that `symbol` and `footprint` IR shards carry a required normalized language `format`, and that this additive contract change is published as IR contract `v0.16` while `v0.15` remains unchanged. Does not decide: any new language syntax or a migration that reconstructs a missing source-language version from an old compiled shard.
+Related: [ADR-0067](../09-view/0067-hierarchical-module-views-and-custom-page-size.md)
 Impact: `schemas/ir/v0.16/`; `packages/parser/src/symbol.ts`; `packages/parser/src/footprint.ts`; generated IR types and reference; `spec/symbol.md`; `spec/footprint.md`
 
 ## Background

@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-21
 Scope: Decides: that diagnostics carry a `domain.slug` code from a closed domain vocabulary, that the registry is the single source of truth, and that a shipped code is frozen. Does not decide: the wording of a message, nor the severity of a given check — severity is a property of the registry entry, and the wording belongs to the call site.
-Related: [ADR-0004](0004-source-spans.md), [ADR-0038](../10-process/0038-implementation-stack-and-agent-entry.md), [ADR-0041](../10-process/0041-documentation-has-one-authority-per-fact.md), [ADR-0062](../09-view/0062-a-run-may-end-at-a-port.md).
+Related: [ADR-0004](0004-source-spans.md), [ADR-0038](../10-process/0038-implementation-stack-and-agent-entry.md), [ADR-0041](../10-process/0041-documentation-has-one-authority-per-fact.md), [ADR-0062](../09-view/0062-a-run-may-end-at-a-port.md), [ADR-0065](0065-a-coordinate-tuple-is-one-cell.md).
 Impact: `packages/ir/src/diagnostics/**`, `packages/parser/src/**`, `packages/cli/**`, `docs/error-codes.md`
 
 ## Background
@@ -42,6 +42,12 @@ The slug is kebab-case and the domain comes from a **closed vocabulary**:
 | `format` | Version / canonical form |
 | `drc` | Emergent checks (ERC / DRC) |
 | `cli` | Invocation layer |
+| `design` | Device-level design rules: ratings, declared windows, stress — authorized by [ADR-0026](../07-devices/0026-a-part-states-its-own-ratings.md) D15 |
+| `view` | The view layer: drawings, pages, module drawings — authorized by [ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md) D9 |
+| `review` | Review records: rounds, owners, decisions — authorized by [ADR-0037](../09-view/0037-review-records-and-attribution.md) |
+
+The vocabulary is closed, so a new domain needs a record of its own (D7); the three domains above
+were each added that way, and every code in the registry belongs to one of these thirteen.
 
 If we later plug into transports such as LSP / JSON-RPC that require an integer `code`, the
 numeric code is generated **at the boundary** from the slug and must be stable; the slug always
@@ -103,11 +109,11 @@ errors just because "it is an ERC".
   so third parties must implement the semantic checks one by one).
 - Failures in the `cli` domain **do not enter the `--json` diagnostics array**; they go to stderr
   plus an exit code (copied from cohdl's E000 classification).
-- **The stage is determined by the domain**: `parse` (syntax / value / ref / format: the description
+- **The stage is determined by the domain**: `parse` (syntax / value / ref / format / cli: the description
   cannot be read or the references are broken) · `contract` (contract: the IR does not satisfy the
-  schema) · `semantic` (net / drc / bind / library: readable, but the design has problems). The
-  payload carries `countsByStage`, and all three keys are always present. Agents use this to decide
-  "fix the file or fix the design" without reading every code.
+  schema) · `semantic` (net / drc / design / bind / library / view / review: readable, but the
+  design has problems). The payload carries `countsByStage`, and all three keys are always present.
+  Agents use this to decide "fix the file or fix the design" without reading every code.
 
 ### D7. A Shipped Code Is Frozen
 

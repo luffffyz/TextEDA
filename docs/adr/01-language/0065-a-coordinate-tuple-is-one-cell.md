@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-11-08
 Scope: Decides: that a geometric value — a point, a size, an offset — is written as one bracketed lexical cell `[a,b]` whose arity is fixed by the column, and that a list of points is a sequence of such cells; single scalars (length, angle, ratio) stay plain cells. Does not decide: the drawing lattice a page's coordinates must land on — see [ADR-0059](../09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md); what a wire endpoint may name — see [ADR-0062](../09-view/0062-a-run-may-end-at-a-port.md).
 Related: [ADR-0001](0001-fact-layer-has-no-expressions.md), [ADR-0002](0002-one-language-version-number.md), [ADR-0003](0003-diagnostic-error-codes.md), [ADR-0030](../08-libraries/0030-footprint-format-and-geometry.md), [ADR-0031](../08-libraries/0031-symbol-format.md), [ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md), [ADR-0057](../08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md), [ADR-0059](../09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md), [ADR-0062](../09-view/0062-a-run-may-end-at-a-port.md), [ADR-0067](../09-view/0067-hierarchical-module-views-and-custom-page-size.md)
-Impact: `spec/teda.md` §4.3, §12, §13.4; `spec/schematic-view.md` §4–§7, §11; `spec/pcb.md` §4, §6; `spec/symbol.md` §2, §4, §6; `spec/footprint.md` §2, §4, §5, §8; `packages/parser/src/{view,pcb,symbol,footprint,fmt,fmt-view,fmt-pcb}.ts`; `packages/cli/src/layout.ts`; `scripts/migrate-0.11.ts`; `schemas/ir/**`; `examples/**`
+Impact: `spec/teda.md` §4.3, §11, §12.4; `spec/schematic-view.md` §4–§7, §11; `spec/pcb.md` §4, §6; `spec/symbol.md` §2, §4, §6; `spec/footprint.md` §2, §4, §5, §8; `packages/parser/src/{view,pcb,symbol,footprint,fmt,fmt-view,fmt-pcb}.ts`; `packages/cli/src/layout.ts`; `scripts/migrate-0.11.ts`; `schemas/ir/**`; `examples/**`
 
 ## Background
 
@@ -103,6 +103,7 @@ columns currently affected are these:
 | Description | Tuple columns |
 |---|---|
 | `view` | `place` origin, `field` offset, `junction`, `wire` bends, `label`, `port`, `text` position |
+| `module_view` | the same rows as `view` — a module drawing is a page of its own ([ADR-0068](../09-view/0068-reusable-module-drawings-and-sheet-templates.md) D5) |
 | `pcb` | `outline` vertex, `place` origin, `trace` bend, `via` position, `zone`/`keepout` vertex, `physical_only` reference point |
 | `symbol` | `pins` connection point, `body` geometry (`line`/`rect`/`circle`/`arc`/`poly`), `field at=`, `field size=` |
 | `footprint` | `pads` position and size, `graphics` geometry, `field at=`, `field size=`, `model offset=` |

@@ -209,7 +209,7 @@ decision. A change needs its own record.
 
 **No migration script is written.** The project has no external users yet, so no file exists that
 would need migrating. A tree or language change therefore changes the files directly, and the
-record says what changed and how (in `spec/teda.md` §13.4). The scripts written before this point
+record says what changed and how (in `spec/teda.md` §12.4). The scripts written before this point
 (`bun run migrate:0.7`) stay as they are; no new ones are written.
 
 The rule about not renaming on the author's behalf still stands — and it is now the whole rule: a

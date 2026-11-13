@@ -354,7 +354,7 @@ dist/ir/
 工作项（不是待定问题）见 `docs/backlog.md`。**编号是稳定引用**（`docs/backlog.md` 与生成的 `docs/ir-reference.md` 按 `§11 Q8` / `Q10` / `Q17` 引用），增删条目时不要重排既有编号。每条只写结论与决策所在，理由在 ADR 里。
 
 1. 语法形态（表格 vs 链式）？**已定**：主形式是表，不引入链式记法；组合用带端口的块（[ADR-0001](docs/adr/01-language/0001-fact-layer-has-no-expressions.md) D7）。
-2. 表达式 / 参数化到什么程度？**原则已定、本条未关**：事实层的值是终值字面量，生成器在语言之外；受限表达式的引入条件已写死（十用例的"20 路电源域"证明表宽到不可用 + 常量算术 + 另起 ADR + 迁移脚本），**十用例跑完前保持待定**（[ADR-0001](docs/adr/01-language/0001-fact-layer-has-no-expressions.md)、F12）。
+2. 表达式 / 参数化到什么程度？**已定**：事实层的值是终值字面量，生成器在语言之外、产物是表；事实层**不引入表达式**——受限表达式的触发条件（十用例的"20 路电源域"证明表宽到不可用）已由 `examples/cases/power-domains/` 判定**不成立**（折行后每行 ≤78 列，表格仍可扫读），逃生舱不开；将来若要开，另起 ADR + 迁移说明 + 迁移脚本，并记 MINOR 版本步（[ADR-0001](docs/adr/01-language/0001-fact-layer-has-no-expressions.md) D6、[ADR-0002](docs/adr/01-language/0002-one-language-version-number.md) D1/D5）。
 3. 器件库来源？**已定**：自建库用 `.teda` 写，KiCad 格式是导出产物（[ADR-0030](docs/adr/08-libraries/0030-footprint-format-and-geometry.md)、[ADR-0031](docs/adr/08-libraries/0031-symbol-format.md)）。
 4. 导出优先 KiCad 还是 Circuit JSON？**已定**：KiCad（[ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md)）。
 5. sch / pcb 的权威边界？**已定**：sch 的项目逻辑根决定连通性，pcb 只实现；偏差白名单封闭四类，白名单之外一律 error（[ADR-0014](docs/adr/04-schematic/0014-connectivity-has-one-authority.md) D1–D3，形状见 `spec/pcb.md` §4.11 / §4.12；[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1–D3）。
@@ -396,14 +396,14 @@ dist/ir/
 - **引用要可解析**：提到某条决策时写成 `[ADR-0003](docs/adr/01-language/0003-diagnostic-error-codes.md)` 这样的链接——**链接文字是编号**（编号稳定，标题会改），**链接目标是文件**；编号不能光秃秃地出现在正文里，链接路径相对于所在文件。**同一段里两条链接指向同一份记录时各自带 `D<n>`**：合并后的记录一份管几件事，光给编号说不清指的是哪一条。
 - **章节引用要写全名**：写 `spec/pcb.md` §4.9，不要只写节号。章节被重编号或删除时，**活文档里的引用要一起改**（门禁判 error）；决策记录与试跑记录里的过期指针**不改**、由门禁报 warning——那两份是历史记录，追着改会毁掉它存在的理由。
 - **ADR 的形状**：记录住在 `docs/adr/<topic>/NNNN-<slug>.md`，文件夹是**主题**（这条决策管什么），不是层 / 产物 / 时间；顶层索引是 `docs/adr/README.md`（一节一个文件夹、一张四列表），每个文件夹另有 `README.md` 说清"本文件夹管什么、不管什么、按什么顺序读"。头部固定为 `# ADR-NNNN: Title` + `Status:` + `Date:` + `Scope:` +（可选）`Related:` + `Impact:`，状态词封闭在 `Accepted` / `Proposed`；**`Scope:` 一行写全两半**——`Decides:` 这条决策断言什么、`Does not decide:` 邻接的问题在哪份记录里回答；**`Related:` 互相对称**——它列出谁，谁也要列出它。这些都由 `bun run check:links` 机器校验，**新增或改 ADR 后必须跑它**。
-- **编号只增不改不重用**：一个扁平计数器，从 `0001` 起，写的时候取下一个空号（当前下一个是 `0059`），与文件夹无关（文件夹给的是位置，不是编号）；只要取过号就永不改、永不重发。`0100`–`0146` 已退役——那 47 条决策的旧号，2026-10-30 整体重写成了 `0001`–`0047`；退役区间与在用号段不相交，漏改的引用指向不存在的号（门禁当场报错），而不是悄悄指向另一条决策。索引里的"已预留"表只列**声明了还没写**的号；退役区间单独一行。更早的语料号段已整体并入在用号段，早期引用指向的是另一条决策，映射只在 git 历史里。
+- **编号只增不改不重用**：一个扁平计数器，从 `0001` 起，写的时候取下一个空号（`docs/adr/` 里已用的最大号 + 1；索引的"已预留"表里声明了还没写的号也算空号之外），与文件夹无关（文件夹给的是位置，不是编号）；只要取过号就永不改、永不重发。`0100`–`0146` 已退役——那 47 条决策的旧号，2026-10-30 整体重写成了 `0001`–`0047`；退役区间与在用号段不相交，漏改的引用指向不存在的号（门禁当场报错），而不是悄悄指向另一条决策。索引里的"已预留"表只列**声明了还没写**的号；退役区间单独一行。更早的语料号段已整体并入在用号段，早期引用指向的是另一条决策，映射只在 git 历史里。
 - **改错是就地改，不是追加附录**：记录陈述的是**现在为真的事**，写错了就改那一句；带日期的附录只留给**退役记录**（`Status:` 指向取代它的那条）。历史在 git 里，不在正文里积累。
 - **拆活与派工**：派工的判据（什么能派、什么不能派）、分片的写法、共享门禁怎么办、验收与定价见 [`docs/skills/delegate-work.md`](docs/skills/delegate-work.md)。
 - **同一句话里不要既给规则又给例外。** 矛盾的规格一定会被执行成错的那一半。
 - **判研（judge）的判据由 omp 内置，不要自造短版 rubric 去测它。** `find.enabled: auto` 走 `judge` 角色，用的是按请求形状分的二元判据（`name` / `sketch` / `passage`，原文在 harness 的 `packages/coding-agent/src/prompts/judge/find.json` 与 `packages/coding-agent/src/tools/jfind/questions.ts`）。要验证这条路径，就逐字复制它的判据：简化标签会让同一批任务判错，错的是**探针**不是模型。判研前先确认 `judge` 角色实际指向哪个模型：角色是别名，模型会被换掉。
 - **提交信息英文**。
 - **新增依赖需要 ADR**；默认零运行时依赖的 parser 是目标。
-- **不知道符号叫什么，先查索引再读源码。** `docs/api-reference/packages/<pkg>.md` 是生成的导出清单（当前 1045 条，每条带 `文件#L行号`）：不知道某个包对外有哪些名字、某个导出的签名是什么、它在哪个文件第几行时，读这一页比在 `packages/*/src/` 里猜文件名、或先猜名字再 `grep` 便宜。**已经知道名字和位置就不用查它**——直接读源码或跑 `xd://lsp`。索引只给位置与签名，**语义、错误行为与规则以规范与源码为准**；它随 `bun run gen` 重生成，不手改。
+- **不知道符号叫什么，先查索引再读源码。** `docs/api-reference/packages/<pkg>.md` 是生成的导出清单（每条带 `文件#L行号`）：不知道某个包对外有哪些名字、某个导出的签名是什么、它在哪个文件第几行时，读这一页比在 `packages/*/src/` 里猜文件名、或先猜名字再 `grep` 便宜。**已经知道名字和位置就不用查它**——直接读源码或跑 `xd://lsp`。索引只给位置与签名，**语义、错误行为与规则以规范与源码为准**；它随 `bun run gen` 重生成，不手改。
 - **要动手做一件事，先查技能索引。** `docs/skills/README.md` 列出操作流程与各自的触发条件：建工程读 `new-project.md`，写 `assets/**` 读 `library-authoring.md`，看符号渲染与改几何读 `preview-symbols.md`，画 `views/**` 读 `draw-print-page.md`，修已有的打印页读 `repair-print-page.md`，加诊断码读 `add-diagnostic-code.md`，验证评审 app 行为读 `verify-review-app.md`，派工与验收读 `delegate-work.md`。**规范说"什么是真的"，技能说"怎么做"**——技能给命令、预期输出与出错该看哪个诊断码，**不重述规范**；两者冲突时以规范为准。改技能时：命令要实跑过、预期输出要照抄真实输出，**过期数字比没有数字更糟**（它会让 agent 以为跑歪了）；**参考坐标不要写进技能**——写"怎么现场取几何"，因为页面一改坐标就过期。
 - **改完 schema 必须重生成**：`bun run gen`（产物在 `packages/ir/src/generated/`、`docs/error-codes.md`、`docs/ir-reference.md`、`docs/api-reference/`，均不手改），CI 用 `bun run gen:check` 挡住漂移；`bun run test` + `bun run typecheck` 必过。
 - **`ir` / `parser` / `exporter` / `renderer` 禁止 `Bun.*` 与 `process.env`**（`core` 同样适用）：这些包要能跑在 Node 扩展宿主与浏览器里；文件系统只允许出现在 CLI / 导出层（[ADR-0038](docs/adr/10-process/0038-implementation-stack-and-agent-entry.md) decision 1）。

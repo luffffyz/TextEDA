@@ -3,8 +3,8 @@
 Status: Accepted
 Date: 2026-10-22
 Scope: Decides: that a value in the fact layer is a literal with a unit, and that repetition is handled by a generator outside the language. Does not decide: whether a limited expression may ever be introduced — the trigger is the ten-case corpus, see `docs/backlog.md` F12.
-Related: [ADR-0002](0002-one-language-version-number.md), [ADR-0005](../02-ir/0005-ir-representation.md), [ADR-0013](../04-schematic/0013-modules-compose-boards.md)
-Impact: `AGENTS.md` §5; `spec/teda.md` §5, §13; `docs/backlog.md` F12
+Related: [ADR-0002](0002-one-language-version-number.md), [ADR-0005](../02-ir/0005-ir-representation.md), [ADR-0013](../04-schematic/0013-modules-compose-boards.md), [ADR-0065](0065-a-coordinate-tuple-is-one-cell.md)
+Impact: `AGENTS.md` §5; `spec/teda.md` §5, §14; `docs/backlog.md` F12
 
 ## Background
 
@@ -15,7 +15,7 @@ and says what would have to be true for the rule to change.
 
 The rule was scattered across three places: `AGENTS.md` §5.1 ("one fact per line", "no structure
 that needs cross-line reading"), `AGENTS.md` §5.3 ("generators and loops are not supported"), and
-`spec/teda.md` §15 ("expression languages: undefined"). A reader could find the rule but not the
+`spec/teda.md` §14 ("expression languages: undefined"). A reader could find the rule but not the
 reason, and a proposer of a new feature could find neither.
 
 The reason is not aesthetic. **A human review cannot be skipped**, and the reviewer is a hardware
@@ -91,8 +91,12 @@ the feature is unfamiliar.
 The rule may be revised, and only when the conformance corpus shows the fact layer's form is
 unusable for a case it has to cover. The trigger is the "20 power domains" case of the
 ten-case corpus (`docs/backlog.md` F12): if that case shows the table form cannot be used
-without becoming unreadable — after the 80-column wrapping rule of `spec/teda.md` §12 rule 8 has been
+without becoming unreadable — after the 80-column wrapping rule of `spec/teda.md` §11 rule 8 has been
 applied — then a **limited expression** may be introduced.
+
+**Evaluated:** the trigger case is `examples/cases/power-domains/`, and it judges the condition
+**not met** — after the wrapping rule every row stays at most 78 columns, and the board still reads
+as short rows a reviewer can scan. The door does not open; the escape hatch below stays closed.
 
 The escape hatch, if it is ever opened, is narrow on purpose:
 
@@ -103,13 +107,15 @@ The escape hatch, if it is ever opened, is narrow on purpose:
 
 A revision is a decision of its own: it needs its own ADR, a migration note and a migration
 script, and it is reviewed under the same admission rule as any other new construct
-(`AGENTS.md` §5.2). During the `0.x` phase it is a PATCH on the language version
-([ADR-0002](0002-one-language-version-number.md) D5): the version was never the compatibility
-mechanism — an unknown construct is an error.
+(`AGENTS.md` §5.2). Inside the `0.x` line it would be a **MINOR** step on the language version
+([ADR-0002](0002-one-language-version-number.md) D1, D5): a limited expression is a new syntactic
+form, so it changes which files are legal, and that is what MINOR is for — a PATCH is for a change
+that leaves the accepted file set alone. The version was never the compatibility mechanism — an
+unknown construct is an error.
 
-**This record does not close `AGENTS.md` §11 question 2.** It states the principle and the
-condition under which the principle may be revised; the question stays open until the corpus
-exists, because until then nobody knows whether the condition will be met.
+**`AGENTS.md` §11 question 2 is closed on this basis.** The condition of D6 has been evaluated and
+is not met (see D6), so the fact layer keeps its literal values and the escape hatch stays closed.
+A revision would still need its own ADR, a migration note and a migration script.
 
 ### D7. There is no chain form
 
@@ -152,5 +158,5 @@ format, to diff and to render. The table stays the only form for facts.
 
 ## Open Points
 
-None. The revision condition of D6 is a future trigger, not an open question: the corpus decides
-whether the door opens, and a revision needs its own ADR.
+None. The revision condition of D6 has been evaluated — not met — so the door is closed, and a
+revision would need its own ADR.

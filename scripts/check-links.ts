@@ -20,6 +20,7 @@
 //  10. (R5) a number is never reused: no record may carry a number the index lists as retired;
 //  11. every ADR-NNNN cited outside Markdown — in source, contracts, project files, CI and the notice — resolves to
 //      a decision record or to a reserved number (the gate's own test file and the history folders are exempt);
+//  12. (R6) a record's `Related:` line is symmetric: a record that names another names it back;
 //
 // Exit code 1 if there is any error. R4 warnings never change the exit code.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -86,8 +87,14 @@ const adrPattern = /\bADR-(\d{4})\b/g;
 // Section references. The filename may sit inside an inline code span (`spec/pcb.md` §4.9), so the
 // section checks run on the line with the backtick characters removed: blanking a code span instead
 // would erase the very filename the reference needs.
-const qualifiedSectionPattern = /([A-Za-z0-9_./-]+\.md)\s*§\s*([0-9]+(?:\.[0-9]+)*)/g;
-const bareSectionPattern = /§\s*([0-9]+(?:\.[0-9]+)*)/g;
+//
+// `§§` is the same reference as `§` — the corpus writes `spec/teda.md` §§7.5–7.7 for a range and
+// `§4.9` for a single section — so both spellings are recognised, and a range is checked at both
+// ends: `§§7.5–7.7` names two sections, not one.
+const qualifiedSectionPattern = /([A-Za-z0-9_./-]+\.md)\s*§{1,2}\s*([0-9]+(?:\.[0-9]+)*)/g;
+const bareSectionPattern = /§{1,2}\s*([0-9]+(?:\.[0-9]+)*)/g;
+/** The far end of a range: `–7.7`, `-7.7` or `– 7.7` after the section it starts at. */
+const rangeEndPattern = /^\s*[–—-]\s*([0-9]+(?:\.[0-9]+)*)/;
 
 // Backlog item references (F12, F49). Checked on the line with inline code blanked, because
 // ADR-0003's retired numeric diagnostic codes (`F200`, `F100`) also look like item numbers.
@@ -325,6 +332,35 @@ function adrRecordRules(
       }
     }
   }
+
+  // R6: the relation is symmetric — a record that names another names it back (AGENTS.md §12).
+  // The `Related:` line is how a reader walks sideways through the corpus, so a one-way edge hides
+  // half of the context from the record that is named.
+  const related = new Map<string, Set<string>>();
+  for (const [number, file] of adrFiles) {
+    const lines = readFileSync(join(adrDir, file), "utf-8").split("\n");
+    related.set(number, new Set(relatedNumbers(lines)));
+  }
+  for (const [number, file] of adrFiles) {
+    const where = relative(root, join(adrDir, file));
+    for (const other of related.get(number)!) {
+      if (!adrFiles.has(other)) continue; // a number that is not a record on disk is reported elsewhere
+      if (!related.get(other)!.has(number)) {
+        fail(
+          problems,
+          where,
+          `ADR-${number} names ADR-${other} in its "Related:" line, but ADR-${other} does not name it back; the relation must be symmetric`,
+        );
+      }
+    }
+  }
+}
+
+/** The ADR numbers a record's `Related:` line names. */
+function relatedNumbers(lines: string[]): string[] {
+  const line = lines.find((candidate) => candidate.startsWith("Related:"));
+  if (!line) return [];
+  return [...line.matchAll(/ADR-(\d{4})/g)].map((match) => match[1]);
 }
 
 // ---------------------------------------------------------------- section and item references
@@ -472,13 +508,28 @@ function referenceRules(
   const covered: { start: number; end: number }[] = [];
   for (const match of text.matchAll(qualifiedSectionPattern)) {
     const start = match.index ?? 0;
-    events.push({ start, end: start + match[0].length, file: match[1], section: match[2] });
-    covered.push({ start, end: start + match[0].length });
+    const end = start + match[0].length;
+    events.push({ start, end, file: match[1], section: match[2] });
+    covered.push({ start, end });
+    // A range names two sections; the far end is checked against the same file.
+    const range = rangeEndPattern.exec(text.slice(end));
+    if (range) {
+      events.push({ start: end, end: end + range[0].length, file: match[1], section: range[1] });
+      covered.push({ start: end, end: end + range[0].length });
+    }
   }
   for (const match of text.matchAll(bareSectionPattern)) {
     const start = match.index ?? 0;
     if (covered.some((span) => start >= span.start && start < span.end)) continue;
-    events.push({ start, end: start + match[0].length, file: null, section: match[1] });
+    const end = start + match[0].length;
+    events.push({ start, end, file: null, section: match[1] });
+    covered.push({ start, end });
+    // The far end of a bare range belongs to the file the sentence already named.
+    const range = rangeEndPattern.exec(text.slice(end));
+    if (range) {
+      events.push({ start: end, end: end + range[0].length, file: null, section: range[1] });
+      covered.push({ start: end, end: end + range[0].length });
+    }
   }
   events.sort((a, b) => a.start - b.start);
 

@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-26
 Scope: Decides: that placement and routing are produced by an agent and gated by the checker, and that an accepted board is frozen. Does not decide: the solver — there is none, and this record says so.
-Related: [ADR-0016](0016-agent-first-pcb-description.md), [ADR-0018](0018-copper-fill-uses-a-geometry-kernel.md), [ADR-0019](0019-a-partial-layout-is-legal.md)
+Related: [ADR-0016](0016-agent-first-pcb-description.md), [ADR-0018](0018-copper-fill-uses-a-geometry-kernel.md), [ADR-0019](0019-a-partial-layout-is-legal.md), [ADR-0042](../09-view/0042-the-review-app-has-modes.md)
 Impact: `spec/pcb.md` §4, §6; `docs/guides/review-app.md`; `docs/backlog.md` F48
 
 ## Context
