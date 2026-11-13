@@ -11,8 +11,8 @@ Read the one file that matches the job. They do not overlap, and none of them de
 |---|---|---|
 | [`new-project.md`](new-project.md) | Building a project from zero: `init`, the library, the devices, the schematic, the procurement layer, the netlist | [`spec/teda.md`](../../spec/teda.md), [`spec/project.md`](../../spec/project.md) |
 | [`library-authoring.md`](library-authoring.md) | Writing or reviewing `assets/**`: components, symbols, footprints | [`spec/symbol.md`](../../spec/symbol.md), [`spec/footprint.md`](../../spec/footprint.md) |
-| [`preview-symbols.md`](preview-symbols.md) | Looking at a rendered symbol or footprint and changing its drawn geometry | [`spec/symbol.md`](../../spec/symbol.md), [`spec/footprint.md`](../../spec/footprint.md) |
-| [`draw-print-page.md`](draw-print-page.md) | Producing a `views/**` page for the first time: placement, wiring, labels and ports | [`spec/schematic-view.md`](../../spec/schematic-view.md) |
+| [`preview-symbols.md`](preview-symbols.md) | Looking at a rendered symbol or footprint and changing its drawn geometry | [`spec/symbol.md`](../../spec/symbol.md), [`spec/footprint.md`](../../spec/footprint.md), [`spec/rendering.md`](../../spec/rendering.md) |
+| [`draw-print-page.md`](draw-print-page.md) | Producing a `views/**` page for the first time: placement, wiring, labels and ports | [`spec/schematic-view.md`](../../spec/schematic-view.md), [`spec/rendering.md`](../../spec/rendering.md) |
 | [`repair-print-page.md`](repair-print-page.md) | Repairing a `views/**` page that already exists: a `view.*` finding, a wandering run, a misplaced dot | [`spec/schematic-view.md`](../../spec/schematic-view.md) |
 | [`add-diagnostic-code.md`](add-diagnostic-code.md) | Adding a diagnostic code: the registry, the emitter, the spec tables, the generated docs, the tests | [`spec/teda.md`](../../spec/teda.md), [`spec/schematic-view.md`](../../spec/schematic-view.md) |
 | [`verify-review-app.md`](verify-review-app.md) | Proving a review-app change in a real browser: drag, move, rotate, Apply | [`docs/guides/review-app.md`](../guides/review-app.md) |

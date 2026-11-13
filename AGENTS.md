@@ -111,6 +111,7 @@
 | 横切主题 | 事实住在哪 |
 |---|---|
 | 单位与量纲、引脚电气类型 | `spec/teda.md` §9 |
+| 渲染目标与图片的用途（绘制指令、SVG、PNG、栅格化器） | `spec/rendering.md`；[ADR-0072](docs/adr/09-view/0072-a-second-rendering-backend-paints-the-same-drawing.md) |
 | Canonical form（规范化、排序、数值） | `spec/teda.md` §11；`spec/pcb.md` §6 |
 | 版本号与接受规则 | `spec/teda.md` §12；`packages/parser/src/version.ts` |
 | 诊断码与严重度 | `packages/ir/src/diagnostics/codes.ts`；生成的 `docs/error-codes.md`（[ADR-0003](docs/adr/01-language/0003-diagnostic-error-codes.md)） |
@@ -269,7 +270,7 @@
 
 逐层对比与同类项目的逐项对比见 `docs/comparison.md`。三条底线不变：
 
-- **自己造**：语法、parser、IR、类型 / 量纲 / 约束求解、ERC 与绑定校验、参考渲染器（符号 / 封装 / 打印页 SVG，自带笔画字体、不依赖 KiCad，[ADR-0036](docs/adr/09-view/0036-our-own-reference-renderer.md)）、**受限** 2D 几何内核（[ADR-0018](docs/adr/05-pcb/0018-copper-fill-uses-a-geometry-kernel.md)、F49）、Gerber / Excellon 写出器。
+- **自己造**：语法、parser、IR、类型 / 量纲 / 约束求解、ERC 与绑定校验、参考渲染器（符号 / 封装 / 打印页 SVG，自带笔画字体、不依赖 KiCad，[ADR-0036](docs/adr/09-view/0036-our-own-reference-renderer.md)）、栅格化器与 PNG 编码器（图片是给人看的，判定仍归 check / metrics，[ADR-0072](docs/adr/09-view/0072-a-second-rendering-backend-paints-the-same-drawing.md)）、**受限** 2D 几何内核（[ADR-0018](docs/adr/05-pcb/0018-copper-fill-uses-a-geometry-kernel.md)、F49）、Gerber / Excellon 写出器。
 - **不写求解器**：布局与布线由 agent 驱动、检查器把关（[ADR-0017](docs/adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)）。
 - **借**：通用器件库（KiCad / 嘉立创，不做库产品；但项目自建的封装与符号库是一等产物，[ADR-0030](docs/adr/08-libraries/0030-footprint-format-and-geometry.md)）、CAM 级 DFM 判定（[ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md)）、3D 预览运行时（three.js）。
 
@@ -326,6 +327,7 @@ dist/ir/
 | `bun run texteda export gerbers <dir> <pcb_id>` | 分层 Gerber + Excellon | `spec/pcb.md` §8 |
 | `bun run texteda bom <dir> <pcb_id>` | 物料表 | `spec/procurement.md` §5 |
 | `bun run texteda view metrics <dir> <page_id>` | 项目打印页的量：图幅占用、文字间隙、走线长与交叉 | `spec/schematic-view.md` §9.4 |
+| `bun run texteda view png <dir> <page_id>` | 打印页的 PNG（给人看；判定归 `check` / `view metrics`） | `spec/rendering.md` §2.2 |
 | `bun run texteda view rewire <dir> <page_id>` | 把走线锚回引脚（挪动器件之后的收尾） | `spec/schematic-view.md` §9.4.1 |
 | `bun run texteda renumber <dir> <pcb_id>` | 全局改名的 dry run / apply | [ADR-0011](docs/adr/03-project/0011-renumbering-is-a-code-executed-rename.md)；`docs/guides/renumbering.md` |
 | `bun run texteda id <dir>` | 生成未使用的实例 `uid` | [ADR-0010](docs/adr/03-project/0010-instance-identity-is-a-uid.md) |

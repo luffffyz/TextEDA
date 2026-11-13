@@ -923,29 +923,29 @@ export function renderInterconnects(
   return { ...doc, primitives };
 }
 
-/** The page as it is drawn: the renderer's SVG and the geometry it was drawn from. */
+/** The page as it is drawn: the renderer's drawing commands, its SVG and the geometry it was drawn from. */
 function drawPage(
   view: SchematicView,
   instances: SchematicInstances,
   automaticFields = true,
   fieldPositions?: SchematicRenderOptions["fieldPositions"],
-): { svg: string; geometry: SheetGeometry } {
+): { svg: string; geometry: SheetGeometry; doc: SvgDoc | null } {
   const options = { automaticFields, ...(fieldPositions === undefined ? {} : { fieldPositions }) };
   try {
     const doc = renderSchematic(view, instances, options);
+    const drawn = renderInterconnects(
+      view,
+      doc,
+      new Map(viewModulePorts(view).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }] as const)),
+    );
     return {
-      svg: toSvgText(
-        renderInterconnects(
-          view,
-          doc,
-          new Map(viewModulePorts(view).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }] as const)),
-        ),
-      ),
+      svg: toSvgText(drawn),
+      doc: drawn,
       geometry: schematicGeometry(view, instances, options),
     };
   } catch {
     // A page that cannot be drawn is reported by the check; here it is simply not drawn.
-    return { svg: "", geometry: { texts: [], fields: [], symbols: [] } };
+    return { svg: "", geometry: { texts: [], fields: [], symbols: [] }, doc: null };
   }
 }
 
@@ -1035,13 +1035,13 @@ export function renderPageSource(
   page: string,
   text: string,
   automaticFields = true,
-): { svg: string; errors: string[]; anchors: RowAnchor[]; geometry: SheetGeometry } {
+): { svg: string; errors: string[]; anchors: RowAnchor[]; geometry: SheetGeometry; doc: SvgDoc | null } {
   const file = pageFile(page);
   const parsed = parseView(text, { file });
   const errors = parsed.diagnostics
     .filter((diagnostic) => diagnostic.severity === "error")
     .map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`);
-  if (!parsed.ir) return { svg: "", errors, anchors: [], geometry: { texts: [], fields: [], symbols: [] } };
+  if (!parsed.ir) return { svg: "", errors, anchors: [], geometry: { texts: [], fields: [], symbols: [] }, doc: null };
   const facts = projectFacts(root);
   const drawn = drawPage(parsed.ir, facts.instances, automaticFields);
   return {

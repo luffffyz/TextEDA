@@ -129,7 +129,7 @@ my-board/
 |---|---|
 | `AGENTS.md` | **Primary doc**: what the project is, the non-negotiable invariants, acceptance criteria |
 | `LICENSE` / `NOTICE` | Apache-2.0 and attribution |
-| `spec/` | The specs: `teda.md` (the language-wide spec) plus per-description ones — `symbol` / `footprint` / `pcb` / `schematic-view` / `module` / `procurement` |
+| `spec/` | The specs: `teda.md` (the language-wide spec) plus per-description ones — `symbol` / `footprint` / `pcb` / `schematic-view` / `module` / `procurement` — plus `rendering.md` (the drawing backends) |
 | `schemas/ir/` | IR contract (JSON Schema 2020-12, the only contract); the contract version is the directory name |
 | `packages/ir` | IR types, contract validation, and the diagnostic code registry |
 | `packages/parser` | `.teda` → IR for every description type, plus `fmt` (canonical form); `module` files flatten into the board IR |

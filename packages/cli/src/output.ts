@@ -16,3 +16,14 @@ export function writeOut(file: string, text: string): void {
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, text);
 }
+
+/**
+ * Write a binary file, creating the parent directory when it does not exist.
+ *
+ * The picture a page is drawn into is bytes, not text: writing it as a string would corrupt
+ * every byte above 127.
+ */
+export function writeOutBytes(file: string, data: Uint8Array): void {
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, data);
+}

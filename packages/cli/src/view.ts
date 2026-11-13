@@ -14,14 +14,23 @@
 import { isAbsolute } from "node:path";
 import { parseSchematic, parseView } from "@texteda/parser";
 import type { Schematic } from "@texteda/ir/schematic";
-import { composedGeometry, renderComposedPage, toSvgText } from "@texteda/renderer";
+import { composedGeometry, encodePng, rasterize, renderComposedPage, toSvgText, type SvgDoc } from "@texteda/renderer";
 import { rerouteWire, viewMetrics, type ViewMetrics } from "@texteda/core";
 import { loadSchematic, loadViews, loadComponents, loadModules } from "./project.ts";
 import { loadPageComposition, pageCompositionError } from "./page-composition.ts";
 import { loadSymbolLibrary, schematicInstances, type DeviceFacts } from "./symbols.ts";
 import { pinPoint, renderInterconnects, renderPageSource, rewritePage } from "./layout.ts";
-import { writeOut } from "./output.ts";
+import { writeOut, writeOutBytes } from "./output.ts";
 import type { VerbResult } from "./result.ts";
+
+/** Carry a failure over to another result type, without inventing an undefined error. */
+function failure<T>(source: { error?: string; code?: "cli.bad-usage" }): VerbResult<T> {
+  return {
+    ok: false,
+    ...(source.error === undefined ? {} : { error: source.error }),
+    ...(source.code === undefined ? {} : { code: source.code }),
+  };
+}
 
 export interface ViewMetricsOptions {
   readonly root: string;
@@ -304,13 +313,13 @@ export interface ViewRenderResult {
 }
 
 /**
- * The page as it is drawn, written as an SVG file.
+ * The page as it is drawn: the renderer's drawing commands.
  *
- * The drawing is the same one the review app shows: the same renderer, the same IR. What this
- * adds is a file a person can open, or a plugin can show, without a server running.
+ * The drawing is the same one the review app shows: the same renderer, the same IR. Both
+ * backends read it — the SVG writes it as a file, the PNG paints it into pixels — so a picture
+ * and the vector drawing of one page cannot disagree about what is on it (spec/rendering.md §2).
  */
-export function buildViewRender(options: ViewRenderOptions): VerbResult<ViewRenderResult> {
-  const { root, page } = options;
+function buildPageDrawing(root: string, page: string): VerbResult<{ file: string; doc: SvgDoc }> {
   const loaded = loadSchematic(root);
   if (!loaded) {
     return { ok: false, code: "cli.bad-usage", error: "Project root file not found: design/sch/main.teda" };
@@ -329,11 +338,11 @@ export function buildViewRender(options: ViewRenderOptions): VerbResult<ViewRend
     .filter((diagnostic) => diagnostic.severity === "error")
     .map((diagnostic) => `${diagnostic.code}: ${diagnostic.message}`);
   if (!view.ir) return { ok: false, error: errors.join("; ") || `Print page ${page} could not be parsed` };
-  let svg: string;
+  let doc: SvgDoc | null = null;
   if (view.ir.template === undefined && (view.ir.module_place?.length ?? 0) === 0) {
     const drawn = renderPageSource(root, page, source.text);
     if (drawn.errors.length > 0) return { ok: false, error: drawn.errors.join("; ") };
-    svg = drawn.svg;
+    doc = drawn.doc;
   } else {
     const { resolver, shards } = loadComponents(root);
     const symbols = loadSymbolLibrary(root);
@@ -358,16 +367,35 @@ export function buildViewRender(options: ViewRenderOptions): VerbResult<ViewRend
     );
     try {
       const geometry = composedGeometry(composition.view, instances, composition.composition);
-      const doc = renderComposedPage(composition.view, instances, composition.composition);
-      svg = toSvgText(renderInterconnects(composition.view, doc, geometry.modulePortPoints));
+      doc = renderInterconnects(
+        composition.view,
+        renderComposedPage(composition.view, instances, composition.composition),
+        geometry.modulePortPoints,
+      );
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
+  if (!doc) return { ok: false, error: `Print page ${page} could not be drawn` };
+  return { ok: true, value: { file: source.file, doc } };
+}
+
+/**
+ * The page as it is drawn, written as an SVG file.
+ *
+ * The drawing is the same one the review app shows: the same renderer, the same IR. What this
+ * adds is a file a person can open, or a plugin can show, without a server running.
+ */
+export function buildViewRender(options: ViewRenderOptions): VerbResult<ViewRenderResult> {
+  const { root, page } = options;
+  const drawing = buildPageDrawing(root, page);
+  if (!drawing.ok) return failure(drawing);
+  const { file, doc } = drawing.value!;
+  const svg = toSvgText(doc);
   const svgFile = options.outFile ?? `dist/view/${page}.svg`;
   const path = isAbsolute(svgFile) ? svgFile : `${root}/${svgFile}`;
   writeOut(path, svg);
-  return { ok: true, value: { file: source.file, svg_file: svgFile, bytes: Buffer.byteLength(svg, "utf8") } };
+  return { ok: true, value: { file, svg_file: svgFile, bytes: Buffer.byteLength(svg, "utf8") } };
 }
 
 /** Write the page's drawing. Returns the process exit code. */
@@ -382,6 +410,90 @@ export function runViewRender(options: ViewRenderOptions): number {
     process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
   } else {
     process.stdout.write(`Wrote ${value.svg_file} (${value.bytes} bytes)\n`);
+  }
+  return 0;
+}
+
+export interface ViewPngOptions {
+  readonly root: string;
+  readonly page: string;
+  /** Where the picture is written; the default is under `dist/view/`. */
+  readonly outFile?: string;
+  /** Picture width in pixels; the height follows the drawn area's aspect ratio. */
+  readonly widthPx?: number;
+  /** The part of the page to paint, in millimetres: `x0,y0,x1,y1`. */
+  readonly cropMm?: readonly [number, number, number, number];
+  readonly json: boolean;
+}
+
+export interface ViewPngResult {
+  /** The page's source file, relative to the project root. */
+  readonly file: string;
+  /** Where the picture was written. */
+  readonly png_file: string;
+  /** The picture's size in bytes. */
+  readonly bytes: number;
+  /** The picture's width in pixels. */
+  readonly width_px: number;
+  /** The picture's height in pixels. */
+  readonly height_px: number;
+}
+
+/**
+ * The page as it is drawn, painted into a PNG file.
+ *
+ * The picture is for looking at: a person opening it, or an agent with a vision model. It is
+ * **not** a measurement — the numbers come from `view metrics` and the diagnostics
+ * (spec/rendering.md §3). The drawing commands are the same ones the SVG backend writes, so the
+ * picture and the SVG show the same thing (spec/rendering.md §2).
+ */
+export function buildViewPng(options: ViewPngOptions): VerbResult<ViewPngResult> {
+  const { root, page } = options;
+  const drawing = buildPageDrawing(root, page);
+  if (!drawing.ok) return failure(drawing);
+  const { file, doc } = drawing.value!;
+  const cropMm = options.cropMm;
+  const image = rasterize(doc, {
+    ...(options.widthPx === undefined ? {} : { widthPx: options.widthPx }),
+    ...(cropMm
+      ? {
+          crop: {
+            x0: cropMm[0] * 1_000_000,
+            y0: cropMm[1] * 1_000_000,
+            x1: cropMm[2] * 1_000_000,
+            y1: cropMm[3] * 1_000_000,
+          },
+        }
+      : {}),
+  });
+  const png = encodePng(image);
+  const pngFile = options.outFile ?? `dist/view/${page}.png`;
+  const path = isAbsolute(pngFile) ? pngFile : `${root}/${pngFile}`;
+  writeOutBytes(path, png);
+  return {
+    ok: true,
+    value: {
+      file,
+      png_file: pngFile,
+      bytes: png.length,
+      width_px: image.width,
+      height_px: image.height,
+    },
+  };
+}
+
+/** Write the page's picture. Returns the process exit code. */
+export function runViewPng(options: ViewPngOptions): number {
+  const result = buildViewPng(options);
+  if (!result.ok) {
+    console.error(result.error ?? "The page could not be painted");
+    return 2;
+  }
+  const value = result.value!;
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+  } else {
+    process.stdout.write(`Wrote ${value.png_file} (${value.width_px}×${value.height_px} px, ${value.bytes} bytes)\n`);
   }
   return 0;
 }

@@ -10,7 +10,7 @@ One flat counter, handed out in the order the records are written, starting at
 `0001`. A number names one record and nothing else: what a record is about is said by
 its folder, not by its number. A number is **never changed and never reused** — a link
 to `ADR-0006` names the same decision forever — so a new record takes the next free
-number and disturbs nothing that already exists. The next free number is `0072`.
+number and disturbs nothing that already exists. The next free number is `0073`.
 The sequence is not contiguous; gaps are normal.
 
 ## Retired
@@ -145,6 +145,7 @@ that was meant for it, and by nothing else.
 | [ADR-0067](09-view/0067-hierarchical-module-views-and-custom-page-size.md) | Hierarchical Module Views and a Custom Page Size | Accepted | 2026-11-08 |
 | [ADR-0068](09-view/0068-reusable-module-drawings-and-sheet-templates.md) | Reusable Module Drawings and Sheet Templates | Accepted | 2026-11-08 |
 | [ADR-0071](09-view/0071-a-module-drawing-is-an-editable-view.md) | A Reusable Module Drawing Is an Editable View | Accepted | 2026-11-11 |
+| [ADR-0072](09-view/0072-a-second-rendering-backend-paints-the-same-drawing.md) | A Second Rendering Backend Paints the Same Drawing | Accepted | 2026-11-13 |
 
 ## Process
 

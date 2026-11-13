@@ -242,6 +242,27 @@ function styleOf(layer: string): LayerStyle {
   return LAYER_STYLE[layer] ?? DEFAULT_STYLE;
 }
 
+/**
+ * The colours a layer is drawn in.
+ *
+ * The colour table belongs to the drawing, not to a backend: the SVG backend and the raster
+ * backend paint the same commands in the same colours, so a picture and the SVG show the same
+ * thing (spec/rendering.md §2).
+ */
+export function layerStyle(layer: string): { stroke: string; fill: string } {
+  return styleOf(layer);
+}
+
+/**
+ * Where a layer sits in the draw order: copper first, then the mask and paste layers, then the
+ * silkscreen, the fabrication layer, the courtyard, the board edge, and finally the drawing layers
+ * (sheet, template, module, wires, symbols, text). Unknown layers draw last.
+ */
+export function layerOrderIndex(layer: string): number {
+  const index = LAYER_ORDER.indexOf(layer);
+  return index < 0 ? LAYER_ORDER.length : index;
+}
+
 /** SvgFill → the SVG fill attribute. */
 function fillAttr(fill: SvgFill, style: LayerStyle): string {
   switch (fill) {
@@ -646,7 +667,7 @@ export function pinDirection(rotMdeg: number): { x: number; y: number } {
  *   - Symbols (+y up): the numeric matrix is the standard mathematical rotation.
  *   - Footprints (+y down): the numeric matrix is inverted -- because numeric +y points down, a positive angle is visually clockwise.
  */
-function rotateModel(
+export function rotateModel(
   cx: number,
   cy: number,
   mdeg: number,

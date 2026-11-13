@@ -6,19 +6,26 @@
 //   bun run preview component <id> [--out <dir>] [--project <dir>] [--scale <n>]
 //   bun run preview view      <page> [--out <dir>] [--project <dir>] [--scale <n>]
 //
+// `--png` writes the same drawing as a PNG next to the SVG: the picture is for looking at, the
+// SVG is for keeping (spec/rendering.md §2).
+//
 // Purpose: after an agent builds a footprint/symbol it wants to take an immediate look (pin orientation, arrows, courtyard, silkscreen over pads);
 // these all pass green in the IR and contract validation — validation only checks self-consistency, not whether it looks right.
 // Output: the SVG path is printed to stdout; artifacts land in /tmp/texteda-preview/<id>/ (changeable with --out).
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { formatDiagnostic, parseComponent } from "@texteda/parser";
-import { buildViewRender } from "../packages/cli/src/view.ts";
+import { buildViewPng, buildViewRender } from "../packages/cli/src/view.ts";
 import { loadViews } from "../packages/cli/src/project.ts";
 import {
+  drawingArea,
+  encodePng,
+  rasterize,
   renderFootprint,
   renderSymbol,
   toSvgText,
   validateDoc,
+  type SvgDoc,
 } from "@texteda/renderer";
 import { unsupportedChars } from "@texteda/core/font";
 import {
@@ -38,6 +45,8 @@ interface Options {
   out: string | null;
   project: string;
   scale: number;
+  /** Also write the drawing as a PNG. */
+  png: boolean;
 }
 
 function fail(message: string): never {
@@ -51,12 +60,14 @@ function parseArgs(argv: string[]): Options {
   let out: string | null = null;
   let project = "examples/reference-project";
   let scale = 1;
+  let png = false;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]!;
     if (arg === "--class") klass = argv[++i] ?? fail("--class must be followed by a class directory");
     else if (arg === "--out") out = argv[++i] ?? fail("--out must be followed by a directory");
     else if (arg === "--project") project = argv[++i] ?? fail("--project must be followed by a directory");
     else if (arg === "--scale") scale = Number(argv[++i] ?? fail("--scale must be followed by a multiplier"));
+    else if (arg === "--png") png = true;
     else if (arg.startsWith("--")) fail(`unknown argument ${arg}`);
     else positional.push(arg);
   }
@@ -72,7 +83,7 @@ function parseArgs(argv: string[]): Options {
   }
   if (!id) fail("usage: preview symbol|footprint|component|view <id>");
   if (!Number.isFinite(scale) || scale <= 0) fail("--scale must be a positive number");
-  return { kind, id, klass, out, project, scale };
+  return { kind, id, klass, out, project, scale, png };
 }
 
 function existsDir(dir: string): boolean {
@@ -162,6 +173,22 @@ function writeSvg(name: string, doc: ReturnType<typeof renderSymbol>): string {
   return path;
 }
 
+/**
+ * The same drawing as a PNG.
+ *
+ * The picture is sized like the SVG canvas would be printed: about four pixels per millimetre,
+ * scaled by `--scale`, and never so small that nothing can be seen in it.
+ */
+function writePng(name: string, doc: SvgDoc): string {
+  const area = drawingArea(doc);
+  const widthMm = (area.x1 - area.x0) / 1_000_000;
+  const widthPx = Math.max(400, Math.min(4000, Math.round(widthMm * 4 * options.scale)));
+  const image = rasterize(doc, { widthPx });
+  const path = join(outDir, `${name}.png`);
+  writeFileSync(path, encodePng(image));
+  return path;
+}
+
 const written: string[] = [];
 
 if (options.kind === "symbol" || options.kind === "component") {
@@ -212,6 +239,7 @@ if (options.kind === "symbol" || options.kind === "component") {
   }
   const doc = renderSymbol(parsed.value.symbol, { pins: part?.pins ?? [] });
   written.push(writeSvg(`${symbolId}.symbol`, doc));
+  if (options.png) written.push(writePng(`${symbolId}.symbol`, doc));
 }
 
 if (options.kind === "footprint" || options.kind === "component") {
@@ -239,6 +267,7 @@ if (options.kind === "footprint" || options.kind === "component") {
   }
   const doc = renderFootprint(parsed.value.footprint);
   written.push(writeSvg(`${footprintId}.footprint`, doc));
+  if (options.png) written.push(writePng(`${footprintId}.footprint`, doc));
 }
 
 if (options.kind === "view") {
@@ -258,6 +287,16 @@ if (options.kind === "view") {
     writeFileSync(output, svg);
   }
   written.push(output);
+  if (options.png) {
+    const picture = buildViewPng({
+      root: projectRoot,
+      page,
+      outFile: join(outDir, `${page}.view.png`),
+      json: false,
+    });
+    if (!picture.ok) fail(picture.error ?? `view ${page} failed to paint`);
+    written.push(join(outDir, `${page}.view.png`));
+  }
 }
 
 for (const path of written) console.log(path);

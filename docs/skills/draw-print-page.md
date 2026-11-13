@@ -273,18 +273,24 @@ pages' warnings for this page's findings.
 ### 3.2 Measure the page
 
 ```sh
-bun run texteda view metrics examples/reference-project buck-5v
+bun run texteda view metrics examples/reference-project main
 ```
 Expected shape (the numbers move with the page):
 
 ```
-buck-5v — 297.0 × 210.0 mm sheet
-content   x 20.0..241.5  y 14.0..121.6 mm  (38.2% of the sheet)
-counts    9 instances, 10 labels, 2 ports, 1 notes, 17 wires, 30 nets undrawn
-spacing   label min gap 5.7 mm, text min gap 5.7 mm
-wires     422.5 mm total, 0 crossings of other nets, 0 through a body
-net texts all sit on their nets
+main/main — 594.0 × 420.0 mm sheet
+content   x 39.5..578.8  y 23.9..401.0 mm  (81.5% of the sheet)
+counts    82 instances, 6 labels, 15 ports, 3 notes, 0 wires, 44 nets undrawn
+spacing   label min gap 7.4 mm, text min gap 7.4 mm
+wires     0.0 mm total, 0 crossings of other nets, 0 through a body
 ```
+
+followed by an `off their net:` list when a port or label sits away from the net it names — one
+line per finding, `port  BOOT0 on BOOT0: 99.1 mm`.
+
+The reference project's `main` page composes the module drawings, so it carries **no wires**: the
+wiring lives in the module drawings it composes, and the page's own numbers describe that
+composition.
 
 Read it as:
 
@@ -318,6 +324,32 @@ area: trace each net to confirm every inventoried member pin is reached by a wir
 and ports sit on their nets, every dot sits on a declared `junction` row, and no wire crosses symbol or
 text artwork. A metrics summary or a clean check cannot replace this rendered inspection. See
 [`repair-print-page.md`](repair-print-page.md) §4 for a crop example.
+
+**The same drawing as a picture.** `view png` paints the page into a PNG — the same drawing
+commands the SVG is written from, so the picture and the vector drawing show the same thing
+([`spec/rendering.md`](../../spec/rendering.md) §2):
+
+```sh
+bun run texteda view png examples/reference-project main --width 1200 --out /tmp/page.png
+```
+
+```
+Wrote /tmp/page.png (1200×851 px, 71820 bytes)
+```
+
+`--crop x0,y0,x1,y1` paints a region of the page in millimetres — the zoom a dense area needs:
+
+```sh
+bun run texteda view png examples/reference-project main --width 800 --crop 40,40,140,140 --out /tmp/page-crop.png
+```
+
+```
+Wrote /tmp/page-crop.png (800×800 px, 25947 bytes)
+```
+
+Look at the picture, but do not measure it: how far something sits from something else is what
+`view metrics` says, and what is wrong is what `check` says (`spec/rendering.md` §3). A picture
+answers "what does this look like"; the numbers answer "is it right".
 
 ### 3.4 Format and re-check
 

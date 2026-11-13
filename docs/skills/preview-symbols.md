@@ -46,6 +46,26 @@ The command prints the absolute SVG path; the default output is under
 changes how big the picture is, not the geometry. A whole symbol reads at `--scale 14`; detail
 wants `40`–`60`; at `--scale 1` the picture is a few dozen pixels wide.
 
+**`--png` writes the same drawing as a picture**, next to the SVG:
+
+```sh
+bun run preview symbol led --class indicators --project examples/reference-project --png
+```
+
+```
+/tmp/texteda-preview/led/led.symbol.svg
+/tmp/texteda-preview/led/led.symbol.png
+```
+
+The PNG is the one to **look** at — a pin on the wrong side, a blunt arrow tip, a name that reads
+upside down. The SVG is the one to **keep** and to crop (§3): the picture is painted from the same
+drawing commands, so the two show the same thing
+([`spec/rendering.md`](../../spec/rendering.md) §2).
+
+Do not measure the picture. How far a stroke sits from a pin edge is what `lib:verify` and
+`check` say; the picture only answers "does this look right"
+([`spec/rendering.md`](../../spec/rendering.md) §3).
+
 `preview` does not need KiCad. It uses the bundled stroke font, so unsupported non-ASCII text is
 reported rather than silently disappearing.
 

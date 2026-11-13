@@ -32,6 +32,7 @@ What a person looks at: the view as an independent description and a drawing, th
 20. [0068](0068-reusable-module-drawings-and-sheet-templates.md) — reusable module-local drawings and static page templates compose into schematic print pages; electrical facts stay in the schematic.
 21. [0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) — project-level views and advisory page references.
 22. [0071](0071-a-module-drawing-is-an-editable-view.md) — a module drawing is authored source, and the app edits it as a drawing.
+23. [0072](0072-a-second-rendering-backend-paints-the-same-drawing.md) — the same drawing commands, painted into a picture by our own rasterizer.
 
 
 ## Records
@@ -60,3 +61,4 @@ What a person looks at: the view as an independent description and a drawing, th
 | [ADR-0067](0067-hierarchical-module-views-and-custom-page-size.md) | Hierarchical Module Views and a Custom Page Size | Accepted | 2026-11-08 |
 | [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) | One Project Logic Root, Physical PCB Implementations, and Project Views | Accepted | 2026-11-09 |
 | [ADR-0071](0071-a-module-drawing-is-an-editable-view.md) | A Reusable Module Drawing Is an Editable View | Accepted | 2026-11-11 |
+| [ADR-0072](0072-a-second-rendering-backend-paints-the-same-drawing.md) | A Second Rendering Backend Paints the Same Drawing | Accepted | 2026-11-13 |

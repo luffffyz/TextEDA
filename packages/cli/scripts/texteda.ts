@@ -15,6 +15,7 @@
 //   texteda view metrics <project dir> <page_id> [--json]
 //   texteda view rewire <project dir> <page_id> [--dry-run] [--json]
 //   texteda view render <project dir> <page_id> [--out <file>] [--json]
+//   texteda view png <project dir> <page_id> [--out <file>] [--width <px>] [--crop <x0,y0,x1,y1 in mm>] [--json]
 //   texteda review <project dir> [--port <n>] [--out <file>]
 //   texteda export gerbers <project dir> <board_id> [--out <dir>] [--json]
 //   texteda tools --json
@@ -27,7 +28,7 @@ import { runCompile } from "../src/compile.ts";
 import { buildCheck } from "../src/check.ts";
 import { runIr } from "../src/ir.ts";
 import { runBom } from "../src/bom.ts";
-import { runViewMetrics, runViewRender, runViewRewire } from "../src/view.ts";
+import { runViewMetrics, runViewPng, runViewRender, runViewRewire } from "../src/view.ts";
 import { runReview } from "../src/review.ts";
 import { runId } from "../src/id.ts";
 import { runRenumber } from "../src/renumber.ts";
@@ -58,6 +59,8 @@ const KNOWN_FLAGS = new Set([
   "--dry-run",
   "--policy",
   "--mapping",
+  "--width",
+  "--crop",
 ]);
 /** Flags that take a value: the argument after them is not a positional argument. */
 const VALUE_FLAGS = new Set([
@@ -73,6 +76,8 @@ const VALUE_FLAGS = new Set([
   "--count",
   "--policy",
   "--mapping",
+  "--width",
+  "--crop",
 ]);
 
 function fail(code: "cli.bad-flag" | "cli.bad-usage", message: string): never {
@@ -92,6 +97,7 @@ function fail(code: "cli.bad-flag" | "cli.bad-usage", message: string): never {
         "  texteda view metrics <project dir> <page_id> [--json]",
         "  texteda view rewire <project dir> <page_id> [--dry-run] [--json]",
         "  texteda view render <project dir> <page_id> [--out <file>] [--json]",
+        "  texteda view png <project dir> <page_id> [--out <file>] [--width <px>] [--crop <x0,y0,x1,y1>] [--json]",
         "  texteda review <project dir> [--port <n>] [--out <file>]",
         "  texteda export gerbers <project dir> <board_id> [--out <dir>] [--json]",
         "  texteda tools --json",
@@ -295,7 +301,7 @@ if (command === "init") {
     }),
   );
 } else if (command === "view") {
-  const sub = args.positional[0] ?? fail("cli.bad-usage", "Missing view subcommand: metrics, rewire, render");
+  const sub = args.positional[0] ?? fail("cli.bad-usage", "Missing view subcommand: metrics, rewire, render, png");
   const root = args.positional[1] ?? fail("cli.bad-usage", "Missing project directory");
   const page = args.positional[2] ?? fail("cli.bad-usage", "Missing page_id");
   if (args.positional.length > 3) fail("cli.bad-usage", "Too many arguments");
@@ -326,8 +332,36 @@ if (command === "init") {
         ...(outFile === undefined ? {} : { outFile }),
       }),
     );
+  } else if (sub === "png") {
+    const outFile = args.values.get("--out");
+    const widthText = args.values.get("--width");
+    const width = widthText === undefined ? undefined : Number(widthText);
+    if (width !== undefined && (!Number.isInteger(width) || width <= 0)) {
+      fail("cli.bad-usage", `Not a picture width in pixels: ${widthText}`);
+    }
+    const cropText = args.values.get("--crop");
+    let crop: [number, number, number, number] | undefined;
+    if (cropText !== undefined) {
+      const parts = cropText.split(",").map((part) => Number(part.trim()));
+      if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) {
+        fail("cli.bad-usage", `Not a crop in millimetres (x0,y0,x1,y1): ${cropText}`);
+      }
+      const [x0, y0, x1, y1] = parts as [number, number, number, number];
+      if (x1 <= x0 || y1 <= y0) fail("cli.bad-usage", `The crop is empty: ${cropText}`);
+      crop = [x0, y0, x1, y1];
+    }
+    process.exit(
+      runViewPng({
+        root: resolve(root),
+        page,
+        json: args.flags.has("--json"),
+        ...(outFile === undefined ? {} : { outFile }),
+        ...(width === undefined ? {} : { widthPx: width }),
+        ...(crop === undefined ? {} : { cropMm: crop }),
+      }),
+    );
   } else {
-    fail("cli.bad-usage", `Unknown view subcommand: ${sub} (metrics, rewire, render)`);
+    fail("cli.bad-usage", `Unknown view subcommand: ${sub} (metrics, rewire, render, png)`);
   }
 } else if (command === "view-metrics") {
   fail("cli.bad-usage", "`texteda view-metrics` is now `texteda view metrics <project dir> <page_id>`");
