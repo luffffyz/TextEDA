@@ -1,0 +1,22 @@
+version 0.14.0
+component dc-005-20a
+
+kind         part
+mpn          DC-005-20A
+manufacturer Korean Hroparts Elec
+category     connector
+datasheet    https://jlcpcb.com/partdetail/DC-005-20A/C136744
+lcsc         C136744
+description  Right-angle 2.0 mm DC power jack with switched sleeve contact
+symbol       connectors:dc-005-20a
+footprint    connector:dc-in-th-dc-005-20a
+
+# The 500mA rating is below charger-power's stated 4A adapter limit; this jack is not rated for the design's full input current.
+pins
+  1  TIP     passive
+  2  SLEEVE  passive
+  3  SWITCH  passive
+
+ratings
+  rated_current  current  500mA
+  voltage        voltage  30V

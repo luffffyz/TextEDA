@@ -5,16 +5,17 @@ description NTC thermistor, 2-pin generic view
 tags ntc temperature thermistor
 pin_numbers hide
 pin_names hide
-# NTC thermistor: resistor body + diagonal line + bar at the ends.
+# IEC-style thermistor: a resistor rectangle crossed by a diagonal mark with both ends bent outward.
 # Pin connection points, pin tails, and the body frame sit on the 0.5 mm placement lattice (ADR-0057).
 field Reference at=[0,2.5] U
 field Value at=[0,-2.5] thermistor
 
 pins
-  1  [-4,0]  0
-  2  [4,0]   180
+  1  [-4,0]  0    length=2
+  2  [4,0]   180  length=2
 
 body
-  line  [-1.5,-0.5,1.5,0.5]  width=0.25
-  line  [1,0.5,1.5,1.5]      width=0.25
-  rect  [-1.5,-0.5,1.5,0.5]  width=0.25
+  line  [-2,-1.5,2,1.5]      width=0.25
+  line  [-2.5,-1.5,-2,-1.5]  width=0.25
+  line  [2,1.5,2.5,1.5]      width=0.25
+  rect  [-2,-1,2,1]          width=0.25

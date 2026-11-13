@@ -156,7 +156,7 @@ v0.1 不支持：文字标注（极性 `+`/`−`、功能名）、图片、贝�
 1. `pins` 的 `number` 唯一（同一 `unit` 内）；`unit` 在 `0`…`units` 内。
 2. `body` 的 `geometry` 点数与 `kind` 匹配；`poly` 点数 ≥ 3；`fill` 只适用于 `rect` / `circle` / `poly`。
 3. `field` 的 `Name` 唯一；`field` 不接受 `layer`。
-4. The compiled shard must pass `schemas/ir/v0.17/symbol.schema.json` (closed schema). The shard root includes the required `format` field: the normalized language version of the source `.teda` file (`0.12`, not `0.12.0`; see `teda.md` §12.1).
+4. The compiled shard must pass the closed IR v0.19 contract at `schemas/ir/v0.19/symbol.schema.json`. The shard root includes the required `format` field: the source `.teda` file's declared language version in canonical form (the patch component is omitted when zero; see `teda.md` §12.1).
 5. 库级检查（与 `component` 的引脚号集合比对、与 `footprint` 的引脚号比对、ERC）不属于本描述，属工具链（[ADR-0030](../docs/adr/08-libraries/0030-footprint-format-and-geometry.md) decision 7）。
 6. 编译产物的顺序只依赖语义：`pins` 按 (`unit`, `number` 自然序)、`body` 按 (`kind`, 坐标) 排；`fields` 按 `Name`、`tags` 按字节序。
 

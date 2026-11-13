@@ -1,0 +1,27 @@
+version 0.14.0
+symbol dc-005-20a
+
+description Right-angle 2.0 mm DC power jack with switched sleeve contact
+tags connector dc jack power
+pin_names hide
+field Reference at=[0,-6] J
+field Value at=[0,6] dc-005-20a
+
+pins
+  1  [-7,2.5]   0
+  2  [-7,-2.5]  0
+  3  [-7,0]     0
+
+body
+  circle  [2,2.5,0.75]         fill=outline
+  line    [-4.5,-2.5,2,-2.5]   width=0.25
+  line    [-4.5,0,0,0]         width=0.25
+  line    [-4.5,2.5,-2.5,2.5]  width=0.25
+  line    [0,-2.5,-0.25,-2]    width=0.25
+  line    [0,-2.5,0,0]         width=0.25
+  line    [0,-2.5,0.25,-2]     width=0.25
+  line    [2,-2.5,3,-0.75]     width=0.25
+  line    [3,-0.75,4,-2.5]     width=0.25
+  line    [4,-2.5,4.5,-2.5]    width=0.25
+  rect    [-2.5,1.75,2,3.25]   fill=outline
+  rect    [-4.5,-4,4.5,4]      width=0.25

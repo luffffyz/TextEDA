@@ -8,6 +8,7 @@ tags push switch tactile
 # The two pins of a side are one contact and sit 1.0 mm apart; pin numbers are hidden because at that
 # spacing their painted boxes overlap (ADR-0058).
 pin_numbers hide
+pin_names hide
 pin_name_offset 0.5
 field Reference at=[0,2.5] U
 field Value at=[0,-2.5] sw-push

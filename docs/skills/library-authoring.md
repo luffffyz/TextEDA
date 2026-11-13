@@ -43,7 +43,7 @@ If the source is an external library, import a copy into `assets/` with `texteda
 
 ## 3. Extract facts before writing files
 
-Start from the datasheet and make three separate fact lists. Record the source page or drawing for every non-obvious value.
+For non-obvious symbol-graphic choices, record the IEC entry and edition plus any KiCad revision consulted; follow [symbol-authoring.md](../guides/symbol-authoring.md) §1 for source priority and ambiguity handling.
 
 ### Component facts
 
@@ -54,8 +54,8 @@ Start from the datasheet and make three separate fact lists. Record the source p
 
 ### Symbol facts
 
-- Pin connection-point coordinates and direction in the **symbol** coordinate system (`+x` right, `+y` up).
-- Body extent and any meaningful body markings.
+- Pin connection point and direction in the symbol coordinate system (`+x` right, `+y` up), adapted to the TextEDA authoring grid.
+- Body extent and meaningful markings.
 - Whether the part needs multiple units or common pins.
 - Which pin names and numbers should be visible.
 
@@ -91,7 +91,7 @@ Use the syntax in [spec/symbol.md](../../spec/symbol.md). The essential pin row 
 
 ```text
 pins
-  <number>  <x>  <y>  <rot>
+  <number>  [<x>,<y>]  <rot>
 ```
 
 The direction convention is:

@@ -27,43 +27,37 @@
 
 ## 造符号的流程
 
-### 1. 从 datasheet 取摆位事实
+以下 shell 示例都从项目根目录运行；`REPO` 指向 TextEDA 仓库根目录。
 
-符号要抄的只有这些：
+```bash
+REPO=/path/to/TextEDA
+```
 
-| 事实 | 用途 |
-|---|---|
-| 引脚号与功能名的对应 | 写在 `component` 里（**不是**符号里） |
-| 引脚在图上的位置与朝向 | 符号 `pins` 段的 `[x,y] rot` |
-| 封装外形的长宽 | 符号 `body` 段的矩形 |
-| 引脚名是否显示、显示多远 | `pin_names` / `pin_name_offset` |
+### 1. 从 IEC 60617 取符号事实
 
-朝向约定（`spec/symbol.md` §4）：`0` 向右（左侧引脚）、`180` 向左（右侧引脚）、`90` 向上（下方引脚）、`270` 向下（上方引脚）。坐标 **+y 向上**（KiCad 符号约定；封装是 +y 向下，别混）。
+对于有 IEC 60617 条目的标准化原理图符号，来源顺序固定为：
+
+1. 先查 IEC 60617 对应条目，确定符号语义、图形和必要标记；记录条目编号与版本。
+2. 再查 KiCad 官方库作工程对照，确认常用变体、实现尺寸和导出兼容性。KiCad 不是规范权威，不得机械照搬。
+3. `datasheet` 只用于 `component` 的引脚号、引脚名、电气事实和封装事实，不作为 symbol 图形来源。
+4. IEC 条目不可访问或图形有歧义时，不得宣称严格 IEC 合规；可以暂以 KiCad 作为工程基线，并在描述或评审记录中标为 `IEC-style` / `provisional`。
+
+符号要记录的事实：
+
+| 事实 | 用途 | 首选来源 |
+|---|---|---|
+| 引脚号与功能名的对应 | 写在 `component` 里 | `datasheet` |
+| 标准符号语义、图形和必要标记 | `symbol` 的 `body` 与相关显示设置 | IEC 60617 |
+| 引脚在图上的位置与朝向 | `symbol` 的 `pins` 段 | IEC 60617；KiCad 作工程对照 |
+| 符号实现尺寸与常用变体 | `symbol` 的坐标与几何 | KiCad 作第二来源；记录取舍 |
+| 封装外形的长宽 | `footprint` 的几何 | `datasheet` |
+| 引脚名是否显示、显示多远 | `pin_names` / `pin_name_offset` | IEC 语义需要；TextEDA house style |
+
+朝向约定（`spec/symbol.md` §4）：`0` 向右（左侧引脚）、`180` 向左（右侧引脚）、`90` 向上（下方引脚）、`270` 向下（上方引脚）。坐标 **+y 向上**（KiCad 符号坐标约定；封装是 +y 向下，别混）。
 
 ### 2. 写 `.teda`（真源）
 
-语法见 `spec/symbol.md`。完整示例：`examples/reference-project/assets/symbols/power/bq24610rger.teda`。
-
-```
-version 0.9.2
-symbol bq24610rger
-
-description 24V synchronous buck battery charger controller
-tags battery charger
-pin_name_offset 1.25
-field Reference at=-6.5,20 U
-field Value at=0,-20 bq24610rger
-
-pins
-  1   -12.5  -11  0    length=2.5
-  2   -12.5  -9   0    length=2.5
-  3    12.5   -8  180  length=2.5
-  ...
-  25   1     -19  90   length=2.5
-
-body
-  rect  -10,-16.5,10,16.5  fill=background  width=0.25
-```
+语法见 `spec/symbol.md`。当前完整示例：[bq24610rger.teda](../../examples/reference-project/assets/symbols/power/bq24610rger.teda)。
 
 要点：
 
@@ -78,8 +72,8 @@ body
 手写时不必纠结对齐和顺序，写完跑一次：
 
 ```bash
-bun run fmt:teda assets/symbols/power/bq24610rger.teda   # 就地规范化
-bun run fmt:teda --check assets/symbols             # CI：不是 canonical 就退出 1
+bun run "$REPO/packages/parser/scripts/fmt-teda.ts" assets/symbols/power/bq24610rger.teda   # 就地规范化
+bun run "$REPO/packages/parser/scripts/fmt-teda.ts" --check assets/symbols             # CI：不是 canonical 就退出 1
 ```
 
 `fmt` 只重排表面（行/键顺序、列对齐、单位归一、缺省值省略），不碰语义；有语义错误的文件会被拒绝格式化，报错跟编译时同一套行列诊断。传目录时递归处理其中的 `*.teda`，只处理已实现的描述类型（`footprint` / `symbol`），其他类型跳过；显式点名未实现的类型会报错。规范见 `spec/symbol.md` §8。
@@ -97,20 +91,20 @@ pins
   25  PAD     power
 ```
 
-引脚号必须与符号里的号一一对应。符号有、器件没有 → 导出报错；器件有、符号没画 → 警告（可以是有意隐藏的电源脚）。
+引脚号必须与符号里的号一一对应。单独运行 `export:symbol` 时，符号有、器件没有 → 报错；器件有、符号没画 → 警告（可能是有意隐藏的电源脚）。完整库验证 `lib:verify` 对任一集合差异都失败。
 
 ### 4. 编译成 IR
 
 ```bash
-bun run compile:symbol assets/symbols/power/bq24610rger.teda --out dist/ir/symbols/power/bq24610rger.json
+bun run "$REPO/packages/parser/scripts/compile-symbol.ts" assets/symbols/power/bq24610rger.teda --out dist/ir/symbols/power/bq24610rger.json
 ```
 
-IR 是 `symbol` kind（契约 `schemas/ir/v0.17/symbol.schema.json`），单位全是整数纳米/毫度。`symbol.library` 取的是文件所在的分类目录（`power`），派生它不需要 `--library`；只有目录名不是分类名时才需要覆盖。
+IR 是 `symbol` kind（契约 `schemas/ir/v0.19/symbol.schema.json`），单位全是整数纳米/毫度。`symbol.library` 取的是文件所在的分类目录（`power`），派生它不需要 `--library`；只有目录名不是分类名时才需要覆盖。
 
 ### 5. 导出成 KiCad 产物
 
 ```bash
-bun run export:symbol dist/ir/symbols/bq24610rger.json --component assets/components/power/bq24610rger.teda --out dist/symbols
+bun run "$REPO/scripts/export-symbol.ts" dist/ir/symbols/power/bq24610rger.json --component assets/components/power/bq24610rger.teda --out dist/symbols/
 ```
 
 导出器按**引脚号**把两边合起来：号与位置来自符号，名字与电气类型来自器件；属性（`Reference` / `Value` / `Footprint` / `Datasheet`）也一并写齐。`--out` 给目录时写 `<分类>.kicad_sym`（分类目录就是 KiCad 侧的库名，[ADR-0049](../adr/08-libraries/0049-assets-are-filed-by-what-they-are.md)）。
@@ -118,9 +112,9 @@ bun run export:symbol dist/ir/symbols/bq24610rger.json --component assets/compon
 ### 6. 看一眼（不用 KiCad）
 
 ```bash
-bun run preview symbol bq24610rger            # 只出符号图
-bun run preview component bq24610rger         # 符号 + 封装两张图，路径打到 stdout
-bun run preview symbol bq24610rger --scale 8  # 放大看细节
+bun run "$REPO/scripts/preview.ts" symbol bq24610rger --project .
+bun run "$REPO/scripts/preview.ts" component bq24610rger --project .
+bun run "$REPO/scripts/preview.ts" symbol bq24610rger --scale 8 --project .
 ```
 
 **改完符号先跑这个**。参考渲染器（`packages/renderer`，[ADR-0036](../adr/09-view/0036-our-own-reference-renderer.md)）把 IR 画成 SVG：引脚位置与朝向、引脚名/编号的内外侧、属性字段位置、引脚风格（反相气泡、时钟楔形）都在图上。校验全绿不等于看着对——引脚朝向反了、名字压到别的引脚上，这些只有看图才发现。
@@ -132,7 +126,7 @@ bun run preview symbol bq24610rger --scale 8  # 放大看细节
 ### 7. 冒烟验证
 
 ```bash
-bun run smoke:symbol            # 用 examples/reference-project/assets/symbols/power/bq24610rger.teda
+bun run "$REPO/scripts/smoke-symbol.ts" assets/symbols/power/bq24610rger.teda assets/components/power/bq24610rger.teda
 ```
 
 跑通：canonical form 检查（`fmt` 固定点）→ 编译成 IR（契约通过）→ 与 `component` 对齐引脚号 → 写 `.kicad_sym` → **KiCad 10 能解析**（`kicad-cli sym upgrade`）→ **能渲染**（`kicad-cli sym export svg` 出图）。改完符号跑一次，出图看一眼比读十遍规范快。
@@ -141,8 +135,8 @@ bun run smoke:symbol            # 用 examples/reference-project/assets/symbols/
 
 ## 工具必须替人查的
 
-1. 符号存在、`lib:name` 能解析到具体符号；
-2. **符号引脚号集合 == 器件引脚号集合**：少一个 → 错误；多一个 → 警告；
+1. 符号存在、`component.symbol` 的 `<category>:<id>` 引用能解析到具体符号；
+2. 两侧引脚号集合必须相等：`export:symbol` 对象符号独有引脚会报错、对组件独有引脚只警告；`lib:verify` 对任一集合差异都失败；
 3. 器件引脚号 ⊆ 封装 pad 号（[ADR-0030](../adr/08-libraries/0030-footprint-format-and-geometry.md) decision 7 的库级检查，在工具链里做）；
 4. 引脚名重复、引脚号重复、`unit` 越界 → 编译期报错（带行列）。
 
@@ -154,4 +148,4 @@ bun run smoke:symbol            # 用 examples/reference-project/assets/symbols/
 | KiCad 里引脚名是空的 | 名字只在 `component` 里，导出时按号合并 | 确认 `component` 的号与符号一致 |
 | 符号上下颠倒 | 符号 +y 向上，封装 +y 向下 | 别把封装的 y 直接搬过来 |
 | 编译报"精度超过纳米" | 写了亚纳米尺寸（如 `0.0000001mm`） | 改成整数纳米；IR 不许浮点，也不许丢精度 |
-| 改了符号但产物没变 | 库的内容哈希没更新 | 改完重算哈希，产物需重出（这是有意的） |
+| 改了符号但产物没变 | IR 或 KiCad 输出未从最新源重建 | 从项目根目录重新运行本节的编译命令，再用新 IR 重新运行导出命令 |

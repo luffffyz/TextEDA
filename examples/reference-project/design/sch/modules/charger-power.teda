@@ -30,6 +30,7 @@ instances
   D2    ID8j6bf8  led-green
   D3    IDtaq6qd  led-green
   D4    IDshj5px  led-green
+  J1    ID8y5g4b  dc-005-20a
   L1    IDm6dcbm  ihlp2525czer6r8m01
   NTC1  IDwdvkr6  ntc-103at
   Q1    ID1m7gxg  q-si7617dn
@@ -65,10 +66,11 @@ nets
   ACDRV:         R18.2  U1.ACDRV
   ACP:           C3.1  Q2.D  R21.1  U1.ACP
   ACSET:         R3.2  R4.1  U1.ACSET
-  AC_COMMON:     C14.1  Q1.S1  Q1.S2  Q1.S3  Q2.S1  Q2.S2  Q2.S3  R14.1  R17.1
+  AC_COMMON:     C14.1  J1.2  Q1.S1  Q1.S2  Q1.S3  Q2.S1  Q2.S2  Q2.S3  R14.1
+  :              R17.1
   AC_GATE:       C14.2  Q1.G  Q2.G  R14.2  R18.1
   ADAPTER_DAMP:  C16.1  R20.2
-  ADAPTER_P:     Q1.D  R11.1  R12.1  R13.1  R20.1
+  ADAPTER_P:     J1.1  Q1.D  R11.1  R12.1  R13.1  R20.1
   BATDRV:        R19.2  U1.BATDRV
   BAT_GATE:      C15.2  Q3.G  R15.2  R19.1
   BTST:          C6.2  D1.K  U1.BTST

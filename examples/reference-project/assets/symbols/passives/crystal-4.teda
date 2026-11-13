@@ -3,20 +3,24 @@ symbol crystal-4
 
 description Crystal, 4-pin generic view
 tags crystal oscillator
-# Four-pin crystal: two electrode plates + a square wave in the middle; the two pins below are ground.
-# Pin connection points sit on the 0.5 mm placement lattice and every tail ends on the body frame (ADR-0057).
-pin_name_offset 0.5
-field Reference at=[0,2.5] U
-field Value at=[0,-2.5] crystal-4
+pin_numbers hide
+pin_names hide
+# Four-pin crystal: two electrode plates with a resonance peak between them, the case ground bar
+# below the plates, and the two lower pins (2 and 4) tied to that bar.
+# Pin labels are hidden like the other generic passive views: the drawing carries the electrode /
+# ground split, and both electrodes are interchangeable.
+# Pin connection points and pin tails sit on the 0.5 mm placement lattice (ADR-0057).
+field Reference at=[0,3.5] U
+field Value at=[0,-6] crystal-4
 
 pins
-  1  [-5,0.5]   0
+  1  [-4,0]     0
   2  [-1.5,-4]  90
-  3  [5,0.5]    180
+  3  [4,0]      180
   4  [1.5,-4]   90
 
 body
-  line  [-0.5,-1,-0.5,1]          width=0.25
-  line  [0.5,-1,0.5,1]            width=0.25
-  poly  [-0.5,-0.5,0,0,0.5,-0.5]  width=0.25
-  rect  [-2.5,-1.5,2.5,1.5]       width=0.25
+  line  [-1.5,-0.5,-1.5,2]                                          width=0.25
+  line  [-1.5,-1.5,1.5,-1.5]                                        width=0.25
+  line  [1.5,-0.5,1.5,2]                                            width=0.25
+  poly  [-1.4,-0.15,0,1.25,1.4,-0.15,1.05,-0.15,0,0.9,-1.05,-0.15]  fill=outline
