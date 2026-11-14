@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-21
 Scope: Decides: the BOM, coordinate and part-number format a prototype order needs. Does not decide: the manufacturing-neutral data itself — see ADR-0021.
 Related: [ADR-0021](0021-the-manufacturing-output-path.md), [ADR-0029](../07-devices/0029-the-procurement-layer.md)
-Impact: `spec/procurement.md` §5; `packages/cli/src/bom.ts`; `docs/backlog.md` F14
+Impact: `spec/procurement.md` §5; `packages/cli/src/bom.ts`; `docs/backlog.md` F14, F68
 
 ## Background
 
@@ -37,7 +37,7 @@ produced according to JLC's public specification. **No JLC EDA dependency is int
 specifications are EDA-independent, so the prototype obligation adds no second EDA to the chain.
 
 **D2. Verification still belongs to an external DRC.** This is unchanged by the added prototype
-obligation ([ADR-0021](0021-the-manufacturing-output-path.md) decision 6); the JLC DFM client is
+obligation ([ADR-0021](0021-the-manufacturing-output-path.md) decision 2); the JLC DFM client is
 the vendor's external checker, and the boundary against building CAM-level DFM in-house stays as it
 is.
 
@@ -62,6 +62,13 @@ introduce no new semantics:
 - Consistency — PCB, BOM and coordinates of the same version; designators with no duplicates and
   no omissions; consistent do-not-populate handling — is guaranteed by the checker, which refuses
   to emit the package otherwise.
+
+**None of that exists yet.** `texteda bom` emits the project's own table — `component_id`, `mpn`,
+`params`, `quantity`, `status`, `refdes`, `note` — and there is no coordinate (CPL) export and no
+JLC-format BOM export; the checker does not refuse a package either. The columns above are the
+**decided target**, and building them is `docs/backlog.md` F68: a prototype order cannot be placed
+without them, so this is the work that turns a description into something a board house accepts,
+not an optional extra.
 
 **D5. The measured LCEDA format facts.** The facts below were measured from a real project
 backup. They are kept for two reasons: the `Supplier Part` field is the empirical confirmation
@@ -128,6 +135,6 @@ repository.
 
 ## Open Points
 
-- The BOM and coordinate file export follows decision 4.
+- The BOM and coordinate file export follows decision 4 — **not built**; it is `docs/backlog.md` F68.
 - The `lcsc` scalar and its validation rule are in `spec/teda.md` §6.1; the demo devices do not
   carry part numbers, because a number that nobody verified is worse than none.

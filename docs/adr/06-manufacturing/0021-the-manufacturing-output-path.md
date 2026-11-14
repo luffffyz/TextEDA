@@ -115,8 +115,11 @@ work: an *opening* is a derived shape with a declared rule behind it, while an *
 - The default output of the manufacturing step = **manufacturing-neutral data**: stackup and rule
   intent, BOM (with variant status), placement coordinates and orientation, assembly and
   manufacturing notes. This is **description**, and it is the layer this project is supposed to own.
-- Derived from that data: **Gerber** (self-built), IPC-2581 (optional export), BOM + coordinates
-  (the JLC path, see ADR-0022), KiCad project (compatibility path).
+- Derived from the same sources, in the same compilation: **Gerber** (self-built, and it reads the
+  `pcb` IR — D10), IPC-2581 (optional export), BOM + coordinates (the JLC path, see ADR-0022), KiCad
+  project (compatibility path). The manufacturing data is **not** the input of the Gerber writer: it
+  carries no copper artwork (D6), so it cannot be. Both are projections of the sources, and that is
+  what keeps them from disagreeing.
 - Manufacturing-neutral data belongs to the **contract layer** and is publicly implementable.
 - The cost of obtaining the specs needs separate verification: ODB++'s specification is held by
   Valor / PTC and requires membership; IPC-2581 is an IPC publication, also available to members
@@ -207,8 +210,11 @@ contract layer and lives forever.
 
 The slot is filled from the project, not from the tool: the manufacturing addition is written by a
 human, so it needs a home in the project, and that home is a question about the language — the `fab`
-description type of `AGENTS.md` §11 question 17. The question is narrowed, not closed: *does a
-`fab` description type exist, and where does it live?*
+description type of `AGENTS.md` §11 question 17. That question is **closed on the shape and open on
+the implementation**: the default output of the manufacturing step is the manufacturing-neutral data
+(D3), the data is a normative shard per board and variant (`docs/backlog.md` F14), and the
+description type that holds the hand-written additions arrives with the implementation
+(`docs/backlog.md` F14).
 
 ### D10. The Writer Reads the Board, Not the Manufacturing Data
 
@@ -313,5 +319,6 @@ X2 attributes are written), no assembly or 3D semantics.
 - The `fab` description type and where it lives (`AGENTS.md` §11 question 17), to be decided with
   the implementation, when the first panelization or assembly note has to be written down.
 - The `.kicad_pcb` board writer, as an interoperability export rather than a gate.
-- The trial-run record of the first board through the chain is in `docs/trial-run/charger-buck/`,
-  and the field-level mapping in `docs/kicad-pcb-format.md`.
+- The trial-run record of the first board through the chain is in `docs/trial-run/charger-buck/`
+  (a one-off prototype, not a callable product path), and the field-level mapping in
+  `docs/guides/kicad-pcb-format.md`.

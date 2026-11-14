@@ -100,11 +100,12 @@ bytes".
 
 The same rule applies to the other derived artifacts a project hands out:
 
-- a rendered **page** carries the **page shard's own `sha256`** as its `source_hash` — the
-  drawing is traceable to the exact file it was drawn from, without the drawing being part of the
-  build identity;
 - the **IR manifest** carries the tool version and the project hash it was computed from;
-- the manufacturing **package** carries the project hash and the tool version, as above.
+- the manufacturing **package** carries the project hash and the tool version, as above;
+- a rendered **page** should carry the **page shard's own `sha256`** as its `source_hash` — the
+  drawing is traceable to the exact file it was drawn from, without the drawing being part of the
+  build identity. **Not implemented**: the renderer draws the page and writes nothing else, and the
+  view IR has no hash field (`docs/backlog.md` F3).
 
 The rule that produces these is one rule: **a derived artifact states what it was derived from.**
 Which value it states depends on what it was derived from — the project, the board, or the shard.

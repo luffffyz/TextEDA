@@ -187,8 +187,10 @@ Parameter type → IR unit:
   written in `manifest.json` (`source_hash` and `advisory_hash`); the **board** hashes are printed
   but not stored. Both are recomputable from the manifest by this rule, so the stored value and the
   computed value cannot disagree — the manifest holds one copy, not two.
-- Derivative artifacts (Gerber, images, netlists) write `source_hash` (the project hash) + the
-  board hash they belong to + `tool_version`.
+- Derivative artifacts write `source_hash` (the project hash) + `tool_version`: the manufacturing
+  package stamps both in every file it writes (`G04 TextEDA <version>*` / `G04 source <hash>*`, and
+  the `;` comments of the drill file). There is no board hash inside a file — the board hash is
+  printed, not stored (below) — and the netlist carries no stamp at all today.
 - Incremental: change one source file and only that shard is recomputed; unchanged shards keep the
   same bytes and the same hash — this is the reason shards exist.
 
@@ -210,7 +212,8 @@ Every shard is classified, and the manifest records the classification per shard
   states that change without changing the build.
 - A board hash is the same aggregation over that board's **normative** shards; the board's print
   pages are advisory, so the board hash is unaffected by a reviewer moving a label. A rendered page
-  carries the page shard's own `sha256` as its `source_hash`.
+  should carry the page shard's own `sha256` as its `source_hash`; that stamp is not written yet
+  (`docs/backlog.md` F3).
 - Both hashes are recomputable from the manifest alone. The board hashes are printed but not
   stored.
 

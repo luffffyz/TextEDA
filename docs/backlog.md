@@ -59,7 +59,8 @@
    - 视图只**引用**项目身份（`place.instance_id` / `wire` 的 `pin` / `label` 的 `net_id` / `interconnect_id`），可是引错、引到不存在的 id 今天都报错；视图不能创建、删除或改写项目逻辑、PCB 绑定、互连或铜连续事实。
    - 反向也要查：项目上有 net、打印页里一条线都没有（`net-not-drawn`），以及一个项目实例在所有项目打印页里都没出现——后者与 `bind.instance-unplaced`（PCB 侧）是同一类“缺失要看得见”的信号，严重度应一致（warning）。
    - 身份错误照样阻断：`spec/schematic-view.md` §9.1 一直把“引用了不存在的东西”列为 error，与逻辑侧同类（ADR-0003 按错误的种类分域）；只有覆盖率是 warning；`ir` 不跑交叉校验，这一点仍然成立。
-   - 边界：视图说“这条线在这里”与项目逻辑 / PCB 说“这些引脚同 net”冲突时，**以项目逻辑与 PCB 真源为准**（`AGENTS.md` §2 第 2 条），诊断只指出冲突，不改真源。
+   - 边界：视图说"这条线在这里"与项目逻辑 / PCB 说"这些引脚同 net"冲突时，**以项目逻辑与 PCB 真源为准**（`AGENTS.md` §2 第 2 条），诊断只指出冲突，不改真源。
+7. **页面来源戳**（[ADR-0023](adr/06-manufacturing/0023-the-output-package-carries-its-provenance.md) D6）：渲染出的打印页要带它那个页面分片的 `sha256` 作为 `source_hash`——图纸可追到画它的那个文件，且不因此进构建身份。**未落地**：现在渲染器只出图、不写来源戳，view IR 里也没有 hash 字段。
 
 **验收**：
 
@@ -1076,3 +1077,55 @@ directory names the type and the filename is only the id (`design/sch/main.teda`
 
 **Note**: This is a naming and migration question only. It does not change what a view is, the
 advisory/normative split, or the rule that a view never changes connectivity.
+
+## F68. The JLC order format: BOM and coordinate (CPL) exports
+
+**Status**: Proposed (2026-11-14). The target format is decided by
+[ADR-0022](adr/06-manufacturing/0022-jlc-prototype-delivery.md) D4; the export is not built.
+
+**Current state**: `texteda bom <project> <pcb_id>` emits the project's own table — `component_id`,
+`mpn`, `params`, `quantity`, `status`, `refdes`, `note` — and nothing else. There is no JLC-format
+BOM and no coordinate (CPL) file: the columns, the millimetre origin, the top/bottom handling and
+the do-not-populate consistency rules of ADR-0022 D4 exist only as a decision. **A prototype order
+cannot be placed without them**, which is what makes this a delivery blocker rather than a nicety —
+the Gerber side is done (F15), so this is the last gap between a described board and something a
+board house accepts.
+
+**To do**:
+
+1. Decide the command surface: a separate verb (`texteda export jlc <project> <pcb_id>`) that
+   writes the BOM and the CPL next to the Gerbers, or flags on the existing ones. The files must be
+   self-contained — a fabricator's system takes the file, not the folder.
+2. Emit the BOM with ADR-0022 D4's columns — `Comment`, `Designator`, `Footprint` (taken from the
+   package code), the JLC part number (taken from `lcsc`), `Quantity` — one line per BOM row, with
+   the aggregation key of `spec/procurement.md` §5.
+3. Emit the coordinate file with `Designator`, `Mid X`, `Mid Y`, `Layer`, `Rotation`, in
+   millimetres, origin matching the Gerber, following the JLC specification's recommended column
+   order, with top and bottom in one file. Each EDA rotates the bottom layer differently, so the
+   rotation convention has to be stated and tested, not guessed.
+4. Mark the rows that need manual matching: a part without a verified `lcsc` is emitted with an
+   empty part number and a warning, never with a guessed one (ADR-0022 D3).
+5. Add the consistency gate ADR-0022 D4 promises: PCB, BOM and coordinates of the same version, no
+   duplicated and no missing designator, consistent do-not-populate handling — and the export
+   refuses a package that breaks it.
+6. Keep the internal table as it is: `texteda bom` stays the project-internal view. The vendor
+   format is an export target, not a new description.
+
+**Involved files**: `packages/cli/src/bom.ts`, `packages/cli/src/export.ts`,
+`packages/core/src/procurement/`, `packages/exporter/`, `spec/procurement.md`,
+`docs/adr/06-manufacturing/0022-jlc-prototype-delivery.md`, tests, and the reference project.
+
+**Acceptance**:
+
+- The export writes a BOM and a coordinate file whose columns match ADR-0022 D4, in millimetres,
+  with the origin matching the Gerbers.
+- Every BOM row carries either a verified `lcsc` or an explicit "pending manual matching" mark; no
+  part number is ever guessed.
+- A board whose BOM and placement disagree — a missing designator, a duplicated one, a DNP row that
+  is placed — is refused by the export with a named reason.
+- `bun test`, `bun run typecheck`, `bun run gen:check`, `bun run check:links`, and
+  `bun run fmt:teda --check .` pass, and the reference project exports a pair of files a board
+  house accepts.
+
+**Note**: A vendor format carries its own unit and its own field placement. What is reusable is the
+*shape* — a projection of the IR into the vendor's columns — not the constants (ADR-0022).

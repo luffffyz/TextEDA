@@ -33,7 +33,7 @@
 - 一套面向硬件项目的领域语言：`project`、`board`、`schematic`、`pcb`、`fab`、`variant`；需求 / 分块 / 分析证据为可选的轻量实体。
 - 一个类型化 IR 及其 schema（契约在 `schemas/ir/`，字段参考见生成的 `docs/ir-reference.md`）；实现层的公开 TypeScript 包入口、CLI/agent surface 与源码导航见生成的 `docs/api-reference/README.md` 及分包参考页。
 - 一个检查器：单位 / 量纲、引脚存在性、电气类型、net 完整性、约束断言、**sch↔pcb 一致性**、**器件额定值 vs 声明窗口**。**现状：已落地**——契约层（Ajv + schema）、连通性 ERC 与器件规则在 `packages/core`，绑定校验、项目级 interconnect 与物理 PCB 归属校验、采购选料校验；额定值只做了两引脚器件的**电压**（[ADR-0026](docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D8）与**耗散**（[ADR-0026](docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D11），多引脚端子语法已定（[ADR-0026](docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D4）但检查器未实现；电流仍未定。
-- 一个参考渲染器和一个导出器（KiCad，见 [ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md)）。**现状**：渲染器覆盖符号、封装与原理图打印页（[ADR-0036](docs/adr/09-view/0036-our-own-reference-renderer.md)、[ADR-0035](docs/adr/09-view/0035-the-view-layer-is-a-drawing.md)），板 ↔ 打印页交叉校验与可读性检查已落地（F3）；导出器出 `.kicad_mod` / `.kicad_sym` 与**分层 Gerber + Excellon**（[ADR-0018](docs/adr/05-pcb/0018-copper-fill-uses-a-geometry-kernel.md) D9、D10）。网表（`texteda netlist`）已落地；BOM 走采购层（`texteda bom`），下单格式未做（[ADR-0022](docs/adr/06-manufacturing/0022-jlc-prototype-delivery.md)、F14）。
+- 一个参考渲染器和一个导出器（KiCad，见 [ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md)）。**现状**：渲染器覆盖符号、封装与原理图打印页（[ADR-0036](docs/adr/09-view/0036-our-own-reference-renderer.md)、[ADR-0035](docs/adr/09-view/0035-the-view-layer-is-a-drawing.md)），板 ↔ 打印页交叉校验与可读性检查已落地（F3）；导出器出 `.kicad_mod` / `.kicad_sym` 与**分层 Gerber + Excellon**（[ADR-0018](docs/adr/05-pcb/0018-copper-fill-uses-a-geometry-kernel.md) D9、D10）。网表（`texteda netlist`）已落地；BOM 走采购层（`texteda bom`），下单格式（JLC BOM + 坐标）未做（[ADR-0022](docs/adr/06-manufacturing/0022-jlc-prototype-delivery.md)、F68）。
 - 一套一致性测试（conformance），让别人能独立实现渲染器。**现状：未存在**。
 
 **不是**：
@@ -369,7 +369,7 @@ dist/ir/
 14. 器件用家族 / 继承还是一料一号一文件？**已定**：显式 `kind: part` / `kind: generic` 区分，不做继承（[ADR-0024](docs/adr/07-devices/0024-the-device-kind-is-part-or-generic.md)；额定值归件自己：[ADR-0026](docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)）。
 15. 实例与 net 是否加显式 `id`？**已部分落地**：实例有稳定 `uid`；net / port 的名字仍是身份，引用仍按名字解析，所以改 refdes 仍改源码与 `source_hash`（[ADR-0010](docs/adr/03-project/0010-instance-identity-is-a-uid.md)）。
 16. 层次（`module`）进语言吗？**已落地模块层**，IR 仍存展平结果；参数、嵌套、跨工程模块库未做（`spec/module.md`、[ADR-0013](docs/adr/04-schematic/0013-modules-compose-boards.md)、F13）。
-17. `fab` 描述进语言吗？**形态已定、实现延后**：默认产物是制造中立的数据而非 Gerber（[ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md) D9、F14 / F15）。
+17. `fab` 描述进语言吗？**形态已定、实现延后**：默认产物是制造中立的数据而非 Gerber（[ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md) D3、F14 / F15）。
 18. 困难用例语料谁来写？**已决定延后**，延后期间用 ADR 代替用例证据（F12）。
 
 **近期已定（不再讨论，细节见对应 backlog / ADR）**：诊断错误码 = `域.slug`，码冻结、只增不改（[ADR-0003](docs/adr/01-language/0003-diagnostic-error-codes.md)）；事实层不使用表达式（[ADR-0001](docs/adr/01-language/0001-fact-layer-has-no-expressions.md)）；契约层永久开源、项目是纯开源技术规范、无商业计划（[ADR-0039](docs/adr/10-process/0039-licensing-and-open-standard.md)，不变量 19）；核心链路零外部依赖、KiCad 是可选后端、Gerber 写出器自研、CAM 判定不自研（[ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md)，不变量 20）；**语言只有一个版本号**（[ADR-0002](docs/adr/01-language/0002-one-language-version-number.md)）。
