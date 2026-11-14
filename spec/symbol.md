@@ -49,7 +49,7 @@ symbol bq24610rger
 | `units` | 否 | 单元数，正整数，缺省 `1`。多单元器件（双运放等）写 `2`。 |
 | `pin_numbers` | 否 | `show` / `hide`，缺省 `show`。 |
 | `pin_names` | 否 | `show` / `hide`，缺省 `show`。 |
-| `pin_name_offset` | 否 | 引脚名相对**引脚内端**（贴符号体那一头）沿引脚方向向内的偏移，长度，缺省 `0.508`。与 KiCad 的 `(pin_names (offset …))` 同义；参考 SVG 渲染器在有可见符号体时按 [ADR-0053](../docs/adr/09-view/0053-pin-name-body-clearance-is-measured-from-symbol-body-bounds.md) 以器件框内侧边缘的 `0.40` 间隙摆放，无可见符号体时仍使用这个偏移。
+| `pin_name_offset` | 否 | 引脚名相对**引脚内端**（贴符号体那一头）沿引脚方向向内的偏移，长度，缺省 `0.508`。与 KiCad 的 `(pin_names (offset …))` 同义；参考 SVG 渲染器在有可见符号体时按 [ADR-0053](../docs/adr/09-view/0053-pin-name-body-clearance-is-measured-from-symbol-body-bounds.md) 以器件框内侧边缘的 `0.40` 间隙摆放，无可见符号体时仍使用这个偏移；竖直引脚的名与号一起转 `90_000`（[ADR-0054](../docs/adr/09-view/0054-vertical-pin-name-labels-always-rotate-toward-their-pins.md)），两者不会各转各的。
 | `power` | 否 | `yes` / `no`，缺省 `no`。电源符号（KiCad `(power)`）。 |
 | `in_bom` | 否 | `yes` / `no`，缺省 `yes`。 |
 | `on_board` | 否 | `yes` / `no`，缺省 `yes`。 |

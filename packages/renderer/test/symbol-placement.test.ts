@@ -447,4 +447,50 @@ describe("symbol pin-number placement", () => {
     }
   });
 
+  test("a bodyless vertical pin turns its name with its number, clear of the pin line", () => {
+    const pin = (number: string, x_nm: number, y_nm: number, rotation_mdeg: number): SymbolBody["pins"][number] => ({
+      number,
+      at: { x_nm, y_nm, rotation_mdeg },
+      length_nm: 2_540_000,
+      unit: 1,
+      style: "line",
+    });
+    const symbol = {
+      library: "test",
+      name: "bodyless-vertical",
+      units: 1,
+      pin_numbers_hidden: false,
+      pin_names_hidden: false,
+      power: false,
+      in_bom: true,
+      on_board: true,
+      // No `body`: the symbol has no visible frame, so the name keeps the source's
+      // `pin_name_offset` placement — but it must still turn with the pin, like the number does.
+      pins: [pin("1", 0, -8_000_000, 90_000)],
+    } satisfies SymbolBody;
+    const doc = renderSymbol(symbol, {
+      pins: [{ number: "1", name: "BOTTOM", type: "passive" }],
+    });
+    expect(validateDoc(doc)).toEqual([]);
+
+    const label = doc.primitives.find(
+      (primitive) => primitive.kind === "text" && primitive.role === "pinName",
+    );
+    const number = doc.primitives.find(
+      (primitive) => primitive.kind === "text" && primitive.role === "pinNumber",
+    );
+    expect(label).toBeDefined();
+    expect(number).toBeDefined();
+    if (label?.kind !== "text" || number?.kind !== "text") throw new Error("labels are missing");
+
+    // The name and the number agree about which way the pin runs.
+    expect(label.rotateMdeg).toBe(90_000);
+    expect(number.rotateMdeg).toBe(90_000);
+
+    // The turned name runs alongside its pin line and keeps a 0.10 mm gap from it.
+    const bounds = paintedTextBounds(label);
+    const pinLineX = 0;
+    expect(pinLineX - bounds.right).toBe(100_000);
+  });
+
 });

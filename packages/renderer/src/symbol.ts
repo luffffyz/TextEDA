@@ -31,6 +31,8 @@ const NUMBER_TEXT_CLEARANCE_NM = 500_000;
 const NUMBER_TEXT_BODY_FALLBACK_OFFSET_NM = 1_200_000;
 /** Exact clear distance from a visible symbol-body frame to pin-name ink. */
 const PIN_NAME_BODY_CLEARANCE_NM = 400_000;
+/** Gap between a bodyless pin name and the pin line it runs along. */
+const PIN_NAME_PIN_LINE_GAP_NM = 100_000;
 /** Inversion bubble radius (KiCad default 0.254mm). */
 const BUBBLE_RADIUS_NM = 254_000;
 /** Clock wedge length and half-width. */
@@ -312,15 +314,25 @@ export function renderSymbol(sym: SymbolBody, part: SymbolPart): SvgDoc {
           unit: pin.unit,
         });
       } else {
+        // Bodyless: the name keeps the source's `pin_name_offset` placement, but its **orientation**
+        // follows the pin like every other label: a vertical pin's name is rotated `90_000`, exactly
+        // as its pin number is (ADR-0054). The name and the number must not disagree about which way
+        // the pin runs, or the same symbol reads two ways at once.
         const anchor = dir.x < 0 ? "end" : "start";
         const offset = sym.pin_name_offset_nm ?? DEFAULT_NAME_OFFSET_NM;
+        const turned = dir.x === 0;
+        const rotateMdeg = turned ? 90_000 : undefined;
+        // A turned name's ink straddles its baseline, and the baseline would sit on the pin line it
+        // runs along, so the baseline steps aside by the ink's own half-width plus a hair.
+        const ink = turned ? textInkEdges(name, DEFAULT_TEXT_SIZE_NM, anchor, rotateMdeg) : undefined;
         primitives.push({
           kind: "text",
-          x: inner.x + dir.x * offset,
+          x: inner.x + dir.x * offset - (ink === undefined ? 0 : ink.right + PIN_NAME_PIN_LINE_GAP_NM),
           y: inner.y + dir.y * offset,
           text: name,
           sizeNm: DEFAULT_TEXT_SIZE_NM,
           anchor,
+          ...(rotateMdeg === undefined ? {} : { rotateMdeg }),
           role: "pinName",
           pin: pin.number,
           unit: pin.unit,

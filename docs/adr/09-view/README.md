@@ -16,7 +16,7 @@ What a person looks at: the view as an independent description and a drawing, th
 4. [0051](0051-pin-number-clearance-is-measured-from-painted-ink.md) — pin-line clearance is measured from the nearest painted edge, not the text anchor.
 5. [0052](0052-pin-number-body-clearance-is-measured-from-symbol-body-bounds.md) — body-side clearance uses visible symbol-body bounds, with a bodyless fallback.
 6. [0053](0053-pin-name-body-clearance-is-measured-from-symbol-body-bounds.md) — pin-name body clearance uses the same visible frame, with a larger inside-frame gap.
-7. [0054](0054-vertical-pin-name-labels-always-rotate-toward-their-pins.md) — visible-body vertical pin names always use a fixed `90_000` millidegree rotation and sit against the inner body edge on the pin's side.
+7. [0054](0054-vertical-pin-name-labels-always-rotate-toward-their-pins.md) — every vertical pin name uses a fixed `90_000` millidegree rotation, like its pin number; a visible-body one sits against the inner body edge on the pin's side.
 8. [0055](0055-schematic-fields-are-view-overrides.md) — schematic `Reference` and `Value` fields are deterministic renderer defaults with per-instance local overrides.
 9. [0037](0037-review-records-and-attribution.md) — a review is a record, not a description type.
 10. [0042](0042-the-review-app-has-modes.md) — the historical mode and standalone write decision; its interaction-surface rule is superseded by [ADR-0056](0056-the-review-app-has-one-interaction-surface.md).
