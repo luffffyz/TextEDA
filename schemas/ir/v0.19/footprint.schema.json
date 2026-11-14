@@ -17,7 +17,7 @@
     },
     "format": {
       "$ref": "urn:texteda:ir:0.19:common#/$defs/format_version",
-      "description": "Language version of the .teda file that produced this shard, in canonical form (the patch component is left out when it is zero); see teda.md §13."
+      "description": "Language version of the .teda file that produced this shard, in canonical form (the patch component is left out when it is zero); see teda.md §12.1."
     },
     "source": {
       "$ref": "urn:texteda:ir:0.19:common#/$defs/source_ref",

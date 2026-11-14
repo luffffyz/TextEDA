@@ -62,12 +62,15 @@ dist/ir/
 ├── project/schematic.json            # the one project's flattened logical root (normative)
 ├── boards/<pcb_id>/pcb.json          # one physical PCB implementation (normative)
 ├── views/<page_id>.json              # one project-level drawing (advisory)
+├── module-views/<module_id>.json     # one reusable module drawing (advisory, ADR-0068 D5)
+├── sheet-templates/<template_id>.json # one reusable sheet template (advisory, ADR-0068 D5)
 ├── symbols/<lib>/<symbol_id>.json
 ├── footprints/<lib>/<footprint_id>.json
 ├── components/<component_id>.json
 ├── boards/<pcb_id>/procurement.json              # primary selections for one PCB (normative)
 ├── boards/<pcb_id>/procurement-alternatives.json  # second sources for one PCB (advisory)
-└── project.json
+├── project.json
+└── identity.json                     # not a shard: the advisory identity index (ADR-0004 D6)
 ```
 
 The current `v0.19` paths reflect the project-level logic root and physical PCB ownership in
@@ -90,7 +93,11 @@ The current `v0.19` paths reflect the project-level logic root and physical PCB 
 - Because the layout is by kind, moving a source file between directories does not move a shard and
   does not change the project hash.
 
-### D4. `texteda ir <project> [--out <dir>] [--json]` is the only writer
+### D4. `texteda ir <project> [--out <dir>] [--json]` writes the tree
+
+It is the only writer of **the tree**. (`texteda compile <project> <board_id>` still writes a
+single board's shard to a file or to stdout — a debugging aid, not a producer of the tree; see
+Consequences.)
 
 - The output directory defaults to `<project>/dist/ir`; `--out` points it elsewhere.
 - It is a **project** command, not a board command: it compiles every description that has a
@@ -108,7 +115,8 @@ The current `v0.19` paths reflect the project-level logic root and physical PCB 
 
 `schematic.json` contains **exactly one** `instances` and one `nets`, and their content is the
 flattening result: an instance of a module is `M2.U1`, a net of a module is `M2.BOOT`, and a port
-that a module binds to a board-level net is merged into that net **under the board-level name**.
+that a module binds to a project-level net is merged into that net **under the project-level
+name** — the root's net names, since 0.14 there is no board-level net left to name.
 
 The page structure is not a second netlist and is not stored: there are no pages in the IR, because
 there are no pages in the language (see ADR-0012). A print page is a drawing, and it lives in its
@@ -175,9 +183,10 @@ Parameter type → IR unit:
   in the `shards` array of `manifest.json`.
 - A board hash = `sha256` (of the board's **normative** shards' `<path>:<sha256>\n` sorted by path
   and concatenated); the project hash is computed the same way over the project's **normative**
-  shards (which shards count as normative is D9). Board and project hashes are **not written to
-  disk**; they can be recomputed by this rule — which avoids two sources of truth where "the hash
-  is stored but the content does not match".
+  shards (which shards count as normative is D9). The **project** hash and the advisory hash are
+  written in `manifest.json` (`source_hash` and `advisory_hash`); the **board** hashes are printed
+  but not stored. Both are recomputable from the manifest by this rule, so the stored value and the
+  computed value cannot disagree — the manifest holds one copy, not two.
 - Derivative artifacts (Gerber, images, netlists) write `source_hash` (the project hash) + the
   board hash they belong to + `tool_version`.
 - Incremental: change one source file and only that shard is recomputed; unchanged shards keep the
@@ -191,7 +200,8 @@ Every shard is classified, and the manifest records the classification per shard
 - A shard is **normative** when it carries content that the build depends on — the design, the
   geometry, the primary selections.
 - A shard is **advisory** when it carries content that no built artifact depends on — the
-  procurement alternatives and **the print pages**.
+  procurement alternatives, **the print pages**, the reusable module drawings and the sheet
+  templates.
 - The classification is a property of the shard, and therefore of the source file it comes from:
   one source file produces one shard, and a shard has exactly one classification.
 - The **project hash** is `sha256` over the `<path>:<sha256>\n` lines of the **normative** shards,
@@ -219,7 +229,7 @@ carrying the project hash.
 
 - `project.toml` is the **human-written** entry point for project metadata; `project.json` is its
   IR projection, field for field (`name`/`version`/`format`/`description`/`license`/`status`/
-  `default_variant`/`authors`/`links`/`boards`/`variants`/`compliance`/`ext`).
+  `owner`/`default_variant`/`authors`/`links`/`boards`/`variants`/`compliance`/`ext`).
 - **A library reference is not among them.** A library is a **template**: `texteda lib import`
   copies it into `assets/`, and from then on it is the project's own asset (see ADR-0034). The
   project describes itself; the libraries it borrowed live beside it as ordinary assets.

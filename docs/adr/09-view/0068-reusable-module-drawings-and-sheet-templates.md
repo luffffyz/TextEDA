@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-11-08
 Scope: Decides: reusable module-local drawings, static sheet templates, and their composition into schematic print pages. Does not decide: electrical module semantics, page-as-logic hierarchy, or PCB views.
-Related: [ADR-0002](../01-language/0002-one-language-version-number.md), [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0067](0067-hierarchical-module-views-and-custom-page-size.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md), [ADR-0071](0071-a-module-drawing-is-an-editable-view.md)
+Related: [ADR-0002](../01-language/0002-one-language-version-number.md), [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0066](../02-ir/0066-symbol-and-footprint-shards-record-source-language-version.md), [ADR-0067](0067-hierarchical-module-views-and-custom-page-size.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md), [ADR-0071](0071-a-module-drawing-is-an-editable-view.md)
 Impact: Adds the `module_view` and `sheet_template` description types, extends schematic views, and adds advisory IR shards.
 > **Current page scope (2026-11-09):** [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4 makes composed schematic pages project-wide. The module-view and template paths remain unchanged; a page is now `views/<page_id>.view.teda`, and its placements and references resolve against the project root's logical IDs, not a board-local schematic or board-local namespace.
 

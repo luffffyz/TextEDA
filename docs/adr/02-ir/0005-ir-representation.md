@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-20
 Scope: Decides: the three-layer separation of the IR, canonical JSON as the on-disk form, and JSON Schema as the sole contract. Does not decide: how the IR is sharded and hashed — see ADR-0006.
 Related: [ADR-0001](../01-language/0001-fact-layer-has-no-expressions.md), [ADR-0004](../01-language/0004-source-spans.md), [ADR-0006](0006-ir-shards-and-hashes.md), [ADR-0007](0007-device-description-enters-the-ir.md), [ADR-0024](../07-devices/0024-the-device-kind-is-part-or-generic.md)
-Impact: `schemas/ir/**`; `packages/ir/src/**`; `spec/teda.md` §12
+Impact: `schemas/ir/**`; `packages/ir/src/**`; `packages/parser/src/canonical.ts`; `AGENTS.md` §2 (invariant 18)
 
 ## Background
 
@@ -22,7 +22,7 @@ At the same time, three constraints narrow the options:
 - **Invariant 5: every element has a stable ID**, which diffing and incremental updates depend on — serialization must carry stable IDs.
 - **Scale** (`AGENTS.md` §7 known pitfall): the IR grows with the component count, and the agent cannot work from the whole IR. So the IR's representation is meant **for the toolchain**, not for the agent to read directly.
 
-`AGENTS.md` §9 already writes `schemas/  # IR's JSON Schema / zod definitions (machine-readable)` into the target structure, which settles the direction as the JSON family; but "who owns the contract", "whether serialization must be canonical" and "which units numbers use" are still undecided.
+`AGENTS.md` §9 already puts the IR's contract in `schemas/ir/` (the contract version is the directory name), which settles the direction as the JSON family; but "who owns the contract", "whether serialization must be canonical" and "which units numbers use" are still undecided.
 
 ## Decision
 
@@ -40,8 +40,13 @@ At the same time, three constraints narrow the options:
 
 - `schemas/ir/<version>/<name>.schema.json` is the only published contract, with `$id` of the form `urn:texteda:ir:<version>:<name>`.
 - Schemas must be **closed**: `additionalProperties: false`, exhaustive enums, every field annotated with dimension and unit, optionality explicit. A schema that is not closed equals no contract.
-- **zod is only an implementation detail on the TypeScript side**, not the contract. Reason: zod cannot be consumed directly by Python, Rust or C++, and the goal of conformance is precisely to let implementations in different languages validate each other.
-- When both exist (`schemas/` holding both JSON Schema and zod), **they must be driven by the same set of conformance cases, with consistency tests**: for the same inputs, the verdicts of zod and JSON Schema must be identical. Otherwise the two definitions drift, and drift does not raise errors.
+- **There is no second definition of the contract.** A schema library on the implementation side is an
+  implementation detail, never the contract: zod cannot be consumed directly by Python, Rust or
+  C++, and the goal of conformance is precisely to let implementations in different languages
+  validate each other. The project took neither zod nor a hand-written type
+  ([ADR-0038](../10-process/0038-implementation-stack-and-agent-entry.md)): the direction is
+  **JSON Schema → TypeScript types**, the types are generated from the schema, and there is no
+  second validator that could drift from it ([ADR-0006](0006-ir-shards-and-hashes.md) D12).
 
 ### 3. Serialization uses canonical JSON
 
@@ -53,8 +58,8 @@ Rules (to be written into `AGENTS.md` and the `schemas/` documentation):
 | 2 | Object keys sorted by ascending Unicode code point; key names in ASCII `snake_case` |
 | 3 | **Integers only**: lengths in nm, angles in millidegrees (1/1000°), ratios in ppm, impedance in Ω |
 | 4 | **Floats are forbidden** — floats are the number one source of JSON diff jitter and hash instability |
-| 5 | Absent fields are **omitted** (no `null`); empty collections are omitted; adding a new field leaves the hash of old IR unchanged |
-| 6 | Enums use strings; IDs use semantic IDs (`U1`, `net:GND`, `M1.R1.2`), **never uuid** |
+| 5 | Absent fields are **omitted** (no `null`): a field the source does not state is not written, and a field the contract requires is written even when it is empty; adding a new field leaves the hash of old IR unchanged |
+| 6 | Enums use strings; IDs use semantic IDs (`U1`, `GND`, `M1.R1.2`), **never uuid** |
 | 7 | No timestamps, absolute paths or random IDs (same rule as `project.toml`, for reproducibility) |
 | 8 | Free text uses an optional `note` field (JSON has no comments; this is the substitute) |
 | 9 | `source_hash` = SHA-256(canonical JSON bytes) |
@@ -63,18 +68,11 @@ Rules (to be written into `AGENTS.md` and the `schemas/` documentation):
 
 ### 4. On-disk layout
 
-Sharded by description, avoiding a single file of hundreds of MB. In the current project-level model (ADR-0069 D5), the normative schematic root and physical PCBs are separate shards; project views are advisory:
+Sharded by description, avoiding a single file of hundreds of MB. In the current project-level model (ADR-0069 D5), the normative schematic root and physical PCBs are separate shards; project views are advisory.
 
-```
-dist/ir/
-├── manifest.json
-├── project/schematic.json
-├── boards/<pcb_id>/pcb.json
-├── views/<page_id>.json
-├── components/<component_id>.json
-└── project.json
-```
+**The layout itself is not decided here** — it is [ADR-0006](0006-ir-shards-and-hashes.md) D3's, and it moves as the kinds of description move (the tree the writer produces today has more kinds than this record had). What is decided here is the shape of the answer:
 
+- The tree is **one directory per project**, `dist/ir/` by default, holding one canonical-JSON file per shard plus a manifest that registers them.
 - Renderers and exporters read files from `dist/ir/` by default (convenient for incremental debugging and diffing); they may also read a single JSON document from stdin.
 - Writing to disk must be **byte-reproducible**: the same source + the same tool version → byte-identical IR.
 
@@ -102,7 +100,7 @@ Even then we **do not use Protobuf / Cap'n Proto**: fixed field numbers freeze s
 
 ## Follow-up
 
-> The four items below are closed out by `docs/adr/0008-ir-shard-identity-and-hash.md` (2026-10-20): file partitioning, `source_hash` granularity, the boundary with `project.toml`, the zod direction. The original text is kept here as decision background.
+> The four items below are closed out by [ADR-0006](0006-ir-shards-and-hashes.md) (2026-10-21): file partitioning, `source_hash` granularity, the boundary with `project.toml`, the zod direction. The original text is kept here as decision background.
 
 - The file partitioning of `schemas/ir/v0.1/` and its correspondence to `project` / `components` / `schematic` / `pcb` / `system`.
 - The concrete generation direction between zod and JSON Schema (JSON Schema → TS types, or zod → JSON Schema), derived from the requirement of consistency tests.

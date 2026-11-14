@@ -54,7 +54,7 @@
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `component` | object | yes | — | The component itself: id, classification, library references and the materialized pin table. |
-| `format` | format_version | no | — | Language version of the .teda file that produced this shard; see teda.md §13. |
+| `format` | format_version | no | — | Language version of the .teda file that produced this shard; see teda.md §12.1. |
 | `ir_version` | ir_version | yes | — | IR contract version, currently always 0.19. |
 | `note` | note | no | — | Free text; canonical JSON has no comments, this is the substitute. |
 | `source` | source_ref | no | — | Source-file location: path relative to the project root plus an optional line number. |
@@ -73,7 +73,7 @@
 | `lcsc` | string | no | — | LCSC part number; see ADR-0022. |
 | `manufacturer` | string | no | — | Manufacturer name. |
 | `mpn` | string | no | — | Manufacturer part number; required for a part, absent for a generic (ADR-0024). |
-| `params` | array<param_decl> | no | — | Declares the extra columns allowed in instances rows; the order is the column order; required must precede optional (teda.md §12). |
+| `params` | array<param_decl> | no | — | Declares the extra columns allowed in instances rows; the order is the column order; required must precede optional (teda.md §11). |
 | `pins` | array<pin> | yes | — | Pin table; pin numbers are unique and form the key that aligns with the footprint. |
 | `pins_source` | `inline` \| `symbol` | yes | — | inline = the file has a pins section (inline wins); symbol = the file omits pins and the pins are resolved from a third-party library that carries pin facts (a self-built symbol has no pin facts and cannot be this source). When both are present, inline is taken; the difference is reported by validation and does not enter the IR. |
 | `polarized` | boolean | no | — | Whether the generic is polarised (ADR-0024). Required for a generic, absent for a part. |
@@ -126,7 +126,7 @@
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `footprint` | object | yes | — | The footprint itself: pads, graphics, attributes, the package code and the 3D model reference. |
-| `format` | format_version | yes | — | Language version of the .teda file that produced this shard, in canonical form (the patch component is left out when it is zero); see teda.md §13. |
+| `format` | format_version | yes | — | Language version of the .teda file that produced this shard, in canonical form (the patch component is left out when it is zero); see teda.md §12.1. |
 | `ir_version` | ir_version | yes | — | IR contract version, currently always 0.19. |
 | `source` | source_ref | no | — | Source-file location: path relative to the project root plus an optional line number. |
 
@@ -279,7 +279,7 @@
 |---|---|---|---|---|
 | `bounds` | object | yes | — | The extent of this module drawing. The local origin is the upper-left corner of the bounds, +x right and +y down; every drawn point must lie inside them (ADR-0068 D2). |
 | `field` | array<field> | no | — | Optional manual positions for the Reference and Value fields, in symbol-local coordinates; rows are sorted by instance_id then name. |
-| `format` | format_version | yes | — | Language version of the .teda file that produced this shard; see teda.md §13. |
+| `format` | format_version | yes | — | Language version of the .teda file that produced this shard; see teda.md §12.1. |
 | `ir_version` | ir_version | yes | — | IR contract version, currently always 0.19. |
 | `junction` | array<junction> | no | — | Named drawing-graph junctions, sorted by id. Junctions do not create schematic connectivity. |
 | `label` | array<label> | no | — | Net name labels; the text shown is the net id itself, never an override. |
@@ -635,7 +635,7 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `format` | format_version | no | — | Language version of the .teda file that produced this shard; see teda.md §13. |
+| `format` | format_version | no | — | Language version of the .teda file that produced this shard; see teda.md §12.1. |
 | `ir_version` | ir_version | yes | — | IR contract version, currently always 0.19. |
 | `procurement` | object | yes | — | The selections for one physical PCB: which part is bought for which generic line owned by that PCB. |
 | `source` | source_ref | no | — | Source-file location: path relative to the project root plus an optional line number. |
@@ -739,7 +739,7 @@
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `field` | array<field> | no | — | Optional manual positions for the Reference and Value fields, in symbol-local coordinates; rows are sorted by instance_id then name. |
-| `format` | format_version | yes | — | Language version of the .teda file that produced this shard; see teda.md §13. |
+| `format` | format_version | yes | — | Language version of the .teda file that produced this shard; see teda.md §12.1. |
 | `interconnect` | array<interconnect> | no | — | Interconnect links drawn on this page, one row per drawn interconnect; rows are sorted by id. The page draws an interconnect only by referencing its id from the root's `interconnects`; the drawing never creates, removes or re-endpoints the fact (ADR-0069 D3, D4). Omitted when the page draws no interconnect links. |
 | `ir_version` | `0.19` | yes | — | IR contract version, currently always 0.19. |
 | `junction` | array<junction> | no | — | Named drawing-graph junctions, sorted by id. Junctions do not create schematic connectivity. |
@@ -1039,7 +1039,7 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `format` | format_version | yes | — | Language version of the .teda file that produced this shard; see teda.md §13. |
+| `format` | format_version | yes | — | Language version of the .teda file that produced this shard; see teda.md §12.1. |
 | `ir_version` | ir_version | yes | — | IR contract version, currently always 0.19. |
 | `line` | array<line> | no | — | Straight furniture strokes; rows are sorted by id. |
 | `note` | note | no | — | Free text; canonical JSON has no comments, this is the substitute (ADR-0005 rule 8). |

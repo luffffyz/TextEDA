@@ -139,7 +139,7 @@ export interface SheetTemplate {
    */
   ir_version: "0.19";
   /**
-   * Language version of the .teda file that produced this shard; see teda.md §13.
+   * Language version of the .teda file that produced this shard; see teda.md §12.1.
    */
   format: string;
   source?: SourceRef;

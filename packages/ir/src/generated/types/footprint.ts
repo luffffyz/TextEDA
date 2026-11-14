@@ -238,7 +238,7 @@ export interface Footprint {
    */
   ir_version: "0.19";
   /**
-   * Language version of the .teda file that produced this shard, in canonical form (the patch component is left out when it is zero); see teda.md §13.
+   * Language version of the .teda file that produced this shard, in canonical form (the patch component is left out when it is zero); see teda.md §12.1.
    */
   format: string;
   source?: SourceRef;

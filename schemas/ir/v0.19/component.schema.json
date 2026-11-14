@@ -16,7 +16,7 @@
     },
     "format": {
       "$ref": "urn:texteda:ir:0.19:common#/$defs/format_version",
-      "description": "Language version of the .teda file that produced this shard; see teda.md §13."
+      "description": "Language version of the .teda file that produced this shard; see teda.md §12.1."
     },
     "source": {
       "$ref": "urn:texteda:ir:0.19:common#/$defs/source_ref",
@@ -98,7 +98,7 @@
         },
         "params": {
           "type": "array",
-          "description": "Declares the extra columns allowed in instances rows; the order is the column order; required must precede optional (teda.md §12).",
+          "description": "Declares the extra columns allowed in instances rows; the order is the column order; required must precede optional (teda.md §11).",
           "items": {
             "$ref": "#/$defs/param_decl"
           }
