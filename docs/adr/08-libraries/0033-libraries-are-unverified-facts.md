@@ -72,6 +72,18 @@ manufacturing.** Structural validity is guaranteed; factual correctness is not.
 The manifest is required for libraries and optional for a project's own assets. It also carries
 the library version, which is what a project pins when it copies the library in.
 
+**Not built, and partly overtaken.** No `lib.toml` exists in the toolchain
+(`docs/backlog.md` F26): the manifest a library actually publishes today is `library.toml`, and it
+carries a different thing — `name`, `source` and the `[[trust]]` rows that say which items a
+human checked at which revision
+([ADR-0034](0034-trust-in-a-library-you-do-not-own.md) D7, D8). A tree-level revision and a
+tree-level `generated` / `reviewed` summary were withdrawn with the dependency model; what this
+record still owns is the *rule* the disclaimer states, and the rule that the disclaimer itself
+belongs to the library's published content. The `lib.toml` shape above is a design that was never
+built and no longer fits the trust model — it is kept here because the question it answers ("what
+does a library say about itself?") is still open, and the shape it would take now is the one
+`library.toml` has.
+
 ### 3. A correction is an in-place edit of the file the project owns
 
 An external library is a **template**: it is copied into the project's tree once and is then the
@@ -116,6 +128,15 @@ the datasheet pointer, so that the failure is actionable rather than mysterious.
 
 Strict mode is opt-in and off by default: most projects would rather have a generated part and
 check it themselves than have no part at all.
+
+**Not built — neither the warning nor the switch.** Today a selection of a `provenance generated`
+part raises nothing at all: the selection checks say nothing about provenance, and there is no
+strict mode to turn the case into an error (`docs/backlog.md` F26). The only provenance check that
+runs is on the shape of the claim (`reviewed` without an attribution is
+`value.provenance-invalid`, D1), not on whether a project is willing to build on an unreviewed
+part. The decision stands — opt-in, off by default, and reported with the item id and the
+datasheet pointer so the failure is actionable — and both halves of the reporting are waiting for
+the switch.
 
 ### 7. The structural gate applies to libraries too
 

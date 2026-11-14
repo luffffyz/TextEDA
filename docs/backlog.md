@@ -9,7 +9,7 @@
 
 ## F1. 校准自建封装的几何（footprint 校准）
 
-**现状**：`examples/reference-project/assets/footprints/<family>/` 下的 16 个封装是**通用 land pattern**——焊盘尺寸与间距按 IPC 通用推荐取整，不是各料号 datasheet 的精确 land pattern（见 [ADR-0032](adr/08-libraries/0032-the-reference-project-is-self-built.md) decision 5）。每个文件的 `description` 里都写了 `generic land pattern` 作为标记。
+**现状**：`examples/reference-project/assets/footprints/<family>/` 下的 17 个封装是**通用 land pattern**——焊盘尺寸与间距按 IPC 通用推荐取整，不是各料号 datasheet 的精确 land pattern（见 [ADR-0032](adr/08-libraries/0032-the-reference-project-is-self-built.md) decision 5）。17 个里有 16 个的 `description` 写了 `generic land pattern` 作为标记；唯一的例外是 `dc-in-th-dc-005-20a`，它的槽位在现在的源语法里表达不了，那条 `description` 直接写明了这一点。
 
 **为什么现在不做**：库级闭环（`bun run lib:verify`：引用可解析、canonical、契约通过、KiCad 能读能渲染、合并板 DRC 0 违规）已经成立，几何精度不影响链路验证。参考工程的价值是"可复现的样本"，不是"厂商级库"。
 
@@ -19,9 +19,9 @@
 2. 改 `description`，去掉 `generic land pattern`，写上真实封装代号与 body 尺寸。
 3. 有 3D 模型的话补 `model` 行（项目相对路径的 STEP/WRL，[ADR-0030](adr/08-libraries/0030-footprint-format-and-geometry.md) 允许）。
 4. ~~改完重算库内容哈希~~ **不需要**：自建库没有 `content_hash`（`[libs]` 已撤销，[ADR-0034](adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md)），几何就在 `assets/` 里。
-5. 跑 `bun run fmt:teda examples/reference-project/footprints`（canonical form）与 `bun run lib:verify`。
+5. 跑 `bun run fmt:teda examples/reference-project/assets/footprints`（canonical form）与 `bun run lib:verify`。
 
-**涉及封装**（16 个）：`chip-0402` `chip-0603` `chip-1210` `chip-2010` `tantalum-7343` `ihlp-4040` `ihlp-2525` `crystal-3225-4` `switch-5x5-4` `sot-23` `sot-23-5` `soic-8-ep` `powerpak-1212-8` `lqfp-100` `vqfn-24-ep` `sma`
+**涉及封装**（16 个，也就是上面 17 个里除 `dc-in-th-dc-005-20a` 之外的）：`chip-0402` `chip-0603` `chip-1210` `chip-2010` `tantalum-7343` `ihlp-4040` `ihlp-2525` `crystal-3225-4` `switch-5x5-4` `sot-23` `sot-23-5` `soic-8-ep` `powerpak-1212-8` `lqfp-100` `vqfn-24-ep` `sma`
 
 **验收**：
 - 每个封装的 body 尺寸、焊盘间距能在对应料号的 datasheet 上逐项对上（datasheet **不入库**，自行从厂商官网下载到 `examples/reference-project/docs/datasheets/`，该目录已 gitignore；文件名见 `examples/reference-project/docs/mcu-board-components.md` 的表）。
@@ -493,7 +493,7 @@
 1. **语言层（已落地）**：`component` 增加必填 `kind`（`part` / `generic`）；`part` 要求 `mpn`、`generic` 禁止 `mpn` 且 `params` 至少有一列参与身份（`value`）；新增 `construction`（开放词表）与 `polarized`（`yes`/`no`）两个标量字段；`spec/teda.md` §6 改写（`spec/teda.md` §6.1.1 两种器件、`spec/teda.md` §6.2 `params`、`spec/teda.md` §9.1 新增 `polarized` 电气类型）。**版本走的是 `component` 自己的版本线 `0.1` → `0.1.1` → `0.1.2` → `0.1.3`**（每种描述类型一条线，0.x 阶段只走 PATCH 位，见 [ADR-0002](adr/01-language/0002-one-language-version-number.md) D5）——这是合并前（2026-10-23）的记法：类型版本线已随 2026-10-27 的合并退役，合并后是**语言版本**（见 [ADR-0002](adr/01-language/0002-one-language-version-number.md) D2）。
    - **引脚表是身份分界**（[ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md) decision 3）：引脚表变了就是另一个器件；只有不改引脚表、不改引脚行为的属性才允许进 `params`（value / tolerance / 耐压 / ESR / 温度档）。`package` 与 `footprint` 是 part / generic 的固定属性，**不是** `params`。
    - **一封装一 part**（decision 4）：同一 die 的多个封装 = 多个 part 文件，各自写**完整**引脚表；不做引脚表合成、不做多封装 part。
-2. **目录迁移（已落地）**：`assets/components/passives/c-0402.teda` → `cap-mlcc-0402.teda`（通用器件 id 不带值、带构造）、`c-220u.teda` → `cap-tantalum-7343.teda`（`construction tantalum` + `polarized yes`）、`r-0402.teda` → `res-thick-0402.teda`；有真 MPN 的（`xtal-8mhz-3225`、`l-6r8` → `ihlp2525czer6r8m01` 等）留在 `assets/components/*` 并标 `kind: part`；`assets/symbols/`、`assets/footprints/` 归到 `assets/` 下（**库目录仍带库名**：`assets/symbols/project/`、`assets/footprints/project/`，见 `spec/teda.md` §2 的 `<lib>/` 布局）；`project.toml` 的 `[libs.project]` 还在，`libref` 替代它属 F29 的**未落地**部分。**2026-10-23**：通用器件不再单独放 `assets/families/`，与件同在 `assets/components/**`（按类别进子目录），`kind` 只写在文件里（[ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md)）。
+2. **目录迁移（已落地）**：`assets/components/passives/c-0402.teda` → `cap-mlcc-0402.teda`（通用器件 id 不带值、带构造）、`c-220u.teda` → `cap-tantalum-7343.teda`（`construction tantalum` + `polarized yes`）、`r-0402.teda` → `res-thick-0402.teda`；有真 MPN 的（`xtal-8mhz-3225`、`l-6r8` → `ihlp2525czer6r8m01` 等）留在 `assets/components/*` 并标 `kind: part`；`assets/symbols/`、`assets/footprints/` 归到 `assets/` 下（**当时库目录仍带库名**：`assets/symbols/project/`、`assets/footprints/project/`；**2026-10-30 起不再如此**——目录改为分类轴，见 [ADR-0049](adr/08-libraries/0049-assets-are-filed-by-what-they-are.md)，布局见 `spec/teda.md` §2）；`project.toml` 的 `[libs.project]` 还在，`libref` 替代它属 F29 的**未落地**部分。**2026-10-23**：通用器件不再单独放 `assets/families/`，与件同在 `assets/components/**`（按类别进子目录），`kind` 只写在文件里（[ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md)）。
 3. **迁移脚本：不做**（2026-10-23 定）——本项目尚无外部使用者，没有需要迁移的旧文件；改法写在 `spec/teda.md` §12.4（加 `kind`、`family` 改名 `generic`、把通用器件挪进 `assets/components/`、版本提到 `0.1.3`）。**通用器件 id 的改名与 `construction` / `polarized` 的取值由作者决定**，工具不替人填。
 4. **命名空间**：`instances` 行支持 `lib:id` 限定名（库内件必须限定，项目件可裸写）；解析顺序：项目 `assets/components/` → 库。
 5. **variant 作用域**：`packages/core` 的 ERC 里，变体按 `component_id` 生效只对 `kind: part` 成立；通用器件只能按实例作用域（DNP/替代料指到具体实例）。
@@ -518,20 +518,22 @@
 
 ## F26. 库的信任模型：provenance、免责条款、派生覆盖（ADR-0033 的落地）
 
-**现状**：`bun run lib:verify` 校验项目自有资产（引用可解析、引脚号与焊盘号对齐、KiCad 可读、DRC 0 违规）。**`provenance` 已落地**（2026-10-24）：`component` 的 `provenance generated|reviewed` 进 IR 契约，`reviewed` 缺 `verified_by` / `verified_on` 报 `value.provenance-invalid`。**库级 trust record 已落地**（`library.toml`，`[[trust]]` 按 revision 列 id，导入时落成副本的 claim 与头注释，见 `docs/guides/library-import.md` §3）：审一次库 = 一份 record，不是几百个文件。 **消费者侧 trust 表已落地**（2026-10-24，[ADR-0034](adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md) D8，`lib import --trust <file>`）：背书别人的库（上游/官方库不带我们的 manifest）写在消费方的一张表里，`library` + `by` / `on` + 三组 `id@rev` 条目（**无整库开关**，行按动作而非 revision 分）；两份记录各自覆盖不同条目时并存、同一 `(library, id, rev)` 不同归属 = error，来源头注释写明是哪一份（形状随 [ADR-0034](adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md) D6 改，按文件的信任匹配见同记录 D10）。表不进工程树、不进构建，`provenance reviewed` 照常进工程哈希。**派生覆盖与 vendoring 已撤销**（[ADR-0034](adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md) D2）：副本就是自有件。**剩下**：库清单 `lib.toml`（我们自己发布库时才需要）、严格模式。
+**现状**：`bun run lib:verify` 校验项目自有资产（引用可解析、引脚号与焊盘号对齐、KiCad 可读、DRC 0 违规）。**`provenance` 已落地**（2026-10-24）：`component` 的 `provenance generated|reviewed` 进 IR 契约，`reviewed` 缺 `verified_by` / `verified_on` 报 `value.provenance-invalid`。**库级 trust record 已落地**（`library.toml`，`[[trust]]` 按 revision 列 id，导入时落成副本的 claim 与头注释，见 `docs/guides/library-import.md` §3）：审一次库 = 一份 record，不是几百个文件。 **消费者侧 trust 表已落地**（2026-10-24，[ADR-0034](adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md) D8，`lib import --trust <file>`）：背书别人的库（上游/官方库不带我们的 manifest）写在消费方的一张表里，`library` + `by` / `on` + 三组 `id@rev` 条目（**无整库开关**，行按动作而非 revision 分）；两份记录各自覆盖不同条目时并存、同一 `(library, id, rev)` 不同归属 = error，来源头注释写明是哪一份（形状随 [ADR-0034](adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md) D6 改，按文件的信任匹配见同记录 D10）。表不进工程树、不进构建，`provenance reviewed` 照常进工程哈希。**派生覆盖与 vendoring 已撤销**（[ADR-0034](adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md) D2）：副本就是自有件。**剩下**：库清单 `lib.toml`（我们自己发布库时才需要）、**选中 `provenance generated` 库件的告警**、严格模式。
+
+**为什么那条告警必须做**：今天选一颗没人复核过的库件，**一条消息都没有**——采购检查只看角色、封装、料号、额定值与 footprint，不看 provenance（`packages/core/src/procurement/rules.ts` 只有 unsourced / unused 两条 warning）。唯一留下痕迹的是导入时写的来源头注释，而那是给打开文件的人看的，不是给构建看的。结果是：**一块用了未复核器件的板子，看起来和用了复核过的板子一模一样**，而 ADR-0033 D6 承诺的告警与 strict mode 都还没有（下面第 4 条）。这是"库是未核实的实"这个决定在工具侧唯一还没兑现的一环：不报，就等于默认没人复核。
 
 **要做的事**：
 
 1. **`provenance` 字段**：`component` 增加 `provenance`（`generated` / `reviewed`），未声明按 `generated` 处理；`reviewed` 必须带 `verified_by` / `verified_on`；`kind: part` 且 `provenance: generated` 时 `datasheet` 必填。
 2. **库清单 `lib.toml`**：`name` / `version` / `generated` / `reviewed` / `disclaimer`；库发布时清单必填。
 3. **派生覆盖**：`component` 增加 `overrides`（指向被覆盖的 `lib:id`）；派生的 `component` / `generic` 必须是**完整**的一份（不是 patch），且要声明自己的 `provenance`。
-4. **严格模式**：`texteda check --strict-provenance`（或 `project.toml` 开关）下，引用 `generated` 的库件报错，诊断里给库名、件号与 datasheet 指针。
+4. **严格模式**：**先做告警，再做开关**——普通模式下选 `provenance generated` 的库件报 **warning**（今天这条告警也不存在，见上面"现状"末段），`texteda check --strict-provenance`（或 `project.toml` 开关）下升级为 error，诊断里给库名、件号与 datasheet 指针。两条一起做，理由是 ADR-0033 D6 承诺的"报出来"与"可以拒绝"是一个决定的两半，只做后者会让默认模式下的未复核件继续无声通过。
 5. **`lib:verify` 能跑外部库**：对库目录跑同一套三方对齐（symbol 引脚号 == footprint 焊盘号 == component 引脚号）与 canonical 检查。
 6. ~~**库 vendoring 与哈希校验**~~ **撤销**（2026-10-24，[ADR-0034](adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md)）：没有锚点、没有内容哈希、没有 vendored 树。**已落地**的是 `texteda lib import <name> --from <dir> --rev <tag>`：拷贝器件与它们引用的几何进 `assets/`、重写为裸 id、加来源头注释、标 `provenance generated`；**编译期不联网**。
 
 **验收**：
 
-- 一个引用 `generated` 库件的项目在严格模式下报错、在普通模式下通过，诊断文案含库名与 datasheet 链接。
+- 一个引用 `generated` 库件的项目在普通模式下报 **warning**（不阻断）、在严格模式下报 error，诊断文案含库名与 datasheet 链接。
 - ~~派生覆盖后：库内容哈希不变；项目内该件的事实等于派生文件；`lib:verify` 仍全绿。~~ **已撤销**（[ADR-0034](adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md) D4）：没有库内件与派生件之分，导入的副本就是唯一的件，改它等于改设计。
 - ~~`content_hash` 被改动时 CLI 明确报错~~ **已撤销**：没有哈希可改。
 

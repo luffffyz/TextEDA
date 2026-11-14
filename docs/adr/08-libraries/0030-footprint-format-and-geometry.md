@@ -75,9 +75,10 @@ covers in-board entities (mounting holes, fiducials, test points, stitching vias
 
 ### D3. The source of truth of a self-built library is `.teda` source code
 
-One footprint per file: `assets/footprints/<lib>/<footprint_id>.teda`. The library name is
-determined by the directory and is not part of the file content. The syntax is described in
-`spec/footprint.md`.
+One footprint per file: `assets/footprints/<family>/<footprint_id>.teda`. The directory is the
+package family the land pattern belongs to and is not part of the file content; it was the
+library name before the assets were filed by what they are ([ADR-0049](0049-assets-are-filed-by-what-they-are.md)
+D1, D3). The syntax is described in `spec/footprint.md`.
 
 **Why not writing JSON directly.** The IR-representation record says outright that agents do not
 read IR directly; the agent's working surface is the `.teda` source plus a validation report.
@@ -103,9 +104,10 @@ Both artifacts share the same body generation logic, so "the footprint in the li
 footprint on the board disagree" cannot happen.
 
 **The library table still has to be written**, pointing at the **generated** `.pretty` directory
-(`dist/footprints/<lib>.pretty`, using the `${KIPRJMOD}` relative path). It is KiCad's lookup
-entry point; without it every footprint is reported as `lib_footprint_issues`. This was measured
-in the first trial run, and it is a hard requirement for the interoperation path, not a nicety.
+(`dist/footprints/<family>.pretty`, one per package family, using the `${KIPRJMOD}` relative path).
+It is KiCad's lookup entry point; without it every footprint is reported as `lib_footprint_issues`.
+This was measured in the first trial run, and it is a hard requirement for the interoperation
+path, not a nicety.
 
 ### D5. Two library providers, the same reference shape
 
@@ -113,8 +115,11 @@ in the first trial run, and it is a hard requirement for the interoperation path
   upstream revision.
 - **Self-built**: our own directory of `.teda` sources.
 
-The `lib:name` in `component.footprint` is the same for both, and so are the validation and the
-reference shape; the only difference is "how to resolve `lib:name` into geometry".
+The reference in `component.footprint` is the same for both, and so are the validation and the
+reference shape; the only difference is "how to resolve it into geometry". The reference is written
+`<family>:<id>` — the qualifier is the package family the footprint is filed under, which is where
+the directory axis of [ADR-0049](0049-assets-are-filed-by-what-they-are.md) D3 comes from; it was a
+library name before that record, and it is the name KiCad sees as the exported library.
 
 That two-provider shape was later withdrawn together with the library-dependency layer: an
 external library is today a **template**, copied in once by `texteda lib import` and then owned by
@@ -131,15 +136,20 @@ project can be entirely self-sufficient, and the official libraries are only a c
 is decisive for "an agent completes a board on its own" — provided footprints can be generated
 automatically and checked.
 
-**A library with two roots.** A self-built library provides both symbols and footprints, and the
-two share the same `<lib>:` namespace, so a library entry may name a `symbols` root and a
-`footprints` root.
+**Two trees, one axis each — not one library with two roots.** The shape this record first
+described (a library entry naming a `symbols` root and a `footprints` root) is gone: a library
+entry was a dependency, and dependencies went away with ADR-0034 D15. What a project has instead
+is two classification trees, and each kind is filed by its own axis — symbols under the device
+category, footprints under the package family
+([ADR-0049](0049-assets-are-filed-by-what-they-are.md) D2, D3). The two qualifiers are therefore
+not one namespace: `passives:r` and `chip:chip-0402` name different axes, and a device names one
+of each.
 
 ### D7. The checks that generated footprints must pass
 
 The tools (checker and, on the interoperation path, KiCad DRC) are responsible, not manual review:
 
-1. The footprint exists, the library table is parsable, and `lib:name` resolves to a concrete
+1. The footprint exists, the library table is parsable, and `<family>:<id>` resolves to a concrete
    footprint;
 2. **the pad number set covers the schematic pin number set**: one missing → error; one extra →
    warning;

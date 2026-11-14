@@ -3,8 +3,9 @@
 //
 // The command is the only place a library enters a project, and it is deliberately one-way:
 //
-// - the copied device is written under its **bare id**, with the `<name>:` qualifier rewritten to
-//   the destination library, so that nothing in the project resolves through a library at build time.
+// - the copy is filed under the **classification** it lands in (ADR-0049), the file name is the bare
+//   id, and the `<name>:` qualifier is rewritten to that classification — so nothing in the project
+//   resolves through a library at build time.
 // - every copied file gets a header comment naming the origin and the revision. That comment is the
 //   only record of where the file came from: it is visible in a diff, it never enters the IR, and
 //   nothing verifies it afterwards (there is no anchor to verify against).
@@ -488,8 +489,8 @@ function targetPath(root: string, file: LibraryFile, name: string, dest: string 
 type Qualifiers = (group: LibraryFile["group"], id: string) => string | undefined;
 
 /**
- * The copied text: qualifiers rewritten to the destination library, the origin header added, and a
- * component's provenance declared.
+ * The copied text: qualifiers rewritten to the classification the copy landed in, the origin header
+ * added, and a component's provenance declared.
  *
  * The rewrite is textual and otherwise verbatim, so a template's comments and layout survive: the
  * person who reads the copy reads what the library said.

@@ -4,11 +4,11 @@ Status: Accepted
 Date: 2026-11-03
 Scope: Decides: the minimum distance between adjacent pins on one side of a symbol that draws pin numbers, and that a pin row is not required to be symmetric about the symbol origin. Does not decide: which lattice a pin point must sit on ([ADR-0057](0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) §1), footprint pad pitch ([ADR-0030](0030-footprint-format-and-geometry.md)), the coordinates of decorative body artwork ([ADR-0057](0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) §3), and how the renderer places a pin number ([ADR-0050](../09-view/0050-pin-number-placement-is-a-renderer-convention.md)).
 Related: [ADR-0057](0057-symbol-pins-sit-on-a-half-millimetre-lattice.md), [ADR-0050](../09-view/0050-pin-number-placement-is-a-renderer-convention.md), [ADR-0051](../09-view/0051-pin-number-clearance-is-measured-from-painted-ink.md), [ADR-0030](0030-footprint-format-and-geometry.md), [ADR-0031](0031-symbol-format.md), [ADR-0059](../09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md)
-Impact: `spec/symbol.md` §4.1 states the floor and the per-pin anchoring rule; `bun run lib:verify` gains a pitch check; `docs/skills/library-authoring.md` §4.2, §4.3, §8, `docs/guides/symbol-authoring.md`, and the `library-authoring` skill follow; ten symbol files are re-authored (`bq24610rger`, `dc-dc-soic8`, `ldo-sot23-5` ×2, `sn65hvd230`, `opa2333`, `hdr-1x4`, `jst-sh-4`, `hdr-1x3`, `hdr-2x5`, `sw-push`); `views/charger-buck/buck-5v.view.teda` is re-derived; case expectations are regenerated.
+Impact: `spec/symbol.md` §4.1 states the floor and the per-pin anchoring rule; `bun run lib:verify` gains a pitch check; `docs/skills/library-authoring.md` §4.2, §4.3, §8, `docs/guides/symbol-authoring.md`, and the `library-authoring` skill follow; eleven symbol files are re-authored (`bq24610rger`, `dc-dc-soic8`, `ldo-sot23-5` ×2, `sn65hvd230`, `opa2333`, `hdr-1x4`, `jst-sh-4`, `hdr-1x3`, `hdr-2x5`, `sw-push`); the buck module drawing (`examples/reference-project/views/modules/buck-5v.module-view.teda`) is re-derived; case expectations are regenerated.
 
 ## Context
 
-`spec/symbol.md` §4.1 fixes the regular row pitch at `2.0 mm` ([ADR-0057](0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) §2). That value was chosen for an arithmetic property, not for legibility: `2.0` is the smallest multiple of `0.5` that is also even, so an even pin count centred on the origin lands on the lattice. The drawing pays for it in the one place the pitch exists to serve — the pin numbers the renderer draws beside each pin ([ADR-0050](../09-view/0050-pin-number-placement-is-a-renderer-convention.md), [ADR-0051](../09-view/0051-pin-number-clearance-is-measured-from-painted-ink.md)).
+Before this record, `spec/symbol.md` §4.1 fixed the regular row pitch at `2.0 mm` (the value [ADR-0057](0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) §2 originally chose; both now say `2.5 mm`). That value was chosen for an arithmetic property, not for legibility: `2.0` is the smallest multiple of `0.5` that is also even, so an even pin count centred on the origin lands on the lattice. The drawing pays for it in the one place the pitch exists to serve — the pin numbers the renderer draws beside each pin ([ADR-0050](../09-view/0050-pin-number-placement-is-a-renderer-convention.md), [ADR-0051](../09-view/0051-pin-number-clearance-is-measured-from-painted-ink.md)).
 
 Measured with the renderer's own metrics (Hershey ink plus half the stroke width, `1.27 mm` text size):
 
@@ -39,7 +39,7 @@ Consequently a row of an even pin count is **not** required to be symmetric abou
 
 ### 3. The regular pitch is exactly `2.5 mm`; a row may be wider
 
-Rows use `2.5 mm` unless something concrete needs more: a three-character pin number needs `3.0 mm` (two characters plus a gap is `2.5`), and `crystal-4` already draws its `2`/`3` pair `3.0 mm` apart to leave room for the package's plates. A wider row stays a multiple of `0.5 mm` (§2). Nothing is gained by going below `2.5`.
+Rows use `2.5 mm` unless something concrete needs more: a three-character pin number needs `3.0 mm` (two characters plus a gap is `2.5`), and `crystal-4` already draws its `2`/`4` pair `3.0 mm` apart to leave room for the package's plates. A wider row stays a multiple of `0.5 mm` (§2). Nothing is gained by going below `2.5`.
 
 ### 4. A symbol that hides its pin numbers has no floor
 
@@ -49,13 +49,13 @@ Rows use `2.5 mm` unless something concrete needs more: a three-character pin nu
 
 ### 5. A connector's drawn rows follow the same floor
 
-`hdr-1x4`, `jst-sh-4`, `hdr-1x3`, and `hdr-2x5` draw their rows `2.5 mm` apart. The ADR-0057 §5 clause that pinned them at `2.0 mm` "for legibility" is superseded by this floor, which is the same argument carried further. Their real pad pitch (`2.54 mm`, `1.0 mm`) still lives in the footprint ([ADR-0030](0030-footprint-format-and-geometry.md)); the two lattices answer different questions.
+`hdr-1x4`, `jst-sh-4`, `hdr-1x3`, and `hdr-2x5` draw their rows `2.5 mm` apart. The ADR-0057 §5 clause that pinned them at `2.0 mm` "for legibility" — since rewritten to point at this record — is superseded by this floor, which is the same argument carried further. Their real pad pitch (`2.54 mm`, `1.0 mm`) still lives in the footprint ([ADR-0030](0030-footprint-format-and-geometry.md)); the two lattices answer different questions.
 
 ## Consequences
 
 - Every chip symbol in `examples/` is re-authored: `bq24610rger` (12 and 9 pins per side, spanning `27.5 mm` and `20 mm`), `dc-dc-soic8`, `ldo-sot23-5` (both copies), `sn65hvd230`, `opa2333`; connectors and `sw-push` as described above. `ch32v307vct6` already sits at `2.5 mm` and does not move.
 - Bodies stay as they are: a visible `rect` body's edges are where the tails end ([ADR-0057](0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) §3), and every new row fits inside the existing frame.
-- `views/charger-buck/buck-5v.view.teda` is re-derived rather than nudged: `dc-dc-soic8` pins 1, 2, 3, 4, 5, 6, 8, 9 move, so the wires that end on them move with them.
-- Case expectations (`expected/ir/**`, `expected/manifest.json`, `expected/netlist.txt`) change for `diff-pair`, `dual-opamp-multi-unit`, `nc-pins`, `bus`, `power-domains`; `expected/diagnostics.json` does not — no finding is added or removed.
+- The buck module drawing (`examples/reference-project/views/modules/buck-5v.module-view.teda`) is re-derived rather than nudged: `dc-dc-soic8` pins 1, 2, 3, 4, 5, 6, 8, 9 move, so the wires that end on them move with them. (It was a project print page at the time, `views/charger-buck/buck-5v.view.teda`; the project-root restructure of ADR-0069 turned it into a module drawing.)
+- Case expectations (`expected/ir/**`, `expected/manifest.json`) change for `diff-pair`, `dual-opamp-multi-unit`, `nc-pins`, `bus`, `power-domains`; `expected/diagnostics.json` does not — no finding is added or removed. (`expected/netlist.txt` does not change either: a netlist carries connectivity, not pin coordinates.)
 - `bun run lib:verify` gains the pitch check, so the floor is machine-checked rather than trusted to review. No diagnostic code is added: the library verifier is not `check`, and a bad house-style pitch is not a semantic error in the language.
 - `spec/symbol.md` §4.1, `docs/skills/library-authoring.md` §4.2, §4.3, §8, `docs/guides/symbol-authoring.md`, `docs/backlog.md`, and the `library-authoring` skill stop saying `2.0 mm`.

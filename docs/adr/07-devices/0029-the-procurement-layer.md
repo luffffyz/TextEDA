@@ -221,9 +221,16 @@ parts — one per variant — not as two rows in the selection table.
 ### D9. Selecting an unreviewed library part
 
 A library part may be selected. If its provenance is `generated` (not human-reviewed), the
-selection is reported as a warning, and it is an error in strict mode (the strict mode itself is
-not built yet — `docs/backlog.md` F26). A project that has checked a library part against its
-datasheet derives a reviewed copy and selects that.
+selection is reported as a warning, and it is an error in strict mode. A project that has checked
+a library part against its datasheet derives a reviewed copy and selects that.
+
+**Neither half of the report is built yet.** The selection check today says nothing about
+provenance: a `provenance generated` part that is selected raises no warning, and there is no
+strict mode to turn the case into an error (`docs/backlog.md` F26). The only provenance check that
+runs is on the shape of the claim — `reviewed` without an attribution is
+`value.provenance-invalid` ([ADR-0033](../08-libraries/0033-libraries-are-unverified-facts.md) D1) — not on
+whether a project is willing to build on an unreviewed part. The rule stands as written; the
+reporting is what is missing.
 
 ### D10. Commercial facts are out of the language
 

@@ -91,7 +91,11 @@ texteda lib import <name> --from <dir> --rev <tag-or-commit> [--only <id>[,<id>�
 ```
 
 The command copies the template's assets into `assets/` under **bare ids**, rewriting every
-`<name>:` qualifier in the copied files. Three properties:
+`<name>:` qualifier in the copied files. (The qualifier a copy is rewritten to is the
+**classification directory** the copy landed in, not a library name: the assets are filed by what
+they are — [ADR-0049](0049-assets-are-filed-by-what-they-are.md) D1, D4 — so a device's
+`symbol` / `footprint` lines name the class the copied geometry now sits under, e.g.
+`chip:chip-0402`.) Three properties:
 
 - **A subset is legal, and must be closed under references.** `--only` takes device ids and pulls
   in the symbols and footprints those devices name. A device without its geometry is not a device

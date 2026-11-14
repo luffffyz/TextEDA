@@ -21,18 +21,24 @@ Another practical constraint: **symbol libraries are almost always borrowed**. T
 
 ## Decision
 
-1. **The source of truth of a self-built symbol is `.teda` source code**, with the syntax described in `spec/symbol.md`. One symbol per file: `assets/symbols/<lib>/<symbol_id>.teda`; the library name is determined by the directory and is not part of the file content. Isomorphic to `footprint`: compiled into an IR shard (the `symbol` kind of the IR contract, a closed schema), and `.kicad_sym` is an export artifact.
+1. **The source of truth of a self-built symbol is `.teda` source code**, with the syntax described in `spec/symbol.md`. One symbol per file: `assets/symbols/<category>/<symbol_id>.teda`; the directory is the classification the symbol is filed under and is not part of the file content (it was the library name before [ADR-0049](0049-assets-are-filed-by-what-they-are.md) D2, which filed symbols by the device category). Isomorphic to `footprint`: compiled into an IR shard (the `symbol` kind of the IR contract, a closed schema), and `.kicad_sym` is an export artifact.
    - **Why not writing JSON directly**: same as [ADR-0030](0030-footprint-format-and-geometry.md) decision 1 — the agent's working surface is the `.teda` source plus line/column-level diagnostics, not JSON paths.
 2. **There is exactly one owner of the electrical facts of a pin: `component`**. The `symbol` only records **where a pin is drawn and how it is drawn** (position, orientation, length, style, unit membership), plus the outline and the display switches; it **does not record pin names and does not record electrical types**.
    - When exporting `.kicad_sym` the two are combined: the pin numbers and positions come from `symbol`, the pin names and electrical types come from `component`, and they are matched **by pin number**.
    - **The two pin number sets must be aligned**: the symbol has it but the component does not → **error** (the export refuses); the component has it but the symbol does not draw it → **warning** (it may be a deliberately hidden power pin).
-   - `component.symbol = "<lib>:<name>"` is the only binding point; the symbol file does not restate the reference relation.
+   - `component.symbol = "<category>:<id>"` is the only binding point; the symbol file does not restate the reference relation.
 3. **An external symbol library is a template, not a dependency.** The build reads no external
    library: an official, a company-internal and a third-party library are all used the same way —
    copied into `assets/` once by `texteda lib import` and owned by the project afterwards (see
    [ADR-0034](0034-trust-in-a-library-you-do-not-own.md)). `scripts/verify-libs.ts` therefore
    requires every device's `symbol` and `footprint` to resolve **inside** the project, and a
-   qualified `<lib>:<id>` reference is an error rather than a resolution.
+   qualifier that names no such file is an error there. **A qualified reference is the normal
+   form**, not a leftover of the dependency model: the qualifier is the classification directory
+   ([ADR-0049](0049-assets-are-filed-by-what-they-are.md) D4), so `passives:r` is how a symbol is
+   named today and a bare id is not a reference at all. (At build time a symbol that does not
+   resolve is silent rather than fatal — a missing symbol yields no geometry, and a check that
+   cannot judge a page says nothing instead of guessing; the library gate is where the
+   disagreement is caught.)
 4. **The symbol range supported in v0.1**: pin placement (position/orientation/length/style/unit), outline (`rect`/`line`/`circle`/`arc`/`poly`, with line width and fill), unit grouping (`units`), display switches (pin number/pin name visibility, name offset), attribute fields (`Reference`/`Value`/`Datasheet`/arbitrary fields).
    **Not supported yet**: text annotations (polarity `+`/`−`, function names), images, Béziers, polyline stroke styles. The gaps are not force-fitted: in a self-built library you can hand-write a `.kicad_sym` as a fallback (the same escape-hatch rule as for `footprint`).
 5. **The coordinate convention follows the target format**: symbols use **+x to the right, +y upward** (the KiCad symbol convention), footprints use +y downward (the PCB convention). Each side follows its target format, and the exporter does not flip symbols — flipping is a purely visual operation and stays in the render layer (`AGENTS.md` §6).
@@ -43,15 +49,19 @@ Another practical constraint: **symbol libraries are almost always borrowed**. T
 
 - **The benefit**: self-built symbols have a schema, a canonical form, and a readable diff; there is only one copy of the pin facts, so drift is downgraded from "manual synchronization in two places" to "the tool reports an error".
 - **The cost**: exporting `.kicad_sym` requires both the symbol and the component description at once, one more parameter for the exporter; the symbol library format is narrower than the footprint format (no layers, no pad geometry), but it adds one cross-description constraint that the footprint format does not have (the pin numbers must be aligned).
-- **It works end to end** (`bun run smoke:symbol`, measured): the example symbol (`examples/reference-project/assets/symbols/project/bq24610rger.teda`) → compiled to IR (the contract passes, 25 pins) → merged with `component` by pin number (pin names/electrical types in place) → `.kicad_sym` written out (25 pins) → **KiCad 10 can parse it** (`kicad-cli sym upgrade`) → **it renders** (`kicad-cli sym export svg` produces an image; the outline, the left and right pins, the top and bottom pins, and the names are all correct).
+- **It works end to end** (`bun run smoke:symbol`, measured): the example symbol (`examples/reference-project/assets/symbols/power/bq24610rger.teda`) → compiled to IR (the contract passes, 25 pins) → merged with `component` by pin number (pin names/electrical types in place) → `.kicad_sym` written out (25 pins) → **KiCad 10 can parse it** (`kicad-cli sym upgrade`) → **it renders** (`kicad-cli sym export svg` produces an image; the outline, the left and right pins, the top and bottom pins, and the names are all correct).
 - **IR ordering depends only on semantics** (measured): `pins` by (`unit`, `number` in natural order), `body` by (`kind`, coordinates), `fields` by name, `tags` in byte order; the same symbol with reordered entries, changed units, or a changed key order compiles to IR **byte-identical** to the canonical source.
-- **`fmt` works** (measured): `bun run fmt:teda --check examples/reference-project/symbols` exits 0; the example files are fixed points of `fmt`. `fmt` only reorders the surface and refuses to format when there are semantic errors (consistent with gofmt).
+- **`fmt` works** (measured): `bun run fmt:teda --check examples/reference-project/assets/symbols` exits 0; the example files are fixed points of `fmt`. `fmt` only reorders the surface and refuses to format when there are semantic errors (consistent with gofmt).
 - **Diagnostics are given by line and column**: unknown scalars, unknown keys, out-of-range `unit`, a missing `layer`, and duplicate pin numbers are all reported at `file:line:col` (`packages/parser/src/symbol.ts`).
 - **An honest projection**: `packages/parser/src/component-facts.ts` reads only the few things needed to export a symbol from the `component` description (the pin table, the footprint, the datasheet, the description). It is a projection over the full device parser, which now exists (`packages/parser/src/component.ts` carries the `PARAM_TYPES` table, the `mpn` / `category` branches, and the part/generic identity rules of ADR-0024). The `lcsc` shape check (`^C[0-9]+$`) lives in the IR contract rather than the parser, so that one sub-claim was never a parser feature. The projection strictly validates the part it does read, skips the remaining sections verbatim, and does not pretend to have validated them.
 
 ## Follow-up
 
-- A full parser for `component` (`params` columns, variants, `lcsc` validation) — next.
-- An **import** path for the KiCad official symbol libraries (reading `.kicad_sym` into our IR, to check whether the pin numbers of a borrowed library match `component`).
+- ~~A full parser for `component` (`params` columns, variants, `lcsc` validation)~~ **Done**: `packages/parser/src/component.ts` is the full parser — the `PARAM_TYPES` table, the `params` columns, the `mpn` / `category` branches and the part/generic identity rules of ADR-0024 all live there. The `lcsc` shape check stayed in the IR contract, which is where it belongs.
+- **Reading a borrowed `.kicad_sym`** is still open, and it is part of the importer rather than a
+  separate feature: `texteda lib import` today copies a **`.teda` template**, so a library published
+  as KiCad symbols cannot be brought in yet. The importer as a whole — which formats it reads, how
+  it resolves ambiguity, how it presents what it inferred — is deferred with the reason recorded in
+  `docs/backlog.md` F36.
 - Text annotations for symbols (polarity, function names) and images.
-- Joint validation of symbols and footprints: the symbol pin numbers ⊇ the component pin numbers, the component pin numbers ⊆ the footprint pad numbers (the library-level check of [ADR-0030](0030-footprint-format-and-geometry.md) decision 3 is done in the toolchain).
+- Joint validation of symbols and footprints: the symbol pin numbers ⊇ the component pin numbers, the component pin numbers ⊆ the footprint pad numbers (the library-level check of [ADR-0030](0030-footprint-format-and-geometry.md) D7 is done in the toolchain).

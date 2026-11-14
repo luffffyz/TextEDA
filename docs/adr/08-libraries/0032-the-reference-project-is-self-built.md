@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-20
 Scope: Decides: that the reference project carries its own symbols and footprints, and that library-level checks close the loop. Does not decide: the trust model for a library you do not own — see ADR-0034.
 Related: [ADR-0030](0030-footprint-format-and-geometry.md), [ADR-0031](0031-symbol-format.md), [ADR-0033](0033-libraries-are-unverified-facts.md)
-Impact: `spec/symbol.md` §7; `spec/footprint.md` §7; `examples/reference-project/**`; `scripts/lib-verify.ts`
+Impact: `spec/symbol.md` §7; `spec/footprint.md` §7; `examples/reference-project/**`; `scripts/verify-libs.ts`
 
 ## Background
 
@@ -20,7 +20,9 @@ The preconditions for self-built libraries are now in place: the `.teda` library
 
 ## Decision
 
-1. **The reference project no longer references any external library**. The `symbol` / `footprint` of every device file are written as `project:<name>` — the explicit synonym for a bare id.
+1. **The reference project no longer references any external library**. The `symbol` / `footprint` of every device file are written as `<classification>:<id>` — the classification directory plus the id — which is the reference form
+   ([ADR-0049](0049-assets-are-filed-by-what-they-are.md) D4); at the time this record was written that form was still written `project:<name>`, and the change of shape did not change the fact it states here: every reference
+   resolves inside the project.
 2. **The project's own symbols and footprints are assets, not a library.** They live under
    `assets/symbols/` and `assets/footprints/`, and `project.toml` carries no library entry at all:
    the project has no dependency to declare, and the `[libs]` table is gone with the anchor (see
@@ -49,7 +51,7 @@ The preconditions for self-built libraries are now in place: the `.teda` library
    KiCad's read-in and DRC are cross-validation, not the definition of our correctness. The checks
    themselves are unchanged; only their tier changed. The merged-board `.kicad_pcb` is still
    generated, as an interoperability artifact rather than a gate.
-5. **The library geometry is a "generic land pattern", not the exact dimensions of each part number**. The goal of the reference project is to make the pipeline and the check loop hold, not to replace vendor libraries (`AGENTS.md` §1: "no generic library"). Every footprint's `description` states `generic land pattern`, so that whoever comes later does not mistake it for exact dimensions. **Making the geometry exact is a separate follow-up item**, see F1 in `docs/backlog.md`.
+5. **The library geometry is a "generic land pattern", not the exact dimensions of each part number**. The goal of the reference project is to make the pipeline and the check loop hold, not to replace vendor libraries (`AGENTS.md` §1: "no generic library"). Every footprint's `description` states `generic land pattern`, so that whoever comes later does not mistake it for exact dimensions — the one exception is the footprint whose slots the source syntax cannot encode (`dc-in-th-dc-005-20a`), and it says so in as many words instead. **Making the geometry exact is a separate follow-up item**, see F1 in `docs/backlog.md`.
 
 ## Consequences
 

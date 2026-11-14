@@ -72,7 +72,7 @@ nets
 - 符号：`assets/symbols/<category>/<symbol_id>.teda`，用**器件那根轴**——一个符号归到它所画器件所在的类别；同一个符号被不同类别的器件共用时，由作者选一个。
 - 封装：`assets/footprints/<family>/<footprint_id>.teda`，用**封装自己那根轴**：封装族（`chip` / `sot` / `soic` / `lqfp` / `vqfn` / `crystal` / `inductor` / `tantalum` / `sma` / `switch` 之类，词表开放）。封装是物理事实，按"它是个什么封装"分，不按它装的是什么器件分。
 
-分类目录**只分一层**（`assets/symbols/<category>/<id>.teda`，不再往下）。IR 里 `symbol.library` / `footprint.library` 存的就是这个目录名（`<category>:<id>` / `<family>:<id>`），KiCad 导出时它同时充当库名——一个分类目录对应一个 `.kicad_sym` / `.pretty` 库。缺少分类目录的文件报 `syntax.*`（与顶层目录不一致同一条规则）。
+分类目录**只分一层**（`assets/symbols/<category>/<id>.teda`，不再往下）。IR 里 `symbol.library` / `footprint.library` 存的就是这个目录名（`<category>:<id>` / `<family>:<id>`），KiCad 导出时它同时充当库名——一个分类目录对应一个 `.kicad_sym` / `.pretty` 库。**"只分一层"是写法的约定，不是门禁**：工具查的是**引用与目录对不对得上**（`bun run lib:verify`），多放一层的文件不会被加载器读到，也没有专门的诊断码报它（决策见 [ADR-0049](../docs/adr/08-libraries/0049-assets-are-filed-by-what-they-are.md) D3）。
 
 ---
 

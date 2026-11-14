@@ -13,7 +13,7 @@ Three kinds of asset live under `assets/`:
 - `assets/components/**/<component_id>.teda` — the devices. It has **always** been a classification: a subdirectory there is "what this part is" (`passives`, `power`, `regulators`, `sensors`, `mcu`, `indicators`, `mechanical`), and the id is the file name, never the path ([ADR-0024](../07-devices/0024-the-device-kind-is-part-or-generic.md) D6). The directory is the only classification the tree has.
 - `assets/symbols/<lib>/<symbol_id>.teda` and `assets/footprints/<lib>/<footprint_id>.teda` — the library artifacts. Their directory was a **library name** ("project", "vendor"), one flat folder per library, unrelated to what the file draws ([ADR-0031](0031-symbol-format.md) D1, [ADR-0030](0030-footprint-format-and-geometry.md) D3).
 
-That second shape came from the two-provider model that was later withdrawn: with an external library a *template* rather than a dependency ([ADR-0034](0034-trust-in-a-library-you-do-not-own.md) D2), the project's assets are all its own, and a project ends up with one flat `project/` directory holding every symbol and every footprint. Sixteen symbols and sixteen footprints in one list is a list nobody browses — the review app showed exactly that, and the human answer was the one the components already had: **group them.**
+That second shape came from the two-provider model that was later withdrawn: with an external library a *template* rather than a dependency ([ADR-0034](0034-trust-in-a-library-you-do-not-own.md) D2), the project's assets are all its own, and a project ends up with one flat `project/` directory holding every symbol and every footprint. Fifteen symbols and sixteen footprints in one list is a list nobody browses — the review app showed exactly that, and the human answer was the one the components already had: **group them.**
 
 The question is what to group them *by*, and the answer is not the same for the two kinds.
 
@@ -31,11 +31,14 @@ One symbol may be shared by devices from different categories ([ADR-0031](0031-s
 
 ### D3. The footprint uses an axis of its own: the package family
 
-A footprint is filed under the **package family** it is: `assets/footprints/chip/chip-0402.teda`, `sot/sot-23-5.teda`, `soic/soic-8-ep.teda`, `lqfp/lqfp-100.teda`, `qfn`/`vqfn`, `crystal/crystal-3225-4.teda`, `inductor/ihlp-2525.teda`, `tantalum/tantalum-7343.teda`, `switch/switch-5x5-4.teda`.
+A footprint is filed under the **package family** it is: `assets/footprints/chip/chip-0402.teda`, `sot/sot-23-5.teda`, `soic/soic-8-ep.teda`, `lqfp/lqfp-100.teda`, `vqfn/vqfn-24-ep.teda`, `crystal/crystal-3225-4.teda`, `inductor/ihlp-2525.teda`, `tantalum/tantalum-7343.teda`, `switch/switch-5x5-4.teda`, `sma/sma.teda`, `connector/dc-in-th-dc-005-20a.teda`.
 
 This is deliberately **not** the device axis. A footprint is a physical fact: it knows pads, courtyard and silk, and it does not know what will be soldered to it — `chip-0402` is used by resistors and capacitors alike ([ADR-0027](../07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md)). Filing it under "passives" would make a physical object's home depend on an electrical role, and a footprint used across categories would have the same conflict D2 avoids. The package family is the axis a footprint actually has.
 
-The vocabulary is open, like the component one: the author names the class, the tool checks that the file sits exactly one directory deep and that the reference matches that directory.
+The vocabulary is open, like the component one: the author names the class. The tool checks that
+the reference matches the directory the file sits in (`scripts/verify-libs.ts`); the rule that the
+file sits **exactly one directory deep** is an authoring convention, not a gate — a file in a
+second-level directory is not read by the loaders and is not reported.
 
 ### D4. A reference is `<classification>:<id>`
 
@@ -43,7 +46,7 @@ The vocabulary is open, like the component one: the author names the class, the 
 
 ### D5. It is a PATCH, and the migration is the author's
 
-The accepted file set does not change: one file per id, exactly one directory under `assets/<kind>/`. What changes is what the directory is called and what a reference's qualifier means. A tool reading the old layout does not read it *wrongly* — the reference no longer resolves, and that is reported as an unknown device/symbol/footprint ([ADR-0038](../10-process/0038-implementation-stack-and-agent-entry.md) D7).
+The accepted file set does not change: one file per id, exactly one directory under `assets/<kind>/`. What changes is what the directory is called and what a reference's qualifier means. A tool reading the old layout does not read it *wrongly* — a reference that names a class no longer there is reported as an unknown **device** (`ref.unknown-component`); a **symbol or footprint** that does not resolve is silent, because a missing symbol yields no geometry and a check that cannot judge a page says nothing rather than guessing (`packages/cli/src/symbols.ts`, `packages/cli/src/pads.ts`).
 
 Moving the files and rewriting the qualifiers is a decision, not a rewrite: which class a symbol belongs to when it serves several device categories (D2), and which family a footprint is (D3), are the author's calls. `bun run migrate:0.9 <project dir>` keeps to the version lines only, as it always has. The reference project moved by hand in the same change.
 
@@ -57,5 +60,5 @@ A class could have been a key in the file (`class: passives`) instead of a direc
 - The library loaders (`packages/cli/src/symbols.ts`, `packages/cli/src/pads.ts`) keep their shape: one directory down, one file per id. Their keys become `<class>:<id>`.
 - The IR's `symbol.library` / `footprint.library` keeps its name and pattern; its description now says the value is the classification directory.
 - The review app lists the library drawings grouped by class and opens a class under the pointer, which is what prompted this record ([ADR-0048](../09-view/0048-the-review-app-shows-drawings.md) D1); the model carries the class as `ReviewDrawing.group`, so the app groups by the same key the references use.
-- `texteda lib import` files an imported symbol or footprint under the class the *template* declares, and asks the importer about its destination when the template has no class ([ADR-0034](0034-trust-in-a-library-you-do-not-own.md) D6).
+- `texteda lib import` files an imported symbol or footprint under the class the *template* declares; `--dest <class>` overrides the destination, and a flat template lands under the library's own name (`packages/cli/src/lib-import.ts`).
 - The pitfall recorded in `AGENTS.md` §7 stands: a class directory is not an electrical fact, and nothing may infer a symbol's or footprint's semantics from where it sits.
