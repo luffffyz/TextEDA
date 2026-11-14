@@ -19,6 +19,7 @@ import {
   sketchFileName,
   sketchOverlayMarkup,
   sketchPathData,
+  sketchSourceInk,
   sketchSvg,
   type SketchStroke,
 } from "./sketch.ts";
@@ -2264,6 +2265,9 @@ function downloadSketch(png: Blob, name: string): void {
  * The host that serves the app writes the file and says where; a host that cannot (the static
  * export, a plugin) gets the browser's download instead. Either way the reviewer ends up with a
  * path or a file, and that is what they hand to the agent.
+ *
+ * The ink goes with the picture: the host writes the numbers beside it, so the agent does not have
+ * to measure the picture to find out where the reviewer pointed.
  */
 async function saveSketch(): Promise<void> {
   const current = drawing();
@@ -2282,7 +2286,11 @@ async function saveSketch(): Promise<void> {
   const base64 = await blobToBase64(png);
   let answer: ReviewAnswer;
   try {
-    answer = await api.post("/api/sketch", { drawing: current.key, png: base64 });
+    answer = await api.post("/api/sketch", {
+      drawing: current.key,
+      png: base64,
+      ink: sketchSourceInk(current.kind, currentStrokes()),
+    });
   } catch {
     // There is no server behind this document — a static export, or a host that does not serve the
     // app. The browser takes the picture instead, and the reviewer still has a file to hand over.
@@ -2310,7 +2318,12 @@ async function saveSketch(): Promise<void> {
   }
   state.sketch.saved.set(current.key, path);
   renderActions();
-  setStatus(`sketch saved: ${path}`);
+  // The numbers sit beside the picture: the reviewer hands over one path, and the agent finds
+  // the ink's millimetres next to it.
+  const notes = typeof answer.payload["notes"] === "string" ? answer.payload["notes"] : "";
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  const beside = notes === "" ? "" : ` · numbers in ${name.replace(/\.png$/, ".json")}`;
+  setStatus(`sketch saved: ${path}${beside}`);
 }
 
 /**

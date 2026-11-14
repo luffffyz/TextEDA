@@ -16,6 +16,7 @@ Read the one file that matches the job. They do not overlap, and none of them de
 | [`repair-print-page.md`](repair-print-page.md) | Repairing a `views/**` page that already exists: a `view.*` finding, a wandering run, a misplaced dot | [`spec/schematic-view.md`](../../spec/schematic-view.md) |
 | [`add-diagnostic-code.md`](add-diagnostic-code.md) | Adding a diagnostic code: the registry, the emitter, the spec tables, the generated docs, the tests | [`spec/teda.md`](../../spec/teda.md), [`spec/schematic-view.md`](../../spec/schematic-view.md) |
 | [`verify-review-app.md`](verify-review-app.md) | Proving a review-app change in a real browser: drag, move, rotate, Apply | [`docs/guides/review-app.md`](../guides/review-app.md) |
+| [`read-sketch.md`](read-sketch.md) | Turning a reviewer's sketch into a source edit: reading the ink's numbers, deciding what they mean, changing the file | [`spec/symbol.md`](../../spec/symbol.md), [`docs/guides/review-app.md`](../guides/review-app.md) |
 | [`delegate-work.md`](delegate-work.md) | Splitting a job across subagents: what to delegate, how to write a slice, how to accept and price the result | — |
 
 ## Which one, when several seem to fit
@@ -39,6 +40,9 @@ Read the one file that matches the job. They do not overlap, and none of them de
   readability findings.
 - **The review app's behaviour changed** → `verify-review-app.md`. Unit tests do not cover a drag
   or an `Apply`; this one drives the real browser and checks the file that was written.
+- **A reviewer handed over a sketch** → `read-sketch.md`. It carries the ink's own millimetres
+  beside the picture, so the edit is one step: read the numbers, decide what they mean, change the
+  file. It also says what not to do with a sketch — it is a note, not a design fact.
 - **The job is too wide for one session** → `delegate-work.md`. It says what a gate can adjudicate
   (so it can be delegated), how to write a slice that lands, and how to accept and price the
   result. It is the only place that carries the delegation rules.

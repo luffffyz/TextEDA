@@ -12,6 +12,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { ReviewModel } from "@texteda/viewer";
 import { clientScript } from "@texteda/viewer/build";
+import type { SketchInk } from "@texteda/viewer/sketch";
 import {
   commitPlan,
   LayoutError,
@@ -26,7 +27,8 @@ import {
   type LayoutText,
 } from "./layout.ts";
 import { buildReviewModel, reviewGeometry, reviewPageIndex } from "./review-model.ts";
-import { saveSketchPicture } from "./sketch.ts";
+import { toolVersion } from "./ir-tree.ts";
+import { saveSketch } from "./sketch.ts";
 
 export interface ReviewOptions {
   readonly root: string;
@@ -224,6 +226,37 @@ html, body { height: 100%; margin: 0; background: #131416; }
 `;
 
 /**
+ * The ink that comes with a sketch: the strokes, in the drawing's own millimetres.
+ *
+ * The shape is closed on purpose: a stroke is a list of points and a point is two numbers. An
+ * ink that is not this is not an ink, and the route refuses it rather than writing nonsense
+ * beside the picture.
+ */
+function parseSketchInk(value: unknown): SketchInk[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) throw new LayoutError("ink must be an array of strokes");
+  return value.map((stroke, index) => {
+    if (stroke === null || typeof stroke !== "object" || Array.isArray(stroke)) {
+      throw new LayoutError(`ink[${index}] must be an object`);
+    }
+    const points = (stroke as Record<string, unknown>)["points"];
+    if (!Array.isArray(points)) throw new LayoutError(`ink[${index}].points must be an array`);
+    return {
+      points: points.map((point, at) => {
+        if (!Array.isArray(point) || point.length !== 2) {
+          throw new LayoutError(`ink[${index}].points[${at}] must be [x, y]`);
+        }
+        const [x, y] = point;
+        if (typeof x !== "number" || !Number.isFinite(x) || typeof y !== "number" || !Number.isFinite(y)) {
+          throw new LayoutError(`ink[${index}].points[${at}] must be finite numbers`);
+        }
+        return [x, y] as const;
+      }),
+    };
+  });
+}
+
+/**
  * The three write routes. The first two accept the logical project board (`main`) and a page id,
  * and check them against the flat project-page index so a request cannot name an arbitrary path;
  * the third accepts a drawing the project has, and writes a picture of it outside the project.
@@ -248,16 +281,28 @@ async function handleApi(
     if (url === "/api/sketch") {
       // The sketch route: a picture of a drawing, written outside the project. The drawing must be
       // one the app is showing — the model decides what exists, not the request — and the picture
-      // lands in a scratch folder, because a sketch is a message and not a record.
+      // lands in a scratch folder, because a sketch is a message and not a record. The ink goes
+      // with it, so the agent can read where the reviewer pointed without measuring the picture.
       const drawing = typeof body["drawing"] === "string" ? body["drawing"] : "";
       const png = typeof body["png"] === "string" ? body["png"] : "";
+      const ink = parseSketchInk(body["ink"]);
       const model = rebuild();
-      if (!model.drawings.some((entry) => entry.key === drawing)) {
+      const entry = model.drawings.find((candidate) => candidate.key === drawing);
+      if (entry === undefined) {
         send(400, { error: `no such drawing: ${drawing}` });
         return;
       }
-      const saved = saveSketchPicture({ drawing, png });
-      send(200, { path: saved.path, drawing: saved.drawing });
+      const saved = saveSketch({
+        drawing,
+        kind: entry.kind,
+        label: entry.label,
+        png,
+        ink,
+        source_hash: model.hash ?? "",
+        tool_version: toolVersion(),
+        saved_at: new Date().toISOString(),
+      });
+      send(200, { path: saved.path, notes: saved.notes, drawing: saved.drawing });
       return;
     }
     if (url === "/api/layout") {

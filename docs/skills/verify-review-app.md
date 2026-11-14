@@ -217,12 +217,17 @@ The pen is offered on library symbol drawings only ([ADR-0073](../adr/09-view/00
 4. `Ctrl+Z` drops the last stroke. `Escape` (or `b` again) puts the pen away, and a drag pans again.
 5. Switch to a print page → the pen must be put away by itself: the stage carries no `pen-armed`
    class, the cursor is the panning hand again, and the action bar has no pen.
-6. Press **Save sketch** → the status reads `sketch saved: /tmp/texteda-sketches/…png`, and the file
-   is there:
+6. Press **Save sketch** → the status reads `sketch saved: /tmp/texteda-sketches/…png · numbers in
+   …json`, and both files are there:
 
    ```sh
    ls -l /tmp/texteda-sketches/
+   cat /tmp/texteda-sketches/*.json
    ```
+
+   The numbers file is the ink's own millimetres, in the drawing's own frame — the half of the
+   message a machine can read ([ADR-0073](../adr/09-view/0073-the-review-app-has-a-freehand-pen.md)
+   D2). A sketch without it would leave the agent to measure the picture.
 
 A sketch is a message, not a change: diff the scratch copy against the original and nothing has
 changed. The strokes live in the browser and are gone on a reload — the picture on disk is what

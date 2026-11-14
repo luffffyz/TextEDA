@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-11-14
 Scope: Decides: that the review app offers a freehand pen on a drawing; that a sketch is a message to the agent and never a fact about the design; where a saved sketch goes and what it is called; what the ink and the caption are; how the pen is armed; and which drawings the pen is offered on today. Does not decide: the shape of the agent's surface — see [ADR-0044](../10-process/0044-the-agent-surface-is-a-set-of-verbs.md); what the drawing layers are — see [ADR-0035](0035-the-view-layer-is-a-drawing.md) and [ADR-0048](0048-the-review-app-shows-drawings.md); how a host is entered — see [ADR-0046](../10-process/0046-a-host-is-entered-once.md).
 Related: [ADR-0042](0042-the-review-app-has-modes.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0048](0048-the-review-app-shows-drawings.md), [ADR-0056](0056-the-review-app-has-one-interaction-surface.md)
-Impact: `packages/viewer/src/sketch.ts`; `packages/viewer/src/app.ts`; `packages/viewer/src/styles.ts`; `packages/viewer/package.json`; `packages/cli/src/sketch.ts`; `packages/cli/src/review.ts`; `packages/viewer/test/sketch.test.ts`; `packages/viewer/test/key-hints.test.ts`; `packages/cli/test/review-sketch.test.ts`; `docs/guides/review-app.md`
+Impact: `packages/viewer/src/sketch.ts`; `packages/viewer/src/app.ts`; `packages/viewer/src/styles.ts`; `packages/viewer/package.json`; `packages/cli/src/sketch.ts`; `packages/cli/src/review.ts`; `packages/viewer/test/sketch.test.ts`; `packages/viewer/test/key-hints.test.ts`; `packages/cli/test/review-sketch.test.ts`; `docs/guides/review-app.md`; `docs/skills/read-sketch.md`
 
 ## Background
 
@@ -50,9 +50,21 @@ The pen continues the rule the app already has for its other gestures
 *where*, and the agent decides *what*. A sketch is a request, not an edit — "the body here is
 wrong" is work the agent does in the source file, with the whole project in view.
 
-So the sketch carries no structured brief and no machine-readable intent. It is a picture, and
-the agent reads it as one. A second channel carrying the same message in text would be a second
-truth about the same gesture, and it would immediately go stale against the ink.
+So the sketch carries no brief and no intent: there is no field that says what to change, and the
+agent is the one who decides that. What it does carry is the ink itself, twice — as a picture for
+the agent's eyes, and as the same strokes in the drawing's own millimetres for the agent's hands.
+
+The numbers are not a second message; they are the same message in the form a machine can read. A
+hand-drawn stroke cannot say precisely where it points, so an agent given only the picture would
+have to measure it to find out what the reviewer already knew — and the measuring is what turns a
+sketch into a long, error-prone ritual. The numbers take the measuring away and leave the
+judgement, which is the part that belongs to the agent.
+
+They are written in the **drawing's own source frame**: x to the right, y up for a symbol (the
+KiCad convention), y down for a footprint or a print page. The screen is always y-down — that is
+what SVG is — so the ink is turned back before it is written down. The point of that is that the
+numbers drop straight into the file the agent is about to edit: no sign to remember, no offset to
+subtract, and the source's own coordinates to compare them with.
 
 ### D3. A sketch is a message, and it is written outside the project
 
@@ -65,10 +77,15 @@ in the IR and not in any hash, so drawing on a symbol cannot change the project 
 shard is normative, so this matters
 ([ADR-0035](0035-the-view-layer-is-a-drawing.md) D5).
 
+What lands is a pair: the picture (`…-1.png`) and the ink's numbers beside it (`…-1.json`). The
+pair carries the drawing it is about, the space the ink is measured in, the ink itself, the
+project's build hash, the tool that wrote it and when — so the agent can tell which build the
+reviewer was looking at, and the reviewer hands over one path.
+
 The picture is written by the server, not by the browser, like every other write
 ([ADR-0042](0042-the-review-app-has-modes.md) D9): the app asks, the server owns the file
 system. The route is `POST /api/sketch`, it refuses a drawing the project does not have, and it
-answers with the path. A host with no server behind it — the static export, a plugin surface —
+answers with both paths. A host with no server behind it — the static export, a plugin surface —
 gets the browser's download instead, and the reviewer still has a file to hand over.
 
 ### D4. The ink is the drawing's own weight, and it is grey
@@ -86,9 +103,10 @@ The saved picture says what it is a sketch of: the drawing's kind, its name, and
 (`symbol · led · 2026-11-13`), drawn under the picture.
 
 Without it, a picture in a folder of pictures is unreadable: the agent cannot tell which symbol
-it is looking at, and the reviewer cannot either, a week later. The caption is part of the
-picture rather than part of its file name, because the file name is what gets typed into a
-conversation and the caption is what gets seen.
+it is looking at, and the reviewer cannot either, a week later. The caption is part of the picture
+rather than part of its file name, because the file name is what gets typed into a
+conversation and the caption is what gets seen. The numbers beside the picture say the same things
+in writing — the drawing's key, its kind, its name and the build it was drawn on.
 
 ### D6. The pen is armed explicitly, and it is not a mode
 

@@ -286,6 +286,14 @@ sketch of (`symbol · led · 2026-11-13`), and posts it to the server. The serve
 `/tmp/texteda-sketches/<drawing>-<n>.png` and answers with the path; the status line shows the path
 and **Copy path** puts it on the clipboard. That path is what the reviewer hands to the agent.
 
+**The numbers come with the picture.** Beside it, the server writes `<drawing>-<n>.json`: the
+drawing's key, the ink's own millimetres, the build the reviewer was looking at, and when. The ink
+is in the **drawing's own source frame** (x right, y up for a symbol, y down for a footprint or a
+page), so the numbers drop straight into the file the agent is about to edit. The ink is *where*,
+never *what* — the agent still decides what to change
+([ADR-0073](../adr/09-view/0073-the-review-app-has-a-freehand-pen.md) D2). The status line names
+the file, so the reviewer knows the pair is there.
+
 A static export (`--out`) has no server behind it, so the browser downloads the picture instead.
 
 

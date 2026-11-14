@@ -11,8 +11,13 @@ import {
   sketchCaption,
   sketchFileName,
   sketchFileStem,
+  sketchInk,
+  sketchNotes,
+  sketchNotesFileName,
+  sketchNotesJson,
   sketchOverlayMarkup,
   sketchPathData,
+  sketchSourceInk,
   sketchSvg,
   type SketchStroke,
 } from "../src/sketch.ts";
@@ -104,5 +109,89 @@ describe("the ink goes on top of the drawing", () => {
 
   test("a document that is not a drawing is left alone", () => {
     expect(sketchSvg("not svg", [stroke])).toBe("not svg");
+  });
+});
+
+describe("the ink travels as numbers", () => {
+  test("a stroke becomes a list of points", () => {
+    expect(sketchInk([stroke])).toEqual([{ points: [[1, 2], [3, 4], [5, 6]] }]);
+  });
+
+  test("nothing drawn is no ink", () => {
+    expect(sketchInk([])).toEqual([]);
+  });
+});
+
+describe("the sidecar says what the sketch is", () => {
+  const notes = sketchNotes({
+    drawing: "symbol/indicators:led",
+    kind: "symbol",
+    label: "led",
+    ink: sketchInk([{ points: [{ x: 1.23456, y: -2.98765 }] }]),
+    source_hash: "e8cee2cb",
+    tool_version: "0.1.0",
+    saved_at: "2026-11-14T12:47:12.000Z",
+  });
+
+  test("it names the drawing and the build it was drawn on", () => {
+    expect(notes.drawing).toBe("symbol/indicators:led");
+    expect(notes.kind).toBe("symbol");
+    expect(notes.label).toBe("led");
+    expect(notes.source_hash).toBe("e8cee2cb");
+    expect(notes.tool_version).toBe("0.1.0");
+    expect(notes.saved_at).toBe("2026-11-14T12:47:12.000Z");
+  });
+
+  test("the ink is measured in the drawing's own millimetres, and says so", () => {
+    expect(notes.space).toBe("source-millimetres");
+  });
+
+  test("the ink is rounded to the micrometre, because the file is read", () => {
+    expect(notes.strokes).toEqual([{ points: [[1.235, -2.988]] }]);
+  });
+
+  test("there is no field that says what to change", () => {
+    expect(Object.keys(notes).sort()).toEqual([
+      "drawing",
+      "kind",
+      "label",
+      "saved_at",
+      "source_hash",
+      "space",
+      "strokes",
+      "tool_version",
+    ]);
+  });
+
+  test("the file is the notes, and ends with a newline", () => {
+    const text = sketchNotesJson(notes);
+    expect(text.endsWith("}\n")).toBe(true);
+    expect(JSON.parse(text)).toEqual(notes);
+  });
+
+  test("the numbers sit beside the picture", () => {
+    expect(sketchNotesFileName("symbol/indicators:led", 2)).toBe("indicators-led-2.json");
+    expect(sketchFileName("symbol/indicators:led", 2)).toBe("indicators-led-2.png");
+  });
+});
+
+describe("the ink is written in the drawing's own frame", () => {
+  test("a symbol's source has y up, so the ink's y is turned back", () => {
+    // The drawing on the screen is y-down — that is what SVG is. A symbol's source is y-up.
+    expect(sketchSourceInk("symbol", [{ points: [{ x: 2.72, y: -3.27 }] }])).toEqual([
+      { points: [[2.72, 3.27]] },
+    ]);
+  });
+
+  test("a footprint and a page are y-down already, so nothing turns", () => {
+    for (const kind of ["footprint", "pcb", "sch", "module"]) {
+      expect(sketchSourceInk(kind, [{ points: [{ x: 2.72, y: -3.27 }] }])).toEqual([
+        { points: [[2.72, -3.27]] },
+      ]);
+    }
+  });
+
+  test("the ink itself is untouched: it is the frame that differs", () => {
+    expect(sketchInk([stroke])).toEqual([{ points: [[1, 2], [3, 4], [5, 6]] }]);
   });
 });
