@@ -13,7 +13,7 @@ pins
   3  [-7,0]     0
 
 body
-  circle  [2,2.5,0.75]         fill=outline
+  circle  [3,2.5,0.75]         fill=outline
   line    [-4.5,-2.5,2,-2.5]   width=0.25
   line    [-4.5,0,0,0]         width=0.25
   line    [-4.5,2.5,-2.5,2.5]  width=0.25
@@ -23,5 +23,5 @@ body
   line    [2,-2.5,3,-0.75]     width=0.25
   line    [3,-0.75,4,-2.5]     width=0.25
   line    [4,-2.5,4.5,-2.5]    width=0.25
-  rect    [-2.5,1.75,2,3.25]   fill=outline
+  rect    [-2.5,1.75,3,3.25]   fill=outline
   rect    [-4.5,-4,4.5,4]      width=0.25
