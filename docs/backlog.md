@@ -1404,3 +1404,51 @@ nothing would notice until somebody tried.
 
 **Note**: this is a gate, not a refactor. Nothing has to move for it to pass; the only change it
 forces later is that a new exception is an explicit, reviewable line.
+
+---
+
+## F76. The pen is offered on library symbols only
+
+**Status**: Proposed (2026-11-14). The pen is implemented and shipped for library symbols; the
+other drawings are a decision that has not been made.
+
+**Current state**: the review app's freehand pen is offered where `canSketch` says yes, and that
+is `symbol` only ([ADR-0073](adr/09-view/0073-the-review-app-has-a-freehand-pen.md) D7). A symbol
+is a drawing of geometry the agent owns, that a reviewer can see something wrong with, and that no
+coordinate can describe. The print page, the board canvas, the footprint and the module drawing
+are not offered the pen.
+
+The overlay itself does not care: the same layer, the same ink and the same picture work on any
+drawing. What is missing is the decision of which drawings are worth drawing on.
+
+**Why it matters**: a print page is about placement, and the existing gestures already carry
+placement exactly — a snapped move, a rotation, a field override. A sketch on a print page would
+add a second, fuzzier way to say the same thing, and the reviewer would have to choose between
+them. A board canvas is about copper: a sketch there would say what the copper should look like,
+which is the agent's layout loop's job ([ADR-0017](adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)),
+not a picture's.
+
+A footprint is the open question in between: its geometry is the agent's, like a symbol's, but a
+footprint is read against a board rather than on its own, so "this pad is too long" may already be
+a DRC finding rather than a judgement only a person can make.
+
+**To do**:
+
+1. Decide, per drawing kind, whether the pen is offered. The decision is a record of its own if it
+   goes against the shape ADR-0073 D7 sets out.
+2. If a kind is added, the change is one line in `canSketch` — and the guide, the ADR and the
+   verification skill follow it.
+3. If a kind is refused, say why in the ADR, so the next reader does not read the omission as an
+   oversight.
+
+**Involved files**: `packages/viewer/src/sketch.ts` (`canSketch`),
+`docs/adr/09-view/0073-the-review-app-has-a-freehand-pen.md`, `docs/guides/review-app.md`.
+
+**Acceptance**:
+
+- Every drawing kind is either offered the pen or refused with a reason on record.
+- The refusal is stated where a reviewer will meet it: the guide's "What is not built" already
+  names the library symbols as the pen's ground today.
+
+**Note**: nothing here is a bug. The pen works; the question is how much of the app it should
+reach.

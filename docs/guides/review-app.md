@@ -22,15 +22,16 @@ The server prints the URL it is listening on:
 review reference-project at http://127.0.0.1:4719/
 ```
 
-It binds `127.0.0.1` only and answers three routes: `/` (the document) and two write routes, `POST
-/api/layout` and `POST /api/source`. Ctrl-C stops it, and stopping it is a normal end (exit code 0),
-not a failure. Everything the page needs — the model, the drawing, the script — is in that one
-document, so `--out` writes byte-identical bytes to what the server sends. That file is the static
-report for a pull request: no build step, no assets beside it.
+It binds `127.0.0.1` only and answers four routes: `/` (the document) and three write routes,
+`POST /api/layout`, `POST /api/source` and `POST /api/sketch`. Ctrl-C stops it, and stopping it is a
+normal end (exit code 0), not a failure. Everything the page needs — the model, the drawing, the
+script — is in that one document, so `--out` writes byte-identical bytes to what the server sends.
+That file is the static report for a pull request: no build step, no assets beside it.
 
 A static `--out` document has no server behind it, so it has no write routes: the `Apply` and
 `Save` buttons are disabled and say "this document cannot write". The same drawing, selection,
-navigation, and read-only PCB behavior remain available.
+navigation, and read-only PCB behavior remain available. The pen still draws, and its picture comes
+down as a browser download instead of a path.
 
 ## Two columns, and the keys where the eye already is
 
@@ -247,6 +248,7 @@ otherwise still shows the relative file and line.
 | `Enter` or double-click the selection | Opens the selected identity's source: the first location the identity index records, as `vscode://file/<absolute path>:<line>:<col>`. The index holds the project/module-instance row, print-page placement, PCB placement, component, symbol, footprint and pin rows for an instance; the project net row and every view wire/label for a net. When there is more than one, the status line says how many remain. |
 | click empty paper, or `Esc` | Drops the selection, unless a move transaction is in flight — `Esc` cancels that transaction first. |
 | drag | Pans. |
+| `b` | On a library symbol, arms the pen: a drag then draws on the picture instead of panning. `Esc` puts it away, `Ctrl+Z` drops the last stroke. See [The pen](#the-pen). |
 | wheel | Zooms about the cursor. The sheet is re-rendered as vectors at the new size, so it never goes soft in between. |
 | `0` | Fits the page again. |
 | `+` / `-` | Zooms in and out. |
@@ -265,6 +267,25 @@ from them as you zoom in, so a fixed pixel stand-off would look tighter the clos
 `vector-effect: non-scaling-stroke` would be the obvious way to do that and does not work here — it
 compensates the SVG's own viewBox, not the CSS `scale()` on the canvas around it, and a "1.5 px"
 stroke then paints 1.5 mm, which reads as a slug over small parts.
+
+## The pen
+
+On a library symbol the app offers a pen: `b` arms it, a drag draws, `Escape` puts it away, and
+`Ctrl+Z` drops the last stroke. The ink is grey and 0.25 mm wide — the drawing's own weight — and it
+sits on top of the sheet, never in it.
+
+**A sketch is a message, not a change.** The strokes never reach the source, the IR or a hash. A
+symbol's shard is normative, so drawing on a symbol cannot change the project
+([ADR-0073](../adr/09-view/0073-the-review-app-has-a-freehand-pen.md)). What the reviewer draws is
+where their judgement is; what the agent changes is the agent's business.
+
+**Saving writes a picture outside the project.** `Save sketch` rasterises the drawing with the ink
+on top, at twice the reviewer's zoom, with a caption under it that says what the picture is a
+sketch of (`symbol · led · 2026-11-13`), and posts it to the server. The server writes it to
+`/tmp/texteda-sketches/<drawing>-<n>.png` and answers with the path; the status line shows the path
+and **Copy path** puts it on the clipboard. That path is what the reviewer hands to the agent.
+
+A static export (`--out`) has no server behind it, so the browser downloads the picture instead.
 
 
 ## The findings and the measurements
@@ -293,6 +314,9 @@ says how much of the sheet it takes and how far it is from comfortable
   editing the stackup belong to the agent-driven layout loop
   ([ADR-0017](../adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)), not to the review app.
 - **A write from the static report.** `--out` has no server, so nothing can be applied or saved.
+- **The pen on the other drawings.** The pen is offered on library symbols only. A print page is
+  about placement, which the existing gestures already carry, and a board canvas is about copper,
+  which a sketch would only make vaguer ([ADR-0073](../adr/09-view/0073-the-review-app-has-a-freehand-pen.md) D7).
 - **Note anchors** (`[instance:M1.U1]` prefixes), which are an open point of
   [ADR-0037](../adr/09-view/0037-review-records-and-attribution.md).
 

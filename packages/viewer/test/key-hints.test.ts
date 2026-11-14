@@ -15,6 +15,7 @@ function state(overrides: Partial<KeyHintState> = {}): KeyHintState {
     canWriteFull: true,
     fieldIsManual: false,
     keysOpen: true,
+    sketch: { armed: false, strokes: 0 },
     ...overrides,
   };
 }
@@ -73,6 +74,30 @@ describe("the hint names the keys that answer right now", () => {
   test("a move in flight offers only the keys that end it", () => {
     const hints = keys(state({ moving: true, selected: { kind: "symbol", id: "M2.C1" } }));
     expect(hints).toEqual(["Enter", "Esc"]);
+  });
+});
+
+describe("the hint follows the pen", () => {
+  test("a drawing the pen is offered on offers the pen", () => {
+    expect(keys(state({ drawingKind: "symbol" }))).toContain("B");
+  });
+
+  test("a drawing the pen is not offered on does not offer it", () => {
+    expect(keys(state({ drawingKind: "pcb" }))).not.toContain("B");
+    expect(keys(state({ drawingKind: "sch" }))).not.toContain("B");
+  });
+
+  test("an armed pen offers the keys that end it, and not the key that arms it", () => {
+    const hints = keys(state({ drawingKind: "symbol", sketch: { armed: true, strokes: 0 } }));
+    expect(hints).toContain("Esc");
+    expect(hints).not.toContain("B");
+  });
+
+  test("the undo is offered only when there is a stroke to drop", () => {
+    const empty = keys(state({ drawingKind: "symbol", sketch: { armed: true, strokes: 0 } }));
+    const drawn = keys(state({ drawingKind: "symbol", sketch: { armed: true, strokes: 2 } }));
+    expect(empty).not.toContain("Ctrl+Z");
+    expect(drawn).toContain("Ctrl+Z");
   });
 });
 

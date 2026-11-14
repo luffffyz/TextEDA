@@ -14,6 +14,7 @@ Public exports for this workspace package. This is implementation navigation, no
 | <code>@texteda/viewer/app</code> | [packages/viewer/src/app.ts](../../../packages/viewer/src/app.ts) | 7 |
 | <code>@texteda/viewer/build</code> | [packages/viewer/src/build.ts](../../../packages/viewer/src/build.ts) | 1 |
 | <code>@texteda/viewer/client</code> | [packages/viewer/src/client.ts](../../../packages/viewer/src/client.ts) | 0 |
+| <code>@texteda/viewer/sketch</code> | [packages/viewer/src/sketch.ts](../../../packages/viewer/src/sketch.ts) | 10 |
 | <code>@texteda/viewer/styles</code> | [packages/viewer/src/styles.ts](../../../packages/viewer/src/styles.ts) | 2 |
 
 ## <code>@texteda/viewer</code>
@@ -22,24 +23,24 @@ Source module: [packages/viewer/src/types.ts](../../../packages/viewer/src/types
 
 | Export | Kind | Signature / type | Summary | Declaration |
 |---|---|---|---|---|
-| <code>ReviewAnswer</code> | interface | <code>ReviewAnswer</code> | The host's answer to a write. The status is kept, not just the payload: a refusal is a status with a message in it, and the app reads the message the same way whichever host it … | [packages/viewer/src/types.ts#L243](../../../packages/viewer/src/types.ts#L243) |
-| <code>ReviewApi</code> | interface | <code>ReviewApi</code> | How the client half asks its host to write. The standalone app posts to the CLI's two routes; a plugin asks its own host half. The client half names the route and hands over the… | [packages/viewer/src/types.ts#L257](../../../packages/viewer/src/types.ts#L257) |
-| <code>ReviewBoard</code> | interface | <code>ReviewBoard</code> | One board: the facts a drawing cannot repeat (the board has one netlist). | [packages/viewer/src/types.ts#L216](../../../packages/viewer/src/types.ts#L216) |
+| <code>ReviewAnswer</code> | interface | <code>ReviewAnswer</code> | The host's answer to a write. The status is kept, not just the payload: a refusal is a status with a message in it, and the app reads the message the same way whichever host it … | [packages/viewer/src/types.ts#L245](../../../packages/viewer/src/types.ts#L245) |
+| <code>ReviewApi</code> | interface | <code>ReviewApi</code> | How the client half asks its host to write. The standalone app posts to the CLI's three routes — the layout, the source and the sketch; a plugin asks its own host half. The clie… | [packages/viewer/src/types.ts#L259](../../../packages/viewer/src/types.ts#L259) |
+| <code>ReviewBoard</code> | interface | <code>ReviewBoard</code> | One board: the facts a drawing cannot repeat (the board has one netlist). | [packages/viewer/src/types.ts#L218](../../../packages/viewer/src/types.ts#L218) |
 | <code>ReviewBox</code> | interface | <code>ReviewBox</code> | A rectangle on the sheet, in millimetres, origin at the sheet's top-left (SVG orientation). | [packages/viewer/src/types.ts#L14](../../../packages/viewer/src/types.ts#L14) |
 | <code>ReviewCapability</code> | interface | <code>ReviewCapability</code> | The review app has one interaction surface; a drawing determines which actions are meaningful. | [packages/viewer/src/types.ts#L58](../../../packages/viewer/src/types.ts#L58) |
-| <code>ReviewDiagnostic</code> | interface | <code>ReviewDiagnostic</code> | One diagnostic, flattened for the browser (`texteda check`'s payload). | [packages/viewer/src/types.ts#L227](../../../packages/viewer/src/types.ts#L227) |
+| <code>ReviewDiagnostic</code> | interface | <code>ReviewDiagnostic</code> | One diagnostic, flattened for the browser (`texteda check`'s payload). | [packages/viewer/src/types.ts#L229](../../../packages/viewer/src/types.ts#L229) |
 | <code>ReviewDrawing</code> | interface | <code>ReviewDrawing</code> | One drawing the app can show. The app shows drawings, not boards: a print page, a board's physical canvas, a library symbol, a library footprint and a reusable module drawing ar… | [packages/viewer/src/types.ts#L95](../../../packages/viewer/src/types.ts#L95) |
 | <code>ReviewDrawingKind</code> | type | <code>ReviewDrawingKind</code> | What a drawing shows (ADR-0048). | [packages/viewer/src/types.ts#L85](../../../packages/viewer/src/types.ts#L85) |
 | <code>ReviewField</code> | interface | <code>ReviewField</code> | A schematic Reference or Value field, with its symbol-local anchor and override state. | [packages/viewer/src/types.ts#L43](../../../packages/viewer/src/types.ts#L43) |
-| <code>ReviewInstance</code> | interface | <code>ReviewInstance</code> | One instance of the board: what a click on its symbol reports beyond the refdes. | [packages/viewer/src/types.ts#L165](../../../packages/viewer/src/types.ts#L165) |
-| <code>ReviewMetrics</code> | interface | <code>ReviewMetrics</code> | What a print page measures (spec/schematic-view.md §9.4). The findings are binary — a label is on its net or it is not — but a reviewer also wants to know how crowded the page i… | [packages/viewer/src/types.ts#L151](../../../packages/viewer/src/types.ts#L151) |
-| <code>ReviewModel</code> | interface | <code>ReviewModel</code> | What the page shows: the whole project, because a board is small and a fetch per page is slower. | [packages/viewer/src/types.ts#L263](../../../packages/viewer/src/types.ts#L263) |
-| <code>ReviewNet</code> | interface | <code>ReviewNet</code> | A net of the board, with the pins it joins (`U1.7`). | [packages/viewer/src/types.ts#L210](../../../packages/viewer/src/types.ts#L210) |
+| <code>ReviewInstance</code> | interface | <code>ReviewInstance</code> | One instance of the board: what a click on its symbol reports beyond the refdes. | [packages/viewer/src/types.ts#L167](../../../packages/viewer/src/types.ts#L167) |
+| <code>ReviewMetrics</code> | interface | <code>ReviewMetrics</code> | What a print page measures (spec/schematic-view.md §9.4). The findings are binary — a label is on its net or it is not — but a reviewer also wants to know how crowded the page i… | [packages/viewer/src/types.ts#L153](../../../packages/viewer/src/types.ts#L153) |
+| <code>ReviewModel</code> | interface | <code>ReviewModel</code> | What the page shows: the whole project, because a board is small and a fetch per page is slower. | [packages/viewer/src/types.ts#L265](../../../packages/viewer/src/types.ts#L265) |
+| <code>ReviewNet</code> | interface | <code>ReviewNet</code> | A net of the board, with the pins it joins (`U1.7`). | [packages/viewer/src/types.ts#L212](../../../packages/viewer/src/types.ts#L212) |
 | <code>ReviewPcbPart</code> | interface | <code>ReviewPcbPart</code> | A part the board places, in board millimetres. | [packages/viewer/src/types.ts#L74](../../../packages/viewer/src/types.ts#L74) |
 | <code>ReviewPlace</code> | interface | <code>ReviewPlace</code> | Where a symbol sits on a print page: the page's own millimetres and a turn in whole quadrants. | [packages/viewer/src/types.ts#L64](../../../packages/viewer/src/types.ts#L64) |
-| <code>ReviewSourceKind</code> | type | <code>ReviewSourceKind</code> | What a definition location names: the record a reviewer can open. | [packages/viewer/src/types.ts#L181](../../../packages/viewer/src/types.ts#L181) |
-| <code>ReviewSourceLocation</code> | interface | <code>ReviewSourceLocation</code> | One place an identity is defined or used, as a source location (ADR-0004 D6). | [packages/viewer/src/types.ts#L196](../../../packages/viewer/src/types.ts#L196) |
-| <code>ReviewSources</code> | type | <code>ReviewSources</code> | Identity key → locations. Keys are namespaced (`instance:&lt;board&gt;/&lt;id&gt;`, `component:&lt;id&gt;`). | [packages/viewer/src/types.ts#L207](../../../packages/viewer/src/types.ts#L207) |
+| <code>ReviewSourceKind</code> | type | <code>ReviewSourceKind</code> | What a definition location names: the record a reviewer can open. | [packages/viewer/src/types.ts#L183](../../../packages/viewer/src/types.ts#L183) |
+| <code>ReviewSourceLocation</code> | interface | <code>ReviewSourceLocation</code> | One place an identity is defined or used, as a source location (ADR-0004 D6). | [packages/viewer/src/types.ts#L198](../../../packages/viewer/src/types.ts#L198) |
+| <code>ReviewSources</code> | type | <code>ReviewSources</code> | Identity key → locations. Keys are namespaced (`instance:&lt;board&gt;/&lt;id&gt;`, `component:&lt;id&gt;`). | [packages/viewer/src/types.ts#L209](../../../packages/viewer/src/types.ts#L209) |
 | <code>ReviewSymbol</code> | interface | <code>ReviewSymbol</code> | A placed instance, as the drawing sees it: the refdes, and where its body sits. | [packages/viewer/src/types.ts#L22](../../../packages/viewer/src/types.ts#L22) |
 | <code>ReviewText</code> | interface | <code>ReviewText</code> | A text on the sheet: a net label, a port tag, or a note. | [packages/viewer/src/types.ts#L31](../../../packages/viewer/src/types.ts#L31) |
 
@@ -49,13 +50,13 @@ Source module: [packages/viewer/src/app.ts](../../../packages/viewer/src/app.ts)
 
 | Export | Kind | Signature / type | Summary | Declaration |
 |---|---|---|---|---|
-| <code>Highlight</code> | interface | <code>Highlight</code> | The object under the pointer, as the app selects it. A printed text is its own kind rather than one `text` bucket: a label names a net and a port names a board port, and only th… | [packages/viewer/src/app.ts#L37](../../../packages/viewer/src/app.ts#L37) |
-| <code>KeyHint</code> | interface | <code>KeyHint</code> | One key in the hint: the glyph in its box, and what it does in the current state. | [packages/viewer/src/app.ts#L1015](../../../packages/viewer/src/app.ts#L1015) |
-| <code>KeyHintState</code> | interface | <code>KeyHintState</code> | The state the keyboard hint is derived from. Everything the hint decides is here, so the decision can be tested without a browser: which drawing is on screen, what is selected, … | [packages/viewer/src/app.ts#L1027](../../../packages/viewer/src/app.ts#L1027) |
-| <code>ReviewHandle</code> | interface | <code>ReviewHandle</code> | What a mounted app hands back to whoever mounted it. | [packages/viewer/src/app.ts#L2584](../../../packages/viewer/src/app.ts#L2584) |
-| <code>keyHints</code> | function | <code>(state: KeyHintState): KeyHint[]</code> | The keys that do something right now. The hint is state-derived rather than a fixed list: with nothing selected `m`/`r`/`Enter` would be dead, and a hint that names dead keys te… | [packages/viewer/src/app.ts#L1049](../../../packages/viewer/src/app.ts#L1049) |
-| <code>mountReview</code> | function | <code>(rootElement: HTMLElement, reviewModel: ReviewModel, reviewApi: ReviewApi): ReviewHandle</code> | Mount the review app. The root is where the app draws, the model is what it shows, and the api is how it asks its host for a write — the standalone app's CLI routes, or a plugin… | [packages/viewer/src/app.ts#L2596](../../../packages/viewer/src/app.ts#L2596) |
-| <code>moveStatus</code> | function | <code>(highlight: Highlight, moved: boolean, symbolName: string &#124; undefined): string</code> | What the status line says after a move. The line answers two things at once: which object is still selected, and that the move is local until Apply. The object comes first, so t… | [packages/viewer/src/app.ts#L1081](../../../packages/viewer/src/app.ts#L1081) |
+| <code>Highlight</code> | interface | <code>Highlight</code> | The object under the pointer, as the app selects it. A printed text is its own kind rather than one `text` bucket: a label names a net and a port names a board port, and only th… | [packages/viewer/src/app.ts#L49](../../../packages/viewer/src/app.ts#L49) |
+| <code>KeyHint</code> | interface | <code>KeyHint</code> | One key in the hint: the glyph in its box, and what it does in the current state. | [packages/viewer/src/app.ts#L1078](../../../packages/viewer/src/app.ts#L1078) |
+| <code>KeyHintState</code> | interface | <code>KeyHintState</code> | The state the keyboard hint is derived from. Everything the hint decides is here, so the decision can be tested without a browser: which drawing is on screen, what is selected, … | [packages/viewer/src/app.ts#L1090](../../../packages/viewer/src/app.ts#L1090) |
+| <code>ReviewHandle</code> | interface | <code>ReviewHandle</code> | What a mounted app hands back to whoever mounted it. | [packages/viewer/src/app.ts#L2922](../../../packages/viewer/src/app.ts#L2922) |
+| <code>keyHints</code> | function | <code>(state: KeyHintState): KeyHint[]</code> | The keys that do something right now. The hint is state-derived rather than a fixed list: with nothing selected `m`/`r`/`Enter` would be dead, and a hint that names dead keys te… | [packages/viewer/src/app.ts#L1114](../../../packages/viewer/src/app.ts#L1114) |
+| <code>mountReview</code> | function | <code>(rootElement: HTMLElement, reviewModel: ReviewModel, reviewApi: ReviewApi): ReviewHandle</code> | Mount the review app. The root is where the app draws, the model is what it shows, and the api is how it asks its host for a write — the standalone app's CLI routes, or a plugin… | [packages/viewer/src/app.ts#L2934](../../../packages/viewer/src/app.ts#L2934) |
+| <code>moveStatus</code> | function | <code>(highlight: Highlight, moved: boolean, symbolName: string &#124; undefined): string</code> | What the status line says after a move. The line answers two things at once: which object is still selected, and that the move is local until Apply. The object comes first, so t… | [packages/viewer/src/app.ts#L1152](../../../packages/viewer/src/app.ts#L1152) |
 
 ## <code>@texteda/viewer/build</code>
 
@@ -71,11 +72,28 @@ Source module: [packages/viewer/src/client.ts](../../../packages/viewer/src/clie
 
 No named exports.
 
+## <code>@texteda/viewer/sketch</code>
+
+Source module: [packages/viewer/src/sketch.ts](../../../packages/viewer/src/sketch.ts)
+
+| Export | Kind | Signature / type | Summary | Declaration |
+|---|---|---|---|---|
+| <code>SKETCH_STROKE</code> | value | <code>"#7f7f7f"</code> | The pen's colour: grey, so it is never mistaken for the drawing's own ink. | [packages/viewer/src/sketch.ts#L17](../../../packages/viewer/src/sketch.ts#L17) |
+| <code>SKETCH_STROKE_WIDTH_MM</code> | value | <code>0.25</code> | The pen's line weight, in sheet millimetres — the same weight the drawings use. | [packages/viewer/src/sketch.ts#L14](../../../packages/viewer/src/sketch.ts#L14) |
+| <code>SketchStroke</code> | interface | <code>SketchStroke</code> | One stroke: the points the pen passed through, in the drawing's own millimetres. | [packages/viewer/src/sketch.ts#L20](../../../packages/viewer/src/sketch.ts#L20) |
+| <code>canSketch</code> | function | <code>(kind: string &#124; undefined): boolean</code> | The drawing kinds the pen is offered on. A library symbol is the first one: it is a drawing of geometry the agent owns, the reviewer can see something wrong with it ("this trian… | [packages/viewer/src/sketch.ts#L30](../../../packages/viewer/src/sketch.ts#L30) |
+| <code>sketchCaption</code> | function | <code>(kind: string, label: string, when: string): string</code> | What the picture says about itself. A picture without a caption is a riddle: the agent cannot tell which drawing it is a sketch of, so the caption names the kind, the drawing, a… | [packages/viewer/src/sketch.ts#L65](../../../packages/viewer/src/sketch.ts#L65) |
+| <code>sketchFileName</code> | function | <code>(drawingKey: string, index: number): string</code> | The file name a saved sketch gets. The number keeps the order the pictures were drawn in. | [packages/viewer/src/sketch.ts#L89](../../../packages/viewer/src/sketch.ts#L89) |
+| <code>sketchFileStem</code> | function | <code>(drawingKey: string): string</code> | The stem of a sketch's file name: the drawing's own name, flattened. The drawing's name comes first, so a folder of sketches sorts by what they are about. The stem is what the h… | [packages/viewer/src/sketch.ts#L75](../../../packages/viewer/src/sketch.ts#L75) |
+| <code>sketchOverlayMarkup</code> | function | <code>(strokes: readonly SketchStroke[]): string</code> | The overlay markup, to be drawn over the sheet. One path for the whole sketch, so the picture carries one object rather than one per stroke. | [packages/viewer/src/sketch.ts#L50](../../../packages/viewer/src/sketch.ts#L50) |
+| <code>sketchPathData</code> | function | <code>(strokes: readonly SketchStroke[]): string</code> | The path data of every stroke, as one path. | [packages/viewer/src/sketch.ts#L35](../../../packages/viewer/src/sketch.ts#L35) |
+| <code>sketchSvg</code> | function | <code>(drawingSvg: string, strokes: readonly SketchStroke[]): string</code> | The picture: the drawing with the pen's ink on top. The overlay goes in at the end of the document, so the ink is painted over the drawing rather than under it. | [packages/viewer/src/sketch.ts#L99](../../../packages/viewer/src/sketch.ts#L99) |
+
 ## <code>@texteda/viewer/styles</code>
 
 Source module: [packages/viewer/src/styles.ts](../../../packages/viewer/src/styles.ts)
 
 | Export | Kind | Signature / type | Summary | Declaration |
 |---|---|---|---|---|
-| <code>APP_ROOT_CLASS</code> | value | <code>"teda-review"</code> | The class the mount puts on the root element; every rule above is scoped to it. | [packages/viewer/src/styles.ts#L244](../../../packages/viewer/src/styles.ts#L244) |
+| <code>APP_ROOT_CLASS</code> | value | <code>"teda-review"</code> | The class the mount puts on the root element; every rule above is scoped to it. | [packages/viewer/src/styles.ts#L251](../../../packages/viewer/src/styles.ts#L251) |
 | <code>APP_STYLES</code> | value | <code>"\n.teda-review {\n color-scheme: dark;\n --fg: #e6e6e6;\n --muted: #9aa0a6;\n --bg: #131416;\n --panel: #1b1d21;\n --line: #2c3037;\n --accent: #6ea8fe;\n --error: #ff6b6b;\n -…</code> | — | [packages/viewer/src/styles.ts#L13](../../../packages/viewer/src/styles.ts#L13) |

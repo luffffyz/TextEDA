@@ -11,7 +11,19 @@ import { definitionLocations, editorUri } from "./definitions.ts";
 import { APP_ROOT_CLASS, APP_STYLES } from "./styles.ts";
 import { refusalMessage, unsavedSource } from "./host.ts";
 import { snapPlacement } from "./placement.ts";
+import {
+  SKETCH_STROKE,
+  SKETCH_STROKE_WIDTH_MM,
+  canSketch,
+  sketchCaption,
+  sketchFileName,
+  sketchOverlayMarkup,
+  sketchPathData,
+  sketchSvg,
+  type SketchStroke,
+} from "./sketch.ts";
 import type {
+  ReviewAnswer,
   ReviewBoard,
   ReviewDiagnostic,
   ReviewDrawing,
@@ -152,6 +164,18 @@ interface AppState {
    * is still derived from the state, so it never names a key that does not answer.
    */
   keysOpen: boolean;
+  /**
+   * The freehand pen: whether it is armed, the strokes drawn so far, and where the pictures went.
+   *
+   * A sketch is a message to the agent, not a change to the drawing: the strokes live here, in the
+   * browser, and leave only as a saved picture. They are in the drawing's own millimetres — the SVG's
+   * user units, which is what every drawing the renderer paints is measured in — so a stroke scales
+   * with the drawing and means the same thing at any zoom. They are kept per drawing, because a
+   * reviewer may say something about two symbols and save two pictures, and one drawing's ink must
+   * not end up on the other's picture. The saved paths are kept the same way, so "copy the path"
+   * copies the path of the drawing on the stage.
+   */
+  sketch: { armed: boolean; strokes: Map<string, SketchStroke[]>; saved: Map<string, string> };
 }
 
 /** The state a mount starts in: the first drawing, zoom 1, no selection or pending changes. */
@@ -178,6 +202,7 @@ function initialState(): AppState {
     automaticFields: false,
     reanchorWires: false,
     layoutPreview: null,
+    sketch: { armed: false, strokes: new Map(), saved: new Map() },
   };
 }
 
@@ -415,10 +440,48 @@ function renderActions(): void {
     saveButton = save;
     frame.actionBar.append(save);
   }
+  if (current !== undefined && canSketch(current.kind)) {
+    const pen = el("button", "action", state.sketch.armed ? "Pen: on" : "Pen: off");
+    pen.type = "button";
+    pen.title = "draw on the picture: the sketch is a message to the agent";
+    pen.classList.toggle("active", state.sketch.armed);
+    pen.addEventListener("click", () => {
+      toggleSketch();
+    });
+    frame.actionBar.append(pen);
+    if (currentStrokes().length > 0) {
+      const undo = el("button", "action", "Undo stroke");
+      undo.type = "button";
+      undo.addEventListener("click", () => {
+        undoSketch();
+      });
+      const save = el("button", "action", "Save sketch");
+      save.type = "button";
+      save.title = "save the picture for the agent to read";
+      save.addEventListener("click", () => {
+        void saveSketch();
+      });
+      frame.actionBar.append(undo, save);
+    }
+    const path = state.sketch.saved.get(current.key);
+    if (path !== undefined) {
+      // The path is what the reviewer hands to the agent, so it must be easy to take away.
+      const copy = el("button", "action", "Copy path");
+      copy.type = "button";
+      copy.title = path;
+      copy.addEventListener("click", () => {
+        void copySketchPath(path);
+      });
+      frame.actionBar.append(copy);
+    }
+  }
   frame.actionBar.append(el("span", "action-hint", actionHint(current)));
   updateActions();
 }
 function actionHint(current: ReviewDrawing | undefined): string {
+  if (current !== undefined && canSketch(current.kind)) {
+    return "Press b to draw on the picture: the sketch is a message to the agent.";
+  }
   if (!isSchematicDrawing(current)) return "Read the drawing: hover, select, zoom, and pan.";
   return state.sourceOpen
     ? "Source is explicit: edit the page text on the left; drawing clicks only select."
@@ -1037,6 +1100,8 @@ export interface KeyHintState {
   fieldIsManual: boolean;
   /** Whether the hint is up; the hint's own key says which way it toggles. */
   keysOpen: boolean;
+  /** Whether the freehand pen is armed, and how many strokes are on the drawing. */
+  sketch: { armed: boolean; strokes: number };
 }
 
 /**
@@ -1061,6 +1126,12 @@ export function keyHints(state: KeyHintState): KeyHint[] {
     if (current === "sch" && state.canWriteFull) hints.push({ key: "M", what: "start a snapped move" });
   }
   if (current === "sch" && selected?.kind === "symbol") hints.push({ key: "R", what: "rotate the selection" });
+  if (state.sketch.armed) {
+    hints.push({ key: "Esc", what: "put the pen away" });
+    if (state.sketch.strokes > 0) hints.push({ key: "Ctrl+Z", what: "drop the last stroke" });
+  } else if (canSketch(current)) {
+    hints.push({ key: "B", what: "draw on the picture" });
+  }
   hints.push(
     { key: "0", what: "fit the sheet" },
     { key: "+", what: "zoom in" },
@@ -1106,6 +1177,7 @@ function liveKeyHints(): KeyHint[] {
     canWriteFull: canWriteFull(),
     fieldIsManual,
     keysOpen: state.keysOpen,
+    sketch: { armed: state.sketch.armed, strokes: currentStrokes().length },
   });
 }
 
@@ -1216,6 +1288,7 @@ function renderStage(keepSelection = false): void {
   applyPending(svg);
   renderPendingSymbolOverlay(svg, shown.symbols);
   renderPendingPortOverlay(svg);
+  renderSketchLayer(svg);
   if (keepSelection) paintHighlights(state.selected);
   applyTransform();
   const pending = state.pending.size + state.pendingFields.size + state.removeFields.size + state.pendingTexts.size;
@@ -1253,6 +1326,40 @@ function pendingClone(original: SVGGElement, className: string): SVGGElement {
     node.removeAttribute("data-net");
   }
   return clone;
+}
+
+/**
+ * The pen's ink, drawn over the sheet.
+ *
+ * The strokes live in the app's state, not in the DOM, so a re-render — a zoom, a drawing change,
+ * a switch away and back — does not lose them. The layer is the sheet's own viewport, so a stroke
+ * means the same thing at any zoom.
+ */
+function renderSketchLayer(svg?: SVGSVGElement): void {
+  const target = svg ?? frame.canvas.querySelector<SVGSVGElement>(".sheet-svg");
+  if (target === null) return;
+  const layer = pendingOverlayLayer(target, "sketch-overlay", true);
+  if (layer === null) return;
+  const path = target.ownerDocument.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("class", "sketch-ink");
+  path.setAttribute("d", sketchPathData(currentStrokes()));
+  path.setAttribute("fill", "none");
+  path.setAttribute("stroke", SKETCH_STROKE);
+  path.setAttribute("stroke-width", String(SKETCH_STROKE_WIDTH_MM));
+  path.setAttribute("stroke-linecap", "round");
+  path.setAttribute("stroke-linejoin", "round");
+  layer.append(path);
+}
+
+/** The strokes on the drawing that is on the stage. */
+function currentStrokes(): readonly SketchStroke[] {
+  return state.sketch.strokes.get(state.drawing) ?? [];
+}
+
+/** Put the strokes of the drawing that is on the stage. */
+function setCurrentStrokes(strokes: SketchStroke[]): void {
+  if (strokes.length === 0) state.sketch.strokes.delete(state.drawing);
+  else state.sketch.strokes.set(state.drawing, strokes);
 }
 
 /** Draw pending symbols without touching committed SVG primitives. */
@@ -2018,6 +2125,194 @@ let lastPress: { kind: Highlight["kind"]; id: string; at: number } | null = null
 /** The sheet point used as the anchor when `m` arms a move. */
 let selectionAnchor: { x: number; y: number } | null = null;
 let lastSheetPoint: { x: number; y: number } | null = null;
+/** The stroke being drawn, while the pen is down. */
+let sketchStroke: { points: { x: number; y: number }[] } | null = null;
+
+/**
+ * Arm or disarm the freehand pen.
+ *
+ * The pen is an explicit action, not a mode: with it armed a drag draws, and with it disarmed a
+ * drag still pans (ADR-0056 — one interaction surface, no mode state). It is offered on the
+ * drawings whose subject is geometry the agent owns and the reviewer can see something wrong with.
+ */
+function toggleSketch(): boolean {
+  const current = drawing();
+  if (current === undefined || !canSketch(current.kind)) return false;
+  state.sketch.armed = !state.sketch.armed;
+  if (state.sketch.armed) {
+    // The pen replaces the other pointer gestures: a drag is a stroke, not a pan and not a click.
+    state.selected = null;
+    paintHighlights(null);
+  }
+  renderActions();
+  renderKeysHint();
+  renderStage(true);
+  setStatus(state.sketch.armed ? "pen armed: drag to draw on the drawing" : "pen put away");
+  return true;
+}
+
+/** Drop the last stroke on the drawing that is on the stage. */
+function undoSketch(): boolean {
+  const strokes = currentStrokes();
+  if (strokes.length === 0) return false;
+  setCurrentStrokes(strokes.slice(0, -1));
+  renderSketchLayer();
+  renderActions();
+  setStatus(
+    strokes.length === 1 ? "the last stroke is gone" : `${strokes.length - 1} strokes left`,
+  );
+  return true;
+}
+
+/** How many times over the reviewer's own zoom the picture is rasterised. */
+const SKETCH_RASTER = 2;
+/** The smallest picture worth sending: below this a 0.25 mm stroke is a smudge. */
+const SKETCH_MIN_PX = 480;
+/** The caption strip under the drawing. */
+const SKETCH_CAPTION_PX = 30;
+
+/** Today, in the project's date form. */
+function today(): string {
+  const now = new Date();
+  const month = `${now.getMonth() + 1}`.padStart(2, "0");
+  const day = `${now.getDate()}`.padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+/**
+ * The picture: the drawing, the pen's ink, and a caption that says what it is.
+ *
+ * The SVG is rasterised in the browser, at the reviewer's own zoom — the picture is what they were
+ * looking at — and twice over, so the strokes stay sharp. The caption is drawn on the canvas
+ * rather than inside the SVG: an SVG loaded as an image cannot use a web font, and the system's
+ * own font is what works there.
+ */
+async function sketchPicture(): Promise<Blob | undefined> {
+  const current = drawing();
+  const shown = stageDrawing();
+  if (current === undefined || shown === undefined) return undefined;
+  const strokes = currentStrokes();
+  if (strokes.length === 0) return undefined;
+
+  const svgText = sketchSvg(shown.svg, strokes);
+  const url = URL.createObjectURL(new Blob([svgText], { type: "image/svg+xml" }));
+  try {
+    const image = new Image();
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error("the picture did not render"));
+      image.src = url;
+    });
+    const longest = Math.max(current.sheet.w, current.sheet.h);
+    const pxPerMm = Math.max(SKETCH_MIN_PX / longest, PX_PER_MM * state.zoom);
+    const width = Math.round(current.sheet.w * pxPerMm * SKETCH_RASTER);
+    const height = Math.round(current.sheet.h * pxPerMm * SKETCH_RASTER);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height + SKETCH_CAPTION_PX;
+    const ctx = canvas.getContext("2d");
+    if (ctx === null) return undefined;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0, width, height);
+    ctx.fillStyle = "#1b1d21";
+    ctx.font = "13px ui-sans-serif, system-ui, sans-serif";
+    ctx.fillText(sketchCaption(current.kind, current.label, today()), 8, height + 19);
+    return await new Promise<Blob | undefined>((resolve) => {
+      canvas.toBlob((blob) => resolve(blob ?? undefined), "image/png");
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** A blob as base64, so it can travel through a JSON body. */
+async function blobToBase64(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+/** Hand the picture to the browser, for a host that cannot save one. */
+function downloadSketch(png: Blob, name: string): void {
+  const url = URL.createObjectURL(png);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Save the picture, so the agent can read it.
+ *
+ * The host that serves the app writes the file and says where; a host that cannot (the static
+ * export, a plugin) gets the browser's download instead. Either way the reviewer ends up with a
+ * path or a file, and that is what they hand to the agent.
+ */
+async function saveSketch(): Promise<void> {
+  const current = drawing();
+  if (current === undefined) return;
+  let png: Blob | undefined;
+  try {
+    png = await sketchPicture();
+  } catch (error) {
+    setStatus(`the picture did not render: ${error instanceof Error ? error.message : String(error)}`);
+    return;
+  }
+  if (png === undefined) {
+    setStatus("there is nothing to save: draw on the picture first");
+    return;
+  }
+  const base64 = await blobToBase64(png);
+  let answer: ReviewAnswer;
+  try {
+    answer = await api.post("/api/sketch", { drawing: current.key, png: base64 });
+  } catch {
+    // There is no server behind this document — a static export, or a host that does not serve the
+    // app. The browser takes the picture instead, and the reviewer still has a file to hand over.
+    downloadSketch(png, sketchFileName(current.key, 1));
+    setStatus(`this host cannot save pictures: the browser downloaded it (${sketchFileName(current.key, 1)})`);
+    return;
+  }
+  if (answer.status === 405 || answer.status === 501) {
+    // The host has no route for pictures: it says so rather than answering with something else.
+    // The browser takes the picture instead, and the reviewer still has a file to hand over.
+    downloadSketch(png, sketchFileName(current.key, 1));
+    setStatus(`this host cannot save pictures: the browser downloaded it (${sketchFileName(current.key, 1)})`);
+    return;
+  }
+  if (answer.status < 200 || answer.status >= 300) {
+    // The host answered and said no. That is not the same as having no route, and the reviewer
+    // needs to know which one it was.
+    setStatus(`the host refused the picture: ${refusalMessage(answer.payload)}`);
+    return;
+  }
+  const path = typeof answer.payload["path"] === "string" ? answer.payload["path"] : "";
+  if (path === "") {
+    setStatus("the host saved the picture but did not say where");
+    return;
+  }
+  state.sketch.saved.set(current.key, path);
+  renderActions();
+  setStatus(`sketch saved: ${path}`);
+}
+
+/**
+ * Put the path on the clipboard, so the reviewer can paste it to the agent.
+ *
+ * The clipboard is a browser's privilege and may be refused; the status line then says so, and the
+ * path is still in the button's title.
+ */
+async function copySketchPath(path: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(path);
+    setStatus(`path copied: ${path}`);
+  } catch {
+    setStatus(`the browser would not copy the path: ${path}`);
+  }
+}
 
 type MoveTransaction =
   | {
@@ -2326,6 +2621,14 @@ function onStagePointerDown(event: PointerEvent): void {
     event.preventDefault();
     return;
   }
+  if (state.sketch.armed && point !== undefined) {
+    // The pen takes the drag: a stroke, not a pan and not a click on whatever is underneath.
+    frame.stage.setPointerCapture(event.pointerId);
+    frame.stage.classList.add("sketching");
+    sketchStroke = { points: [point] };
+    event.preventDefault();
+    return;
+  }
   dragging = { x: event.clientX, y: event.clientY, panX: state.panX, panY: state.panY, moved: false };
   frame.stage.setPointerCapture(event.pointerId);
   frame.stage.classList.add("dragging");
@@ -2334,6 +2637,13 @@ function onStagePointerDown(event: PointerEvent): void {
 function onStagePointerMove(event: PointerEvent): void {
   const point = sheetPoint(event);
   if (point !== undefined) lastSheetPoint = point;
+  if (sketchStroke !== null) {
+    if (point === undefined) return;
+    sketchStroke.points.push(point);
+    renderSketchLayer();
+    event.preventDefault();
+    return;
+  }
   if (moveTransaction !== null) {
     if (point === undefined) return;
     if (moveTransaction.kind === "symbol") updateSymbolMove(moveTransaction, point);
@@ -2364,6 +2674,21 @@ function applyPendingToCanvas(): void {
 }
 
 const stopDrag = (event: PointerEvent): void => {
+  const stroke = sketchStroke;
+  if (stroke !== null) {
+    sketchStroke = null;
+    frame.stage.classList.remove("sketching");
+    if (event.type !== "pointercancel" && stroke.points.length > 0) {
+      setCurrentStrokes([...currentStrokes(), { points: stroke.points }]);
+      const count = currentStrokes().length;
+      renderActions();
+      setStatus(
+        `${count} stroke${count === 1 ? "" : "s"} drawn · save the picture to send it`,
+      );
+    }
+    renderSketchLayer();
+    return;
+  }
   const move = moveTransaction;
   if (move !== null) {
     if (event.type === "pointercancel") {
@@ -2505,6 +2830,13 @@ function onKeyDown(event: KeyboardEvent): void {
     }
     return;
   }
+  // Undo is the pen's own: a stroke is the one edit the reviewer makes by hand here, and the
+  // browser's own undo stack has nothing to do with it. It sits after the Source panel's own
+  // claim on the keyboard, so `Ctrl+Z` in the text still undoes the text.
+  if (event.key === "z" && (event.ctrlKey || event.metaKey)) {
+    if (undoSketch()) event.preventDefault();
+    return;
+  }
   if (event.key === "0") {
     fit();
     event.preventDefault();
@@ -2520,6 +2852,8 @@ function onKeyDown(event: KeyboardEvent): void {
     event.preventDefault();
   } else if (event.key === "m") {
     if (beginMove()) event.preventDefault();
+  } else if (event.key === "b") {
+    if (toggleSketch()) event.preventDefault();
   } else if (event.key === "r") {
     rotateSelected();
     event.preventDefault();
@@ -2531,7 +2865,12 @@ function onKeyDown(event: KeyboardEvent): void {
     event.preventDefault();
   } else if (event.key === "Escape") {
     if (moveTransaction !== null) cancelMove();
-    else clearSelection();
+    else if (state.sketch.armed) {
+      state.sketch.armed = false;
+      renderActions();
+      renderKeysHint();
+      setStatus("pen put away");
+    } else clearSelection();
     event.preventDefault();
   } else if (event.key === "Backspace") {
     // The details panel's "restore automatic placement" button moved here: with the panel gone,

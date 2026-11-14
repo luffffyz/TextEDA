@@ -249,9 +249,9 @@ Source module: [packages/cli/src/review.ts](../../../packages/cli/src/review.ts)
 
 | Export | Kind | Signature / type | Summary | Declaration |
 |---|---|---|---|---|
-| <code>ReviewOptions</code> | interface | <code>ReviewOptions</code> | — | [packages/cli/src/review.ts#L30](../../../packages/cli/src/review.ts#L30) |
-| <code>renderReviewHtml</code> | function | <code>(model: ReviewModel): Promise&lt;string&gt;</code> | The whole app as one document: styles, the model, the script. Self-contained on purpose — it is served to `127.0.0.1` and written to disk for CI with the same bytes, so what a r… | [packages/cli/src/review.ts#L196](../../../packages/cli/src/review.ts#L196) |
-| <code>runReview</code> | function | <code>(options: ReviewOptions): Promise&lt;number&gt;</code> | Serve the app on `127.0.0.1:port`, or write it to `outFile` and return. The server answers the document and two write routes: Apply for pending layout/view changes and the expli… | [packages/cli/src/review.ts#L374](../../../packages/cli/src/review.ts#L374) |
+| <code>ReviewOptions</code> | interface | <code>ReviewOptions</code> | — | [packages/cli/src/review.ts#L31](../../../packages/cli/src/review.ts#L31) |
+| <code>renderReviewHtml</code> | function | <code>(model: ReviewModel): Promise&lt;string&gt;</code> | The whole app as one document: styles, the model, the script. Self-contained on purpose — it is served to `127.0.0.1` and written to disk for CI with the same bytes, so what a r… | [packages/cli/src/review.ts#L197](../../../packages/cli/src/review.ts#L197) |
+| <code>runReview</code> | function | <code>(options: ReviewOptions): Promise&lt;number&gt;</code> | Serve the app on `127.0.0.1:port`, or write it to `outFile` and return. The server answers the document and three write routes: Apply for pending layout/view changes, the explic… | [packages/cli/src/review.ts#L392](../../../packages/cli/src/review.ts#L392) |
 
 ## <code>@texteda/cli/symbols</code>
 

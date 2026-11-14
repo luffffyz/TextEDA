@@ -202,6 +202,27 @@ Do not assert that automatic fields can never move: separately move a manual fie
 automatic field's space and verify that collision avoidance still runs. Never replace a held
 response with synthetic SVG; this check needs the server's actual geometry.
 
+### 4.7 The pen draws on the picture
+
+The pen is offered on library symbol drawings only ([ADR-0073](../adr/09-view/0073-the-review-app-has-a-freehand-pen.md) D7).
+
+1. Open a symbol drawing from the sidebar — the reference project's `led`, say.
+2. `page.keyboard.press("b")` → the action bar reads `Pen: on`, the status reads
+   `pen armed: drag to draw on the drawing`, and the keyboard hint offers `Esc` instead of `B`.
+3. Drag across the sheet → the ink appears as a `.sketch-overlay .sketch-ink` path, and the status
+   reads `1 stroke drawn · save the picture to send it`.
+4. `Ctrl+Z` drops the last stroke. `Escape` (or `b` again) puts the pen away, and a drag pans again.
+5. Press **Save sketch** → the status reads `sketch saved: /tmp/texteda-sketches/…png`, and the file
+   is there:
+
+   ```sh
+   ls -l /tmp/texteda-sketches/
+   ```
+
+A sketch is a message, not a change: diff the scratch copy against the original and nothing has
+changed. The strokes live in the browser and are gone on a reload — the picture on disk is what
+survives.
+
 ## 5. Proving the snap grid numerically
 
 Do not trust that a drag "looked snapped". Measure it.
@@ -312,6 +333,8 @@ Close the tab with `browser.close({ name })` so the spawned Chromium does not st
 - Do not start driving before the server answers `200`.
 - Do not rely on the managed Chromium here; it does not run on this host.
 - Do not conclude the snap grid works from one drag.
+- Do not expect the pen's strokes to survive a reload: they are not saved state, and the saved
+  picture is what survives.
 - Do not leave a server or a browser process behind.
 
 ## 9. References
@@ -326,4 +349,6 @@ Close the tab with `browser.close({ name })` so the spawned Chromium does not st
   it replaced, under `dist/backups/`.
 - [ADR-0061](../adr/09-view/0061-a-move-carries-only-what-belonged-to-the-net.md): a move carries
   only what belonged to the net; its cost grows with the page, not faster.
+- [ADR-0073](../adr/09-view/0073-the-review-app-has-a-freehand-pen.md): the freehand pen, and a
+  sketch as a message to the agent rather than a fact about the design.
 - [`docs/skills/README.md`](README.md): the index of the procedures.

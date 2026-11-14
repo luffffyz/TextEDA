@@ -26,6 +26,7 @@ import {
   type LayoutText,
 } from "./layout.ts";
 import { buildReviewModel, reviewGeometry, reviewPageIndex } from "./review-model.ts";
+import { saveSketchPicture } from "./sketch.ts";
 
 export interface ReviewOptions {
   readonly root: string;
@@ -223,8 +224,9 @@ html, body { height: 100%; margin: 0; background: #131416; }
 `;
 
 /**
- * The two write routes. Both accept the logical project board (`main`) and a page id, and check
- * them against the flat project-page index so a request cannot name an arbitrary path.
+ * The three write routes. The first two accept the logical project board (`main`) and a page id,
+ * and check them against the flat project-page index so a request cannot name an arbitrary path;
+ * the third accepts a drawing the project has, and writes a picture of it outside the project.
  */
 async function handleApi(
   root: string,
@@ -243,6 +245,21 @@ async function handleApi(
   };
   try {
     const body = JSON.parse(await readBody(request)) as Record<string, unknown>;
+    if (url === "/api/sketch") {
+      // The sketch route: a picture of a drawing, written outside the project. The drawing must be
+      // one the app is showing — the model decides what exists, not the request — and the picture
+      // lands in a scratch folder, because a sketch is a message and not a record.
+      const drawing = typeof body["drawing"] === "string" ? body["drawing"] : "";
+      const png = typeof body["png"] === "string" ? body["png"] : "";
+      const model = rebuild();
+      if (!model.drawings.some((entry) => entry.key === drawing)) {
+        send(400, { error: `no such drawing: ${drawing}` });
+        return;
+      }
+      const saved = saveSketchPicture({ drawing, png });
+      send(200, { path: saved.path, drawing: saved.drawing });
+      return;
+    }
     if (url === "/api/layout") {
       const index = reviewPageIndex(root);
       const moduleId = typeof body["module"] === "string" ? body["module"] : undefined;
@@ -366,8 +383,9 @@ function readBody(request: IncomingMessage): Promise<string> {
 /**
  * Serve the app on `127.0.0.1:port`, or write it to `outFile` and return.
  *
- * The server answers the document and two write routes: Apply for pending layout/view changes and
- * the explicit Source-panel save. Both own the file system: the browser asks, the server writes
+ * The server answers the document and three write routes: Apply for pending layout/view changes,
+ * the explicit Source-panel save, and the sketch route, which writes a reviewer's freehand picture
+ * outside the project. All of them own the file system: the browser asks, the server writes
  * (ADR-0042 D9). The static export (`--out`) has no routes at all — it is a document, not a server
  * — and the app says so when a write is asked of it.
  */
@@ -385,7 +403,7 @@ export async function runReview(options: ReviewOptions): Promise<number> {
 
   const server = createServer((request, response) => {
     const url = request.url ?? "/";
-    if (request.method === "POST" && (url === "/api/layout" || url === "/api/source")) {
+    if (request.method === "POST" && (url === "/api/layout" || url === "/api/source" || url === "/api/sketch")) {
       void handleApi(options.root, url, request, response, () => {
         model = { ...buildReviewModel(options.root), writable: true };
         return model;

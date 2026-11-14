@@ -11,9 +11,10 @@
 // tab is session-scoped (`scope: 'session'` on `sidebar.right.pane.tab`), so its body is handed the
 // `sessionId` the host half wants: the project root is that session's `cwd`.
 //
-// The write channel: the app asks its host with paths of its own (`/api/layout`, `/api/source`).
-// This host grants places-only capability, so the explicit Source action and field writes are
-// refused by the host rather than exposed as a second interaction surface.
+// The write channel: the app asks its host with paths of its own (`/api/layout`, `/api/source`,
+// `/api/sketch`). This host grants places-only capability, so the explicit Source action and field
+// writes are refused by the host rather than exposed as a second interaction surface; the sketch is
+// refused too, because a picture is written outside the project and this host has no route for it.
 //
 // Written with `createElement` and no JSX on purpose: the repository has no React dependency, and
 // the host supplies React as a platform module (DSH's `PLATFORM_MODULES`). A `.tsx` file would need
@@ -51,6 +52,10 @@ async function answer(response: Response): Promise<ReviewAnswer> {
 
 /**
  * The app's write channel, mapped onto this host's two routes.
+ *
+ * The routes the app asks for by name are the layout and the source; the sketch is a third one,
+ * and this host refuses it explicitly rather than answering with something the app would take for
+ * a picture.
  * @param sessionId - the session whose project the tab is reviewing.
  * @returns the api the app posts through.
  */
@@ -64,6 +69,15 @@ function apiFor(sessionId: string): ReviewApi {
                     body: JSON.stringify(body),
                 });
                 return answer(response);
+            }
+            if (path === "/api/sketch") {
+                // The pen's picture is written outside the project, and this host has no route for
+                // it (ADR-0073 D3). The app reads 405 as "no such route" and falls back to the
+                // browser's own download.
+                return {
+                    status: 405,
+                    payload: { error: "this host does not save sketches" },
+                };
             }
             // `/api/source` is the standalone app's Source-panel route. This host has places-only
             // capability, so it refuses the route explicitly rather than making the app depend on

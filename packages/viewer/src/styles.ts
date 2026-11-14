@@ -187,6 +187,13 @@ export const APP_STYLES = `
   position: absolute; inset: 0; display: block; width: 100%; height: 100%;
   overflow: visible; pointer-events: none;
 }
+/* The pen's ink: a message drawn over the sheet, never part of it. It takes no pointer events —
+   the stage keeps them, so a drag is a stroke and not a click on whatever is underneath. */
+.teda-review .sketch-overlay {
+  position: absolute; inset: 0; display: block; width: 100%; height: 100%;
+  overflow: visible; pointer-events: none;
+}
+.teda-review .sketch-ink { stroke-linecap: round; stroke-linejoin: round; }
  .teda-review .pending-symbol, .teda-review .pending-port { opacity: .55; }
  .teda-review .pending-symbol *, .teda-review .pending-port * { stroke: #858b94 !important; }
  .teda-review .pending-symbol [fill]:not([fill="none"]),

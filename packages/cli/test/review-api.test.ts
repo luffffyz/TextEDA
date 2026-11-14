@@ -1,10 +1,11 @@
-// The review app's two write routes, over HTTP (ADR-0042 D3, D9).
+// The review app's write routes, over HTTP (ADR-0042 D3, D9).
 //
 // The browser never touches the file system: it asks the server, the server owns the files. These
 // tests therefore talk to a real server -- the same command a person runs -- and check what comes
 // back and what lands on disk: a plan that writes nothing, a commit that writes exactly one file,
 // a draft that is drawn without being written, a save that refuses a source that does not parse,
-// and a request for a page the project does not have.
+// and a request for a page the project does not have. The sketch route has its own file
+// (`review-sketch.test.ts`).
 import { afterAll, describe, expect, test } from "bun:test";
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

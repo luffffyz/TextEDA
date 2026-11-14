@@ -95,8 +95,10 @@ export type ReviewDrawingKind = "sch" | "pcb" | "symbol" | "footprint" | "module
 export interface ReviewDrawing {
   kind: ReviewDrawingKind;
   /**
-   * The drawing's key in the model: `board/<board>/page/<page>`, `board/<board>/pcb`,
-   * `symbol/<lib>/<id>`, `footprint/<lib>/<id>`, `module/<module_id>`.
+   * The drawing's key in the model: `page/<page_id>`, `pcb/<pcb_id>`, `symbol/<class>:<id>`,
+   * `footprint/<class>:<id>`, `module/<module_id>`. The class is the classification directory the
+   * library file sits in (ADR-0049), and it is separated by a colon — the key is the drawing's own
+   * name, not a path.
    */
   key: string;
   /** The name the sidebar shows. */
@@ -250,9 +252,9 @@ export interface ReviewAnswer {
 /**
  * How the client half asks its host to write.
  *
- * The standalone app posts to the CLI's two routes; a plugin asks its own host half. The client
- * half names the route and hands over the body, and knows nothing else about the host
- * (ADR-0043 D2, D9).
+ * The standalone app posts to the CLI's three routes — the layout, the source and the sketch; a
+ * plugin asks its own host half. The client half names the route and hands over the body, and
+ * knows nothing else about the host (ADR-0043 D2, D9).
  */
 export interface ReviewApi {
   /** Post a JSON body to one of the host's routes. */

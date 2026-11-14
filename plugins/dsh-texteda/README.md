@@ -86,6 +86,11 @@ writes the `place` rows and answers with the rebuilt model. Both answer `stale`:
 wires the move left behind. They are reported, never re-anchored — `texteda view rewire` is what
 puts them back (ADR-0043 D10).
 
+The pen's picture is not one of these two routes: a sketch is written outside the project
+([ADR-0073](../../docs/adr/09-view/0073-the-review-app-has-a-freehand-pen.md) D3), and this host has
+no route for it. The client half refuses `/api/sketch` with `405`, which the app reads as "no such
+route", so the browser downloads the picture instead.
+
 ## Where the picture can live
 
 Three routes, and only one of them is what this package is: a host-native plugin. The browser
