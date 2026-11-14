@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-23
 Scope: Decides: what it means for a declared `connect` pair to be implemented by copper. Does not decide: the fill policy — see ADR-0018.
 Related: [ADR-0014](../04-schematic/0014-connectivity-has-one-authority.md), [ADR-0019](0019-a-partial-layout-is-legal.md)
-Impact: `spec/pcb.md` §4.4, §5.2; `packages/core/src/bind/**`
+Impact: `spec/pcb.md` §4.4, §5.2; `packages/core/src/binding/**`
 
 ## Background
 
@@ -12,7 +12,7 @@ Impact: `spec/pcb.md` §4.4, §5.2; `packages/core/src/bind/**`
 
 This is the last place where a `pcb` description can contradict itself without a diagnostic. ADR-0019 made "how much of the board is here" visible; this decides "whether the copper that is here is what the description says it is".
 
-The definition is the whole difficulty: without one, the check either misses (auditing nothing) or floods (calling every pair unbacked). This record proposes the definition and the tolerance; it is **Proposed** because the tolerance is a contract-level judgement that the project owner signs, not something an implementation may pick.
+The definition is the whole difficulty: without one, the check either misses (auditing nothing) or floods (calling every pair unbacked). This record decides the definition and the tolerance. The tolerance is a contract-level judgement the project owner signs, so it was proposed first; it is **Accepted** now, with the 1 nm tolerance of D3 adopted and the check implemented (`bind.connect-unbacked`).
 
 ## Decision
 
@@ -30,7 +30,7 @@ A chain may change layers only through a barrel. Two primitives are connected wh
 
 **D4. Pad geometry comes from the library.** A pad's shape is the footprint's (ADR-0030) transformed by `place`: translation, rotation, and mirroring for a part on the bottom side. The description never carries pad geometry, and this check must not invent one.
 
-**D5. Severity is `warning`.** The same reasoning as rule 4 (unrouted) in `spec/pcb.md` §5.2: a layout is a work in progress, a declaration is often written before the copper is drawn, and a checker that fails mid-layout is a checker people turn off. The contradiction is still reported with enough detail to act on (`net`, both pads, whether the net has any copper at all).
+**D5. Severity is `warning`.** The same reasoning as rule 5 (unrouted) in `spec/pcb.md` §5.2: a layout is a work in progress, a declaration is often written before the copper is drawn, and a checker that fails mid-layout is a checker people turn off. The contradiction is still reported with enough detail to act on (`net`, both pads, whether the net has any copper at all).
 
 **D6. This does not make geometry authoritative.** The check reads the drawing to test the declaration; it never produces connectivity, never repairs it, and never writes back (invariants 2 and 4). If the drawing and the declaration disagree, the declaration stays the truth and the report names the drawing as the thing that is wrong.
 

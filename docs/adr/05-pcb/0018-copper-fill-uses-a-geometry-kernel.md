@@ -4,12 +4,12 @@ Status: Accepted
 Date: 2026-10-26
 Scope: Decides: that copper fill is computed by a self-built constrained geometry kernel, and that the fill result never enters the IR. Does not decide: CAM-level DFM judgement — see ADR-0021.
 Related: [ADR-0016](0016-agent-first-pcb-description.md), [ADR-0017](0017-layout-and-routing-are-agent-driven.md), [ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md)
-Impact: `packages/geom/**`; `packages/core/src/fill/**`; `spec/pcb.md` §4.7; `docs/backlog.md` F49
+Impact: `packages/geom/**`; `packages/core/src/fill/**`; `spec/pcb.md` §4.8; `docs/backlog.md` F49
 
 ## Context
 
 `pcb` stores `zone` as intent: an outline, a net, and a layer. The fill result never enters the IR
-([ADR-0016](0016-agent-first-pcb-description.md) decision 3, `AGENTS.md` invariant 17, `spec/pcb.md` §4.7).
+([ADR-0016](0016-agent-first-pcb-description.md) decision 3, `AGENTS.md` invariant 17, `spec/pcb.md` §4.8).
 That is the right split: connectivity is decided by `sch` plus `connect`, and a fill cache is a
 derived artifact, not a fact.
 
@@ -55,8 +55,8 @@ by the exact inputs that produced it, and recomputable by the same kernel. It is
 source of truth and never changes what the canonical IR means. If a cache cannot be deleted and
 recomputed, it is not allowed.
 
-This keeps invariant 17 intact and resolves the contradiction between `spec/pcb.md` §4.7 and
-[ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md) D9: the writer reads zone intent, not
+This keeps invariant 17 intact and resolves the contradiction between `spec/pcb.md` §4.8 and
+[ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md) D10: the writer reads zone intent, not
 precomputed fill.
 
 ### D3. Geometry and fill policy are separate layers
@@ -77,7 +77,7 @@ result into contours. This boundary matters for two reasons:
 
 The Gerber/Excellon writer (F15) calls the fill layer and serializes contours, apertures, draws,
 flashes, and drill hits. It does not implement its own polygon clipping or offsetting. This keeps
-[ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md) D9's "the writer does not do geometry" true
+[ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md) D10's "the writer does not do geometry" true
 without pretending that no geometry happens anywhere.
 
 ### D5. Determinism is part of the contract
@@ -176,8 +176,10 @@ those bytes are what a board house reads.
 - **`min_width` is an opening, and what it removes is reported.** It is the one expensive step, and
   the loss is reported as a diagnostic with the lost area, so the pass can never silently delete
   copper.
-- **Nothing else is clipped.** The pour meets the board outline exactly and no cutout or keepout is
-  crossed; copper-to-edge clearance is not expressible in the rules and is a DRC concern.
+- **Only the board bounds and the declared holes shape the pour.** The zone outline is clipped to the
+  board outline, the board's cutouts and the `no_pour` keepouts on that layer are subtracted, and
+  copper is cleared around; nothing else is clipped. The pour meets the board outline exactly;
+  copper-to-edge clearance is not expressible in the rules and is a DRC concern.
 
 **The board image** is the last shape-bearing structure: regions, strokes and flashes in board
 nanometres, plus drill hits. The writers serialize it and nothing else: no net, no clip, no kernel
@@ -227,7 +229,7 @@ outline — never from its bounding box, so a rounded rect keeps its corners:
   exists only where the pad's layers name a paste family, so a through-hole pad gets none.
 - **The defaults are the identity and are documented**: absent mask expansion is 0 (the opening
   *is* the pad), absent paste is ratio 1 and offset 0 (the aperture *is* the pad). These numbers
-  decide a delivered file, so they are in `spec/pcb.md` §4.9.
+  decide a delivered file, so they are in `spec/pcb.md` §4.10.
 - Openings go through the same kernel: a grown outline comes back as a cover of convex pieces, and
   the tool disc is circumscribed, so a grown opening is never smaller than asked — the safe
   direction, since an opening that is too small leaves covered copper. A shrunk one errs the same
@@ -274,7 +276,7 @@ These are known to be hard; none of them is assumed solved by "write a polygon l
 |---|---|---|
 | Polygon boolean robustness | Near-coincident edges, collinear overlaps, touching-only intersections, and self-intersections produce wrong topology if handled with naive floating-point clipping | Normalize inputs, use exact orientation predicates where feasible, and reject unresolved self-intersection instead of guessing |
 | Offset joins | A clearance around a rect/roundrect/oval/capsule is not just a larger rectangle; joins and negative offsets change topology | Offset primitives analytically where possible; only fall back to polygon offset for free-form polygons |
-| Holes and Gerber contours | A filled zone with holes cannot be emitted as one naive polygon; winding and contour orientation matter | Define outer/hole orientation once; emit holes as separate contours or as clear regions only if the Gerber spec requires it |
+| Holes and Gerber contours | A filled zone with holes cannot be emitted as one naive polygon; winding and contour orientation matter | Settled by D8: there are no inner rings — a hole is a ring of convex pieces, so the writer emits one region per piece |
 | Thermal relief | Spokes need a cleared ring, a connection pattern, and solid-vs-thermal behavior per pad; the result must not create isolated islands | Start with a documented spoke count/width/angle policy from the thermal rules; reject unsupported combinations |
 | Minimum width and smoothing | The minimum-width rule is a manufacturing constraint, not a display filter; removing thin necks can disconnect a zone | Treat it as a separate narrowing pass with explicit diagnostics; do not silently delete copper |
 | Board edge, cutouts, keepouts | Zones often extend outside the board or into keepouts; clipping order changes the result | Clip to the board outline first, then subtract keepouts and cutouts; report a zone that has no remaining area |
@@ -321,7 +323,7 @@ These are known to be hard; none of them is assumed solved by "write a polygon l
 ## Consequences
 
 - The kernel is a prerequisite for zones on any board, and the fill stays out of the IR
-  (`spec/pcb.md` §4.7 names the recomputation path).
+  (`spec/pcb.md` §4.8 names the recomputation path).
 - The writer reads zone intent and computes fill through this kernel; it does not read
   precomputed filled zones from the IR
   ([ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md) decision 9).

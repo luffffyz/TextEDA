@@ -8,12 +8,14 @@ Impact: `spec/pcb.md` §4, §6; `docs/guides/review-app.md`; `docs/backlog.md` F
 
 ## Context
 
-`pcb` already carries the physical facts: `stackup`, `outline`, `place`, `connect`,
+`pcb` already carries the physical facts: `modules`, `stackup`, `outline`, `place`, `connect`,
 `trace`, `via`, `zone`, `keepout`, `rules`, `silk`, `physical_only`, and `deviation`
-([ADR-0016](0016-agent-first-pcb-description.md)). What it does not carry is a procedure that produces
-those facts. The repository has deliberately stayed out of placement and routing: a traditional
-autorouter is a large geometry and search program, and [ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md)
-keeps the mandatory path free of external tools.
+([ADR-0016](0016-agent-first-pcb-description.md),
+[ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D2). What it
+does not carry is a procedure that produces those facts. The repository has deliberately stayed out
+of placement and routing: a traditional autorouter is a large geometry and search program, and
+[ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md) keeps the mandatory path free
+of external tools.
 
 That left two options, and both are wrong for this project:
 
@@ -51,7 +53,7 @@ truth. A change becomes source only after an explicit `apply` step:
 
 1. the sandbox state is checked;
 2. if the check fails, the agent receives structured violations and the source is untouched;
-3. if the check passes, the accepted state is written to `design/pcb/<board>.teda`;
+3. if the check passes, the accepted state is written to `design/pcb/<pcb_id>.teda`;
 4. `check` runs again on the written source;
 5. the accepted snapshot is frozen with its evidence.
 
@@ -96,9 +98,12 @@ board that is expensive, fragile, or unbuildable. The feedback therefore has thr
 | Soft | total trace length, via count, layer changes, crossings, area, current density, differential skew | reported as metrics; budgets are reviewed, not silently optimized |
 | Human | decoupling placement, return paths, thermal, testability, DFM, intent | review record; not automatable |
 
-The agent-facing DRC subset is our own code in `packages/core`; it must run without KiCad. KiCad
-DRC remains an optional cross-check, not the gate ([ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md)).
-CAM-level DFM judgement remains borrowed.
+The agent-facing DRC subset will be our own code in `packages/core`; it must run without KiCad.
+**It is not built yet** (`docs/backlog.md` F48): what `packages/core` decides today is the binding,
+the copper coverage, the connectivity and the device rules — not the geometric DRC subset
+(clearance, width, via, keepout, board edge). KiCad DRC remains an optional cross-check, not the
+gate ([ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md)). CAM-level DFM
+judgement remains borrowed.
 
 ### D6. Rules are facts; strategy is skill; approval is interactive
 
@@ -164,8 +169,8 @@ tool.
 
 - `AGENTS.md` no longer says "no layout or routing". It says "no built-in solver; layout and
   routing are agent-driven and checker-gated".
-- `docs/comparison.md` gains a fourth axis of comparison: the agent workflow (tools + skills +
-  checks), not just the source language.
+- `docs/comparison.md` compares the agent workflow (tools + skills + checks) alongside the source
+  language — as a dimension of the code/text lens, not as a lens of its own.
 - `docs/backlog.md` F48 tracks the implementation: sandbox, tool schema, DRC subset, skill,
   interactive rule approval, freeze record.
 - The mandatory path stays zero-dependency: the checker and the tools are ours. KiCad remains
@@ -177,8 +182,13 @@ tool.
 
 - The exact sandbox path and tool JSON schema.
 - The first DRC coverage set (clearance, width, via, keepout, edge, unrouted) and its geometry
-  tolerances.
-- The interactive rule-approval UI: whether it is a `placement` sub-mode or a separate mode.
+  tolerances — **not implemented**; the unrouted rule is the only member that exists today
+  (`bind.unrouted`).
+- The interactive rule-approval UI: the review app has one interaction surface
+  ([ADR-0056](../09-view/0056-the-review-app-has-one-interaction-surface.md)), and the `placement`
+  mode it would have been a mode of is retired
+  ([ADR-0048](../09-view/0048-the-review-app-shows-drawings.md) D3) — so the question is where the
+  rule approval sits on that surface, not which mode it is.
 - How much of the agent trace is recorded, and where (review record vs a derived artifact).
 - High-speed and current-capacity checks, which need more than geometric DRC.
 - Whether an external router may be exposed as a tool; if it is, it remains a tool, not the

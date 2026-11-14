@@ -153,7 +153,7 @@
 |---|---|
 | 段集与语法（`stackup` / `outline` / `place` / `connect` / `trace` / `via` / `zone` / `keepout` / `rules` / `silk` / `physical_only` / `deviation`） | `spec/pcb.md` §4；[ADR-0016](docs/adr/05-pcb/0016-agent-first-pcb-description.md) |
 | 绑定规则与偏差白名单 | `spec/pcb.md` §5.2；[ADR-0014](docs/adr/04-schematic/0014-connectivity-has-one-authority.md) |
-| 铜皮填充（`zone` 只存意图；结果不进 IR、不进哈希；受限几何内核） | `spec/pcb.md` §4.7；[ADR-0018](docs/adr/05-pcb/0018-copper-fill-uses-a-geometry-kernel.md)；F49 |
+| 铜皮填充（`zone` 只存意图；结果不进 IR、不进哈希；受限几何内核） | `spec/pcb.md` §4.8；[ADR-0018](docs/adr/05-pcb/0018-copper-fill-uses-a-geometry-kernel.md)；F49 |
 | 导出（分层 Gerber + Excellon；层集合与文件清单） | `spec/pcb.md` §8；[ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md) |
 | 布局与布线由 agent 驱动、检查器把关 | [ADR-0017](docs/adr/05-pcb/0017-layout-and-routing-are-agent-driven.md) |
 

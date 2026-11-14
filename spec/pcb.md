@@ -368,7 +368,7 @@ pcb 里写的 net 名就是**展平后**的 net 名（模块内部 net 用 `<mod
 13. 每个 `connect` 对必须被**铜箔兑现**：该 net 的 `trace` 线段、`via` 桶、`zone` 多边形要能连成一条同时触及两端 pad 的链（链只在 via 处换层）。不成立报 `bind.connect-unbacked`（warning）——布局是渐进过程，检查器要在中途可用（[ADR-0020](../docs/adr/05-pcb/0020-connect-pairs-need-copper.md) D1/D5）。几何口径：pad 取**外接圆**、走线按线宽半宽加粗、容差 1 nm（D3），所以"查不出"只会漏报、不会误报；相邻两 pad 之间的短路（跨 net）不在本条内，属 DRC（D7）。
 14. 根展平后每个**实体**实例（没有 `logical_only`）都必须出现在**拥有它的那块 PCB** 的 `place` 里。缺失时给出一条 `bind.instance-unplaced`（warning），报"已放 / 共几个"并点名缺的实例——一块板只报一条，不是每个实例一条。`dnp` 件**不豁免**：封装仍在 `place` 里占位，只是不装件（[ADR-0019](../docs/adr/05-pcb/0019-a-partial-layout-is-legal.md) D6）。
 
-几何层面的检查（"这两个 pad 之间确实有铜箔"、"实际间距不小于 `rules`"）属**校验**而非连通性真源（`AGENTS.md` §2 第 2 条）：**兑现检查**（规则 13）是我们自己的；**agent 反馈用的几何 DRC 子集**（间距、线宽、过孔、keepout、板边、未布线）也由 `packages/core` 自己实现，零外部依赖（[ADR-0017](../docs/adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)），与铜皮填充共用 [ADR-0018](../docs/adr/05-pcb/0018-copper-fill-uses-a-geometry-kernel.md) 的几何内核；KiCad DRC 是**可选对照**，不是门禁。CAM 级 DFM 判定仍借专业工具（[ADR-0021](../docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md)）。
+几何层面的检查（"这两个 pad 之间确实有铜箔"、"实际间距不小于 `rules`"）属**校验**而非连通性真源（`AGENTS.md` §2 第 2 条）：**兑现检查**（规则 13）是我们自己的，**未布线**（规则 5）也是我们自己的。**agent 反馈用的几何 DRC 子集**（间距、线宽、过孔、keepout、板边）**尚未实现**——它归我们（[ADR-0017](../docs/adr/05-pcb/0017-layout-and-routing-are-agent-driven.md) D5，`docs/backlog.md` F48），落地时与铜皮填充共用 [ADR-0018](../docs/adr/05-pcb/0018-copper-fill-uses-a-geometry-kernel.md) 的几何内核；在此之前 KiCad DRC 是**可选对照**，不是门禁。CAM 级 DFM 判定仍借专业工具（[ADR-0021](../docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md)）。
 
 两份描述只存在一份时，两个方向**不是一回事**：
 

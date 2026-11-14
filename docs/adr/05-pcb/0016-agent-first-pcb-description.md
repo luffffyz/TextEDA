@@ -8,14 +8,17 @@ Impact: `spec/pcb.md` §4; `packages/ir/src/**`
 
 ## Background
 
-The schematic side has already completed its "hand-written format → agent first" turn: `.kicad_sch` stores the finished artifact (measured: 74.6% of its bytes are whitespace, indentation, structural keywords, coordinates and UUIDs), so it can only be an export target, never the IR's reference (`AGENTS.md` §13). The PCB side has to make the same turn, but the situation differs:
+The schematic side has already completed its "hand-written format → agent first" turn: `.kicad_sch` stores the finished artifact, not the design — measured, its semantic content is a fraction of a percent of the bytes (`AGENTS.md` §13, the measurement in `docs/comparison.md`), so it can only be an export target, never the IR's reference. The PCB side has to make the same turn, but the situation differs:
 
 - `.kicad_pcb` carries even heavier human/machine traces than `.kicad_sch`: drawing parameters, silkscreen typography, editor locks, groups, UUIDs, internal sequence numbers.
 - `.kicad_pcb` contains **derivative caches**: copper pour fill results (`filled_polygon`), measurement text. Moving these into the IR creates a second source of truth.
 - **The rules are not in `.kicad_pcb`**. The KiCad board file format spec states plainly that net classes have been moved out of the board file into the design rules file (project file). In other words, an agent given a `.kicad_pcb` gets no clearance/width/differential rules at all and **cannot check itself**.
 - Conversely, `.kicad_pcb` holds **no intent**: why the routing is done this way, which one is the power return path, where the ground must be split, which pair must be length-matched — all of that lives in human heads.
 
-The current `teda.md` §9 pcb draft (`stackup` scalars + `place` + `route` + `physical_only`) is unsupported on both ends: copying KiCad's structure inherits workflow noise and caches; the present version cannot hold a real board either (no board outline, no vias, no copper pours, no bend points, no rules) — `route <net> <width> <layer>` cannot even express "which two pads to connect".
+The `teda.md` pcb draft of the time (`stackup` scalars + `place` + `route` + `physical_only`) was
+unsupported on both ends: copying KiCad's structure inherits workflow noise and caches; that
+version could not hold a real board either (no board outline, no vias, no copper pours, no bend
+points, no rules) — `route <net> <width> <layer>` cannot even express "which two pads to connect".
 
 ## Decision
 
@@ -37,8 +40,8 @@ Follow `AGENTS.md` §3: S1 (schematic view) and B1 (PCB preview) are free, **B0 
 | Keepout | Keepout areas and their types |
 | Rules | Default clearance/width/via, per-net overrides, differential pairs, length matching |
 | Explicit connections | Which pads have continuous copper between them (`connect` segment) |
-| Physical-only | Mounting holes, fiducials, cutouts, shields, test points, stitching vias and other entities that do not affect logic |
-| Controlled deviations | `net_tie` / `split_ground` (change logical connectivity); `test_point` / `stitching` / `fiducial` are physical entities but likewise go into the report |
+| Physical-only | Mounting holes, fiducials, cutouts, stitching vias and other entities that do not affect logic. A test point is **not** one of them: it is a pad on a net, so it is a one-pin device in the schematic ([ADR-0014](../04-schematic/0014-connectivity-has-one-authority.md) D8, D9) |
+| Controlled deviations | `net_tie` / `split_ground` (change logical connectivity); `stitching` / `fiducial` are physical entities but likewise go into the report. The list is closed ([ADR-0014](../04-schematic/0014-connectivity-has-one-authority.md) D2) |
 
 ### 3. What the IR explicitly does not store
 
@@ -66,15 +69,18 @@ Because KiCad moved netclasses and custom DRC rules into the project file, an ag
 
 ### 6. Segment set
 
-`stackup` · `outline` · `place` · `connect` · `trace` · `via` · `zone` · `keepout` · `rules` · `silk` · `physical_only` · `deviation`
+`modules` · `stackup` · `outline` · `place` · `connect` · `trace` · `via` · `zone` · `keepout` · `rules` · `silk` · `physical_only` · `deviation`
+
+(`modules` was added after this record: a PCB declares the project module instances it owns,
+[ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D2.)
 
 See `spec/pcb.md` for the exact syntax. Key points:
 
-- Traces support polylines only (v0.4); arc traces are approximated as polylines on import, and the **deviation is reported**.
+- Traces support polylines only; arc traces are approximated as polylines on import, and the **deviation is reported**.
 - Copper pours store only outline + net + layer; fill parameters (clearance, thermal) go into `rules`.
-- Silkscreen is a manufacturing artifact: the `silk` segment declares whether to print it, the text height and the layer; **typographic placement still does not go into the IR** and is generated by a deterministic policy (see `docs/adr/0005-manufacturing-output.md` decision 6).
-- `physical_only` holds physical entities that do not affect logic (`test_point` / `stitching` / `fiducial`); `deviation` holds the two kinds of controlled deviations that change logical connectivity (`net_tie` / `split_ground`). Both go into the report.
-- pcb uses **stable instance IDs** (`R1` / `M1.R1`) to reference components, not refdes: refdes can be renamed, the ID does not change (`AGENTS.md` §2 item 5, `AGENTS.md` §4.4).
+- Silkscreen is a manufacturing artifact: the `silk` segment declares whether to print it, the text height and the layer; **typographic placement still does not go into the IR** and is generated by a deterministic policy ([ADR-0018](0018-copper-fill-uses-a-geometry-kernel.md) D10, `spec/pcb.md` §4.11).
+- `physical_only` holds physical entities that do not affect logic (`mounting` / `fiducial` / `stitching` / `cutout`); `deviation` holds the two kinds of controlled deviations that change logical connectivity (`net_tie` / `split_ground`). Both go into the report. The `test_point` form was retired: a test point is a one-pin device ([ADR-0014](../04-schematic/0014-connectivity-has-one-authority.md) D8).
+- pcb references an instance by its **flattened instance id** (`M1.R1` — the qualified refdes form, the same id space as the schematic, `spec/pcb.md` §5.1). The pcb carries no uid of its own: renaming a refdes is a source edit in both descriptions, and the identity that survives it is the instance `uid` in the schematic IR ([ADR-0010](../03-project/0010-instance-identity-is-a-uid.md)).
 
 ### 7. One-way, no write-back
 
@@ -82,7 +88,7 @@ Adjustments a human makes in KiCad (silkscreen positions, layer display, tempora
 
 ### 8. Export target
 
-Export target: **KiCad `.kicad_pcb`** (best DRC coverage, doubles as an entry point for 3D and continued manual editing). Manufacturing and verification close the loop inside KiCad (`kicad-cli pcb export gerbers` / `export drill` / `pcb drc`); the path is described in `docs/adr/0005-manufacturing-output.md`. Circuit JSON as a manufacturing chain has been withdrawn (binds to a foreign schema, low tool maturity, no DRC).
+Export target: **KiCad `.kicad_pcb`** (best DRC coverage, doubles as an entry point for 3D and continued manual editing). It is an **interoperability export and an optional backend**, not the manufacturing exit: the mandatory path writes Gerber and Excellon itself ([ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md) D2, D10, D11), and KiCad's DRC is an optional cross-check, never a gate (invariant 20). The `.kicad_pcb` exporter is not built yet (`docs/backlog.md` F15). Circuit JSON as a manufacturing chain has been withdrawn (binds to a foreign schema, low tool maturity, no DRC).
 
 Export is a **lossy projection**: semantics the target format cannot hold must be reported (`file:line:col: warning …`), reusing the controlled-deviation mechanism from `AGENTS.md` §4.4, never dropped silently.
 
@@ -94,12 +100,12 @@ Export is a **lossy projection**: semantics the target format cannot hold must b
 - **One more rules source of truth to maintain**: once rules live in the IR, rule changes on the KiCad side no longer take effect automatically (see decision 7).
 - **Silkscreen typography is delegated to policy**: ugly silkscreen on agent-generated boards is a known cost; nudge it by hand in KiCad, but that is KiCad-side business.
 - **We do not build a placement or routing solver**: the pcb description expresses B0; generation is agent-driven and checker-gated ([ADR-0017](0017-layout-and-routing-are-agent-driven.md)). KiCad / freerouting can only be optional tools, not the decision procedure.
-- **v0.4 assumes a sch exists**: the segment set for pcb-only mode (reverse engineering, external netlist import) will be added after `AGENTS.md` §11 item 6 is decided.
+- **The description assumes a logical root exists**: there is no pcb-only mode and no segment set for one — `AGENTS.md` §11 question 6 is answered ([ADR-0014](../04-schematic/0014-connectivity-has-one-authority.md) D5, D6). A PCB whose module instances no root owns is an error, and reverse engineering arrives as an import.
 
 ## Follow-up
 
-- Where footprint geometry comes from: own footprint IR + `.kicad_mod` importer; whether pad geometry in the IR is referenced or inlined is open.
-- Whether to open up arc traces and micro-vias (HDI).
+- ~~Where footprint geometry comes from~~ — settled: the geometry lives in the footprint library and the board stores coordinates only ([ADR-0030](../08-libraries/0030-footprint-format-and-geometry.md), `spec/footprint.md`).
+- Whether to open up arc traces and micro-vias (HDI). Traces are polylines only today (`spec/pcb.md` §4.6).
 - The detailed mapping from rules to KiCad netclass / custom rules.
-- The correspondence between the pcb `connect` segment and instance IDs after page flattening.
-- Hard pcb cases in `examples/` (differential pairs, net ties, split ground) and the expected IR.
+- The correspondence between the pcb `connect` segment and instance ids after module flattening — the page level is gone, modules are the hierarchy now ([ADR-0013](../04-schematic/0013-modules-compose-boards.md)).
+- Hard pcb cases in `examples/cases/` (differential pairs, net ties, split ground) and the expected IR — `net-tie` and `diff-pair` are written; a split-ground case is not.
