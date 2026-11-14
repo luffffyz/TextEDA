@@ -106,17 +106,21 @@ and not `MOD1.R1`.
 
 | Level | Qualified name | Example | Tag |
 |---|---|---|---|
-| Board root | `<name>` (no `.`) | `R1`, `GND` | none |
+| Project root | `<name>` (no `.`) | `GND` | none |
 | Module instance | `<module_instance_id>.<local>` | `M1.R1` | `M` |
 
 `P` is free again — no page level exists to tag — and `MOD` is not used.
 
-The tag is a **convention, not a grammar rule**. The instance id stays a free identifier
-(`[A-Z]+[0-9]+`, the same rule as `refdes`); the tool does not reject an instance named `Q1`. The
-reason is the language version rule (see ADR-0002): restricting a free identifier makes existing
-files invalid, which is a MAJOR change, and MAJOR is reserved for the `1.0` semantic freeze. A
-naming style is not worth the freeze. The tag is carried by the spec, the examples and the
-reference project — and it can be enforced at `1.0` without a migration.
+The tag is a **grammar rule where a level exists**, not a convention: a module instance id is `M`
+plus digits, and the parser rejects anything else
+([ADR-0013](0013-modules-compose-boards.md) decision 5). It cost no MAJOR version: the rule arrived
+with the module layer at language `0.8`
+([ADR-0013](0013-modules-compose-boards.md) decision 7), and before that no file could hold a module
+instance, so no existing file became invalid. A *component* refdes stays a free identifier
+(`[A-Z]+[0-9]+`, so `Q1` is fine) — except that it may not take the `M<digits>` form, which belongs
+to module instances, so that `M2.VOUT` in a net row can only mean "module M2's port VOUT". The
+project root holds no component instances ([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1),
+so a bare name at the root level is a project net or a project port.
 
 The level is **structural wherever the IR has a field for it**: a name is not the only carrier. A
 module instance carries its module in the IR, so a consumer never has to parse the instance id to
@@ -171,9 +175,11 @@ ADR-0013.
   schematic shard no longer has to understand a second namespace to read it.
 - **The names say what they are.** `M1.VCC` in a `pcb` file is a module net; the level cannot be
   confused with another level, because there is no other level.
-- **The convention is not enforced.** A project that names its module instances `Q1` keeps working
-  and keeps producing `Q1.*` names; the level is still unambiguous to the tools, only the human
-  reading the file has to look it up. Enforcement is deferred to the `1.0` milestone.
+- **The tag is enforced where a level exists, and free where it does not.** A component refdes may be
+  `Q1` and keeps producing `Q1.*` names; the level is still unambiguous to the tools, only the human
+  reading the file has to look it up. A *module* instance id may not: it must be `M` plus digits
+  ([ADR-0013](0013-modules-compose-boards.md) decision 5), because the tag is what tells
+  `M2.VOUT` (a module port) from an instance pin.
 - **Existing artifacts change.** The reference project's instance ids, net names and PCB references
   change, so the IR shards and the project hash change. Nothing in the contract changes: the id
   patterns in the schemas accept both forms.

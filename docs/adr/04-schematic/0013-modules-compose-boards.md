@@ -55,7 +55,8 @@ likes — dozens is unremarkable.
 
 `design/sch/modules/<module_id>.teda`, with `module_id` taken from the file name, like `component_id`
 (`AGENTS.md` §4.5). The root's `modules` section references it by id. Modules are project-local
-for now; a module library across projects is a later decision (`docs/backlog.md` F10).
+for now; a module library across projects is a later decision (`docs/backlog.md` F13, which waits on
+the library packaging spec, F10).
 
 ### 3. The binding is a member of a root-level net
 

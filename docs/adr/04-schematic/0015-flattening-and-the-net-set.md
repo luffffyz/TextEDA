@@ -82,8 +82,10 @@ prefix is not decoration — it is what makes the flat name unambiguous.
 ### D5. The net set is the board's, and it is what the tools agree on
 
 Because everything downstream sees the flattened board, there is exactly **one net set** for a
-board, and every tool agrees on it: the ERC, the netlist exporter, the KiCad exporter, the BOM, the
-review renderer, and the `texteda` checks.
+board, and every tool agrees on it: the ERC, the netlist exporter, the BOM, the review renderer, and
+the `texteda` checks. The KiCad schematic and board exporters are not built yet
+(`packages/exporter/src/` writes `.kicad_mod`, `.kicad_sym`, the netlist, Gerbers and Excellon), so
+they are not on that list yet; when they arrive, they read the same flattened net set.
 
 The alternative — letting each tool recover a hierarchy of its own — was never attractive and
 became untenable once the tools multiplied: two tools that recovered different hierarchies would

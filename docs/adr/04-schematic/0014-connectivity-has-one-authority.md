@@ -4,13 +4,15 @@ Status: Accepted
 Date: 2026-10-22
 Scope: Decides: that the schematic is the single authority on connectivity, that the deviation whitelist is closed, and that there is no pcb-only mode. Does not decide: how copper implements a connection — see ADR-0020.
 Related: [ADR-0009](../03-project/0009-board-linking.md), [ADR-0012](0012-one-flat-schematic-per-board.md), [ADR-0016](../05-pcb/0016-agent-first-pcb-description.md), [ADR-0020](../05-pcb/0020-connect-pairs-need-copper.md), [ADR-0059](../09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md)
-Impact: `spec/pcb.md` §5.1, §5.2; `packages/core/src/bind/**`; `docs/backlog.md` F21, F36
+Impact: `spec/pcb.md` §5.1, §5.2; `packages/core/src/binding/**`; `docs/backlog.md` F21, F36
 
 ## Background
 
 The binding rules between a schematic and a board exist (`AGENTS.md` §4.4), the pcb description
-states them (`spec/pcb.md` §5), and the checker implements the first five. Two questions were left
-open.
+states them in full (`spec/pcb.md` §5.1–§5.3), and the checker decides the part of them that the two
+descriptions can answer — the `bind` domain of the diagnostic registry
+(`packages/ir/src/diagnostics/codes.ts`) is the list of what it decides today. Two questions were
+left open.
 
 The first is the authority boundary. The schematic decides the connectivity, and the board
 implements it — that much is settled (invariant 2: connectivity is decided by the logical model
@@ -22,9 +24,11 @@ that from happening — but the whitelist had no written boundaries, so it could
 where a missing schematic fact gets parked.
 
 The second is whether a board may exist without a schematic. The `pcb` description assumes one
-([ADR-0016](../05-pcb/0016-agent-first-pcb-description.md)), and `AGENTS.md` §4.1 still lists "pcb only" as an
-allowed combination for reverse engineering, RF- or structure-driven layout, and netlist import.
-`AGENTS.md` §11 question 6 asks whether that mode is supported.
+([ADR-0016](../05-pcb/0016-agent-first-pcb-description.md)), and at the time `AGENTS.md` §4.1 still
+listed "pcb only" as an allowed combination for reverse engineering, RF- or structure-driven layout,
+and netlist import, with `AGENTS.md` §11 question 6 asking whether that mode is supported. Both are
+closed now: `AGENTS.md` §4.1 records that there is no pcb-only mode, and `AGENTS.md` §11 question 6 is
+answered (D5, D6).
 
 ## Decisions
 
@@ -89,7 +93,7 @@ So the pcb's authority does not grow: a connection always has a pin behind it.
 
 ### D4. The boundaries live in the specification
 
-D2's table and the rules derived from it are written into `spec/pcb.md` §4.11, §4.12 and §5.2, so
+D2's table and the rules derived from it are written into `spec/pcb.md` §4.12, §4.13 and §5.2, so
 that a third-party implementation computes the same verdicts.
 
 The footprint's non-electrical pad (D3) is a small addition to the footprint type, and it is
@@ -103,15 +107,18 @@ A board without a schematic is not a supported shape. The reason is not that the
 is that a second source of connectivity forks everything downstream — the checkers, the renderer,
 the BOM, the exporters, the netlist — and the IR would have two shapes for the same thing. A
 board's identity would then depend on which description happened to be present, and
-`AGENTS.md` §2 invariant 16 ("one board = one schematic description, one BOM, one pcb") would
-be false.
+`AGENTS.md` §2 invariant 16 ("one project = one logical root; one physical PCB = one PCB
+description and one BOM") would be false.
 
 The schematic is cheap to produce from things that are not schematics, and the tools that do it
 are described in D6. What is not acceptable is a *mode* in which the schematic is optional.
 
-A board that has a pcb and no schematic is an **error**, not a "not checked" case. A board with a
-schematic and no pcb is a legal state, and the pcb checks are skipped with "not checked" in the
-report.
+A project that has PCB descriptions and no logical root is an **error**, not a "not checked" case:
+the module instances a PCB claims are owned by nothing. Every command that needs connectivity
+refuses such a project (`texteda compile`, `texteda bom`, `texteda netlist`,
+`texteda export gerbers`, the `texteda view` verbs), and `texteda check` reports it as
+`bind.no-root` (error). A project with a logical root and no PCB is a legal state, and the binding
+checks are skipped with "not checked" (`bind.not-checked`, note) in the report.
 
 ### D6. Reverse engineering and external netlists are an import, not a mode
 

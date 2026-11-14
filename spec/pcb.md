@@ -370,7 +370,10 @@ pcb 里写的 net 名就是**展平后**的 net 名（模块内部 net 用 `<mod
 
 几何层面的检查（"这两个 pad 之间确实有铜箔"、"实际间距不小于 `rules`"）属**校验**而非连通性真源（`AGENTS.md` §2 第 2 条）：**兑现检查**（规则 13）是我们自己的；**agent 反馈用的几何 DRC 子集**（间距、线宽、过孔、keepout、板边、未布线）也由 `packages/core` 自己实现，零外部依赖（[ADR-0017](../docs/adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)），与铜皮填充共用 [ADR-0018](../docs/adr/05-pcb/0018-copper-fill-uses-a-geometry-kernel.md) 的几何内核；KiCad DRC 是**可选对照**，不是门禁。CAM 级 DFM 判定仍借专业工具（[ADR-0021](../docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md)）。
 
-两份描述只存在一份时，绑定校验**跳过，并在报告里给出 `bind.not-checked`（note）**——跳过不等于通过：只有根的工程在放置与连通性上未校验，只有 `pcb` 的板在逻辑归属上未校验，`pcb` 文件也不会因为对应的根不完整而消失（`AGENTS.md` §4.4 规则 6）。
+两份描述只存在一份时，两个方向**不是一回事**：
+
+- **有根、无 `pcb`**：合法状态。绑定校验**跳过**，报告里给出 `bind.not-checked`（note）——跳过不等于通过：这个工程在放置与连通性上未校验。
+- **有 `pcb`、无根**：**错误**，报 `bind.no-root`（error）。板在 `modules` 段声明的模块实例没有归属，逻辑连通性没有权威；需要连通性的命令（`compile` / `bom` / `netlist` / `export gerbers` / `view`）一律拒绝这样的工程（`AGENTS.md` §4.4 规则 6，[ADR-0014](../docs/adr/04-schematic/0014-connectivity-has-one-authority.md) D5）。
 
 严重度：规则 1、3–5、9a 是 `error`（逻辑连通了是硬错，归属是硬事实）；规则 13（未兑现）与规则 14（部分布局）是 `warning`——布线是渐进过程，检查器要在中途可用；部分布局是正常的工作状态，它需要的是**说得出来**，不是被禁止（[ADR-0019](../docs/adr/05-pcb/0019-a-partial-layout-is-legal.md) D4）。
 

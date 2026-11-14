@@ -8,6 +8,7 @@ The schematic as the truth about the project: its module composition, flattening
 
 - The view layer, where a partition becomes a print page — [ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md).
 - The project/PCB mapping — [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md).
+
 ## Reading order
 
 1. [0012](0012-one-flat-schematic-per-board.md) — historical single-board schematic rule, replaced at project scope by [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md).

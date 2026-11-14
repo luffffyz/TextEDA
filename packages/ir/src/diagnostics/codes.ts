@@ -1057,6 +1057,13 @@ export const DIAGNOSTIC_CODES = {
     hint: "Draw the copper the declaration implies, or declare the pair the copper actually joins",
     spec: ["spec/pcb.md §5.2", "docs/adr/05-pcb/0020-connect-pairs-need-copper.md D1"],
   },
+  "bind.no-root": {
+    domain: "bind",
+    severity: "error",
+    summary: "The project has a PCB description but no logical root",
+    hint: "Add the project root schematic (design/sch/main.teda): a PCB cannot stand alone, and the module instances it claims are owned by the root",
+    spec: ["spec/pcb.md §5.2", "AGENTS.md §4.4", "docs/adr/04-schematic/0014-connectivity-has-one-authority.md D5"],
+  },
   "bind.not-checked": {
     domain: "bind",
     severity: "note",

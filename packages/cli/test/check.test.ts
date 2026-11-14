@@ -353,6 +353,34 @@ describe("check (the project logical root composes modules)", () => {
   });
 });
 
+describe("a PCB without the logical root (ADR-0014 D5)", () => {
+  test("is an error, not a skipped check", () => {
+    const root = mkdtempSync(join(tmpdir(), "texteda-check-"));
+    try {
+      mkdirSync(join(root, "design/pcb"), { recursive: true });
+      writeFileSync(join(root, "project.toml"), PROJECT);
+      writeFileSync(join(root, "design/pcb", "b.teda"), pcb("b"));
+      const diagnostics = checkProject(root).diagnostics;
+      const errors = diagnostics.filter((d) => d.severity === "error");
+      expect(errors.map((d) => d.code)).toEqual(["bind.no-root"]);
+      expect(errors[0]?.location?.file).toBe("design/pcb/b.teda");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a project with the root and no PCB is a skip, not an error", () => {
+    const root = makeProject(MAIN, MODULE, []);
+    try {
+      const diagnostics = checkProject(root).diagnostics;
+      expect(diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+      expect(diagnostics.some((d) => d.code === "bind.not-checked" && d.severity === "note")).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("project module ownership and explicit interconnects (ADR-0069)", () => {
   test("two PCBs can own complete module instances joined by an explicit root interconnect", () => {
     const root = makeProject(MAIN_TWO, MODULE, [

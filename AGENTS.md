@@ -357,7 +357,7 @@ dist/ir/
 2. 表达式 / 参数化到什么程度？**已定**：事实层的值是终值字面量，生成器在语言之外、产物是表；事实层**不引入表达式**——受限表达式的触发条件（十用例的"20 路电源域"证明表宽到不可用）已由 `examples/cases/power-domains/` 判定**不成立**（折行后每行 ≤78 列，表格仍可扫读），逃生舱不开；将来若要开，另起 ADR + 迁移说明 + 迁移脚本，并记 MINOR 版本步（[ADR-0001](docs/adr/01-language/0001-fact-layer-has-no-expressions.md) D6、[ADR-0002](docs/adr/01-language/0002-one-language-version-number.md) D1/D5）。
 3. 器件库来源？**已定**：自建库用 `.teda` 写，KiCad 格式是导出产物（[ADR-0030](docs/adr/08-libraries/0030-footprint-format-and-geometry.md)、[ADR-0031](docs/adr/08-libraries/0031-symbol-format.md)）。
 4. 导出优先 KiCad 还是 Circuit JSON？**已定**：KiCad（[ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md)）。
-5. sch / pcb 的权威边界？**已定**：sch 的项目逻辑根决定连通性，pcb 只实现；偏差白名单封闭四类，白名单之外一律 error（[ADR-0014](docs/adr/04-schematic/0014-connectivity-has-one-authority.md) D1–D3，形状见 `spec/pcb.md` §4.11 / §4.12；[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1–D3）。
+5. sch / pcb 的权威边界？**已定**：sch 的项目逻辑根决定连通性，pcb 只实现；偏差白名单封闭四类，白名单之外一律 error（[ADR-0014](docs/adr/04-schematic/0014-connectivity-has-one-authority.md) D1–D3，形状见 `spec/pcb.md` §4.12 / §4.13；[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1–D3）。
 6. 是否支持 pcb-only？**已定：没有**——项目总有一份逻辑根；逆向与外部网表走导入器（[ADR-0014](docs/adr/04-schematic/0014-connectivity-has-one-authority.md) D5 / D6；F36）。
 7. 多板连接器建模放哪层？**已定**：项目逻辑根的 `ports` 暴露节点，跨 PCB 连接在根的 `interconnects` / `interconnect_pins` 段声明；没有 active `system` 描述（[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1、D3）。
 8. 变体影响 BOM 还是也影响校验？**已定**：只影响 BOM 与制造，**不改变连通性**、不影响 ERC（[ADR-0015](docs/adr/04-schematic/0015-flattening-and-the-net-set.md)）。

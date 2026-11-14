@@ -329,9 +329,11 @@ export function analyzeProject(root: string): AnalyzeResult {
 
   const pcbAnalyses: PcbAnalysis[] = [];
   const parsedPcbs: Array<{ pcb: string; file: string; ir: Pcb; sources?: SourceMap }> = [];
+  const pcbSources: Array<{ pcb: string; file: string }> = [];
   for (const pcbId of pcbIds) {
     const source = loadPcb(root, pcbId);
     if (source === null) continue;
+    pcbSources.push({ pcb: pcbId, file: source.file });
     const parsed = parsePcb(source.text, { file: source.file, pcb: pcbId });
     const pcbDiagnostics = [...parsed.diagnostics];
     const analysis: PcbAnalysis = {
@@ -352,6 +354,22 @@ export function analyzeProject(root: string): AnalyzeResult {
       file: source.file,
       ir: parsed.ir,
       ...(parsed.sources === undefined ? {} : { sources: parsed.sources }),
+    });
+  }
+
+  // A PCB cannot stand alone. Without the logical root the module instances it claims are owned by
+  // nothing, so there is no connectivity authority to check against, and the commands that need
+  // connectivity refuse the project outright (ADR-0014 D5). `check` says so as an error, not as a
+  // skip: a project with PCB descriptions and no root is a broken shape, not an unchecked one.
+  if (mainSource === null && pcbSources.length > 0) {
+    const first = pcbSources[0]!;
+    projectDiagnostics.push({
+      code: "bind.no-root",
+      severity: "error",
+      message: `the project has ${pcbSources.length} PCB description(s) but no logical root (design/sch/main.teda)`,
+      location: { file: first.file, line: 1, col: 1 },
+      hint: "add the project root schematic; the module instances a PCB claims are owned by the root",
+      data: { pcbs: pcbSources.length, pcb: first.pcb },
     });
   }
 
