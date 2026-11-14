@@ -471,7 +471,7 @@ files, build configuration and directories (`AGENTS.md` §9).
 Loop against numbers, not pixels.
 
 ```sh
-bun run view:verify examples/reference-project          # the 0.5 mm lattice gate
+bun run view:verify examples/reference-project          # the 0.5 mm wiring-lattice gate
 bun run texteda check examples/reference-project --json  # 0 errors; no view.* on this page
 bun run texteda view metrics examples/reference-project main
 bun run texteda view render examples/reference-project main --out /tmp/page.svg
@@ -482,8 +482,13 @@ bun run fmt:teda --check examples/reference-project
 The lattice gate covers the page and the module drawings:
 
 ```text
-view:verify ok — 1 print page(s) and 3 module drawing(s) on the 0.5 mm lattice
+view:verify ok — 1 print page(s) and 3 module drawing(s), wiring on the 0.5 mm lattice
 ```
+
+It reports the wiring coordinates that are off the lattice — a placement origin, a wire bend, a
+port, a junction. The drawing coordinates (labels, notes, field anchors, module boxes) are free
+([ADR-0074](../adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D2) and are not
+reported.
 
 The page's own numbers:
 
@@ -593,8 +598,9 @@ edit, the drawing is what changed — **fix the drawing, never the tests**.
   what a picture is not.
 - [ADR-0042](../adr/09-view/0042-the-review-app-has-modes.md) D5, D6: what `view rewire` does
   and is not.
-- [ADR-0059](../adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1:
-  every stored coordinate is a `0.5 mm` lattice point.
+- [ADR-0074](../adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1: the wiring
+  coordinates — a placement origin, a wire bend, a port, a junction — are `0.5 mm` lattice points;
+  the rest of the page is drawing and is free.
 - [ADR-0035](../adr/09-view/0035-the-view-layer-is-a-drawing.md): the view is a drawing, kept and
   not regenerated.
 - [`draw-print-page.md`](draw-print-page.md): producing a page in the first place.

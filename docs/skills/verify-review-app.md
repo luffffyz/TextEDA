@@ -353,8 +353,9 @@ Close the tab with `browser.close({ name })` so the spawned Chromium does not st
   and what the app may write.
 - [ADR-0056](../adr/09-view/0056-the-review-app-has-one-interaction-surface.md): one interaction
   surface; D5 a completed move keeps its object selected, D6 the keyboard hint is resident.
-- [ADR-0059](../adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1:
-  every stored coordinate is a `0.5 mm` lattice point.
+- [ADR-0074](../adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1: the wiring
+  coordinates — a placement origin, a wire bend, a port, a junction — are `0.5 mm` lattice points;
+  the rest of a page is drawing and is free.
 - [ADR-0060](../adr/03-project/0060-a-write-keeps-the-bytes-it-replaced.md): a write keeps the bytes
   it replaced, under `dist/backups/`.
 - [ADR-0061](../adr/09-view/0061-a-move-carries-only-what-belonged-to-the-net.md): a move carries

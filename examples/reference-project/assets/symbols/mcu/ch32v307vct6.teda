@@ -9,7 +9,7 @@ field Reference at=[0,46] U
 field Value at=[0,-46] ch32v307vct6
 
 # Pins retain their original side assignments and natural pin-number order on each side.
-# Pin connection points, pin tails, and the body frame sit on the 0.5 mm placement lattice (ADR-0057); rows are 2.5 mm apart.
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074); the tails and the body follow it where that is convenient; rows are 2.5 mm apart.
 # Body is 84 mm by 64 mm; pin ends sit 2.5 mm outside each edge. Pin numbers at 2.5 mm pitch are tight
 # at 100 pins; hiding pin names is what makes the drawing legible (see the note above).
 pins

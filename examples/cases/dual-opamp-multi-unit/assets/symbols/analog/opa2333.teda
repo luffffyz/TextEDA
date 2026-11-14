@@ -8,7 +8,7 @@ description Dual zero-drift op-amp, three units
 tags analog dual opamp
 units 3
 # The device file owns the pin facts (numbers, names, electrical types); this file only draws.
-# Pin connection points sit on the 0.5 mm placement lattice (ADR-0057) in both coordinates; rows are 2.5 mm apart (ADR-0058).
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074) in both coordinates; rows are 2.5 mm apart (ADR-0058).
 field Reference at=[0,11] U
 field Value at=[0,-11] opa2333
 

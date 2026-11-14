@@ -9,7 +9,7 @@ pin_names hide
 # segments, and the bulk arrow pointing at the channel (the direction that says N-channel). The drain leaves straight
 # up, the gate straight left, and the three source pins share one bus below the circle.
 # Pin 4 is the gate. Pin 5 is the drain; pins 1/2/3 all land on the source bus.
-# Pin connection points, pin tails, and the body frame sit on the 0.5 mm placement lattice (ADR-0057).
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074); the tails and the body follow it where that is convenient.
 field Reference at=[0,6.5] U
 field Value at=[0,-7.5] nmos-5
 

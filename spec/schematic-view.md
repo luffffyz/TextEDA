@@ -98,12 +98,12 @@ All three types live under `views/`, distinguished by directory and suffix (`.vi
 
 ### 2.1 坐标系
 
-- 单位 **mm**，分辨率 **0.01 mm**（2026-10-25 起；此前是 0.1 mm）。这是**格式能表达的精度**，不是绘制网格。绘制网格是 `0.5 mm` 晶格（[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1）：**打印页存的每一个坐标**都锚在它上面——`place` 的符号原点、`field` 的字段锚点（符号局部系）、`wire` 的折点、`label` 的标签位置、`port` 的端口位置、`text` 的注释位置，两个轴都是。符号侧的引脚连接点与引脚内端同样在这张晶格上（`spec/symbol.md` §4.1，[ADR-0057](../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D1），摆位吸附也是 `0.5 mm`（同一条记录 D4）。**目前不允许自由摆位**（[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D5）。格式比晶格细一档，是为了让历史文件与手工微调仍能表达；把分辨率调粗到 `0.5 mm` 会改变 canonical form，并让长度诊断改写每一条旧坐标。超出这个分辨率仍报 `value.length-invalid`。
-- 晶格是**作图约定**，不是新的诊断码：跑偏了由既有的 `view.wire-diagonal` / `view.wire-crosses-pin` 这些码说话，仓库的门禁另外查（[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D2）。
+- 单位 **mm**，分辨率 **0.01 mm**（2026-10-25 起；此前是 0.1 mm）。这是**格式能表达的精度**，不是绘制网格。绘制网格是 `0.5 mm` 晶格（[ADR-0074](../docs/adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1），但它**只管必须互相够到的坐标**：`place` 的符号原点、`wire` 的折点、`port` 的端口位置、`junction` 的结点位置，两个轴都是。页上其余坐标是**画**，自由：`field` 的字段锚点（符号局部系）、`label` 的标签位置、`text` 的注释位置、模块框的几何——标签可以落在走线的任意一点上，那一点通常不是晶格点。符号侧的引脚**连接点**同样在这张晶格上（`spec/symbol.md` §4.1），摆位吸附也是 `0.5 mm`（[ADR-0057](../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D4）。**自由摆位现在允许**，不需要例外标记，也不需要第二张网格（[ADR-0074](../docs/adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D5）。格式比晶格细一档，是为了让历史文件与手工微调仍能表达；把分辨率调粗到 `0.5 mm` 会改变 canonical form，并让长度诊断改写每一条旧坐标。超出这个分辨率仍报 `value.length-invalid`。
+- 晶格是**作图约定**，不是新的诊断码：跑偏了由既有的 `view.wire-diagonal` / `view.wire-crosses-pin` 这些码说话，仓库的门禁另外查（[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D2、[ADR-0074](../docs/adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D3）。
 - 原点 = **图幅的左上角**；**+x 向右，+y 向下**（与 SVG 的坐标系一致，渲染器不需要翻转）。
 - 旋转角度单位为度，**顺时针为正**，缺省 `0`。
 - IR 里长度一律是整数纳米（`_nm`）、角度是整数毫度（`_mdeg`），见 `AGENTS.md` §2 第 18 条与 `docs/adr/02-ir/0006-ir-shards-and-hashes.md` decision 7。
-- **模块框的几何**（§4.2）与页一样：框的左上角 `[x,y]` 与尺寸 `[w,h]` 都锚在 `0.5 mm` 晶格上，整个框落在**这一页自己的尺寸**之内（写明的尺寸，或缺省的 A4 横向 297 × 210 mm）。框的尺寸与页的尺寸是两件事：页的尺寸是这一页的范围，框的尺寸是这个模块画出来的范围。
+- **模块框的几何**（§4.2）是画：框的左上角 `[x,y]` 与尺寸 `[w,h]` 是自由坐标，整个框落在**这一页自己的尺寸**之内（写明的尺寸，或缺省的 A4 横向 297 × 210 mm）。框的尺寸与页的尺寸是两件事：页的尺寸是这一页的范围，框的尺寸是这个模块画出来的范围。
 
 ---
 
@@ -153,7 +153,7 @@ place
 | `unit` | 多单元器件画哪一个单元（`1` 起）；缺省 `1`。取值必须 ≤ 该器件的单元数 |
 
 - 符号画成什么样**不在视图里**：由 `component.symbol` → 符号库决定，渲染器自己去查。视图只说"这个实例摆在哪儿、朝哪儿"。
-- `x` `y` 锚在 `0.5 mm` 晶格上（§2.1，[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1）。摆位吸附也是这张晶格（[ADR-0057](../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D4）。
+- `x` `y` 锚在 `0.5 mm` 晶格上（§2.1，[ADR-0074](../docs/adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1）：摆上去的符号，它的引脚连接点要留在晶格上，走线才接得到。摆位吸附也是这张晶格（[ADR-0057](../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D4）。
 - 引脚的连接点坐标 = 符号原点 + 旋转后的引脚偏移（符号的几何事实，见 `spec/symbol.md`）。因此**符号改了引脚位置，视图里的线自动跟着走**，视图不需要跟着改。
 - A page places only the instances it draws; project instances omitted from a page are not errors. In particular, a topology-only page may omit `place` entirely.
 
@@ -171,7 +171,7 @@ field
 
 Each row is `<instance_id> <name> <offset>`. The vocabulary is closed to exactly `Reference` and `Value`; each `(instance_id, name)` pair occurs at most once. The instance must occur in this page's `place` section. `<offset>` is `[x,y]` relative to the symbol origin and is not checked against sheet bounds. In this local frame, `+x` points right and `+y` points up. The renderer applies the symbol's right-angle rotation when projecting a field to sheet coordinates; moving or rotating the symbol therefore carries the override with it.
 
-Two coordinate facts apply, and they are different questions (§2.1): the coordinates are written with the view file's `0.01 mm` **resolution** — the finest value the format can express, and the limit a writer is checked against — while the **drawing lattice** is `0.5 mm`. A field anchor is a lattice point in both axes ([ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1), and the review app snaps it there like a symbol placement. The file format does not *reject* a non-lattice value — `0.01 mm` resolution is what the format promises — but the drawing convention does not admit one, and the repository's view-style gate reports it.
+Two coordinate facts apply, and they are different questions (§2.1): the coordinates are written with the view file's `0.01 mm` **resolution** — the finest value the format can express, and the limit a writer is checked against — while the **drawing lattice** is `0.5 mm`. A field anchor is **free** ([ADR-0074](../docs/adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D2): a field is text beside a symbol, and nothing has to line up with it. The review app snaps it to the lattice like a symbol placement, because a round coordinate is easier to write and to compare — that is a convenience, not a rule, and the file format does not *reject* a non-lattice value.
 
 The text is taken from the schematic instance: `Reference` is its instance id and `Value` is its instance value. If the instance has no value, the renderer retains the symbol library's `Value` placeholder. A field row overrides its automatic position; deleting the row restores automatic placement. There are no `automatic` rows or tombstones.
 
@@ -220,7 +220,7 @@ module
 | `w` `h` | Width and height of the drawn frame (mm) |
 
 - **A frame is only a drawing.** It shows a boundary, never the contents: component instances, nets, and constraints belong to the module definition, and its external ports are declared in that module's `ports` section (`spec/module.md` §§2–3).
-- The frame has its own position and dimensions, independent of the page size. Its corners and dimensions follow the `0.5 mm` lattice, and the whole frame must fit on the page (§2.1).
+- The frame has its own position and dimensions, independent of the page size. Its corners and dimensions are **free** — a frame is a boundary, not a wiring point (§2.1) — and the whole frame must fit on the page.
 - Frames are advisory; a page may show any subset of project modules. Project-wide view-coverage warnings are advisory, not logical errors.
 - Electrical facts are owned as described in `spec/module.md` §7.2 and ADR-0069: modules own internal facts, the root owns module instances and project bindings, and views only reference them.
 
@@ -305,7 +305,7 @@ junction
   VOUT_J1  [204.0,92.5]
 ```
 
-列：`<junction_id> <point>`，`<point>` 是 `[x,y]`。坐标单位为 mm，使用 view 的 `0.01 mm` 格式分辨率；坐标必须在图幅内，并遵守 `0.5 mm` 绘图晶格门禁（[ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md)、[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md)）。`junction_id` 在本页唯一，且不得与页面 port id 混淆。junction 只属于 view drawing graph，不进入 schematic IR 的 net members。
+列：`<junction_id> <point>`，`<point>` 是 `[x,y]`。坐标单位为 mm，使用 view 的 `0.01 mm` 格式分辨率；坐标必须在图幅内，并遵守 `0.5 mm` 绘图晶格门禁（[ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md)、[ADR-0074](../docs/adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1）：结点是走线的端点，走线要接得到它。`junction_id` 在本页唯一，且不得与页面 port id 混淆。junction 只属于 view drawing graph，不进入 schematic IR 的 net members。
 
 Junctions of one net may be shared by multiple wire rows; different nets must not reference the same junction. A junction's degree is the number of effective wire arms connected to it: fewer than 2 is isolated/dangling, and more than 4 is invalid. Declared junctions and the perpendicular pin endpoints above draw dots; ordinary two-arm bends do not. Crossings between different nets do not create connection points.
 
@@ -323,7 +323,7 @@ label
 
 - 标签画的就是 **net id 本身**，**不允许改写显示文字**。标签若能显示与 net id 不同的东西（比如 net 叫 `VDD`、标签写 `3.3V`），图上就会出现"看起来叫 3.3V 的网络"——人读图时会误判网络名。想要 `3.3V` 这个名字，就把 net 命名为 `3.3V`。
 - 标签位置必须落在**该 net 的某条走线上**，或落在**该 net 某个引脚的连接点**上；否则报 `view.label-not-on-net`（**警告**，不是错误：视图是给人看的图，位置偏了要提示，但不该让整张图不可用）。
-- 标签锚点锚在 `0.5 mm` 晶格上（§2.1，[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1）。
+- 标签锚点是**自由**的（§2.1，[ADR-0074](../docs/adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D2）：它只要落在该 net 的走线或引脚上，不必落在晶格点上。
 - 同一个 net 可以有多个标签（例如一页上多处标 `GND`）。
 
 ---
@@ -342,7 +342,7 @@ Column: `<project_port_id> <point> [<rotation>]`, where `<point>` is `[x,y]`.
 - A row both draws the glyph and supplies its position as a `wire` endpoint. The endpoint uses the same project-port ID and coordinates; a wire endpoint must have a matching `port` row on this page ([ADR-0062](../docs/adr/09-view/0062-a-run-may-end-at-a-port.md) D1–D2).
 - Moving the row moves the glyph and the wire endpoint together; the view cannot change the root port's identity or net membership.
 - Port glyphs may be repeated on any number of project pages.
-- The anchor follows the `0.5 mm` drawing lattice (§2.1, [ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1). Rotation is clockwise degrees and defaults to `0`.
+- The anchor follows the `0.5 mm` drawing lattice (§2.1, [ADR-0074](../docs/adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1): a port is a wire's endpoint, so the wire has to be able to reach it. Rotation is clockwise degrees and defaults to `0`.
 ---
 
 ## 8. `text` 段
@@ -355,7 +355,7 @@ text
 列：`<point> <text…>`，`<point>` 是 `[x,y]`。
 
 - 第三列起是**行尾剩余文本**（与标量同一约定，`teda.md` §4.4），允许空格。
-- 注释锚点锚在 `0.5 mm` 晶格上（§2.1，[ADR-0059](../docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1）。
+- 注释锚点是**自由**的（§2.1，[ADR-0074](../docs/adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D2）。
 - 纯注释，不带任何电气含义，不参与任何校验（除了"文字重叠"这类可读性检查）。
 
 ---
@@ -569,7 +569,7 @@ place
   M2.L1   [60.0,20.0]  0
 ```
 
-This page uses its own 120 × 80 mm extent rather than A4. Coordinates lie within the page and follow the `0.5 mm` drawing lattice. A detail page may draw any subset of project components; the page ID does not establish ownership (§1.1).
+This page uses its own 120 × 80 mm extent rather than A4. Coordinates lie within the page; the wiring coordinates follow the `0.5 mm` drawing lattice (§2.1). A detail page may draw any subset of project components; the page ID does not establish ownership (§1.1).
 
 ### 10.5 概览页反例
 
@@ -640,7 +640,7 @@ bounds [120,80]
 
 - **这是模块局部的范围，不是页的图幅。** 它与页的 `size` / `sheet`（§2）是两件事：一个模块图可以在多页上以不同尺寸摆放，页的图幅由页自己（或它的模板）决定。两者的检查也是分开的：模块图的点落在自己的 `bounds` 内，摆放后的范围落在页内（§14.3）。
 - 模块图的每一个画出来的点都必须落在 `bounds` 内；落在外面是错误（§9.1）。
-- 坐标分辨率与晶格与页相同（`0.01 mm` 分辨率、`0.5 mm` 绘图晶格，§2.1）。
+- 坐标分辨率与页相同（`0.01 mm` 分辨率，§2.1）；连线坐标（摆位原点、走线折点、端口、结点）同样锚在 `0.5 mm` 绘图晶格上（§2.1）。
 
 ### 12.3 段与行
 

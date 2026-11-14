@@ -10,7 +10,7 @@ One flat counter, handed out in the order the records are written, starting at
 `0001`. A number names one record and nothing else: what a record is about is said by
 its folder, not by its number. A number is **never changed and never reused** — a link
 to `ADR-0006` names the same decision forever — so a new record takes the next free
-number and disturbs nothing that already exists. The next free number is `0074`.
+number and disturbs nothing that already exists. The next free number is `0075`.
 The sequence is not contiguous; gaps are normal.
 
 ## Retired
@@ -147,6 +147,7 @@ that was meant for it, and by nothing else.
 | [ADR-0071](09-view/0071-a-module-drawing-is-an-editable-view.md) | A Reusable Module Drawing Is an Editable View | Accepted | 2026-11-11 |
 | [ADR-0072](09-view/0072-a-second-rendering-backend-paints-the-same-drawing.md) | A Second Rendering Backend Paints the Same Drawing | Accepted | 2026-11-13 |
 | [ADR-0073](09-view/0073-the-review-app-has-a-freehand-pen.md) | The Review App Has a Freehand Pen, and a Sketch Is a Message, Not a Record | Accepted | 2026-11-14 |
+| [ADR-0074](09-view/0074-the-lattice-binds-what-must-reach-each-other.md) | The Lattice Binds What Must Reach Each Other, and the Rest of the Drawing Is Free | Accepted | 2026-11-14 |
 
 ## Process
 

@@ -6,7 +6,7 @@ tags ntc temperature thermistor
 pin_numbers hide
 pin_names hide
 # NTC thermistor: resistor body + diagonal line + bar at the ends.
-# Pin connection points, pin tails, and the body frame sit on the 0.5 mm placement lattice (ADR-0057).
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074); the tails and the body follow it where that is convenient.
 field Reference at=[0,2.5] U
 field Value at=[0,-2.5] thermistor
 

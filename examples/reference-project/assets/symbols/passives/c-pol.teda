@@ -7,7 +7,7 @@ pin_numbers hide
 pin_names hide
 # Polarized capacitor view, US convention: the positive pin (1) ends on a straight plate, the negative pin (2) ends on
 # an arc whose middle leans toward that plate (its ends splay away), and a plus sign sits above the straight plate.
-# Pin connection points, pin tails, and the body frame sit on the 0.5 mm placement lattice (ADR-0057).
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074); the tails and the body follow it where that is convenient.
 field Reference at=[0,2.5] U
 field Value at=[0,-2.5] c-pol
 

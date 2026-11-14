@@ -23,7 +23,7 @@ What a person looks at: the view as an independent description and a drawing, th
 11. [0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md) — the plugin boundary and places-only host write; its current interaction contract is superseded by [ADR-0056](0056-the-review-app-has-one-interaction-surface.md).
 12. [0048](0048-the-review-app-shows-drawings.md) — the app shows drawings, not boards: print pages, board canvases, module drawings, symbols and footprints; its mode-switch rule is superseded by [ADR-0056](0056-the-review-app-has-one-interaction-surface.md).
 13. [0056](0056-the-review-app-has-one-interaction-surface.md) — one interaction surface with explicit move, rotate, source and commit actions.
-14. [0059](0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) — every coordinate a print page stores is anchored on the `0.5 mm` lattice; free placement is not admitted today.
+14. [0059](0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) — every coordinate a print page stores is anchored on the `0.5 mm` lattice; free placement is not admitted today. Its wiring-coordinate rule is narrowed by [0074](0074-the-lattice-binds-what-must-reach-each-other.md), and free placement is admitted there.
 15. [0061](0061-a-move-carries-only-what-belonged-to-the-net.md) — a move carries only what belonged to the net, and its cost grows with the page, not faster.
 16. [0062](0062-a-run-may-end-at-a-port.md) — a run may end at a port the page draws, so a port at the board's edge is a wire end and follows the port when moved.
 17. [0063](0063-a-run-is-shortened-only-along-the-lines-it-was-drawn-on.md) — a moved run keeps its drawn coordinates and loses only the corners it no longer needs, on lines it already drew.
@@ -34,6 +34,7 @@ What a person looks at: the view as an independent description and a drawing, th
 22. [0071](0071-a-module-drawing-is-an-editable-view.md) — a module drawing is authored source, and the app edits it as a drawing.
 23. [0072](0072-a-second-rendering-backend-paints-the-same-drawing.md) — the same drawing commands, painted into a picture by our own rasterizer.
 24. [0073](0073-the-review-app-has-a-freehand-pen.md) — a freehand pen on a drawing, and a sketch as a message to the agent rather than a fact about the design.
+25. [0074](0074-the-lattice-binds-what-must-reach-each-other.md) — the `0.5 mm` lattice binds the coordinates that have to reach each other; the rest of a symbol or a page is drawing, and free.
 
 
 ## Records
@@ -64,3 +65,4 @@ What a person looks at: the view as an independent description and a drawing, th
 | [ADR-0071](0071-a-module-drawing-is-an-editable-view.md) | A Reusable Module Drawing Is an Editable View | Accepted | 2026-11-11 |
 | [ADR-0072](0072-a-second-rendering-backend-paints-the-same-drawing.md) | A Second Rendering Backend Paints the Same Drawing | Accepted | 2026-11-13 |
 | [ADR-0073](0073-the-review-app-has-a-freehand-pen.md) | The Review App Has a Freehand Pen, and a Sketch Is a Message, Not a Record | Accepted | 2026-11-14 |
+| [ADR-0074](0074-the-lattice-binds-what-must-reach-each-other.md) | The Lattice Binds What Must Reach Each Other, and the Rest of the Drawing Is Free | Accepted | 2026-11-14 |

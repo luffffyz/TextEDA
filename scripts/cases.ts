@@ -17,12 +17,14 @@
 // `--update` rewrites the three. Everything else is read-only: a case that changes without its
 // expectation changing is a regression, and that is the whole point.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
 import { formatNetlist, toNetlist } from "@texteda/exporter/netlist";
+import { parseSymbol } from "@texteda/parser";
 import { analyzeProject, checkProject } from "../packages/cli/src/check.ts";
 import { buildIrTree } from "../packages/cli/src/ir-tree.ts";
+import { symbolHouseStyleProblems } from "./lib/symbol-style.ts";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 export const CASES_DIR = join(repoRoot, "examples", "cases");
@@ -79,6 +81,31 @@ function pinDiagnostics(diagnostics: Diagnostic[], root: string): PinnedDiagnost
 }
 
 /**
+ * The house style of every symbol a case ships.
+ *
+ * The library verifier walks one project's library, and a case carries its own: a case is a corpus
+ * other people copy designs from, so a symbol whose pin connection points are off the lattice
+ * teaches the wrong thing (ADR-0074 D1).
+ */
+function symbolStyleProblems(symbolsRoot: string): string[] {
+  if (!existsSync(symbolsRoot)) return [];
+  const problems: string[] = [];
+  for (const file of filesUnder(symbolsRoot)) {
+    if (!file.endsWith(".teda")) continue;
+    // The library name comes from the directory under `assets/symbols/`, as it does for the library
+    // verifier; the file name alone does not say it.
+    const library = basename(dirname(join(symbolsRoot, file)));
+    const parsed = parseSymbol(readFileSync(join(symbolsRoot, file), "utf8"), { file, library });
+    if (!parsed.ok || !parsed.ir) {
+      problems.push(`${file}: the symbol does not parse`);
+      continue;
+    }
+    problems.push(...symbolHouseStyleProblems(file, parsed.ir.symbol));
+  }
+  return problems;
+}
+
+/**
  * Compare one case with its expectation, or (`update`) rewrite the expectation from it.
  *
  * A case with an error diagnostic is not a case: the corpus is the shape of *valid* designs. An
@@ -94,6 +121,9 @@ function runCase(id: string, update: boolean): CaseResult {
   if (errors.length > 0) {
     return { id, problems: errors.map((d) => `error in a case: ${d.code} ${d.message}`) };
   }
+
+  // The case's own symbols are under the library house style too.
+  problems.push(...symbolStyleProblems(join(dir, "assets", "symbols")));
 
   const shards = new Map(tree.shards.map((shard) => [shard.path, shard.bytes]));
   const manifest = { ...tree.manifest } as Record<string, unknown>;

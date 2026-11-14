@@ -236,7 +236,7 @@
 - 接受的渲染存为产物，记录 `source_hash + renderer_version + seed`，只读。
 - 重新渲染不得覆盖人工调整；需要人工编辑时走显式 patch / merge，不靠"重画一遍"。
 - sch 视图与 pcb 视图是**两个独立的渲染目标**，可以分别实现、分别替换。
-- 可读性检查自动化：文字重叠、线压引脚、标签碰撞、越界、连线穿过符号、走线穿过引脚、走线穿过文字、**走线斜段**（绘制因此走 `0.5 mm` 晶格，见 [ADR-0057](docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D4；`0.01 mm` 只是格式分辨率）。可测；"好看"不可测。码表见 `spec/schematic-view.md` §9.2。
+- 可读性检查自动化：文字重叠、线压引脚、标签碰撞、越界、连线穿过符号、走线穿过引脚、走线穿过文字、**走线斜段**（绘制因此走 `0.5 mm` 晶格，见 [ADR-0074](docs/adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1；`0.01 mm` 只是格式分辨率）。可测；"好看"不可测。码表见 `spec/schematic-view.md` §9.2。
 - AI 渲染的三种形态：写渲染器代码（人审后固化）→ **推荐**；在确定性候选里挑选 / 调样式 → 可用；每次运行生成坐标 → 允许，但产物必须冻结并校验，不得回写 S0 / B0。
 
 ---
@@ -317,7 +317,7 @@ dist/ir/
 | `bun run typecheck` | 全包类型 | `tsconfig.base.json` |
 | `bun run gen:check` | 生成物（IR 类型、`docs/error-codes.md`、`docs/ir-reference.md`、`docs/api-reference/`）不漂移 | `packages/ir/src/generated/`；[ADR-0038](docs/adr/10-process/0038-implementation-stack-and-agent-entry.md) |
 | `bun run lib:verify` | 库闭包：引用可解析、无孤儿、引脚号与焊盘号对齐 | `spec/symbol.md` §7、`spec/footprint.md` §7 |
-| `bun run view:verify` | 打印页坐标全部锚在 `0.5 mm` 晶格上 | [ADR-0059](docs/adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md) D1 |
+| `bun run view:verify` | 打印页的**连线坐标**（摆位原点、走线折点、端口、结点）锚在 `0.5 mm` 晶格上；标签、注释、字段锚点、模块框是画，自由 | [ADR-0074](docs/adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1、D2 |
 | `bun run check:links` | 跨引用可解析（链接、章节、ADR 编号、backlog 项、ADR 索引与头部格式） | 本文件 §12 |
 | `bun run check:public` | 公开仓库历史扫描（PDF / 凭据 / 绝对路径 / 邮箱 / license / NOTICE） | [ADR-0039](docs/adr/10-process/0039-licensing-and-open-standard.md) decision 1 |
 | `bun run fmt:teda --check .` | canonical 格式 | `spec/teda.md` §11 |
@@ -407,6 +407,7 @@ dist/ir/
 - **要动手做一件事，先查技能索引。** `docs/skills/README.md` 列出操作流程与各自的触发条件：建工程读 `new-project.md`，写 `assets/**` 读 `library-authoring.md`，看符号渲染与改几何读 `preview-symbols.md`，画 `views/**` 读 `draw-print-page.md`，修已有的打印页读 `repair-print-page.md`，加诊断码读 `add-diagnostic-code.md`，验证评审 app 行为读 `verify-review-app.md`，派工与验收读 `delegate-work.md`。**规范说"什么是真的"，技能说"怎么做"**——技能给命令、预期输出与出错该看哪个诊断码，**不重述规范**；两者冲突时以规范为准。改技能时：命令要实跑过、预期输出要照抄真实输出，**过期数字比没有数字更糟**（它会让 agent 以为跑歪了）；**参考坐标不要写进技能**——写"怎么现场取几何"，因为页面一改坐标就过期。
 - **改完 schema 必须重生成**：`bun run gen`（产物在 `packages/ir/src/generated/`、`docs/error-codes.md`、`docs/ir-reference.md`、`docs/api-reference/`，均不手改），CI 用 `bun run gen:check` 挡住漂移；`bun run test` + `bun run typecheck` 必过。
 - **库的界面不许碰运行时**：`core` / `ir` / `parser` / `exporter` / `renderer` / `geom` / `viewer` 的 **`src/**`** 里不许出现 `Bun.*` 与 `process.env`，也不许碰文件系统——这些包要能跑在 Node 扩展宿主与浏览器里。两个例外是明写的：`packages/exporter/src/footprint.ts` 用 `node:crypto`（同步 SHA-256），`packages/viewer/src/build.ts` 用 `Bun.build` 在服务端打包评审 app（它不进浏览器包，浏览器的入口是 `packages/viewer/src/client.ts`）。**构建期脚本不在此列**：`packages/*/scripts/**` 本来就要读写文件（`fmt:teda` / `compile:symbol` / `generate.ts`），CLI 层也可以碰盘。规则见 [ADR-0038](docs/adr/10-process/0038-implementation-stack-and-agent-entry.md) decision 1，**目前还没有门禁**（F75）。
+- **删除只走 `rm`，不要在 bun / python 脚本里删文件。** 运行时只看得见**顶层 `rm`**（它会先走一遍确认）；脚本里的删除——`fs.rmSync` / `os.remove` / `shutil.rmtree` / `unlink`——运行时完全看不见：拦不住、没有回收站兜底、事后也查不出是谁删的。要删就单独跑一条 `rm <path>`，让删除本身是可确认的一步。
 
 ---
 

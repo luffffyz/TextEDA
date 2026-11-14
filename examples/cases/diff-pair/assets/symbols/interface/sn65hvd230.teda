@@ -3,7 +3,7 @@ symbol sn65hvd230
 
 description 8-pin SOIC-8 TI SN65HVD230 CAN transceiver, view only
 tags can interface soic-8
-# Pin connection points sit on the 0.5 mm placement lattice (ADR-0057) in both coordinates; rows are 2.5 mm apart (ADR-0058).
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074) in both coordinates; rows are 2.5 mm apart (ADR-0058).
 field Reference at=[0,7] U
 field Value at=[0,-7] sn65hvd230
 

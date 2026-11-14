@@ -2,8 +2,8 @@
 
 Status: Accepted
 Date: 2026-11-04
-Scope: Decides: that every coordinate a print page stores — a symbol placement origin, a field anchor, a wire bend, a label position, a port position, and a note position — is anchored on the `0.5 mm` drawing lattice, and that no free placement is admitted today. Does not decide: the view file's own coordinate resolution (`0.01 mm`, [spec/schematic-view.md](../../../spec/schematic-view.md) §2.1), the symbol file's pin geometry ([ADR-0057](../08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)), footprint pad geometry ([ADR-0030](../08-libraries/0030-footprint-format-and-geometry.md)), and when a genuinely free position would be admitted — see the closed question at the end of this record.
-Related: [ADR-0014](../04-schematic/0014-connectivity-has-one-authority.md), [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0056](0056-the-review-app-has-one-interaction-surface.md), [ADR-0057](../08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md), [ADR-0058](../08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md), [ADR-0061](0061-a-move-carries-only-what-belonged-to-the-net.md), [ADR-0062](0062-a-run-may-end-at-a-port.md), [ADR-0063](0063-a-run-is-shortened-only-along-the-lines-it-was-drawn-on.md), [ADR-0064](0064-automatic-fields-are-placed-for-the-page.md), [ADR-0065](../01-language/0065-a-coordinate-tuple-is-one-cell.md), [ADR-0067](0067-hierarchical-module-views-and-custom-page-size.md), [ADR-0071](0071-a-module-drawing-is-an-editable-view.md).
+Scope: Decides: that the coordinates a print page stores which have to reach each other — a symbol placement origin, a wire bend, a port position, a junction position — are anchored on the `0.5 mm` drawing lattice. The field anchors, the labels and the notes were part of this record and are not any more: they are drawing, and [ADR-0074](0074-the-lattice-binds-what-must-reach-each-other.md) D1–D5 narrows this record to the wiring coordinates and admits free placement. Does not decide: the view file's own coordinate resolution (`0.01 mm`, [spec/schematic-view.md](../../../spec/schematic-view.md) §2.1), the symbol file's pin geometry ([ADR-0057](../08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)), footprint pad geometry ([ADR-0030](../08-libraries/0030-footprint-format-and-geometry.md)), and when a genuinely free position would be admitted — see the closed question at the end of this record.
+Related: [ADR-0014](../04-schematic/0014-connectivity-has-one-authority.md), [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0056](0056-the-review-app-has-one-interaction-surface.md), [ADR-0057](../08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md), [ADR-0058](../08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md), [ADR-0061](0061-a-move-carries-only-what-belonged-to-the-net.md), [ADR-0062](0062-a-run-may-end-at-a-port.md), [ADR-0063](0063-a-run-is-shortened-only-along-the-lines-it-was-drawn-on.md), [ADR-0064](0064-automatic-fields-are-placed-for-the-page.md), [ADR-0065](../01-language/0065-a-coordinate-tuple-is-one-cell.md), [ADR-0067](0067-hierarchical-module-views-and-custom-page-size.md), [ADR-0071](0071-a-module-drawing-is-an-editable-view.md), [ADR-0074](0074-the-lattice-binds-what-must-reach-each-other.md).
 Impact: `spec/schematic-view.md` §2.1, §4, §4.1, §5, §6, §7, §8; `docs/skills/draw-print-page.md`; `docs/guides/review-app.md`; `scripts/lib/view-style.ts` (new); `scripts/verify-views.ts` (new); `scripts/view-style.test.ts` (new)
 
 ## Context
@@ -29,6 +29,12 @@ nobody can state once is a rule that will be applied inconsistently.
 ## Decision
 
 ### D1. Every stored coordinate is a lattice point
+
+> **Narrowed (2026-11-14):** [ADR-0074](0074-the-lattice-binds-what-must-reach-each-other.md)
+> D1–D2 keeps the placement origins, the wire bends, the ports and the junctions on the lattice,
+> because those are the coordinates a wire has to reach. The field anchors, the labels and the notes
+> are drawing and are free; a label may sit anywhere along the wire it names, and that is not
+> generally a lattice point.
 
 A print page's coordinates are anchored on the `0.5 mm` lattice in both axes:
 
@@ -78,6 +84,11 @@ not a filter that overrides one.
 
 ### D5. Free placement is not admitted today
 
+> **Superseded (2026-11-14):** [ADR-0074](0074-the-lattice-binds-what-must-reach-each-other.md)
+> D2 and D5 — free placement is admitted. No flag, no second grid and no special section: the
+> format has expressed every coordinate since its resolution became `0.01 mm`, so what was missing
+> was never an expressibility mechanism but a decision about which coordinates have to agree.
+
 There is no "off-lattice" escape hatch, no per-record flag, and no second grid. If a design
 genuinely needs a coordinate that is not on the lattice — an optical alignment to a reference
 figure, a label that must dodge a silkscreen boundary — the answer is not a rule change but a
@@ -105,3 +116,8 @@ second grid, or a distinct section) so that the checker can tell an intentional 
 from a mistake; a decision about which records may carry it (a `field` anchor that must dodge a
 body, but a `wire` bend that cannot be free without breaking the connection rule); and a rendering
 and review story for the exception. Until a real design needs it, the rule stays closed and simple.
+
+> **Answered (2026-11-14):** [ADR-0074](0074-the-lattice-binds-what-must-reach-each-other.md) D5.
+> The question was framed as one of expressibility, and the format had already answered it: a free
+> coordinate is a coordinate the file accepts. The question that remained was which coordinates have
+> to agree with each other — and the answer is that the lattice binds those, and only those.

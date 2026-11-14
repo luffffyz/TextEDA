@@ -99,17 +99,19 @@ pins
 
 ### 4.1 引脚摆位网格
 
-**规则**（[ADR-0057](../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D1、D4）：引脚**连接点**与它的**内端**（尾端与本体重合的那一点）都是 `0.5 mm` 的整数倍，`length` 因此也是 `0.5 mm` 的整数倍。规则管的是**画的坐标**，不管器件的物理封装：焊盘坐标归 `footprint`，按数据手册取值，即使落不在这个网格上也不动（同一条记录 D6）。
+**规则**（[ADR-0074](../docs/adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1）：引脚**连接点**是 `0.5 mm` 的整数倍（两个轴都是）。这是符号里**唯一被门禁检查**的坐标：走线从引脚出发要能接到一个折点，连接点落格才接得上。规则管的是**画的坐标**，不管器件的物理封装：焊盘坐标归 `footprint`，按数据手册取值，即使落不在这个网格上也不动（[ADR-0057](../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D6）。
 
-**为什么内端也算**：走线从引脚出发要能接到一个折点。只管连接点会把尾端留在任意偏移上，而尾端是读者在图上唯一看得见的引脚笔画。
+**内端不再算**：引脚的**内端**（尾端与本体重合的那一点）是画出来的那一笔，走线不从那里出发，它落在哪都不影响连线——所以它**不是规则**。它仍然**尽量**落在 `0.5 mm` 晶格上：整数坐标好写、好比、好复用；但没有门禁会拒绝一个不落格的内端（[ADR-0074](../docs/adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D2）。
+
+**本体的坐标同理**：可见矩形本体的边是引脚尾端的落点，所以尾端要**画在**边上——尾端离开本体，读者看到的是一根接不上的引脚。但这条边本身落在哪只是画法：本体与装饰花纹（电阻的矩形、电感的四个拱、二极管的三角）都**尽量**锚在晶格上，不强制。
 
 **引脚间距**：画引脚号的符号，同一单元、同一侧相邻两脚的连接点沿这一行的距离**至少 `2.5 mm`**（[ADR-0058](../docs/adr/08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md) D1）。常规取值就是 `2.5 mm`；只有具体理由才放宽——三位数的引脚号（`"100"` 的墨迹宽 `2.824 mm`）需要 `3.0 mm`，`crystal-4` 为给封装的两个极板留位置把 `2`/`4` 画成 `3.0 mm`。
 
-**锚定是逐引脚、两个轴**（[ADR-0058](../docs/adr/08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md) D2）：每个引脚的连接点在 `x` 与 `y` 上各自都是 `0.5 mm` 的整数倍，内端也是。一行只决定沿行方向的间距；这一行整体沿行方向偏移多少是自由的，垂直方向的坐标另算。两个轴都要锚，因为打印页是**引脚到引脚**连线的：一条正交走线只在两端各自两个坐标都落格时才存在，与它端点来自哪个符号的哪一行无关。于是偶数脚的一侧**不要求**关于 `0` 对称——`-3.5, -1, 1.5, 4` 与 `-2.5, 0, 2.5, 5` 一样合法，对称只是脚数与偏移恰好凑出来的巧合，不是规则。
+**锚定是逐引脚、两个轴**（[ADR-0058](../docs/adr/08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md) D2）：每个引脚的连接点在 `x` 与 `y` 上各自都是 `0.5 mm` 的整数倍。一行只决定沿行方向的间距；这一行整体沿行方向偏移多少是自由的，垂直方向的坐标另算。两个轴都要锚，因为打印页是**引脚到引脚**连线的：一条正交走线只在两端各自两个坐标都落格时才存在，与它端点来自哪个符号的哪一行无关。于是偶数脚的一侧**不要求**关于 `0` 对称——`-3.5, -1, 1.5, 4` 与 `-2.5, 0, 2.5, 5` 一样合法，对称只是脚数与偏移恰好凑出来的巧合，不是规则。
 
 **不画引脚号的符号没有这个下限**（同一条记录 D4）：`pin_numbers hide` 画的是器件图形，靠得近的脚描述的是同一个端子——`nmos-5` 的三个源极共用一条 `1.5 mm` 的总线，`dual-diode` 的两个阳极相距 `1.0 mm`，`sw-push` 每侧的两个脚是同一个触点（`1.0 mm`，并因此隐藏引脚号：它的号码墨迹在 `1.0 mm` 下已经重叠）。间距归图形，没有号码可撞。
 
-**可见矩形本体**的边是引脚尾端的落点，所以本体坐标也在网格上（[ADR-0057](../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D3）；纯装饰花纹（电阻的矩形、电感的四个拱、二极管的三角）保持原样，只让引脚行与尾端进网格。
+**装饰花纹不受网格约束**：电阻的矩形、电感的四个拱、二极管的三角保持自己的形状；只让引脚行与连接点进网格。
 
 **连接器的画不是它的焊盘**（[ADR-0057](../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D5、[ADR-0058](../docs/adr/08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md) D5）：`hdr-1x4` / `jst-sh-4` / `hdr-1x3` / `hdr-2x5` 把行画成 `2.5 mm` 间距，真实焊盘间距（`2.54 mm`、`1.0 mm`）写在 `footprint` 里。两个网格回答两个问题，都不许为对齐对方而凑整。
 
@@ -191,8 +193,8 @@ symbol bq24610rger
 
 description 24V synchronous buck battery charger controller
 tags battery charger
-# Pin connection points sit on the 0.5 mm placement lattice (ADR-0057) in both coordinates; same-side rows are
-# 2.5 mm apart (ADR-0058) and every tail is 2.5 mm.
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074) in both coordinates; same-side rows are
+# 2.5 mm apart (ADR-0058).
 pin_name_offset 1.25
 field Reference at=[-6.5,20] U
 field Value at=[0,-20] bq24610rger

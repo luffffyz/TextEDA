@@ -4,6 +4,8 @@ symbol dc-005-20a
 description Right-angle 2.0 mm DC power jack with switched sleeve contact
 tags connector dc jack power
 pin_names hide
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074). The solid bar's edges sit at
+# 1.75 mm and 3.25 mm: the reviewer's sketch lengthened it, and a body is drawing, not a rule (ADR-0074 D2).
 field Reference at=[0,-6] J
 field Value at=[0,6] dc-005-20a
 

@@ -75,11 +75,13 @@ net it names and a port by its `port_id`, and the write stores the position the 
 (ADR-0056 D2). A note — a free `text` row — does not move: nothing in the language says what a
 paragraph's position means, so the app offers no move for it.
 
-The `0.5 mm` lattice applies to placements, field anchors, wire bends, labels, ports and notes
-covered by the view-coordinate rules ([ADR-0059](../adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md)
-D1). Explicit `@x,y` wire endpoints use the `0.01 mm` format resolution instead; they are drawing
-geometry used to preserve existing wire endpoints, not a free-placement mechanism. `bun run
-view:verify <project>` checks the applicable stored-coordinate lattice rules.
+The `0.5 mm` lattice applies to the coordinates that have to reach each other — a placement
+origin, a wire bend, a port, a junction
+([ADR-0074](../adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1). A label, a
+note, a field anchor and a module box are drawing, and free: the lattice stays their convention,
+not their rule (same record, D2). Explicit `@x,y` wire endpoints use the `0.01 mm` format
+resolution instead; they are drawing geometry used to preserve existing wire endpoints, not a
+free-placement mechanism. `bun run view:verify <project>` checks the wiring coordinates.
 
 A port can also be the **end of a run** (`wire` rows name it instead of a pin). Moving that port
 extends or shortens the run to reach it, so the port stays on the wire

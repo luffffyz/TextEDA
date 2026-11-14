@@ -1,14 +1,17 @@
 #!/usr/bin/env bun
-// Print-page house style: every coordinate a page stores is anchored on the 0.5 mm drawing
-// lattice (ADR-0059 D1).
+// Print-page house style: the coordinates that have to reach each other are anchored on the
+// 0.5 mm drawing lattice (ADR-0074 D1).
 //
 // Usage:
 //   bun run view:verify [project dir]        required section, **zero external dependencies**
 //
 // What it checks, per project print page directly under `views/`:
 //   1. the page parses;
-//   2. every coordinate it stores — placement origin, field anchor, wire bend, label, port, note —
-//      is a lattice point in both axes.
+//   2. the coordinates that must reach each other — a placement origin, a wire bend, a port, a
+//      junction — are lattice points in both axes.
+//
+// The rest of the page is drawing, and drawing is free (ADR-0074 D2): a label may sit anywhere
+// along the wire it names, a note may sit anywhere on the sheet.
 //
 // Why a gate and not a diagnostic code: a page off the lattice is still a readable page, and the
 // failure it causes (a diagonal segment, a wire that cannot reach its pin) is already reported by
@@ -83,4 +86,4 @@ if (problems.length > 0) {
   console.error(`view:verify failed — ${problems.length} problem(s)`);
   process.exit(1);
 }
-console.log(`view:verify ok — ${pages.length} print page(s) and ${moduleViews.length} module drawing(s) on the 0.5 mm lattice`);
+console.log(`view:verify ok — ${pages.length} print page(s) and ${moduleViews.length} module drawing(s), wiring on the 0.5 mm lattice`);

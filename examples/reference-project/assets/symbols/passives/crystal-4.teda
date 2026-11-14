@@ -9,7 +9,7 @@ pin_names hide
 # below the plates, and the two lower pins (2 and 4) tied to that bar.
 # Pin labels are hidden like the other generic passive views: the drawing carries the electrode /
 # ground split, and both electrodes are interchangeable.
-# Pin connection points and pin tails sit on the 0.5 mm placement lattice (ADR-0057).
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074); the tails follow it where that is convenient.
 field Reference at=[0,3.5] U
 field Value at=[0,-6] crystal-4
 

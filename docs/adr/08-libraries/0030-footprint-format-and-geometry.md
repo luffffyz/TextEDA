@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-20
 Scope: Decides: that footprint geometry and 3D models do not enter the language, and that a self-built footprint library uses our own format with the KiCad format as an export artifact. Does not decide: the symbol format — see ADR-0031.
-Related: [ADR-0028](../07-devices/0028-package-code-and-3d-models.md), [ADR-0031](0031-symbol-format.md), [ADR-0032](0032-the-reference-project-is-self-built.md), [ADR-0034](0034-trust-in-a-library-you-do-not-own.md), [ADR-0049](0049-assets-are-filed-by-what-they-are.md), [ADR-0057](0057-symbol-pins-sit-on-a-half-millimetre-lattice.md), [ADR-0058](0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md), [ADR-0065](../01-language/0065-a-coordinate-tuple-is-one-cell.md).
+Related: [ADR-0028](../07-devices/0028-package-code-and-3d-models.md), [ADR-0031](0031-symbol-format.md), [ADR-0032](0032-the-reference-project-is-self-built.md), [ADR-0034](0034-trust-in-a-library-you-do-not-own.md), [ADR-0049](0049-assets-are-filed-by-what-they-are.md), [ADR-0057](0057-symbol-pins-sit-on-a-half-millimetre-lattice.md), [ADR-0058](0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md), [ADR-0065](../01-language/0065-a-coordinate-tuple-is-one-cell.md), [ADR-0074](../09-view/0074-the-lattice-binds-what-must-reach-each-other.md).
 Impact: `spec/footprint.md`; `packages/exporter/**`; `packages/parser` (the `footprint` description type); `docs/guides/footprint-authoring.md`
 
 ## Background

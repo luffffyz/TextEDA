@@ -22,7 +22,7 @@ the geometry so the render is right, and how to prove it did not break anything 
 
 The normative rules are not repeated here: [`spec/symbol.md`](../../spec/symbol.md) is the format,
 [`spec/footprint.md`](../../spec/footprint.md) the land pattern, and
-[ADR-0057](../adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) /
+[ADR-0074](../adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) /
 [ADR-0058](../adr/08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md)
 the lattice and the pin pitch.
 
@@ -233,11 +233,12 @@ expectations do move.
   and directories (`AGENTS.md` §9).
 - `dist/ir/` shards are derived and gitignored. Changing symbol geometry changes the project
   hash, but no committed golden IR includes the reference project's symbols.
-- A pin's connection point **and its inner end** are multiples of `0.5 mm`, and `length` follows
-  ([ADR-0057](../adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D1). The
-  anchor is the pin on **both** axes — a row need not be symmetric about the origin. A visible
-  `rect` body's edge is where the pin tails end, so it sits on the same lattice; decorative
-  artwork keeps its shape.
+- A pin's connection point is a multiple of `0.5 mm`
+  ([ADR-0074](../adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1). The
+  anchor is the pin on **both** axes — a row need not be symmetric about the origin. The pin's
+  inner end, the visible `rect` body and the decorative artwork are drawing: they sit on the same
+  lattice where that is convenient, and nothing refuses them when it is not (ADR-0074 D2). The
+  tail must still meet the body.
 - Do not reach for a renderer change to fix one symbol. The renderer serves every symbol and
   footprint; a stroke-style rule belongs in [`spec/symbol.md`](../../spec/symbol.md) plus an ADR,
   not in a hotfix.

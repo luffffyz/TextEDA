@@ -7,7 +7,7 @@ pin_numbers hide
 pin_names hide
 # Generic non-polarized capacitor view: two plates across the pin axis, the pin stubs meeting their outer edges.
 # Shared by several components (0402 / 0603 / 1210 etc.).
-# Pin connection points, pin tails, and the body frame sit on the 0.5 mm placement lattice (ADR-0057).
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074); the tails and the body follow it where that is convenient.
 field Reference at=[0,2.5] U
 field Value at=[0,-2.5] c
 

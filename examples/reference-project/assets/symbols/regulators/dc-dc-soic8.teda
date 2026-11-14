@@ -9,7 +9,7 @@ tags buck dc-dc regulator
 # The bottom pins sit half a millimetre right of centre so the vertical name of GND clears VSENSE.
 # The side tails are 7 mm long so a net label can sit on a pin: a label is about 5.5 mm wide and is drawn inside the body
 # (spec/symbol.md), so the tail must be long enough to carry it between the connection point and the body edge.
-# Pin connection points sit on the 0.5 mm placement lattice (ADR-0057) in both coordinates; rows are 2.5 mm apart (ADR-0058).
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074) in both coordinates; rows are 2.5 mm apart (ADR-0058).
 pin_name_offset 1.25
 field Reference at=[12,11] U
 field Value at=[12,-11] dc-dc-soic8

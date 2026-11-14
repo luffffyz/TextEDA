@@ -6,7 +6,7 @@ tags ldo regulator
 # Placement rules: 1/3 on the left, 4/5 on the right, 2 on the bottom; pin connection points sit 2.5 outside the body edge.
 # Same-side pins follow natural pin-number order: left side bottom to top 1, 3; right side bottom to top 4, 5.
 # Body width is 13 mm to leave 6.5 mm clearance for pin names on each side.
-# Pin connection points sit on the 0.5 mm placement lattice (ADR-0057) in both coordinates; rows are 2.5 mm apart (ADR-0058).
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074) in both coordinates; rows are 2.5 mm apart (ADR-0058).
 pin_name_offset 1
 field Reference at=[0,9] U
 field Value at=[0,-9] ldo-sot23-5

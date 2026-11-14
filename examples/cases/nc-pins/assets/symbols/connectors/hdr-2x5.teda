@@ -5,7 +5,7 @@ symbol hdr-2x5
 # drawing is not the land pattern, and the view layer owns placement anyway).
 description Debug header 2x5, ten pins
 tags connector debug header
-# Pin connection points sit on the 0.5 mm placement lattice (ADR-0057) in both coordinates; rows are 2.5 mm apart (ADR-0058).
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074) in both coordinates; rows are 2.5 mm apart (ADR-0058).
 field Reference at=[0,7.5] J
 field Value at=[0,-7.5] hdr-2x5
 

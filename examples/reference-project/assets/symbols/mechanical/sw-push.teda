@@ -4,7 +4,7 @@ symbol sw-push
 description Tactile push switch, 4-pin generic view
 tags push switch tactile
 # Four-pin tactile switch: one pin pair on each side, contact and button stem in the middle.
-# Pin connection points, pin tails, and the body frame sit on the 0.5 mm placement lattice (ADR-0057).
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074); the tails and the body follow it where that is convenient.
 # The two pins of a side are one contact and sit 1.0 mm apart; pin numbers are hidden because at that
 # spacing their painted boxes overlap (ADR-0058).
 pin_numbers hide

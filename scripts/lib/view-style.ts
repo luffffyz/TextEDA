@@ -1,10 +1,10 @@
-// Print-page house style: every stored coordinate is anchored on the 0.5 mm drawing lattice
-// (ADR-0059 D1).
+// Print-page house style: the coordinates that must reach each other sit on the 0.5 mm drawing
+// lattice (ADR-0074 D1).
 //
 // Kept out of the gate entry points so importing the rule does not run the whole gate.
 import type { SchematicView } from "@texteda/ir/schematic-view";
 
-/** The drawing lattice every print-page coordinate is anchored on (ADR-0059 D1). */
+/** The drawing lattice the reachability coordinates are anchored on (ADR-0074 D1). */
 export const VIEW_LATTICE_NM = 500_000;
 
 /**
@@ -42,13 +42,20 @@ function offLattice(xNm: number, yNm: number): boolean {
 }
 
 /**
- * House style for one print page (ADR-0059 D1).
+ * House style for one print page (ADR-0074 D1).
  *
- * The rule covers every coordinate the page stores: a symbol's placement origin, a field anchor
- * (symbol-local), a module box corner and size, a module port, a wire bend, a junction, a label
- * position, a port position, and a note position. Wire *endpoints* are pin references rather than
- * free coordinates, so they are not checked here — the pin's own lattice is ADR-0057's business, and
- * the pin's position depends on the symbol the page places.
+ * The rule covers the coordinates that have to reach each other: a symbol's placement origin, a
+ * wire's bend points, a port's position and a junction's position. The placement origin keeps the
+ * placed symbol's pins on the lattice; a bend, a port and a junction are the places a wire turns or
+ * ends, and a wire that leaves a lattice pin has to be able to reach them.
+ *
+ * The rest of the page is **free** — a field anchor, a label, a note, a module box's own geometry
+ * (ADR-0074 D2). Those are drawing, not wiring: nothing on them has to line up with anything else,
+ * and a label may sit anywhere along the wire it names, which is not a lattice point in general.
+ * The lattice stays their convention, not their rule: anchor them on it where it is convenient.
+ *
+ * Wire *endpoints* are not free coordinates — they are pin references, a port or a junction, and
+ * each of those is checked here or by the symbol's own lattice (ADR-0057 D1).
  */
 export function viewHouseStyleProblems(
   name: string,
@@ -59,25 +66,12 @@ export function viewHouseStyleProblems(
 
   const report = (what: string, xNm: number, yNm: number): void => {
     problems.push(
-      `${name}: ${what} at (${xNm / 1e6}, ${yNm / 1e6}) mm is off the ${lattice} mm lattice (ADR-0059)`,
+      `${name}: ${what} at (${xNm / 1e6}, ${yNm / 1e6}) mm is off the ${lattice} mm lattice (ADR-0074)`,
     );
   };
 
   for (const place of view.place ?? []) {
     if (offLattice(place.x_nm, place.y_nm)) report(`placement of ${place.instance_id}`, place.x_nm, place.y_nm);
-  }
-  for (const field of view.field ?? []) {
-    if (offLattice(field.x_nm, field.y_nm)) {
-      report(`field ${field.instance_id}.${field.name}`, field.x_nm, field.y_nm);
-    }
-  }
-
-  for (const module of view.module ?? []) {
-    if (offLattice(module.x_nm, module.y_nm)) report(`module ${module.instance_id} corner`, module.x_nm, module.y_nm);
-    if (offLattice(module.width_nm, module.height_nm)) report(`module ${module.instance_id} size`, module.width_nm, module.height_nm);
-  }
-  for (const modulePort of view.module_port ?? []) {
-    if (offLattice(modulePort.x_nm, modulePort.y_nm)) report(`module port ${modulePort.id}`, modulePort.x_nm, modulePort.y_nm);
   }
   for (const wire of view.wire ?? []) {
     for (const point of wire.points ?? []) {
@@ -86,17 +80,11 @@ export function viewHouseStyleProblems(
       }
     }
   }
-  for (const label of view.label ?? []) {
-    if (offLattice(label.x_nm, label.y_nm)) report(`label of net ${label.net}`, label.x_nm, label.y_nm);
-  }
-  for (const junction of view.junction ?? []) {
-    if (offLattice(junction.x_nm, junction.y_nm)) report(`junction ${junction.id}`, junction.x_nm, junction.y_nm);
-  }
   for (const port of view.port ?? []) {
     if (offLattice(port.x_nm, port.y_nm)) report(`port ${port.id}`, port.x_nm, port.y_nm);
   }
-  for (const note of view.text ?? []) {
-    if (offLattice(note.x_nm, note.y_nm)) report("note", note.x_nm, note.y_nm);
+  for (const junction of view.junction ?? []) {
+    if (offLattice(junction.x_nm, junction.y_nm)) report(`junction ${junction.id}`, junction.x_nm, junction.y_nm);
   }
   return problems;
 }

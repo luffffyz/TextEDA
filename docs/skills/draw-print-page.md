@@ -63,15 +63,19 @@ The conventional project overview is `views/main.view.teda`; it may show module 
 declared interconnects without a `place` section. A topology-only overview is valid and is distinct
 from the component-placement workflow below.
 
-**Every coordinate the page stores is anchored on the `0.5 mm` lattice**, in both axes: a `place`
-origin, a `field` anchor (symbol-local), a `wire` bend, a `label` position, a `port` position, a
-`text` position ([ADR-0059](../adr/09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md)
-D1). Free placement is not admitted today (same record, D5). The reason is constructive: a wire
-leaves a **pin**, whose connection point is a lattice point, and turns at a **bend**; when both
-sides are on the lattice, an axis-aligned run between them always exists. The file's `0.01 mm`
-**resolution** is a different question — it is what the format can express, and it stays finer than
-the lattice so a historical file or a hand nudge remains expressible
-([spec/schematic-view.md](../../spec/schematic-view.md) §2.1).
+**The coordinates that have to reach each other are anchored on the `0.5 mm` lattice**, in both
+axes: a `place` origin, a `wire` bend, a `port` position, a `junction` position
+([ADR-0074](../adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1). The reason is
+constructive: a wire leaves a **pin**, whose connection point is a lattice point, and turns at a
+**bend**; when both sides are on the lattice, an axis-aligned run between them always exists.
+
+**The rest of the page is free** (same record, D2): a `field` anchor (symbol-local), a `label`
+position, a `text` position, a module box's own geometry. A label only has to sit on the wire it
+names, and the middle of a segment is not a lattice point. Anchor them on the lattice where it is
+convenient — round coordinates are easier to write and to compare — but nothing refuses one that
+misses it. The file's `0.01 mm` **resolution** is a different question — it is what the format can
+express, and it stays finer than the lattice so a historical file or a hand nudge remains
+expressible ([spec/schematic-view.md](../../spec/schematic-view.md) §2.1).
 
 ## 2. Two ways to seed a layout, one way to finish it
 
@@ -98,7 +102,7 @@ Hard limits:
   local (the reference project's `docs/datasheets/` is gitignored) and cite the source in prose if
   needed.
 - **Snap placement to the 0.5 mm layout grid.** Image coordinates are approximate; write rounded `place`
-  rows. The grid is the symbol pin lattice ([ADR-0057](../adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)):
+  rows. The grid is the symbol pin lattice ([ADR-0074](../adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1):
   a symbol whose origin is a multiple of `0.5 mm` has every pin point on a multiple of `0.5 mm` too,
   so a wire can always leave a pin and bend on the same lattice. Any OCR/vision step is an authoring
   aid outside the language; it produces text for review, not an IR input, and it adds no runtime
@@ -123,8 +127,9 @@ The initial placement can come from a reference, an agent proposal, or the human
 
 Procedure:
 
-1. **Place.** Write the `place` rows (or accept a proposed placement). The layout grid is 0.5 mm;
-   keep physical pin positions from the library rather than deriving them from this placement grid.
+1. **Place.** Write the `place` rows (or accept a proposed placement). The layout grid is 0.5 mm —
+   the placement origin is a wiring coordinate, so it is on the lattice; keep physical pin positions
+   from the library rather than deriving them from this placement grid.
    - **Default:** place, then inventory, read geometry, and route (steps 2–4); hand over a wired
      draft. The human reviews placement and wiring together.
    - **Optional:** when the human explicitly wants to settle positions first, or the rearrangement
@@ -224,7 +229,7 @@ The review app has one interaction surface: select a schematic symbol, press `m`
 explicit move transaction, or press `r` to queue a clockwise 90-degree rotation. A label or a port
 is movable too: select it and press `m` to place it by hand. Selection does not
 navigate: a single click only selects; `Enter` or a double-click opens the selected identity's source. The move
-preview uses the 0.5 mm placement grid (ADR-0057); a left-click completes only the local preview, and `Escape`
+preview uses the 0.5 mm placement grid (ADR-0074 D1); a left-click completes only the local preview, and `Escape`
 restores that move transaction without reverting unrelated pending edits. `Apply` writes the pending
 view changes and **re-anchors** affected wires — same segment count, same directions, only the corners
 the moved pin positions require. Until `Apply` the page is local state: the old wires stay with stale
@@ -244,11 +249,13 @@ bun run view:verify examples/reference-project
 Expected:
 
 ```
-view:verify ok — 3 print page(s) on the 0.5 mm lattice
+view:verify ok — 1 print page(s) and 3 module drawing(s), wiring on the 0.5 mm lattice
 ```
 
-This is the gate for the lattice rule (§1). It reports every coordinate that is off the lattice,
-naming the record and the value. Run it after editing a page, before the project check.
+This is the gate for the lattice rule (§1). It reports the wiring coordinates that are off the
+lattice — a placement origin, a wire bend, a port, a junction — naming the record and the value. The
+drawing coordinates are free and are not reported. Run it after editing a page, before the project
+check.
 
 ### 3.1 Check the project
 
@@ -421,7 +428,7 @@ the text belongs somewhere else, and expect it to stay there while its symbol mo
       accounted for, and every drawn member pin is a wire endpoint (not merely crossed by a run).
 - [ ] Fresh `texteda review --out` geometry was read after final placement; routes use its pin
       points and body/text boxes rather than guessed or stale coordinates.
-- [ ] `view:verify <project>` passes: every coordinate on the `0.5 mm` lattice (§1).
+- [ ] `view:verify <project>` passes: every wiring coordinate on the `0.5 mm` lattice (§1).
 - [ ] `texteda check <project>` has **0 errors**; page-local `view.*` findings are filtered by
       this page's view-file location, with `view.nets-not-drawn` treated as the documented
       project-level exception and no other page-local warning left unexplained.
@@ -452,10 +459,12 @@ bun run test packages/cli/test/view-roundtrip.test.ts packages/cli/test/view.tes
   "not connected". Do not use a crossing where a dot is required, either; a join is a dot.
 - Do not assume a dot appears where wires merely meet: a dot is drawn only for a declared `junction`
   row, and a fork with no junction row reads as two separate runs.
-- Do not place a coordinate off the `0.5 mm` lattice (§1). There is no free-placement escape hatch
-  today; if a position seems to need one, that is a design question, not a coordinate to invent.
+- Do not place a **wiring** coordinate off the `0.5 mm` lattice (§1): a placement origin, a wire
+  bend, a port, a junction. Those are the coordinates that have to reach each other. A label, a
+  note or a field anchor may sit anywhere — anchor it on the lattice where that is convenient, but
+  do not invent a grid to make it fit.
 - Do not read the view file's `0.01 mm` resolution as the drawing grid. They are different
-  questions, and only the lattice is a placement rule.
+  questions, and only the wiring coordinates are bound by the lattice.
 - Do not let a router choose the wiring. `texteda view rewire` re-anchors ends onto moved pins
   and reseats labels; it does not search for a path, avoid bodies or pins, and it can leave a
   bend off the lattice. It is a repair for a pure placement move, never a substitute for drawing.

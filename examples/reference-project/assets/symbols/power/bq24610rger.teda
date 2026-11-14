@@ -3,8 +3,8 @@ symbol bq24610rger
 
 description 24V synchronous buck battery charger controller
 tags battery charger
-# Pin connection points sit on the 0.5 mm placement lattice (ADR-0057), in both coordinates; same-side rows are
-# 2.5 mm apart (ADR-0058) and every tail is 2.5 mm. Rows are anchored on a lattice point rather than forced
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074), in both coordinates; same-side rows are
+# 2.5 mm apart (ADR-0058). Rows are anchored on a lattice point rather than forced
 # symmetric about the origin, so the 12-pin left side runs -13.5..14 and the 9-pin right side runs -10..10.
 pin_name_offset 1.25
 field Reference at=[-6.5,20] U

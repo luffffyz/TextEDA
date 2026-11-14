@@ -2,8 +2,8 @@
 
 Status: Accepted
 Date: 2026-11-03
-Scope: Decides: the coordinate lattice a symbol's pin connection points and pin tails must sit on, the regular pin pitch those rows use, and the review app's placement grid. Does not decide: the view file's own coordinate resolution (`0.01 mm`, [spec/schematic-view.md](../../../spec/schematic-view.md) §2.1), footprint pad geometry ([ADR-0030](0030-footprint-format-and-geometry.md)), and how a print page is laid out — the page's own coordinates are decided by [ADR-0059](../09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md).
-Related: [ADR-0030](0030-footprint-format-and-geometry.md), [ADR-0031](0031-symbol-format.md), [ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md), [ADR-0056](../09-view/0056-the-review-app-has-one-interaction-surface.md), [ADR-0058](0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md), [ADR-0059](../09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md), [ADR-0065](../01-language/0065-a-coordinate-tuple-is-one-cell.md)
+Scope: Decides: the coordinate lattice a symbol's pin connection points must sit on, the regular pin pitch those rows use, and the review app's placement grid. The pin tails and the body frame were part of this record and are not any more: they are drawing, and [ADR-0074](../09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1–D2 narrows this record to the connection point. Does not decide: the view file's own coordinate resolution (`0.01 mm`, [spec/schematic-view.md](../../../spec/schematic-view.md) §2.1), footprint pad geometry ([ADR-0030](0030-footprint-format-and-geometry.md)), and how a print page is laid out — the page's own coordinates are decided by [ADR-0059](../09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md).
+Related: [ADR-0030](0030-footprint-format-and-geometry.md), [ADR-0031](0031-symbol-format.md), [ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md), [ADR-0056](../09-view/0056-the-review-app-has-one-interaction-surface.md), [ADR-0058](0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md), [ADR-0059](../09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md), [ADR-0065](../01-language/0065-a-coordinate-tuple-is-one-cell.md), [ADR-0074](../09-view/0074-the-lattice-binds-what-must-reach-each-other.md)
 Impact: `spec/symbol.md` §4 and `spec/symbol.md` §4.1 (new) state the lattice rule, with no new diagnostic; `packages/viewer/src/placement.ts` moves the placement grid from `0.05 mm` to `0.5 mm`; every symbol in `examples/` is re-authored; the buck module drawing (`examples/reference-project/views/modules/buck-5v.module-view.teda`) is re-derived.
 
 ## Context
@@ -20,11 +20,21 @@ The existing house style (`docs/skills/library-authoring.md` §4.2) said `1.25 m
 
 ## Decision
 
-### 1. The lattice is `0.5 mm`, and it covers the pin's whole drawn length
+### 1. The lattice is `0.5 mm`, and it covers the pin's connection point
 
-A symbol's pin **connection point** and that pin's **inner end** (the point where its tail meets the body) are exact multiples of `0.5 mm` in the symbol's local frame. `length` is therefore also a multiple of `0.5 mm`, and a regular pin row is a multiple of `0.5 mm` apart.
+> **Narrowed (2026-11-14):** [ADR-0074](../09-view/0074-the-lattice-binds-what-must-reach-each-other.md)
+> D1–D2 keeps the lattice at `0.5 mm` and keeps the pin's **connection point** on it. The pin's
+> **inner end** is drawing: it is the stroke between the connection point and the body, nothing
+> routes to it, and it is free to sit where the drawing wants it. The lattice stays its convention,
+> not its rule. What the lattice binds is what has to reach each other.
 
-The inner end is part of the rule because a wire must be able to leave a pin and reach a corner; a connection point alone would leave the tail hanging at an arbitrary offset, and the tail is the only part of the pin a reader sees as a line.
+A symbol's pin **connection point** is an exact multiple of `0.5 mm` in the symbol's local frame, and
+a regular pin row is a multiple of `0.5 mm` apart.
+
+The inner end was part of this rule, on the reasoning that a wire must be able to leave a pin and
+reach a corner. But the wire leaves the connection point, not the tail; and the tail is the only part
+of the pin a reader sees as a line, which is an argument for round numbers rather than for a rule.
+`length` was therefore a multiple of `0.5 mm` as well, and is not any more.
 
 ### 2. Regular pin rows are at least `2.5 mm` apart, anchored per pin
 
@@ -32,7 +42,22 @@ The pitch and the anchoring rule live in [ADR-0058](0058-pin-rows-on-a-number-be
 
 ### 3. The body frame moves with the pins
 
-A visible `rect` body's edge is where the pin tails end, so the frame's coordinates are on the lattice too. Symbols whose body is decorative artwork rather than a frame (`c`, `l`, `d`, `led`, `sw-push`, `c-pol`, `nmos-5`) keep the *shape* of their glyph; its coordinates, like the pin rows and tails, moved onto the lattice with everything else. (`r` and `thermistor` are not in that list: their body is a `rect` whose edges are where the tails end, so they follow this section's first rule.)
+> **Superseded (2026-11-14):** [ADR-0074](../09-view/0074-the-lattice-binds-what-must-reach-each-other.md)
+> D2 — a symbol's body is drawing. Its edges and its artwork are anchored on the lattice where that
+> is convenient, and no gate rejects them when it is not.
+>
+> This section also claimed, wrongly, that the decorative glyphs' coordinates moved onto the lattice
+> with everything else. They did not: the symbols this record re-authored in the same commit keep
+> their artwork off the lattice (`l`'s humps sit at `0.625 mm`, `led`'s rays at `0.25 mm`), and the
+> spec has said since that commit that decoration keeps its shape. The claim was never true, and no
+> tool ever checked it.
+
+A visible `rect` body's edge is where the pin tails end, so the frame's coordinates were on the
+lattice too. Symbols whose body is decorative artwork rather than a frame (`c`, `l`, `d`, `led`,
+`sw-push`, `c-pol`, `nmos-5`) keep the *shape* of their glyph; this record claimed that their
+coordinates, like the pin rows and tails, moved onto the lattice with everything else — a claim the
+note above withdraws, because it was never true. (`r` and `thermistor` are not in that list: their
+body is a `rect` whose edges are where the tails end, so they followed this section's first rule.)
 
 ### 4. The review app's placement grid is `0.5 mm`
 
@@ -51,5 +76,5 @@ Physical pad centres and sizes keep the datasheet's values even when they fall o
 - A print page can be drawn entirely with axis-aligned wire segments whose ends are pin points and whose bends are lattice points; `view.wire-diagonal` becomes a signal about a real error rather than a consequence of KiCad-shaped pins.
 - Every symbol in `examples/reference-project/assets/symbols`, every symbol under `examples/cases/*/assets/symbols/`, and the case expectations (`expected/ir/**`, `expected/netlist.txt`, `expected/manifest.json`) changed together — the pin coordinates are in the IR shards.
 - The buck module drawing (`examples/reference-project/views/modules/buck-5v.module-view.teda`) was re-derived rather than nudged: with every pin moving, its `place` rows and every wire endpoint change at once. (It was a project print page at the time, `views/charger-buck/buck-5v.view.teda`; the project-root restructure of ADR-0069 turned it into a module drawing.)
-- The house style changes from "`1.25 mm` pitch, `0.05 mm` grid" to "at least `2.5 mm` pitch on a numbered symbol, `0.5 mm` lattice" (`docs/skills/library-authoring.md` §4.2, §4.3, §8), and the guides that told a reader to snap to `0.05 mm` follow. The pitch half of that sentence was superseded by [ADR-0058](0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md).
+- The house style changes from "`1.25 mm` pitch, `0.05 mm` grid" to "at least `2.5 mm` pitch on a numbered symbol, `0.5 mm` lattice" (the lattice binds the pin connection point since ADR-0074; the tails and the body follow it where it is convenient) (`docs/skills/library-authoring.md` §4.2, §4.3, §8), and the guides that told a reader to snap to `0.05 mm` follow. The pitch half of that sentence was superseded by [ADR-0058](0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md).
 - No diagnostic code is added or retired: the rule is an authoring convention, checked by the library verifier and by review, not by `check`.
