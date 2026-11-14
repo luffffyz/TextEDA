@@ -30,12 +30,12 @@ function indexRow(number: string, target: string, title: string, status: string,
 }
 
 function adrFile(number: string, title: string, status: string, date: string): string {
-  return `# ADR-${number}: ${title}\nStatus: ${status}\nDate: ${date}\n`;
+  return `# ADR-${number}: ${title}\nStatus: ${status}\nDate: ${date}\nImpact: spec/a.md\n`;
 }
 
 /** A decision record that lives in a topic folder, so it must carry a scope line. */
 function scopedAdrFile(number: string, title: string, status: string, date: string): string {
-  return `# ADR-${number}: ${title}\nStatus: ${status}\nDate: ${date}\nScope: Decides: one thing. Does not decide: the other, see the spec.\n`;
+  return `# ADR-${number}: ${title}\nStatus: ${status}\nDate: ${date}\nScope: Decides: one thing. Does not decide: the other, see the spec.\nImpact: spec/a.md\n`;
 }
 
 describe("scripts/check-links.ts", () => {
@@ -169,7 +169,7 @@ describe("scripts/check-links.ts", () => {
   test("requires a topic-foldered record to declare its scope", () => {
     const root = makeTree({
       "docs/adr/language/0100-noScope.md": adrFile("0100", "NoScope", "Accepted", "2026-10-20"),
-      "docs/adr/language/0101-halfScope.md": "# ADR-0101: Half\nStatus: Accepted\nDate: 2026-10-20\nScope: Decides: one thing.\n",
+      "docs/adr/language/0101-halfScope.md": "# ADR-0101: Half\nStatus: Accepted\nDate: 2026-10-20\nImpact: spec/a.md\nScope: Decides: one thing.\n",
       "docs/adr/README.md": `${minimalIndex}\n${indexRow("0100", "language/0100-noScope.md", "NoScope", "Accepted", "2026-10-20")}\n${indexRow("0101", "language/0101-halfScope.md", "Half", "Accepted", "2026-10-20")}\n`,
     });
     try {
@@ -183,8 +183,8 @@ describe("scripts/check-links.ts", () => {
 
   test("validates the decision-record header shape", () => {
     const root = makeTree({
-      "docs/adr/0006-noStatus.md": "# ADR-0006: No Status\nDate: 2026-10-20\n",
-      "docs/adr/0007-wrongH1.md": "# ADR-0099: Wrong Title\nStatus: Accepted\nDate: 2026-10-20\n",
+      "docs/adr/0006-noStatus.md": "# ADR-0006: No Status\nDate: 2026-10-20\nImpact: spec/a.md\n",
+      "docs/adr/0007-wrongH1.md": "# ADR-0099: Wrong Title\nStatus: Accepted\nDate: 2026-10-20\nImpact: spec/a.md\n",
       "docs/adr/README.md": minimalIndex,
     });
     try {
@@ -196,10 +196,27 @@ describe("scripts/check-links.ts", () => {
     }
   });
 
+  // The record says what it touches, so a reader can find the files without reading the body.
+  // `Related:` is optional; `Impact:` is not.
+  test("requires a record to name what it impacts", () => {
+    const root = makeTree({
+      "docs/adr/0006-noImpact.md": "# ADR-0006: No Impact\nStatus: Accepted\nDate: 2026-10-20\n",
+      "docs/adr/0007-twoImpacts.md": "# ADR-0007: Two Impacts\nStatus: Accepted\nDate: 2026-10-20\nImpact: a.md\nImpact: b.md\n",
+      "docs/adr/README.md": minimalIndex,
+    });
+    try {
+      const { problems } = checkRepo(root);
+      expect(problems.some((p) => p.includes('expected exactly one "Impact:" header line, found 0'))).toBe(true);
+      expect(problems.some((p) => p.includes('expected exactly one "Impact:" header line, found 2'))).toBe(true);
+    } finally {
+      removeTree(root);
+    }
+  });
+
   test("requires a dated appendix/addendum/amendment heading", () => {
     const root = makeTree({
-      "docs/adr/0006-amend.md": "# ADR-0006: Amend\nStatus: Accepted\nDate: 2026-10-20\n\n## Appendix\n\nline\nline\n",
-      "docs/adr/0007-amend.md": "# ADR-0007: Amend\nStatus: Accepted\nDate: 2026-10-20\n\n## Appendix (2026-10-27)\n\nline\nline\n",
+      "docs/adr/0006-amend.md": "# ADR-0006: Amend\nStatus: Accepted\nDate: 2026-10-20\nImpact: spec/a.md\n\n## Appendix\n\nline\nline\n",
+      "docs/adr/0007-amend.md": "# ADR-0007: Amend\nStatus: Accepted\nDate: 2026-10-20\nImpact: spec/a.md\n\n## Appendix (2026-10-27)\n\nline\nline\n",
       "docs/adr/README.md": `${minimalIndex}\n${indexRow("0006", "0006-amend.md", "Amend", "Accepted", "2026-10-20")}\n${indexRow("0007", "0007-amend.md", "Amend", "Accepted", "2026-10-20")}\n`,
     });
     try {
@@ -213,7 +230,7 @@ describe("scripts/check-links.ts", () => {
 
   test("requires a retired record to keep no body heading", () => {
     const root = makeTree({
-      "docs/adr/0006-retired.md": `# ADR-0006: Retired\nStatus: Accepted\nDate: 2026-10-20\n\n> **Retired 2026-10-20**\n\n## Body Heading\nbody\n`,
+      "docs/adr/0006-retired.md": `# ADR-0006: Retired\nStatus: Accepted\nDate: 2026-10-20\nImpact: spec/a.md\n\n> **Retired 2026-10-20**\n\n## Body Heading\nbody\n`,
       "docs/adr/README.md": `${minimalIndex}\n${indexRow("0006", "0006-retired.md", "Retired", "Accepted", "2026-10-20")}\n`,
     });
     try {
@@ -226,9 +243,9 @@ describe("scripts/check-links.ts", () => {
 
   test("requires a retired record to name its supersession", () => {
     const root = makeTree({
-      "docs/adr/0006-retired2.md": `# ADR-0006: Retired2\nStatus: Accepted (superseded by ADR-0007)\nDate: 2026-10-20\n\n> **Retired 2026-10-20**\n`,
+      "docs/adr/0006-retired2.md": `# ADR-0006: Retired2\nStatus: Accepted (superseded by ADR-0007)\nDate: 2026-10-20\nImpact: spec/a.md\n\n> **Retired 2026-10-20**\n`,
       "docs/adr/0007-super.md": adrFile("0007", "Super", "Accepted", "2026-10-20"),
-      "docs/adr/0008-retired3.md": `# ADR-0008: Retired3\nStatus: Accepted\nDate: 2026-10-20\n\n> **Retired 2026-10-20**\n`,
+      "docs/adr/0008-retired3.md": `# ADR-0008: Retired3\nStatus: Accepted\nDate: 2026-10-20\nImpact: spec/a.md\n\n> **Retired 2026-10-20**\n`,
       "docs/adr/README.md": `${minimalIndex}\n${indexRow("0006", "0006-retired2.md", "Retired2", "Accepted", "2026-10-20")}\n${indexRow("0007", "0007-super.md", "Super", "Accepted", "2026-10-20")}\n${indexRow("0008", "0008-retired3.md", "Retired3", "Accepted", "2026-10-20")}\n`,
     });
     try {
@@ -242,7 +259,7 @@ describe("scripts/check-links.ts", () => {
 
   test("requires a retired record to name a record that exists", () => {
     const root = makeTree({
-      "docs/adr/0006-retired4.md": `# ADR-0006: Retired4\nStatus: Accepted (superseded by ADR-0097)\nDate: 2026-10-20\n\n> **Retired 2026-10-20**\n`,
+      "docs/adr/0006-retired4.md": `# ADR-0006: Retired4\nStatus: Accepted (superseded by ADR-0097)\nDate: 2026-10-20\nImpact: spec/a.md\n\n> **Retired 2026-10-20**\n`,
       "docs/adr/README.md": `${minimalIndex}\n${indexRow("0006", "0006-retired4.md", "Retired4", "Accepted", "2026-10-20")}\n`,
     });
     try {
@@ -293,7 +310,7 @@ describe("scripts/check-links.ts", () => {
 
   test("warns on an appendix block above 40% of a record", () => {
     const root = makeTree({
-      "docs/adr/0006-large-amend.md": `# ADR-0006: Large\nStatus: Accepted\nDate: 2026-10-20\n\n## Appendix (2026-10-27)\n\nline\nline\nline\nline\nline\nline\n`,
+      "docs/adr/0006-large-amend.md": `# ADR-0006: Large\nStatus: Accepted\nDate: 2026-10-20\nImpact: spec/a.md\n\n## Appendix (2026-10-27)\n\nline\nline\nline\nline\nline\nline\n`,
       "docs/adr/README.md": `${minimalIndex}\n${indexRow("0006", "0006-large-amend.md", "Large", "Accepted", "2026-10-20")}\n`,
     });
     try {
@@ -479,7 +496,7 @@ describe("scripts/check-links.ts", () => {
   test("does not confuse a prototype property with a listed entry", () => {
     const root = makeTree({
       "constructor/prose.md": "[missing](missing.md)\n",
-      "docs/adr/0006-proto.md": `# ADR-0006: Proto\nStatus: toString\nDate: 2026-10-20\n`,
+      "docs/adr/0006-proto.md": `# ADR-0006: Proto\nStatus: toString\nDate: 2026-10-20\nImpact: spec/a.md\n`,
       "docs/adr/README.md": `${minimalIndex}\n${indexRow("0006", "0006-proto.md", "Proto", "toString", "2026-10-20")}\n`,
     });
     try {

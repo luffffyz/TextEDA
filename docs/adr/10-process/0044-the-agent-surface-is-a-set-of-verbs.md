@@ -40,10 +40,15 @@ Where a host has a tool registry, the verb is registered there — same meaning,
 the tool and the command call **the same function**. The adapter translates arguments and renders
 the result; it does not re-implement the verb.
 
-That is why the verbs have to return values instead of printing them. Today `runBom`,
-`runCompile`, `runViewMetrics` and `runIr` print their result and return an exit code, so there
-is nothing for an adapter to hand back. The split is `build*(options) → value`, with the printer
-left in the script. `check` already has that shape (`checkProject`, `analyzeProject`).
+That is why the verbs have to return values instead of printing them. The verbs that were in the
+catalogue printed their result and returned an exit code, so there was nothing for an adapter to
+hand back. The split is `build*(options) → value`, with the printer left in the verb's own module
+— `runBom`, `runIr` and `runViewMetrics` print what `buildBom`, `buildIr` and `buildViewMetrics`
+return — and the command-line script only calls it. `check` already had that shape
+(`checkProject`, `analyzeProject`, and `buildCheck` beside them).
+
+`compile` is the one verb with no `build*` counterpart: it is not in the catalogue, so no adapter
+needs its value, and it still prints and returns an exit code.
 
 The test that keeps the two faces honest: a tool's result equals the same verb's `--json` output,
 field for field.
@@ -73,8 +78,9 @@ files can be separated from a verb that only reads. The last two rows are the co
 ### D5. MCP is a transport, not a second implementation
 
 MCP is how a host accepts a tool from outside its own registry. Of the six hosts surveyed in
-`docs/tool-formats.md` — Claude Code, Codex, WorkBuddy, Qoder, DSH and pi — **three take tools
-only through MCP** (Codex, WorkBuddy, Qoder); DSH and pi have a registry of their own, and pi is
+`docs/tool-formats.md` — Claude Code, Codex, WorkBuddy, Qoder, DSH and pi — **three have no native
+registry of their own** (Codex, WorkBuddy, Qoder; Qoder's native `tool()` lives inside its SDK);
+DSH and pi have a registry of their own, and pi is
 our own harness; and Claude Code has both an MCP server and a registry of its own, through its
 mods API. MCP is therefore not a legacy compatibility layer for traditional applications; it is
 the ordinary route for most of the ecosystem.
@@ -90,8 +96,8 @@ MCP server for our own harness, or let MCP become a place where behaviour is def
 
 ### D6. The print page's verbs live under one noun
 
-The verbs that act on project print pages (S1) are `texteda view metrics`, `texteda view rewire` and
-`texteda view render`. They are grouped because the print-page description type the language names
+The verbs that act on project print pages (S1) are `texteda view metrics`, `texteda view rewire`,
+`texteda view render` and `texteda view png`. They are grouped because the print-page description type the language names
 `view` (`views/<page_id>.view.teda`, `spec/schematic-view.md`), and because a verb should read the
 same as the tool that mirrors it: `texteda view metrics` and `texteda_view_metrics` are one name in
 two spellings the model already knows. Each command takes a project directory and page ID; the page
@@ -130,12 +136,17 @@ Eight: `texteda_check`, `texteda_view_metrics`, `texteda_view_render`, `texteda_
 The line is drawn by what an agent does over and over: validate the project, measure the page,
 look at the drawing, put the wiring back, read the IR, read the connectivity, read the BOM, write
 the manufacturing files. The verbs that are not in it are the ones a person runs once — `init`,
-`id`, `renumber`, `compile`, `review`, `lib import` — and `compile` in particular is absent because
-`ir` hands back the same IR with the hashes attached.
+`id`, `renumber`, `compile`, `review`, `lib import`, and `view png` (a person asks for a picture
+once; the model reads the drawing through `view render`) — and `compile` in particular is absent
+because `ir` hands back the same IR with the hashes attached.
 
 Each entry carries the annotations a host wants before it runs a tool: whether the tool only
 reads, whether it writes over something a person made, and whether running it twice changes
-anything. They are hints, not policy — the host decides what to ask about.
+anything. They are hints, not policy — the host decides what to ask about. Two of the three are
+filled today: `readOnlyHint` and `idempotentHint` are set on the entries they apply to, while
+`destructiveHint` is declared in the catalogue's shape but not yet set on any entry — so a host
+cannot yet tell from the annotations that `view render`, `view rewire`, `ir` and
+`export gerbers` overwrite a person's files.
 
 The catalogue is the whole of the tool surface. A verb that is not in it is not exposed as a tool,
 and the catalogue is printed by `texteda tools --json` so that a host we never wrote an adapter for
@@ -149,7 +160,7 @@ The survey narrows the field to three, and all three are built:
 |---|---|---|
 | The MCP server | `packages/cli/src/mcp.ts`, the verb `texteda mcp` | one stdio process for the four hosts that speak MCP — the three that take tools only through it, and Claude Code, which has both routes ([ADR-0045](0045-the-mcp-server-is-a-slice-we-write-ourselves.md), [ADR-0046](0046-a-host-is-entered-once.md) D2) |
 | The pi extension | `plugins/pi-texteda/` | a TypeScript extension pi loads directly — no build, no new dependency |
-| The DSH bundle | `plugins/dsh-texteda/` | a cordis plugin whose host half registers the tools; the bundle carries this repository's code, because these packages are not published |
+| The DSH bundle | `plugins/dsh-texteda/` | a cordis plugin with two halves: the host half registers the tools and serves the picture's two routes, the client half mounts the review app in a sidebar tab; the bundle carries this repository's code, because these packages are not published |
 
 The projection lives with the catalogue, not in the adapters: `packages/cli/src/tools.ts` holds
 the verbs, `packages/cli/src/pi-tools.ts` and `packages/cli/src/dsh-tools.ts` hold the two

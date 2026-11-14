@@ -4,14 +4,14 @@ Status: Accepted
 Date: 2026-10-22
 Scope: Decides: that requirements, blocks and analyses stay outside the language, and how a simulation is bound to a source hash. Does not decide: the module mechanism — see ADR-0013.
 Related: [ADR-0013](../04-schematic/0013-modules-compose-boards.md), [ADR-0037](../09-view/0037-review-records-and-attribution.md), [ADR-0041](0041-documentation-has-one-authority-per-fact.md)
-Impact: `spec/teda.md` §11; `docs/guides/design-flow.md`
+Impact: `docs/guides/design-flow.md`; `AGENTS.md` §12; `docs/backlog.md` (F74)
 
 ## Background
 
-`AGENTS.md` §4.1 lists three "flow-related entities" as proposals: `Requirement`, `Block` and
-`Analysis`. `AGENTS.md` §1.2's flow puts them before the schematic — requirements, architecture, interfaces,
-selection, analysis, then the schematic. `AGENTS.md` §12 already states a rule the language cannot
-keep:
+At the time of this decision, `AGENTS.md` §4.1 listed three "flow-related entities" as proposals:
+`Requirement`, `Block` and `Analysis`. `AGENTS.md` §1.2's flow puts them before the schematic —
+requirements, architecture, interfaces, selection, analysis, then the schematic. `AGENTS.md` §12
+states a rule the language cannot keep:
 "a simulation conclusion must not be written only as a comment or prose; as `Analysis` evidence it
 binds a `source_hash` and the assumptions, otherwise it counts as unverified."
 
@@ -79,6 +79,10 @@ The body carries the prose: the assumptions, the conclusion, the artifact path. 
 carries only what a tool can judge. This keeps `AGENTS.md` §12's rule satisfiable — the assumptions sit next
 to the hash they were made under — without giving the language a text field.
 
+**This header is decided but not built.** It exists only in this record: no guide defines it, no
+parser reads it, and no report carries it yet. The work is filed in `docs/backlog.md` (F74) with
+the two halves it needs — a small parser for the header, and the project hash to compare it with.
+
 ### D4. The checker reports a stale analysis
 
 When the design's hash no longer matches the one the analysis recorded, the conclusion is not
@@ -88,6 +92,10 @@ design is not wrong, the evidence is old.
 The check is "does the hash still match", never "is the conclusion true". A tool cannot judge a
 simulation, and an attributed statement is not a proof ([ADR-0037](../09-view/0037-review-records-and-attribution.md)
 decision 1).
+
+**This check is decided but not built.** Nothing in the tree reads an analysis document, and there
+is no diagnostic code for it. `AGENTS.md` §11 question 12 records the decision; the implementation
+is filed in `docs/backlog.md` (F74).
 
 ### D5. Traceability stops at the net and lives in the documents
 

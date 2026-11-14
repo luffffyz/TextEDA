@@ -406,7 +406,7 @@ dist/ir/
 - **不知道符号叫什么，先查索引再读源码。** `docs/api-reference/packages/<pkg>.md` 是生成的导出清单（每条带 `文件#L行号`）：不知道某个包对外有哪些名字、某个导出的签名是什么、它在哪个文件第几行时，读这一页比在 `packages/*/src/` 里猜文件名、或先猜名字再 `grep` 便宜。**已经知道名字和位置就不用查它**——直接读源码或跑 `xd://lsp`。索引只给位置与签名，**语义、错误行为与规则以规范与源码为准**；它随 `bun run gen` 重生成，不手改。
 - **要动手做一件事，先查技能索引。** `docs/skills/README.md` 列出操作流程与各自的触发条件：建工程读 `new-project.md`，写 `assets/**` 读 `library-authoring.md`，看符号渲染与改几何读 `preview-symbols.md`，画 `views/**` 读 `draw-print-page.md`，修已有的打印页读 `repair-print-page.md`，加诊断码读 `add-diagnostic-code.md`，验证评审 app 行为读 `verify-review-app.md`，派工与验收读 `delegate-work.md`。**规范说"什么是真的"，技能说"怎么做"**——技能给命令、预期输出与出错该看哪个诊断码，**不重述规范**；两者冲突时以规范为准。改技能时：命令要实跑过、预期输出要照抄真实输出，**过期数字比没有数字更糟**（它会让 agent 以为跑歪了）；**参考坐标不要写进技能**——写"怎么现场取几何"，因为页面一改坐标就过期。
 - **改完 schema 必须重生成**：`bun run gen`（产物在 `packages/ir/src/generated/`、`docs/error-codes.md`、`docs/ir-reference.md`、`docs/api-reference/`，均不手改），CI 用 `bun run gen:check` 挡住漂移；`bun run test` + `bun run typecheck` 必过。
-- **`ir` / `parser` / `exporter` / `renderer` 禁止 `Bun.*` 与 `process.env`**（`core` 同样适用）：这些包要能跑在 Node 扩展宿主与浏览器里；文件系统只允许出现在 CLI / 导出层（[ADR-0038](docs/adr/10-process/0038-implementation-stack-and-agent-entry.md) decision 1）。
+- **库的界面不许碰运行时**：`core` / `ir` / `parser` / `exporter` / `renderer` / `geom` / `viewer` 的 **`src/**`** 里不许出现 `Bun.*` 与 `process.env`，也不许碰文件系统——这些包要能跑在 Node 扩展宿主与浏览器里。两个例外是明写的：`packages/exporter/src/footprint.ts` 用 `node:crypto`（同步 SHA-256），`packages/viewer/src/build.ts` 用 `Bun.build` 在服务端打包评审 app（它不进浏览器包，浏览器的入口是 `packages/viewer/src/client.ts`）。**构建期脚本不在此列**：`packages/*/scripts/**` 本来就要读写文件（`fmt:teda` / `compile:symbol` / `generate.ts`），CLI 层也可以碰盘。规则见 [ADR-0038](docs/adr/10-process/0038-implementation-stack-and-agent-entry.md) decision 1，**目前还没有门禁**（F75）。
 
 ---
 

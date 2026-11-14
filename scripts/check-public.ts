@@ -16,7 +16,7 @@
  *   2. no credential-shaped string is tracked (API keys, private keys, tokens);
  *   3. no absolute path from a maintainer's machine is tracked (/home/<user>, /Users/<user>, C:\Users);
  *   4. no email address is tracked;
- *   5. every tracked package.json carries "license" and "private";
+ *   5. every tracked package.json carries "license": "Apache-2.0" and "private": true;
  *   6. the NOTICE file reproduces the license text of every third-party component vendored into the tree.
  *
  * Exit code 1 if there is any error.
@@ -108,11 +108,18 @@ for (const { path, text } of files) {
 
 // ---------------------------------------------------------------- 5. package.json license fields
 
-const packageFiles = files.filter((f) => /^packages\/[^/]+\/package\.json$/.test(f.path) || f.path === "package.json");
+// Every package.json in the repository, present or future: the root, the workspace packages, and
+// the plugin bundles. A package that is not under `packages/` is still a package, so the filter is
+// the file's name, not its directory (ADR-0039 decision 1).
+const packageFiles = files.filter(
+  (f) => !f.path.includes("node_modules/") && /(^|\/)package\.json$/.test(f.path),
+);
 if (packageFiles.length === 0) fail("no package.json found -- is this the right directory?");
 for (const { path, text } of packageFiles) {
   const parsed = JSON.parse(text) as { license?: string; private?: boolean };
-  if (!parsed.license) fail(`${path}: no "license" field`);
+  if (parsed.license !== "Apache-2.0") {
+    fail(`${path}: "license" must be "Apache-2.0" (the whole repository is one license), found ${JSON.stringify(parsed.license)}`);
+  }
   if (parsed.private !== true) fail(`${path}: no "private": true (the packages are not published to npm)`);
 }
 

@@ -245,6 +245,13 @@ function adrHeader(
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) fail(problems, where, `the date must be YYYY-MM-DD, found "${date}"`);
 
+    // The record says what it touches, so a reader can find the files without reading the body.
+    // `Related:` is optional; `Impact:` is not.
+    const impactLines = lines.filter((line) => /^Impact:/.test(line));
+    if (impactLines.length !== 1) {
+      fail(problems, where, `expected exactly one "Impact:" header line, found ${impactLines.length}`);
+    }
+
     out.set(number, { title: h1 ? h1[2].trim() : "", status, date });
   }
   return out;

@@ -1300,3 +1300,107 @@ names.
 
 **Note**: this is a drawing-legibility question, not a connectivity one. Nothing here changes the
 IR, the symbol facts, or the export.
+
+---
+
+## F74. The stale-analysis check (ADR-0040's landing)
+
+**Status**: Proposed (2026-11-14). The decision is settled; the implementation is not.
+
+**Current state**: a simulation report is not part of the design. It *points at* a design version:
+the header carries `source_hash`, `tool` and `corner`, the body carries the prose
+([ADR-0040](adr/10-process/0040-process-entities-outside-the-language.md) D3). When the design's
+hash no longer matches the one the analysis recorded, the conclusion is no longer verified against
+the current version — and the checker is supposed to say so, as a **warning**: the design is not
+wrong, the evidence is old (D4).
+
+None of that is built. There is no parser for the header, no diagnostic code, and no rule in
+`packages/core` that reads an analysis document. The header format exists only in ADR-0040's
+prose; `AGENTS.md` §11 question 12 records the decision as settled, which reads as a claim of
+implementation it is not.
+
+**Why it is not urgent**: nothing in the repository produces an analysis report yet, so there is
+nothing that can be stale. The cost of the check is a small parser (three header lines) plus the
+project hash, which the tree builder already computes.
+
+**To do**:
+
+1. Say where an analysis report lives — a directory beside the project, or a path the design
+   names. ADR-0040 leaves this open.
+2. Parse the header: three `key: value` lines at the top of a Markdown file. A missing header, an
+   unparsable one and a missing `source_hash` are each a diagnostic, not a crash.
+3. Compute the design's hash — the project hash, since the project's one logical root is what an
+   analysis verifies (ADR-0006, ADR-0069 D1) — and compare it with the recorded one.
+4. Emit a **warning** when they differ, naming the analysis file and the current hash. No error:
+   the design is not wrong, the evidence is old.
+5. Emit nothing when they match. The check is "does the hash still match", never "is the conclusion
+   true".
+
+**Involved files**: `packages/core/src/**` (the check),
+`packages/ir/src/diagnostics/codes.ts` (a new code — codes are frozen once emitted, so this is a
+new code and not a change to one), `packages/cli/src/check.ts` (wiring it into `texteda check`),
+`docs/guides/design-flow.md` (the header format and where reports live),
+`docs/adr/10-process/0040-process-entities-outside-the-language.md`.
+
+**Acceptance**:
+
+- A project with an analysis report whose hash no longer matches produces exactly one warning that
+  names the report and the current hash, and the check still exits 0.
+- A project with an analysis report whose hash matches produces no diagnostic.
+- A report without a parsable header produces a diagnostic that says which line is wrong, not a
+  crash.
+- `bun run test` and `bun run typecheck` pass.
+
+**Note**: the language stays out of this. The analysis is a document with a header, not a
+description type — the whole point of ADR-0040 is that prose does not enter the contract layer.
+
+---
+
+## F75. The package-layer boundary has no gate
+
+**Status**: Proposed (2026-11-14). The rule is written down; nothing checks it.
+
+**Current state**: the library surface — the `src/**` tree of `core`, `ir`, `parser`, `exporter`,
+`renderer`, `geom` and `viewer` — must not use `Bun.*`, must not use `process.env`, and must not
+touch the filesystem
+([ADR-0038](adr/10-process/0038-implementation-stack-and-agent-entry.md) D1). That is what makes
+those packages runnable in a Node extension host and in a browser.
+
+Today the rule holds because it is written down and reviewed, not because anything verifies it.
+There is no test and no CI step that looks for `Bun.` or `process.env` in the library surface.
+
+Two exceptions are deliberate and narrow: `packages/exporter/src/footprint.ts` uses `node:crypto`
+for a synchronous SHA-256, and `packages/viewer/src/build.ts` uses `Bun.build` to bundle the review
+app at serving time (it is not part of the browser bundle — the browser's entry point is
+`packages/viewer/src/client.ts`).
+
+**Why it matters**: the packages are the reference implementation, and a third party implementing
+the spec from this repository will copy the shape of what it finds here. A `Bun.*` call that leaks
+into the library surface makes the package unusable in the editor host it claims to support, and
+nothing would notice until somebody tried.
+
+**To do**:
+
+1. Write the check as a script (`scripts/check-packages.ts`) and wire it into CI next to
+   `check:links` and `check:public`.
+2. The rule: no `Bun.` and no `process.env` in `packages/*/src/**`, except the two named
+   exceptions; and no `node:fs`, `node:path` or `node:os` in the library surface at all.
+3. The exception list lives in the script, as named paths, so the check reads as the rule rather
+   than as a list of failures.
+4. Fail with the file and the line, in the style of the other gates.
+
+**Involved files**: `scripts/check-packages.ts` (new), `package.json` (the script),
+`.github/workflows/ci.yml`, `AGENTS.md` §12,
+`docs/adr/10-process/0038-implementation-stack-and-agent-entry.md` (D1).
+
+**Acceptance**:
+
+- The script exits 0 on the current tree, and exits 1 with a file and a line when a `Bun.` call is
+  added under `packages/*/src/**`.
+- CI runs it.
+- The ADR's D1 and the script name the same exceptions, and the script fails when an exception is
+  widened in one place and not the other — that is, the exception list has one home and the ADR
+  points at it.
+
+**Note**: this is a gate, not a refactor. Nothing has to move for it to pass; the only change it
+forces later is that a new exception is an explicit, reviewable line.

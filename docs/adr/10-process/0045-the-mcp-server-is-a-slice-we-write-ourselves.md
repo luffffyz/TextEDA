@@ -9,7 +9,8 @@ Impact: `packages/cli/src/mcp.ts`; `packages/cli/scripts/texteda.ts`; `packages/
 ## Background
 
 Four of the six hosts surveyed in `docs/tool-formats.md` — Claude Code, Codex, WorkBuddy and Qoder —
-speak MCP (ADR-0044 D5; [ADR-0046](0046-a-host-is-entered-once.md) D2). So the MCP server is not a
+are served over MCP (ADR-0044 D5; [ADR-0046](0046-a-host-is-entered-once.md) D2); a fifth, pi,
+speaks MCP too but is our own harness and gets its own native adapter. So the MCP server is not a
 compatibility layer for traditional applications; it is the ordinary route into the ecosystem, and
 it is the adapter that has to exist first.
 
@@ -81,7 +82,7 @@ faces call the same function (ADR-0044 D2).
 
 ## Consequences
 
-- The four hosts that speak MCP can be served by one command: `texteda mcp`.
+- The four hosts we serve over MCP can be served by one command: `texteda mcp`.
 - The protocol's edges are ours: a change in the specification is a change in `mcp.ts`, and the
   test is the specification's own examples.
 - The SDK stays available as an option: if the slice grows past what this file can hold, taking

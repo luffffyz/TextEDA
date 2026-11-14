@@ -4,6 +4,7 @@ Status: Accepted
 Date: 2026-10-21
 Scope: Decides: how the IR is split into shards, how an identity is keyed, and how the hashes are computed and aggregated. Does not decide: the representation of the IR itself — see ADR-0005; nor the instance identity — see ADR-0010.
 Related: [ADR-0002](../01-language/0002-one-language-version-number.md), [ADR-0004](../01-language/0004-source-spans.md), [ADR-0005](0005-ir-representation.md), [ADR-0008](../03-project/0008-project-tree-has-owners.md), [ADR-0012](../04-schematic/0012-one-flat-schematic-per-board.md), [ADR-0023](../06-manufacturing/0023-the-output-package-carries-its-provenance.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md)
+Impact: `schemas/ir/<version>/**`; `packages/ir/src/**`; `packages/cli/src/ir-tree.ts`; `packages/cli/src/hash.ts`; `project.toml`
 
 ## Background
 

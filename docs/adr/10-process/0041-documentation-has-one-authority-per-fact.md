@@ -25,11 +25,16 @@ The third is **positional drift**. This reference was cited from seven places:
 teda.md §7.7
 ```
 
-`spec/teda.md` has never had a 7.7 — the flattening rule it means is in `spec/teda.md` §7.6. The pointer was already
-wrong when it was written and stayed wrong because nothing resolved it. Four more of the same kind
-existed in live documents: a section number meaning "the seventh invariant" in a chapter with no
-subsections, a rule number written as a section number, and three in the shape above where the rule
-was in `AGENTS.md` all along.
+`spec/teda.md` had no 7.7 when this was written — the flattening rule it means was in `spec/teda.md` §7.6.
+The pointer was already wrong when it was written and stayed wrong because nothing resolved
+it. Four more of the same kind existed in live documents: a section number meaning "the seventh
+invariant" in a chapter with no subsections, a rule number written as a section number, and three in
+the shape above where the rule was in `AGENTS.md` all along.
+
+The section numbers have moved on since: flattening is now `spec/teda.md` §7.7, and `spec/teda.md` §7.6
+is `interconnect_pins`. The broken pointer now happens to name the right section — it was wrong when
+it was written and right by accident. That is the point of the gate: a number that shifts under a
+reader is the failure mode this record exists to stop.
 
 The corpus is not unusually sloppy; it is unusually **large** — hundreds of Markdown files, thousands
 of links, hundreds of qualified section references and bare ones, and hundreds of backlog-item
@@ -48,7 +53,7 @@ Two properties made this fixable rather than merely regrettable:
 **D1. One authority per fact; everything else holds a pointer.**
 
 A fact lives in exactly one file. The current contract version lives in `spec/teda.md` §12.1 and in
-`schemas/ir/v0.14/`; the `project.toml` keys live in `spec/project.md`; the KiCad size measurements
+the directory name under `schemas/ir/`; the `project.toml` keys live in `spec/project.md`; the KiCad size measurements
 live in `docs/comparison.md`; a package's behavior lives in its source. Anywhere else, the fact is
 either omitted or written as a pointer to the file that owns it.
 

@@ -154,8 +154,9 @@ deny per tool.
 
 ## What this means for the catalogue
 
-**The pivot format is JSON Schema.** Four of the six hosts take an MCP `inputSchema` unchanged, and
-Claude Code's own registry takes a plain JSON Schema unchanged as well; DSH's flat spec is a
+**The pivot format is JSON Schema.** Five of the six hosts take plain JSON Schema unchanged —
+four of them through an MCP `inputSchema` (Codex CLI, WorkBuddy, Qoder and Claude Code's MCP
+server), plus Claude Code's own mods registry. DSH's flat spec is a
 flattening of the same object; omp normalises to draft-2020-12 anyway and can import a JSON Schema
 directly; and Claude Code's own `workflows/*.js` use plain JSON Schema for structured calls. So
 the catalogue is authored as **name + description + JSON Schema**, and each adapter is a projection

@@ -33,8 +33,10 @@ picture in a way of its own; that is not two routes into one half.
 
 ### D2. The verbs go over MCP wherever the host speaks it
 
-The census, corrected: of the six hosts, **three take a tool only through MCP** (Codex,
-WorkBuddy, Qoder); **DSH has a registry of its own**; **pi has one too** and speaks MCP as well,
+The census, corrected: of the six hosts, **three have no native tool registry of their own**
+(Codex, WorkBuddy, Qoder — Qoder's own `tool()` exists only inside its SDK, so an agent that runs
+in a plain Qoder session has MCP as its route); **DSH has a registry of its own**; **pi has one
+too** and speaks MCP as well,
 but it is our own harness, so the native route is ours to own ([ADR-0044](0044-the-agent-surface-is-a-set-of-verbs.md)
 D5); and **Claude Code has both** — an MCP server declared in a plugin, and a mods registry.
 

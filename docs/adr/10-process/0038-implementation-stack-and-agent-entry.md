@@ -2,9 +2,9 @@
 
 Status: Accepted
 Date: 2026-10-21
-Scope: Decides: the implementation stack, and the single entry point an agent uses — the generated contract reference and `texteda check`. Does not decide: what the checker enforces — see `spec/teda.md` §11.
+Scope: Decides: the implementation stack, and the single entry point an agent uses — the generated contract reference and `texteda check`. Does not decide: what the checker enforces — see `spec/teda.md` §10.
 Related: [ADR-0003](../01-language/0003-diagnostic-error-codes.md), [ADR-0039](0039-licensing-and-open-standard.md), [ADR-0041](0041-documentation-has-one-authority-per-fact.md), [ADR-0045](0045-the-mcp-server-is-a-slice-we-write-ourselves.md)
-Impact: `package.json`; `tsconfig.base.json`; `packages/ir/scripts/**`; `packages/ir/src/generated/**`; `docs/ir-reference.md`
+Impact: `package.json`; `tsconfig.base.json`; `packages/ir/scripts/**`; `packages/ir/src/generated/**`; `scripts/api-reference.ts`; `docs/ir-reference.md`; `docs/api-reference/**`
 
 ## Background
 
@@ -39,13 +39,30 @@ do I fix it** (diagnostics have codes, but there is no single entry point that a
 
 Hard rules:
 
-- `packages/core`, `packages/ir`, `packages/parser`, `packages/exporter` and `packages/renderer`
-  **must not** use `Bun.*`, **must not** use Node built-ins other than `node:fs` / `node:path`
-  (and those only in the CLI / export layer), and **must not** use `process.env`.
+- The **library surface** — the `src/**` tree of `packages/core`, `packages/ir`, `packages/parser`,
+  `packages/exporter`, `packages/renderer`, `packages/geom` and `packages/viewer` — **must not** use
+  `Bun.*`, **must not** use `process.env`, and **must not** touch the filesystem. The CLI package
+  (`packages/cli`) is the exception: it is the layer that reads a project and writes files, and the
+  exporter produces the content the CLI writes.
+- **Build-time scripts are not the library surface.** A package's `scripts/**` directory holds
+  tools that run on a developer's machine and read and write files by design:
+  `packages/ir/scripts/generate.ts` (the type generator, which reads `process.env.IR_VERSION`),
+  `packages/parser/scripts/fmt-teda.ts`, `packages/parser/scripts/compile-symbol.ts`,
+  `packages/parser/scripts/compile-footprint.ts` and `packages/exporter/scripts/export-footprint.ts`.
+  The rule above applies to what a **consumer imports**, not to what a maintainer runs.
+- Two deliberate exceptions inside the library surface, both narrow:
+  `packages/exporter/src/footprint.ts` uses `node:crypto` for a synchronous SHA-256 (`crypto.subtle`
+  is asynchronous, and the exporter's API is synchronous), and
+  `packages/viewer/src/build.ts` uses `Bun.build` plus `node:url` to bundle the review app at
+  serving time — it is a build helper on the Bun side, not part of the browser bundle (the
+  browser's entry point is `packages/viewer/src/client.ts`).
 - All packages are ESM, `exports` points at ESM, and the browser can bundle them (no top-level
   side effects).
 - Byte-level determinism does not depend on the runtime: the same input produces the same
   canonical JSON (and the same hash) on every runtime.
+
+**This boundary has no gate yet.** Nothing in the tree checks the rule, so it holds by review
+alone; the check that would hold it is filed in `docs/backlog.md` (F75).
 
 ### D2. There is only one contract chain: JSON Schema → TS types; no zod
 
@@ -55,7 +72,11 @@ Hard rules:
 - TS types are generated from the schema (`json-schema-to-typescript`), and the output goes to
   `packages/ir/src/generated/`; CI checks that "regenerating produces no diff".
 - **No zod.** The "zod and JSON Schema drift into two divergent definitions" worry disappears at
-  the root, and the price is one more build step for type generation.
+  the root, and the price is one more build step for type generation. The rule is about the
+  **contract layer**: no zod schema describes the IR. The one place zod appears is the pi plugin
+  (`plugins/pi-texteda/index.ts`), which projects the catalogue's JSON Schema onto the host's
+  injected `pi.zod` builder because that is the parameter dialect pi accepts — a projection of the
+  catalogue, never a second definition of it.
 
 The mechanism difference between the two, written for later readers:
 
@@ -78,14 +99,22 @@ of the existing structure.
 | Form | Ownership | Rationale |
 |---|---|---|
 | **SVG** (sch / pcb) | S1 / B1 authoritative derivative | text, diffable, hashable, displayable by any host |
-| PNG / PDF | generated only at export time | converted from SVG (resvg / host capability), not committed to the repository |
-| glTF (3D assembly) | B1 derivative | interactive viewing, triangulated from STEP |
-| STEP | borrowed (component library / export) | we do not build our own geometry kernel |
+| PNG | generated only at export time | rasterised and encoded by this repository (`packages/renderer/src/raster.ts` and `packages/renderer/src/png.ts`), not converted from SVG by an external tool; not committed to the repository |
+| PDF | not built | no export path exists; the PNG route is the raster one, and a PDF would come from the same drawing |
+| glTF (3D assembly) | B1 derivative, **not built** | interactive viewing, triangulated from STEP |
+| STEP | borrowed (component library / export), **not built** | we do not build our own geometry kernel |
 
 All renderers obey `extract(render(ir)) == ir`; SVG output must be deterministic (same IR, same
 bytes), otherwise "frozen artifact + hash" does not hold.
 
-### D4. 3D: two paths, split by use case
+The only landed 3D surface today is the footprint's `model3d` path field: a description may point
+at a `.stp` / `.wrl` file, the parser records it, and no exporter reads it yet.
+
+### D4. 3D: two paths, split by use case — decided, not built
+
+**Nothing in this decision is implemented.** There is no glTF, no three.js and no STEP code in the
+tree; the routing below is the rule to follow *if* a 3D view is built, and the measurements are the
+2026-10-21 ones that motivated it.
 
 | Use case | Means | Measured result |
 |---|---|---|
@@ -119,7 +148,10 @@ the IR**.
 
 `docs/ir-reference.md` is generated by `bun run gen` from `schemas/ir/`, one line per field: type,
 whether it is required, **unit**, description. The generator and the error-code document are two
-outputs of the same script.
+outputs of the same script (`packages/ir/scripts/generate.ts`, which also writes the generated
+types and the inlined schema). The root `bun run gen` runs a second script after it,
+`scripts/api-reference.ts`, which writes `docs/api-reference/**` — the export index of each
+package, so an agent can look up a symbol's name and signature without reading the source.
 
 - The schema is the single source of truth; the document is a derivative (the same principle as
   the canonical JSON).
@@ -148,13 +180,28 @@ generator could not use it. It is now promoted to `packages/ir/src/units.ts`:
 - The parser and the generator share one copy (instead of each writing their own);
 - `packages/ir` still has zero runtime dependencies (this table is pure data).
 
-### D7. `texteda check` is the only check entry point
+### D7. `texteda check` is the only check verb
+
+`check` is the one command that runs the whole gate over a project. The command line's surface is
+the CLI's own usage block (`packages/cli/scripts/texteda.ts`), which is the single authority for
+which verbs exist and which flags they take; the catalogue of the verbs an agent calls in a loop
+is a separate, narrower list ([ADR-0044](0044-the-agent-surface-is-a-set-of-verbs.md) D9).
 
 ```text
 texteda init <dir> [--force] [--name <project name>]
-texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb]
+texteda id <project dir> [--count N] [--json]
+texteda renumber <project dir> <board_id> [--policy preserve|compact|position] [--mapping <file>] [--apply] [--dry-run] [--json]
+texteda compile <project dir> <board_id> [--json] [--out <file>] [--pcb] [--procurement]
 texteda check <project dir> [--json]
-texteda netlist <project dir> [--board <board_id>] [--json] [--out <file>]
+texteda netlist <project dir> [--json] [--out <file>]
+texteda ir <project dir> [--out <dir>] [--json]
+texteda bom <project dir> <board_id> [--json] [--out <file>]
+texteda view metrics|rewire|render|png <project dir> <page_id> [...]
+texteda review <project dir> [--port <n>] [--out <file>]
+texteda export gerbers <project dir> <board_id> [--out <dir>] [--json]
+texteda tools --json
+texteda mcp
+texteda lib import <name> --from <dir> --rev <rev> [...]
 ```
 
 `check` covers **all** boards in the project, parsing each board → semantic-layer ERC →
@@ -163,7 +210,7 @@ contract-layer schema validation.
 - Diagnostics use the unified payload (code / severity / location / data); `--json` goes to
   stdout, the human-readable form goes to stderr.
 - Exit code: 1 if there is an error, 0 if there are only warnings (warnings do not block the
-  gate).
+  gate). Usage errors exit 2.
 - A device file that cannot be read, and a device file whose header id does not match the file
   name, both count as errors.
 
@@ -174,13 +221,28 @@ same tree. So `check` applies parse and contract validation to every description
 serialises: devices, symbols, footprints, and the print page.
 
 `compile` and `check` share the same project-reading layer, so layout knowledge lives in exactly
-one place.
+one place. `compile` is not a second check verb: it validates the one description it writes, and
+exits 1 when that description breaks the contract — it does not run the project's ERC.
+
+The project has one logical root, so the connectivity commands take no board id: `netlist` writes
+the project's one netlist ([ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md)
+D1). `bom` and `export gerbers` still name a board, because a physical board is what has a BOM and
+a fabrication output.
 
 ### D8. The file system is confined to the CLI layer
 
-A compile script that used to live in the parser package moved to `packages/cli`: it is a user
-command, not library code. Only the CLI / export layer may touch disk; leaving a command script in
-a library package blurs the "library packages do not touch fs" boundary.
+The rule that holds: **the library surface does not touch the filesystem.** The CLI package and
+the export layer may; `packages/core`, `packages/ir`, `packages/parser`, `packages/renderer`,
+`packages/geom` and `packages/viewer` may not. A compile script that used to live in the parser
+package moved to `packages/cli`: it is a user command, not library code.
+
+Build-time scripts are the other half of the rule. A package's `scripts/**` directory holds tools
+that read and write files by design — `packages/parser/scripts/fmt-teda.ts`,
+`packages/parser/scripts/compile-symbol.ts`, `packages/parser/scripts/compile-footprint.ts`,
+`packages/ir/scripts/generate.ts` — and the root `package.json` wires them as user commands
+(`fmt:teda`, `compile:symbol`, `compile:footprint`). What a **consumer imports** is the library
+surface; what a **maintainer runs** is the script. Both are legitimate; mixing them in one file is
+what blurs the boundary.
 
 ### D9. Diagnostics carry a stage: parse / contract / semantic
 
@@ -201,6 +263,11 @@ first, registry as fallback".
 
 Every row of the generated error-code document therefore has a "how to fix" column, and an agent
 that gets a code can act directly without hitting the error once first.
+
+**How many of those cells are filled is a separate fact.** The column exists on every row, but the
+registry does not carry a hint for every code: 54 of the 200 rows print `—`. A code without a hint
+tells the agent what went wrong and not how to undo it, so the promise above holds for the codes
+whose hint is written and not for the rest.
 
 ## What We Do Not Do
 
@@ -225,4 +292,5 @@ that gets a code can act directly without hitting the error once first.
 - **`texteda check` is the one gate.** An agent does not have to know which command validates what.
 - **Warnings do not block.** The exit code distinguishes "wrong" from "incomplete", so an agent
   can act on the first and note the second.
-- **The 3D path is licence-clean by construction.** The default carries no CAD kernel at runtime.
+- **The 3D path is licence-clean by construction — if it is ever built.** The default carries no
+  CAD kernel at runtime. Nothing of it exists yet (D4).

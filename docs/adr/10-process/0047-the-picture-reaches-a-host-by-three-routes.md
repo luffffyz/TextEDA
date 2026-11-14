@@ -46,7 +46,9 @@ Postman, MCPJam, Archestra.AI.** **Claude Code is not among them.**
 project surveyed. And DSH — our own picture half's first host
 ([ADR-0043](../09-view/0043-the-review-app-is-a-plugin-of-the-agent-workbench.md) D9) — has no MCP
 Apps support in its source at all: `ui://`, `resourceUri` and `modelcontextprotocol/ui` occur
-**zero** times across its packages.
+**zero** times across its packages. That check was made against the DSH package's own source
+(the version this repository builds against), which is **not vendored here** — so the fact is
+dated and external, not something a reader can re-run from this repository.
 
 So the route exists, it is the only one that scales without per-host code, and today it reaches
 none of the hosts we actually write for.
@@ -86,7 +88,7 @@ both true and the third is false:
 
 | Host | Drawing surface | Renders MCP Apps | Picture route |
 |---|---|---|---|
-| DSH | yes — slots in the `web` and `desktop` profiles | no — zero occurrences in its source | **host-native plugin** (built; see below) |
+| DSH | yes — slots in the `web` and `desktop` profiles | no — zero occurrences in its source | **host-native plugin** (built — `plugins/dsh-texteda/`) |
 | Claude Code | yes — a mod's `Pane`, `AbovePrompt`, and `Client` / `Svg` regions | no — absent from the client-support list | **host-native plugin**, when the picture half reaches it |
 | Codex CLI | none found | no | browser |
 | WorkBuddy | none found | no | browser |
@@ -125,8 +127,9 @@ host-native column.
 
 - Writing a picture half is now a decision with a test: does this host have a drawing surface, and
   does it render MCP Apps? If the second is yes, the answer is the server, not the host.
-- F53's DSH plugin stays worth building, and its justification is sharper: DSH is the one host in
-  the census that has the drawing surface *and* provably no MCP Apps support.
+- F53's DSH plugin has landed (`plugins/dsh-texteda/`), and its justification was sharper than a
+  wish: DSH is the one host in the census that has the drawing surface *and* provably no MCP Apps
+  support.
 - Claude Code's picture half is justified on the same test, and its cost is known:
   [ADR-0046](0046-a-host-is-entered-once.md) D3 already recorded that its client file is a
   different shape.

@@ -113,7 +113,8 @@ declared range it does not satisfy. The host half needs Node ≥ 22.19.
 
 ### What we built for DSH
 
-`plugins/dsh-texteda/` is the host half: a cordis plugin that registers the catalogue's eight
+`plugins/dsh-texteda/` holds both halves. The **host half** is a cordis plugin that registers the
+catalogue's eight
 verbs as tools, with the catalogue's JSON Schema projected onto DSH's flat parameter spec. Each
 tool returns one canonical JSON value, and `output.render` is what the model reads
 ([ADR-0044](adr/10-process/0044-the-agent-surface-is-a-set-of-verbs.md) D2).
@@ -123,8 +124,10 @@ bun run scripts/build-dsh-plugin.ts     # one file, with our packages inside it
 ```
 
 The bundle carries our packages because they are not published (F5); the host's own packages
-stay external, because the host provides them. The client half — the drawing surface — is the
-review app's business ([ADR-0043](adr/09-view/0043-the-review-app-is-a-plugin-of-the-agent-workbench.md)).
+stay external, because the host provides them. The **client half** — the drawing surface — is the
+review app's business ([ADR-0043](adr/09-view/0043-the-review-app-is-a-plugin-of-the-agent-workbench.md)):
+it mounts the same `mountReview` the standalone app mounts, in a `sidebar.right.pane.tab` whose
+project root is the session's `cwd`.
 
 ## pi (oh-my-pi / OMP)
 
