@@ -49,9 +49,9 @@ complete logical source of the project. `design/pcb/` remains the physical tree.
 
 - `texteda init` creates `design/sch/modules/` and writes its README next-step text against that
   path.
-- `texteda migrate:0.14` keeps reading a legacy `design/modules/` tree as its input (that is what it
-  migrates), and moves that tree to `design/sch/modules/` in its output. After migration no
-  `design/modules/` directory remains.
+- `bun run migrate:0.14 <project dir>` keeps reading a legacy `design/modules/` tree as its input
+  (that is what it migrates), and moves that tree to `design/sch/modules/` in its output. After
+  migration no `design/modules/` directory remains.
 - The migration is deterministic: a plain directory move, no file rewrite beyond the source
   references already handled by the migration.
 

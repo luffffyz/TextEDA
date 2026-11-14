@@ -7,6 +7,7 @@ The project as a container: the ownership model of its tree, the project-wide lo
 ## Not here
 
 - The IR shard layout — [ADR-0006](../02-ir/0006-ir-shards-and-hashes.md).
+
 ## Reading order
 
 1. [0008](0008-project-tree-has-owners.md) — the tree says who owns what.

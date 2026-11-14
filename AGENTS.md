@@ -128,7 +128,7 @@
 | 事实 | 住在哪 |
 |---|---|
 | `Project` / `Board` / `Variant` 语义；项目逻辑根与物理 PCB 平级、可各自缺席 | `spec/teda.md` §7；`spec/project.md` §1；[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) |
-| 跨板连接（根的 `interconnects` / `interconnect_pins`、项目级 ports） | `spec/teda.md` §7.5、§8；[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1、D3 |
+| 跨板连接（根的 `interconnects` / `interconnect_pins`、项目级 ports） | `spec/teda.md` §7.4–§7.6；[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1、D3 |
 | 变体只影响 BOM 与制造，不改连通性、不影响 ERC | `spec/teda.md` §11；[ADR-0015](docs/adr/04-schematic/0015-flattening-and-the-net-set.md) |
 | 采购层（选料、BOM、备料不进哈希） | `spec/procurement.md`；[ADR-0029](docs/adr/07-devices/0029-the-procurement-layer.md) |
 | `fab` 描述（形态已定，实现为零） | [ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md) |

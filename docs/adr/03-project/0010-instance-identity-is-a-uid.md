@@ -9,7 +9,7 @@ Impact: `spec/teda.md` §7.1; `packages/parser/src/schematic.ts`; `packages/cli/
 ## Context
 
 Today the flattened instance name is the identity key: `R1`, `M1.R1`
-([ADR-0006](../02-ir/0006-ir-shards-and-hashes.md) decision 3). It is printed in net members
+([ADR-0006](../02-ir/0006-ir-shards-and-hashes.md) decision 6). It is printed in net members
 (`R1.2`), view placements, pcb placements, BOM output and review records. Renaming a refdes is
 therefore a global identity change, and the only way to keep the old thing recognizable is to
 match names outside the IR.
@@ -107,7 +107,7 @@ refdes edit is hash-neutral.
 
 Uniqueness is not probabilistic policy. Every entry point checks:
 
-1. **Generation** (`texteda id`): the command scans the project's board and module sources,
+1. **Generation** (`texteda id`): the command scans the project's root schematic and module sources,
    draws a candidate, and retries when it is already taken. It only prints UIDs; assigning a UID
    to a row is still an authoring action.
 2. **Parsing**: a duplicate source UID in one namespace is an error.

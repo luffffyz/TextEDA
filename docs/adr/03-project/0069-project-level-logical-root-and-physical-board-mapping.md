@@ -18,7 +18,11 @@ The physical distinction remains real: a net in the product-level logical model 
 
 ### D1. One project-level logical root
 
-`design/sch/main.teda` is the only logical root. It composes module descriptions from `design/modules/`; module definitions remain project-local and may be instantiated more than once. All component instances and electrical facts belong to modules. The root owns module-instance identities, project-wide net membership, project ports, constraints, and interconnects. There are no board-local schematic files, root-level component instances, or `system` descriptions.
+`design/sch/main.teda` is the only logical root. It composes module descriptions from
+`design/sch/modules/`; module definitions remain project-local and may be instantiated more than
+once. All component instances and electrical facts belong to modules. The root owns module-instance
+identities, project-wide net membership, project ports, constraints, and interconnects. There are no
+board-local schematic files, root-level component instances, or `system` descriptions.
 
 A module instance ID is globally unique within the project. Its flattened instance and internal-net names remain `<module_instance_id>.<local_id>`. A flattened project net merges module ports listed in the root's `nets` segment. Equal local net names in separate module instances never merge by themselves.
 

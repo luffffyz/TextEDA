@@ -55,9 +55,10 @@ my-board-project/
 │   ├── simulation/
 │   └── cache/                   # gitignored datasheets
 ├── design/                     # normative project logic and physical implementations
-│   ├── sch/main.teda           # sole logical root
-│   ├── pcb/<pcb_id>.teda
-│   └── modules/
+│   ├── sch/                    # the complete logical source: the root and the modules
+│   │   ├── main.teda           # sole logical root
+│   │   └── modules/            # reusable module definitions
+│   └── pcb/<pcb_id>.teda
 ├── views/<page_id>.view.teda   # project-level advisory drawings
 ├── docs/
 └── dist/
@@ -172,21 +173,10 @@ The print pages keep their own project-level root:
 Amends [ADR-0006](../02-ir/0006-ir-shards-and-hashes.md) decision 2. Shards are laid out **by kind**, and the
 mapping back to the source file is carried by the `source.file` field that every shard already
 has ([ADR-0006](../02-ir/0006-ir-shards-and-hashes.md) decision 1). The current `v0.19` layout
-uses the single project root and physical PCB identities defined in [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md) D1 and D5:
-
-```text
-dist/ir/
-├── manifest.json
-├── project/schematic.json
-├── boards/<pcb_id>/pcb.json
-├── views/<page_id>.json
-├── symbols/<lib>/<symbol_id>.json
-├── footprints/<lib>/<footprint_id>.json
-├── components/<component_id>.json
-├── boards/<pcb_id>/procurement.json
-├── boards/<pcb_id>/procurement-alternatives.json
-└── project.json
-```
+uses the single project root and physical PCB identities defined in
+[ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md) D1 and D5 — **the tree
+itself is ADR-0006 D3's, and is not copied here**: it grows with the kinds of description, and a
+second copy of it in a record is a copy that goes stale.
 
 The source tree is reorganised for readers; the shard layout is an interface for tools, and
 tools should not have to be rewritten when a directory is renamed. `source.file` is the
@@ -196,7 +186,7 @@ authoritative mapping, so nothing is lost by not mirroring.
 
 `texteda init <dir>` creates `project.toml` and the directories: `assets/{symbols,footprints,
 components}`, `assets/procurement/{primary,alternatives}`, `external/simulation`,
-`design/{sch,pcb,modules}`, `views/`, `docs/`. `external/cache/` is not created — it is a
+`design/sch`, `design/sch/modules`, `design/pcb`, `views/`, `docs/`. `external/cache/` is not created — it is a
 local cache and gitignored. The project logical root is `design/sch/main.teda`; physical PCB
 descriptions are `design/pcb/<pcb_id>.teda`, and project-level advisory pages are
 `views/<page_id>.view.teda` ([ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md)).
@@ -210,7 +200,8 @@ decision. A change needs its own record.
 **No migration script is written.** The project has no external users yet, so no file exists that
 would need migrating. A tree or language change therefore changes the files directly, and the
 record says what changed and how (in `spec/teda.md` §12.4). The scripts written before this point
-(`bun run migrate:0.7`) stay as they are; no new ones are written.
+(`bun run migrate:0.7`) stay as they are; later records wrote their own, for the changes they
+decided (`migrate:0.9`, `migrate:0.11`, `migrate:0.14`).
 
 The rule about not renaming on the author's behalf still stands — and it is now the whole rule: a
 tool never invents a name, an id or a fact.

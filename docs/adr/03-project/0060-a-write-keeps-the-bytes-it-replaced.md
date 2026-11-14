@@ -26,8 +26,8 @@ that were: once the write lands, the old bytes exist only if something kept them
 ### D1. A write keeps what it replaced
 
 Before a source file is written, the bytes it is about to replace are kept under `dist/backups/`,
-mirroring the file's own path below that root. `views/charger-buck/buck-5v.view.teda` is kept as
-`dist/backups/views/charger-buck/buck-5v.view.teda`.
+mirroring the file's own path below that root. `views/main.view.teda` is kept as
+`dist/backups/views/main.view.teda`.
 
 The backup holds the state before *this* write, so after a second write the backup is the first
 write's result: one step back is always available, and stepping back twice means writing the older

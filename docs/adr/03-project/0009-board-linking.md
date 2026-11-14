@@ -2,7 +2,7 @@
 
 Status: Accepted
 Date: 2026-10-20
-Scope: Decides: that boards are linked in a separate `system` description, and that a schematic never references another board. Does not decide: what a port is — see `spec/teda.md` §8.
+Scope: Decides: that boards are linked in a separate `system` description, and that a schematic never references another board. Does not decide: what a port is — see `spec/teda.md` §7.4.
 Related: [ADR-0008](0008-project-tree-has-owners.md), [ADR-0014](../04-schematic/0014-connectivity-has-one-authority.md), [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md)
 > **Current linking contract (2026-11-09):** the decisions below that split project logic per board are superseded by [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md). A project now has one logical root, `design/sch/main.teda`, which owns project ports and declares cross-board connection in its `interconnects` and optional `interconnect_pins` sections; there are no board-local schematic roots, no `system` descriptions, and no `design/system/` files (ADR-0069 D1, D3, D6). The version history in Decision 5 is kept as the record of its day; current versioning and migration are in ADR-0069 D6.
 
@@ -79,5 +79,7 @@ Decisions 1–3 are superseded as current contract by [ADR-0069](0069-project-le
 
 - One `port` exposing several `net`s (grouping all the signals of one physical connector into one interface group).
 - Endpoints outside the boards (adapter, battery, load): this record's `system` model was to grow a third member kind (`external`); how to declare external endpoints remains open and is not decided by [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md) (see its Scope).
-- How wire harnesses and connector pairs (the "declared in pairs" note in `AGENTS.md` §4.1) relate to the net merging of this ADR.
+- How wire harnesses and connector pairs (the "declared in pairs" rule that the interconnects of
+  [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md) D3 replaced) relate to the
+  net merging of this ADR.
 - Intra-board `module` hierarchy: orthogonal to this ADR, still to be discussed along the table boundaries of `AGENTS.md` §5.3.

@@ -584,7 +584,7 @@
 2. ~~**`libref` 描述类型**~~ **已撤销**（2026-10-24，[ADR-0034](adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md)）：锚点是"钉住一棵只读的树"，而我们真正要的只是"这些器件现在是我们的"。取而代之是 `texteda lib import`：拷贝 + 限定符重写 + 来源头注释 + `provenance generated`，副本可编辑，没有哈希盯着它。`spec/libref.md`、`libref` schema、parser、`lib add` 全部删除；`external/libs/` 下有库形状的树报 `ref.library-in-tree`。
 3. ~~**库 vendoring**~~ **已撤销**（同上）：编译期永不联网这一条保留（不变量 20），但"vendored 树 + 内容哈希"这一层没有了——副本是自有资产，`assets/**` 之外没有第二个器件来源。`--from <url>` 不做（门禁不联网）。
 4. **IR shard layout and source-tree decoupling**: normative project logic is `project/schematic.json`, physical PCB data is `boards/<pcb_id>/pcb.json` (with board-owned procurement shards), and advisory pages are `views/<page_id>.json`; there is no `systems/` shard. Each shard carries `source.file`; the current paths are fixed by kind rather than mirroring the source tree.
-5. **`texteda init`** 建新骨架：`assets/{symbols,footprints,components}`、`assets/procurement/{primary,alternatives}`、`external/simulation`、`design/{sch,pcb,modules}`、`views/`、`docs/`；逻辑根是 `design/sch/main.teda`，不创建 `design/system/`。
+5. **`texteda init`** 建新骨架：`assets/{symbols,footprints,components}`、`assets/procurement/{primary,alternatives}`、`external/simulation`、`design/sch`（含 `design/sch/modules`）、`design/pcb`、`views/`、`docs/`；逻辑根是 `design/sch/main.teda`，不创建 `design/system/`。
 6. **迁移脚本**：不做——本项目尚无外部使用者，没有需要迁移的旧文件；[ADR-0006](adr/02-ir/0006-ir-shards-and-hashes.md) D9 的目录变更直接改文件，改法写进 `spec/teda.md` §12.4，不替人命名、不替人决定库版本。
 7. **`external/cache/` 纪律**：厂商数据手册 PDF 放这里，gitignore；`check:public` 要能发现误提交的 PDF（今天查的是历史与工作区，新增这条要确认覆盖到新路径）。
 

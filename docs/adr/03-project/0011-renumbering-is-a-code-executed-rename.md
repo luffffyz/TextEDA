@@ -8,13 +8,14 @@ Impact: `packages/cli/src/renumber.ts`; `docs/guides/renumbering.md`
 
 ## Context
 
-Adding a component by editing `design/sch/<board>.teda` inserts the next free reference designator.
+Adding a component by editing its module definition (`design/sch/modules/<module_id>.teda`) inserts
+the next free reference designator.
 The canonical formatter sorts rows by natural order, but sorting is not renumbering: `R1, R2, R5`
 stays a gap. A user may want a compact set (`R1..R3`) or an order that follows the drawing or the
 functional blocks.
 
 In the current implementation the flattened instance name (`R1`, `M1.R1`) is the identity
-([ADR-0006](../02-ir/0006-ir-shards-and-hashes.md) decision 3; `AGENTS.md` §2 invariant 5). Renaming a
+([ADR-0006](../02-ir/0006-ir-shards-and-hashes.md) decision 6; `AGENTS.md` §2 invariant 5). Renaming a
 refdes is therefore a global rename: it changes the IR identity, the project hash, the view's
 `place`/`wire` references, the PCB's placement references, BOM output, and any variant that names an
 instance. It is not a display format and cannot be treated as one.
