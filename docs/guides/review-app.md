@@ -273,7 +273,8 @@ stroke then paints 1.5 mm, which reads as a slug over small parts.
 On a library symbol the app offers a pen: `b` arms it, a drag draws, `Escape` puts it away, and
 `Ctrl+Z` drops the last stroke. The ink is grey and 0.25 mm wide — the drawing's own weight — and it
 sits on top of the sheet, never in it. While the pen is armed the cursor is a nib rather than the
-hand that pans, and the line follows the pointer as it is drawn.
+hand that pans — a grey body with a paler tip, inside a dark outline, so it shows on the white
+sheet and on the dark stage alike — and the line follows the pointer as it is drawn.
 
 **A sketch is a message, not a change.** The strokes never reach the source, the IR or a hash. A
 symbol's shard is normative, so drawing on a symbol cannot change the project

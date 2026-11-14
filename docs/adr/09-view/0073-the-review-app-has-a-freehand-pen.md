@@ -121,6 +121,13 @@ into other people's pages ([ADR-0043](0043-the-review-app-is-a-plugin-of-the-age
 D2) and a file would not load there; a browser that will not take an SVG cursor falls back to a
 crosshair.
 
+The nib is drawn in two tones, and neither tone is white. The sheet the nib points at is white,
+and a white halo around a dark nib disappears into it — the pointer reads as a smudge, or as
+nothing at all. So the nib is a grey body with a paler tip, inside a dark outline: on the white
+sheet the outline carries it, and on the dark stage around the sheet the body and the tip carry
+it. One picture, both grounds, and the tip of the nib is the hotspot, so the stroke starts under
+the pointer.
+
 The line follows the pointer as it is drawn. A reviewer who cannot see the stroke they are making
 is drawing blind, and would only find out what they drew when the button comes up.
 
