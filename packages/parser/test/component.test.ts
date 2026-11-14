@@ -255,6 +255,19 @@ describe("a part's own ratings (ADR-0026)", () => {
     expect(result.component!.ratings[1]).toMatchObject({ name: "power", type: "power", value: 62_500 });
   });
 
+  test("a ratings row with terminals is refused, not silently truncated (ADR-0026 D4)", () => {
+    // The terminal pair is decided but not implemented yet. A row that carries one must not lose
+    // it quietly: a dropped fact is worse than an error.
+    const result = parseComponent(
+      device(PART_SCALARS, ["ratings", "  voltage  voltage  36V  1 2"], PINS),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "syntax.column-count");
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.message).toContain("3 columns");
+  });
+
   test("a generic states no ratings: a class has no ratings of its own", () => {
     const result = parseComponent(device(GENERIC_SCALARS, VALUE_PARAM, RATINGS, PINS), { file: "x.teda" });
     expect(result.ok).toBe(false);

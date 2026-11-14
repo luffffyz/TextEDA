@@ -27,7 +27,7 @@ when semantics change, emit a new code and mark the old one `[DEPRECATED → new
 | `syntax.net-invalid` | error | [DEPRECATED] Invalid system net row: the name, the members or the number of members is wrong | This code belonged to the removed `system` description; project-level interconnects use root module-port endpoints | spec/teda.md §12.4 |
 | `syntax.port-ref-invalid` | error | [DEPRECATED] Not a valid system port reference | This code belonged to the removed `system` description; use project-root module-port endpoints | spec/teda.md §12.4 |
 | `syntax.selection-invalid` | error | A procurement selection row is malformed | A row reads <generic_id> <parameter_value…> -> <part_id> | spec/procurement.md §3 |
-| `syntax.column-count` | error | This row has more columns than the row type allows | — | spec/pcb.md §4 |
+| `syntax.column-count` | error | This row has more columns than the row type allows | — | spec/pcb.md §4, spec/teda.md §6.4 |
 
 ## `value`
 

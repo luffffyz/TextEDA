@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-23
 Scope: Decides: the two kinds of device description, where the devices live, and what makes two devices the same device. Does not decide: which part to buy for a generic — see ADR-0029; nor the parameter roles — see ADR-0025.
 Related: [ADR-0005](../02-ir/0005-ir-representation.md), [ADR-0007](../02-ir/0007-device-description-enters-the-ir.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0026](0026-a-part-states-its-own-ratings.md), [ADR-0034](../08-libraries/0034-trust-in-a-library-you-do-not-own.md), [ADR-0049](../08-libraries/0049-assets-are-filed-by-what-they-are.md).
-Impact: `spec/teda.md` §2, §6, §7.1, §13; `spec/procurement.md`; `schemas/ir/**`; `packages/parser` (the `component` description type); `packages/cli` (the project layout, `texteda init`); `packages/ir` (the diagnostic code registry)
+Impact: `spec/teda.md` §2, §6, §7.1, §12; `spec/procurement.md`; `schemas/ir/**`; `packages/parser` (the `component` description type); `packages/cli` (the project layout, `texteda init`); `packages/ir` (the diagnostic code registry)
 
 ## Background
 
@@ -199,7 +199,13 @@ script is written. The change is made directly:
    declarations are untouched.
 2. The former generics directory moves into `assets/components/**`, into the subdirectory that
    matches the category.
-3. The `component` version moves with the rename, which is breaking, so it rides the PATCH digit.
+3. The rename **changes the accepted file set** — a file that says `kind family` stops being valid.
+   It rode the **PATCH digit of the `component` type's own version line** (`0.1.2` → `0.1.3`),
+   because that was the rule while each description type still had its own line: the type lines
+   advanced in PATCH steps only, breaking or not. The version history is in `spec/teda.md` §12.4;
+   the rule that replaced it — inside the unified `0.x` line a breaking change rides MINOR, with a
+   migration note and a script — is [ADR-0002](../01-language/0002-one-language-version-number.md)
+   D5, and it was decided after this rename.
 
 `value.component-family-fact-invalid` becomes `value.component-generic-fact-invalid`, and the
 kind-mismatch code is retired with the check it belongs to. Neither code has been published, so

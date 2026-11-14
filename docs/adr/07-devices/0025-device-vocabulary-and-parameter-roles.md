@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-23
 Scope: Decides: that the device vocabulary is closed and checked, and that a parameter is a role plus a quantity with a dimension. Does not decide: the ratings a part may state — see ADR-0026.
 Related: [ADR-0007](../02-ir/0007-device-description-enters-the-ir.md), [ADR-0024](0024-the-device-kind-is-part-or-generic.md), [ADR-0026](0026-a-part-states-its-own-ratings.md), [ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md), [ADR-0029](0029-the-procurement-layer.md)
-Impact: `spec/teda.md` §6.2.1, §6.2.2; `packages/core/src/device/**`
+Impact: `spec/teda.md` §6.2.1, §6.2.2; `packages/core/src/devices/**`
 
 ## Background
 
@@ -78,14 +78,17 @@ magnetic limit usually comes first. So the role must distinguish them, and the r
 `spec/teda.md` §6.2 states what each one means **including its criterion** (the datasheet
 convention: saturation current at 30 % inductance loss; rated current continuous RMS).
 
-The criterion is **not** put in the type vocabulary, because a `kind: part` may not declare
-`params` at all ([ADR-0024](0024-the-device-kind-is-part-or-generic.md) decision 1):
-a part's ratings are not in the IR, so the IR holds requirements only. The procurement check
+The criterion is **not** put in the type vocabulary: the type vocabulary is a pure table of units
+([ADR-0006](../02-ir/0006-ir-shards-and-hashes.md)), and a criterion belongs with the role it
+qualifies — in the role glossary of `spec/teda.md` §6.2.1. A part's own ratings came later, as a
+separate fact section beside `pins`
+([ADR-0026](0026-a-part-states-its-own-ratings.md) D1, D17); that does not make the type vocabulary
+the place for device engineering, it makes the role table the place for it. The procurement check
 compares *declarations*, not values ([ADR-0029](0029-the-procurement-layer.md) decision 3.2). The
-criterion therefore has to be aligned between the person who writes the requirement and the
-person who reads the datasheet — both human or agent — and not between two machines. Keeping
-the type vocabulary a pure table of units ([ADR-0006](../02-ir/0006-ir-shards-and-hashes.md))
-costs nothing and keeps the conversion table free of device engineering.
+criterion therefore has to be aligned between the person who writes the requirement and the person
+who reads the datasheet — both human or agent — and not between two machines. Keeping the type
+vocabulary a pure table of units costs nothing and keeps the conversion table free of device
+engineering.
 
 The consequence is that the IR contract does not move: `dielectric` remains a `string`-typed
 parameter, and `param_decl.type` keeps its twelve quantities.
@@ -235,27 +238,22 @@ is wrong without piling consequences on top of it:
 - **Who owns the vocabulary.** The table is global today. A project that needs a construction the
   table does not know has to wait for a tool upgrade. Whether a project may extend the table
   locally — and how the envelope rule would then treat the extension — is not decided.
-- **The resistor's power rating.** It is implied by the package rather than stated per instance.
-  Should the package's rating become a library fact the checker can use, with the design's
-  dissipation as a constraint (`power R1 63mW`)? The constraint vocabulary has
-  `power <component or net> <max>`; the rating side does not exist. Not decided.
+- ~~**The resistor's power rating.**~~ **Closed**: the package gives the chip resistor its floor
+  ([ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md)), the design's dissipation is a
+  constraint (`power R1 63mW`), and the comparison landed with the dissipation check
+  ([ADR-0026](0026-a-part-states-its-own-ratings.md) D11).
 - **`esr` and `dcr`.** Both are resistances today, but they are different ratings with
   different consequences (a capacitor's ESR is a loss, an inductor's DCR sets its temperature
   rise). Whether they deserve their own types is not decided.
-- **Where a part's ratings live.** The comparison direction per role is decided (D8), but the
-  ratings it compares against are not: a part carries no `params` today
-  ([ADR-0024](0024-the-device-kind-is-part-or-generic.md) decision 1 — a part's identity is
-  closed, and `params` are the columns an `instances` row fills, which is the generic's
-  business), while `spec/procurement.md` §3.2 needs the part to carry the generic's roles so a
-  line can be checked against a part. The two cannot both stand. The shape that fits both is a
-  **separate fact section on the part** (ratings beside `pins`, not `params`), but the choice
-  between that and sourcing the ratings from the library at selection time is separate work.
-- **Worst case is a mode, not a value.** Treating the tolerance as the design's deviation budget
-  (D8) only pays off if something evaluates the constraints over the resulting intervals. Such an
-  evaluator has to answer two questions the language does not answer yet. *Nominal or worst case*:
-  a design may deliberately rely on nominal values (a reference divider whose ratio error is
+- ~~**Where a part's ratings live.**~~ **Closed**: a separate fact section beside `pins`, not
+  `params` ([ADR-0026](0026-a-part-states-its-own-ratings.md) D1, D2).
+- **Worst case is a mode, not a value — half closed.** The comparison takes the window endpoints
+  and treats the parts as independent ([ADR-0026](0026-a-part-states-its-own-ratings.md) D8, D9), and
+  that part is implemented. What is still open is the evaluator over the **tolerance interval**:
+  such an evaluator has to answer two questions the language does not answer yet. *Nominal or worst
+  case*: a design may deliberately rely on nominal values (a reference divider whose ratio error is
   irrelevant) or on matched parts (a matched resistor pair has a better ratio than two independent
   1 % parts). *Which parts vary together*: independent intervals overstate the pessimism — two
   1 % resistors do not drift to +1 % and −1 % at once unless they are independent, and matched
   pairs drift together — so the evaluator has to know what the design treats as correlated. Both
-  are language questions, not evaluator details.
+  are language questions, not evaluator details (`docs/backlog.md` F42).

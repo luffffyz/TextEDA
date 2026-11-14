@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-23
 Scope: Decides: that a chip resistor's package gives it a floor rating, and that the floor binds procurement too. Does not decide: the rating vocabulary — see ADR-0026.
 Related: [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0026](0026-a-part-states-its-own-ratings.md), [ADR-0028](0028-package-code-and-3d-models.md)
-Impact: `spec/teda.md` §6.4; `packages/core/src/ratings/**`
+Impact: `spec/teda.md` §6.4; `packages/core/src/design/ratings.ts`; `packages/core/src/devices/packages.ts`
 
 ## Context
 
@@ -77,7 +77,8 @@ it would block builds for a code that is perfectly legal in a land pattern.
 
 A missing limit in the line would otherwise be a hole in **both** checks at once: the design check
 would pass on the floor, and selection would accept a part whose rating is below it. So procurement
-rule 4a (ADR-0029's rules): for a generic whose floor exists, when the line states no `power` role,
+rule 4a (`spec/procurement.md` §3.2): for a generic whose floor exists, when the line states no
+`power` role,
 
 - the selected part **must state** its `power` rating (`value.procurement-ratings-missing`), and
 - that rating **must be at least the floor** (`value.procurement-part-unsuitable`).
@@ -89,7 +90,7 @@ the check needs.
 ## Consequences
 
 - The reference project now compares the 4 resistive instances whose both nets declare windows
-  (it was 0): `20 of 24` remain skipped, all for a declared-window reason, and there are 0
+  (it was 0): `23 of 27` remain skipped, all for a declared-window reason, and there are 0
   violations. The two 0402 parts added to the library in ADR-0026 now also satisfy rule 4a by
   stating `62.5mW` / `63mW`.
 - A 0402 line with no `power` requirement whose selected part states nothing now fails the check

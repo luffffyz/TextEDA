@@ -457,6 +457,22 @@ export function parseComponent(text: string, options: { file: string }): Compone
         error(line.number, line.cells[0]!.col, "syntax.row-too-short", "a ratings row needs 3 columns: role type value");
         continue;
       }
+      if (line.cells.length > 3) {
+        // The terminal pair of ADR-0026 D4 is decided but not implemented. A row that carries one
+        // would lose the terminals silently, and a lost fact is worse than an error.
+        error(
+          line.number,
+          line.cells[3]!.col,
+          "syntax.column-count",
+          "a ratings row has 3 columns: role type value",
+          {
+            expected: "role type value",
+            actual: line.cells.map((c) => c.text).join(" "),
+            hint: "the terminal pair (from to) is decided (ADR-0026 D4) but not implemented yet; a row that carries one is refused rather than silently dropping it",
+          },
+        );
+        continue;
+      }
       const [role, type, value] = line.cells as [
         (typeof line.cells)[number],
         (typeof line.cells)[number],

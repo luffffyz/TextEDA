@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-26
 Scope: Decides: where a part's ratings live, how they are compared against a design's declared windows, and how a multi-terminal rating names its stress. Does not decide: the current check — a net's current is not attributed to its members yet; nor the derating policy — see the open points below.
 Related: [ADR-0024](0024-the-device-kind-is-part-or-generic.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md)
-Impact: `spec/teda.md` §6.2.1, §6.4, §7.4; `spec/procurement.md` §3.2, §3.3; `schemas/ir/**`; `packages/core` (the rating checks); `packages/parser` (the `component` description type); `packages/ir` (the diagnostic code registry)
+Impact: `spec/teda.md` §6.2.1, §6.4, §7.3; `spec/procurement.md` §3.2, §3.3; `schemas/ir/**`; `packages/core` (the rating checks); `packages/parser` (the `component` description type); `packages/ir` (the diagnostic code registry)
 
 ## Background
 
@@ -128,6 +128,11 @@ the ambiguity `ref.ambiguous-pin` already refuses elsewhere.
 The pair is ordered. `from` then `to` is the direction the role's definition reads; it is not
 alphabetical and not inferred from the net order.
 
+**Not implemented yet.** The parser accepts three columns only and **refuses** a row that carries
+terminals (`syntax.column-count`), so a written terminal pair is an error rather than a fact that
+vanishes on the way in. The syntax, the IR field and the comparison land together
+(`docs/backlog.md` F42).
+
 ### D5. Direction belongs to the role, not to the row
 
 A row does not repeat `symmetric` / `forward` / `reverse`. The role table gains a **direction**
@@ -161,6 +166,11 @@ already names the row, and a second copy of its kind in every file would drift.
 This does not add every future role. It fixes the two pieces of metadata a role needs before it
 can enter a stress check; adding a role remains vocabulary work, with the role's name, quantity,
 kind and direction decided together.
+
+**What exists today.** The terminal pair (D4), the role's direction (D5) and the role's kind (D6)
+are **decided but not implemented**: the role table in `packages/core` maps a role to its quantity
+only, the published table in `spec/teda.md` §6.2.1 has no `direction` or `kind` column, and the
+checker runs the two-terminal model of D10 (`docs/backlog.md` F42).
 
 ### D7. No terminals means a device-level rating
 
@@ -210,7 +220,7 @@ nets' declared windows, at its extreme:
 `stress = max(|max(a) − min(b)|, |max(b) − min(a)|)`
 
 A net's window is its declared `voltage` constraint. A net with no declared window has an
-**unknown** potential, and the device is not compared (D10).
+**unknown** potential, and the device is not compared (D13).
 
 **The frame has one origin, and the design declares it.** The tool does not assume that a net
 called `GND` is 0 V: a board with a split ground or an isolated converter has more than one
@@ -275,6 +285,11 @@ The voltage check:
 For a directed role, the opposite polarity is not a violation and is not counted as "not
 compared": it is outside the stress the role describes. A diode reverse rating does not fire on a
 forward-biased junction.
+
+**What runs today is the two-terminal subset of this model**: the checker takes a two-pin device's
+`voltage` capability against the difference of its two nets' declared windows
+(`packages/core/src/design/ratings.ts`), and everything that needs a named terminal pair, a
+direction or a kind is not implemented (`docs/backlog.md` F42).
 
 ### D13. Unknown is counted, not passed
 

@@ -684,7 +684,7 @@
 
 **已落地**：解析器与 canonical `fmt`（`packages/parser/src/procurement.ts`）；IR 契约 `schemas/ir/v0.7/procurement.schema.json`（**契约随本项从 v0.5 升到 v0.7**：v0.6 出了采购分片，v0.7 补了 `not_required` 状态）；分片路径 `boards/<board_id>/procurement.json`（规范）与 `boards/<board_id>/procurement-alternatives.json`（附注）；`texteda compile --procurement` 与 `texteda check` 的接线；**选料检查**（`packages/core/src/procurement/rules.ts`：`spec/procurement.md` §3.2 的六条 + `spec/procurement.md` §3.3 的逐角色比对 + 两条 warning，主料 error / 备料 warning）；**BOM 输出**（`texteda bom <工程目录> <board_id>`，CSV 或 `--json`）；参考工程的采购文件（主料 `assets/procurement/primary/charger-buck.teda`、备料 `assets/procurement/alternatives/charger-buck.teda`）与两件料文件。
 
-**没有**：遮蔽件的选料检查（ADR-0033 的遮蔽本身没落地，F10）、下单格式的 BOM 导出（ADR-0022）。
+**没有**：遮蔽件的选料检查（ADR-0033 的遮蔽本身没落地，F10）、下单格式的 BOM 导出（ADR-0022，[ADR-0022](adr/06-manufacturing/0022-jlc-prototype-delivery.md) D4；下单要用的 BOM 与坐标格式见 F68）、**采购附注（annex）与"附注过期"告警**（备选分片与 `advisory_hash` 都已落地，但带戳的附注产物还没有，`texteda check` 也还没有把手上附注与当前 `advisory_hash` 对比报 stale——[ADR-0029](adr/07-devices/0029-the-procurement-layer.md) D15 的最后一行）、**strict mode**（选中 `provenance generated` 的库件在 strict mode 下应是 error；strict mode 本身没建，见 F26）。
 
 **要做的事**：
 
@@ -790,10 +790,10 @@
 
 - **分析模式（原来记作 item 0）已定**：按**声明窗口的受压端**比（不是标称点）；器件**互相独立**（语言还无法声明相关性，容差不参与比较）；**未声明即未知**，未知要计数（一块板一条 note）；降额是项目政策，不是检查器的常数。
 - **item 0 已落地（耗散）**：阻性两引脚器件的最坏耗散 `P = ΔV²/R`（`ΔV` 同 ADR-0026 的窗口极端差，`R` 取实例行 `value` 或件的 `value` 额定值）同时比三条上界——设计的 `power <引脚> <max>` 约束、实例行的 `power` 要求、件的 `power` 额定值——取最紧那条，超了报 `design.rating-exceeded`；没上限或两端有一个没窗口的不比较，计入 `design.power-unknown`（note，一块板一条）。实现在 `packages/core/src/design/ratings.ts`，决策与局限见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md)（这是**上界**：两端窗口相同时它给 0，所以只报违规、不证明通过；串在两条窗口之间的 RC 阻尼电阻上这个上界没有物理意义）。参考工程实测：charger-buck `24` 个阻性实例里比了 **4** 个（其余 20 个所在 net 无窗口），mcu-board `3` 个全因无窗口跳过，0 违规——比得动是因为**封装底线**（[ADR-0027](adr/07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md)）：`(construction, package_code)` 查表（0402 = 62.5mW），厚膜是同一封装的最低档，所以这张表给的是底线而不是猜测买了哪颗件。底线只在设计/行/件都没声明时生效；同一条底线也让选料拒绝低于底线的件（rule 4a），两个检查不会互相打架。两块参考板的两颗 10k 件（`rc0402fr-0710kl` 62.5mW、`crc0402fr-0710kl` 63mW）补上了件的功率额定值。
-- **电压第一片已落地**：两引脚器件的 `voltage` 能力 vs 它两个 net 的声明窗口之差。`packages/core/src/design/ratings.ts`，新域 `design`（ADR-0026 D15）：`design.rating-exceeded`（error）+ `design.stress-unknown`（note，报覆盖率）。`spec/teda.md` §7.4 写清了口径；两块参考板补了 `voltage GND 0V..0V`（帧原点由设计声明，工具不假设 GND = 0V），覆盖从 0 抬到 charger-buck 11/61、mcu-board 10/21，且参考设计 0 违规。
+- **电压第一片已落地**：两引脚器件的 `voltage` 能力 vs 它两个 net 的声明窗口之差。`packages/core/src/design/ratings.ts`，新域 `design`（ADR-0026 D15）：`design.rating-exceeded`（error）+ `design.stress-unknown`（note，报覆盖率）。`spec/teda.md` §7.3 写清了口径；两块参考板补了 `voltage GND 0V..0V`（帧原点由设计声明，工具不假设 GND = 0V），覆盖从 0 抬到 charger-buck 11/61、mcu-board 10/21，且参考设计 0 违规。
 - **还没做**：**同一张表里的电压底线**（0402 = 50V、2010 = 200V 之类，是 F42 item 1 的封装版；它受件限制多于受封装限制，所以跟对称电压一起做）；串在窗口之间的**交流/阻尼**位置怎么声明"这个上界不适用"（现在是"没写上界"，两种状态分不开）；多引脚器件的应力模型（`Vds` / `Vgs` / `Vin` 要按构造定引脚语义——这是覆盖率的大头，也是下一个真正的一步）；`current`（网电流由谁承担语言还没说）；`power` / 磁饱和 / 温度；项目级降额政策进 `project.toml`。
 
-**2026-10-26 端子与方向已定，未实现**：`ratings` 行可以写成 `role type value from to`（pin 编号、有序对），方向由角色表决定（`symmetric` / `from` / `to` / `none`），角色表同时加 `kind`（`limit` / `characteristic` / `code`）。决策见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md)。解析器、IR 契约 `rating.terminals`、`packages/core` 的端子比较仍未开始；参考工程没有可用的 datasheet 值，先用合成夹具。
+**2026-10-26 端子与方向已定，未实现**：`ratings` 行可以写成 `role type value from to`（pin 编号、有序对），方向由角色表决定（`symmetric` / `from` / `to` / `none`），角色表同时加 `kind`（`limit` / `characteristic` / `code`）。决策见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md)。**解析器先落地了一半**（2026-10-27）：带端子的 `ratings` 行被**拒绝**（`syntax.column-count`）而不是静默截断——端子语法没落地之前，宁可让文件写不进去，也不让事实悄悄消失。IR 契约 `rating.terminals`、`packages/core` 的端子比较仍未开始；参考工程没有可用的 datasheet 值，先用合成夹具。
 
 **2026-10-23 覆盖率审计（实测，用来定下一步做什么）**：`texteda check` 的两块参考板。
 

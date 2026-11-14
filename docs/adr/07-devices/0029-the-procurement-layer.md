@@ -28,7 +28,7 @@ design change and invalidate a manufacturing package that nothing had changed.
 
 ## Decision
 
-### D1. `procurement` is a new description type, scoped to a board
+### D1. `procurement` is a new description type, scoped to a physical PCB
 
 A procurement description carries a header like every other description:
 
@@ -38,8 +38,9 @@ procurement mcu-board
 role primary
 ```
 
-The file id is the **board** the selection belongs to. A selection is board-scoped because a BOM
-is a board's: the procurement layer is the part of the project that says what this board is built
+The file id is the **physical PCB** the selection belongs to (`<pcb_id>`; since ADR-0069 a project
+may carry several, and the board became a physical PCB). A selection is PCB-scoped because a BOM
+is a PCB's: the procurement layer is the part of the project that says what this board is built
 from. The `procurement` type exists since language `0.9`, and a file below that floor is refused.
 
 The `role` scalar says which of the two files this is, and it must agree with the directory the
@@ -220,8 +221,9 @@ parts — one per variant — not as two rows in the selection table.
 ### D9. Selecting an unreviewed library part
 
 A library part may be selected. If its provenance is `generated` (not human-reviewed), the
-selection is reported as a warning, and it is an error in strict mode. A project that has checked
-a library part against its datasheet derives a reviewed copy and selects that.
+selection is reported as a warning, and it is an error in strict mode (the strict mode itself is
+not built yet — `docs/backlog.md` F26). A project that has checked a library part against its
+datasheet derives a reviewed copy and selects that.
 
 ### D10. Commercial facts are out of the language
 
@@ -328,10 +330,10 @@ them.
 | Who changed what, and when | The version control history of `assets/procurement/alternatives/*.teda`. The project stores no timestamps and no author fields of its own. |
 | Did the purchasing state change at all? | The `advisory_hash`. It moves exactly when the alternatives shard changes. |
 | Which part of it changed? | The shard's `sha256` in the manifest says *that* it changed; the canonical JSON and the source file say *what* changed. |
-| Is a procurement annex I am holding still current? | `texteda check` compares the `advisory_hash` stamped on the annex with the current one and reports a stale annex. |
+| Is a procurement annex I am holding still current? | `texteda check` compares the `advisory_hash` stamped on the annex with the current one and reports a stale annex. **Not built**: there is no annex artifact yet (`docs/backlog.md` F35) — the alternatives shard and the `advisory_hash` are there, the annex that carries it is not |
 
 The last row is the one that turns the second hash into a working mechanism rather than a number
-nobody reads.
+nobody reads, and it is the row that is still to be built.
 
 A procurement file may also carry a `revision` counter — a human-readable label for the purchasing
 state ("the BOM was issued against purchasing state 7"). It is a label, not a seal: a counter can

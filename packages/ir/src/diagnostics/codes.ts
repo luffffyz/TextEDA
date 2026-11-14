@@ -943,7 +943,7 @@ export const DIAGNOSTIC_CODES = {
     domain: "syntax",
     severity: "error",
     summary: "This row has more columns than the row type allows",
-    spec: ["spec/pcb.md §4"],
+    spec: ["spec/pcb.md §4", "spec/teda.md §6.4"],
   },
   "value.layer-order": {
     domain: "value",

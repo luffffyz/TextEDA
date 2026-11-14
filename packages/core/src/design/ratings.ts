@@ -4,12 +4,14 @@
 // The two sides exist in the language and had never been put next to each other: a net states a
 // window (`voltage SYS 9V..19.8V`), a device states a limit (a generic's `voltage` column, a
 // part's `ratings`). This module compares them at the endpoint that stresses the device, because a
-// device that survives only the nominal point is a device with an unexamined failure (D1).
+// device that survives only the nominal point is a device with an unexamined failure (D8).
 //
-// Deliberately narrow (D6 of ADR-0026): a **two-terminal** device with a `voltage` capability,
-// against the difference of its two nets' declared windows. Multi-terminal stress (Vds, Vgs, Vin)
-// needs per-construction pin semantics and would otherwise produce noise; a net whose potential
-// is not declared is unknown, and unknown is counted, not passed (D4).
+// Deliberately narrow (D10 and D12 of ADR-0026): a **two-terminal** device with a `voltage`
+// capability, against the difference of its two nets' declared windows. Multi-terminal stress
+// (Vds, Vgs, Vin) needs per-construction pin semantics and would otherwise produce noise; a net
+// whose potential is not declared is unknown, and unknown is counted, not passed (D13). The terminal
+// pair, the role's direction and the role's kind are decided (D4, D5, D6) and not implemented yet
+// (`docs/backlog.md` F42).
 //
 // Pure: facts in, diagnostics out.
 import type { Diagnostic, DiagnosticLocation } from "@texteda/ir/diagnostics";

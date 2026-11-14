@@ -34,7 +34,7 @@ enclosure, and the enclosure is not part of this project.
 
 ### 1. The `package` field is removed from `component`
 
-A `part` and a `family` reference exactly one `footprint` and say nothing else about their
+A `part` and a `generic` reference exactly one `footprint` and say nothing else about their
 package. The package code is declared by the footprint that carries it:
 
 ```text
@@ -193,5 +193,5 @@ attached to parts, so they are stored with the parts rather than with the footpr
 
 ## Open Points
 
-- ~~How the exported footprint variants are named~~ — decided in the 2026-10-22 addendum
-  below: there are no variants. The exported footprint is a pure 2D land pattern.
+- ~~How the exported footprint variants are named~~ — decided: there are no variants. The exported
+  footprint is a pure 2D land pattern (decision 4).

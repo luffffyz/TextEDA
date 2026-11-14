@@ -316,7 +316,7 @@ params
 - 电阻的功率额定值由封装决定（0402 厚膜惯例 1/16W），但**三件事要分开**：件自己的额定值写在件的 `ratings` 段里（它是件的事实）；设计需要的**最低功率能力**写在实例行的 `power` 参数里（它是采购要求，见 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D1）；设计的**耗散上限**是**约束**（`power M1.R1.1 63mW`）。三者在 `texteda check` 里会合：阻性器件的做最坏耗散 `ΔV²/R` 同时比这三条边界（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D11、§7.3）。**封装惯例不在语言里，在工具的器件表里**（[ADR-0027](../docs/adr/07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md)）：片式电阻的功率底线按 `(construction, package_code)` 查表（0402 = 62.5mW、0603 = 100mW……），而厚膜是同一封装的最低档，所以这张表给的是**底线**而不是猜测买了哪颗件——超过底线意味着这个封装的任何标准件都扛不住（确定的违规），不超过不证明通过了（高功率档的件确实存在，要它就把要求写出来）。底线**只在没有任何声明时**生效：设计的耗散上限、行的 `power` 要求、件的 `power` 额定值，哪一个说了话，就按它比。
 - `sat_current` 是角色（§6.2.1），但**选填**：它要不要写取决于设计有没有峰值电流；"峰值电流会不会让磁饱和"是**比对**，那是 `docs/backlog.md` F42 的事。
 
-**必填只保证"写出来了"**：解析器强制 `instances` 行给齐每个必填列，所以规格写在源码里。**写出来**与**验证**是两件事（决策见 [ADR-0025](../docs/adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) D6）：现在有一样东西拿件去比要求——采购层拿选中的件自己的 `ratings` 逐角色比这组要求（`spec/procurement.md` §3.3）；**还没有**的东西是拿要求去比电路：没有检查器拿电容的耐压去比它所在的网，也没有评估器在这段容差区间上判约束（`docs/backlog.md` F42）。
+**必填只保证"写出来了"**：解析器强制 `instances` 行给齐每个必填列，所以规格写在源码里。**写出来**与**验证**是两件事（决策见 [ADR-0025](../docs/adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) D6）：现在有**两样**东西拿事实去比要求——采购层拿选中的件自己的 `ratings` 逐角色比这组要求（`spec/procurement.md` §3.3），检查器拿两引脚器件的耐压与耗散去比它两个 net 的声明窗口（§7.3）。**还没有**的是在**容差区间**上判约束的评估器：容差不参与比较（器件互相独立，语言还无法声明相关性），所以"这段容差里每个可能的件都满足约束"这句话今天没人说（`docs/backlog.md` F42）。
 
 上表与检查落在 `packages/core` 的器件规则表里（[ADR-0025](../docs/adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) D7），由 `texteda check` 执行。
 
