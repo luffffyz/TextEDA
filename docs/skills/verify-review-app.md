@@ -210,9 +210,14 @@ The pen is offered on library symbol drawings only ([ADR-0073](../adr/09-view/00
 2. `page.keyboard.press("b")` → the action bar reads `Pen: on`, the status reads
    `pen armed: drag to draw on the drawing`, and the keyboard hint offers `Esc` instead of `B`.
 3. Drag across the sheet → the ink appears as a `.sketch-overlay .sketch-ink` path, and the status
-   reads `1 stroke drawn · save the picture to send it`.
+   reads `1 stroke drawn · save the picture to send it`. Read the path **before** the mouse comes
+   up: the line must be there while the button is still down, or the reviewer is drawing blind.
+   The cursor is a nib while the pen is armed (`getComputedStyle(stage).cursor` names a `url(...)`),
+   and the hand that pans it is not.
 4. `Ctrl+Z` drops the last stroke. `Escape` (or `b` again) puts the pen away, and a drag pans again.
-5. Press **Save sketch** → the status reads `sketch saved: /tmp/texteda-sketches/…png`, and the file
+5. Switch to a print page → the pen must be put away by itself: the stage carries no `pen-armed`
+   class, the cursor is the panning hand again, and the action bar has no pen.
+6. Press **Save sketch** → the status reads `sketch saved: /tmp/texteda-sketches/…png`, and the file
    is there:
 
    ```sh

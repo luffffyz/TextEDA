@@ -97,6 +97,15 @@ The pen is turned on with `b` and put away with `Escape`, in the same shape as t
 drag is a stroke; with it disarmed, a drag still pans the sheet. Arming is explicit so that the
 hand that reaches for the mouse does not accidentally ink the picture.
 
+While the pen is armed the cursor is a nib, not the hand that pans — the pointer says what the
+hand is about to do. It is an inline picture rather than a file of ours, because the app is mounted
+into other people's pages ([ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md)
+D2) and a file would not load there; a browser that will not take an SVG cursor falls back to a
+crosshair.
+
+The line follows the pointer as it is drawn. A reviewer who cannot see the stroke they are making
+is drawing blind, and would only find out what they drew when the button comes up.
+
 There is no mode state and no mode bar: the app has one interaction surface, and the current
 canvas decides which actions answer.
 
@@ -107,6 +116,9 @@ geometry the agent owns, that a reviewer can see something wrong with, and that 
 can describe. The other drawings are not offered yet: a print page is about placement, which the
 existing gestures already carry, and a board canvas is about copper, which a sketch would only
 make vaguer.
+
+The pen does not follow the reviewer onto a drawing that has none: it is put away when the drawing
+changes, so a stroke can never land on a page that has no pen.
 
 Widening the pen to the other drawings is a later decision, not a later implementation: the same
 overlay serves them, and what it takes is a decision about which drawings are worth drawing on.

@@ -176,6 +176,13 @@ export const APP_STYLES = `
   background: radial-gradient(circle at 50% 40%, #1a1c20, #101113 70%);
 }
 .teda-review .stage.dragging { cursor: grabbing; }
+/* The pen's cursor: a nib pointing at the sheet, so the hand that is about to draw says so.
+   It is an inline SVG because the app is mounted into other people's pages (ADR-0043 D2), where a
+   file of ours would not load; the crosshair is the fallback for a browser that will not take an
+   SVG cursor. */
+.teda-review .stage.pen-armed {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpath d='M4 4 L13 13' stroke='%23ffffff' stroke-width='5' stroke-linecap='round' fill='none'/%3E%3Cpath d='M4 4 L13 13' stroke='%231b1d21' stroke-width='2.4' stroke-linecap='round' fill='none'/%3E%3Cpath d='M3 3 L7.8 4.5 L4.5 7.8 Z' fill='%231b1d21' stroke='%23ffffff' stroke-width='0.9'/%3E%3C/svg%3E") 3 3, crosshair;
+}
 .teda-review .stage.empty::after {
   content: attr(data-empty); position: absolute; inset: 0; display: grid; place-items: center;
   padding: 48px; text-align: center; white-space: pre-line; color: var(--muted);

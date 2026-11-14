@@ -272,7 +272,8 @@ stroke then paints 1.5 mm, which reads as a slug over small parts.
 
 On a library symbol the app offers a pen: `b` arms it, a drag draws, `Escape` puts it away, and
 `Ctrl+Z` drops the last stroke. The ink is grey and 0.25 mm wide — the drawing's own weight — and it
-sits on top of the sheet, never in it.
+sits on top of the sheet, never in it. While the pen is armed the cursor is a nib rather than the
+hand that pans, and the line follows the pointer as it is drawn.
 
 **A sketch is a message, not a change.** The strokes never reach the source, the IR or a hash. A
 symbol's shard is normative, so drawing on a symbol cannot change the project
@@ -314,9 +315,10 @@ says how much of the sheet it takes and how far it is from comfortable
   editing the stackup belong to the agent-driven layout loop
   ([ADR-0017](../adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)), not to the review app.
 - **A write from the static report.** `--out` has no server, so nothing can be applied or saved.
-- **The pen on the other drawings.** The pen is offered on library symbols only. A print page is
-  about placement, which the existing gestures already carry, and a board canvas is about copper,
-  which a sketch would only make vaguer ([ADR-0073](../adr/09-view/0073-the-review-app-has-a-freehand-pen.md) D7).
+- **The pen on the other drawings.** The pen is offered on library symbols only, and it is put away
+  when the reviewer moves to a drawing that has none. A print page is about placement, which the
+  existing gestures already carry, and a board canvas is about copper, which a sketch would only
+  make vaguer ([ADR-0073](../adr/09-view/0073-the-review-app-has-a-freehand-pen.md) D7).
 - **Note anchors** (`[instance:M1.U1]` prefixes), which are an open point of
   [ADR-0037](../adr/09-view/0037-review-records-and-attribution.md).
 

@@ -1342,7 +1342,7 @@ function renderSketchLayer(svg?: SVGSVGElement): void {
   if (layer === null) return;
   const path = target.ownerDocument.createElementNS("http://www.w3.org/2000/svg", "path");
   path.setAttribute("class", "sketch-ink");
-  path.setAttribute("d", sketchPathData(currentStrokes()));
+  path.setAttribute("d", sketchPathData(visibleStrokes()));
   path.setAttribute("fill", "none");
   path.setAttribute("stroke", SKETCH_STROKE);
   path.setAttribute("stroke-width", String(SKETCH_STROKE_WIDTH_MM));
@@ -1354,6 +1354,18 @@ function renderSketchLayer(svg?: SVGSVGElement): void {
 /** The strokes on the drawing that is on the stage. */
 function currentStrokes(): readonly SketchStroke[] {
   return state.sketch.strokes.get(state.drawing) ?? [];
+}
+
+/**
+ * The strokes the ink layer paints: the ones already drawn, and the one the pen is drawing now.
+ *
+ * The stroke in flight is not in the state yet — it is still in the pointer's hands — but it has
+ * to be painted as it grows. A reviewer who cannot see the line they are drawing is drawing
+ * blind, and only finds out what they drew when the button comes up.
+ */
+function visibleStrokes(): readonly SketchStroke[] {
+  const strokes = currentStrokes();
+  return sketchStroke === null ? strokes : [...strokes, sketchStroke];
 }
 
 /** Put the strokes of the drawing that is on the stage. */
@@ -2139,6 +2151,8 @@ function toggleSketch(): boolean {
   const current = drawing();
   if (current === undefined || !canSketch(current.kind)) return false;
   state.sketch.armed = !state.sketch.armed;
+  // The cursor says what the hand is about to do: a nib on the sheet, not a hand ready to drag it.
+  frame.stage.classList.toggle("pen-armed", state.sketch.armed);
   if (state.sketch.armed) {
     // The pen replaces the other pointer gestures: a drag is a stroke, not a pan and not a click.
     state.selected = null;
@@ -2867,6 +2881,7 @@ function onKeyDown(event: KeyboardEvent): void {
     if (moveTransaction !== null) cancelMove();
     else if (state.sketch.armed) {
       state.sketch.armed = false;
+      frame.stage.classList.remove("pen-armed");
       renderActions();
       renderKeysHint();
       setStatus("pen put away");
@@ -2908,6 +2923,13 @@ function onResize(): void {
 }
 
 function renderAll(): void {
+  // The pen is offered on some drawings only, and it does not follow the reviewer onto a drawing
+  // that has none: a stroke on a print page would be a second, fuzzier way to say what a snapped
+  // move already says exactly (ADR-0073 D7).
+  if (state.sketch.armed && !canSketch(drawing()?.kind)) {
+    state.sketch.armed = false;
+    frame.stage.classList.remove("pen-armed");
+  }
   renderPanelVisibility();
   renderTree();
   renderMetrics();
