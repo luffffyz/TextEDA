@@ -12,12 +12,12 @@ A fixed distance from a text anchor does not produce a fixed visible gap: the an
 
 ## Decision
 
-Set the clearance from the pin line to the nearest painted edge of every visible pin-number label to exactly `200_000` nm (`0.20 mm`):
+Set the clearance from the pin line to the nearest painted edge of every visible pin-number label to exactly `500_000` nm (`0.50 mm`):
 
 - For horizontal pins, measure from the label's bottommost painted edge to the pin line; place the label above the line.
 - For vertical pins, measure from the label's leftmost painted edge to the pin line; place the label to the right.
 - Measure painted bounds from the actual Hershey stroke paths, expanded by half the rendered stroke width. Calculate the label anchor from that bound for each number string.
-- Keep the `middle` anchor and leave the label unrotated. Body-side placement follows [ADR-0050](0050-pin-number-placement-is-a-renderer-convention.md) and [ADR-0052](0052-pin-number-body-clearance-is-measured-from-symbol-body-bounds.md).
+- Keep the `middle` anchor. A horizontal pin's number is not rotated; a vertical pin's number is rotated `90_000` millidegrees, so it reads along the pin line. Body-side placement follows [ADR-0050](0050-pin-number-placement-is-a-renderer-convention.md) and [ADR-0052](0052-pin-number-body-clearance-is-measured-from-symbol-body-bounds.md).
 - Apply the same rule to pin directions `0°`, `180°`, `90°`, and `270°`; do not add source fields or change component facts, the IR schema, or exporter behavior.
 
 ## Consequences

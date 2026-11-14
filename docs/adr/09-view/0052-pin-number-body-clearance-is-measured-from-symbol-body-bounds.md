@@ -15,14 +15,14 @@ The existing `1.20 mm` anchor offset from a pin's inner end does not guarantee a
 For each visible pin-number label:
 
 - When the symbol has visible body geometry, define its body frame as the axis-aligned outer painted bounds of the union of `sym.body` geometry. Include filled geometry and expand stroked geometry by half its declared width; use the actual circular sweep for arcs. Round the frame bounds outward to integer nanometers to preserve the renderer's coordinate contract. This frame is renderer-derived and is not serialized into the symbol source.
-- Set the clear distance from the outer body-frame edge to the nearest painted edge of the label to exactly `200_000` nm (`0.20 mm`). Expand the Hershey path bounds by half the rendered text stroke width before positioning the label.
+- Set the clear distance from the outer body-frame edge to the nearest painted edge of the label to exactly `500_000` nm (`0.50 mm`). Expand the Hershey path bounds by half the rendered text stroke width before positioning the label.
 - Place the label outside the body-frame edge on the side of the pin connection point: left for `0°`, right for `180°`, below for `90°`, and above for `270°`. The independent pin-line clearance and its perpendicular placement remain as defined by [ADR-0051](0051-pin-number-clearance-is-measured-from-painted-ink.md).
 - If the symbol has no visible body geometry, retain the existing `1_200_000` nm (`1.20 mm`) anchor offset from the pin's body-side end; without a body frame, no body-edge clearance is claimed.
-- Keep the `middle` anchor and do not rotate the label. Do not add source fields or change component facts, IR schemas, or exporter behavior.
+- Keep the `middle` anchor. A horizontal pin's number is not rotated; a vertical pin's number is rotated `90_000` millidegrees. Do not add source fields or change component facts, IR schemas, or exporter behavior.
 
 ## Consequences
 
-Pin-number ink now has a fixed visible `0.20 mm` gap to both the pin line and the symbol body's axis-aligned frame when that frame exists. Symbols without visible body geometry retain their previous placement. The policy remains a reference-renderer convention, not a source fact or KiCad export requirement.
+Pin-number ink now has a fixed visible `0.50 mm` gap to both the pin line and the symbol body's axis-aligned frame when that frame exists. Symbols without visible body geometry retain their previous placement. The policy remains a reference-renderer convention, not a source fact or KiCad export requirement.
 
 ## Verification
 

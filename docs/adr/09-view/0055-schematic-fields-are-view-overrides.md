@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-11-01
 Scope: Decides: that schematic `Reference` and `Value` field positions are view-layer overrides in symbol-local coordinates, that the renderer supplies deterministic defaults for fields without overrides, and that only `Reference` and `Value` are in the closed field vocabulary. Does not decide: automatic placement of symbols, wires, labels, ports, or any other drawing object.
-Related: [ADR-0002](../01-language/0002-one-language-version-number.md), [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0064](0064-automatic-fields-are-placed-for-the-page.md), [ADR-0071](0071-a-module-drawing-is-an-editable-view.md)
+Related: [ADR-0002](../01-language/0002-one-language-version-number.md), [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0064](0064-automatic-fields-are-placed-for-the-page.md), [ADR-0065](../01-language/0065-a-coordinate-tuple-is-one-cell.md), [ADR-0071](0071-a-module-drawing-is-an-editable-view.md)
 Impact: `spec/schematic-view.md`; language version `0.10.0`; IR contract `v0.15`; `schemas/ir/v0.15/`; `packages/parser`; `packages/renderer`; `packages/cli`; `packages/viewer`
 
 ## Background
@@ -29,18 +29,19 @@ existing library value placeholder. A view does not restate either text or any e
 
 ### D2. The view stores local overrides, not absolute field positions
 
-A `field` section contains four columns:
+A `field` section contains three columns:
 
 ```teda
 field
-  U1  Reference  0.00  2.00
-  U1  Value     -0.50 -2.00
+  U1  Reference  [0.00, 2.00]
+  U1  Value     [-0.50, -2.00]
 ```
 
-The columns are `<instance_id> <name> <x> <y>`. Coordinates are integer-nanometer values on the
-view's `0.01 mm` grid and are relative to the symbol origin. Field-local `+x` points right and
-field-local `+y` points up. The sheet uses `+x` right and `+y` down; the renderer applies the
-symbol's right-angle rotation when projecting local coordinates to the sheet.
+The columns are `<instance_id> <name> <offset>`, where the offset is one coordinate tuple
+([ADR-0065](../01-language/0065-a-coordinate-tuple-is-one-cell.md)). Its values are millimetres on
+the view's `0.01 mm` resolution and are relative to the symbol origin. Field-local `+x` points
+right and field-local `+y` points up. The sheet uses `+x` right and `+y` down; the renderer
+applies the symbol's right-angle rotation when projecting local coordinates to the sheet.
 
 A row is an override for exactly one `(instance_id, name)` pair. The field vocabulary is closed:
 unknown names are errors, and duplicate pairs are errors. A field instance must be present in the
@@ -63,10 +64,12 @@ automatic placement is restored. There are no tombstones and no explicit `automa
 
 ### D5. Version and contract boundary
 
-The `field` section is introduced by language version `0.10.0`. A `0.9.2` view remains valid when it
-contains no `field` section; a `0.9.2` file containing one is rejected. The additive IR contract is
-`v0.15` and contains an optional closed `field` array. IR `v0.14` is unchanged. Existing `0.9.2`
-files are not migrated merely because the tool supports `0.10.0`.
+The `field` section was introduced by language version `0.10.0`, in the additive IR contract
+`v0.15`, whose optional closed `field` array the view contract still carries. The view reader's
+floor has since moved with the language: a view file now declares language `0.14` or later whatever
+it contains, so a view written before the field section existed is refused at its version line
+before its body is parsed. An old file is not migrated merely because the tool supports a newer
+language; the floor is what the current project shape needs.
 
 ### D6. Projection and source ownership
 

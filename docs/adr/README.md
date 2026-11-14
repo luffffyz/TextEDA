@@ -132,7 +132,7 @@ that was meant for it, and by nothing else.
 | [ADR-0051](09-view/0051-pin-number-clearance-is-measured-from-painted-ink.md) | Pin-Number Clearance Is Measured from Painted Ink | Accepted | 2026-11-01 |
 | [ADR-0052](09-view/0052-pin-number-body-clearance-is-measured-from-symbol-body-bounds.md) | Pin-Number Body Clearance Is Measured from the Symbol Body Bounds | Accepted | 2026-11-01 |
 | [ADR-0053](09-view/0053-pin-name-body-clearance-is-measured-from-symbol-body-bounds.md) | Pin-Name Body Clearance Is Measured from Symbol-Body Bounds | Accepted | 2026-11-01 |
-| [ADR-0054](09-view/0054-vertical-pin-name-labels-use-collision-aware-rotation.md) | Vertical Pin-Name Labels Always Rotate Toward Their Pins | Accepted | 2026-11-01 |
+| [ADR-0054](09-view/0054-vertical-pin-name-labels-always-rotate-toward-their-pins.md) | Vertical Pin-Name Labels Always Rotate Toward Their Pins | Accepted | 2026-11-01 |
 | [ADR-0055](09-view/0055-schematic-fields-are-view-overrides.md) | Schematic `Reference` and `Value` Fields Are Per-Instance View Overrides | Accepted | 2026-11-01 |
 | [ADR-0056](09-view/0056-the-review-app-has-one-interaction-surface.md) | The Review App Has One Interaction Surface | Accepted | 2026-11-03 |
 | [ADR-0057](08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) | Symbol Pin Connection Points Sit on a 0.5 mm Lattice | Accepted | 2026-11-03 |

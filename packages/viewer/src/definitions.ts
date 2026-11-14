@@ -1,4 +1,4 @@
-// The review app's definition menu, separated from the DOM: which source locations belong to a
+// The review app's definition locations, separated from the DOM: which source locations belong to a
 // selected identity, and how a location becomes an editor URI (ADR-0004 D6, ADR-0035 2026-10-26).
 import type {
   ReviewInstance,

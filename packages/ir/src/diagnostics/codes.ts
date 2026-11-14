@@ -1163,7 +1163,7 @@ export const DIAGNOSTIC_CODES = {
     severity: "error",
     summary: "A device's declared rating cannot cover the declared window of the net it sits on",
     hint: "raise the device's rating, lower the declared window, or state why the window is what it is",
-    spec: ["spec/teda.md §7.4", "docs/adr/07-devices/0026-a-part-states-its-own-ratings.md D8、D11"],
+    spec: ["spec/teda.md §7.3", "docs/adr/07-devices/0026-a-part-states-its-own-ratings.md D8、D11"],
   },
   "design.stress-unknown": {
     domain: "design",

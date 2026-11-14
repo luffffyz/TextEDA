@@ -93,8 +93,10 @@ target that licenses finding a new line.
   `y = 121`, and keeps both when it moves off the row.
 - A move that leaves a bus where it was leaves the bus where it was — its coordinates, its label,
   and its port all stay put.
-- `texteda view rewire` and the review app's `Apply` share the pass, because it is a property of a
-  re-anchored run rather than of one caller.
+- The review app's `Apply` runs the shortening pass. `texteda view rewire` does not: it
+  re-anchors the runs that no longer fit and leaves the drawn corners alone, so the two callers do
+  not yet agree on the drawing. The pass is a property of a re-anchored run rather than of one
+  caller, and making the command line run it too is open work (`docs/backlog.md`).
 - The pass can decline: a run whose corners are all load-bearing is written back unchanged, and a
   move can still introduce a finding when the person drags a part somewhere the run cannot go
   around. Shortening is not a repair for a bad placement.

@@ -24,7 +24,7 @@ text is an explicit standalone-panel edit; and a PCB drawing has no write action
 The app has no `review`, `layout`, or `edit` mode state, mode bar, or mode-only interaction path.
 The current drawing determines which actions are meaningful:
 
-- All drawings support hover, selection, definition menus, same-kind arrow navigation, zoom, and
+- All drawings support hover, selection, a source jump, same-kind arrow navigation, zoom, and
   pan. A schematic drawing click selects without opening a file or moving an object.
 - On a schematic print page, selecting a symbol and pressing `m` starts a local move transaction.
   The pointer then previews the move on the sheet; the preview uses the existing `snapPlacement()`
@@ -35,8 +35,10 @@ The current drawing determines which actions are meaningful:
   rotation remains pending after the click or `Escape` that clears the selection.
 - A normal drag pans. It becomes a move only after `m` starts a transaction; a selection click never
   moves a symbol by accident.
-- `Enter` or a double-click opens the definition menu. A drawing click never jumps the source
-  cursor. Source navigation and source editing are separate actions in the standalone Source panel.
+- `Enter` or a double-click opens the selected identity's source: the first location the identity
+  index records, with a count of the others when there are more. A drawing click never jumps the
+  source cursor. Source navigation and source editing are separate actions in the standalone Source
+  panel.
 - PCB drawings are read-only. PCB clicks may pick and highlight a net, but cannot place, rotate, or
   edit board objects.
 
@@ -49,8 +51,8 @@ The current drawing determines which actions are meaningful:
 
 A move transaction records only the selected symbol or field's original view state. `Escape` while
 that transaction is active restores that transaction and leaves unrelated pending edits intact.
-`Escape` without an active move closes an open definition menu or clears the selection. A click or
-`Escape` following a queued rotation clears the selection without removing the queued rotation.
+`Escape` without an active move clears the selection. A click or `Escape` following a queued
+rotation clears the selection without removing the queued rotation.
 
 Placement, rotation, and field changes remain in local pending state until `Apply` or `Ctrl+Enter`.
 The host then writes only the affected view file through the canonical CLI path. The browser never
@@ -74,8 +76,8 @@ the CLI or plugin host validates and writes through the existing canonical paths
 
 ### D4. The drawing kinds remain independent
 
-The app continues to show print pages, PCB canvases, symbols, and footprints as drawings of one
-surface. This decision changes interaction semantics, not ownership: the print page remains an
+The app continues to show print pages, PCB canvases, module drawings, symbols, and footprints as
+drawings of one surface. This decision changes interaction semantics, not ownership: the print page remains an
 independent view description, the PCB remains a physical description, and the renderer remains
 read-only.
 

@@ -195,7 +195,7 @@ export type ReviewSourceKind =
 /** One place an identity is defined or used, as a source location (ADR-0004 D6). */
 export interface ReviewSourceLocation {
   kind: ReviewSourceKind;
-  /** Human label for the definition menu (`sch instance row`, `view place (buck-5v)`, …). */
+  /** Human label for the location (`sch instance row`, `view place (buck-5v)`, …). */
   label: string;
   /** Path relative to the project root. */
   file: string;

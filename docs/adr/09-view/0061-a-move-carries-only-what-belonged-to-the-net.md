@@ -67,8 +67,12 @@ because a slower machine is allowed to be slower.
 
 ### D4. What the app decided for the reviewer is reported
 
-A reseat that did happen is named in the plan's `reseated` list and shown by the app. The reviewer
-sees that a port followed its net and that nothing else moved.
+A reseat that did happen is named in the plan's `reseated` list, so the plan says what the app
+decided on the reviewer's behalf: that a port followed its net, and that nothing else moved.
+
+The app does not show that list yet. Its status line reports the conflict count and the stale-net
+count, not the reseated names, so the names are reachable in the plan the host receives and nowhere
+else. Putting them in front of the reviewer is open work (`docs/backlog.md`).
 
 ## Consequences
 

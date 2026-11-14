@@ -13,7 +13,7 @@ A `wire` row names the net it draws and two ends. Until now both ends had to be 
 from the symbol, and the view only says which pin it is.
 
 That worked while every run ran from pin to pin. It stops working at the board's edge. A port
-(`spec/teda.md` §7.5) names a net for the outside world; the page draws it as a symbol whose
+(`spec/teda.md` §7.4) names a net for the outside world; the page draws it as a symbol whose
 **anchor sits wherever the person put it**. When this record was written, the reference project's
 `GND` port sat at `(120, 121)`, in the middle of the bus that ran from `117.5` to `139` — not at
 either end of it. The `VOUT_5V` port was 9.19 mm away from the nearest `VOUT` run.
@@ -44,7 +44,7 @@ The two end columns of a `wire` row accept either:
 - a **port id** (`GND`, `VOUT_5V`) — its point comes from the page's own `port` row.
 
 The two spaces cannot collide, so the kind is read off the string: a pin reference always contains
-a dot, a port id never does (`spec/teda.md` §4.2, §7.5). No new syntax, no new column, no prefix.
+a dot, a port id never does (`spec/teda.md` §4.2, §7.4). No new syntax, no new column, no prefix.
 
 The column names stay `from_pin` / `to_pin`. A wire has always started at a pin and the schema is
 the contract third parties write against; renaming the column would be a breaking change that buys

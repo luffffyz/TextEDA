@@ -198,7 +198,7 @@ function strokePath(
   }
 }
 
-/** Fill a closed polygon with the even-odd rule, the same rule an SVG viewer applies. */
+/** Fill a closed polygon with the even-odd rule. */
 function fillPath(
   frame: Frame,
   points: { x: number; y: number }[],

@@ -212,18 +212,6 @@ export const APP_STYLES = `
   font: 11px ui-monospace, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .teda-review .muted { color: var(--muted); }
-.teda-review .definition { display: grid; grid-template-columns: 64px 1fr; gap: 2px 8px; margin-bottom: 10px; }
-.teda-review .definition .label { color: var(--muted); }
-.teda-review .members { list-style: none; margin: 4px 0 0; padding: 0; }
-.teda-review .members li { display: flex; gap: 8px; padding: 2px 0; border-bottom: 1px solid var(--line); }
-.teda-review .refdes, .teda-review .net-name { font: 12px ui-monospace, monospace; color: var(--accent); }
-.teda-review .pins, .teda-review .component { color: var(--muted); font: 11px ui-monospace, monospace; }
-.teda-review .definitions-toggle {
-  display: block; width: 100%; margin: 8px 0 0; padding: 4px 6px; text-align: left;
-  background: none; border: 1px solid var(--line); border-radius: 4px;
-  color: var(--muted); font: inherit; font-size: 11px; cursor: pointer;
-}
-.teda-review .definitions-toggle:hover { color: var(--fg); background: #23262c; }
 /*
  * The keyboard hint sits in the sheet's own top-left corner and never takes a slice of the frame:
  * it is an overlay on the stage, not a fourth grid track. It is resident, so it stays legible over

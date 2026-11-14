@@ -2,10 +2,10 @@
 
 Status: Accepted
 Date: 2026-10-30
-Scope: Decides: that the review app shows drawings — a print page, a board's physical canvas, a library symbol, a library footprint — as four kinds of one thing; that the modes belong to the drawing (`review` everywhere, `layout` and `edit` on a print page) and that the `placement` mode is retired; that a finding names an object the app can select on the drawing; and that the app shows what a print page measures. Does not decide: what a print page is or how it is drawn — see ADR-0035 and ADR-0036; how PCB placement and copper routing are produced — see ADR-0017; what a review record says — see ADR-0037.
-Related: [ADR-0042](0042-the-review-app-has-modes.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0049](../08-libraries/0049-assets-are-filed-by-what-they-are.md), [ADR-0056](0056-the-review-app-has-one-interaction-surface.md).
+Scope: Decides: that the review app shows drawings — a print page, a board's physical canvas, a module drawing, a library symbol, a library footprint — as five kinds of one thing; that the modes belong to the drawing (`review` everywhere, `layout` and `edit` on a print page) and that the `placement` mode is retired; that a finding names an object the app can select on the drawing; and that the app shows what a print page measures. Does not decide: what a print page is or how it is drawn — see ADR-0035 and ADR-0036; how PCB placement and copper routing are produced — see ADR-0017; what a review record says — see ADR-0037.
+Related: [ADR-0042](0042-the-review-app-has-modes.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0049](../08-libraries/0049-assets-are-filed-by-what-they-are.md), [ADR-0056](0056-the-review-app-has-one-interaction-surface.md), [ADR-0068](0068-reusable-module-drawings-and-sheet-templates.md), [ADR-0071](0071-a-module-drawing-is-an-editable-view.md).
 Impact: `packages/viewer/**`; `packages/cli` (the `review` command and its model); `plugins/dsh-texteda`; `docs/guides/review-app.md`; `docs/backlog.md` (F34)
-> **Current interaction contract (2026-11-03):** the four drawing kinds and PCB-as-a-read-only-drawing decision remain current. The mode-switch rule in D2 and the capability wording in D3 are superseded by [ADR-0056](0056-the-review-app-has-one-interaction-surface.md).
+> **Current interaction contract (2026-11-03):** the five drawing kinds and PCB-as-a-read-only-drawing decision remain current. The mode-switch rule in D2 and the capability wording in D3 are superseded by [ADR-0056](0056-the-review-app-has-one-interaction-surface.md).
 
 ## Context
 
@@ -33,19 +33,20 @@ had to hunt for *what* on the sheet.
 
 ### D1. The app shows drawings, and the tree groups them by kind
 
-A drawing is one of four kinds: a **print page** (`sch`), a board's **physical canvas** (`pcb`), a
-library **symbol**, a library **footprint**. The model carries them all in one list, each with its
-kind, its key, its label, its source file, its sheet, its ink and its problems. One shape, one
-list, one code path: the stage draws a drawing, whatever kind it is.
+A drawing is one of five kinds: a **print page** (`sch`), a board's **physical canvas** (`pcb`), a
+**module drawing** (`module`), a library **symbol**, a library **footprint**. The model carries
+them all in one list, each with its kind, its key, its label, its source file, its sheet, its ink
+and its problems. One shape, one list, one code path: the stage draws a drawing, whatever kind it
+is.
 
-The sidebar groups the drawings by kind — print pages, board canvases, symbols, footprints — and
-lists a board that has no print page on its own, with the note that says why and the instances
-that are still there to look at.
+The sidebar groups the drawings by kind — print pages, board canvases, module drawings, symbols,
+footprints — and lists a board that has no print page on its own, with the note that says why and
+the instances that are still there to look at.
 
 The kind blocks fold, and the two library kinds go one level further, by the classification
 directory the file sits in ([ADR-0049](../08-libraries/0049-assets-are-filed-by-what-they-are.md)):
-sixteen symbols under one heading is a list nobody browses, and the classes are the grouping the
-project already has. That second level is **not** a fold the reviewer clicks — it opens under the
+a library's symbols under one heading is a list nobody browses, and the classes are the grouping
+the project already has. That second level is **not** a fold the reviewer clicks — it opens under the
 pointer, because the pointer is already there to pick a row, and two gestures to reach one row is
 one too many. Either way the selection is never hidden: the kind fold opens for the drawing it holds,
 and the class block holding the selected drawing stays open after the pointer leaves. What a leaf
@@ -70,6 +71,10 @@ The mode bar offers what the current drawing can do:
 | a library symbol | `review` |
 | a library footprint | `review` |
 
+> **Superseded (2026-11-03):** [ADR-0056](0056-the-review-app-has-one-interaction-surface.md)
+> replaced the mode bar with one interaction surface. The drawing still decides which actions are
+> meaningful, but there is no mode to switch.
+
 The modes still differ only in what a press means; the highlight-and-jump path is one
 implementation (ADR-0042). What changed is the question the mode bar asks: not "what can this
 board do?" but "what can this drawing do?".
@@ -80,8 +85,8 @@ board do?" but "what can this drawing do?".
 canvas of its own: reading the board's copper is what `review` does on a board canvas, and the
 net highlight follows the pointer as it always did.
 
-A host's capability may still name the modes it allows; the retired name is simply not a mode
-any more, so a host that named it grants nothing by it (ADR-0043 D3).
+A host's capability no longer names modes at all: it is `{ write: "places" | "layout" }`
+(ADR-0056 D3), so a host that named a mode grants nothing by it (ADR-0043 D3).
 
 ### D4. The library's own assets are drawings
 
@@ -130,4 +135,4 @@ measurements, and the app says nothing rather than a wrong number.
 - **The page's numbers are next to the page.** The reviewer sees how crowded the drawing is
   without leaving the app for `texteda view metrics`.
 - **The host contract loses a mode.** A host that named `placement` grants nothing by it now; the
-  capability list is `review`, `layout` and `edit` (ADR-0043 D3).
+  capability is `{ write: "places" | "layout" }` (ADR-0056 D3).

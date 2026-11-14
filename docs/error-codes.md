@@ -225,7 +225,7 @@ when semantics change, emit a new code and mark the old one `[DEPRECATED → new
 
 | Code | Severity | Meaning | How to fix | Spec |
 |---|---|---|---|---|
-| `design.rating-exceeded` | error | A device's declared rating cannot cover the declared window of the net it sits on | raise the device's rating, lower the declared window, or state why the window is what it is | spec/teda.md §7.4, docs/adr/07-devices/0026-a-part-states-its-own-ratings.md D8、D11 |
+| `design.rating-exceeded` | error | A device's declared rating cannot cover the declared window of the net it sits on | raise the device's rating, lower the declared window, or state why the window is what it is | spec/teda.md §7.3, docs/adr/07-devices/0026-a-part-states-its-own-ratings.md D8、D11 |
 | `design.stress-unknown` | note | Instances that could not be compared with their declared window, and why | state the reference potential (voltage GND 0V..0V) and a window on the net; multi-pin stress models are not implemented yet | docs/adr/07-devices/0026-a-part-states-its-own-ratings.md |
 | `design.power-unknown` | note | Resistive instances whose worst-case dissipation could not be compared with any power limit | state the reference potential (voltage GND 0V..0V) and a window on the net; the package floor covers chip resistors with a JEDEC size, nothing else | docs/adr/07-devices/0026-a-part-states-its-own-ratings.md, docs/adr/07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md |
 

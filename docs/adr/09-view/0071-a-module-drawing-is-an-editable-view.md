@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-11-11
 Scope: Decides: that a reusable module drawing is authored view source, that the review app offers the same explicit placement and source actions on it as on a print page, that the write targets the module-view file, and that one module has one drawing shared by every placement. Does not decide: per-instance or per-page drawing overrides, or editing a sheet template — a variation of a module's picture needs its own record.
-Related: [ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md), [ADR-0055](../09-view/0055-schematic-fields-are-view-overrides.md), [ADR-0056](../09-view/0056-the-review-app-has-one-interaction-surface.md), [ADR-0059](../09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md), [ADR-0068](../09-view/0068-reusable-module-drawings-and-sheet-templates.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md), [ADR-0070](../03-project/0070-module-definitions-live-under-the-schematic-tree.md)
+Related: [ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md), [ADR-0048](../09-view/0048-the-review-app-shows-drawings.md), [ADR-0055](../09-view/0055-schematic-fields-are-view-overrides.md), [ADR-0056](../09-view/0056-the-review-app-has-one-interaction-surface.md), [ADR-0059](../09-view/0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md), [ADR-0068](../09-view/0068-reusable-module-drawings-and-sheet-templates.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md), [ADR-0070](../03-project/0070-module-definitions-live-under-the-schematic-tree.md)
 Impact: `spec/schematic-view.md`; `packages/cli/src/layout.ts`; `packages/cli/src/review.ts`; `packages/cli/src/review-model.ts`; `packages/viewer/src/app.ts`; `scripts/verify-views.ts`; `docs/guides/review-app.md`; `docs/backlog.md`
 
 ## Background
@@ -13,11 +13,12 @@ with the module's local instance, net and port identities, and a print page plac
 ([ADR-0068](../09-view/0068-reusable-module-drawings-and-sheet-templates.md) D1, D2). It is
 advisory — it can show a module, it can never change one.
 
-The review app lists module drawings as drawings of their own, but its write actions are gated on a
-schematic **print page**: `canWriteFull()` requires `drawing().kind === "sch"`, and the layout route
-carries a `page` id that resolves to `views/<page_id>.view.teda` ([ADR-0056](../09-view/0056-the-review-app-has-one-interaction-surface.md)
-D1, D2). A module drawing therefore opens read-only: a person can look at it but cannot move a part,
-re-anchor a wire, or drag a field.
+The review app lists module drawings as drawings of their own, but its write actions were gated on a
+schematic **print page**: the app would only arrange a drawing whose kind was `sch`, and the layout
+route carried a `page` id that resolved to `views/<page_id>.view.teda`
+([ADR-0056](../09-view/0056-the-review-app-has-one-interaction-surface.md) D1, D2). A module drawing
+therefore opened read-only: a person could look at it but could not move a part, re-anchor a wire,
+or drag a field.
 
 That is an implementation boundary, not a rule. [ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md)
 D3 and D4 make every view authored source: a human or an agent moves the symbols, wires and labels,

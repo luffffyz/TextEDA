@@ -12,7 +12,7 @@ Impact: `spec/schematic-view.md` §4.1, §9.2; `packages/renderer/src/field-layo
 field: above and below the painted body of its symbol, `1 mm` of clearance. That is a decision
 about one symbol, and it was right about one symbol. A page is not one symbol.
 
-Two parts drawn close together break it. The buck page's `M2.C3` and `M2.C4` are `6.5 mm` apart:
+Two parts drawn close together break it. The buck drawing's `C3` and `C4` are `4.5 mm` apart:
 each one's `Reference` wants the side its symbol points at, the two wanted places face each other,
 and each one's `Value` wants the other side, which is where the neighbour's body is. The renderer
 drew all four texts anyway, and the reader got two pairs of words on top of each other. The
@@ -54,10 +54,14 @@ field a `field` row placed by hand is not moved: the page routes the automatic f
 
 ### D4. The slots around a body
 
-The slots are a fixed list, so the same page always draws the same way. In order: the place the
-field wants; the side across from the one it wanted; the two sides at right angles to it; and then
-each of those three again, `2 mm` further out. A field therefore never floats more than `5 mm` from
-the body it names.
+The slots are a fixed list, so the same page always draws the same way. The place the field wants
+comes first. After that the body's four sides are tried in a fixed order — the side the field
+wanted, the side across from it, and then the two sides at right angles to it — at three
+clearances in turn: `1 mm`, then `3 mm`, then `5 mm`. At each clearance a side is tried at its
+centre first, and then along the side in `0.5 mm` steps, nearest first in both directions, through
+the corners where the text's edge aligns with the body's edge. A field therefore never sits further
+than `5 mm` from the body it names, measured across the gap; how far along the side it may slide is
+bounded by the body's own extent.
 
 ### D5. The placement is a drawing fact
 

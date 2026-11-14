@@ -223,7 +223,7 @@ request and show the diff.
 The review app has one interaction surface: select a schematic symbol, press `m` to start an
 explicit move transaction, or press `r` to queue a clockwise 90-degree rotation. A label or a port
 is movable too: select it and press `m` to place it by hand. Selection does not
-navigate: a single click only selects; `Enter` or a double-click opens the definition menu. The move
+navigate: a single click only selects; `Enter` or a double-click opens the selected identity's source. The move
 preview uses the 0.5 mm placement grid (ADR-0057); a left-click completes only the local preview, and `Escape`
 restores that move transaction without reverting unrelated pending edits. `Apply` writes the pending
 view changes and **re-anchors** affected wires — same segment count, same directions, only the corners

@@ -144,18 +144,19 @@ what was drawn — a pad, a track, a via — and not an invisible box around it.
 ## One interaction surface
 
 There is no review, layout or edit mode. The current drawing determines which explicit actions are
-available. All drawings share hover, selection, definitions, navigation, zoom and pan. A schematic
+available. All drawings share hover, selection, a source jump, navigation, zoom and pan. A schematic
 drawing — a print page or a module drawing — additionally exposes placement and source actions when
 its host can write; the PCB and library drawings remain read-only.
 
-### Selection and definitions
+### Selection and the source jump
 
 - **Click a drawn object** to select it. A schematic click does not move anything and does not jump
   to a source row. PCB clicks select the drawn object and highlight its net; they never edit the PCB.
-- **`Enter` or a double-click** opens the definitions menu for the selected identity. Choosing an
-  entry opens `vscode://file/<absolute path>:<line>:<col>`.
-- **Click empty paper** clears the selection. `Escape` closes an open definitions menu first, then
-  clears the selection when no transaction is active.
+- **`Enter` or a double-click** opens the selected identity's source: the first location the
+  identity index records, opened as `vscode://file/<absolute path>:<line>:<col>`. When the identity
+  has more locations, the status line says how many remain.
+- **Click empty paper** clears the selection. `Escape` clears the selection when no transaction is
+  active.
 
 ### Schematic placement actions
 
@@ -229,7 +230,7 @@ places-only host rejects `fields`, `remove_fields` and `text` payload keys inste
 The app does not route wires during a move or solve placement; stale or conflicting wires are
 reported for the CLI/agent workflow.
 
-The definitions menu is backed by the advisory `dist/ir/identity.json` written by `texteda ir`
+The source jump is backed by the advisory `dist/ir/identity.json` written by `texteda ir`
 ([ADR-0004](../adr/01-language/0004-source-spans.md), 2026-10-26 amendment), so the app does not
 re-parse a file merely to locate a definition.
 
@@ -243,8 +244,8 @@ otherwise still shows the relative file and line.
 |---|---|
 | hover a symbol / label / port | The element is outlined in the app's layer and the facts appear at the bottom and on the right. Moving off it releases the mark and the status line goes back to describing the page. The SVG is not regenerated. Hovering one net label lights every place that net is named. |
 | click | Selects it: a slightly thicker outline and a wash, kept while the pointer moves away. It does not open a file. |
-| `Enter` or double-click the selection | Opens the definitions menu: the project/module-instance row, print-page placement, PCB placement, component, symbol, footprint and pin rows for an instance; the project net row and every view wire/label for a net. Choosing a row opens `vscode://file/<absolute path>:<line>:<col>`. |
-| click empty paper, or `Esc` | With the definitions menu open, `Esc` closes the menu first; a second `Esc` (or a click on empty paper) drops the selection. |
+| `Enter` or double-click the selection | Opens the selected identity's source: the first location the identity index records, as `vscode://file/<absolute path>:<line>:<col>`. The index holds the project/module-instance row, print-page placement, PCB placement, component, symbol, footprint and pin rows for an instance; the project net row and every view wire/label for a net. When there is more than one, the status line says how many remain. |
+| click empty paper, or `Esc` | Drops the selection, unless a move transaction is in flight — `Esc` cancels that transaction first. |
 | drag | Pans. |
 | wheel | Zooms about the cursor. The sheet is re-rendered as vectors at the new size, so it never goes soft in between. |
 | `0` | Fits the page again. |
@@ -254,7 +255,7 @@ otherwise still shows the relative file and line.
 These bindings apply to the one surface. `m`, `r`, `Ctrl+Enter` and the transaction rules are
 available only when the current schematic drawing and host capability allow them. A single click
 always selects; it never jumps to a source row. Source navigation is available through the explicit
-Source action and through the definitions menu, not through drawing clicks.
+Source action and through the source jump, not through drawing clicks.
 
 The mark is a screen annotation: its stand-off (4 px plus half the drawing's typical 0.25 mm stroke)
 and its stroke (1.25 px hovered, 1.75 px picked) are rewritten in sheet units on every zoom, so both

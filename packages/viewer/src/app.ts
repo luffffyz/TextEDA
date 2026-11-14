@@ -105,7 +105,6 @@ interface AppState {
   panX: number;
   panY: number;
   selected: Highlight | null;
-  /** The definition menu is open for the current selection. */
   /**
    * The kind blocks the person folded, by key (`kind/symbol`).
    *

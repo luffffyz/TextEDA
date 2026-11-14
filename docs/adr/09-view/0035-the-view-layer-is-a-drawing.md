@@ -3,9 +3,9 @@
 Status: Accepted
 Date: 2026-10-22
 Scope: Decides: that the view is an independent description type with its own file, schema and shard, that it is a drawing rather than a build input, and that deterministic `Reference` / `Value` field placement is the renderer's limited automatic-placement exception. Does not decide: the renderer's full implementation or other layout policy — see ADR-0036 and ADR-0055.
-Related: [ADR-0004](../01-language/0004-source-spans.md), [ADR-0012](../04-schematic/0012-one-flat-schematic-per-board.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0037](0037-review-records-and-attribution.md), [ADR-0042](0042-the-review-app-has-modes.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0055](0055-schematic-fields-are-view-overrides.md), [ADR-0057](../08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md), [ADR-0059](0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md), [ADR-0060](../03-project/0060-a-write-keeps-the-bytes-it-replaced.md), [ADR-0061](0061-a-move-carries-only-what-belonged-to-the-net.md), [ADR-0062](0062-a-run-may-end-at-a-port.md), [ADR-0063](0063-a-run-is-shortened-only-along-the-lines-it-was-drawn-on.md), [ADR-0064](0064-automatic-fields-are-placed-for-the-page.md), [ADR-0065](../01-language/0065-a-coordinate-tuple-is-one-cell.md), [ADR-0067](0067-hierarchical-module-views-and-custom-page-size.md), [ADR-0068](0068-reusable-module-drawings-and-sheet-templates.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md), [ADR-0071](0071-a-module-drawing-is-an-editable-view.md), [ADR-0072](0072-a-second-rendering-backend-paints-the-same-drawing.md)
+Related: [ADR-0004](../01-language/0004-source-spans.md), [ADR-0012](../04-schematic/0012-one-flat-schematic-per-board.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0037](0037-review-records-and-attribution.md), [ADR-0042](0042-the-review-app-has-modes.md), [ADR-0043](0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0055](0055-schematic-fields-are-view-overrides.md), [ADR-0057](../08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md), [ADR-0059](0059-print-page-coordinates-anchor-on-the-half-millimetre-lattice.md), [ADR-0060](../03-project/0060-a-write-keeps-the-bytes-it-replaced.md), [ADR-0061](0061-a-move-carries-only-what-belonged-to-the-net.md), [ADR-0062](0062-a-run-may-end-at-a-port.md), [ADR-0063](0063-a-run-is-shortened-only-along-the-lines-it-was-drawn-on.md), [ADR-0064](0064-automatic-fields-are-placed-for-the-page.md), [ADR-0065](../01-language/0065-a-coordinate-tuple-is-one-cell.md), [ADR-0067](0067-hierarchical-module-views-and-custom-page-size.md), [ADR-0068](0068-reusable-module-drawings-and-sheet-templates.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md), [ADR-0070](../03-project/0070-module-definitions-live-under-the-schematic-tree.md), [ADR-0071](0071-a-module-drawing-is-an-editable-view.md), [ADR-0072](0072-a-second-rendering-backend-paints-the-same-drawing.md)
 
-> **Project scope (2026-11-09):** [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) supersedes the board-scoped file layout and hash wording of D1, D2, D3, D5 and D12: print pages are project-wide (`views/<page_id>.view.teda`, advisory `views/<page_id>.json` shards) and reference project-level ids, and the project hash covers the logical root plus every physical PCB. This record's core decisions — an independent view description type, a hand-written drawing outside the build identity, a renderer that draws and never places — remain current.
+> **Project scope (2026-11-09):** [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md) supersedes the board-scoped file layout and hash wording of D1, D2, D3, D5 and D12: print pages are project-wide (`views/<page_id>.view.teda`, advisory `views/<page_id>.json` shards) and reference project-level ids, and the project hash covers the logical root plus every physical PCB. **Tree (2026-11-11):** [ADR-0070](../03-project/0070-module-definitions-live-under-the-schematic-tree.md) moved the module definitions into the schematic source tree, so D2's tree reads `design/sch/modules/<module_id>.teda`. This record's core decisions — an independent view description type, a hand-written drawing outside the build identity, a renderer that draws and never places — remain current.
 
 ## Background
 
@@ -44,8 +44,8 @@ are two different things with the same name.
 
 And under the placement question sat a hash question that had never been asked. The shard
 classification rule says a shard is **normative** when the build depends on it and **advisory**
-when nothing built depends on it, and it says that *board shards are always normative*. The
-board's shards include its views. So today, moving a label in a print page changes the board hash
+when nothing built depends on it, and it used to say that *board shards are always normative*.
+The board's shards included its views. So moving a label in a print page changed the board hash
 and the project hash.
 
 That is wrong, and the reason is visible in the rules themselves: no artifact that is built from
@@ -101,8 +101,8 @@ make the sheet readable, and it is the thing the readability checks measure agai
 my-project/
 ├── design/                          # the circuit — the truth
 │   ├── sch/main.teda                # the project's one logical root
-│   ├── pcb/<pcb_id>.teda
-│   └── modules/<module_id>.teda
+│   ├── sch/modules/<module_id>.teda # module definitions (ADR-0070)
+│   └── pcb/<pcb_id>.teda
 └── views/                           # the drawings — hand-written, discardable, not the build
     └── <page_id>.view.teda
 ```
@@ -175,16 +175,18 @@ manufacturing package?* Moving a label does not, so a label move changes neither
 hash nor the board hash, and a manufacturing package stays valid. Changing a pin table does, so it
 changes both.
 
-- A rendered page carries the **page shard's own `sha256`** as its `source_hash`, the same way a
-  rendered symbol carries its shard's hash. The drawing is therefore traceable to the exact file
-  it was drawn from, without the drawing being part of the build identity. No new hash is
-  introduced for this.
+- A rendered page **should** carry the **page shard's own `sha256`** as its `source_hash`, so the
+  drawing is traceable to the exact file it was drawn from without the drawing being part of the
+  build identity. **The stamp is not written yet** (`docs/backlog.md` F3): a rendered page carries
+  no hash today, and no rendered symbol carries one either — only the Gerber and Excellon outputs
+  carry a `source_hash`, and that one is the **project** hash, not a per-file one.
 - A review record that cites a drawing cites the page's `source_hash`; a manufacturing record
   cites the board hash. The two do not have to move together.
 
 ### D6. The renderer reads the view and may place only unoverridden symbol fields
 
-`renderSchematic(logicalIr, viewIr)` draws the stored view. It does not lay out symbols, route
+`renderSchematic(view, instances)` draws the stored view — the view IR plus the symbol and pin
+facts the caller resolved for it. It does not lay out symbols, route
 wires, place labels or ports, or arrange any other drawing object. The one narrow exception is the
 deterministic placement of the logical `Reference` and `Value` fields of a symbol when that field
 has no local override in the view. Those fields are renderer-owned defaults, not a general layout
@@ -260,7 +262,7 @@ discovery. A view error that is also a plain "reference points at nothing" error
 **reuses the existing codes** rather than growing a parallel set: `ref.unknown-instance`,
 `ref.unknown-net`, `ref.unknown-port`, `value.angle-invalid`. Only the failures that exist
 because a view layer exists get a `view.*` code: `view.pin-not-placed`, `view.pin-net-mismatch`,
-`view.out-of-sheet`, `view.label-not-on-net`, `view.port-not-on-net`, `view.net-not-drawn`,
+`view.out-of-sheet`, `view.label-not-on-net`, `view.port-not-on-net`, `view.nets-not-drawn`,
 `view.wire-crosses-symbol`, `view.text-overlap`, `view.label-collision`, and the later additions
 `view.text-on-wire`, `view.wire-diagonal` and `view.wire-crosses-pin`.
 

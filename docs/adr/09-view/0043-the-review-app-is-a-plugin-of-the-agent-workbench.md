@@ -125,8 +125,8 @@ commands — is decided in [ADR-0044](../10-process/0044-the-agent-surface-is-a-
 ### D5. The person's gestures are look, select, ask, place
 
 Hover highlights by identity; a click selects; a selection becomes a brief that the agent
-receives; a drag moves a project instance on a project-wide print page and writes that page's
-`place` row (D3). Flattened component instance IDs are project-wide and qualified as
+receives; an explicit move places a project instance on a project-wide print page and writes that
+page's `place` row (D3). Flattened component instance IDs are project-wide and qualified as
 `<module_instance_id>.<local_id>`; for example, `M1.U1`.
 
 The brief is a request, not an edit. "M1.U1 is where I pointed — move it and re-route what it
@@ -139,17 +139,20 @@ never changes the build.
 
 ### D6. The scopes are explicit
 
-A plugin instance shows one scope at a time: `sch` (the project's print pages, with the logical
-root `design/sch/main.teda` behind them) or `pcb` (one physical PCB canvas, identified by its
-`pcb_id`). They are different drawings over different IR shards, so they do not share a mode bar,
-and the findings, the definitions menu and the routes are scoped to the scope on screen. The
-standalone app grows the same split.
+A plugin instance shows one scope at a time: the project's print pages, with the logical root
+`design/sch/main.teda` behind them, or one physical PCB canvas, identified by its `pcb_id`. They
+are different drawings over different IR shards, so they do not share a mode bar, and the findings
+and the routes are scoped to the scope on screen. The standalone app grows the same split.
+
+The split is carried by the drawing kind rather than by a scope name of its own: the model lists a
+drawing as `sch`, `pcb`, `symbol`, `footprint` or `module` (ADR-0048 D1), and the app shows one
+drawing at a time.
 
 ### D7. The standalone app survives as the bridge
 
 A browser-only host needs an HTTP surface, and CI needs a file. The `texteda review <dir>`
 server and its static export stay, and they are the same code the plugin's host half uses. The
-standalone app keeps its write modes for as long as they are useful; see open point 3.
+standalone app keeps its write actions for as long as they are useful; see open point 3.
 
 ### D8. Writes, where they happen, go through the core
 
@@ -192,13 +195,17 @@ plugin's drag leaves the wires stale and says so — `view.wire-diagonal` and
 `view.wire-crosses-pin` — and never rewires them itself. The plugin's write stays one kind of row
 (D3).
 
-### D11. The standalone app keeps `layout` and `edit` for now
+### D11. The standalone app keeps its write actions for now
 
 The plugin is added, not substituted. Until a person has actually arranged a sheet through the
-plugin, the standalone app keeps its write modes: they are the only way to rearrange a sheet
+plugin, the standalone app keeps its write actions: they are the only way to rearrange a sheet
 without the agent in the loop, and they are the reference implementation the plugin's write path
 is tested against. The two are not two implementations — the app and the plugin share one core and
 one write path (D8).
+
+> **Superseded (2026-11-03):** the modes this decision named — `layout` and `edit` — are retired
+> by [ADR-0056](0056-the-review-app-has-one-interaction-surface.md); what the standalone app keeps
+> is one interaction surface with explicit move, rotate and source actions.
 
 What the app stops carrying is not decided here; it is earned by the plugin doing the job.
 
@@ -209,9 +216,9 @@ What the app stops carrying is not decided here; it is earned by the plugin doin
 - The plugin becomes an instrument rather than a viewer: it is where a person says *where*. That
   is the one thing language cannot carry, and it is worth a write path.
 - The plugin's contract with a person is four verbs, so the plugin has no source editing and no
-  chat; the standalone app keeps its modes until the plugin has actually arranged a sheet (D11).
-  That removes capability only when the replacement exists — the brief — and has passed a fair
-  test: can a person actually get their sheet arranged this way?
+  chat; the standalone app keeps its write actions until the plugin has actually arranged a sheet
+  (D11). That removes capability only when the replacement exists — the brief — and has passed a
+  fair test: can a person actually get their sheet arranged this way?
 - A write path a person uses has to be as careful as any other: one kind of row, canonical output,
   and a warning about what the write left stale instead of a silent fix.
 - The repository gains a second consumer of the core and a host shape that is not ours to

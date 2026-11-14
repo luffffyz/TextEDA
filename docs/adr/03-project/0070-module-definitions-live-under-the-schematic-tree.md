@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-11-11
 Scope: Decides: that reusable module definitions live at `design/sch/modules/<module_id>.teda`, that `design/sch/` holds the complete project logical source, and that project loading, initialization and migration use only that path. Does not decide: module semantics, module parameters, or a cross-project module library — see [ADR-0013](../04-schematic/0013-modules-compose-boards.md) D8 and `spec/module.md` §10.
-Related: [ADR-0008](0008-project-tree-has-owners.md), [ADR-0013](../04-schematic/0013-modules-compose-boards.md), [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md), [ADR-0071](../09-view/0071-a-module-drawing-is-an-editable-view.md)
+Related: [ADR-0008](0008-project-tree-has-owners.md), [ADR-0013](../04-schematic/0013-modules-compose-boards.md), [ADR-0035](../09-view/0035-the-view-layer-is-a-drawing.md), [ADR-0069](0069-project-level-logical-root-and-physical-board-mapping.md), [ADR-0071](../09-view/0071-a-module-drawing-is-an-editable-view.md)
 Impact: `spec/project.md`; `spec/teda.md`; `spec/module.md`; `spec/pcb.md`; `spec/schematic-view.md`; `packages/cli/src/paths.ts`; `packages/cli/src/project.ts`; `packages/cli/src/init.ts`; `packages/parser/src/`; `scripts/lib/project.ts`; `scripts/migrate-0.14.ts`; `examples/**`; generated references
 
 ## Background

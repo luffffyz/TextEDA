@@ -28,6 +28,7 @@ import type { Component } from "@texteda/ir/component";
 import type { Symbol } from "@texteda/ir/symbol";
 import type { Footprint } from "@texteda/ir/footprint";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
+import { byteCompare } from "@texteda/ir/order";
 import {
   bounds,
   composedGeometry,
@@ -90,7 +91,14 @@ export function reviewPageIndex(root: string): {
   modules: { module: string; file: string }[];
 } {
   const sources = loadViews(root);
-  const ordered = [...sources].sort((a, b) => (a.pageId === "main" ? -1 : b.pageId === "main" ? 1 : a.pageId.localeCompare(b.pageId)));
+  // `main` first, the rest in ASCII byte order — not localeCompare, which the locale would change
+  // (packages/ir/src/order.ts says so, and the review app must not order pages differently on two machines).
+  const ordered = [...sources].sort((a, b) => {
+    if (a.pageId === b.pageId) return 0;
+    if (a.pageId === "main") return -1;
+    if (b.pageId === "main") return 1;
+    return byteCompare(a.pageId, b.pageId);
+  });
   return {
     boards: new Set(["main"]),
     pages: ordered.map((view) => ({ page: view.pageId, file: view.file })),

@@ -1,4 +1,4 @@
-// The review app's definition menu is mostly data selection, not DOM: these tests keep the
+// The review app's definition locations are mostly data selection, not DOM: these tests keep the
 // F34 jump honest without a browser (ADR-0035 D6).
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
@@ -9,7 +9,7 @@ import { buildReviewModel } from "../src/review-model.ts";
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const referenceProject = join(repoRoot, "examples", "reference-project");
 
-describe("review definition menu", () => {
+describe("review definition locations", () => {
   const model = buildReviewModel(referenceProject);
   const instance = model.boards
     .find((board) => board.id === "main")

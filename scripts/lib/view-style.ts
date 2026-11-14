@@ -45,9 +45,9 @@ function offLattice(xNm: number, yNm: number): boolean {
  * House style for one print page (ADR-0059 D1).
  *
  * The rule covers every coordinate the page stores: a symbol's placement origin, a field anchor
- * (symbol-local), a module box corner and size, a module port, a wire bend, a label position, a
- * port position, and a note position. Wire *endpoints* are pin references rather than free
- * coordinates, so they are not checked here — the pin's own lattice is ADR-0057's business, and
+ * (symbol-local), a module box corner and size, a module port, a wire bend, a junction, a label
+ * position, a port position, and a note position. Wire *endpoints* are pin references rather than
+ * free coordinates, so they are not checked here — the pin's own lattice is ADR-0057's business, and
  * the pin's position depends on the symbol the page places.
  */
 export function viewHouseStyleProblems(
@@ -88,6 +88,9 @@ export function viewHouseStyleProblems(
   }
   for (const label of view.label ?? []) {
     if (offLattice(label.x_nm, label.y_nm)) report(`label of net ${label.net}`, label.x_nm, label.y_nm);
+  }
+  for (const junction of view.junction ?? []) {
+    if (offLattice(junction.x_nm, junction.y_nm)) report(`junction ${junction.id}`, junction.x_nm, junction.y_nm);
   }
   for (const port of view.port ?? []) {
     if (offLattice(port.x_nm, port.y_nm)) report(`port ${port.id}`, port.x_nm, port.y_nm);

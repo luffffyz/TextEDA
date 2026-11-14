@@ -337,7 +337,7 @@ port
 
 Column: `<project_port_id> <point> [<rotation>]`, where `<point>` is `[x,y]`.
 
-- `project_port_id` must be declared in the root `design/sch/main.teda` `ports` section (`teda.md` §7.5). A view does not declare project ports.
+- `project_port_id` must be declared in the root `design/sch/main.teda` `ports` section (`teda.md` §7.4). A view does not declare project ports.
 - The port glyph does not create connectivity; it draws an existing project port.
 - A row both draws the glyph and supplies its position as a `wire` endpoint. The endpoint uses the same project-port ID and coordinates; a wire endpoint must have a matching `port` row on this page ([ADR-0062](../docs/adr/09-view/0062-a-run-may-end-at-a-port.md) D1–D2).
 - Moving the row moves the glyph and the wire endpoint together; the view cannot change the root port's identity or net membership.

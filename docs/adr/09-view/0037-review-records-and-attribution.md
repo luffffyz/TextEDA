@@ -17,8 +17,8 @@ to leave a trace: who looked, what they saw, and what was decided about it.
 
 Today that trace is a wiki page or a chat message. It is not in the repository, so it is not
 diffed, not reviewed in the same pull request as the change it comments on, and not checked by
-anything. The board's exit criterion in `AGENTS.md` §1.2 even lists a review record, and there is
-nowhere to put one.
+anything. The exit criterion for the **Schematic** stage in `docs/guides/design-flow.md` even
+lists a review record, and there is nowhere to put one.
 
 Two things shape the answer.
 
@@ -42,7 +42,7 @@ the same everywhere; only the target differs:
 |---|---|
 | A library item | The record itself: `provenance`, `verified_by`, `verified_on` ([ADR-0033](../08-libraries/0033-libraries-are-unverified-facts.md) decision 1) |
 | A design (a board, a print page) | A review round in this project |
-| A part the project derived from a library | A review round whose target is that component, next to the derived file ([ADR-0033](../08-libraries/0033-libraries-are-unverified-facts.md) decision 3) |
+| A part the project took from a library | A review round whose target is that component — the project edits the copy it owns in place ([ADR-0033](../08-libraries/0033-libraries-are-unverified-facts.md) decision 3) |
 
 All of them are **attributed statements**, not proofs. Nothing here certifies that a human read a
 datasheet; it records that somebody said so, and makes the statement visible to the people who
@@ -82,8 +82,9 @@ A round's notes live in `docs/reviews/<round_id>.md` — prose, diffable, readab
 ```
 
 The convention is deliberately minimal: one bullet per note, the author and the date in front,
-the observation after the colon. **The tools do not parse the notes.** They are read by people;
-the machine reads the decision.
+the observation after the colon. **The tools do not interpret the notes** — they read only the
+author, the date and the round's target, and leave the rest to the reader. The machine reads the
+decision.
 
 ### 4. The decision is a small TOML file
 
@@ -188,13 +189,13 @@ This closes the open question of [ADR-0033](../08-libraries/0033-libraries-are-u
 ## Consequences
 
 - The project gains a place to put review notes, and `check` gains a way to show that a board
-  has notes nobody has answered. The board's exit criterion in `AGENTS.md` §1.2 becomes
-  checkable.
+  has notes nobody has answered. The exit criterion for the **Schematic** stage in
+  `docs/guides/design-flow.md` becomes checkable.
 - The tool never speaks for the accountable person. A note is not a verdict, and a reviewer
   cannot close a round; only a decision by the owner can.
 - A library item's review claim and a design's review record are the same idea in two places.
   A project that disagrees with a library writes a review round about the component, and the
-  derived file that acts on it ([ADR-0033](../08-libraries/0033-libraries-are-unverified-facts.md) decision 3)
+  copy it owns — the file that acts on it ([ADR-0033](../08-libraries/0033-libraries-are-unverified-facts.md) decision 3)
   references the same component.
 - The trust story of the ecosystem stays what it was: statements are attributed and visible;
   nothing is certified.

@@ -638,32 +638,32 @@
 
 ## F34. 评审 GUI（`packages/viewer`）：高亮指针、跳转源码、画图与单一交互面
 
-**Current status**: **implemented (2026-11-03)**. `texteda review <project directory>` provides one mode-free interaction surface: every drawing supports hover, selection, definition menus, same-kind drawing navigation, zoom, and pan; selecting a schematic symbol enables `m` movement and queued clockwise 90° `r` rotation, while only an explicit Source action opens the source panel. Movement uses the existing 0.5 mm `snapPlacement()` grid ([ADR-0057](adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)); left click only completes local preview, `Escape` cancels the current movement transaction, and `Apply` / `Ctrl+Enter` writes back. PCB, symbol, and footprint drawings remain read-only. Implemented in `packages/viewer/src/app.ts`, `packages/viewer/src/capability.ts`, and `packages/viewer/src/types.ts`; writes still pass only through the CLI `POST /api/layout` / `POST /api/source`, and targets are flat `views/<page_id>.view.teda`. Decisions: [ADR-0035](adr/09-view/0035-the-view-layer-is-a-drawing.md), [ADR-0042](adr/09-view/0042-the-review-app-has-modes.md), [ADR-0048](adr/09-view/0048-the-review-app-shows-drawings.md), and [ADR-0056](adr/09-view/0056-the-review-app-has-one-interaction-surface.md).
+**Current status**: **implemented (2026-11-03)**. `texteda review <project directory>` provides one mode-free interaction surface: every drawing supports hover, selection, a source jump, same-kind drawing navigation, zoom, and pan; selecting a schematic symbol enables `m` movement and queued clockwise 90° `r` rotation, while only an explicit Source action opens the source panel. Movement uses the existing 0.5 mm `snapPlacement()` grid ([ADR-0057](adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)); left click only completes local preview, `Escape` cancels the current movement transaction, and `Apply` / `Ctrl+Enter` writes back. PCB, symbol, and footprint drawings remain read-only. Implemented in `packages/viewer/src/app.ts`, `packages/viewer/src/capability.ts`, and `packages/viewer/src/types.ts`; writes still pass only through the CLI `POST /api/layout` / `POST /api/source`, and targets are flat `views/<page_id>.view.teda`. Decisions: [ADR-0035](adr/09-view/0035-the-view-layer-is-a-drawing.md), [ADR-0042](adr/09-view/0042-the-review-app-has-modes.md), [ADR-0048](adr/09-view/0048-the-review-app-shows-drawings.md), and [ADR-0056](adr/09-view/0056-the-review-app-has-one-interaction-surface.md).
 
-模型仍按 `ReviewDrawing` 区分 `sch` / `pcb` / `symbol` / `footprint`，侧栏按 kind 分组；`placement` 不是交互模式，PCB 画布是一张独立的只读画。发现项的 show 按钮会依据身份索引跳到持有它的画并选中，度量来自 core，app 不自行测量。意见锚点（`[instance:U3]` 前缀）仍未落地；实时布线按设计不做。
+模型仍按 `ReviewDrawing` 区分 `sch` / `pcb` / `module` / `symbol` / `footprint`，侧栏按 kind 分组；`placement` 不是交互模式，PCB 画布是一张独立的只读画。发现项的 show 按钮会依据身份索引跳到持有它的画并选中，度量来自 core，app 不自行测量。意见锚点（`[instance:U3]` 前缀）仍未落地；实时布线按设计不做。
 
 **实现记录**：
 
 1. **浏览器应用与写边界**：`packages/viewer` 由 `texteda review` 挂载，浏览器只消费 JSON + SVG；文件读写留在 CLI / 宿主侧。独立 CLI 沿用完整能力，DSH 插件固定为 `{ write: "places" }`。
 2. **元素 id 与 hover**：渲染器给绘制对象提供稳定 `data-ref`；hover 只改 DOM/CSS，不重绘、不重排，不做 viewer 自己的几何命中索引。
-3. **定义跳转**：双击或 `Enter` 打开定义位置菜单，选中后使用 `vscode://file/<abs>:<line>:<col>`；普通画布单击只选中，不跳源码。源码编辑只在显式 Source 面板发生。
+3. **定义跳转**：双击或 `Enter` 打开该身份的第一条定义位置，用 `vscode://file/<abs>:<line>:<col>`；身份还有更多位置时，状态行报出剩余数量。普通画布单击只选中，不跳源码。源码编辑只在显式 Source 面板发生。
 4. **单一交互面**：没有 `review` / `layout` / `edit` 的模式状态、模式栏或模式切换。`m` 的移动事务、`r` 的排队旋转、字段移动与 Source 面板都服从能力边界和 Apply 提交点；DSH 对 `fields`、`remove_fields`、`text` 请求键返回 HTTP 400，不静默忽略。
 5. **意见锚点（可选）**：note 行允许 `[instance:U3]` 这样的前缀仍是开放项；与 ADR-0037「工具不解析散文」的张力保持在该开放点。
 
 **验收**：
 
 - hover 一个符号 → 该符号高亮并显示身份（实例 id、器件、封装），**SVG 不重新生成**。
-- 双击或按 `Enter` 一个符号 → 出现定义位置菜单，至少含 logical-root 实例行与 `views/<page_id>.view.teda` 摆位项；选中后打开对应文件并定位到行。
+- 双击或按 `Enter` 一个符号 → 打开该身份的第一条定义位置（logical-root 实例行或 `views/<page_id>.view.teda` 摆位项），并定位到行；该身份还有更多位置时，状态行报出剩余数量。
 - 单次点击一个原理图符号 → 只选中并显示 facts，不移动、不跳源码；PCB 点击只做对象 / net 选择与高亮。
 - 选中原理图符号后按 `m` → 移动预览按 0.5 mm 吸附；左键完成本地预览，`Escape` 恢复这一次移动而保留其他 pending 编辑；切换画时也不提交 pending 编辑。
 - 选中原理图符号后按 `r` → 排队顺时针 90°；随后点击或按 `Escape` 只清除选中，不撤销排队的旋转。
 - `Apply` / `Ctrl+Enter` → 通过 CLI / 宿主 canonical 写路由提交 placement、rotation、fields 和 Source 草稿；只修改对应的 `views/<page_id>.view.teda`，不修改 `design/**`、IR 或工程哈希。`write: "places"` 只允许摆位，`write: "layout"` 才允许字段与 Source 写入。
-- 不存在三个模式或模式切换的验收；所有画共用 hover、选中、定义菜单、导航、缩放与平移，只有原理图画提供显式摆位动作，PCB / symbol / footprint 保持只读。
+- 不存在三个模式或模式切换的验收；所有画共用 hover、选中、源码跳转、导航、缩放与平移，只有原理图画提供显式摆位动作，PCB / symbol / footprint 保持只读。
 - viewer 不布线、不做布局求解；既有 wire 保持在本地预览中，布线搜索仍由 agent / CLI 的独立工作流完成（[ADR-0017](adr/05-pcb/0017-layout-and-routing-are-agent-driven.md)）。
 
 **注意**：
 
-- **选中是状态，跳转是动作**：单击只选中；定义菜单和 Source 操作是显式动作，不能用画布点击隐式改源码位置。
+- **选中是状态，跳转是动作**：单击只选中；源码跳转和 Source 操作是显式动作，不能用画布点击隐式改源码位置。
 - **GUI 不写设计**：`design/**` 一律不改；placement、rotation、字段和 Source 改动都只走 view 写路由，Apply 才提交，浏览器不直接访问文件系统。
 - **能力不是模式**：`ReviewCapability.write` 控制宿主可写范围，不再决定一套不同的 UI；不支持的 DSH 请求必须拒绝而不是降级为部分写入。
 - **身份索引不是第二真源**：`dist/ir/identity.json` 是附注类，只提供身份到源码位置的导航，不进入工程哈希。
@@ -986,48 +986,6 @@ DSH 侧**代码已落地**：宿主合同读的是官方 cookbook（`@deepseek-a
 ---
 
 
-## F65. Place module definitions under the schematic source tree
-
-**Status**: Implemented (2026-11-11, [ADR-0070](adr/03-project/0070-module-definitions-live-under-the-schematic-tree.md)). Module definitions resolve only from `design/sch/modules/<module_id>.teda`; `design/sch/` is the complete project logical source and `design/pcb/` remains the physical implementation tree. The loader has no active reader or alias for `design/modules/`, `texteda init` creates the new path, and `migrate:0.14` moves a legacy module directory there. The sole root, module semantics, PCB ownership, the IR and all hash rules are unchanged.
-
-**To do**:
-
-1. Record the path change in a new ADR; retain `design/sch/main.teda` as the only logical root and move module definitions to `design/sch/modules/<module_id>.teda`.
-2. Update module discovery, project initialization, migration, and all parser/CLI callers to use the new path. Do not keep an active reader or alias for `design/modules/`.
-3. Move example and fixture files, update diagnostic source paths, and refresh specs, guides, skills, README files, and generated API/IR references that describe the source tree.
-
-**Involved files**: `docs/adr/`, `spec/`, `packages/parser/`, `packages/cli/`, `scripts/migrate-0.14.ts`, `examples/`, `tests/`, `docs/`, `AGENTS.md`, and generated references.
-
-**Acceptance**:
-
-- `design/sch/main.teda` remains the sole logical root; module definitions resolve only from `design/sch/modules/<module_id>.teda`.
-- `texteda init`, project checks/builds, and `migrate:0.14` use the new layout; legacy `design/modules/` is not an active input path.
-- All active examples, fixtures, specifications, and procedures use the new paths; generated artifacts are current and repository gates pass.
-
-**Note**: This is a source-tree organization change only. It does not change module semantics, PCB ownership, IR meaning, or the rule that modules are project logic rather than device assets.
-
----
-
-## F66. Build reference-project module drawings before the print page
-
-**Status**: Implemented (2026-11-11, [ADR-0071](adr/09-view/0071-a-module-drawing-is-an-editable-view.md) D3). The reference project is module-first: `views/modules/charger-power.module-view.teda`, `views/modules/buck-5v.module-view.teda` and `views/modules/mcu-board.module-view.teda` draw the three modules independently, and the single project page `views/main.view.teda` composes them on an A2 template and draws the root interconnects. The standalone module detail pages and `composed.view.teda` are gone. The `buck-5v` drawing is wired; the other two are placement studies.
-
-**To do**:
-
-1. Provide reusable `views/modules/<module_id>.module-view.teda` drawings for the modules composed into the reference project page; each drawing uses its module-local identities and can be reviewed on its own.
-2. Make `views/main.view.teda` the sole project print page, composing the module drawings and project-level links after the module drawings are complete. Remove the standalone module detail pages and the redundant `composed.view.teda` page.
-3. Update the reference-project README and drawing skill to demonstrate module drawing first, page composition last; retain a sheet template only if the final page uses it.
-
-**Acceptance**:
-
-- The reference project has exactly one `*.view.teda` project page, `views/main.view.teda`; its composed modules resolve to module drawings under `views/modules/`.
-- Every module drawing passes its module-local checks and renders; the composed page passes project checks, view metrics, formatting, lattice verification, and visual review.
-- `bun run texteda check examples/reference-project`, `bun run view:verify examples/reference-project`, and `bun run fmt:teda --check examples/reference-project` pass; removing the view artifacts does not alter project logic or netlists.
-
-**Note**: This is a reference-project organization and authoring-workflow change only. It does not prohibit multiple print pages in other projects or change the view contract in [ADR-0067](adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md) and [ADR-0068](adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md).
-
-
-
 ## F67. Decide whether view filenames keep their type suffixes
 
 **Status**: Proposed (2026-11-11). No ADR yet; this entry records the question, not a decision.
@@ -1131,3 +1089,156 @@ board house accepts.
 
 **Note**: A vendor format carries its own unit and its own field placement. What is reusable is the
 *shape* — a projection of the IR into the vendor's columns — not the constants (ADR-0022).
+
+## F69. The two rendering backends fill a self-crossing polygon differently
+
+**Status**: Proposed (2026-11-14). No ADR yet; this entry records the gap, not a decision.
+
+**Current state**: the SVG backend (`packages/renderer/src/svg.ts`) writes `<polygon>` with no
+`fill-rule`, so a browser fills it by SVG's default **nonzero** rule. The rasterizer
+(`packages/renderer/src/raster.ts`) fills polygons by the **even-odd** rule. The two rules agree on
+every polygon that does not cross itself — all eight polygons in the reference library are simple —
+and disagree on one that does: the picture and the vector drawing then show different insides.
+[ADR-0072](adr/09-view/0072-a-second-rendering-backend-paints-the-same-drawing.md) decision 2
+states the rule each backend uses.
+
+**To do**:
+
+1. Decide which rule is the project's rule for a polygon: nonzero (the SVG default, so the vector
+   drawing stays authoritative), even-odd (what the rasterizer already does), or a rule the renderer
+   states itself by writing `fill-rule` into the SVG and mirroring it in the rasterizer.
+2. Make both backends use the decided rule in one place — the drawing command carries the rule, or
+   both backends read the same constant.
+3. Add a cross-backend comparison test: render the reference library's symbols through both backends
+   and compare the filled pixels of every polygon. A self-crossing polygon belongs in the fixture,
+   so the difference is exercised rather than assumed away.
+4. Say the rule in `spec/rendering.md`, next to the other drawing rules, and in the ADR that decides
+   it.
+
+**Involved files**: `packages/renderer/src/svg.ts`, `packages/renderer/src/raster.ts`,
+`packages/renderer/test/`, `spec/rendering.md`,
+`docs/adr/09-view/0072-a-second-rendering-backend-paints-the-same-drawing.md`.
+
+**Acceptance**:
+
+- Both backends fill every polygon by the same rule, and the rule is either written into the SVG
+  output or is the documented default.
+- A test compares the two backends' pictures across the whole reference library, and a
+  self-crossing polygon renders identically in both.
+- `bun test packages/renderer` and `bun run typecheck` pass.
+
+**Note**: choosing a fill rule changes the bytes of the vector output, so the decision has to name
+the rule once and both backends must follow it. A picture is never a measurement
+([ADR-0072](adr/09-view/0072-a-second-rendering-backend-paints-the-same-drawing.md) decision 5);
+this is about the two pictures agreeing, not about the picture becoming evidence.
+
+## F70. The review app does not show what a move reseated
+
+**Status**: Proposed (2026-11-14).
+
+**Current state**: a move's plan names every label or port that followed its net in a `reseated`
+list (`packages/cli/src/layout.ts`), and the host route carries it to the app
+(`packages/cli/src/review.ts`). The app reads the plan's `conflicts` and `stale` lists and shows
+their counts; it does not read `reseated`, so the reviewer never learns which labels and ports the
+app moved on their behalf.
+[ADR-0061](adr/09-view/0061-a-move-carries-only-what-belonged-to-the-net.md) D4 promises the
+report.
+
+**To do**:
+
+1. Add `reseated` to the viewer's plan payload and to the layout preview's status line: name the
+   labels and ports that followed their net, so the reviewer can see what the app decided.
+2. Decide where the list lives: the status line (counts, as today), the findings column, or a small
+   panel. The status line is the cheapest and matches how `conflicts` and `stale` are reported today.
+3. Keep the places-only host honest: it does not reseat, so it must not report a reseat it did not
+   perform.
+
+**Involved files**: `packages/cli/src/layout.ts`, `packages/cli/src/review.ts`,
+`packages/viewer/src/app.ts`, `packages/viewer/src/types.ts`, `docs/guides/review-app.md`.
+
+**Acceptance**:
+
+- After a move that reseats a label or a port, the app names it.
+- A move that reseats nothing says nothing that suggests it did.
+- The places-only host never reports a reseat it did not perform.
+- `bun test` and `bun run typecheck` pass.
+
+**Note**: the reseat is the one thing the app does to the drawing that the reviewer did not ask for,
+so it is worth naming. The plan already computes it; nothing about the re-anchor itself changes.
+
+## F71. `texteda view rewire` does not shorten a run
+
+**Status**: Proposed (2026-11-14).
+
+**Current state**: the review app's `Apply` runs the shortening pass (`simplifyRun`,
+`packages/core/src/view/reroute.ts`) after re-anchoring, so a run that lost the reason for a corner
+loses the corner. The command line's `texteda view rewire` re-anchors the runs that no longer fit
+(`rerouteWire`) and leaves every drawn corner alone. The two callers therefore produce different
+drawings from the same placement change.
+[ADR-0063](adr/09-view/0063-a-run-is-shortened-only-along-the-lines-it-was-drawn-on.md) records the
+shortening rule as a property of a re-anchored run rather than of one caller.
+
+**To do**:
+
+1. Decide whether `texteda view rewire` runs the shortening pass. If it does, the command changes
+   what it writes to a page, and the change needs its own decision and a note in the skill and the
+   guide.
+2. If it does, reuse `simplifyRun` and the same obstacles the app passes: the page's own wires,
+   symbols and anchors. The pass must see the same legality the app sees (`isLegalRun`), or the
+   command would accept a run the app rejects.
+3. If it does not, say so in the command's help and in the agent-facing skill: `view rewire` puts
+   the wiring back on the pins, it does not tidy it; the app's `Apply` is the caller that shortens.
+4. Cover the choice with a test that runs both callers on the same page and states which drawing
+   each produces.
+
+**Involved files**: `packages/cli/src/view.ts`, `packages/cli/src/layout.ts`,
+`packages/core/src/view/reroute.ts`, `packages/cli/test/`, `docs/skills/draw-print-page.md`,
+`docs/guides/review-app.md`.
+
+**Acceptance**:
+
+- Either `texteda view rewire` shortens the same runs the app shortens, or its help text says that it
+  does not.
+- A test compares the two callers' output on a page with a redundant detour.
+- `bun test` and `bun run typecheck` pass.
+
+**Note**: shortening is a drawing change, not a connectivity change — a run keeps the same net and
+the same ends. The wire's bends move, so the page's advisory hash changes and nothing else does.
+
+## F72. A top pin's vertical name reads toward its pin
+
+**Status**: Proposed (2026-11-14). No ADR yet; this entry records the asymmetry, not a decision.
+
+**Current state**: every visible-body vertical pin-name label is rotated exactly `90_000`
+millidegrees and uses `anchor: "start"`, so the name reads the same way on every vertical pin —
+upward on the sheet. The label is placed against the inner body edge on the pin's side, so a bottom
+pin's name starts at its pin and reads inward, while a top pin's name ends at its pin and reads
+outward. The two are not mirror images of each other.
+[ADR-0054](adr/09-view/0054-vertical-pin-name-labels-always-rotate-toward-their-pins.md) D3 records
+the rule; the asymmetry is what it costs.
+
+**To do**:
+
+1. Decide whether a top pin's name should read downward — the mirror of a bottom pin's — or whether
+   one reading direction for every vertical pin is the right convention. The second is what the
+   renderer does today, and it is the convention KiCad's own vertical pin names use.
+2. If the decision is the mirror, change the rotation for `270°` pins and accept that every symbol
+   with a top pin changes its rendered glyph orientation; the reference library's previews change
+   with it.
+3. If the decision is "one direction", write it into the ADR in the first place, so the rule reads as
+   a convention rather than as an oversight.
+
+**Involved files**: `packages/renderer/src/symbol.ts`,
+`packages/renderer/test/symbol-placement.test.ts`, `spec/symbol.md`,
+`docs/adr/09-view/0053-pin-name-body-clearance-is-measured-from-symbol-body-bounds.md`,
+`docs/adr/09-view/0054-vertical-pin-name-labels-always-rotate-toward-their-pins.md`.
+
+**Acceptance**:
+
+- The decision is recorded and the renderer matches it.
+- The renderer test covers a bottom pin and a top pin and states which end of the name is nearest the
+  pin.
+
+**Note**: this is a reference-renderer convention only. The symbol source has no text-position or
+rotation field, and the KiCad exporter is a separate output path
+([ADR-0054](adr/09-view/0054-vertical-pin-name-labels-always-rotate-toward-their-pins.md) D5).

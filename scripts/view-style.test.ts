@@ -28,9 +28,17 @@ describe("print-page house style", () => {
       wire: [{ net: "V", from_pin: "M1.VIN", to_pin: "C1.1", points: [{ x_nm: nm(35), y_nm: nm(25) }] }],
       label: [{ net: "V", x_nm: nm(35), y_nm: nm(25) }],
       port: [{ id: "P1", x_nm: nm(280), y_nm: nm(105) }],
+      junction: [{ id: "J1", x_nm: nm(93), y_nm: nm(36.5) }],
       text: [{ x_nm: nm(20), y_nm: nm(15), text: "note" }],
     });
     expect(viewHouseStyleProblems("t", view)).toEqual([]);
+  });
+
+  test("a junction off the lattice is reported", () => {
+    const view = page({ junction: [{ id: "J1", x_nm: nm(93.25), y_nm: nm(36.5) }] });
+    const [problem] = viewHouseStyleProblems("t", view);
+    expect(problem).toContain("junction J1");
+    expect(problem).toContain("0.5 mm lattice");
   });
 
   test("a module corner, size, and port off the lattice are reported", () => {

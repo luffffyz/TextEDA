@@ -45,8 +45,12 @@ The picture has to come from somewhere, and the options were:
 2. **The rasterizer is ours**, and it knows only our own drawing commands. It is not an SVG
    renderer: it does not read SVG files, and it does not do transforms, gradients, clipping or
    opacity. It paints lines, rectangles, circles, arcs, polygons, polylines, text strokes, pins and
-   pads — with a round cap as a disc and a fill with the even-odd rule, which is what the SVG
-   backend's own `stroke-linecap="round"` and `fill-rule` produce.
+   pads — with a round cap as a disc and a fill with the **even-odd** rule. The round cap is what
+   the SVG backend's own `stroke-linecap="round"` produces. The fill rule is **not** the same as
+   the SVG's: the SVG backend writes no `fill-rule` attribute, so an SVG polygon is filled by the
+   default **nonzero** rule. For a polygon that does not cross itself the two rules agree; for one
+   that does, the picture and the vector drawing disagree about what is inside. Making them agree
+   is open work (`docs/backlog.md`).
 3. **The PNG encoder is ours too.** The renderer package has to run in a browser and in a Node host
    ([ADR-0038](../10-process/0038-implementation-stack-and-agent-entry.md) decision 1), so
    `node:zlib` is not available to it: the deflate stream, the Adler-32, the CRC-32 and the PNG

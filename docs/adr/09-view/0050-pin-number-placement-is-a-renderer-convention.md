@@ -22,7 +22,8 @@ For every visible pin number, use the following independent placement rules:
 - **Body-side clearance:** follow [ADR-0052](0052-pin-number-body-clearance-is-measured-from-symbol-body-bounds.md). When no visible body frame exists, place the label center `1_200_000` nm (`1.20 mm`) outside the pin's body-side end, along the pin axis.
 - A horizontal pin (`0°` or `180°`) gets the label above the pin line, with its perpendicular clearance set by [ADR-0051](0051-pin-number-clearance-is-measured-from-painted-ink.md).
 - A vertical pin (`90°` or `270°`) gets the label to the right of the pin line, with its perpendicular clearance set by [ADR-0051](0051-pin-number-clearance-is-measured-from-painted-ink.md).
-- The label uses the `middle` anchor and is not rotated.
+- The label uses the `middle` anchor. A horizontal pin's number is not rotated; a vertical pin's
+  number is rotated `90_000` millidegrees, so it reads along the pin line.
 - The placement is independent of whether the pin points toward or away from the symbol body.
 
 Keep both clearances in the renderer. Do not add unsupported source fields, move pin connection points to compensate, or alter the component facts, IR schema, or exporter for this view-only convention.
