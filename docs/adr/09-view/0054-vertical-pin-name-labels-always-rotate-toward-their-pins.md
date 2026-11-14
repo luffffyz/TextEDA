@@ -27,7 +27,9 @@ All vertical pin names have consistent orientation without collision detection o
 
 The rule is one rule, not two: a pin's name and its number turn together. The alternative — a bodyless symbol's name staying horizontal while its number turns — left the same symbol reading two ways at once, and it is the only place where the two could disagree.
 
-The one asymmetry is the reading direction (decision 3): a top pin's name reads toward its pin rather than away from it. Rotating a top pin's label the other way would mirror the bottom pin's behaviour, at the cost of a different rendered glyph orientation for every symbol that has a top pin; that trade-off is open, and it is tracked in `docs/backlog.md` rather than settled here.
+**A pin is one unit on the sheet.** Its line, its number and its name turn together with the symbol, and the number and the name always read along the line: a symbol placed at `90°` lies all three down, and a symbol placed at `180°` or `270°` turns all three upside down. The schematic layer has no rule against that, while the PCB layer already has one for its own text — "text is never printed upside down" (`spec/pcb.md` §4.11, [ADR-0018](../05-pcb/0018-copper-fill-uses-a-geometry-kernel.md) D10). The two layers do not agree on this yet, and the question is open (`docs/backlog.md` F73).
+
+The one asymmetry is the reading direction (decision 3): a top pin's name reads toward its pin rather than away from it. Rotating a top pin's label the other way would mirror the bottom pin's behaviour, at the cost of a different rendered glyph orientation for every symbol that has a top pin; that trade-off is open, and it is tracked in `docs/backlog.md` (F72) rather than settled here.
 
 The renderer may place vertical names differently from downstream exports. Library authors should inspect the reference preview, but need not adjust source facts to imitate this renderer-only orientation.
 

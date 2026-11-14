@@ -1242,3 +1242,61 @@ the rule; the asymmetry is what it costs.
 **Note**: this is a reference-renderer convention only. The symbol source has no text-position or
 rotation field, and the KiCad exporter is a separate output path
 ([ADR-0054](adr/09-view/0054-vertical-pin-name-labels-always-rotate-toward-their-pins.md) D5).
+
+## F73. A symbol placed upside down prints its pin labels upside down
+
+**Status**: Proposed (2026-11-14). No ADR yet; this entry records the question, not a decision.
+
+**Current state**: on a schematic print page a pin is **one unit**: its line, its number and its name
+turn together with the symbol, and the number and the name always read along the line
+([ADR-0050](adr/09-view/0050-pin-number-placement-is-a-renderer-convention.md),
+[ADR-0054](adr/09-view/0054-vertical-pin-name-labels-always-rotate-toward-their-pins.md)). A symbol
+placed at `90°` therefore lies all three down, and a symbol placed at `180°` or `270°` turns all
+three upside down — the pin numbers and pin names read bottom-up on the sheet.
+
+The PCB layer already forbids exactly that for its own text: "text is never printed upside down" —
+the baseline direction is the placement rotation plus the field's own rotation, and a baseline
+pointing left is turned another half turn about its centred anchor (`spec/pcb.md` §4.11,
+[ADR-0018](adr/05-pcb/0018-copper-fill-uses-a-geometry-kernel.md) D10). The schematic layer has no
+counterpart, so the two layers disagree: a board's silkscreen never reads upside down, while a
+symbol's pin labels do.
+
+The reference project does not show it yet: every symbol with visible pin labels is placed at `0°`,
+and the symbols placed at `90°` and `270°` are passives whose symbols hide their pin numbers and
+names.
+
+**To do**:
+
+1. Decide whether the schematic layer gets the same rule. The two candidate rules pull against each
+   other. "A pin is one unit that turns together" says the label reads along its pin line, even when
+   that means upside down. "Text is never upside down" says the label stays readable on the sheet,
+   even when that means it no longer reads along the line.
+2. If the schematic side adopts the PCB rule, say what it costs. The label's rotation stops being
+   the pin's, so a symbol's pin numbers and names no longer all point the same way as their lines,
+   and the "one unit" framing has to be weakened. The rendering change is small — one rotation term
+   in the schematic placer — but every symbol placed at `180°` or `270°` redraws, and the number's
+   and the name's rotations would have to be decided together, not one at a time.
+3. If the schematic side keeps the pin as one unit, say so explicitly, and say why the difference
+   from the PCB side is deliberate: a schematic is read by someone following a net, and a pin's label
+   reads along its pin; a board is read by someone looking for a part number, and the silkscreen has
+   to stay upright.
+4. Decide where the rule lives. The "one unit" framing is currently spread across ADR-0050 (the
+   number), ADR-0054 (the name) and ADR-0031 (the symbol's own geometry). One record that states it
+   once would keep it from being re-derived three times.
+
+**Involved files**: `packages/renderer/src/schematic.ts`, `packages/renderer/src/symbol.ts`,
+`spec/schematic-view.md`, `spec/pcb.md`,
+`docs/adr/09-view/0050-pin-number-placement-is-a-renderer-convention.md`,
+`docs/adr/09-view/0054-vertical-pin-name-labels-always-rotate-toward-their-pins.md`,
+`docs/adr/05-pcb/0018-copper-fill-uses-a-geometry-kernel.md`, `packages/renderer/test/`.
+
+**Acceptance**:
+
+- The decision is recorded, and the schematic layer either never prints upside-down pin labels or
+  says that it may.
+- One record states the "a pin is one unit" rule, and the records that touch it point at it rather
+  than restating it.
+- A test covers a symbol placed at `180°` and at `270°` and states what a reader sees.
+
+**Note**: this is a drawing-legibility question, not a connectivity one. Nothing here changes the
+IR, the symbol facts, or the export.
