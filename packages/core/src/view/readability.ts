@@ -1,4 +1,4 @@
-// Drawing readability (spec/schematic-view.md §9.2, AGENTS.md §6 "可读性检查").
+// Drawing readability (spec/schematic-view.md §9.2, AGENTS.md §6 "readability checks").
 //
 // A drawing is checked structurally by the cross-check (does every id it names exist?); this module
 // asks the other question: can a reader actually follow it? Two texts printed on top of each other,
@@ -73,7 +73,7 @@ export interface ReadabilityFacts {
  * Readability findings for one print page.
  *
  * Each finding is a warning: the board is right and the drawing is hard to read, so it must not
- * block an export (`AGENTS.md` §6: "好看" is not testable, these four things are).
+ * block an export (`AGENTS.md` §6: "looks good" is not testable, these four things are).
  *
  * The one exception is the overview's module boxes: a wire that crosses a module frame breaks a
  * rule the overview itself states (ADR-0067 D5), so it is an error like the rest of the overview

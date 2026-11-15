@@ -62,3 +62,6 @@ jobs:
 
       - name: Canonical formatting
         run: bun run fmt:teda --check .
+
+      - name: Case corpus matches its pinned expectations
+        run: bun run cases:check

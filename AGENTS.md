@@ -6,7 +6,7 @@
 > - **方向**（§1、§3、§5）——设计意图，**可被 ADR 推翻**；推翻时改本文件，不算"违反规矩"。
 > - **实现现状**——**以代码、测试、ADR、backlog 为准**；本文件只标注"已落地 / 只有设计 / 未落地"。细节过期不算违规，标注错了要改。
 >
-> 状态（2026-10-27）：**工具链起步，描述层与校验层已能用**。已能走完：`init` → 解析 + `fmt` → `check`（ERC / 绑定 / 器件 / 选料 / 评审轮次）→ `netlist` / `bom` / `ir` 分片树 → 符号 / 封装 / 打印页 SVG → `.kicad_mod` / `.kicad_sym` → 分层 Gerber + Excellon → `review` 只读评审。**未落地**：KiCad 原理图导出、`.kicad_pcb` 导出、`fab` 描述、布局 / 布线（agent 驱动，未建）、遮蔽件选料、模块参数 / 嵌套、conformance 语料、困难用例语料（已写了哪些看 `examples/cases/`）。**权威在别处**：包与契约的现状看 `packages/*/` 与 `schemas/ir/`（语言与 IR 契约的现行版本号见 `spec/teda.md` §12.1），每项工作的现状与验收看 `docs/backlog.md`，每条决策看 `docs/adr/`——本文件不复述。
+> 状态（2026-11-15）：**工具链起步，描述层与校验层已能用**。已能走完：`init` → 解析 + `fmt` → `check`（ERC / 绑定 / 器件 / 选料 / 评审轮次）→ `netlist` / `bom` / `ir` 分片树 → 符号 / 封装 / 打印页 SVG / PNG（栅格化与 PNG 编码自研，[ADR-0072](docs/adr/09-view/0072-a-second-rendering-backend-paints-the-same-drawing.md)）→ `.kicad_mod` / `.kicad_sym` → 分层 Gerber + Excellon → `review` 只读评审；**评审 app** 能改打印页（摆位、旋转、自由画笔与草图）。**未落地**：KiCad 原理图导出、`.kicad_pcb` 导出、`fab` 描述、布局 / 布线（agent 驱动，未建）、遮蔽件选料（F32）、模块参数 / 嵌套（F13）、conformance 语料、困难用例语料 9 / 10（F12）。**权威在别处**：包与契约的现状看 `packages/*/` 与 `schemas/ir/`（语言与 IR 契约的现行版本号见 `spec/teda.md` §12.1），每项工作的现状与验收看 `docs/backlog.md`，每条决策看 `docs/adr/`——本文件不复述。
 > 标记约定：**已定** = 不再讨论；**提议** = 默认按此执行，可被 ADR 推翻；**待定** = 未决定，不要擅自选边。**未落地** = 只有设计，没有实现。
 
 ---
@@ -245,7 +245,7 @@
 
 | 坑 | 表现 | 对策住在哪 |
 |---|---|---|
-| 语义不足 | 只有 pins + nets，没有电气类型 / net class / NC | `spec/teda.md` §6、§7 |
+| 语义不足 | 引脚的电气类型与 NC 已经进了语言，**net class 还没有**：同一条 net 上的信号与电源还没有分开的表达 | 电气类型 `spec/teda.md` §9.1；NC 三态 `spec/teda.md` §7.2；net class 未落地 |
 | 器件身份断裂 | symbol ↔ footprint ↔ pad 号对不上 | `spec/teda.md` §6.3；`bun run lib:verify` |
 | 器件描述漂移 | `assets/components/` 内联的引脚与库符号不一致 | 内联优先；引脚事实只在器件里（`spec/teda.md` §6.3） |
 | 逻辑 / 几何混淆 | 图上看连着，实际不连 | 不变量 2 |
@@ -291,6 +291,7 @@
 ```
 dist/ir/
 ├── manifest.json                          # 分片路径 + 每片 sha256 + 分类 + 工程哈希 + advisory_hash
+├── identity.json                          # 身份索引（附注，不是分片：从不进任何哈希）
 ├── project/schematic.json                 # 项目逻辑根（规范）
 ├── boards/<pcb_id>/pcb.json               # 物理 PCB 实现（规范）
 ├── boards/<pcb_id>/procurement.json       # 主料（规范）/ procurement-alternatives.json（附注）
@@ -305,6 +306,8 @@ dist/ir/
 
 分片布局按种类固定，不镜像源码树（[ADR-0008](docs/adr/03-project/0008-project-tree-has-owners.md) decision 9），映射由每片自带的 `source.file` 承担（[ADR-0006](docs/adr/02-ir/0006-ir-shards-and-hashes.md) decision 2）。**分片分两类**：规范分片进工程哈希，附注分片（打印页、备料）进 `advisory_hash`；板哈希只算该板的规范分片。哈希规则（每片 sha256 取落盘 canonical 字节；工程哈希 = 规范分片按路径排序后 `<path>:<sha256>\n` 拼接再 sha256）见 [ADR-0006](docs/adr/02-ir/0006-ir-shards-and-hashes.md) decision 9。**工程有 error 时一分片都不写**，输出目录里树不拥有的文件会被删掉（陈旧分片会改哈希）。**工程哈希目前仍会变**（分片带着 `source.file`，路径一变字节就变），解耦见 F29。
 
+`identity.json` 写的是**身份索引**（每个 id 出现在哪些文件哪一行），它是**附注**：不是分片，不在 `manifest.json` 的分片表里，也从不进任何哈希；但它归这棵树所有，所以同样不会被当成陈旧文件删掉。
+
 板级工程结构不是本仓库的职责；本仓库只规定语言与 IR。
 
 ---
@@ -313,7 +316,7 @@ dist/ir/
 
 | 命令 | 查什么 | 规则住在哪 |
 |---|---|---|
-| `bun run test` | 单元、契约正反例、round-trip | 各包 `test/`；`tests/schemas/`（脚本带 `--timeout 30000`，见下） |
+| `bun run test` | 单元、契约正反例、round-trip；**用例语料也在这里**（`packages/cli/test/cases.test.ts` 逐例比对期望） | 各包 `test/`；`tests/schemas/`（脚本带 `--timeout 30000`） |
 | `bun run typecheck` | 全包类型 + **根 `scripts/` 的类型** | `tsconfig.base.json`；`tsconfig.scripts.json` |
 | `bun run gen:check` | 生成物（IR 类型、`docs/error-codes.md`、`docs/ir-reference.md`、`docs/api-reference/`）不漂移 | `packages/ir/src/generated/`；[ADR-0038](docs/adr/10-process/0038-implementation-stack-and-agent-entry.md) |
 | `bun run lib:verify` | 库闭包：引用可解析、无孤儿、引脚号与焊盘号对齐 | `spec/symbol.md` §7、`spec/footprint.md` §7 |
@@ -321,7 +324,7 @@ dist/ir/
 | `bun run check:links` | 跨引用可解析（链接、章节、ADR 编号、backlog 项、ADR 索引与头部格式） | 本文件 §12 |
 | `bun run check:public` | 公开仓库历史扫描（PDF / 凭据 / 绝对路径 / 邮箱 / license / NOTICE） | [ADR-0039](docs/adr/10-process/0039-licensing-and-open-standard.md) decision 1 |
 | `bun run fmt:teda --check .` | canonical 格式 | `spec/teda.md` §11 |
-| `bun run cases:check` | 用例语料与期望 IR / 诊断一致 | `examples/cases/` |
+| `bun run cases:check` | 用例语料与期望 IR / 诊断一致（`bun run test` 跑的是同一件事，这一条是它的独立形式，失败信息更直白） | `examples/cases/` |
 | `bun run texteda check <dir>` | 工程校验：ERC / 绑定 / 器件 / 选料 / 评审轮次 | `spec/teda.md` §11；`spec/pcb.md` §5.2 |
 | `bun run texteda ir <dir>` | IR 分片树与哈希 | [ADR-0006](docs/adr/02-ir/0006-ir-shards-and-hashes.md) |
 | `bun run texteda export gerbers <dir> <pcb_id>` | 分层 Gerber + Excellon | `spec/pcb.md` §8 |
@@ -345,7 +348,7 @@ dist/ir/
 - **错误质量**：每条诊断含文件、行列、期望 / 实际、修复建议；`--json` 输出机器可读载荷；诊断位置来自编译期的"IR 路径 → 源 span"映射（[ADR-0004](docs/adr/01-language/0004-source-spans.md)）。
 - **未落地**：conformance 黄金文件语料不存在；绑定用例缺正反例（F21）；困难用例没补齐（F12）；`.kicad_pcb` 板导出未落地（F15）；`fab` 描述没有实现。
 
-**CI 与提交前**：提交前必须跑完整检查，不允许"只跑单测"。CI（`.github/workflows/ci.yml`，push 与 PR 到 `main` 都触发）跑 `bun run test`、`bun run typecheck`、`bun run gen:check`、`bun run lib:verify`、`bun run view:verify`、`bun run check:links`、`bun run check:public`、`bun run fmt:teda --check .`。**必过段全部零外部依赖**；KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.yml`，定时 + 手动触发），因为门禁不得依赖外部工具（不变量 20 / [ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md)）。
+**CI 与提交前**：提交前必须跑完整检查，不允许"只跑单测"。CI（`.github/workflows/ci.yml`，push 与 PR 到 `main` 都触发）跑 `bun run test`、`bun run typecheck`、`bun run gen:check`、`bun run lib:verify`、`bun run view:verify`、`bun run check:links`、`bun run check:public`、`bun run fmt:teda --check .`、`bun run cases:check`。**用例语料已经被 `bun run test` 覆盖**（`packages/cli/test/cases.test.ts` 逐例比对期望 IR 与诊断），CI 里再跑一次 `cases:check` 是它的独立形式：多花几秒，换一条更直白的失败信息。**必过段全部零外部依赖**；KiCad 互操作段是**独立的可选 workflow**（`.github/workflows/ci-kicad.yml`，定时 + 手动触发），因为门禁不得依赖外部工具（不变量 20 / [ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md)）。
 
 ---
 
@@ -389,9 +392,9 @@ dist/ir/
 - **写器件参数先查角色词表**（[ADR-0025](docs/adr/07-devices/0025-device-vocabulary-and-parameter-roles.md)）：`params` 段的列名是**角色**、类型是**量纲**；角色名用语言自己的写法（`sat_current`，不是 `I_sat`），必填列由 `construction` 决定（`spec/teda.md` §6.2.2）。**不要把值塞进文件名**——通用器件的 id 不带值、不带耐压；值在 `instances` 行里。**`instances` 行是一份完整规格**：必填列就是采购单上写这个器件时写的那几项。
 - **导入的副本就是自有器件**：拷进 `assets/` 之后随你改；要跟上游新版本就在另一个目录里再 `lib import`（撞 id 时 `--force`，或者先删旧的）。改动之前先读 `# imported from …` 那行注释，知道自己在分叉谁。
 - **sch 不内联器件**：新增料号先落 `assets/components/**/<id>.teda`（`kind: part`），通用无源件也落同一棵树（`kind: generic`），再在 `instances` 引用。
-- **源码只允许英文**：`.ts` 的注释、文档字符串、字符串字面量，`schemas/ir/**` 的 `description` / `title`，`examples/**` 的 `.teda` 与 `project.toml` 注释、`title`、`manufacturer` 等值。检查口径：`git grep -lP '[\x{4e00}-\x{9fff}]' -- packages schemas examples` 应为空。**根 README 双语**：`README.md` 英文（对外入口），`README_cn.md` 中文。
+- **源码只允许英文**：`.ts` 的注释、文档字符串、字符串字面量，`schemas/ir/**` 的 `description` / `title`，`examples/**` 的 `.teda` 与 `project.toml` 注释、`title`、`manufacturer` 等值。检查口径：`git grep -lP '[\x{4e00}-\x{9fff}]' -- packages schemas examples ':!packages/parser/test/spans.test.ts'` 应为空。**已登记的例外**：`packages/parser/test/spans.test.ts`——那一行的中文字符串**就是被测对象**（它断言 CJK 按字节走 3、按列走 1）。
 - **项目名的写法分层**：品牌与散文写 `TextEDA`（大写 T）；命令行、包名、域名写小写 `texteda`；**仓库名例外，用 `TextEDA`**（GitHub 上是 `luffffyz/TextEDA`，改名即旧 URL 失效）；扩展名 `.teda` 不变。**不写 `textEDA`**。检查口径：`git grep -n 'textEDA' -- . ':!AGENTS.md'` 应无输出。
-- **文档默认英文**：`docs/`、`spec/`（含 `spec/teda.md`）、ADR、根 README、`docs/skills/**` 一律英文。**需要中文时先问**，不要自行决定；本规则之前写下的中文文档保持原样。**已登记的例外**：`docs/assets/DESIGN.md`（品牌设计说明，作者原稿）。**生成的文档**跟着生成源走。
+- **文档默认英文**：`docs/`、`spec/`（含 `spec/teda.md`）、ADR、根 README（`README.md`）、`docs/skills/**` 一律英文。**需要中文时先问**，不要自行决定；本规则之前写下的中文文档保持原样。**已登记的例外**：`docs/assets/DESIGN.md`（品牌设计说明，作者原稿）、`README_cn.md`（**根 README 是双语的**：`README.md` 英文，是对外入口；`README_cn.md` 是它的中文版）。**生成的文档**跟着生成源走。
 - **`docs/adr/` 用英文**：ADR 是契约层的一部分，第三方实现者要读得懂。正文用英文，引用它的文档按编号引用。检查口径：正文不得有中文，**唯一例外是外部专有名词与官方文档标题的括注**。
 - **引用要可解析**：提到某条决策时写成 `[ADR-0003](docs/adr/01-language/0003-diagnostic-error-codes.md)` 这样的链接——**链接文字是编号**（编号稳定，标题会改），**链接目标是文件**；编号不能光秃秃地出现在正文里，链接路径相对于所在文件。**同一段里两条链接指向同一份记录时各自带 `D<n>`**：合并后的记录一份管几件事，光给编号说不清指的是哪一条。
 - **章节引用要写全名**：写 `spec/pcb.md` §4.9，不要只写节号。章节被重编号或删除时，**活文档里的引用要一起改**（门禁判 error）；决策记录与试跑记录里的过期指针**不改**、由门禁报 warning——那两份是历史记录，追着改会毁掉它存在的理由。
@@ -400,11 +403,11 @@ dist/ir/
 - **改错是就地改，不是追加附录**：记录陈述的是**现在为真的事**，写错了就改那一句；带日期的附录只留给**退役记录**（`Status:` 指向取代它的那条）。历史在 git 里，不在正文里积累。
 - **拆活与派工**：派工的判据（什么能派、什么不能派）、分片的写法、共享门禁怎么办、验收与定价见 [`docs/skills/delegate-work.md`](docs/skills/delegate-work.md)。
 - **同一句话里不要既给规则又给例外。** 矛盾的规格一定会被执行成错的那一半。
-- **判研（judge）的判据由 omp 内置，不要自造短版 rubric 去测它。** `find.enabled: auto` 走 `judge` 角色，用的是按请求形状分的二元判据（`name` / `sketch` / `passage`，原文在 harness 的 `packages/coding-agent/src/prompts/judge/find.json` 与 `packages/coding-agent/src/tools/jfind/questions.ts`）。要验证这条路径，就逐字复制它的判据：简化标签会让同一批任务判错，错的是**探针**不是模型。判研前先确认 `judge` 角色实际指向哪个模型：角色是别名，模型会被换掉。
+- **判研（judge）的判据由 omp 内置，不要自造短版 rubric 去测它。** `find.enabled: auto` 走 `judge` 角色，用的是按请求形状分的二元判据（`name` / `sketch` / `passage`，原文在 **harness 的**（**不在本仓库**，仓库里查不到）`packages/coding-agent/src/prompts/judge/find.json` 与 `packages/coding-agent/src/tools/jfind/questions.ts`）。要验证这条路径，就逐字复制它的判据：简化标签会让同一批任务判错，错的是**探针**不是模型。判研前先确认 `judge` 角色实际指向哪个模型：角色是别名，模型会被换掉。
 - **提交信息英文**。
 - **新增依赖需要 ADR**；默认零运行时依赖的 parser 是目标。
 - **不知道符号叫什么，先查索引再读源码。** `docs/api-reference/packages/<pkg>.md` 是生成的导出清单（每条带 `文件#L行号`）：不知道某个包对外有哪些名字、某个导出的签名是什么、它在哪个文件第几行时，读这一页比在 `packages/*/src/` 里猜文件名、或先猜名字再 `grep` 便宜。**已经知道名字和位置就不用查它**——直接读源码或跑 `xd://lsp`。索引只给位置与签名，**语义、错误行为与规则以规范与源码为准**；它随 `bun run gen` 重生成，不手改。
-- **要动手做一件事，先查技能索引。** `docs/skills/README.md` 列出操作流程与各自的触发条件：建工程读 `new-project.md`，写 `assets/**` 读 `library-authoring.md`，看符号渲染与改几何读 `preview-symbols.md`，画 `views/**` 读 `draw-print-page.md`，修已有的打印页读 `repair-print-page.md`，加诊断码读 `add-diagnostic-code.md`，验证评审 app 行为读 `verify-review-app.md`，派工与验收读 `delegate-work.md`。**规范说"什么是真的"，技能说"怎么做"**——技能给命令、预期输出与出错该看哪个诊断码，**不重述规范**；两者冲突时以规范为准。改技能时：命令要实跑过、预期输出要照抄真实输出，**过期数字比没有数字更糟**（它会让 agent 以为跑歪了）；**参考坐标不要写进技能**——写"怎么现场取几何"，因为页面一改坐标就过期。
+- **要动手做一件事，先查技能索引。** `docs/skills/README.md` 就是那张索引：哪件事读哪一篇，**由它说了算，本文件不抄一份**——抄了就会漂（`read-sketch.md` 当初就是这么漏掉的）。索引里既有每篇手册的触发条件，也有"哪几个都像"时的判别（画新页面读 `draw-print-page.md`，页面已经存在且有问题读 `repair-print-page.md`）。**规范说"什么是真的"，技能说"怎么做"**——技能给命令、预期输出与出错该看哪个诊断码，**不重述规范**；两者冲突时以规范为准。改技能时：命令要实跑过、预期输出要照抄真实输出，**过期数字比没有数字更糟**（它会让 agent 以为跑歪了）；**参考坐标不要写进技能**——写"怎么现场取几何"，因为页面一改坐标就过期。
 - **改完 schema 必须重生成**：`bun run gen`（产物在 `packages/ir/src/generated/`、`docs/error-codes.md`、`docs/ir-reference.md`、`docs/api-reference/`，均不手改），CI 用 `bun run gen:check` 挡住漂移；`bun run test` + `bun run typecheck` 必过。
 - **库的界面不许碰运行时**：`core` / `ir` / `parser` / `exporter` / `renderer` / `geom` / `viewer` 的 **`src/**`** 里不许出现 `Bun.*` 与 `process.env`，也不许碰文件系统——这些包要能跑在 Node 扩展宿主与浏览器里。两个例外是明写的：`packages/exporter/src/footprint.ts` 用 `node:crypto`（同步 SHA-256），`packages/viewer/src/build.ts` 用 `Bun.build` 在服务端打包评审 app（它不进浏览器包，浏览器的入口是 `packages/viewer/src/client.ts`）。**构建期脚本不在此列**：`packages/*/scripts/**` 本来就要读写文件（`fmt:teda` / `compile:symbol` / `generate.ts`），CLI 层也可以碰盘。规则见 [ADR-0038](docs/adr/10-process/0038-implementation-stack-and-agent-entry.md) decision 1，**目前还没有门禁**（F75）。
 - **删除只走 `rm`，不要在 bun / python 脚本里删文件。** 运行时只看得见**顶层 `rm`**（它会先走一遍确认）；脚本里的删除——`fs.rmSync` / `os.remove` / `shutil.rmtree` / `unlink`——运行时完全看不见：拦不住、没有回收站兜底、事后也查不出是谁删的。要删就单独跑一条 `rm <path>`，让删除本身是可确认的一步。
