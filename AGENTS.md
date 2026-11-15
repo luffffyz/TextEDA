@@ -117,7 +117,7 @@
 | 诊断码与严重度 | `packages/ir/src/diagnostics/codes.ts`；生成的 `docs/error-codes.md`（[ADR-0003](docs/adr/01-language/0003-diagnostic-error-codes.md)） |
 | IR 字段与单位 | 生成的 `docs/ir-reference.md` |
 | 实现 API：先查名字 / 签名 / 行号 | 生成的 `docs/api-reference/packages/<pkg>.md`（每个包一张表：导出名、kind、签名、摘要、`文件#L行号`）。不知道符号叫什么、在哪个文件时从这里查，比猜名字 grep 或读 `index.ts` 便宜 |
-| 读实现与引用 | `packages/*/src/`；对已导出的符号先跑 `xd://lsp` references。索引只给位置，**语义以源码与规范为准**，索引不取代契约 |
+| 读实现与引用 | `packages/*/src/`；对已导出的符号先找它的引用（grep 导出名，或你 harness 的引用查询）。索引只给位置，**语义以源码与规范为准**，索引不取代契约 |
 | `project.toml` 的键与规则 | `spec/project.md` §1、§2 |
 | 评审记录 / 多角色评审 / 评审 app | `docs/guides/review-records.md`、`docs/guides/role-reviews.md`、`docs/guides/review-app.md` |
 | 外部库导入与信任 | `docs/guides/library-import.md` |
@@ -403,10 +403,9 @@ dist/ir/
 - **改错是就地改，不是追加附录**：记录陈述的是**现在为真的事**，写错了就改那一句；带日期的附录只留给**退役记录**（`Status:` 指向取代它的那条）。历史在 git 里，不在正文里积累。
 - **拆活与派工**：派工的判据（什么能派、什么不能派）、分片的写法、共享门禁怎么办、验收与定价见 [`docs/skills/delegate-work.md`](docs/skills/delegate-work.md)。
 - **同一句话里不要既给规则又给例外。** 矛盾的规格一定会被执行成错的那一半。
-- **判研（judge）的判据由 omp 内置，不要自造短版 rubric 去测它。** `find.enabled: auto` 走 `judge` 角色，用的是按请求形状分的二元判据（`name` / `sketch` / `passage`，原文在 **harness 的**（**不在本仓库**，仓库里查不到）`packages/coding-agent/src/prompts/judge/find.json` 与 `packages/coding-agent/src/tools/jfind/questions.ts`）。要验证这条路径，就逐字复制它的判据：简化标签会让同一批任务判错，错的是**探针**不是模型。判研前先确认 `judge` 角色实际指向哪个模型：角色是别名，模型会被换掉。
 - **提交信息英文**。
 - **新增依赖需要 ADR**；默认零运行时依赖的 parser 是目标。
-- **不知道符号叫什么，先查索引再读源码。** `docs/api-reference/packages/<pkg>.md` 是生成的导出清单（每条带 `文件#L行号`）：不知道某个包对外有哪些名字、某个导出的签名是什么、它在哪个文件第几行时，读这一页比在 `packages/*/src/` 里猜文件名、或先猜名字再 `grep` 便宜。**已经知道名字和位置就不用查它**——直接读源码或跑 `xd://lsp`。索引只给位置与签名，**语义、错误行为与规则以规范与源码为准**；它随 `bun run gen` 重生成，不手改。
+- **不知道符号叫什么，先查索引再读源码。** `docs/api-reference/packages/<pkg>.md` 是生成的导出清单（每条带 `文件#L行号`）：不知道某个包对外有哪些名字、某个导出的签名是什么、它在哪个文件第几行时，读这一页比在 `packages/*/src/` 里猜文件名、或先猜名字再 `grep` 便宜。**已经知道名字和位置就不用查它**——直接读源码。索引只给位置与签名，**语义、错误行为与规则以规范与源码为准**；它随 `bun run gen` 重生成，不手改。
 - **要动手做一件事，先查技能索引。** `docs/skills/README.md` 就是那张索引：哪件事读哪一篇，**由它说了算，本文件不抄一份**——抄了就会漂（`read-sketch.md` 当初就是这么漏掉的）。索引里既有每篇手册的触发条件，也有"哪几个都像"时的判别（画新页面读 `draw-print-page.md`，页面已经存在且有问题读 `repair-print-page.md`）。**规范说"什么是真的"，技能说"怎么做"**——技能给命令、预期输出与出错该看哪个诊断码，**不重述规范**；两者冲突时以规范为准。改技能时：命令要实跑过、预期输出要照抄真实输出，**过期数字比没有数字更糟**（它会让 agent 以为跑歪了）；**参考坐标不要写进技能**——写"怎么现场取几何"，因为页面一改坐标就过期。
 - **改完 schema 必须重生成**：`bun run gen`（产物在 `packages/ir/src/generated/`、`docs/error-codes.md`、`docs/ir-reference.md`、`docs/api-reference/`，均不手改），CI 用 `bun run gen:check` 挡住漂移；`bun run test` + `bun run typecheck` 必过。
 - **库的界面不许碰运行时**：`core` / `ir` / `parser` / `exporter` / `renderer` / `geom` / `viewer` 的 **`src/**`** 里不许出现 `Bun.*` 与 `process.env`，也不许碰文件系统——这些包要能跑在 Node 扩展宿主与浏览器里。两个例外是明写的：`packages/exporter/src/footprint.ts` 用 `node:crypto`（同步 SHA-256），`packages/viewer/src/build.ts` 用 `Bun.build` 在服务端打包评审 app（它不进浏览器包，浏览器的入口是 `packages/viewer/src/client.ts`）。**构建期脚本不在此列**：`packages/*/scripts/**` 本来就要读写文件（`fmt:teda` / `compile:symbol` / `generate.ts`），CLI 层也可以碰盘。规则见 [ADR-0038](docs/adr/10-process/0038-implementation-stack-and-agent-entry.md) decision 1，**目前还没有门禁**（F75）。

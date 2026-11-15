@@ -17,15 +17,11 @@ the host. There is no second implementation of anything.
 
 ## How to load it
 
-```sh
-omp --extension plugins/pi-texteda
-```
-
-Or, to have it in every session, put a link to it where pi looks for tools:
-
-```sh
-ln -s "$PWD/plugins/pi-texteda/index.ts" ~/.omp/agent/tools/texteda.ts
-```
+The extension is a **pi-format module**: a host that loads pi extensions loads this one, with no
+build step and no new dependency. The real-machine smoke ran in omp (`omp --extension
+plugins/pi-texteda`); that host is no longer part of our toolchain, so treat that command as a
+record of how the extension was verified, not as the way to run it today — ask your host how it
+loads an extension, or use the MCP route below, which needs no host-specific loader at all.
 
 ## What the model sees
 

@@ -191,9 +191,10 @@ The projection is the whole of it — the tools call the same verbs the command 
 tool's answer is the value the command line prints with `--json`
 ([ADR-0044](adr/10-process/0044-the-agent-surface-is-a-set-of-verbs.md) D2).
 
-```sh
-omp --extension plugins/pi-texteda        # or: symlink it into ~/.omp/agent/tools/
-```
+The adapter is a pi-format module, so a host that loads pi extensions can load it. The real-machine
+smoke ran in omp (`omp --extension plugins/pi-texteda`); that host is no longer part of our
+toolchain, so that command is a record of how the adapter was verified, not the way to run it
+today.
 
 pi loads TypeScript directly, so there is no build step and no new dependency.
 

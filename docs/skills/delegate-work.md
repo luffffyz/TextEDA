@@ -5,8 +5,12 @@
 > **Scope**: choosing what to delegate, writing a slice, dispatching it, supervising it, accepting
 > it, and measuring what it cost.
 > **Not in scope**: what to build (that is the rest of `docs/skills/`); the harness's own settings
-> (`~/.omp/agent/config.yml`); the design rules (they live in [`spec/`](../../spec/) and the
+> and configuration; the design rules (they live in [`spec/`](../../spec/) and the
 > [ADRs](../adr/README.md)).
+>
+> **Two layers.** §1, §2 and §5 are the contract: they hold whatever your harness's subagent tool
+> looks like. §3, §4 and §6 describe the surface this repository's agents actually run under — a
+> `task` tool with one child per call. Keep the contract, map the rest to what you have.
 
 Index: [`docs/skills/README.md`](README.md) lists the procedures and when to read which.
 
@@ -25,10 +29,9 @@ Index: [`docs/skills/README.md`](README.md) lists the procedures and when to rea
 The test is not "is it big" — it is "**can a command tell me it is right?**" If a human has to
 read the diff and decide, the diff is yours to read, so the work in the main session.
 
-There is no setting that filters delegation by work type: `task.eager` is only a prompt nudge
-(`default` / `preferred` / `always`), it decides how hard the harness suggests delegating, not
-what deserves delegating. The boundary is the rule you write down — here, this file and
-[`AGENTS.md`](../../AGENTS.md) §12.
+There is no setting that filters delegation by work type: a harness may nudge you toward
+delegating harder, but it never decides what deserves delegating. The boundary is the rule you
+write down — here, this file and [`AGENTS.md`](../../AGENTS.md) §12.
 
 ### 1.2 Script it if a script can say it
 
@@ -67,128 +70,74 @@ doubled the review; ask for the file plus the one line that says what changed.
 
 ### 3.1 Shape of the call
 
-The `task` tool takes one call with a batch of items:
+The `task` tool launches **one child per call**:
 
 ```json
 {
-  "context": "<what every child needs to know>",
-  "tasks": [
-    {
-      "name": "CamelCaseName",
-      "agent": "scout",
-      "task": "<self-contained instructions for this slice>",
-      "solutionSpace": "<what is decided, what is open>"
-    }
-  ]
+  "agent_name": "explore",
+  "description": "Map symbol geometry and identity",
+  "prompt": "<the self-contained slice>"
 }
 ```
 
-`context` is shared background rendered into every child's prompt; `task` is the slice itself. The
-child has no access to this conversation, so `task` must stand alone — it cannot say "the file we
-discussed above".
+The child has no access to this conversation, so `prompt` must stand alone — it cannot say "the file
+we discussed above". Everything the child needs (the files, the rules, the acceptance command, what
+is open) goes into it. `description` is the child's title in the roster; make it say what the child
+is for.
 
-`name` becomes the agent's id (CamelCase, ≤ 32 characters) and is what `agent://<id>` resolves to.
+**Several children at once**: issue several `task` calls in one turn and wait for their results to
+come back. A call you need the answer to before continuing takes `run_in_background: false` and
+returns the result directly. The runtime enforces a concurrency limit per session; when a dispatch
+comes back `SUBAGENT_CONCURRENCY_LIMIT`, wait for a running child to finish rather than retrying
+the call.
 
 ### 3.2 Which agent
 
 | Agent | Use it for |
 |---|---|
-| `scout` | Read-only exploration; the answer is a location, a symbol, or a summary |
-| `task` | The default: multi-file implementation work |
-| `reviewer` | Reviewing a change for correctness |
-| `security-reviewer` | Repository vulnerability review |
-| `sonic` | Strictly mechanical updates and data collection |
+| `explore` | Read-only exploration; the answer is a location, a symbol, or a summary |
+| `worker` | The default: multi-file implementation work |
+| `verifier` | Reviewing a change for correctness, or auditing a claim |
 
-`scout` cannot edit. Asking it to edit produces a report describing an edit instead of the edit.
+`explore` cannot edit. Asking it to edit produces a report describing an edit instead of the edit.
+`verifier` is read-only too — it judges, it does not fix.
 
 ### 3.3 Which model
-Which model a child runs on is decided in this order: an explicit override for that agent (`task.agentModelOverrides`), then the agent definition's own `model:` field, then the parent's active model, then its configured/default fallback. A per-call `model` on the slice replaces the last two steps — but only when `task.perCallModel` is on and the model is approved.
 
-Before dispatching, inspect the current `task.perCallModel` setting. If it is off, **omit the `model` property entirely** from the task item. Do not pass `model: ""`, `null`, or a default guessed from the role: the harness rejects the call before starting the child. If it is on, pass a model only when an explicit override is needed and the model is approved.
+**Omit the model.** The role decides it: an explicit override for that agent, then the agent
+definition's own model, then the parent's. Pass a model only when the user names one; a guessed
+model name is rejected before the child starts.
 
-`sourceSession` is only for a historical `seance` consultation. Omit it for `task`, `scout`, `reviewer`, `security-reviewer`, and `sonic`; putting it on an ordinary implementation or investigation task is a schema error before dispatch.
+### 3.4 When a dispatch is refused
 
-Likewise, omit optional `tools` unless the execution environment explicitly exposes the named tool bindings. Do not list host tools such as `read`, `grep`, `find`, `glob`, `bash`, or `edit` merely because the parent has them; an undefined Eval binding makes the dispatch fail before a child starts.
-
-A configured role is not evidence of the model that actually ran. Before diagnosing a child's output,
-read its transcript's first `model_change` record:
-
-```sh
-cd ~/.omp/agent/sessions/<slug>/<session-id>/
-for f in *.jsonl; do printf '%s: ' "${f%.jsonl}"; grep -m1 -o '"model":"[^"]*"' "$f"; done
-```
-
-### 3.4 Host fallback when `functions.task` is blocked
-
-The host's `functions.task` surface and OMP's native `task` tool are separate paths. In this
-environment, `functions.task` can reject a call before a child starts with:
-
-```text
-Per-call model is disabled for task calls (task.perCallModel: off). Omit model to use the agent's configured model.
-```
-
-If that exact pre-dispatch error persists after one call that omits `model`, **stop retrying
-`functions.task`**. Do not try `model: ""`, `null`, `default`, the configured model name, or
-another placeholder; do not add `sourceSession`; do not put host tools (`read`, `grep`, `find`,
-`glob`, `bash`, `edit`, and so on) in `tools`. Those variants do not repair the host/tool
-boundary and can only fail before a child starts.
-
-Use the Eval agent bridge instead. It is a separate dispatch path and takes the agent's configured
-routing when no per-call model is supplied:
-
-```text
-JavaScript Eval:  h = await agent(prompt, { agent: "task", label: "ShortName" })
-Python Eval:      h = agent(prompt, agent="task", label="ShortName")
-```
-
-For independent work, use `workpool("task", { name, context })` in JavaScript or
-`workpool("task", name=..., context=...)` in Python, then push the complete batch before waiting.
-Read the current Eval helper contract (`xd://eval/agents`) before using it. Pass `tools` only for
-functions explicitly registered in that Eval kernel with `@tool` / `tool(fn)`; Eval's `tools` is
-not the parent host tool catalogue. Never pass `model` or `sourceSession` through this fallback.
-
-If the Eval bridge is unavailable, continue the work in the parent session rather than repeatedly
-retrying the blocked native path. This is a host-operational fallback, not a change to TextEDA's
-delegation contract. The runtime extension `task-model-normalize.ts` remains useful for the native
-`task` events it actually receives, but it cannot be assumed to intercept `functions.task`.
+If a call comes back refused, **stop retrying variants of it.** A placeholder model, an extra
+field, or a different spelling of the same call does not repair a refusal — it only burns attempts.
+Do the work in the parent session instead, or wait for the condition to clear (a running child
+finishing, a concurrency slot freeing).
 
 ## 4. Supervise
 
-| Read | Gets you |
+| Ask for | Gets you |
 |---|---|
-| `read proc://` | Every background job with its state and runtime |
-| `read agent://<id>` | The child's finished output, or its latest assistant text while it runs |
-| `read history://<id>` | The child's transcript, as a readable tail |
-| `write agent://<id>` | A follow-up message to a live or parked child |
-| `write proc://<id>/kill` | Stop a job; the transcript survives |
+| the child's output | Its final answer, or its latest text while it runs |
+| a follow-up | A message into a live child; it keeps its own context and continues |
+| a stop | The child is cancelled; what it already wrote stays in the tree |
 
-`Alt+A` opens the Agent Hub in the terminal: the live roster, each agent's model, age and token
-use, and `x` to kill or `r` to revive.
-
-**A silent child is usually still generating, not stuck.** Read the transcript tail before
-concluding anything. The raw file is JSONL, one event per line; `jq` turns the last few events
-into something readable:
+**A silent child is usually still generating, not stuck.** Read what the child has produced before
+concluding anything. The transcripts are the record: they live under the runtime's session
+directory, one JSONL file per child. The raw file is one event per line, so a short tail is enough
+to see whether it is moving:
 
 ```sh
-# what is it doing right now
-tail -n 40 ~/.omp/agent/sessions/<slug>/<session-id>/<AgentName>.jsonl \
-  | jq -r 'select(.type=="message") | .message.role as $r | (.message.content // [])[]
+# the child's last few events
+tail -n 40 "$SESSION"/snapshots/<child>.jsonl \
+  | jq -r 'select(.message.role=="assistant") | .message.role as $r | (.message.content // [])[]
            | if type=="object" then "\($r) \(.name // .type)" else "\($r) \((.text // "")[0:60])" end' \
   | tail -n 8
 ```
 
-```
-assistant thinking
-assistant text
-assistant bash
-toolResult text
-toolResult text
-developer text
-assistant text
-```
-
 A transcript that ends in a tool call and keeps growing is a working child. A transcript that
-repeats the same call is a loop — kill it and re-scope.
+repeats the same call is a loop — stop it and re-scope.
 
 A second probe answers "is it writing anything at all?" — the freshest files on disk:
 
@@ -197,22 +146,18 @@ find . -path ./node_modules -prune -o -type f -printf "%T@ %TH:%TM:%TS %p\n" | s
 ```
 
 Fresh mtimes on the files that slice owns mean it is writing. Use the `-printf` + `sort -rn` form
-rather than `find -newermt`: on this box `-newermt "-4 minutes"` fails outright ("cannot figure out
-how to interpret '-4 minutes' as a date or time"), while the `-printf` form lists the file just
-written.
+rather than `find -newermt`: relative ages are not portable across the `find` implementations a
+contributor may have.
 
-**Bound the fan-out.** A child with no request budget will spend the whole afternoon: the soft
-budget is 200 requests by default, and a run that crosses 1.5× it is stopped and yields partial
-findings. Long research fan-outs are unwelcome — fetch the one or two primary documents yourself
-and let the child do the part that needs reading many files.
+**Bound the fan-out.** A child with no request budget will spend the whole session: give it a
+scope, a budget, and a deadline out loud ("10 more minutes, then I do it myself"). A slice that has
+not touched a file in 20+ minutes is either blocked or was given a scope it cannot finish; the fix
+is to narrow the scope or take the work over, not to wait longer. Long research fan-outs are
+unwelcome — fetch the one or two primary documents yourself and let the child do the part that
+needs reading many files.
 
-**Set a deadline out loud** ("10 more minutes, then I do it myself"). A slice that has not
-touched a file in 20+ minutes is either blocked or was given a scope it cannot finish; the fix is
-to narrow the scope or take the work over, not to wait longer.
-
-**Read the output even when the child says it is done.** `agent://<id>` exposes the child's latest
-text even before it has published a result; a child that has finished its work but keeps
-re-emitting it costs tokens without adding anything.
+**Read the output even when the child says it is done.** A child that has finished its work but
+keeps re-emitting it costs tokens without adding anything.
 
 **A finding the child hands back is unowned until you own it.** When a slice reports "outside my
 slice, needs an owner", the parent either does the item or assigns it explicitly — and says so in
@@ -228,26 +173,23 @@ the reply. Unowned findings are how stale claims survive a migration.
    about the slice, not about the code.
 
 If the work was judged, the reviewer is the judge, and the judge grades against a rubric. For code
-quality the rubric is **yours**: `judge()` / `judgeBatch()` take the questions and their rubric as
-input, so write criteria the judge can answer from the diff alone, and give it hidden cases the
-child never saw. The harness ships a built-in rubric only for its own routing path
-(`find.enabled: auto`), and that is not a code-quality rubric; copy it verbatim, per
-[`AGENTS.md`](../../AGENTS.md) §12.
+quality the rubric is **yours**: write criteria the judge can answer from the diff alone, and give
+it hidden cases the child never saw. Do not paraphrase a rubric into a shorter version to "test"
+it — a simplified rubric makes the same batch of work grade wrongly, and then the probe is wrong,
+not the model.
 
 ## 6. Price it
 
-Delegation is not free: the child pays a startup cost for its system prompt and shares nothing of
-this session's cache. The transcripts are the record.
+Delegation is not free: the child pays a startup cost for its own system prompt and shares nothing
+of this session's cache. The transcripts are the record.
 
-Layout: the parent session is `<session-id>.jsonl`; a session that spawned children also has a
-sibling **directory** of the same name, holding one `<AgentName>.jsonl` per child.
+Layout: the parent session is `<session-dir>/messages.jsonl`; its children live in
+`<session-dir>/snapshots/<child>.jsonl`, one file per child.
 
 ```sh
-ls ~/.omp/agent/sessions/<cwd-slug>/                 # a .jsonl per session, plus a dir per session with children
-ls ~/.omp/agent/sessions/<cwd-slug>/<session-id>/     # one .jsonl per child
+ls ~/.minimax/v2/sessions/<yyyy-mm-dd>/          # one directory per session
+ls ~/.minimax/v2/sessions/<yyyy-mm-dd>/<session>/ # the parent transcript and the children's
 ```
-
-`<cwd-slug>` is the working directory with `/` replaced by `-`.
 
 ### 6.1 The formula
 
@@ -259,8 +201,8 @@ billable = input + 0.1 * cacheRead + output
 
 ### 6.2 The script
 
-Save it as `cost.py` and run it against the **child directory** of a session — the directory named
-after the session id, which holds one `<AgentName>.jsonl` per child:
+Save it as `cost.py` and run it against the **child directory** — the `snapshots/` directory of a
+session, which holds one `<child>.jsonl` per child:
 
 ```python
 import json, glob, os, sys
@@ -271,8 +213,7 @@ for p in glob.glob(os.path.join(d, "*.jsonl")):
     for line in open(p):
         try: r = json.loads(line)
         except ValueError: continue
-        if r.get("type") != "message": continue
-        m = r.get("message", {})
+        m = r.get("message") or {}
         if m.get("role") != "assistant": continue
         u = m.get("usage") or {}
         inp += u.get("input") or 0
@@ -287,7 +228,7 @@ for b, t, name in rows:
 ```
 
 ```sh
-python3 cost.py ~/.omp/agent/sessions/<cwd-slug>/<session-id>/
+python3 cost.py ~/.minimax/v2/sessions/<yyyy-mm-dd>/<session>/snapshots/
 ```
 
 ### 6.3 What to change when it is not worth it
@@ -297,8 +238,6 @@ python3 cost.py ~/.omp/agent/sessions/<cwd-slug>/<session-id>/
 - "Deliver the file plus one line about what changed" cuts output tokens without cutting work.
 - Pinning the boundaries in the brief (what counts as done, what the output shape is) cuts
   rework, which is the expensive kind of waste: the child does the work twice.
-- `task.maxConcurrency` (default 32) bounds how many children run at once; `task.maxRecursionDepth`
-  (default 2) bounds nesting. Neither is a substitute for a small number of slices.
 
 ### 6.4 Did the delegation pay off?
 
@@ -309,7 +248,7 @@ delegated — it includes the turns the parent spent waiting, reading and repair
 | Measure | How | What it tells you |
 |---|---|---|
 | Billable per turn | The §6.2 script, plus the parent's own turns | Whether a child is cheaper or dearer than the parent, per unit of work |
-| Cold start | The child's first record's `contextSnapshot`: `nonMessageTokens + toolSchemaTokens` | The floor a child pays before doing anything — a slice below it loses money |
+| Cold start | The child's first request's `input` tokens | The floor a child pays before doing anything — a slice below it loses money |
 | Rework vs fresh | Parent `edit`/`write` calls after a child's last edit: in that child's files = rework, elsewhere = fresh work | Whether delegation saved the parent work or just moved it |
 | Parallelism | Sum of child intervals ÷ the union of those intervals; plus the peak concurrent count | Whether the wall-clock time was actually saved |
 
@@ -322,22 +261,20 @@ Two traps make these numbers wrong:
 - **Deduplicate the parent's edits by `(timestamp, path)`.** One parent batch can land in several
   children's file sets and inflate the rework count.
 
-One script measures all four. Save it as `payoff.py` and run it against the **child directory**:
+One script measures all four. Save it as `payoff.py` and run it against the child directory:
 
 ```python
 import json, glob, os, re, sys, datetime
 
-D = sys.argv[1]
+D = sys.argv[1]                     # the child directory (one .jsonl per child)
 brk = re.compile(r'^\[([^\]\#]+)#[0-9A-F]{4}\]')
 
 def recs(p):
-    for line in open(p, encoding='utf-8'):
+    for line in open(p, encoding="utf-8"):
         try: yield json.loads(line)
         except ValueError: continue
 
 def fpath(name, a):
-    # `edit` has two shapes on disk: `arguments.path` (current) and a
-    # `[path#HASH]` header inside `arguments.input` (older runs).
     if name == 'edit':
         if a.get('path'): return a['path']
         m = brk.match((a.get('input') or '').strip())
@@ -347,42 +284,40 @@ def fpath(name, a):
 
 def turns(p):
     for e in recs(p):
-        m = e.get('message') or {}
-        if m.get('role') != 'assistant': continue
-        u = m.get('usage') or {}
-        yield u.get('input') or 0, u.get('output') or 0, u.get('cacheRead') or 0, m.get('contextSnapshot') or {}
+        m = e.get("message") or {}
+        if m.get("role") != "assistant": continue
+        u = m.get("usage") or {}
+        yield u.get("input") or 0, u.get("output") or 0, u.get("cacheRead") or 0
 
 def edits(p):
     for e in recs(p):
-        m = e.get('message') or {}
-        c = m.get('content')
+        m = e.get("message") or {}
+        if m.get("role") != "assistant": continue
+        c = m.get("content")
         if not isinstance(c, list): continue
         for b in c:
-            if isinstance(b, dict) and b.get('type') == 'toolCall' and b.get('name') in ('edit', 'write'):
-                fp = fpath(b['name'], b.get('arguments') or {})
-                if fp: yield e.get('timestamp'), fp
+            if isinstance(b, dict) and b.get("type") == "toolCall" and b.get("name") in ("edit", "write"):
+                fp = fpath(b["name"], b.get("arguments") or {})
+                if fp: yield m.get("timestamp"), fp
 
 bill = lambda t: t[0] + 0.1 * t[2] + t[1]
-base = os.path.basename(D.rstrip('/'))
-main = os.path.join(os.path.dirname(D.rstrip('/')), base + '.jsonl')
+main = os.path.join(os.path.dirname(D.rstrip("/")), "messages.jsonl")
 
 mt = list(turns(main)); mb = sum(bill(t) for t in mt)
-peak = max((t[3].get('promptTokens') or 0) for t in mt)
+peak = max(((t[0] + t[2]) for t in mt), default=0)
 kids = {}
-for p in glob.glob(os.path.join(D, '*.jsonl')):
+for p in glob.glob(os.path.join(D, "*.jsonl")):
     name = os.path.basename(p)[:-6]
     u = list(turns(p))
     if not u: continue
-    cs = u[0][3]
-    kids[name] = (len(u), sum(bill(t) for t in u),
-                  (cs.get('nonMessageTokens') or 0) + (cs.get('toolSchemaTokens') or 0))
+    kids[name] = (len(u), sum(bill(t) for t in u), u[0][0])
 kt = sum(v[0] for v in kids.values()); kb = sum(v[1] for v in kids.values())
 cold = [v[2] for v in kids.values() if v[2]]
 print(f"main     {len(mt):5d} turns {mb:11.0f} billable {mb/max(len(mt),1):8.0f}/turn  peak prompt {peak}")
-print(f"children {kt:5d} turns {kb:11.0f} billable {kb/max(kt,1):8.0f}/turn  cold start {min(cold)}-{max(cold)}")
+print(f"children {kt:5d} turns {kb:11.0f} billable {kb/max(kt,1):8.0f}/turn  cold start {min(cold) if cold else 0}-{max(cold) if cold else 0}")
 
 af, al = {}, {}
-for p in glob.glob(os.path.join(D, '*.jsonl')):
+for p in glob.glob(os.path.join(D, "*.jsonl")):
     name = os.path.basename(p)[:-6]; ed = list(edits(p))
     if ed: af[name] = {f for _, f in ed}; al[name] = max(x for x, _ in ed)
 rework = fresh = 0; seen = set()
@@ -394,10 +329,15 @@ for t, fp in edits(main):
     else: fresh += 1
 print(f"main edits after a child finished: rework {rework}, fresh {fresh}")
 
-ts = lambda x: datetime.datetime.fromisoformat(x.replace('Z', '+00:00'))
+def ts(x):
+    # A runtime may stamp an ISO string or epoch milliseconds; take both.
+    if isinstance(x, (int, float)):
+        return datetime.datetime.fromtimestamp(x / 1000)
+    return datetime.datetime.fromisoformat(x.replace("Z", "+00:00"))
+
 iv = []
-for p in glob.glob(os.path.join(D, '*.jsonl')):
-    st = [ts(e['timestamp']) for e in recs(p) if e.get('timestamp')]
+for p in glob.glob(os.path.join(D, "*.jsonl")):
+    st = [ts(e["message"]["timestamp"]) for e in recs(p) if (e.get("message") or {}).get("timestamp")]
     if st: iv.append((min(st), max(st)))
 pts = []
 for a, b in iv: pts += [(a, 1), (b, -1)]
@@ -414,14 +354,10 @@ print(f"parallelism {busy/union:.2f}x, peak {peak_c} concurrent")
 ```
 
 ```sh
-python3 payoff.py ~/.omp/agent/sessions/<cwd-slug>/<session-id>/
+python3 payoff.py ~/.minimax/v2/sessions/<yyyy-mm-dd>/<session>/snapshots/
 ```
 
 ## 7. References
 
 - [`docs/skills/README.md`](README.md): the index of the procedures.
 - [`AGENTS.md`](../../AGENTS.md) §12: the repository's working rules for agents.
-- `omp://task-agent-discovery.md`: how agents are discovered, which model runs them, and the
-  per-call model rules.
-- `omp://tools/task.md`: the `task` tool's wire schema, limits, and side effects.
-- `omp://agent-hub.md`: the Agent Hub, the roster, and how to steer or revive a child.

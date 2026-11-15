@@ -943,7 +943,7 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 
 ## F58. 两个原生注册表适配器（DSH、pi）（2026-10-29）
 
-**现状**：pi 侧**已落地**：`plugins/pi-texteda/` 是零构建的扩展（pi 直接加载 `.ts`），把 [ADR-0044](adr/10-process/0044-the-agent-surface-is-a-set-of-verbs.md) D8 的清单的 JSON Schema 投影到 `pi.zod`，注册的工具与清单逐条一致（名字、描述、参数）；真机冒烟已过（omp 会话里模型调 `texteda_check`，拿到诊断；调用失败时工具把诊断本身交回，模型看得见）。
+**现状**：pi 侧**已落地**：`plugins/pi-texteda/` 是零构建的扩展（pi 直接加载 `.ts`），把 [ADR-0044](adr/10-process/0044-the-agent-surface-is-a-set-of-verbs.md) D8 的清单的 JSON Schema 投影到 `pi.zod`，注册的工具与清单逐条一致（名字、描述、参数）；真机冒烟已过（omp 会话里模型调 `texteda_check`，拿到诊断；调用失败时工具把诊断本身交回，模型看得见）。**那次真机冒烟在 omp 里做的，omp 已不在工具链里**：这说明扩展本身能用，不说明我们手上有宿主能装它——适配器仍在，但没有我们现在会用的宿主。
 
 DSH 侧**代码已落地**：宿主合同读的是官方 cookbook（`@deepseek-ai/dsh-tools` 的 `defineTool`、`@deepseek-ai/cordis` 的 `apply(ctx)` + `inject`），参数是扁平 spec `{type, required, description}`，结果是 canonical value + `output.render`。`plugins/dsh-texteda/` 是 host 半边，`packages/cli/src/dsh-tools.ts` 是投影，`bun run scripts/build-dsh-plugin.ts` 出一个 bundle（我们的包打进去，宿主的包留在外面）。
 
@@ -954,7 +954,7 @@ DSH 侧**代码已落地**：宿主合同读的是官方 cookbook（`@deepseek-a
 **验收**：
 
 - 每个适配器注册的工具集合与清单一致（名字、描述、参数逐字段相同）。**已过**（pi 与 DSH 两侧都有测试钉住）。
-- pi 侧真机冒烟：装上扩展，模型能调 `texteda_check` 并拿到诊断。**已过**（`omp --extension plugins/pi-texteda`）。
+- pi 侧真机冒烟：装上扩展，模型能调 `texteda_check` 并拿到诊断。**已过**（`omp --extension plugins/pi-texteda`；omp 已不在工具链里，这条只作当时的记录）。
 - DSH 侧：bundle 装进宿主后，工具出现在 `/tools` 里且能跑通一个只读动词。**半过**（`bun run smoke:dsh-plugin`：bundle 构建出来、插件被 apply、注册的八条与清单一致、`texteda_check` 拿回诊断——宿主那半边用桩替了；**待做**：真宿主里工具出现在 `/tools` 里。本机没有 DSH 宿主，也没有 npm，宿主侧冒烟得在装了宿主的机器上跑）。
 
 **注意**：适配器放本仓 `plugins/` 还是拆独立仓，ADR-0044 的开放点 2 还没定；拆仓的前提是清单先在 [ADR-0044](adr/10-process/0044-the-agent-surface-is-a-set-of-verbs.md) D7 里稳定。
