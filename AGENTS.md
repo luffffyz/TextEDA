@@ -282,7 +282,7 @@
 
 **两棵树都在根 README（英文）里**：**工程布局**（`texteda init` 建的目录）与**仓库布局**（`spec/` / `schemas/` / `packages/` 各自是什么）。这里只补 README 说不清的几件事。
 
-1. **仓库根只留入口、构建配置与目录**：入口是 `AGENTS.md` / `README*` / `LICENSE` / `NOTICE`，构建配置是 `package.json` / `bun.lock` / `tsconfig.base.json`；产物、素材、临时脚本不进根目录。工具脚本在 `scripts/`（共用工具在 `scripts/lib/`，生成器在 `packages/ir/scripts/`）。**语言总规范在 `spec/teda.md`**，`spec/` 其余文件是分描述规范；IR 的契约在 `schemas/ir/`（契约版本就是目录名）。
+1. **仓库根只留入口、构建配置与目录**：入口是 `AGENTS.md` / `README*` / `LICENSE` / `NOTICE`，构建配置是 `package.json` / `bun.lock` / `tsconfig*.json`；产物、素材、临时脚本不进根目录。工具脚本在 `scripts/`（共用工具在 `scripts/lib/`，生成器在 `packages/ir/scripts/`）；**根 `scripts/` 也进类型门禁**（`tsconfig.scripts.json`），门禁脚本自己带类型却没人看，等于没有类型。**语言总规范在 `spec/teda.md`**，`spec/` 其余文件是分描述规范；IR 的契约在 `schemas/ir/`（契约版本就是目录名）。
 
 2. **工程目录按归属分组**（决策见 [ADR-0008](docs/adr/03-project/0008-project-tree-has-owners.md)）：自有器件资产与选料放 `assets/`，引用但不自有的材料放 `external/`（外部库只作**模板**，`texteda lib import` 拷进 `assets/` 后就是自有资产；数据手册本体在 `external/cache/`，不入库不进 IR），电路描述收进 `design/`，画在 `views/`（手写、进仓库、不参与构建身份）。库信任模型见 [ADR-0033](docs/adr/08-libraries/0033-libraries-are-unverified-facts.md)，器件语义拆分见 [ADR-0024](docs/adr/07-devices/0024-the-device-kind-is-part-or-generic.md)，打印页的地位见 [ADR-0035](docs/adr/09-view/0035-the-view-layer-is-a-drawing.md)；工作项见 F25 / F26 / F29.
 3. **`init` 契约**：`bun run texteda init <dir>` 只建目录与 `project.toml`、`docs/README.md`；目标目录非空时拒绝执行（`--force` 才覆盖），不合并、不猜测；不联网、不拉模板、不生成 `dist/`；输出确定性（不写时间戳、不写随机 ID）。键表见 `spec/project.md` §1、§2。多板按描述类型分目录（`design/sch/` / `design/pcb/` / `design/sch/modules/`），逻辑根固定为 `design/sch/main.teda`；项目级打印页在 `views/`，文件名为 `<page_id>.view.teda`；扩展名统一 `.teda`，由目录与首行区分描述类型。`project.toml` 只承载项目元数据，**不承载电路、不承载库引用**（库是模板）；板间连接写在逻辑根的 `interconnects` 段。
@@ -314,7 +314,7 @@ dist/ir/
 | 命令 | 查什么 | 规则住在哪 |
 |---|---|---|
 | `bun run test` | 单元、契约正反例、round-trip | 各包 `test/`；`tests/schemas/`（脚本带 `--timeout 30000`，见下） |
-| `bun run typecheck` | 全包类型 | `tsconfig.base.json` |
+| `bun run typecheck` | 全包类型 + **根 `scripts/` 的类型** | `tsconfig.base.json`；`tsconfig.scripts.json` |
 | `bun run gen:check` | 生成物（IR 类型、`docs/error-codes.md`、`docs/ir-reference.md`、`docs/api-reference/`）不漂移 | `packages/ir/src/generated/`；[ADR-0038](docs/adr/10-process/0038-implementation-stack-and-agent-entry.md) |
 | `bun run lib:verify` | 库闭包：引用可解析、无孤儿、引脚号与焊盘号对齐 | `spec/symbol.md` §7、`spec/footprint.md` §7 |
 | `bun run view:verify` | 打印页的**连线坐标**（摆位原点、走线折点、端口、结点）锚在 `0.5 mm` 晶格上；标签、注释、字段锚点、模块框是画，自由 | [ADR-0074](docs/adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1、D2 |

@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-21
 Scope: Decides: the implementation stack, and the single entry point an agent uses — the generated contract reference and `texteda check`. Does not decide: what the checker enforces — see `spec/teda.md` §10.
 Related: [ADR-0003](../01-language/0003-diagnostic-error-codes.md), [ADR-0039](0039-licensing-and-open-standard.md), [ADR-0041](0041-documentation-has-one-authority-per-fact.md), [ADR-0045](0045-the-mcp-server-is-a-slice-we-write-ourselves.md)
-Impact: `package.json`; `tsconfig.base.json`; `packages/ir/scripts/**`; `packages/ir/src/generated/**`; `scripts/api-reference.ts`; `docs/ir-reference.md`; `docs/api-reference/**`
+Impact: `package.json`; `tsconfig.base.json`; `tsconfig.scripts.json`; `packages/ir/scripts/**`; `packages/ir/src/generated/**`; `scripts/**`; `docs/ir-reference.md`; `docs/api-reference/**`
 
 ## Background
 
@@ -60,6 +60,16 @@ Hard rules:
   side effects).
 - Byte-level determinism does not depend on the runtime: the same input produces the same
   canonical JSON (and the same hash) on every runtime.
+
+> **Amended (2026-11-15): the gate's own scripts are typechecked too.** The repository's `scripts/`
+> tree is TypeScript with types on it, and a type error in a gate is a gate that lies: it passes
+> because nothing ever ran the checker. `tsconfig.scripts.json` puts that tree under the same
+> `tsc -p` pass as the packages, and `bun run typecheck` runs it. This is not the library surface
+> (D8): the scripts read and write files by design — what they may not do is carry a type error
+> nobody looks for. The gap was not academic: it held a build option Bun had renamed (`intro` →
+> `banner`), silently ignored, which cost the DSH plugin's browser bundle its CommonJS preamble —
+> the bundle loaded in the smoke test and threw `ReferenceError: module is not defined` in the
+> host's page.
 
 **This boundary has no gate yet.** Nothing in the tree checks the rule, so it holds by review
 alone; the check that would hold it is filed in `docs/backlog.md` (F75).

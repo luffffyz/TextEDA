@@ -86,6 +86,12 @@ Both halves ship in the same package and are versioned together. The client half
   - `conversation.chat.node` — keyed, session-scoped: a place to attach controls to chat messages.
   - `plugins.bundle.config` — keyed, root-scoped: a card in the plugin manager's settings page.
 - Slots are React-shaped: the client half renders React components, not a page.
+- The client bundle is CommonJS, so **the file carries the CommonJS preamble itself**:
+  `var module = { exports: {} }; var exports = module.exports;` sits inside the factory, because a
+  page has no CommonJS wrapper to provide them. Bun's build option that used to prepend it was
+  renamed (`intro` → `banner` in Bun 1.2), and the old name is ignored without a word — so the
+  preamble is written into the banner by hand, and the smoke test evaluates the bundle as a page
+  script, which is the only way to notice its absence.
 
 ### Installing
 

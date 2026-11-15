@@ -16,11 +16,16 @@ const pin = (number: string, x_mm: number, y_mm: number, rot: number, unit = 1):
   style: "line",
 });
 
-const symbol = (pins: Pin[], numbersHidden = false): Symbol["symbol"] => ({
+const symbol = (pins: [Pin, ...Pin[]], numbersHidden = false): Symbol["symbol"] => ({
+  library: "t",
   name: "t",
   units: 1,
+  pin_names_hidden: false,
+  power: false,
+  in_bom: true,
+  on_board: true,
   pins,
-  ...(numbersHidden ? { pin_numbers_hidden: true } : {}),
+  ...(numbersHidden ? { pin_numbers_hidden: true } : { pin_numbers_hidden: false }),
 });
 
 describe("symbol house style", () => {

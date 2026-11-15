@@ -40,6 +40,11 @@ await build({
 // The client half: a browser CJS module inside the loader frame, `plugins/dsh-texteda/lib/client.js`.
 // `require` stays live for the platform modules, so React is the host's instance and not a second
 // copy of it.
+//
+// The CJS preamble (`var module = …; var exports = module.exports;`) has to live **inside** the
+// factory: the factory is the module, and `module` is a per-module variable. Bun 1.2 renamed the
+// build option that used to prepend it (`intro` → `banner`), and the old name is ignored without a
+// word — so the preamble is written into the banner here, by hand, where it cannot be lost again.
 await build({
   entrypoints: [resolve(plugin, "client.ts")],
   outdir: resolve(plugin, "lib"),
@@ -47,7 +52,8 @@ await build({
   format: "cjs",
   external: ["react", "react/jsx-runtime", ...externals],
   naming: "client.js",
-  intro: "var module = { exports: {} }; var exports = module.exports;",
-  banner: 'window.__ModuleLoader__.load({ id: "@texteda/dsh-plugin", factory: (require) => {',
+  banner:
+    'window.__ModuleLoader__.load({ id: "@texteda/dsh-plugin", factory: (require) => {\n' +
+    "var module = { exports: {} }; var exports = module.exports;",
   footer: "return module.exports; } });",
 });

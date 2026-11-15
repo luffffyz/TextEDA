@@ -110,7 +110,7 @@ describe("scripts/check-links.ts", () => {
     const root = makeTree({
       "docs/adr/0006-accepted.md": adrFile("0006", "Title", "Accepted", "2026-10-20"),
       "docs/adr/0007-page.md": adrFile("0007", "Page", "Accepted", "2026-10-20"),
-      "docs/adr/README.md": `${minimalIndex}\n${indexRow("0006", "0006-accepted.md", "Title", "Accepted", "2026-10-20")}\n${indexRow("0099", "0099-x.md", "Accepted", "2026-10-20")}\n`,
+      "docs/adr/README.md": `${minimalIndex}\n${indexRow("0006", "0006-accepted.md", "Title", "Accepted", "2026-10-20")}\n${indexRow("0099", "0099-x.md", "Title", "Accepted", "2026-10-20")}\n`,
     });
     try {
       const { problems } = checkRepo(root);

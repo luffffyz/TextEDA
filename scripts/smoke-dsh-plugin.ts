@@ -3,9 +3,16 @@
 //
 // The host itself is not here, so both sides of it are stood in for. The host half is copied next
 // to a stub `@deepseek-ai/dsh-tools`, applied to a context that records the tools and the routes it
-// registers. The client half is evaluated the way DSH evaluates a client module: a
+// registers. The client half is evaluated the way DSH evaluates a client module: the file's text is
+// run as a **browser script** — a global scope with no CommonJS `module` in it — a
 // `window.__ModuleLoader__` collects the factory, a stub `require` supplies React, and the factory's
 // exports are handed to a context that records the tab type and the slot registration.
+//
+// The client half is evaluated as a script, not imported as a module, because that is the difference
+// that matters: an `import()` of a CommonJS file runs it inside a module wrapper that provides
+// `module` and `exports` for free, and the browser provides neither. A bundle that relies on the
+// wrapper therefore loads in the smoke and throws `ReferenceError: module is not defined` in the
+// host's page.
 //
 // What this proves is the local half of the contract: both bundles load, both apply, the tools are
 // the catalogue's, the routes are the two exact paths, the client half exports `inject` and
@@ -48,8 +55,9 @@ const clientBuild = await Bun.build({
   format: "cjs",
   external: ["react", "react/jsx-runtime", ...externals],
   naming: "client.js",
-  intro: "var module = { exports: {} }; var exports = module.exports;",
-  banner: 'window.__ModuleLoader__.load({ id: "@texteda/dsh-plugin", factory: (require) => {',
+  banner:
+    'window.__ModuleLoader__.load({ id: "@texteda/dsh-plugin", factory: (require) => {\n' +
+    "var module = { exports: {} }; var exports = module.exports;",
   footer: "return module.exports; } });",
 });
 if (!clientBuild.success) {
@@ -221,7 +229,18 @@ const requireStub = (specifier: string): unknown => {
   if (specifier === "react") return reactStub;
   throw new Error(`the client half required "${specifier}", which the smoke does not supply`);
 };
-await import(join(work, "client/client.js"));
+// The host runs the client half as a page script: it evaluates the file's text, and the file's
+// banner calls the loader. A script tag's scope has no `module` and no `exports` — those are the
+// CommonJS module wrapper's, and the wrapper is what the bundle's own preamble replaces. Running
+// the text through `new Function` gives exactly that scope, so a bundle that lost its preamble
+// throws here instead of in the host's page.
+const clientSource = await Bun.file(join(work, "client/client.js")).text();
+try {
+  new Function(clientSource)();
+} catch (error) {
+  console.error(`the client bundle threw while it was evaluated: ${String(error)}`);
+  process.exit(1);
+}
 if (loader.loaded === undefined) {
   console.error("the client bundle did not register itself with the module loader");
   process.exit(1);

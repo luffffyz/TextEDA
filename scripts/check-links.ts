@@ -57,13 +57,13 @@ function splitCodeRegions(lines: string[]): { text: string; code: boolean }[] {
   for (const line of lines) {
     const match = /^\s*(```+|~~~+)/.exec(line);
     if (fence === null && match) {
-      fence = match[1][0];
+      fence = match[1]![0]!;
       out.push({ text: line, code: true });
       continue;
     }
     if (fence !== null) {
       out.push({ text: line, code: true });
-      if (match && match[1][0] === fence) fence = null;
+      if (match && match[1]![0]! === fence) fence = null;
       continue;
     }
     out.push({ text: line, code: false });
@@ -134,7 +134,7 @@ function scanAdrFiles(root: string): Map<string, string> {
         continue;
       }
       const match = /^(\d{4})-.+\.md$/.exec(entry);
-      if (match) out.set(match[1], rel);
+      if (match) out.set(match[1]!, rel);
     }
   };
   walk(adrDir(root), "");
@@ -143,11 +143,14 @@ function scanAdrFiles(root: string): Map<string, string> {
 
 type IndexRow = { title: string; status: string; date: string; target: string };
 
+/** A number the index reserves before its record is written: the file it is reserved for, and the item it names. */
+type ReservedNumber = { file: string; item: string };
+
 type IndexResult = {
   text: string;
   missing: boolean;
   rows: Map<string, IndexRow>;
-  reserved: Map<string, { file: string; item: string }>;
+  reserved: Map<string, ReservedNumber>;
   /** Number ranges the index declares as retired: a number in one of them is never handed out again. */
   retiredRanges: { from: number; to: number }[];
 };
@@ -167,7 +170,7 @@ function parseIndex(root: string, problems: string[]): IndexResult {
   for (const line of indexText.split("\n")) {
     const row = /^\|\s*\[ADR-(\d{4})\]\(([^)]+)\)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*$/.exec(line);
     if (row) {
-      const [, number, target, title, status, date] = row;
+      const number = row[1]!, target = row[2]!, title = row[3]!, status = row[4]!, date = row[5]!;
       if (result.rows.has(number)) {
         problems.push(`${relative(root, indexPath)}: ADR-${number} is listed twice`);
       }
@@ -176,7 +179,7 @@ function parseIndex(root: string, problems: string[]): IndexResult {
     }
     const reservedRow = /^\|\s*ADR-(\d{4})\s*\|\s*`([^`]+)`\s*\|\s*(\S+)\s*\|\s*$/.exec(line);
     if (reservedRow) {
-      const [, number, file, item] = reservedRow;
+      const number = reservedRow[1]!, file = reservedRow[2]!, item = reservedRow[3]!;
       if (result.reserved.has(number)) {
         problems.push(`${relative(root, indexPath)}: ADR-${number} is reserved twice`);
       }
@@ -188,7 +191,7 @@ function parseIndex(root: string, problems: string[]): IndexResult {
     // citation point at a different decision.
     const retiredRow = /^\|\s*Retired\s*\|\s*(\d{4})-(\d{4})\s*\|\s*(.*?)\s*\|\s*$/.exec(line);
     if (retiredRow) {
-      const [, from, to, note] = retiredRow;
+      const from = retiredRow[1]!, to = retiredRow[2]!, note = retiredRow[3]!;
       result.retiredRanges.push({ from: Number(from), to: Number(to) });
       void note;
     }
@@ -228,7 +231,7 @@ function adrHeader(
       if (scopeLines.length !== 1) {
         fail(problems, where, `expected exactly one "Scope:" header line, found ${scopeLines.length}`);
       } else {
-        const scope = scopeLines[0].replace(/^Scope:\s*/, "");
+        const scope = scopeLines[0]!.replace(/^Scope:\s*/, "");
         if (!scope.includes("Decides:")) {
           fail(problems, where, 'the "Scope:" line must say what the record decides ("Decides:")');
         }
@@ -239,7 +242,7 @@ function adrHeader(
     }
 
     // The status vocabulary is closed: the word before any parenthetical revision note.
-    const statusWord = status.split(/[\s(]/)[0];
+    const statusWord = status.split(/[\s(]/)[0] ?? "";
     if (status && !statusWords.has(statusWord)) {
       fail(problems, where, `unknown status word "${statusWord}"; use one of ${[...statusWords].join(", ")}`);
     }
@@ -252,7 +255,7 @@ function adrHeader(
       fail(problems, where, `expected exactly one "Impact:" header line, found ${impactLines.length}`);
     }
 
-    out.set(number, { title: h1 ? h1[2].trim() : "", status, date });
+    out.set(number, { title: h1 ? h1[2]!.trim() : "", status, date });
   }
   return out;
 }
@@ -291,7 +294,7 @@ function adrRecordRules(
     // R2 + R3: a retired record keeps no body heading, and names its superseding record.
     let retiredFrom = -1;
     for (let index = 0; index < lines.length; index++) {
-      if (retiredLinePattern.test(lines[index])) {
+      if (retiredLinePattern.test(lines[index]!)) {
         retiredFrom = index;
         break;
       }
@@ -299,7 +302,7 @@ function adrRecordRules(
     if (retiredFrom >= 0) {
       // R2: no heading-level heading may appear after the retired line.
       for (let index = retiredFrom + 1; index < lines.length; index++) {
-        if (retiredHeadingPattern.test(lines[index])) {
+        if (retiredHeadingPattern.test(lines[index]!)) {
           fail(problems, where, "a retired record keeps no body; the decision text belongs in git history");
           break;
         }
@@ -309,7 +312,7 @@ function adrRecordRules(
       if (!retiredSupersessionPattern.test(status)) {
         fail(problems, where, 'a retired record\'s Status line must contain "superseded by ADR-NNNN" or "withdrawn"');
       }
-      const statusNames = status.matchAll(statusNamePattern).map((match) => match[1]);
+      const statusNames = [...status.matchAll(statusNamePattern)].map((match) => match[1]!);
       for (const name of statusNames) {
         if (!adrFiles.has(name)) {
           fail(problems, where, `a retired record's Status line names ADR-${name}, which is not a decision record`);
@@ -320,7 +323,7 @@ function adrRecordRules(
     // R4: an appendix/addendum/amendment block may not exceed 40% of the record (advisory — a warning).
     let firstAmendmentHeading = -1;
     for (let index = 0; index < lines.length; index++) {
-      if (amendmentHeadingPattern.test(lines[index]) && amendmentWordPattern.test(lines[index])) {
+      if (amendmentHeadingPattern.test(lines[index]!) && amendmentWordPattern.test(lines[index]!)) {
         firstAmendmentHeading = index;
         break;
       }
@@ -367,7 +370,7 @@ function adrRecordRules(
 function relatedNumbers(lines: string[]): string[] {
   const line = lines.find((candidate) => candidate.startsWith("Related:"));
   if (!line) return [];
-  return [...line.matchAll(/ADR-(\d{4})/g)].map((match) => match[1]);
+  return [...line.matchAll(/ADR-(\d{4})/g)].map((match) => match[1]!);
 }
 
 // ---------------------------------------------------------------- section and item references
@@ -380,7 +383,7 @@ function headingNumbers(full: string): Set<string> {
   const out = new Set<string>();
   for (const line of readFileSync(full, "utf-8").split("\n")) {
     const match = /^#{1,6}\s+([0-9]+(?:\.[0-9]+)*)\.?(?:\s|$)/.exec(line);
-    if (match) out.add(match[1]);
+    if (match) out.add(match[1]!);
   }
   headingCache.set(full, out);
   return out;
@@ -412,7 +415,7 @@ function backlogItems(root: string): Set<string> {
   if (!existsSync(path)) return open;
   for (const line of readFileSync(path, "utf-8").split("\n")) {
     const heading = /^##\s+(F\d+)\./.exec(line);
-    if (heading) open.add(heading[1]);
+    if (heading) open.add(heading[1]!);
   }
   return open;
 }
@@ -447,12 +450,12 @@ function externalDocumentAt(text: string, at: number): { start: number; end: num
   const part = /(?<![A-Za-z0-9_.])(\d*[A-Z]{2,}[A-Z0-9-]*\d+[A-Z0-9-]*)\s*$/.exec(before);
   if (part) {
     const start = Math.max(0, at - 60) + part.index;
-    return { start, end: start + part[1].length };
+    return { start, end: start + part[1]!.length };
   }
   const named = /\b(datasheet|data sheet|approval sheet|spec sheet|user manual|application note)\s*$/i.exec(before);
   if (named) {
     const start = Math.max(0, at - 60) + named.index;
-    return { start, end: start + named[1].length };
+    return { start, end: start + named[1]!.length };
   }
   return null;
 }
@@ -516,12 +519,12 @@ function referenceRules(
   for (const match of text.matchAll(qualifiedSectionPattern)) {
     const start = match.index ?? 0;
     const end = start + match[0].length;
-    events.push({ start, end, file: match[1], section: match[2] });
+    events.push({ start, end, file: match[1]!, section: match[2]! });
     covered.push({ start, end });
     // A range names two sections; the far end is checked against the same file.
     const range = rangeEndPattern.exec(text.slice(end));
     if (range) {
-      events.push({ start: end, end: end + range[0].length, file: match[1], section: range[1] });
+      events.push({ start: end, end: end + range[0].length, file: match[1]!, section: range[1]! });
       covered.push({ start: end, end: end + range[0].length });
     }
   }
@@ -529,12 +532,12 @@ function referenceRules(
     const start = match.index ?? 0;
     if (covered.some((span) => start >= span.start && start < span.end)) continue;
     const end = start + match[0].length;
-    events.push({ start, end, file: null, section: match[1] });
+    events.push({ start, end, file: null, section: match[1]! });
     covered.push({ start, end });
     // The far end of a bare range belongs to the file the sentence already named.
     const range = rangeEndPattern.exec(text.slice(end));
     if (range) {
-      events.push({ start: end, end: end + range[0].length, file: null, section: range[1] });
+      events.push({ start: end, end: end + range[0].length, file: null, section: range[1]! });
       covered.push({ start: end, end: end + range[0].length });
     }
   }
@@ -625,7 +628,7 @@ function proseRules(
   root: string,
   adrDir: string,
   adrFiles: Map<string, string>,
-  reserved: Map<string, string>,
+  reserved: Map<string, ReservedNumber>,
 ): void {
   const declared = allHeadingNumbers(root);
   const backlog = backlogItems(root);
@@ -645,7 +648,7 @@ function proseRules(
       for (const match of prose.matchAll(linkPattern)) {
         const start = match.index ?? 0;
         const end = start + match[0].length;
-        const [, text, target] = match;
+        const text = match[1]!, target = match[2]!;
         linkSpans.push({ start, end, text, target });
 
         if (/^(?:[a-z][a-z0-9+.-]*:|#)/i.test(target)) continue; // external, mailto, anchor
@@ -660,13 +663,13 @@ function proseRules(
 
       // ADR numbers
       for (const match of prose.matchAll(adrPattern)) {
-        const number = match[1];
+        const number = match[1]!;
         const start = match.index ?? 0;
         const end = start + match[0].length;
         const inLink = linkSpans.find((span) => start >= span.start && end <= span.end);
 
         if (inLink) {
-          const target = inLink.target.split("#")[0];
+          const target = inLink.target.split("#")[0] ?? "";
           if (!adrFiles.has(number)) {
             fail(problems, `${where}:${lineNumber}`, `ADR-${number} is linked but there is no docs/adr/**/${number}-*.md`);
             continue;
@@ -722,7 +725,7 @@ function citedAdrRules(
   problems: string[],
   root: string,
   adrFiles: Map<string, string>,
-  reserved: Map<string, string>,
+  reserved: Map<string, ReservedNumber>,
 ): void {
   for (const full of citedFiles(root)) {
     const where = relative(root, full);
@@ -731,7 +734,7 @@ function citedAdrRules(
     const lines = readFileSync(full, "utf-8").split("\n");
     lines.forEach((line, index) => {
       for (const match of line.matchAll(adrPattern)) {
-        const number = match[1];
+        const number = match[1]!;
         if (adrFiles.has(number) || reserved.has(number)) continue;
         fail(problems, `${where}:${index + 1}`, `ADR-${number} does not exist`);
       }
