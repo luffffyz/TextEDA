@@ -6,7 +6,9 @@ tags diode led
 pin_numbers hide
 pin_names hide
 # LED: diode triangle, cathode bar, and two light rays leaving the triangle.
-# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074); the tails and the body follow it where that is convenient.
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074). The body is artwork, not a frame:
+# the rays and arrowheads keep their own coordinates (0.1 / 0.25 / 0.3 / 1.7 / 2.05 / 2.45 / 2.65 mm),
+# off the lattice by choice — a body is drawing, not a rule (ADR-0074 D2).
 field Reference at=[0,3.5] U
 field Value at=[0,-2.5] led
 

@@ -65,3 +65,6 @@ jobs:
 
       - name: Case corpus matches its pinned expectations
         run: bun run cases:check
+
+      - name: DSH plugin smoke (both bundles load the way a host loads them)
+        run: bun run smoke:dsh-plugin

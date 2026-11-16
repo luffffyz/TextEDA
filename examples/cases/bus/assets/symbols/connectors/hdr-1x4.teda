@@ -3,7 +3,7 @@ symbol hdr-1x4
 
 description 2.54 mm 1x4 header, view only
 tags connector header
-# Rows 2.5 mm apart on the 0.5 mm placement lattice (ADR-0058); the real pad pitch lives in the footprint.
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074) in both coordinates; rows are 2.5 mm apart (ADR-0058). The real pad pitch lives in the footprint.
 field Reference at=[0,7.5] J
 field Value at=[0,-7.5] hdr-1x4
 

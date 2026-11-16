@@ -141,7 +141,7 @@
 |---|---|
 | 器件实例、引脚、net、约束的段与列 | `spec/teda.md` §7、§7.1–§7.4 |
 | **BOM 聚合键** =（`component_id`，参数字典，变体状态），**不含** refdes；数量 = 实物数 | `spec/teda.md` §11；`spec/procurement.md` §5 |
-| 显式区分三种"没连"：floating（漏连，错误）/ no_connect（有意悬空）/ dnp（不贴） | `spec/teda.md` §7.2 |
+| 显式区分三种"没连"：floating（漏连，错误）/ no_connect（有意悬空）/ dnp（不贴） | **目前只是检查器的规则，IR 还不要求**（[F8](docs/backlog.md)）：`no_connect` 是引脚电气类型 `spec/teda.md` §9.1，`dnp` 是变体规则 `spec/teda.md` §10，floating 由 `net.pin-unassigned` 推出 |
 | 模块（源码层展平；实例 id 带 `M<数字>.` 前缀，模块内 net 带前缀） | `spec/teda.md` §7.6；`spec/module.md`；[ADR-0013](docs/adr/04-schematic/0013-modules-compose-boards.md)、[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1 |
 | 打印页与视图（只画不摆；不重复电气事实；坏视图由人重做，不得重绘覆盖） | `spec/schematic-view.md`；[ADR-0035](docs/adr/09-view/0035-the-view-layer-is-a-drawing.md) D6、[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4 |
 | 实例稳定身份 `uid`（工程内唯一） | [ADR-0010](docs/adr/03-project/0010-instance-identity-is-a-uid.md) |
@@ -245,7 +245,7 @@
 
 | 坑 | 表现 | 对策住在哪 |
 |---|---|---|
-| 语义不足 | 引脚的电气类型与 NC 已经进了语言，**net class 还没有**：同一条 net 上的信号与电源还没有分开的表达 | 电气类型 `spec/teda.md` §9.1；NC 三态 `spec/teda.md` §7.2；net class 未落地 |
+| 语义不足 | 引脚的电气类型与 NC 已经进了语言，**net class 还没有**：同一条 net 上的信号与电源还没有分开的表达 | 电气类型 `spec/teda.md` §9.1；NC 三态目前只是检查器规则（`no_connect` 见 `spec/teda.md` §9.1、`dnp` 见 `spec/teda.md` §10），IR 还不要求（[F8](docs/backlog.md)）；net class 未落地 |
 | 器件身份断裂 | symbol ↔ footprint ↔ pad 号对不上 | `spec/teda.md` §6.3；`bun run lib:verify` |
 | 器件描述漂移 | `assets/components/` 内联的引脚与库符号不一致 | 内联优先；引脚事实只在器件里（`spec/teda.md` §6.3） |
 | 逻辑 / 几何混淆 | 图上看连着，实际不连 | 不变量 2 |

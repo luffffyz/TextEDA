@@ -1,9 +1,10 @@
 // Tests for the symbol house style in scripts/lib/symbol-style.ts, which `bun run lib:verify` applies
 // (ADR-0057 §1, ADR-0058 §1, §2).
-// The verifier itself is an end-to-end script; these pin the two rules it must keep telling apart: a pin
-// point on both axes, and the row floor that only applies to a symbol that draws its pin numbers.
+// The verifier itself is an end-to-end script; these pin the rules it must keep telling apart: a pin
+// point on both axes, the row floor that only applies to a symbol that draws its pin numbers, and
+// the tail that has to reach the body frame.
 import { describe, expect, test } from "bun:test";
-import type { Symbol } from "@texteda/ir/symbol";
+import type { BodyItem, Symbol } from "@texteda/ir/symbol";
 import { symbolHouseStyleProblems } from "./lib/symbol-style.ts";
 
 type Pin = Symbol["symbol"]["pins"][number];
@@ -16,7 +17,20 @@ const pin = (number: string, x_mm: number, y_mm: number, rot: number, unit = 1):
   style: "line",
 });
 
-const symbol = (pins: [Pin, ...Pin[]], numbersHidden = false): Symbol["symbol"] => ({
+/** A unit's visible frame: the body rect whose edges the pin tails land on. */
+const frame = (minX: number, minY: number, maxX: number, maxY: number, unit = 1): BodyItem => ({
+  kind: "rect",
+  unit,
+  start: { x_nm: Math.round(minX * 1e6), y_nm: Math.round(minY * 1e6) },
+  end: { x_nm: Math.round(maxX * 1e6), y_nm: Math.round(maxY * 1e6) },
+  width_nm: 254_000,
+});
+
+const symbol = (
+  pins: [Pin, ...Pin[]],
+  numbersHidden = false,
+  body: BodyItem[] = [],
+): Symbol["symbol"] => ({
   library: "t",
   name: "t",
   units: 1,
@@ -26,6 +40,7 @@ const symbol = (pins: [Pin, ...Pin[]], numbersHidden = false): Symbol["symbol"] 
   on_board: true,
   pins,
   ...(numbersHidden ? { pin_numbers_hidden: true } : { pin_numbers_hidden: false }),
+  ...(body.length > 0 ? { body } : {}),
 });
 
 describe("symbol house style", () => {
@@ -77,5 +92,27 @@ describe("symbol house style", () => {
       symbolHouseStyleProblems("t", symbol([pin("1", -4, -0.5, 0), pin("2", -4, 0.5, 0)], true)),
     ).toEqual([]);
     expect(symbolHouseStyleProblems("t", symbol([pin("1", -4, -0.5, 0), pin("2", -4, 0.5, 0)]))).toHaveLength(1);
+  });
+
+  test("a tail that reaches the body frame passes", () => {
+    // The frame is [-5, -2.5, 5, 2.5]; the tail of pin 1 runs from -7.5 to -5 and lands on the edge.
+    expect(symbolHouseStyleProblems("t", symbol([pin("1", -7.5, 0, 0)], false, [frame(-5, -2.5, 5, 2.5)]))).toEqual(
+      [],
+    );
+  });
+
+  test("a tail that stops short of the body frame is reported", () => {
+    // The same frame, but the tail stops at -2 instead of reaching -5: a pin that touches nothing.
+    const problems = symbolHouseStyleProblems("t", symbol([pin("1", -4.5, 0, 0)], false, [frame(-5, -2.5, 5, 2.5)]));
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("pin 1 (unit 1) ends at (-2, 0) mm");
+    expect(problems[0]).toContain("the tail must meet the body");
+  });
+
+  test("a unit without a frame of its own is not checked", () => {
+    // Unit 2's body is artwork, not a frame; the frame belongs to unit 1 only.
+    expect(
+      symbolHouseStyleProblems("t", symbol([pin("5", -4.5, 0, 0, 2)], false, [frame(-5, -2.5, 5, 2.5)])),
+    ).toEqual([]);
   });
 });

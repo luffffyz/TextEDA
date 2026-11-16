@@ -956,8 +956,8 @@ DSH 侧**代码已落地**：宿主合同读的是官方 cookbook（`@deepseek-a
 **验收**：
 
 - 每个适配器注册的工具集合与清单一致（名字、描述、参数逐字段相同）。**已过**（pi 与 DSH 两侧都有测试钉住）。
-- pi 侧真机冒烟：装上扩展，模型能调 `texteda_check` 并拿到诊断。**已过**（`omp --extension plugins/pi-texteda`；omp 已不在工具链里，这条只作当时的记录）。
-- DSH 侧：bundle 装进宿主后，工具出现在 `/tools` 里且能跑通一个只读动词。**半过**（`bun run smoke:dsh-plugin`：bundle 构建出来、插件被 apply、注册的八条与清单一致、`texteda_check` 拿回诊断——宿主那半边用桩替了；**待做**：真宿主里工具出现在 `/tools` 里。本机没有 DSH 宿主，也没有 npm，宿主侧冒烟得在装了宿主的机器上跑）。
+- pi 侧真机冒烟：装上扩展，模型能调 `texteda_check` 并拿到诊断。**已过，但今天复跑不了**（那次在 omp 会话里做的：`omp --extension plugins/pi-texteda`；omp 已不在工具链里，所以这条只是当时的记录，没有能重跑它的命令）。适配器的**形状**仍由上一条的测试钉住；真机冒烟要重新成立，得先有一个我们会用的宿主。
+- DSH 侧：bundle 装进宿主后，工具出现在 `/tools` 里且能跑通一个只读动词。**半过**（`bun run smoke:dsh-plugin`，已是 CI 门禁：bundle 构建出来、插件被 apply、注册的八条与清单一致、`texteda_check` 拿回诊断——宿主那半边用桩替了；**待做**：真宿主里工具出现在 `/tools` 里。本机没有 DSH 宿主，也没有 npm，宿主侧冒烟得在装了宿主的机器上跑）。
 
 **注意**：适配器放本仓 `plugins/` 还是拆独立仓，ADR-0044 的开放点 2 还没定；拆仓的前提是清单先在 [ADR-0044](adr/10-process/0044-the-agent-surface-is-a-set-of-verbs.md) D7 里稳定。
 

@@ -188,8 +188,8 @@ function glyphPath(glyph: any, scale: number): { d: string; box: Box | null } {
     const args: number[] = command.args;
     const pts: string[] = [];
     for (let i = 0; i + 1 < args.length; i += 2) {
-      const x = args[i] * scale;
-      const y = -args[i + 1] * scale; // font y grows up, SVG y grows down
+      const x = args[i]! * scale;
+      const y = -args[i + 1]! * scale; // font y grows up, SVG y grows down
       pts.push(`${x.toFixed(2)} ${y.toFixed(2)}`);
       if (x < x0) x0 = x;
       if (y < y0) y0 = y;
@@ -233,8 +233,9 @@ function textPaths(
   const boxes: Box[] = [];
   let x = 0;
   for (let i = 0; i < chars.length; i += 1) {
-    const glyph = font.glyphForCodePoint(chars[i].codePointAt(0)!);
-    if (i > 0 && pairs) x += pairs[chars[i - 1] + chars[i]] ?? 0;
+    const cur = chars[i]!;
+    const glyph = font.glyphForCodePoint(cur.codePointAt(0)!);
+    if (i > 0 && pairs) x += pairs[chars[i - 1]! + cur] ?? 0;
     const { d, box } = glyphPath(glyph, scale);
     // A space has no outline; it still advances, and it still leaves whitespace between the inks.
     if (box) {
@@ -433,15 +434,21 @@ function avatarBody(p: Palette): string {
   const barY = 120 + (fy + Math.round(CHIP.h * T_IN.bar) - (fy + CHIP.h / 2));
   const bottomY = 120 + (fy + Math.round(CHIP.h * T_IN.bottom) - (fy + CHIP.h / 2));
   const parts: string[] = [];
-  for (const [x1, y1, x2, y2] of [
+  const runs: [number, number, number, number][] = [
     [120 - half + edge, barY, 120 + half - edge, barY],
     [120, barY, 120, bottomY - edge],
-  ]) {
+  ];
+  for (const [x1, y1, x2, y2] of runs) {
     parts.push(
       `<path d="M${x1.toFixed(2)} ${y1.toFixed(2)} L${x2.toFixed(2)} ${y2.toFixed(2)}" fill="none" stroke="${p.teal}" stroke-width="22" stroke-linecap="round"/>`,
     );
   }
-  for (const [cx, cy] of [[120 - half, barY], [120 + half, barY], [120, bottomY]]) {
+  const pads: [number, number][] = [
+    [120 - half, barY],
+    [120 + half, barY],
+    [120, bottomY],
+  ];
+  for (const [cx, cy] of pads) {
     parts.push(`<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="14" fill="none" stroke="${p.coral}" stroke-width="8"/>`);
   }
   return parts.join("\n  ");
@@ -667,10 +674,12 @@ function buildCompareSheet(path: string): Size {
   parts.push(label("TextEDA  -  positive / negative", 60, 76, 30, "#14213D", JOB_BOLD)[0]);
   parts.push(label("同一套几何,两套配色  |  same geometry, two palettes", 60, 102, 15, "#94A3B8", cjk)[0]);
 
-  const colX = [60, 60 + CARD_W + 40];
-  for (const [i, title] of ["正色  POSITIVE", "负色  NEGATIVE"].entries()) {
-    parts.push(label(title, colX[i], 142, 18, "#14213D", cjk, 0.02)[0]);
-    parts.push(label(i === 0 ? "on #FFFFFF" : "on #0B1626", colX[i], 162, 13, "#94A3B8", JOB_FONT)[0]);
+  const colX: [number, number] = [60, 60 + CARD_W + 40];
+  const titles = ["正色  POSITIVE", "负色  NEGATIVE"];
+  for (let i = 0; i < titles.length; i += 1) {
+    const x = colX[i]!;
+    parts.push(label(titles[i]!, x, 142, 18, "#14213D", cjk, 0.02)[0]);
+    parts.push(label(i === 0 ? "on #FFFFFF" : "on #0B1626", x, 162, 13, "#94A3B8", JOB_FONT)[0]);
   }
 
   let y = 186;

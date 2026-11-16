@@ -91,7 +91,8 @@ Both halves ship in the same package and are versioned together. The client half
   page has no CommonJS wrapper to provide them. Bun's build option that used to prepend it was
   renamed (`intro` → `banner` in Bun 1.2), and the old name is ignored without a word — so the
   preamble is written into the banner by hand, and the smoke test evaluates the bundle as a page
-  script, which is the only way to notice its absence.
+  script, which is the only way to notice its absence — so that smoke is a CI gate
+  (`bun run smoke:dsh-plugin`), not a thing to remember to run.
 
 ### Installing
 

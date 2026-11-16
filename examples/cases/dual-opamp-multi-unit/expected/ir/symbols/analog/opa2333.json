@@ -155,7 +155,7 @@
           "x_nm": 0,
           "y_nm": -7500000
         },
-        "length_nm": 2500000,
+        "length_nm": 5000000,
         "number": "4",
         "style": "line",
         "unit": 3
@@ -166,7 +166,7 @@
           "x_nm": 5000000,
           "y_nm": 0
         },
-        "length_nm": 2500000,
+        "length_nm": 3500000,
         "number": "7",
         "style": "line",
         "unit": 3
@@ -177,7 +177,7 @@
           "x_nm": 0,
           "y_nm": 7500000
         },
-        "length_nm": 2500000,
+        "length_nm": 5000000,
         "number": "8",
         "style": "line",
         "unit": 3

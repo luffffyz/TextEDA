@@ -43,7 +43,7 @@
     },
     {
       "path": "symbols/analog/opa2333.json",
-      "sha256": "34b698f9fe4a10d67c5305239a6d9d5b7c6283bc53624108e3efc14668f4a843",
+      "sha256": "779776f9dbb6a7af0dcf87de17aa1a207ab2470e6063f837fe38b87532d89018",
       "normative": true
     },
     {
@@ -52,5 +52,5 @@
       "normative": true
     }
   ],
-  "source_hash": "137dbfc38e136183ba57ce77114641b1d02ff02b0dd6a47f600266671ce3be46"
+  "source_hash": "4c54ffafcfa892a2fb63720bb56f213a19c779521b3d877b010b56b7e276579a"
 }

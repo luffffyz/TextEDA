@@ -36,7 +36,7 @@ nobody can state once is a rule that will be applied inconsistently.
 > are drawing and are free; a label may sit anywhere along the wire it names, and that is not
 > generally a lattice point.
 
-A print page's coordinates are anchored on the `0.5 mm` lattice in both axes:
+A print page's coordinates were anchored on the `0.5 mm` lattice in both axes:
 
 | Record | Anchor |
 |---|---|
@@ -47,11 +47,11 @@ A print page's coordinates are anchored on the `0.5 mm` lattice in both axes:
 | `port` | the port's anchor |
 | `text` | the note's anchor |
 
-The rule holds because the two sides of a connection must agree: a wire leaves a **pin**, whose
-connection point is a lattice point by [ADR-0057](../08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)
-D1, and it turns at a **bend**, which must be able to reach that pin with an axis-aligned segment.
+The rule held because the two sides of a connection must agree: a wire leaves a **pin**, whose
+connection point was a lattice point by [ADR-0057](../08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md)
+D1, and it turns at a **bend**, which had to be able to reach that pin with an axis-aligned segment.
 A bend on the lattice can always reach a lattice point; a bend off it cannot, in general. Making
-the bend side lattice-only turns "can this wire be drawn?" from a geometric accident into a
+the bend side lattice-only turned "can this wire be drawn?" from a geometric accident into a
 constructive property of the page.
 
 ### D2. The lattice is a drawing convention, not a new diagnostic

@@ -183,12 +183,20 @@ not the model.
 Delegation is not free: the child pays a startup cost for its own system prompt and shares nothing
 of this session's cache. The transcripts are the record.
 
-Layout: the parent session is `<session-dir>/messages.jsonl`; its children live in
-`<session-dir>/snapshots/<child>.jsonl`, one file per child.
+Layout: every session — the parent's and each child's — is a directory of its own under
+`~/.minimax/v2/sessions/<yyyy>/<mm>/<dd>/<session>/`, holding `messages.jsonl`. **A child agent is
+a session, not a file inside the parent**: it starts when it starts, so it may land under a later
+date than the parent's and is not necessarily a sibling of it. The parent's `snapshots/` directory
+holds the parent's own **compaction history** (`g*.jsonl`, one per compaction, each carrying the
+whole prior history) — not the children; adding those up counts the parent several times over.
+
+Find a child by the task id the `task` tool handed you: the parent knows it as `bg_<task-id>`, and
+the child's transcript carries it as the turn id `turn_task_bg_bg_<task-id>`.
 
 ```sh
-ls ~/.minimax/v2/sessions/<yyyy-mm-dd>/          # one directory per session
-ls ~/.minimax/v2/sessions/<yyyy-mm-dd>/<session>/ # the parent transcript and the children's
+ls ~/.minimax/v2/sessions/<yyyy>/<mm>/<dd>/                # one directory per session
+ls ~/.minimax/v2/sessions/<yyyy>/<mm>/<dd>/<session>/      # the session's transcript
+grep -rl '"turn_id":"turn_task_bg_bg_<task-id>"' ~/.minimax/v2/sessions/*/*/*/*/messages.jsonl
 ```
 
 ### 6.1 The formula
@@ -201,16 +209,14 @@ billable = input + 0.1 * cacheRead + output
 
 ### 6.2 The script
 
-Save it as `cost.py` and run it against the **child directory** — the `snapshots/` directory of a
-session, which holds one `<child>.jsonl` per child:
+Save it as `cost.py` and run it against the **children's transcripts**, one path per child:
 
 ```python
-import json, glob, os, sys
-d = sys.argv[1]
+import json, os, sys
 rows = []
-for p in glob.glob(os.path.join(d, "*.jsonl")):
+for p in sys.argv[1:]:
     inp = out = cr = turns = 0
-    for line in open(p):
+    for line in open(p, encoding="utf-8"):
         try: r = json.loads(line)
         except ValueError: continue
         m = r.get("message") or {}
@@ -220,7 +226,7 @@ for p in glob.glob(os.path.join(d, "*.jsonl")):
         out += u.get("output") or 0
         cr += u.get("cacheRead") or 0
         turns += 1
-    rows.append((inp + 0.1 * cr + out, turns, os.path.basename(p)[:-6]))
+    rows.append((inp + 0.1 * cr + out, turns, os.path.basename(os.path.dirname(p))))
 rows.sort(reverse=True)
 print(f"{'billable':>10} {'turns':>6}  agent")
 for b, t, name in rows:
@@ -228,7 +234,7 @@ for b, t, name in rows:
 ```
 
 ```sh
-python3 cost.py ~/.minimax/v2/sessions/<yyyy-mm-dd>/<session>/snapshots/
+python3 cost.py <child-1>/messages.jsonl <child-2>/messages.jsonl
 ```
 
 ### 6.3 What to change when it is not worth it
@@ -261,12 +267,14 @@ Two traps make these numbers wrong:
 - **Deduplicate the parent's edits by `(timestamp, path)`.** One parent batch can land in several
   children's file sets and inflate the rework count.
 
-One script measures all four. Save it as `payoff.py` and run it against the child directory:
+One script measures all four. Save it as `payoff.py` and run it with the **parent's transcript
+first**, then the children's transcripts:
 
 ```python
-import json, glob, os, re, sys, datetime
+import json, os, re, sys, datetime
 
-D = sys.argv[1]                     # the child directory (one .jsonl per child)
+MAIN = sys.argv[1]                    # the parent's messages.jsonl
+KIDS = sys.argv[2:]                   # one child's messages.jsonl each
 brk = re.compile(r'^\[([^\]\#]+)#[0-9A-F]{4}\]')
 
 def recs(p):
@@ -301,13 +309,13 @@ def edits(p):
                 if fp: yield m.get("timestamp"), fp
 
 bill = lambda t: t[0] + 0.1 * t[2] + t[1]
-main = os.path.join(os.path.dirname(D.rstrip("/")), "messages.jsonl")
+main = MAIN
 
 mt = list(turns(main)); mb = sum(bill(t) for t in mt)
 peak = max(((t[0] + t[2]) for t in mt), default=0)
 kids = {}
-for p in glob.glob(os.path.join(D, "*.jsonl")):
-    name = os.path.basename(p)[:-6]
+for p in KIDS:
+    name = os.path.basename(os.path.dirname(p))   # every child transcript is messages.jsonl
     u = list(turns(p))
     if not u: continue
     kids[name] = (len(u), sum(bill(t) for t in u), u[0][0])
@@ -317,8 +325,8 @@ print(f"main     {len(mt):5d} turns {mb:11.0f} billable {mb/max(len(mt),1):8.0f}
 print(f"children {kt:5d} turns {kb:11.0f} billable {kb/max(kt,1):8.0f}/turn  cold start {min(cold) if cold else 0}-{max(cold) if cold else 0}")
 
 af, al = {}, {}
-for p in glob.glob(os.path.join(D, "*.jsonl")):
-    name = os.path.basename(p)[:-6]; ed = list(edits(p))
+for p in KIDS:
+    name = os.path.basename(os.path.dirname(p)); ed = list(edits(p))
     if ed: af[name] = {f for _, f in ed}; al[name] = max(x for x, _ in ed)
 rework = fresh = 0; seen = set()
 for t, fp in edits(main):
@@ -336,7 +344,7 @@ def ts(x):
     return datetime.datetime.fromisoformat(x.replace("Z", "+00:00"))
 
 iv = []
-for p in glob.glob(os.path.join(D, "*.jsonl")):
+for p in KIDS:
     st = [ts(e["message"]["timestamp"]) for e in recs(p) if (e.get("message") or {}).get("timestamp")]
     if st: iv.append((min(st), max(st)))
 pts = []
@@ -354,7 +362,7 @@ print(f"parallelism {busy/union:.2f}x, peak {peak_c} concurrent")
 ```
 
 ```sh
-python3 payoff.py ~/.minimax/v2/sessions/<yyyy-mm-dd>/<session>/snapshots/
+python3 payoff.py <parent>/messages.jsonl <child-1>/messages.jsonl <child-2>/messages.jsonl
 ```
 
 ## 7. References

@@ -118,6 +118,11 @@ here too.
 omp's marketplace is compatible with the Claude Code plugin registry, and its tool discovery
 already reads `~/.claude/tools` and `~/.codex/tools` — in *omp's own* module format.
 
+Two names, one format: **omp here is a host that implements the pi module format**, not the
+harness this repository was developed in — that harness was dropped, and the delegation skill
+says so ([`docs/skills/delegate-work.md`](skills/delegate-work.md)). The pi adapter we keep is
+built for a host we would use ([F58](backlog.md)).
+
 ### WorkBuddy
 
 WorkBuddy is Tencent's office agent (desktop and web). Tools enter only through MCP: a `mcp.json`

@@ -6,7 +6,9 @@ tags inductor passive
 pin_numbers hide
 pin_names hide
 # Generic inductor view: four semicircular humps along the pin axis. Shared by several components (15uH / 6.8uH etc.).
-# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074); the tails and the body follow it where that is convenient.
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074). The body is artwork, not a frame: the four
+# humps keep their own midpoints (0.625 / 1.25 / 1.875 mm), off the lattice by choice — a body is drawing, not a
+# rule (ADR-0074 D2).
 field Reference at=[0,2.5] U
 field Value at=[0,-2.5] l
 

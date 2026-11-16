@@ -99,11 +99,11 @@ pins
 
 ### 4.1 引脚摆位网格
 
-**规则**（[ADR-0074](../docs/adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1）：引脚**连接点**是 `0.5 mm` 的整数倍（两个轴都是）。这是符号里**唯一被门禁检查**的坐标：走线从引脚出发要能接到一个折点，连接点落格才接得上。规则管的是**画的坐标**，不管器件的物理封装：焊盘坐标归 `footprint`，按数据手册取值，即使落不在这个网格上也不动（[ADR-0057](../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D6）。
+**规则**（[ADR-0074](../docs/adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1）：引脚**连接点**是 `0.5 mm` 的整数倍（两个轴都是）。这是符号里**唯一被门禁检查落格**的坐标：走线从引脚出发要能接到一个折点，连接点落格才接得上。（尾端接本体是另一条门禁，不看落格，见下。）规则管的是**画的坐标**，不管器件的物理封装：焊盘坐标归 `footprint`，按数据手册取值，即使落不在这个网格上也不动（[ADR-0057](../docs/adr/08-libraries/0057-symbol-pins-sit-on-a-half-millimetre-lattice.md) D6）。
 
 **内端不再算**：引脚的**内端**（尾端与本体重合的那一点）是画出来的那一笔，走线不从那里出发，它落在哪都不影响连线——所以它**不是规则**。它仍然**尽量**落在 `0.5 mm` 晶格上：整数坐标好写、好比、好复用；但没有门禁会拒绝一个不落格的内端（[ADR-0074](../docs/adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D2）。
 
-**本体的坐标同理**：可见矩形本体的边是引脚尾端的落点，所以尾端要**画在**边上——尾端离开本体，读者看到的是一根接不上的引脚。但这条边本身落在哪只是画法：本体与装饰花纹（电阻的矩形、电感的四个拱、二极管的三角）都**尽量**锚在晶格上，不强制。
+**本体的坐标同理**：可见矩形本体的边是引脚尾端的落点，所以尾端要**画在**边上——尾端离开本体，读者看到的是一根接不上的引脚。**这一条有门禁**：`bun run lib:verify` 与 `bun run cases:check` 逐单元查可见矩形本体，看每个引脚的尾端落在不在那条边上；本体是装饰花纹而不是可见框的单元（电感的四个拱、二极管的三角）不查。但这条边本身落在哪只是画法：本体与装饰花纹（电阻的矩形、电感的四个拱、二极管的三角）都**尽量**锚在晶格上，不强制。
 
 **引脚间距**：画引脚号的符号，同一单元、同一侧相邻两脚的连接点沿这一行的距离**至少 `2.5 mm`**（[ADR-0058](../docs/adr/08-libraries/0058-pin-rows-on-a-number-bearing-symbol-are-at-least-two-and-a-half-millimetres-apart.md) D1）。常规取值就是 `2.5 mm`；只有具体理由才放宽——三位数的引脚号（`"100"` 的墨迹宽 `2.824 mm`）需要 `3.0 mm`，`crystal-4` 为给封装的两个极板留位置把 `2`/`4` 画成 `3.0 mm`。
 
@@ -188,23 +188,24 @@ v0.1 不支持：文字标注（极性 `+`/`−`、功能名）、图片、贝�
 `examples/reference-project/assets/symbols/power/bq24610rger.teda`（即 canonical form；`bun run packages/parser/scripts/fmt-teda.ts --check examples/reference-project/assets/symbols` 退出 0）：
 
 ```
-version 0.11.0
+version 0.11
 symbol bq24610rger
 
 description 24V synchronous buck battery charger controller
 tags battery charger
-# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074) in both coordinates; same-side rows are
-# 2.5 mm apart (ADR-0058).
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074), in both coordinates; same-side rows are
+# 2.5 mm apart (ADR-0058). Rows are anchored on a lattice point rather than forced
+# symmetric about the origin, so the 12-pin left side runs -13.5..14 and the 9-pin right side runs -10..10.
 pin_name_offset 1.25
 field Reference at=[-6.5,20] U
 field Value at=[0,-20] bq24610rger
 
 pins
-  1   [-12.5,-13.5]  0    length=2.5
-  2   [-12.5,-11.0]  0    length=2.5
-  3   [12.5,-10.0]   180  length=2.5
+  1   [-12.5,-13.5]  0
+  2   [-12.5,-11]    0
+  3   [12.5,-10]     180
   ...
-  25  [1.5,-19.0]    90   length=2.5
+  25  [1.5,-19]      90
 
 body
   rect  [-10,-16.5,10,16.5]  fill=background  width=0.25

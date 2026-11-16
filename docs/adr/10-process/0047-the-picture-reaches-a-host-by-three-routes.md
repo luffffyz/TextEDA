@@ -13,10 +13,18 @@ browser — and does adapting to each agent's own webview mean one plugin per ho
 
 The two halves of our surface answer it differently, and the answers are not the same shape.
 
-The **verb half** needs no plugin per host. It is one MCP server for every host that speaks MCP,
-plus two thin native projections where a host has a registry of its own
+The **verb half** needs no plugin per host. It is one MCP server for every host that speaks MCP —
+and after this round's amendment that is the whole rule
 ([ADR-0044](0044-the-agent-surface-is-a-set-of-verbs.md) D5, [ADR-0046](0046-a-host-is-entered-once.md)
 D2). That is settled and this record does not reopen it.
+
+> **Narrowed (2026-11-16):** this paragraph used to read "one MCP server for every host that speaks
+> MCP, plus two thin native projections where a host has a registry of its own". The same round
+> amended [ADR-0046](0046-a-host-is-entered-once.md) D2 and dropped its "our own harness"
+> exception, so the second half no longer describes the rule: a host with a tool registry of its own
+> is served by the same MCP server as the rest. The native projections (pi, DSH) are thin per-host
+> adapters we keep and build last ([F58](../../../docs/backlog.md)) — they are not a second route
+> into the verb half.
 
 The **picture half** had no such census. It has three ways to reach a host and they cost very
 different amounts, so *which route a host takes* — not *which host we like* — is what decides
@@ -93,7 +101,7 @@ both true and the third is false:
 | Codex CLI | none found | no | browser |
 | WorkBuddy | none found | no | browser |
 | Qoder | none found | no | browser |
-| pi / omp | none — no webview, no panel extension point | no | browser |
+| pi / omp ([format](../../../docs/tool-formats.md)) | none — no webview, no panel extension point | no | browser |
 
 Two host-native halves, not six. That is the answer to the question this record came from:
 adapting to an agent's own webview does **not** mean one plugin per host — it means one plugin

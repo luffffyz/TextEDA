@@ -3,7 +3,7 @@ symbol jst-sh-4
 
 description JST SH 4-pin connector, view only
 tags connector qwiic
-# Rows 2.5 mm apart on the 0.5 mm placement lattice (ADR-0058); the real 1.0 mm pad pitch lives in the footprint.
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074) in both coordinates; rows are 2.5 mm apart (ADR-0058). The real 1.0 mm pad pitch lives in the footprint.
 field Reference at=[0,7.5] J
 field Value at=[0,-7.5] jst-sh-4
 

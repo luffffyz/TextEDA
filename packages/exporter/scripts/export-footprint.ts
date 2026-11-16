@@ -41,13 +41,27 @@ const outIdx = args.indexOf("--out");
 const inlineIdx = args.indexOf("--inline");
 
 if (inlineIdx >= 0) {
-  const xMm = Number(args[inlineIdx + 1]);
-  const yMm = Number(args[inlineIdx + 2]);
+  const xRaw = args[inlineIdx + 1];
+  const yRaw = args[inlineIdx + 2];
+  if (xRaw === undefined || yRaw === undefined) {
+    console.error("--inline needs two numbers: --inline <x> <y>");
+    process.exit(2);
+  }
+  const xMm = Number(xRaw);
+  const yMm = Number(yRaw);
+  if (!Number.isFinite(xMm) || !Number.isFinite(yMm)) {
+    console.error(`--inline needs two numbers, got "${xRaw}" "${yRaw}"`);
+    process.exit(2);
+  }
   process.stdout.write(
     footprintInline(fp, { xNm: Math.round(xMm * 1e6), yNm: Math.round(yMm * 1e6), reference: "U1" }),
   );
 } else if (outIdx >= 0) {
   const dir = args[outIdx + 1];
+  if (dir === undefined) {
+    console.error("--out needs a directory: --out <dir>");
+    process.exit(2);
+  }
   mkdirSync(dir, { recursive: true });
   const target = join(dir, `${fp.name}.kicad_mod`);
   mkdirSync(dirname(target), { recursive: true });
