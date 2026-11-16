@@ -560,6 +560,8 @@ interconnect_pins
 
 其中 `power` 表示地/参考节点；`power_in` 表示供电输入；`polarized` 表示**有极性**的引脚（正负不可互换，通用器件本身声明 `polarized yes`）。
 
+这些类型不只写在文档里：`texteda check` 按它们判驱动冲突、悬空输入和无源电源（§10 规则 4）。
+
 ### 9.2 单位与前缀
 
 | 量 | 单位 | 示例 |
@@ -593,7 +595,7 @@ interconnect_pins
 1. 文件头：版本、文件类型、id/文件名、顶层目录/类型一致；`schematic` 的 id 固定 `main`；`assets/components/` 的子目录只做分类，不参与 `component_id`。
 2. 词法：未知段、未知键、单元格数量、非法标识符。
 3. 器件：`instances` 引用的 id 存在；`params` 数量/类型匹配；引脚编号唯一，引脚名在 `unit` 内唯一；`symbol` 指向自建库时必须有 `pins` 段（自建符号不带引脚事实）；`category` 为通用无源件且 `params` 含 `value` 时 `mpn` 可省，否则必须有 `mpn`；`lcsc` 若出现必须匹配 `C[0-9]+`。
-4. 连接（模块内）：引脚引用可解析；每个引脚最多一个 net；`no_connect` 不得连接；单成员 net 警告（带端口的 net 不算单成员，那个引脚是往模块外走的）。
+4. 连接：引脚引用可解析；每个引脚最多一个 net；`no_connect` 不得连接；单成员 net 警告（带端口的 net 不算单成员，那个引脚是往模块外走的）。**按引脚电气类型（§9.1）追加三条**：`output` 与 `power_out` 两种驱动落在同一 net 上是 `net.output-conflict`（error——两个驱动互相打架，这条 net 没有确定电平）；未连接的 `input` / `power_in` 是 `net.input-unassigned`（warning），与普通的未接引脚 `net.pin-unassigned` 分开报，因为前者是悬空的信号、后者通常只是备用脚；`power_in` 所在的 net 上没有任何能驱动它的引脚（`power_out` / `output` / `bidirectional` / `tri_state`）是 `net.power-undriven`（note）——源可能在另一条 net 的串联元件后面，或者在板外，工具只看得到这条 net，所以这是提示人去读，不是判定；根端口与模块端口所在的 net 不判，它们的驱动可以在板外。`open_collector` / `open_emitter` 不算驱动：多个开漏脚共用一条 net 是正常接法。
 5. 约束：subject 存在；单位/量纲兼容；区间有效。
 6. 变体（`project.toml`）：`dnp`/`nofit` 引用的 component_id 存在。
 7. 模块（`module` 文件）：按 `spec/module.md` §6 执行；`design/sch/modules/<module_id>.teda` 存在、头部 id 与文件名一致、端口合法。

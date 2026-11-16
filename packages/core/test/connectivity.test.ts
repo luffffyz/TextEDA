@@ -77,6 +77,87 @@ describe("pin ownership", () => {
   });
 });
 
+describe("electrical types", () => {
+  test("an unconnected input is a floating input, not a spare pin", () => {
+    const diagnostics = checkConnectivity({
+      ...base,
+      nets: [{ id: "N1", members: ["R1.1", "R1.2"] }],
+      pins: [pin("R1.1"), pin("R1.2"), pin("U1.1", "input")],
+    });
+    expect(diagnostics.map((d) => d.code)).toEqual(["net.input-unassigned"]);
+    expect(diagnostics[0]!.severity).toBe("warning");
+    expect(diagnostics[0]!.data).toEqual({ pin: "U1.1", component_id: "res-thick-0402", pin_type: "input" });
+  });
+
+  test("an unconnected passive stays an ordinary unassigned pin", () => {
+    const diagnostics = checkConnectivity({
+      ...base,
+      nets: [{ id: "N1", members: ["R1.1", "R1.2"] }],
+      pins: [pin("R1.1"), pin("R1.2"), pin("U1.1", "passive")],
+    });
+    expect(diagnostics.map((d) => d.code)).toEqual(["net.pin-unassigned"]);
+  });
+
+  test("an unconnected power input is a floating input too", () => {
+    const diagnostics = checkConnectivity({
+      ...base,
+      nets: [{ id: "N1", members: ["R1.1", "R1.2"] }],
+      pins: [pin("R1.1"), pin("R1.2"), pin("U1.1", "power_in")],
+    });
+    expect(diagnostics.map((d) => d.code)).toEqual(["net.input-unassigned"]);
+  });
+
+  test("two drivers on one net fight each other → error", () => {
+    const diagnostics = checkConnectivity({
+      ...base,
+      nets: [{ id: "N1", members: ["U1.1", "U2.1", "R1.1"] }],
+      pins: [pin("U1.1", "output"), pin("U2.1", "power_out"), pin("R1.1", "passive")],
+    });
+    expect(diagnostics.map((d) => d.code)).toEqual(["net.output-conflict"]);
+    expect(diagnostics[0]!.severity).toBe("error");
+    expect(diagnostics[0]!.data).toEqual({ net: "N1", drivers: "U1.1 U2.1" });
+  });
+
+  test("two open-collector pins on one net are a wired-AND bus, not a conflict", () => {
+    const diagnostics = checkConnectivity({
+      ...base,
+      nets: [{ id: "N1", members: ["U1.1", "U2.1"] }],
+      pins: [pin("U1.1", "open_collector"), pin("U2.1", "open_collector")],
+    });
+    expect(diagnostics).toEqual([]);
+  });
+
+  test("a power input on a net nothing sources → note", () => {
+    const diagnostics = checkConnectivity({
+      ...base,
+      nets: [{ id: "N1", members: ["U1.1", "C1.1"] }],
+      pins: [pin("U1.1", "power_in"), pin("C1.1", "passive")],
+    });
+    expect(diagnostics.map((d) => d.code)).toEqual(["net.power-undriven"]);
+    expect(diagnostics[0]!.severity).toBe("note");
+    expect(diagnostics[0]!.data).toEqual({ pin: "U1.1", net: "N1" });
+  });
+
+  test("a net with a source leaves the power input alone", () => {
+    const diagnostics = checkConnectivity({
+      ...base,
+      nets: [{ id: "N1", members: ["U1.1", "U2.1"] }],
+      pins: [pin("U1.1", "power_in"), pin("U2.1", "power_out")],
+    });
+    expect(diagnostics).toEqual([]);
+  });
+
+  test("a net that may be driven from outside the design is not judged", () => {
+    const diagnostics = checkConnectivity({
+      ...base,
+      nets: [{ id: "N1", members: ["U1.1", "C1.1"] }],
+      externallyDrivenNets: new Set(["N1"]),
+      pins: [pin("U1.1", "power_in"), pin("C1.1", "passive")],
+    });
+    expect(diagnostics).toEqual([]);
+  });
+});
+
 describe("location", () => {
   test("prefers the net location supplied by the caller", () => {
     const diagnostics = checkConnectivity({

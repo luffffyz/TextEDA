@@ -32,7 +32,7 @@
 
 - 一套面向硬件项目的领域语言：`project`、`board`、`schematic`、`pcb`、`fab`、`variant`；需求 / 分块 / 分析证据为可选的轻量实体。
 - 一个类型化 IR 及其 schema（契约在 `schemas/ir/`，字段参考见生成的 `docs/ir-reference.md`）；实现层的公开 TypeScript 包入口、CLI/agent surface 与源码导航见生成的 `docs/api-reference/README.md` 及分包参考页。
-- 一个检查器：单位 / 量纲、引脚存在性、电气类型、net 完整性、约束断言、**sch↔pcb 一致性**、**器件额定值 vs 声明窗口**。**现状：已落地**——契约层（Ajv + schema）、连通性 ERC 与器件规则在 `packages/core`，绑定校验、项目级 interconnect 与物理 PCB 归属校验、采购选料校验；额定值只做了两引脚器件的**电压**（[ADR-0026](docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D8）与**耗散**（[ADR-0026](docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D11），多引脚端子语法已定（[ADR-0026](docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D4）但检查器未实现，解析器**拒绝**带端子的 `ratings` 行（`syntax.column-count`，宁可报错也不静默丢事实）；电流仍未定。
+- 一个检查器：单位 / 量纲、引脚存在性、电气类型、net 完整性、约束断言、**sch↔pcb 一致性**、**器件额定值 vs 声明窗口**。**现状：已落地**——契约层（Ajv + schema）、连通性 ERC 与器件规则在 `packages/core`（ERC 按引脚电气类型判驱动冲突、悬空输入与无源电源），绑定校验、项目级 interconnect 与物理 PCB 归属校验、采购选料校验；额定值只做了两引脚器件的**电压**（[ADR-0026](docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D8）与**耗散**（[ADR-0026](docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D11），多引脚端子语法已定（[ADR-0026](docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D4）但检查器未实现，解析器**拒绝**带端子的 `ratings` 行（`syntax.column-count`，宁可报错也不静默丢事实）；电流仍未定。
 - 一个参考渲染器和一个导出器（KiCad，见 [ADR-0021](docs/adr/06-manufacturing/0021-the-manufacturing-output-path.md)）。**现状**：渲染器覆盖符号、封装与原理图打印页（[ADR-0036](docs/adr/09-view/0036-our-own-reference-renderer.md)、[ADR-0035](docs/adr/09-view/0035-the-view-layer-is-a-drawing.md)），板 ↔ 打印页交叉校验与可读性检查已落地（F3）；导出器出 `.kicad_mod` / `.kicad_sym` 与**分层 Gerber + Excellon**（[ADR-0018](docs/adr/05-pcb/0018-copper-fill-uses-a-geometry-kernel.md) D9、D10）。网表（`texteda netlist`）已落地；BOM 走采购层（`texteda bom`），下单格式（JLC BOM + 坐标）未做（[ADR-0022](docs/adr/06-manufacturing/0022-jlc-prototype-delivery.md)、F68）。
 - 一套一致性测试（conformance），让别人能独立实现渲染器。**现状：未存在**。
 
@@ -141,7 +141,7 @@
 |---|---|
 | 器件实例、引脚、net、约束的段与列 | `spec/teda.md` §7、§7.1–§7.4 |
 | **BOM 聚合键** =（`component_id`，参数字典，变体状态），**不含** refdes；数量 = 实物数 | `spec/teda.md` §11；`spec/procurement.md` §5 |
-| 显式区分三种"没连"：floating（漏连，错误）/ no_connect（有意悬空）/ dnp（不贴） | **目前只是检查器的规则，IR 还不要求**（[F8](docs/backlog.md)）：`no_connect` 是引脚电气类型 `spec/teda.md` §9.1，`dnp` 是变体规则 `spec/teda.md` §10，floating 由 `net.pin-unassigned` 推出 |
+| 显式区分三种"没连"：floating（漏连，错误）/ no_connect（有意悬空）/ dnp（不贴） | **目前只是检查器的规则，IR 还不要求**（[F8](docs/backlog.md)）：`no_connect` 是引脚电气类型 `spec/teda.md` §9.1，`dnp` 是变体规则 `spec/teda.md` §10，floating 由 `net.pin-unassigned`（备用脚）与 `net.input-unassigned`（悬空的输入）分别推出 |
 | 模块（源码层展平；实例 id 带 `M<数字>.` 前缀，模块内 net 带前缀） | `spec/teda.md` §7.6；`spec/module.md`；[ADR-0013](docs/adr/04-schematic/0013-modules-compose-boards.md)、[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D1 |
 | 打印页与视图（只画不摆；不重复电气事实；坏视图由人重做，不得重绘覆盖） | `spec/schematic-view.md`；[ADR-0035](docs/adr/09-view/0035-the-view-layer-is-a-drawing.md) D6、[ADR-0069](docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) D4 |
 | 实例稳定身份 `uid`（工程内唯一） | [ADR-0010](docs/adr/03-project/0010-instance-identity-is-a-uid.md) |

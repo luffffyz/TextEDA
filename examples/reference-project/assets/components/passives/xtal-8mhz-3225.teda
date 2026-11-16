@@ -3,6 +3,8 @@ component xtal-8mhz-3225
 
 # 8.000MHz fundamental crystal, 3225 four-pin (3.2×2.5×0.7mm), load capacitance CL=12pF, ±10ppm at 25±3℃.
 # Per datasheet "Connection" diagram: pins 2/4 are case ground, pins 1/3 are the crystal terminals (interchangeable).
+# Both terminals are passive: the oscillator that drives the crystal is the part on the other side
+# (the MCU's OSC_OUT here), so the crystal drives nothing.
 kind         part
 mpn          SST-3225/8.000M-12PF
 manufacturer Sichuan Sorst
@@ -17,7 +19,7 @@ ratings
   value  frequency  8MHz
 
 pins
-  1  XOUT  output
+  1  XOUT  passive
   2  GND   power
-  3  XIN   input
+  3  XIN   passive
   4  GND   power

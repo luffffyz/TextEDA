@@ -1502,11 +1502,21 @@ export function parseSchematic(text: string, options: SchematicParseOptions): Sc
       });
     }
   }
+  // A module port says "the board may connect something here": the source of such a net can be
+  // another module or the board itself, so a missing driver on it proves nothing.
+  const externallyDrivenNets = new Set<string>();
+  for (const module of modules) {
+    for (const port of module.ports) {
+      if (port.net !== undefined) externallyDrivenNets.add(port.net);
+    }
+  }
+
   diagnostics.items.push(
     ...checkConnectivity({
       file: boardDoc.file,
       nets: nets.map((net) => ({ id: net.id, members: net.members })),
       portNets: new Set(boardDoc.ports.map((port) => port.net)),
+      externallyDrivenNets,
       pins,
       locateNet: (id) => netOrigin.get(id),
       locateInstance: (id) => instanceOrigin.get(id),

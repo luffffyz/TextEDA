@@ -780,6 +780,13 @@ export const DIAGNOSTIC_CODES = {
   },
 
   // ---- net: net integrity ----
+  "net.output-conflict": {
+    domain: "net",
+    severity: "error",
+    summary: "A net has two pins that drive it",
+    hint: "A net has one driver; remove one of them, or change the pin type in the component file if that part does not drive the net",
+    spec: ["teda.md §11"],
+  },
   "net.pin-in-two-nets": {
     domain: "net",
     severity: "error",
@@ -801,6 +808,13 @@ export const DIAGNOSTIC_CODES = {
     hint: "A row whose first column is a bare `:` continues the net named by the row above it",
     spec: ["teda.md §7.2"],
   },
+  "net.input-unassigned": {
+    domain: "net",
+    severity: "warning",
+    summary: "A pin that expects a signal is not connected",
+    hint: "Connect it to a net, or mark the pin no_connect in the component file if it is intentionally left open",
+    spec: ["teda.md §11"],
+  },
   "net.member-unknown": {
     domain: "net",
     severity: "error",
@@ -819,6 +833,13 @@ export const DIAGNOSTIC_CODES = {
     severity: "warning",
     summary: "A pin does not belong to any net",
     hint: "Connect it to a net, or mark the pin as no_connect in the component file",
+    spec: ["teda.md §11"],
+  },
+  "net.power-undriven": {
+    domain: "net",
+    severity: "note",
+    summary: "A power input sits on a net that nothing sources",
+    hint: "The source may sit on another net behind a series element, or off-board — the tool sees this net only",
     spec: ["teda.md §11"],
   },
   "net.port-in-two-nets": {

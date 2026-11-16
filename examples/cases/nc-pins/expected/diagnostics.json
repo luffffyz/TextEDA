@@ -24,7 +24,7 @@
     "line": 8
   },
   {
-    "code": "net.pin-unassigned",
+    "code": "net.input-unassigned",
     "severity": "warning",
     "file": "design/sch/modules/debug-header.teda",
     "line": 17
