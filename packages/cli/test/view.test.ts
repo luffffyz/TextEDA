@@ -59,7 +59,9 @@ describe("texteda view metrics", () => {
     expect(result.code).toBe(0);
     const metrics = JSON.parse(result.stdout) as Metrics;
     expect(metrics.counts.wires).toBe(0);
-    expect(metrics.counts.ports).toBe(4);
+    // The page carries the charger's three remaining ports: the adapter's return is the board's
+    // ground, so the separate AC_RET terminal is gone.
+    expect(metrics.counts.ports).toBe(3);
     // No wiring at all: every port is a tag in empty space, and the distance says how far.
     expect(metrics.net_texts.every((text) => text.distance_nm > 0)).toBe(true);
   });

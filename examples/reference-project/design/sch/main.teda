@@ -17,7 +17,6 @@ modules
   M3  IDp8x2n4  mcu-board
 
 nets
-  AC_COMMON:  M1.AC_RET
   ADAPTER_P:  M1.DC_IN
   BOOT0:      M3.BOOT0
   GND:        M1.GND  M2.GND  M3.GND
@@ -31,7 +30,6 @@ nets
 
 # The product's external terminals.
 ports
-  AC_RET    AC_COMMON
   BAT       VBAT
   BOOT0     BOOT0
   DC_IN     ADAPTER_P

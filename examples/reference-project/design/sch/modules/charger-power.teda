@@ -4,6 +4,10 @@ module charger-power
 # The BQ24610 charge and power path (datasheet SLUS892D Figure 20): 19V adapter, 3-cell Li-ion
 # (12.6V), 4A adapter limit, 3A charge, 0.3A precharge/termination, 5-hour safety timer.
 #
+# The adapter's return is the board's ground: the jack's sleeve (J1.2) is on GND. SLUS892D feeds
+# VCC through R17 from the input FETs' common-source node (AC_COMMON), and that node sits at the
+# adapter's *positive* rail — the sleeve does not belong there.
+#
 # The module owns its refdes and net names; the board reaches it through its ports
 # (spec/module.md §3). Its nets are flattened to M1.<net> unless a port merges them into a
 # board-level net.
@@ -66,8 +70,7 @@ nets
   ACDRV:         R18.2  U1.ACDRV
   ACP:           C3.1  Q2.D  R21.1  U1.ACP
   ACSET:         R3.2  R4.1  U1.ACSET
-  AC_COMMON:     C14.1  J1.2  Q1.S1  Q1.S2  Q1.S3  Q2.S1  Q2.S2  Q2.S3  R14.1
-  :              R17.1
+  AC_COMMON:     C14.1  Q1.S1  Q1.S2  Q1.S3  Q2.S1  Q2.S2  Q2.S3  R14.1  R17.1
   AC_GATE:       C14.2  Q1.G  Q2.G  R14.2  R18.1
   ADAPTER_DAMP:  C16.1  R20.2
   ADAPTER_P:     J1.1  Q1.D  R11.1  R12.1  R13.1  R20.1
@@ -75,8 +78,8 @@ nets
   BAT_GATE:      C15.2  Q3.G  R15.2  R19.1
   BTST:          C6.2  D1.K  U1.BTST
   GND:           C1.2  C2.2  C4.2  C5.2  C7.2  C8.2  C9.2  C11.2  C12.2  C13.2
-  :              C16.2  C17.2  NTC1.2  Q5.S1  Q5.S2  Q5.S3  R1.2  R4.2  R6.2
-  :              R8.2  R10.2  U1.GND  U1.PAD
+  :              C16.2  C17.2  J1.2  NTC1.2  Q5.S1  Q5.S2  Q5.S3  R1.2  R4.2
+  :              R6.2  R8.2  R10.2  U1.GND  U1.PAD
   HIDRV:         Q4.G  U1.HIDRV
   ISET1:         R7.2  R8.1  U1.ISET1
   ISET2:         R5.2  R6.1  U1.ISET2
@@ -103,7 +106,6 @@ nets
 # The module's interface: what the board may connect to it. The port names are the module's own;
 # the board decides which board-level net each one lands on.
 ports
-  AC_RET   AC_COMMON
   BAT      VBAT
   DC_IN    ADAPTER_P
   GND      GND

@@ -153,7 +153,6 @@ modules
   M2  IDk2m8q4  buck-5v
 
 nets
-  AC_COMMON:  M1.AC_RET
   ADAPTER_P:  M1.DC_IN
   GND:        M1.GND  M2.GND
   SYS:        M1.SYS_OUT  M2.SYS_IN
@@ -161,7 +160,6 @@ nets
   VOUT:       M2.VOUT
 
 ports
-  AC_RET   AC_COMMON
   BAT      VBAT
   DC_IN    ADAPTER_P
   GND      GND
