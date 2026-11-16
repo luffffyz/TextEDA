@@ -1511,3 +1511,54 @@ types), `packages/core/src/erc/connectivity.ts`, `packages/parser/src/schematic.
 What is missing is the language: the ability to answer the question the rule asks. This is the
 language half of the second note of the 2026-11-16 design-method review
 (`docs/reviews/2026-11-16-design-method-r1.md`).
+
+---
+
+## F78. The exit code cannot say that the design was not fully checked
+
+**Status**: Proposed (2026-11-16). The report states the coverage; the exit code does not.
+
+**Current state**: `texteda check` exits non-zero when there is an **error**. The coverage — how
+much of the design the electrical comparison reached — is in the report's last line and in the
+payload's `coverage` (2026-11-16, ADR-0026 D13), but a pipeline that reads only the exit code
+still sees green on a design where 62 of 83 instances were never compared. That follows the
+severity model: a note is informational and does not block, so the exit code follows it.
+
+So the tool can already tell "nothing was found" from "everything was checked and nothing was
+found" — the report says which — but the two are the same number to a script. This is a policy
+question, not a bug: what a gate is allowed to mean is the owner's call, not the checker's.
+
+**Why it matters**: the exit code is the part of `check` most pipelines read, and CI is exactly
+where an incomplete electrical comparison should not be invisible. The three states — *wrong*,
+*not fully checked*, *checked and fine* — are three different things to a release gate, and today
+two of them are one.
+
+**To do**: decide the shape, then implement it in both faces at once (the command line's exit
+code and the tool registry's `ok`, which is the same answer by ADR-0044 D2):
+
+1. **Keep exit 0.** The coverage stays a report fact; a pipeline that cares reads `coverage`.
+   Cheapest, and it keeps "a partial layout is legal" (ADR-0019 D4) true for the ratings too.
+2. **Exit non-zero when the comparison is incomplete.** Every project that does not declare a
+   window on every net fails, including the correct ones — so this needs a threshold (any
+   uncompared instance, or a ratio) and a way for a project to say "this is the state I accept".
+3. **A third state.** Exit 2 (or a `--strict` flag) for "checked, but not completely": a script
+   can then distinguish *wrong* from *not fully verified*, and the tool registry's `ok` needs the
+   same three-way meaning (it is `errorCount === 0` today).
+
+Whatever is decided changes what a gate means, so it needs a record of its own (an ADR if it
+changes the exit or severity contract), and the specification must say which.
+
+**Involved files**: `packages/cli/scripts/texteda.ts` (the exit code),
+`packages/cli/src/check.ts` (the `ok` flag), `packages/cli/src/tools.ts` (the tool's `ok`),
+`packages/cli/src/result.ts` (`VerbResult`).
+
+**Acceptance**:
+
+- The decision is on record, and the exit code (or the flag) says "incomplete" in a way a script
+  can act on.
+- The command line and the host's tool registry mean the same thing by it.
+- The specification and the review app say which states exist.
+
+**Note**: this is the residual half of the third note of the 2026-11-16 design-method review
+(`docs/reviews/2026-11-16-design-method-r1.md`). What landed on 2026-11-16 is the report; this
+entry is the question the report cannot answer.
