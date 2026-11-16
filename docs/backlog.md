@@ -1564,3 +1564,178 @@ changes the exit or severity contract), and the specification must say which.
 **Note**: this is the residual half of the third note of the 2026-11-16 design-method review
 (`docs/reviews/2026-11-16-design-method-r1.md`). What landed on 2026-11-16 is the report; this
 entry is the question the report cannot answer.
+
+---
+
+## F79. A net's window has two homes: which one is the fact?
+
+**Status**: Proposed (2026-11-16). The rule that the two must agree landed; which one survives is
+not decided.
+
+**Current state**: the reference project declares four windows twice. The shape is always the
+same: **the module declares a window on its own local net, and the root declares a window on the
+project net that the module's port merges into**. After flattening, the module's local net name
+is rewritten to the project net name, so the IR carries two rows of the same kind, with the same
+subject and the same values — indistinguishable except by the source span.
+
+| Project net | The root says | The module says | They meet because |
+|---|---|---|---|
+| `GND` | `voltage GND 0V..0V` (`design/sch/main.teda:44`) | `voltage GND 0V..0V` (`design/sch/modules/mcu-board.teda:63`) | the module's port `GND` lands on the root's `GND` (`design/sch/main.teda:22`) |
+| `VOUT` | `voltage VOUT 4.5V..5.5V` (`design/sch/main.teda:47`) | `voltage VIN_5V 4.5V..5.5V` (`design/sch/modules/mcu-board.teda:62`) | the module's port `DC_IN` (local `VIN_5V`) lands on the root's `VOUT` (`design/sch/main.teda:29`) |
+| `V3V3` | `voltage V3V3 3.0V..3.6V` (`design/sch/main.teda:48`) | `voltage V3V3 3.0V..3.6V` (`design/sch/modules/mcu-board.teda:64`) | the module's port `VOUT_3V3` lands on the root's `V3V3` (`design/sch/main.teda:27`) |
+| `V3V3` | `current V3V3 300mA` (`design/sch/main.teda:51`) | `current V3V3 300mA` (`design/sch/modules/mcu-board.teda:65`) | the same port |
+
+The rule landed on 2026-11-16: two declarations that disagree are `net.constraint-conflict`
+(error), two that agree are `net.constraint-duplicate` (note), with both places named. The
+reference project reports its four duplicates and 0 conflicts.
+
+**Why it matters**: the rule catches the *miss* — if one of the two files is edited and the other
+is not, the disagreement is now an error. It does not remove the *cost*: two files, two edits,
+one of which says what the other says. And one of the four pairs is not even the same fact: the
+module's `VIN_5V 4.5V..5.5V` is **what its input rail must be** (a requirement), while the root's
+`VOUT 4.5V..5.5V` is **what the project rail delivers** (a promise). The language has one
+constraint kind for both, so the two land on the same net with the same numbers and no way to
+tell them apart — which is also what F42's item 4 (a range-valued rating, and a requirement
+against a promise) would have to fix.
+
+**To do**: decide where a net's window lives.
+
+1. **Root only.** The root declares every project net's window; a module declares only the
+   windows of nets it keeps to itself. The mcu-board then says nothing about the rail it accepts,
+   and a reader of the module alone does not know its input window.
+2. **Module only, for exposed nets.** Each module declares the rails it owns. A net with two
+   owners (`VOUT` is the buck's output and the mcu-board's input) then needs an owner rule, and
+   the project's own view of the rail disappears.
+3. **Both, with the rule as it is.** The cost stays; the miss is caught. This is today's state.
+
+Whichever is chosen, the reference project is edited to match and the specification says where a
+net's window is declared — today it says neither.
+
+**Acceptance**:
+
+- The reference project reports no `net.constraint-duplicate`, or the duplicates are the answer
+  and the specification says so.
+- The specification says where a net's window is declared, and a module that states one is either
+  right or an error.
+
+**Note**: this is the second half of the fifth note of the 2026-11-16 design-method review
+(`docs/reviews/2026-11-16-design-method-r1.md`); the rule that the two must agree is already
+there.
+
+---
+
+## F80. The language cannot say which member of a net carries its current
+
+**Status**: Proposed (2026-11-16). The comparison landed; one of its two forms stays a warning
+because of this.
+
+**Current state**: `current <net> <max>` says what the net carries, and a net's members share it
+— the language does not say which member carries how much (ADR-0026, Open Points). So the
+comparison against the parts on that net is a warning (`design.current-below-rating`), and a part
+that sits on two rails declaring different currents is not compared with either (it is a
+converter or a series element, and the language cannot say which). `current <pin> <max>` is
+different: it names the pin, and with a two-terminal part the comparison is certain and is an
+error (`design.current-exceeded`).
+
+**Why it matters**: the conflict the reviewer found — a connector rated 500 mA against a rail the
+design declares 4 A — is reported, but as a warning the author cannot answer. There is no way to
+say "this member carries 100 mA and the rest of the rail carries the rest", so every
+current-carrying rail collects warnings that only a human can dismiss, and the rule that could
+be an error is stuck at a warning.
+
+**To do**: decide whether the language gets a construct that attributes a current to a path.
+
+1. A **two-subject current limit**, the way `diff` and `skew` name a pair of nets: "the current
+   that flows from this net to that one". It names the path, so the part between the two nets is
+   the one that carries it, and the comparison becomes definite.
+2. A **per-part series declaration**: the design says which parts sit in a path (a new segment,
+   and therefore an IR version bump).
+3. Accept the warning: the net-subject form stays advisory, and the pin-subject form is the one
+   to use when a definite check is wanted.
+
+**Acceptance**:
+
+- The net-subject comparison is either definite, or the specification says it is advisory and
+  says which form a design should use for a definite check.
+
+**Note**: this is the open half of the fourth note of the 2026-11-16 design-method review
+(`docs/reviews/2026-11-16-design-method-r1.md`).
+
+---
+
+## F81. A board that declares a module it does not place still reads like a finished board
+
+**Status**: Proposed (2026-11-16). One half needs no decision; the other does, and it contradicts
+a decision on record.
+
+**Current state**: `bind.instance-unplaced` (warning) says "PCB charger-buck places 9 of its 62
+physical instances; 53 not placed: M1.C1, M1.C2, … (45 more)" — one warning, eight names, the
+rest as a count. The board that would come off the line is a buck converter with no charger in
+it, and the report reads like a finished board.
+
+**Why it matters**: the count is there, so a reader can see the gap; the names are not, so the
+reader cannot see *which* board is short without running the tool over the file by hand. And a
+warning is the same colour as the 195 other warnings the reference project produces.
+
+**To do**: two halves, and only one of them is a decision.
+
+1. **Name every missing instance.** ADR-0019 D3 says the diagnostic "states `placed / total` and
+   names the unplaced instances"; the implementation truncates at eight. Aligning the code with
+   the decision is a small change, and the cost is one long message on a large board.
+2. **Fail instead of warn when a board declares a module it does not place.** This contradicts
+   ADR-0019 D4 ("severity is `warning`; an error would make a partial description un-checkable"),
+   so it needs a record of its own or an amendment to that one — and it turns the reference
+   project red until the board is finished or says it is a fragment. There is no way to say "this
+   board is a fragment" in the language today, which is the third question: does one need to
+   exist?
+
+**Acceptance**:
+
+- The report names every instance a board does not place, or the decision says the count is
+  enough.
+- If the gate fails, the record that says a partial layout is legal is amended, and the
+  reference project's boards are finished or marked.
+
+**Note**: this is the sixth note of the 2026-11-16 design-method review
+(`docs/reviews/2026-11-16-design-method-r1.md`).
+
+---
+
+## F82. The copper is never checked against the current the design declares
+
+**Status**: Proposed (2026-11-16). The decision on record settles the shape; the rule is a
+language change.
+
+**Current state**: the root declares `current VOUT 3A` (`design/sch/main.teda:50`) and the board
+declares `rules width 0.3` (`design/pcb/charger-buck.teda:83`), and the 3 A rail is carried on
+0.3 mm traces (`design/pcb/charger-buck.teda:65-67`). Nothing reads the two together: `pcb.rules`
+has no current-carrying form (`clearance`, `width`, `via`, `net`, `diff`, `match`, `mask`,
+`paste`, `thermal`, `min_width`), and the rule that would compare them does not exist.
+
+**Why it matters**: the two facts live in different files and nothing in the language relates a
+net's current to the width of the copper on it. A reader has to know the process's own
+current-carrying table to judge the 0.3 mm — and the table is not in the repository.
+
+**To do**: two roads, and the cheap half is separate.
+
+1. **Let the design state its own rule**: a new `rules` form, e.g. `current <net> <max> <min
+   width>`, and a check that the traces on that net are at least that wide. The design states the
+   limit and the checker verifies the design obeys it — the same shape as ADR-0026's "a rating is
+   a limit the design states". It is a language change (`spec/pcb.md` §4) and an IR shape change,
+   so `ir_version` goes 0.19 → 0.20 (the schema directory, the generator's default, the
+   fixtures, `spec/teda.md` §7.7 and §12.4).
+2. **Embed a process table** (IPC-style current-carrying capacity): out of scope. The repository
+   does not build a process-rule library ("not a manufacturing tool: no CAM-level DFM judgement,
+   no process-rule library").
+3. **Say so in the report** (the cheap half): the copper was not checked against the declared
+   current, so the hole is visible instead of silent. A note plus a sentence in the
+   specification — no IR change, at the cost of a note on every project that declares a current
+   and has a board.
+
+**Acceptance**:
+
+- Either the rule exists and the 0.3 mm traces on a 3 A rail are checked against a declared
+  limit, or the specification says the checker does not do it and why.
+
+**Note**: this is the seventh note of the 2026-11-16 design-method review
+(`docs/reviews/2026-11-16-design-method-r1.md`).
