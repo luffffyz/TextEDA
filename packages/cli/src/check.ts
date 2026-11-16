@@ -40,7 +40,9 @@ import {
 import { loadPageComposition } from "./page-composition.ts";
 import {
   checkBinding,
+  checkConstraintAgreement,
   checkCopperCoverage,
+  checkCurrentRatings,
   checkDeviceUsage,
   fillBoard,
   fillBoardFacts,
@@ -49,7 +51,7 @@ import {
   checkReviews,
   checkReadability,
   checkViews,
-  type RatingCoverage,
+  type ComparisonCoverage,
   type RatingDevice,
   type ReadabilityGeometry,
   type ViewPage,
@@ -96,8 +98,8 @@ export interface AnalyzeResult {
   /** Physical PCB analyses, in file order. */
   pcbs: PcbAnalysis[];
   diagnostics: Diagnostic[];
-  /** How far the electrical comparison reached; absent when there was no root to compare. */
-  coverage?: RatingCoverage;
+  /** How far the electrical comparisons reached; absent when there was no root to compare. */
+  coverage?: CheckCoverage;
 }
 
 export interface CheckResult {
@@ -106,8 +108,24 @@ export interface CheckResult {
   /** Physical PCB ids validated. */
   pcbs: string[];
   diagnostics: Diagnostic[];
-  /** How far the electrical comparison reached; absent when there was no root to compare. */
-  coverage?: RatingCoverage;
+  /** How far the electrical comparisons reached; absent when there was no root to compare. */
+  coverage?: CheckCoverage;
+}
+
+/**
+ * How much of the design the electrical comparisons reached.
+ *
+ * A device that was not compared is not a device that passed (ADR-0026 D13), so the counts travel
+ * with the findings: a report that says "no errors" and leaves this out reads as a pass on a
+ * design where most parts were never checked.
+ */
+export interface CheckCoverage {
+  /** The voltage comparison: instances it compared, and the instances the design has. */
+  readonly stress: ComparisonCoverage;
+  /** The dissipation comparison: resistive instances it compared, and the resistive instances there are. */
+  readonly dissipation: ComparisonCoverage;
+  /** The current comparison: instances it compared, and the instances a current limit speaks about. */
+  readonly current: ComparisonCoverage;
 }
 
 /**
@@ -119,7 +137,7 @@ export interface CheckResult {
  */
 export interface CheckPayload extends DiagnosticsPayload {
   /** How far the electrical comparison reached. */
-  coverage?: RatingCoverage;
+  coverage?: CheckCoverage;
 }
 
 /** Validate the project's logical root and all physical PCBs. */
@@ -161,7 +179,7 @@ export function buildCheck(root: string): VerbResult<{ payload: CheckPayload; ma
 export function analyzeProject(root: string): AnalyzeResult {
   const projectDiagnostics: Diagnostic[] = [];
   /** How far the electrical comparison reached; absent when there was no root to compare. */
-  let coverage: RatingCoverage | undefined;
+  let coverage: CheckCoverage | undefined;
   const pcbIds = listPcbs(root);
   const knownPcbs = new Set(pcbIds);
   const uidInputs: ProjectUidInput[] = [];
@@ -470,7 +488,32 @@ export function analyzeProject(root: string): AnalyzeResult {
     ...(instanceLocator === undefined ? {} : { locateInstance: instanceLocator }),
   });
   mainDiagnostics.push(...ratings.diagnostics);
-  coverage = ratings.coverage;
+
+  // The current limits the design states, against what the parts on those paths are rated for.
+  const currents = checkCurrentRatings({
+    file: mainSource.file,
+    schematic: mainIr,
+    devices: ratingDevices(),
+    ...(instanceLocator === undefined ? {} : { locateInstance: instanceLocator }),
+  });
+  mainDiagnostics.push(...currents.diagnostics);
+
+  // One net, one window: the root and the module may not state it twice with different values.
+  mainDiagnostics.push(
+    ...checkConstraintAgreement({
+      file: mainSource.file,
+      schematic: mainIr,
+      ...(mainLocate === undefined
+        ? {}
+        : { locateConstraint: (index: number) => mainLocate(`/constraints/${index}`) }),
+    }),
+  );
+
+  coverage = {
+    stress: ratings.coverage.stress,
+    dissipation: ratings.coverage.dissipation,
+    current: currents.coverage,
+  };
 
   if (pcbIds.length > 0 && parsedPcbs.length === pcbIds.length) {
     const instances = schematicInstances(

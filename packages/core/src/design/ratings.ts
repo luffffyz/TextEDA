@@ -42,6 +42,14 @@ export interface RatingFacts {
 }
 
 /**
+ * How far one comparison reached: how many instances it compared, and how many it speaks about.
+ */
+export interface ComparisonCoverage {
+  readonly compared: number;
+  readonly total: number;
+}
+
+/**
  * How far the electrical comparison reached.
  *
  * A device that was not compared is not a device that passed (ADR-0026 D13), so the count of the
@@ -50,9 +58,9 @@ export interface RatingFacts {
  */
 export interface RatingCoverage {
   /** The voltage comparison: instances it reached, and the instances the design has. */
-  readonly stress: { readonly compared: number; readonly total: number };
+  readonly stress: ComparisonCoverage;
   /** The dissipation comparison: resistive instances it reached, and the resistive instances there are. */
-  readonly dissipation: { readonly compared: number; readonly total: number };
+  readonly dissipation: ComparisonCoverage;
 }
 
 /** What the rating comparison found, and how much of the design it reached. */
@@ -68,7 +76,13 @@ interface Window {
 }
 
 /** Why an instance was not compared: the note has to be able to say it. */
-type Skip = "not_two_terminal" | "no_capability" | "no_window" | "pin_without_net" | "unknown_device";
+type Skip =
+  | "not_two_terminal"
+  | "no_capability"
+  | "no_window"
+  | "conflicting_window"
+  | "pin_without_net"
+  | "unknown_device";
 
 /** `16V`, `4.85V..5.15V` — the canonical unit is microvolts, the surface unit is volts. */
 function volts(uv: number): string {
@@ -90,14 +104,26 @@ export function checkRatings(facts: RatingFacts): RatingReport {
 
   // The potential frame: a net's declared window. The origin is declared by the design
   // (`voltage GND 0V..0V`); the tool does not assume that a net called GND is 0 V (D3).
+  //
+  // A net that carries two different windows is a design that contradicts itself: the conflict
+  // is an error elsewhere (`net.constraint-conflict`), and here the window is unknown rather than
+  // whichever of the two happened to come first (D13: unknown is counted, not passed).
   const windows = new Map<string, Window>();
+  const conflicting = new Set<string>();
   for (const constraint of schematic.constraints ?? []) {
     if (constraint.type !== "voltage") continue;
     if (!schematic.nets.some((net) => net.id === constraint.subject)) continue;
-    if (!windows.has(constraint.subject)) {
-      windows.set(constraint.subject, { min_uv: constraint.min_uv, max_uv: constraint.max_uv });
+    const declared = { min_uv: constraint.min_uv, max_uv: constraint.max_uv };
+    const known = windows.get(constraint.subject);
+    if (known === undefined) {
+      windows.set(constraint.subject, declared);
+      continue;
+    }
+    if (known.min_uv !== declared.min_uv || known.max_uv !== declared.max_uv) {
+      conflicting.add(constraint.subject);
     }
   }
+  for (const subject of conflicting) windows.delete(subject);
 
   // Which net a pin sits on: the net section is the only place that says so.
   const netOfPin = new Map<string, string>();
@@ -133,7 +159,9 @@ export function checkRatings(facts: RatingFacts): RatingReport {
     const windowA = windows.get(netA);
     const windowB = windows.get(netB);
     if (!windowA || !windowB) {
-      skipped.push("no_window");
+      skipped.push(
+        conflicting.has(netA) || conflicting.has(netB) ? "conflicting_window" : "no_window",
+      );
       continue;
     }
     // The extreme of the potential difference across the two nets.
@@ -164,6 +192,7 @@ export function checkRatings(facts: RatingFacts): RatingReport {
       not_two_terminal: skipped.filter((reason) => reason === "not_two_terminal").length,
       no_capability: skipped.filter((reason) => reason === "no_capability").length,
       no_window: skipped.filter((reason) => reason === "no_window").length,
+      conflicting_window: skipped.filter((reason) => reason === "conflicting_window").length,
       pin_without_net: skipped.filter((reason) => reason === "pin_without_net").length,
       unknown_device: skipped.filter((reason) => reason === "unknown_device").length,
     };
@@ -171,6 +200,7 @@ export function checkRatings(facts: RatingFacts): RatingReport {
     if (counts.not_two_terminal > 0) parts.push(`${counts.not_two_terminal} not two-terminal`);
     if (counts.no_capability > 0) parts.push(`${counts.no_capability} with no declared voltage capability`);
     if (counts.no_window > 0) parts.push(`${counts.no_window} on a net without a declared voltage window`);
+    if (counts.conflicting_window > 0) parts.push(`${counts.conflicting_window} on a net whose declared windows conflict`);
     if (counts.pin_without_net > 0) parts.push(`${counts.pin_without_net} with a pin in no net`);
     if (counts.unknown_device > 0) parts.push(`${counts.unknown_device} whose device file could not be read`);
     diagnostics.push({
@@ -183,7 +213,7 @@ export function checkRatings(facts: RatingFacts): RatingReport {
     });
   }
 
-  const dissipation = checkDissipation(facts, windows, netOfPin);
+  const dissipation = checkDissipation(facts, windows, conflicting, netOfPin);
   diagnostics.push(...dissipation.diagnostics);
 
   return {
@@ -207,7 +237,13 @@ function trim(value: number): string {
 }
 
 /** Why a resistive instance was not compared by the power check. */
-type PowerSkip = "not_two_terminal" | "no_window" | "pin_without_net" | "no_limit" | "no_package_rating";
+type PowerSkip =
+  | "not_two_terminal"
+  | "no_window"
+  | "conflicting_window"
+  | "pin_without_net"
+  | "no_limit"
+  | "no_package_rating";
 
 /** One upper bound on how much an instance may dissipate. */
 interface PowerLimit {
@@ -254,6 +290,7 @@ function resistanceOf(
 function checkDissipation(
   facts: RatingFacts,
   windows: ReadonlyMap<string, Window>,
+  conflicting: ReadonlySet<string>,
   netOfPin: ReadonlyMap<string, string>,
 ): { diagnostics: Diagnostic[]; coverage: { compared: number; total: number } } {
   const diagnostics: Diagnostic[] = [];
@@ -294,7 +331,9 @@ function checkDissipation(
     const windowA = windows.get(netA);
     const windowB = windows.get(netB);
     if (!windowA || !windowB) {
-      skipped.push("no_window");
+      skipped.push(
+        conflicting.has(netA) || conflicting.has(netB) ? "conflicting_window" : "no_window",
+      );
       continue;
     }
 
@@ -356,6 +395,7 @@ function checkDissipation(
     const counts = {
       not_two_terminal: skipped.filter((reason) => reason === "not_two_terminal").length,
       no_window: skipped.filter((reason) => reason === "no_window").length,
+      conflicting_window: skipped.filter((reason) => reason === "conflicting_window").length,
       pin_without_net: skipped.filter((reason) => reason === "pin_without_net").length,
       no_limit: skipped.filter((reason) => reason === "no_limit").length,
       no_package_rating: skipped.filter((reason) => reason === "no_package_rating").length,
@@ -363,6 +403,7 @@ function checkDissipation(
     const parts: string[] = [];
     if (counts.not_two_terminal > 0) parts.push(`${counts.not_two_terminal} not two-terminal`);
     if (counts.no_window > 0) parts.push(`${counts.no_window} on a net without a declared voltage window`);
+    if (counts.conflicting_window > 0) parts.push(`${counts.conflicting_window} on a net whose declared windows conflict`);
     if (counts.pin_without_net > 0) parts.push(`${counts.pin_without_net} with a pin in no net`);
     if (counts.no_limit > 0) parts.push(`${counts.no_limit} with no declared power limit and no package floor`);
     if (counts.no_package_rating > 0)

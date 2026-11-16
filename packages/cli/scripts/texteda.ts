@@ -218,7 +218,7 @@ function runCheck(args: ParsedArgs): void {
 function coverageLines(coverage: CheckPayload["coverage"]): string[] {
   if (coverage === undefined) return [];
   const lines: string[] = [];
-  const { stress, dissipation } = coverage;
+  const { stress, dissipation, current } = coverage;
   if (stress.compared < stress.total) {
     lines.push(
       `Not fully checked: ${stress.compared} of ${stress.total} instances were compared with a declared window.`,
@@ -227,6 +227,11 @@ function coverageLines(coverage: CheckPayload["coverage"]): string[] {
   if (dissipation.compared < dissipation.total) {
     lines.push(
       `Not fully checked: ${dissipation.compared} of ${dissipation.total} resistive instances were compared with a power limit.`,
+    );
+  }
+  if (current.compared < current.total) {
+    lines.push(
+      `Not fully checked: ${current.compared} of ${current.total} instances a current limit speaks about were compared with a rated_current.`,
     );
   }
   return lines;

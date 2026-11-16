@@ -462,6 +462,18 @@ constraints
 
 `power` 约束的**主语必须是引脚**（`M1.R1.1`）：耗散属于器件实例，不属于 net；写 net 的 `power` 约束当前不参与任何比较，也不报错（net 的功率预算还没有语义）。
 
+**一条 net 只说一次窗口**：根与模块各写一遍同一个 net 的窗口时（模块的局部 net 被端口并进项目 net），两条声明就撞在一起了。值相同是**一个事实两个家**——改一次电压要改两个文件，漏改一个没人说得清——报 `net.constraint-duplicate`（note，两处位置都指出来）；值不同是**设计自相矛盾**——同一个 net 说了两个不同的窗口——报 `net.constraint-conflict`（error）。两条都是 net 自己的事，不进 `design` 域。`power` 约束不在此列：同一个引脚写多条 `power` 是合法的（取最紧的那条，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D11）。窗口冲突时，电压比较**不挑**其中一条当窗口——那个 net 的窗口按未知处理（计入 `design.stress-unknown`），因为设计自己说了两个互相矛盾的话。
+
+**`current` 约束现在有人消费了**：设计声明的电流上限与件自己的额定值比。件能扛多少来自件自己的 `ratings`（`kind: part`：`rated_current`，事实）或通用件实例行的 `rated_current` 列（要求，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D16）。比的结果分三档，因为**能确定到什么程度**取决于三件事：
+
+| 主语 | 件 | 结论 |
+|---|---|---|
+| 引脚（`M1.J1.1`） | 两引脚 | **确定**：设计说了这个脚流多少，件的额定值说的就是它两个脚之间的路径。额定值低于它 → `design.current-exceeded`（error） |
+| net | 任意 | **不确定**：net 的电流由成员共享，语言没说谁承担（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) 的 Open Points）→ `design.current-below-rating`（warning），点名额定值低于该电流的件 |
+| 引脚 | 多引脚 | **不确定**：件的额定值属于哪两个脚，语言还没说（端子语法未落地，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D4）→ 同上 warning |
+
+还有一条不比较的：**坐在两条声明了不同电流的轨上的件**，要么是转换器、要么是串联件，而语言分不出是哪个（串联件两侧电流相同，转换器不同）→ 不与任何一条比，计入 `design.current-unknown`（note）。没声明 `rated_current` 的件同样计入（note，一块板一条）——没比较不等于通过。电流比较的覆盖率跟电压、耗散一起进报告（`coverage.current`）。
+
 ### 7.4 `ports` 段（可选）
 
 `port` 是**根 `net` 的对外名字**。跨板 interconnect 的端点、打印页的端口符号消费它（§7.5、`spec/schematic-view.md`）。

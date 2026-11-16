@@ -390,6 +390,7 @@ describe("a PCB without the logical root (ADR-0014 D5)", () => {
       expect(result.coverage).toEqual({
         stress: { compared: 0, total: 1 },
         dissipation: { compared: 0, total: 1 },
+        current: { compared: 0, total: 0 },
       });
       expect(result.diagnostics.some((d) => d.code === "design.stress-unknown")).toBe(true);
     } finally {

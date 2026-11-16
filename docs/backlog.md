@@ -799,6 +799,8 @@
 
 **2026-11-16 报告口径已落地（"不能读成通过"那一半）**：多引脚应力模型本身**仍未实现**（下面第 2 / 3 条照旧），但报告不再把"没比"读成"过了"。`texteda check` 的摘要最后一行现在写明没比的那部分（`Not fully checked: 21 of 83 instances were compared with a declared window.` / `4 of 27 resistive instances were compared with a power limit.`），`--json` 载荷里同一个数字在 `coverage` 里（`stress` / `dissipation`，各带 `compared` 与 `total`）；摘要与载荷同源，不会各说各话。另外比较**不再挂在 PCB 分支下**：它读的是根的 net、声明窗口和器件库，有逻辑根的工程都会跑（决策见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D13）。这条的来源是 2026-11-16 的设计方法评审（`docs/reviews/2026-11-16-design-method-r1.md` 第 3 条 note）。**剩下的还是模型**：端子对、方向、`kind`，以及 datasheet 里的值。
 
+**2026-11-16 `current` 约束有人消费了（上面"还没做"里的 `current` 一项）**：`current` 约束此前**没有任何检查器读它**（只有 `voltage` 与 `power` 被消费），于是"插座额定 500mA、设计要 4A"这件事只写在件文件的注释里。现在新增比较（`packages/core/src/design/current.ts`，规则见 `spec/teda.md` §7.3）：件能扛多少取件自己的 `ratings.rated_current`（事实）或通用件实例行的 `rated_current` 列（要求）。**能确定到什么程度分三档**：主语是引脚且件是两引脚 → 确定，低于就报 `design.current-exceeded`（error）；主语是 net → 语言没说 net 的电流由谁承担，只能报 `design.current-below-rating`（warning）；件是多引脚 → 额定值属于哪两个脚还没说（端子语法未落地），同样是 warning。另有两种**不比较**：坐在两条声明了不同电流的轨上的件（是转换器还是串联件，语言分不出），以及没写 `rated_current` 的件（计入 `design.current-unknown`，note）。参考工程实测：插座 J1 被点出来（`net ADAPTER_P declares 4A, and M1.J1 (dc-005-20a) on it is rated 0.5A`），参考工程顺带把 4A 适配器上限从模块头注释改成了声明事实（`current ADAPTER_P 4A`）。**仍然没做**：语言没有"这条 net 的电流由谁承担"的写法，所以 net 主语那一档只能是 warning；也没有"网电流归成员"的构造（这就是上面 Open Points 那一条）。
+
 **2026-10-23 覆盖率审计（实测，用来定下一步做什么）**：`texteda check` 的两块参考板。
 
 | 板 | 实例 | 已比 | 跳过 | 跳过原因 |

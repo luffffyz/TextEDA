@@ -100,10 +100,13 @@ describe("check exit codes", () => {
     // never compared (ADR-0026 D13). The summary says so.
     const result = run(["check", "examples/reference-project"]);
     expect(result.code).toBe(0);
-    expect(result.stderr).toContain("3 notes");
+    expect(result.stderr).toContain("8 notes");
     expect(result.stderr).toContain("Not fully checked: 21 of 83 instances were compared with a declared window.");
     expect(result.stderr).toContain(
       "Not fully checked: 4 of 27 resistive instances were compared with a power limit.",
+    );
+    expect(result.stderr).toContain(
+      "Not fully checked: 1 of 32 instances a current limit speaks about were compared with a rated_current.",
     );
   });
 
@@ -115,11 +118,37 @@ describe("check exit codes", () => {
       coverage?: {
         stress: { compared: number; total: number };
         dissipation: { compared: number; total: number };
+        current: { compared: number; total: number };
       };
     };
     expect(report.noteCount).toBeGreaterThan(0);
     expect(report.coverage?.stress).toEqual({ compared: 21, total: 83 });
     expect(report.coverage?.dissipation).toEqual({ compared: 4, total: 27 });
+    expect(report.coverage?.current).toEqual({ compared: 1, total: 32 });
+  });
+
+  test("a part rated below the current its rail declares is reported", () => {
+    // The jack is rated 500mA and the adapter rail declares 4A; the design used to say so in a
+    // comment, and nothing checked it.
+    const result = run(["check", "examples/reference-project", "--json"]);
+    const report = JSON.parse(result.stdout) as {
+      diagnostics: { code: string; severity: string; message: string }[];
+    };
+    const finding = report.diagnostics.find((d) => d.code === "design.current-below-rating");
+    expect(finding?.severity).toBe("warning");
+    expect(finding?.message).toContain("net ADAPTER_P declares 4A");
+    expect(finding?.message).toContain("M1.J1");
+  });
+
+  test("a window the root and the module both state is reported once, with both places", () => {
+    const result = run(["check", "examples/reference-project", "--json"]);
+    const report = JSON.parse(result.stdout) as {
+      diagnostics: { code: string; severity: string; message: string }[];
+    };
+    const duplicates = report.diagnostics.filter((d) => d.code === "net.constraint-duplicate");
+    expect(duplicates.length).toBe(4);
+    expect(duplicates.every((d) => d.severity === "note")).toBe(true);
+    expect(duplicates.some((d) => d.message.includes("net VOUT states its window (4.5V..5.5V) 2 times"))).toBe(true);
   });
 
   test("the reference project's pages have no text on top of each other", () => {

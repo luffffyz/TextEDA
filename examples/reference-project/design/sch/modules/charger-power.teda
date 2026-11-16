@@ -111,6 +111,9 @@ ports
   GND      GND
   SYS_OUT  SYS
 
+# The adapter's limit is a declared fact, not a comment: the path from the jack into the board
+# carries it, and the jack's own rating (500mA) is checked against it.
 constraints
-  voltage  VCC  5V..28V
-  voltage  VFB  2.079V..2.121V
+  voltage  VCC        5V..28V
+  voltage  VFB        2.079V..2.121V
+  current  ADAPTER_P  4A

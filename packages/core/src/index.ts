@@ -56,11 +56,25 @@ export {
 
 export {
   checkRatings,
+  type ComparisonCoverage,
   type RatingCoverage,
   type RatingDevice,
   type RatingFacts,
   type RatingReport,
 } from "./design/ratings.ts";
+
+export {
+  checkCurrentRatings,
+  type CurrentCoverage,
+  type CurrentDevice,
+  type CurrentFacts,
+  type CurrentReport,
+} from "./design/current.ts";
+
+export {
+  checkConstraintAgreement,
+  type ConstraintFacts,
+} from "./design/constraints.ts";
 
 export {
   checkDeviceDeclaration,

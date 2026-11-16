@@ -842,6 +842,20 @@ export const DIAGNOSTIC_CODES = {
     hint: "The source may sit on another net behind a series element, or off-board — the tool sees this net only",
     spec: ["teda.md §11"],
   },
+  "net.constraint-conflict": {
+    domain: "net",
+    severity: "error",
+    summary: "One net is given two different windows or current limits",
+    hint: "One net states one window; keep one declaration and make the others agree with it",
+    spec: ["spec/teda.md §7.3", "docs/adr/10-process/0041-documentation-has-one-authority-per-fact.md D1"],
+  },
+  "net.constraint-duplicate": {
+    domain: "net",
+    severity: "note",
+    summary: "One net states its window or current limit more than once",
+    hint: "Keep one declaration: a fact with two homes is two files to edit",
+    spec: ["spec/teda.md §7.3", "docs/adr/10-process/0041-documentation-has-one-authority-per-fact.md D1"],
+  },
   "net.port-in-two-nets": {
     domain: "net",
     severity: "error",
@@ -1199,6 +1213,27 @@ export const DIAGNOSTIC_CODES = {
     summary: "Resistive instances whose worst-case dissipation could not be compared with any power limit",
     hint: "state the reference potential (voltage GND 0V..0V) and a window on the net; the package floor covers chip resistors with a JEDEC size, nothing else",
     spec: ["docs/adr/07-devices/0026-a-part-states-its-own-ratings.md", "docs/adr/07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md"],
+  },
+  "design.current-exceeded": {
+    domain: "design",
+    severity: "error",
+    summary: "A pin is declared to carry more current than its part is rated for",
+    hint: "use a part rated for the current the pin carries, or state a lower current",
+    spec: ["spec/teda.md §7.3", "docs/adr/07-devices/0026-a-part-states-its-own-ratings.md"],
+  },
+  "design.current-below-rating": {
+    domain: "design",
+    severity: "warning",
+    summary: "A part on a net that declares a current is rated below that current",
+    hint: "use a part rated for the current this path carries, or state the current of the pin itself (current <pin> <max>), which the tool can compare without guessing",
+    spec: ["spec/teda.md §7.3", "docs/adr/07-devices/0026-a-part-states-its-own-ratings.md"],
+  },
+  "design.current-unknown": {
+    domain: "design",
+    severity: "note",
+    summary: "Instances a current limit speaks about that state no rated_current, so they were not compared",
+    hint: "state the part's rated_current (a part's ratings, a generic's line), or state the current of the pin itself",
+    spec: ["spec/teda.md §7.3", "docs/adr/07-devices/0026-a-part-states-its-own-ratings.md"],
   },
   "cli.bad-usage": {
     domain: "cli",
