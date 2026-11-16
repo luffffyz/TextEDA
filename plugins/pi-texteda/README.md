@@ -23,6 +23,10 @@ our toolchain, so there is no command that re-runs it today — treat that run a
 the extension was verified, not as the way to run it; ask your host how it loads an extension, or
 use the MCP route below, which needs no host-specific loader at all.
 
+Not every agent host loads pi extensions. The runtime this repository is developed in loads MCP
+servers and Agent Plugins, not pi modules, so this adapter cannot be installed there — see
+[docs/plugin-hosts.md](../../docs/plugin-hosts.md), "The runtime this repository is developed in".
+
 ## What the model sees
 
 Eight tools, named after the commands: `texteda_check`, `texteda_view_metrics`,

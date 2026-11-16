@@ -35,7 +35,9 @@ picture in a way of its own; that is not two routes into one half.
 
 > **Amended (2026-11-16): the exception is gone.** This section used to exempt "our own harness"
 > (pi) from the rule, on the grounds that a native route we own is ours to own. pi is no longer
-> the harness this repository is developed in, so the exception has no ground left — and with it
+> the harness this repository is developed in, and the harness we do develop in does not load pi
+> extensions at all — it loads MCP servers and Agent Plugins
+> ([docs/plugin-hosts.md](../../plugin-hosts.md)), so the carve-out was never usable — and with it
 > goes the reason a native route would ever be preferred over the one that serves every other
 > host. The rule is now what it always was, without a carve-out: **the verbs go over MCP
 > wherever the host speaks it.** A host with a registry of its own is not thereby served by that

@@ -15,15 +15,17 @@ the agent's workbench rather than beside it. That means the tool has to be a **p
 "plugin" means something different in every host, and the difference decides what we would have to
 build.
 
-Three hosts are worth knowing:
+Three hosts are worth knowing, and a fourth is the one we work in:
 
 - **DSH (DeepSeek Harness)** — a harness with a real plugin market: bundles are npm packages, and
   a bundle carries both a host half and a browser half.
-- **pi (oh-my-pi / OMP)** — a host whose extension surface is code, not pixels: tools, commands,
+- **pi (oh-my-pi)** — a host whose extension surface is code, not pixels: tools, commands,
   hooks, and a small text widget.
 - **Claude Code** — a plugin can be a **mod**: code that runs inside Claude Code's own process and
   draws into the interface. It has a drawing surface without a page, which is what makes it
   different from the two above.
+- **mcode** — the runtime this repository is developed in. It loads MCP servers and Agent Plugins;
+  it does not load pi extensions.
 
 ## The axis is the profile, not the vendor
 
@@ -136,7 +138,7 @@ review app's business ([ADR-0043](adr/09-view/0043-the-review-app-is-a-plugin-of
 it mounts the same `mountReview` the standalone app mounts, in a `sidebar.right.pane.tab` whose
 project root is the session's `cwd`.
 
-## pi (oh-my-pi / OMP)
+## pi (oh-my-pi)
 
 ### An extension is a module with a default-export factory
 
@@ -197,6 +199,48 @@ smoke ran once, on a host that is not part of our toolchain, so there is no comm
 it today — that run is a record of how the adapter was verified, not the way to run it.
 
 pi loads TypeScript directly, so there is no build step and no new dependency.
+
+## The runtime this repository is developed in (mcode)
+
+Not on the survey above, because it is the host we work in rather than a host we target — but the
+verbs still have to reach it, so its shape is ours to know. Facts read from the installed package
+on 2026-11-16; host APIs move fast, so re-read before writing code against them.
+
+`mcode` is the binary of `@minimax-ai/code` (0.7.7). It loads a plugin by **manifest**, not by
+module: `plugin.json` (the Agent Plugins manifest, `AGENT_PLUGINS_V1`), or
+`.minimax-plugin/plugin.json`, `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`. What a
+plugin may contribute is a fixed list, and it differs by manifest kind:
+
+| Kind | What it is |
+|---|---|
+| `mcpServers` | MCP servers, stdio or http — the `mcp.json` shape |
+| `skills` | `<skill>/SKILL.md`, the Agent Skills format (YAML front matter, `name` and `description`) |
+| `apps` | an app the host can open (Agent Plugins V1) |
+| `hooks` | event handlers |
+| `agents` | a subagent definition (the Claude/Codex-compatible manifests) |
+| `miniapp` | a small in-session app |
+
+**An installed plugin cannot register a tool.** The host has an internal extension registry
+(`registerTool`, `contributeSystemPrompt`, `on(...)`), but it feeds the host's own built-in
+extensions; no manifest field above hands that API to a plugin — the Agent Plugins V1 manifest
+even reports an `extensions` field as ignored. A plugin's own JavaScript runs only as an MCP server
+subprocess (`PLUGIN_ROOT` and `PLUGIN_DATA` in its environment). The strings `pi.zod`,
+`pi.registerTool`, `pi.arktype` and `pi.typebox` are absent from the whole bundle — so **this
+host does not load pi extensions**, and it has no registry of its own a plugin could put a tool into
+([ADR-0046](adr/10-process/0046-a-host-is-entered-once.md) D2).
+
+### What it means for TextEDA — our plan
+
+- **`plugins/pi-texteda/` cannot be installed here.** The adapter needs `pi.zod` and
+  `pi.registerTool` ([ADR-0044](adr/10-process/0044-the-agent-surface-is-a-set-of-verbs.md) D8), and
+  this host offers neither.
+- **Our MCP server is the route that works.** The host's MCP configuration is already the Agent
+  Plugins `mcpServers` shape, so `texteda mcp` is one more entry — the route ADR-0046 D2 asks for.
+  Verified on 2026-11-16: the server answers `initialize` and `tools/list`, and the eight verbs
+  come back with the catalogue's schemas.
+- **The picture half is a separate question.** Nothing here settles how a picture would be shown in
+  this host; the browser route ([ADR-0047](adr/10-process/0047-the-picture-reaches-a-host-by-three-routes.md)
+  D1, route 1) needs nothing from it.
 
 ## Claude Code
 
