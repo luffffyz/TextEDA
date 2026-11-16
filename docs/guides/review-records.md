@@ -9,12 +9,13 @@ decision is the reason.
 
 | Thing | Where | Form |
 |---|---|---|
-| Notes (what reviewers saw) | `docs/reviews/<round_id>.md` | Markdown, prose |
-| Decision (what was decided about them) | `docs/reviews/<round_id>.decision.toml` | TOML, four facts |
+| A round (what reviewers saw, and what was decided about it) | `docs/reviews/<date>-<slug>.md` | Markdown: four plain lines, then prose |
 | The accountable person | `project.toml` → `[project] owner` | one name |
 
-A **round** is one review pass over one target. The `round_id` is a short slug, unique in the
-project: `main-sch-r1`, `main-sch-r2`, `charger-buck-pcb-r1`, `tps7a02-correction-1`.
+A **round** is one review pass over one target, and it is **one file**. The date is the day the
+round happened and the slug names what it looked at: `2026-10-23-main-sch-r1`,
+`2026-10-23-charger-buck-pcb-r1`, `2026-11-16-tps7a02-correction`. A date in the name sorts the
+rounds in the order they happened, and the slug keeps the artifact visible.
 
 Reviews are **not a description type**. They are not in the language, they have no schema, they
 produce no IR shard, and they change no hash. A project may accumulate hundreds of notes; prose
@@ -35,24 +36,32 @@ The convention is deliberately minimal so that a round can be written by several
 sitting without arguing about the format. Notes carry **no verdict**: what a reviewer thinks is
 a note; what the project accepts is the accountable person's decision.
 
-The tool does not read the notes. It reads the decision file, and it reports which rounds have
-notes without a decision.
+The tool does not read the notes. It reads the decision at the top of the file, and it reports
+which rounds have notes without a decision.
 
 ## The decision
 
-```toml
-target  = "board:mcu-board"
-owner   = "carol"
-date    = "2026-10-23"
-verdict = "accepted"
+The four facts stand at the top of the round's own file, **above the notes**: the tool reads the head
+of the file and stops at the first note, so a decision written below the notes is not read — the
+round stays open, which is the safe way to be wrong.
+
+```
+target: board:mcu-board
+owner: carol
+date: 2026-10-23
+verdict: accepted
 ```
 
 | Field | Value |
 |---|---|
-| `target` | `board:<board_id>`, `page:<page_id>` or `component:<component_id>` |
+| `target` | `board:<board_id>`, `page:<page_id>`, `component:<component_id>` or `repo` |
 | `owner` | The accountable person (see below) |
 | `date` | `YYYY-MM-DD` |
 | `verdict` | `accepted`, `declined` or `deferred` |
+
+`repo` names a round about the repository itself — its toolchain, its records, its library —
+rather than about a design. The set has no `project:` form, so a decision on `board:<board_id>`
+is not project-wide sign-off.
 
 | Verdict | Meaning |
 |---|---|
@@ -60,8 +69,8 @@ verdict = "accepted"
 | `declined` | The notes are recorded and not adopted. The reasoning is a note the accountable person wrote. |
 | `deferred` | The notes are postponed to a later revision. |
 
-A round is **closed** when it has a decision. Notes that arrive after a decision belong to a new
-round, so that a decision is never reinterpreted.
+A round is **closed** when its file carries the four facts. Notes that arrive after a decision
+belong to a new round, so that a decision is never reinterpreted.
 
 ## The accountable person
 
@@ -81,10 +90,10 @@ somebody decided without the authority, or the handover was never recorded.
 
 ## What `check` reports
 
-> Status: **implemented** — `texteda check` reads the decision files and reports the cases below
-> ([ADR-0037](../adr/09-view/0037-review-records-and-attribution.md)). The notes stay prose: the tool
-> reads the decision file, not the notes. How to run a round with several roles is in
-> [role-reviews.md](role-reviews.md).
+> Status: **implemented** — `texteda check` reads the four facts at the top of each round file and
+> reports the cases below ([ADR-0037](../adr/09-view/0037-review-records-and-attribution.md)). The
+> notes stay prose: the tool reads the head of the file, not the notes. How to run a round with
+> several roles is in [role-reviews.md](role-reviews.md).
 
 | Diagnostic | Severity | Meaning |
 |---|---|---|

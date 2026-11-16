@@ -196,10 +196,10 @@ when semantics change, emit a new code and mark the old one `[DEPRECATED → new
 
 | Code | Severity | Meaning | How to fix | Spec |
 |---|---|---|---|---|
-| `review.round-unclosed` | warning | A review round has notes and no decision | Someone raised something and nobody answered it: write docs/reviews/<round>.decision.toml (accepted / declined / deferred) | docs/adr/09-view/0037-review-records-and-attribution.md D6, docs/adr/09-view/0037-review-records-and-attribution.md D7 |
+| `review.round-unclosed` | warning | A review round has notes and no decision | Someone raised something and nobody answered it: write target, owner, date and verdict (accepted / declined / deferred) at the top of the round file | docs/adr/09-view/0037-review-records-and-attribution.md D6, docs/adr/09-view/0037-review-records-and-attribution.md D7 |
 | `review.owner-missing` | error | The project has review rounds but no accountable person (`[project].owner`) | Nobody can close a round until the project names who is accountable: write `[project].owner` in project.toml | docs/adr/09-view/0037-review-records-and-attribution.md D5 |
 | `review.owner-mismatch` | warning | A decision is owned by someone other than the project's accountable person | Either somebody decided without the authority, or the handover was never written into project.toml | docs/adr/09-view/0037-review-records-and-attribution.md D5, docs/adr/09-view/0037-review-records-and-attribution.md D7 |
-| `review.decision-invalid` | error | A decision file is missing a field or carries a verdict outside the closed set | A decision needs target, owner, date and a verdict of accepted / declined / deferred | docs/adr/09-view/0037-review-records-and-attribution.md D4 |
+| `review.decision-invalid` | error | A decision is missing a field or carries a verdict outside the closed set | A decision needs target, owner, date and a verdict of accepted / declined / deferred | docs/adr/09-view/0037-review-records-and-attribution.md D4 |
 
 ## `format`
 

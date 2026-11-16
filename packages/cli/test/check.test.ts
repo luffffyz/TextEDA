@@ -526,16 +526,20 @@ describe("project module ownership and explicit interconnects (ADR-0069)", () =>
 });
 
 describe("review rounds (ADR-0037)", () => {
-  const ROUND = "# Review of project main, round 1\n\nTarget `board:b`. Roles: power.\n\n- power (2026-10-23): the rail has no margin.\n";
+  const ROUND_ID = "2026-10-23-b-sch-r1";
 
   function withReviews(root: string, owner: string | null, decision: string | null): void {
     if (owner !== null) writeFileSync(join(root, "project.toml"), `${PROJECT.replace('format = "0.9.1"', `format = "0.9.1"\nowner = "${owner}"`)}`);
     mkdirSync(join(root, "docs/reviews"), { recursive: true });
-    writeFileSync(join(root, "docs/reviews", "b-sch-r1.md"), ROUND);
-    if (decision !== null) writeFileSync(join(root, "docs/reviews", "b-sch-r1.decision.toml"), decision);
+    // One file per round: the notes, and the four facts above them when the round is closed.
+    const head = decision === null ? "" : `${decision}\n\n`;
+    writeFileSync(
+      join(root, "docs/reviews", `${ROUND_ID}.md`),
+      `# Review of project main, round 1\n\n${head}- power (2026-10-23): the rail has no margin.\n`,
+    );
   }
 
-  const decision = (owner: string) => `target = "board:b"\nowner = "${owner}"\ndate = "2026-10-23"\nverdict = "deferred"\n`;
+  const decision = (owner: string) => `target: board:b\nowner: ${owner}\ndate: 2026-10-23\nverdict: deferred`;
 
   test("notes with no decision are reported, and the notes stay out of the exit code", () => {
     const root = makeProject();
@@ -544,7 +548,7 @@ describe("review rounds (ADR-0037)", () => {
       const result = checkProject(root);
       const rounds = result.diagnostics.filter((d) => d.code === "review.round-unclosed");
       expect(rounds).toHaveLength(1);
-      expect(rounds[0]!.data).toEqual({ round: "b-sch-r1", notes: 1, authors: "power" });
+      expect(rounds[0]!.data).toEqual({ round: ROUND_ID, notes: 1, authors: "power" });
       expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -567,7 +571,19 @@ describe("review rounds (ADR-0037)", () => {
       withReviews(root, "carol", decision("dave"));
       const mismatch = checkProject(root).diagnostics.filter((d) => d.code === "review.owner-mismatch");
       expect(mismatch).toHaveLength(1);
-      expect(mismatch[0]!.data).toEqual({ round: "b-sch-r1", decision_owner: "dave", project_owner: "carol" });
+      expect(mismatch[0]!.data).toEqual({ round: ROUND_ID, decision_owner: "dave", project_owner: "carol" });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a decision that is missing a field is reported as invalid, not as unclosed", () => {
+    const root = makeProject();
+    try {
+      withReviews(root, "carol", "target: board:b\nowner: carol\ndate: 2026-10-23");
+      const invalid = checkProject(root).diagnostics.filter((d) => d.code === "review.decision-invalid");
+      expect(invalid).toHaveLength(1);
+      expect(checkProject(root).diagnostics.filter((d) => d.code === "review.round-unclosed")).toHaveLength(0);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

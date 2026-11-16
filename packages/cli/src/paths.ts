@@ -22,7 +22,7 @@ export const LAYOUT = {
   sch: "design/sch",
   /** Physical PCB implementations: `design/pcb/<pcb_id>.teda` (ADR-0069 D2). */
   pcb: "design/pcb",
-  /** Review rounds (ADR-0037): `docs/reviews/<round_id>.md` and `<round_id>.decision.toml`. */
+  /** Review rounds (ADR-0037): `docs/reviews/<date>-<slug>.md` — the notes and the decision in one file. */
   reviews: "docs/reviews",
   /** Module definitions: `design/sch/modules/<module_id>.teda` (ADR-0070). */
   modules: "design/sch/modules",

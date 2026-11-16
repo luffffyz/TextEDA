@@ -48,7 +48,7 @@ A chain may change layers only through a barrel. Two primitives are connected wh
   SYS pad is on the end of the GND track and its GND pad on the end of the SYS track, i.e. another net's copper
   reaches the pad. The check reports the pair as unbacked, which is what it can prove (`bind.connect-unbacked` does
   not cross nets); the short itself is the clearance question of D7, still borrowed. The observation is filed as a
-  note of `charger-buck-pcb-r1`, whose verdict is `deferred`.
+  note of `2026-10-23-charger-buck-pcb-r1`, whose verdict is `deferred`.
 - The reference project stays a passing gate: a `warning` does not change `check`'s exit code. Fixing the file (drawing the run the declaration implies, or moving the tap) is the author's call, because which side is wrong is an electrical decision, not a geometric one.
 - A `pcb` for which no copper is drawn at all now produces a report per declared pair rather than silence — the same complaint rule 4 already makes once per net, from the other direction.
 - `spec/pcb.md` §5.2's closing paragraph ("geometry-level checks are done by a geometry checker or KiCad DRC") becomes precise: coverage is ours; the agent-facing DRC subset is now ours too ([ADR-0017](0017-layout-and-routing-are-agent-driven.md)), with KiCad DRC as an optional oracle.

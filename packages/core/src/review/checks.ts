@@ -1,13 +1,13 @@
 // The review process as a check (ADR-0037 D6/D7): a round's state is a fact about a human
 // process, not about the design. Nothing here reads a description file or a shard — the caller
-// parses the Markdown and the decision TOML, and this function judges what it found.
+// parses the Markdown round file, and this function judges what it found.
 //
 // Two questions, both answered with a warning so the build never depends on a process:
 //   1. does a round with notes have a decision?
 //   2. was the decision made by the project's accountable person?
 //
 // A note carries no verdict (ADR-0037 D6). This file must never infer one from the notes' text:
-// the only verdict is the one written in `docs/reviews/<round>.decision.toml`.
+// the only verdict is the one written in the head of the round file.
 import type { Diagnostic } from "@texteda/ir/diagnostics";
 
 /** One note of a round: the author, the date, and the observation (kept only to report who raised what). */
@@ -17,7 +17,7 @@ export interface ReviewNote {
   text: string;
 }
 
-/** A decision as written in the decision file; every field optional so a malformed file is reported, not thrown. */
+/** A decision as written at the top of the round file; every field optional so a malformed one is reported, not thrown. */
 export interface ReviewDecision {
   file: string;
   target?: string;
@@ -27,7 +27,7 @@ export interface ReviewDecision {
 }
 
 export interface ReviewRound {
-  /** The round id: the file stem of `<round_id>.md`. */
+  /** The round id: the file stem of `<date>-<slug>.md`. */
   id: string;
   /** Notes file, relative to the project root. */
   file: string;
@@ -88,7 +88,7 @@ export function checkReviews(facts: ReviewFacts): Diagnostic[] {
           (round.target === undefined ? "" : ` (target ${round.target})`) +
           `: raised by ${authors.join(", ")}`,
         location: { file: round.file, line: 1, col: 1 },
-        hint: `write docs/reviews/${round.id}.decision.toml with target, owner, date and a verdict (accepted / declined / deferred)`,
+        hint: `write the four facts (target, owner, date, verdict) in the head of docs/reviews/${round.id}.md`,
         data: { round: round.id, notes: round.notes.length, authors: authors.join(",") },
       });
       continue;

@@ -13,7 +13,7 @@ const round = (over: Partial<ReviewRound> = {}): ReviewRound => ({
 });
 
 const decision = (over: Record<string, string> = {}) => ({
-  file: "docs/reviews/b-sch-r1.decision.toml",
+  file: "docs/reviews/2026-10-23-b-sch-r1.md",
   target: "board:b",
   owner: "carol",
   date: "2026-10-23",

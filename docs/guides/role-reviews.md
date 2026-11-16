@@ -21,7 +21,7 @@ Drop any of the three and two "roles" produce the same review with different voc
 | Requirements / product | measurable acceptance criteria per requirement | nothing machine-readable: requirements are prose ([ADR-0040](../adr/10-process/0040-process-entities-outside-the-language.md)) | the implementation |
 | System architect | interface table, power tree, clock tree | the project logical root's `ports`, `constraints`, `interconnects`, and `interconnect_pins`, plus each physical PCB's ownership description | module internals |
 | Project manager | milestones, long-lead risk register, baseline freeze | the risk list and dates | electrical detail |
-| Accountable person (`owner`) | the decision file | the notes | — (may not write notes of its own in the same round) |
+| Accountable person (`owner`) | the decision at the top of the round file | the notes | — (may not write notes of its own in the same round) |
 
 ### Design
 
@@ -53,7 +53,7 @@ Two failures are worth naming because they are cheap to prevent and expensive to
 The container does not change:
 
 - **one round = one target = one decision.** The roles are note authors, not extra rounds.
-- the round id names the artifact: `main-sch-r1`, `charger-buck-pcb-r1`. A round covers one artifact — the project logical root (`design/sch/main.teda`) or one physical PCB (`design/pcb/<pcb_id>.teda`). The existing decision-target convention has no project target, so a root round can record observations but cannot claim project-level sign-off; see the target gap below.
+- a round is **one file**, named `<date>-<slug>.md` — the day it happened and the artifact it looked at: `2026-10-23-main-sch-r1`, `2026-10-23-charger-buck-pcb-r1`. The decision's four facts are the four lines under the title ([review-records.md](review-records.md)). A round covers one artifact — the project logical root (`design/sch/main.teda`) or one physical PCB (`design/pcb/<pcb_id>.teda`). The decision-target convention has no project target, so a root round can record observations but cannot claim project-level sign-off; see the target gap below.
 - the author field carries the role, because the review is often run by agents and the person is in the commit: `- hardware (2026-10-23): ...`.
 - notes carry no verdict. Disagreement is two notes, never an average; the decision says which one the owner followed and why.
 - a note is an **observation at a date**, not a status. When its claim stops being true (a stale comment got deleted, a rating got added, a check landed), do not rewrite the note: append `→ addressed <date>: <what changed>`. A note without that line is still open, whatever the code now does — the round's decision is the only place a note is closed.
@@ -62,7 +62,7 @@ The container does not change:
 
 ### Targets the enum does not have
 
-The existing review decision-target convention has no project target, so a root-wide review cannot currently be represented as a project sign-off. If a round's evidence crosses PCBs — such as project-root interconnects — or covers project-wide compliance, its first line must name that broader scope; a `board:` decision signs off only that PCB, not the project-wide finding.
+The review decision-target convention has no project target, so a root-wide review cannot currently be represented as a project sign-off. If a round's evidence crosses PCBs — such as project-root interconnects — or covers project-wide compliance, its first line must name that broader scope; a `board:` decision signs off only that PCB, not the project-wide finding. A round about the **repository itself** — its toolchain, its records, its library — is not a design review at all and says so: its target is `repo`.
 
 ## Pairs worth running first
 

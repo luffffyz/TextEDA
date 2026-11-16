@@ -90,7 +90,7 @@ Source module: [packages/core/src/index.ts](../../../packages/core/src/index.ts)
 | <code>RegionItem</code> | interface | <code>RegionItem</code> | A filled area: one region contour in the Gerber file (G36 / G37). | [packages/core/src/image.ts#L13](../../../packages/core/src/image.ts#L13) |
 | <code>RerouteInput</code> | interface | <code>RerouteInput</code> | — | [packages/core/src/view/reroute.ts#L43](../../../packages/core/src/view/reroute.ts#L43) |
 | <code>Rerouted</code> | interface | <code>Rerouted</code> | — | [packages/core/src/view/reroute.ts#L55](../../../packages/core/src/view/reroute.ts#L55) |
-| <code>ReviewDecision</code> | interface | <code>ReviewDecision</code> | A decision as written in the decision file; every field optional so a malformed file is reported, not thrown. | [packages/core/src/review/checks.ts#L21](../../../packages/core/src/review/checks.ts#L21) |
+| <code>ReviewDecision</code> | interface | <code>ReviewDecision</code> | A decision as written at the top of the round file; every field optional so a malformed one is reported, not thrown. | [packages/core/src/review/checks.ts#L21](../../../packages/core/src/review/checks.ts#L21) |
 | <code>ReviewFacts</code> | interface | <code>ReviewFacts</code> | — | [packages/core/src/review/checks.ts#L41](../../../packages/core/src/review/checks.ts#L41) |
 | <code>ReviewNote</code> | interface | <code>ReviewNote</code> | One note of a round: the author, the date, and the observation (kept only to report who raised what). | [packages/core/src/review/checks.ts#L14](../../../packages/core/src/review/checks.ts#L14) |
 | <code>ReviewRound</code> | interface | <code>ReviewRound</code> | — | [packages/core/src/review/checks.ts#L29](../../../packages/core/src/review/checks.ts#L29) |

@@ -1026,7 +1026,7 @@ export const DIAGNOSTIC_CODES = {
     domain: "review",
     severity: "warning",
     summary: "A review round has notes and no decision",
-    hint: "Someone raised something and nobody answered it: write docs/reviews/<round>.decision.toml (accepted / declined / deferred)",
+    hint: "Someone raised something and nobody answered it: write target, owner, date and verdict (accepted / declined / deferred) at the top of the round file",
     spec: ["docs/adr/09-view/0037-review-records-and-attribution.md D6", "docs/adr/09-view/0037-review-records-and-attribution.md D7"],
   },
   "review.owner-missing": {
@@ -1046,7 +1046,7 @@ export const DIAGNOSTIC_CODES = {
   "review.decision-invalid": {
     domain: "review",
     severity: "error",
-    summary: "A decision file is missing a field or carries a verdict outside the closed set",
+    summary: "A decision is missing a field or carries a verdict outside the closed set",
     hint: "A decision needs target, owner, date and a verdict of accepted / declined / deferred",
     spec: ["docs/adr/09-view/0037-review-records-and-attribution.md D4"],
   },

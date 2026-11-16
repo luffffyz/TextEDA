@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-10-22
 Scope: Decides: that a review is a record and not a description type, and that one project has exactly one accountable person. Does not decide: how a review is displayed — see `docs/guides/review-app.md`.
 Related: [ADR-0033](../08-libraries/0033-libraries-are-unverified-facts.md), [ADR-0035](0035-the-view-layer-is-a-drawing.md), [ADR-0036](0036-our-own-reference-renderer.md), [ADR-0040](../10-process/0040-process-entities-outside-the-language.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md)
-Impact: `docs/guides/review-records.md`; `docs/guides/role-reviews.md`; `packages/core/src/review/**`
+Impact: `docs/guides/review-records.md`; `docs/guides/role-reviews.md`; `packages/core/src/review/**`; `packages/cli/src/reviews.ts`
 
 ## Background
 
@@ -66,16 +66,28 @@ description, and the language is not the right container for them:
 
 So there is no `review` description type, no `review` schema, and no review shard.
 
-### 3. Notes are Markdown, one file per round
+### 3. Notes and decision are one file per round, named by date
+
+> **Amended (2026-11-16):** a round was two files — the notes and a small `decision.toml` beside
+> them. It is now **one file**, named `<date>-<slug>.md`. Two reasons: a round is one thing, and
+> what the reviewers saw and what was decided about it belong in the same file — reading them
+> apart is how a decision gets attached to the wrong notes; and a date in the name sorts the
+> rounds in the order they happened. The decision's four facts stay machine-readable: they are
+> four plain lines under the title, so the checks that read them keep working.
 
 Review records live in `docs/reviews/`, next to the design intent and the analysis evidence
 ([ADR-0008](../03-project/0008-project-tree-has-owners.md) decision 1) — they are about the project, not about
 the circuit, so they do not belong inside `design/`.
 
-A round's notes live in `docs/reviews/<round_id>.md` — prose, diffable, readable by anyone:
+A round's record is `docs/reviews/<date>-<slug>.md` — prose, diffable, readable by anyone:
 
 ```markdown
 # Review of mcu-board, round 1
+
+target: board:mcu-board
+owner: carol
+date: 2026-10-23
+verdict: accepted
 
 - alice (2026-10-22): U3 power supply part does not match the BOM
 - bob (2026-10-22): R7 value does not match the BOM
@@ -84,27 +96,34 @@ A round's notes live in `docs/reviews/<round_id>.md` — prose, diffable, readab
 The convention is deliberately minimal: one bullet per note, the author and the date in front,
 the observation after the colon. **The tools do not interpret the notes** — they read only the
 author, the date and the round's target, and leave the rest to the reader. The machine reads the
-decision.
+four facts under the title.
 
-### 4. The decision is a small TOML file
+### 4. The decision is four lines in the round file
+
+> **Amended (2026-11-16):** the decision used to be a separate `<round_id>.decision.toml`. It is
+> now the four plain lines in the head of the round file, so a round is one file. The facts are
+> unchanged: who decided, when, and what was decided about which target.
 
 The three facts the tools need — who decided, when, and what was decided about which target —
-are in `docs/reviews/<round_id>.decision.toml`:
+are the four lines under the title:
 
-```toml
-target  = "board:mcu-board"
-owner   = "carol"
-date    = "2026-10-23"
-verdict = "accepted"
+```
+target: board:mcu-board
+owner: carol
+date: 2026-10-23
+verdict: accepted
 ```
 
-- `target` is `board:<board_id>`, `page:<page_id>` or `component:<component_id>`. A page target names a flat project print page; it has no PCB parent. The current target set has no `project:` form, so a decision on `board:<board_id>` is not project-wide sign-off.
+- `target` is `board:<board_id>`, `page:<page_id>`, `component:<component_id>` or `repo`. A page
+  target names a flat project print page; it has no PCB parent. `repo` names a round about the
+  repository itself — its toolchain, its records, its library — rather than about a design. The
+  target set has no `project:` form, so a decision on `board:<board_id>` is not project-wide
+  sign-off.
 - `owner` is the accountable person.
 - `verdict` is `accepted`, `declined` or `deferred`.
 
-TOML is used because the project already uses it for the small metadata files that are not
-descriptions (`project.toml`, the library reference), and because a decision is metadata about a
-process rather than a fact about the design.
+The facts are plain lines rather than a second file because the record is Markdown and the
+decision belongs at the top of it: one format for the whole round, and nothing to parse twice.
 
 The verdicts are about **the notes of that round**:
 
@@ -153,7 +172,7 @@ one round never has to be reinterpreted.
 | `review.round-unclosed` | warning | A round has notes and no decision. Someone raised something and nobody has answered it. The report carries the target, the authors, the date and the notes. |
 | `review.owner-mismatch` | warning | A decision's `owner` is not the project's owner. Either somebody decided without the authority, or the handover was never recorded in `project.toml`. |
 | `review.owner-missing` | error | The project has review rounds and names no owner. |
-| `review.decision-invalid` | error | A decision file is missing a field, or carries a verdict outside the closed set. |
+| `review.decision-invalid` | error | A decision is missing a field, or carries a verdict outside the closed set. |
 
 The first two are warnings and neither fails the build, and neither changes any hash. The reason
 is that a review's state is a human process, not a property of the design. The tool's job is to
