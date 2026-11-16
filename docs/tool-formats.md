@@ -15,7 +15,7 @@ rather than guessing.
 | **Claude Code** | **yes** — a plugin's mods register tools natively; a plugin can also put a CLI on `PATH` | `.mcp.json` at the plugin root; a mod's `$.tool.register`; or `bin/` + a skill | MCP JSON Schema (`inputSchema`); a mod's registry takes a plain JSON Schema | MCP `CallToolResult` content blocks; a mod's `tool.call` answers `{ result }` |
 | **Codex CLI** | no — plugins carry skills + MCP servers | `[mcp_servers.<name>]` in `~/.codex/config.toml`; plugin marketplaces | MCP JSON Schema | MCP `CallToolResult` |
 | **DSH** | **yes** | `ctx.tools.register(defineTool({…}))` | flat spec: `{p: {type, required, description}}` | a canonical value plus `output.render` |
-| **pi / omp** | **yes** | a tool module: `(pi) => ({name, description, parameters, execute})` | omptype (`pi.zod` / `pi.arktype` / `pi.typebox`) | `{content: [{type:'text', text}], details}` |
+| **pi** | **yes** | a tool module: `(pi) => ({name, description, parameters, execute})` | omptype (`pi.zod` / `pi.arktype` / `pi.typebox`) | `{content: [{type:'text', text}], details}` |
 | **WorkBuddy** | no — experts cannot add tools at all | `mcp.json` with `mcpServers`; marketplace connector packages | MCP JSON Schema | MCP `CallToolResult` |
 | **Qoder** | only inside its SDK | plugin `.mcp.json`; SDK `tool()` + `createSdkMcpServer()` | MCP JSON Schema; SDK takes a Zod raw shape (TS) or a dict (Python) | MCP `CallToolResult` |
 
@@ -104,7 +104,7 @@ The parameter spec is **flat and bespoke** — `{type, required, description}` p
 JSON Schema. The result is a canonical value; `output.render` turns it into what the model reads.
 Registration is effect-based, and cards (`presentCall` / `presentResult`) are optional.
 
-### pi / omp
+### pi
 
 A tool is a module whose default export is a factory `(pi) => ({name, label, description,
 parameters, execute})`. Parameters are declared with `pi.zod` (Zod-compatible), `pi.arktype` or
@@ -115,13 +115,8 @@ Schema** at the provider boundary (`toolWireSchema()`), and which can import a J
 definitions may carry `approval`, and `mcpServerName` / `mcpToolName` show that MCP is supported
 here too.
 
-omp's marketplace is compatible with the Claude Code plugin registry, and its tool discovery
-already reads `~/.claude/tools` and `~/.codex/tools` — in *omp's own* module format.
-
-Two names, one format: **omp here is a host that implements the pi module format**, not the
-harness this repository was developed in — that harness was dropped, and the delegation skill
-says so ([`docs/skills/delegate-work.md`](skills/delegate-work.md)). The pi adapter we keep is
-built for a host we would use ([F58](backlog.md)).
+The pi adapter we keep is built for a host we would use; the build order is
+[`docs/backlog.md`](backlog.md) F58's to set.
 
 ### WorkBuddy
 
@@ -162,10 +157,10 @@ deny per tool.
 **The pivot format is JSON Schema.** Five of the six hosts take plain JSON Schema unchanged —
 four of them through an MCP `inputSchema` (Codex CLI, WorkBuddy, Qoder and Claude Code's MCP
 server), plus Claude Code's own mods registry. DSH's flat spec is a
-flattening of the same object; omp normalises to draft-2020-12 anyway and can import a JSON Schema
-directly; and Claude Code's own `workflows/*.js` use plain JSON Schema for structured calls. So
-the catalogue is authored as **name + description + JSON Schema**, and each adapter is a projection
-of it.
+flattening of the same object; the pi module format normalises to draft-2020-12 anyway and can
+import a JSON Schema directly; and Claude Code's own `workflows/*.js` use plain JSON Schema for
+structured calls. So the catalogue is authored as **name + description + JSON Schema**, and each
+adapter is a projection of it.
 
 **Three adapters cover the six hosts.** This is a taxonomy, not the order we build them in — that
 order is [`docs/backlog.md`](backlog.md) F58's to set.
@@ -177,7 +172,7 @@ order is [`docs/backlog.md`](backlog.md) F58's to set.
    Qoder). Because MCP is JSON-Schema-native, this is the cheapest adapter of the three, and it
    also carries `outputSchema` / `structuredContent`. Claude Code has a registry of its own as
    well, but it is served over MCP ([ADR-0046](adr/10-process/0046-a-host-is-entered-once.md) D2).
-3. **Two native registry adapters** — DSH (`defineTool`) and pi / omp (`pi.registerTool`). Thin:
+3. **Two native registry adapters** — DSH (`defineTool`) and pi (`pi.registerTool`). Thin:
    the catalogue's JSON Schema becomes the host's parameter spec. Per-host, so they are built
    last.
 

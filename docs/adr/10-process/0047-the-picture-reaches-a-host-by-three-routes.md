@@ -101,7 +101,7 @@ both true and the third is false:
 | Codex CLI | none found | no | browser |
 | WorkBuddy | none found | no | browser |
 | Qoder | none found | no | browser |
-| pi / omp ([format](../../../docs/tool-formats.md)) | none — no webview, no panel extension point | no | browser |
+| pi ([format](../../../docs/tool-formats.md)) | none — no webview, no panel extension point | no | browser |
 
 Two host-native halves, not six. That is the answer to the question this record came from:
 adapting to an agent's own webview does **not** mean one plugin per host — it means one plugin

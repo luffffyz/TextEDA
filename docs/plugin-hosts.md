@@ -193,9 +193,8 @@ tool's answer is the value the command line prints with `--json`
 ([ADR-0044](adr/10-process/0044-the-agent-surface-is-a-set-of-verbs.md) D2).
 
 The adapter is a pi-format module, so a host that loads pi extensions can load it. The real-machine
-smoke ran in omp (`omp --extension plugins/pi-texteda`); that host is no longer part of our
-toolchain, so that command is a record of how the adapter was verified, not the way to run it
-today.
+smoke ran once, on a host that is not part of our toolchain, so there is no command that re-runs
+it today — that run is a record of how the adapter was verified, not the way to run it.
 
 pi loads TypeScript directly, so there is no build step and no new dependency.
 
@@ -298,7 +297,7 @@ surface **and** no other route reaches it:
 | Codex CLI | none found | no | browser |
 | WorkBuddy | none found | no | browser |
 | Qoder | none found | no | browser |
-| pi / omp | none — no webview, no panel extension point | no | browser |
+| pi | none — no webview, no panel extension point | no | browser |
 
 Two host-native halves, not six. **The DSH one has landed** (`plugins/dsh-texteda/`,
 [ADR-0043](adr/09-view/0043-the-review-app-is-a-plugin-of-the-agent-workbench.md) D9): the host half

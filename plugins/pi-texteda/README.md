@@ -18,10 +18,10 @@ the host. There is no second implementation of anything.
 ## How to load it
 
 The extension is a **pi-format module**: a host that loads pi extensions loads this one, with no
-build step and no new dependency. The real-machine smoke ran in omp (`omp --extension
-plugins/pi-texteda`); that host is no longer part of our toolchain, so treat that command as a
-record of how the extension was verified, not as the way to run it today — ask your host how it
-loads an extension, or use the MCP route below, which needs no host-specific loader at all.
+build step and no new dependency. The real-machine smoke ran once, on a host that is not part of
+our toolchain, so there is no command that re-runs it today — treat that run as a record of how
+the extension was verified, not as the way to run it; ask your host how it loads an extension, or
+use the MCP route below, which needs no host-specific loader at all.
 
 ## What the model sees
 
