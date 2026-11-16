@@ -797,6 +797,8 @@
 
 **2026-10-26 端子与方向已定，未实现**：`ratings` 行可以写成 `role type value from to`（pin 编号、有序对），方向由角色表决定（`symmetric` / `from` / `to` / `none`），角色表同时加 `kind`（`limit` / `characteristic` / `code`）。决策见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md)。**解析器先落地了一半**（2026-10-27）：带端子的 `ratings` 行被**拒绝**（`syntax.column-count`）而不是静默截断——端子语法没落地之前，宁可让文件写不进去，也不让事实悄悄消失。IR 契约 `rating.terminals`、`packages/core` 的端子比较仍未开始；参考工程没有可用的 datasheet 值，先用合成夹具。
 
+**2026-11-16 报告口径已落地（"不能读成通过"那一半）**：多引脚应力模型本身**仍未实现**（下面第 2 / 3 条照旧），但报告不再把"没比"读成"过了"。`texteda check` 的摘要最后一行现在写明没比的那部分（`Not fully checked: 21 of 83 instances were compared with a declared window.` / `4 of 27 resistive instances were compared with a power limit.`），`--json` 载荷里同一个数字在 `coverage` 里（`stress` / `dissipation`，各带 `compared` 与 `total`）；摘要与载荷同源，不会各说各话。另外比较**不再挂在 PCB 分支下**：它读的是根的 net、声明窗口和器件库，有逻辑根的工程都会跑（决策见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D13）。这条的来源是 2026-11-16 的设计方法评审（`docs/reviews/2026-11-16-design-method-r1.md` 第 3 条 note）。**剩下的还是模型**：端子对、方向、`kind`，以及 datasheet 里的值。
+
 **2026-10-23 覆盖率审计（实测，用来定下一步做什么）**：`texteda check` 的两块参考板。
 
 | 板 | 实例 | 已比 | 跳过 | 跳过原因 |
@@ -1454,3 +1456,58 @@ a DRC finding rather than a judgement only a person can make.
 
 **Note**: nothing here is a bug. The pen works; the question is how much of the app it should
 reach.
+
+---
+
+## F77. The language cannot say that a net is driven from off the board
+
+**Status**: Proposed (2026-11-16). The ERC now asks the question; the language has no way to
+answer it.
+
+**Current state**: `net.power-undriven` (note) fires when a `power_in` pin sits on a net that
+nothing on that net drives. The source may sit behind a series element — the reference project's
+BQ24610 takes its VCC through R17 from AC_COMMON, so the tool sees an undriven rail — or off the
+board, where a rail enters through a connector. The rule is a note for exactly that reason: the
+tool sees one net and cannot judge where the driver is.
+
+What it cannot do is let the answer be written down. A `port` says that a net leaves the module,
+and the root's ports are the project's edge, but nothing says that this edge is *fed from
+outside* rather than by something on the board. So every off-board-fed rail raises a note the
+author cannot answer, and the two ways to make it go away are both wrong: retype the pin as
+`passive`, or drop the type.
+
+**Why it matters**: a note that cannot be answered is a note people learn to ignore, and the ERC
+cannot tell "nobody drives this net" (a real error) from "the driver is off-board" (normal). The
+rule stays a note — the tool cannot judge the net — but the design should be able to say what it
+knows.
+
+**To do**:
+
+1. Decide the construct. The candidates: a root-level declaration that a net is fed from outside
+   the board; a direction on the project port ("this port receives power from outside"); a
+   library part for the source. The first two are language questions, the third is a library
+   question, and they are not the same decision.
+2. Whatever it is, it needs four things settled together: its name, where it may live (root
+   only, or any description), what it does to `net.power-undriven` (the note stops firing for
+   that net — or becomes something else), and how it lands in the IR. The IR must faithfully
+   project it (ADR-0026 D17), so a new shape means an `ir_version` bump with a migration note
+   (ADR-0006 D3).
+3. Then the checker consumes it: the ERC's `externallyDrivenNets` is already the seam where such
+   a fact would land (`packages/core/src/erc/connectivity.ts`).
+
+**Involved files**: `spec/teda.md` §7 (the logical root), `spec/teda.md` §9.1 (the pin electrical
+types), `packages/core/src/erc/connectivity.ts`, `packages/parser/src/schematic.ts`,
+`schemas/ir/<version>/schematic.schema.json`.
+
+**Acceptance**:
+
+- A design whose rail enters through a connector can say so, and the rail raises no
+  `net.power-undriven`.
+- A design with a genuinely undriven rail still gets the note.
+- The construct is in the specification, in the IR and in the checker, and the IR version it
+  needs is bumped with its migration note.
+
+**Note**: the checker half already exists — the ERC reads the pin electrical types (2026-11-16).
+What is missing is the language: the ability to answer the question the rule asks. This is the
+language half of the second note of the 2026-11-16 design-method review
+(`docs/reviews/2026-11-16-design-method-r1.md`).

@@ -42,7 +42,7 @@ describe("rating checks", () => {
       constraints: [VOLTAGE("SYS", 9_000_000, 19_800_000), VOLTAGE("GND", 0, 0)],
       params: { C1: [{ name: "voltage", value: 16_000_000 }] },
     });
-    const diagnostics = checkRatings({ file: "b.teda", schematic, devices: new Map([["cap-0402", TWO_PIN]]) });
+    const { diagnostics } = checkRatings({ file: "b.teda", schematic, devices: new Map([["cap-0402", TWO_PIN]]) });
     const error = diagnostics.find((d) => d.code === "design.rating-exceeded");
     expect(error?.severity).toBe("error");
     expect(error?.message).toContain("rated 16V");
@@ -62,7 +62,7 @@ describe("rating checks", () => {
       constraints: [VOLTAGE("A", 1_000_000, 5_000_000), VOLTAGE("B", -7_000_000, 0)],
       params: { C1: [{ name: "voltage", value: 10_000_000 }] },
     });
-    const diagnostics = checkRatings({ file: "b.teda", schematic: frames, devices: new Map([["cap-0402", TWO_PIN]]) });
+    const { diagnostics } = checkRatings({ file: "b.teda", schematic: frames, devices: new Map([["cap-0402", TWO_PIN]]) });
     expect(diagnostics.map((d) => d.code)).toContain("design.rating-exceeded");
   });
 
@@ -76,7 +76,7 @@ describe("rating checks", () => {
       constraints: [VOLTAGE("VOUT", 4_850_000, 5_150_000), VOLTAGE("GND", 0, 0)],
     });
     const device: RatingDevice = { pins: ["1", "2"], ratings: { voltage: { type: "voltage", value: 4_000_000 } } };
-    const diagnostics = checkRatings({ file: "b.teda", schematic, devices: new Map([["cap-tantalum", device]]) });
+    const { diagnostics } = checkRatings({ file: "b.teda", schematic, devices: new Map([["cap-tantalum", device]]) });
     expect(diagnostics.map((d) => d.code)).toContain("design.rating-exceeded");
   });
 
@@ -96,7 +96,7 @@ describe("rating checks", () => {
         C2: [{ name: "voltage", value: 50_000_000 }],
       },
     });
-    const diagnostics = checkRatings({ file: "b.teda", schematic, devices: new Map([["cap-0402", TWO_PIN]]) });
+    const { diagnostics } = checkRatings({ file: "b.teda", schematic, devices: new Map([["cap-0402", TWO_PIN]]) });
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0]!.code).toBe("design.stress-unknown");
     expect(diagnostics[0]!.severity).toBe("note");
@@ -117,9 +117,52 @@ describe("rating checks", () => {
       pins: ["1", "2", "3", "4"],
       ratings: { voltage: { type: "voltage", value: 28_000_000 } },
     };
-    const diagnostics = checkRatings({ file: "b.teda", schematic, devices: new Map([["regulator", device]]) });
+    const { diagnostics } = checkRatings({ file: "b.teda", schematic, devices: new Map([["regulator", device]]) });
     expect(diagnostics.map((d) => d.code)).toEqual(["design.stress-unknown"]);
     expect(diagnostics[0]!.message).toContain("1 not two-terminal");
+  });
+});
+
+describe("the coverage the comparison reports (ADR-0026 D13)", () => {
+  test("an uncompared instance is counted, not passed", () => {
+    const schematic = board({
+      instances: [
+        { id: "C1", component: "cap-0402" },
+        { id: "U1", component: "regulator" },
+      ],
+      nets: [
+        { id: "SYS", members: ["C1.1", "U1.1"] },
+        { id: "GND", members: ["C1.2", "U1.2"] },
+      ],
+      constraints: [VOLTAGE("SYS", 9_000_000, 19_800_000), VOLTAGE("GND", 0, 0)],
+      params: { C1: [{ name: "voltage", value: 50_000_000 }] },
+    });
+    const regulator: RatingDevice = { pins: ["1", "2", "3", "4"], ratings: {} };
+    const { coverage } = checkRatings({
+      file: "b.teda",
+      schematic,
+      devices: new Map([["cap-0402", TWO_PIN], ["regulator", regulator]]),
+    });
+    // C1 was compared (it is two-terminal with a capability and two windows); U1 was not.
+    expect(coverage.stress).toEqual({ compared: 1, total: 2 });
+  });
+
+  test("a design where everything was compared reports full coverage", () => {
+    const schematic = board({
+      instances: [{ id: "C1", component: "cap-0402" }],
+      nets: [
+        { id: "SYS", members: ["C1.1"] },
+        { id: "GND", members: ["C1.2"] },
+      ],
+      constraints: [VOLTAGE("SYS", 9_000_000, 19_800_000), VOLTAGE("GND", 0, 0)],
+      params: { C1: [{ name: "voltage", value: 50_000_000 }] },
+    });
+    const { coverage } = checkRatings({
+      file: "b.teda",
+      schematic,
+      devices: new Map([["cap-0402", TWO_PIN]]),
+    });
+    expect(coverage.stress).toEqual({ compared: 1, total: 1 });
   });
 });
 
@@ -149,7 +192,7 @@ describe("dissipation checks (ADR-0026)", () => {
       constraints: windows,
       params: { R1: [{ name: "value", value: 100_000_000 }] }, // 100 Ω
     });
-    const diagnostics = checkRatings({
+    const { diagnostics } = checkRatings({
       file: "sch/b.teda",
       schematic,
       devices: new Map([["res-thick-0402", { ...RESISTOR, ratings: { power: { type: "power", value: 62_500 } } }]]),
@@ -171,7 +214,7 @@ describe("dissipation checks (ADR-0026)", () => {
       constraints: windows,
       params: { R1: [{ name: "value", value: 10_000_000_000 }] }, // 10 kΩ
     });
-    const diagnostics = checkRatings({
+    const { diagnostics } = checkRatings({
       file: "sch/b.teda",
       schematic,
       devices: new Map([["res-thick-0402", { ...RESISTOR, ratings: { power: { type: "power", value: 62_500 } } }]]),
@@ -191,7 +234,7 @@ describe("dissipation checks (ADR-0026)", () => {
       constraints: [...windows, { type: "power", subject: "R1.1", max_uw: 10_000 } as NonNullable<Schematic["constraints"]>[number]],
       params: { R1: [{ name: "value", value: 10_000_000_000 }] },
     });
-    const diagnostics = checkRatings({
+    const { diagnostics } = checkRatings({
       file: "sch/b.teda",
       schematic,
       devices: new Map([["res-thick-0402", { ...RESISTOR, ratings: { power: { type: "power", value: 62_500 } } }]]),
@@ -211,7 +254,7 @@ describe("dissipation checks (ADR-0026)", () => {
       constraints: windows,
       params: { R1: [{ name: "value", value: 10_000_000_000 }] },
     });
-    const diagnostics = checkRatings({
+    const { diagnostics } = checkRatings({
       file: "sch/b.teda",
       schematic,
       devices: new Map([["res-thick-0402", RESISTOR]]),
@@ -231,7 +274,7 @@ describe("dissipation checks (ADR-0026)", () => {
       constraints: windows,
       params: { R1: [{ name: "value", value: 100_000_000 }] }, // 100 Ω on 12V = 1.44W
     });
-    const diagnostics = checkRatings({
+    const { diagnostics } = checkRatings({
       file: "sch/b.teda",
       schematic,
       devices: new Map([["res-thick-0402", { ...RESISTOR, construction: "thick", package_code: "0402" }]]),
@@ -252,7 +295,7 @@ describe("dissipation checks (ADR-0026)", () => {
       constraints: windows,
       params: { R1: [{ name: "value", value: 190_000_000 }, { name: "power", value: 1_000_000 }] }, // 190Ω, 1W
     });
-    const diagnostics = checkRatings({
+    const { diagnostics } = checkRatings({
       file: "sch/b.teda",
       schematic,
       devices: new Map([
@@ -274,7 +317,7 @@ describe("dissipation checks (ADR-0026)", () => {
       constraints: windows,
       params: { R1: [{ name: "value", value: 100_000_000 }, { name: "power", value: 1_000_000 }] }, // 100Ω, 1W
     });
-    const diagnostics = checkRatings({
+    const { diagnostics } = checkRatings({
       file: "sch/b.teda",
       schematic,
       devices: new Map([
@@ -296,7 +339,7 @@ describe("dissipation checks (ADR-0026)", () => {
       constraints: windows,
       params: { R1: [{ name: "value", value: 100_000_000 }] },
     });
-    const diagnostics = checkRatings({
+    const { diagnostics } = checkRatings({
       file: "sch/b.teda",
       schematic,
       devices: new Map([["res-thick-0402", { ...RESISTOR, construction: "thick", package_code: "1005" }]]),

@@ -95,6 +95,33 @@ describe("check exit codes", () => {
     expect(result.stderr).toContain("errors");
   });
 
+  test("the summary counts the notes and says what was not compared", () => {
+    // A report whose last line is "0 errors" reads as a pass on a design where most parts were
+    // never compared (ADR-0026 D13). The summary says so.
+    const result = run(["check", "examples/reference-project"]);
+    expect(result.code).toBe(0);
+    expect(result.stderr).toContain("3 notes");
+    expect(result.stderr).toContain("Not fully checked: 21 of 83 instances were compared with a declared window.");
+    expect(result.stderr).toContain(
+      "Not fully checked: 4 of 27 resistive instances were compared with a power limit.",
+    );
+  });
+
+  test("the machine payload carries the coverage of the electrical comparison", () => {
+    const result = run(["check", "examples/reference-project", "--json"]);
+    expect(result.code).toBe(0);
+    const report = JSON.parse(result.stdout) as {
+      noteCount: number;
+      coverage?: {
+        stress: { compared: number; total: number };
+        dissipation: { compared: number; total: number };
+      };
+    };
+    expect(report.noteCount).toBeGreaterThan(0);
+    expect(report.coverage?.stress).toEqual({ compared: 21, total: 83 });
+    expect(report.coverage?.dissipation).toEqual({ compared: 4, total: 27 });
+  });
+
   test("the reference project's pages have no text on top of each other", () => {
     // The renderer places a page's fields so that they do not cover each other; the checker is
     // what says so when a page runs out of room.

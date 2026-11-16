@@ -379,6 +379,23 @@ describe("a PCB without the logical root (ADR-0014 D5)", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  test("the electrical comparison runs without a PCB, and says how far it reached", () => {
+    // The comparison reads the root's nets, the declared windows and the component library — no
+    // PCB description is needed for it. A project without one is still checked electrically, and
+    // what it could not compare is counted (ADR-0026 D13).
+    const root = makeProject(MAIN, MODULE, []);
+    try {
+      const result = checkProject(root);
+      expect(result.coverage).toEqual({
+        stress: { compared: 0, total: 1 },
+        dissipation: { compared: 0, total: 1 },
+      });
+      expect(result.diagnostics.some((d) => d.code === "design.stress-unknown")).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("project module ownership and explicit interconnects (ADR-0069)", () => {

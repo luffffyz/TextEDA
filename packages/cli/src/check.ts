@@ -49,6 +49,7 @@ import {
   checkReviews,
   checkReadability,
   checkViews,
+  type RatingCoverage,
   type RatingDevice,
   type ReadabilityGeometry,
   type ViewPage,
@@ -95,6 +96,8 @@ export interface AnalyzeResult {
   /** Physical PCB analyses, in file order. */
   pcbs: PcbAnalysis[];
   diagnostics: Diagnostic[];
+  /** How far the electrical comparison reached; absent when there was no root to compare. */
+  coverage?: RatingCoverage;
 }
 
 export interface CheckResult {
@@ -103,12 +106,31 @@ export interface CheckResult {
   /** Physical PCB ids validated. */
   pcbs: string[];
   diagnostics: Diagnostic[];
+  /** How far the electrical comparison reached; absent when there was no root to compare. */
+  coverage?: RatingCoverage;
+}
+
+/**
+ * The check's machine payload: the diagnostics, plus how much of the design was compared.
+ *
+ * A design whose parts were never compared is not a design that passed (ADR-0026 D13), so the
+ * coverage travels with the findings instead of staying inside a note's message: a host's tool
+ * registry reads this payload, and a verdict of "clean" must not hide what was never checked.
+ */
+export interface CheckPayload extends DiagnosticsPayload {
+  /** How far the electrical comparison reached. */
+  coverage?: RatingCoverage;
 }
 
 /** Validate the project's logical root and all physical PCBs. */
 export function checkProject(root: string): CheckResult {
-  const { pcbs, diagnostics } = analyzeProject(root);
-  return { main: "main", pcbs: pcbs.map(({ pcb }) => pcb), diagnostics };
+  const { pcbs, diagnostics, coverage } = analyzeProject(root);
+  return {
+    main: "main",
+    pcbs: pcbs.map(({ pcb }) => pcb),
+    diagnostics,
+    ...(coverage === undefined ? {} : { coverage }),
+  };
 }
 
 /**
@@ -117,9 +139,12 @@ export function checkProject(root: string): CheckResult {
  * The command line and a host's tool registry call the same function, so the two faces of the
  * verb cannot drift (ADR-0044 D2).
  */
-export function buildCheck(root: string): VerbResult<{ payload: DiagnosticsPayload; main: "main"; pcbs: string[] }> {
+export function buildCheck(root: string): VerbResult<{ payload: CheckPayload; main: "main"; pcbs: string[] }> {
   const result = checkProject(root);
-  const payload = diagnosticsToPayload(result.diagnostics);
+  const payload: CheckPayload = {
+    ...diagnosticsToPayload(result.diagnostics),
+    ...(result.coverage === undefined ? {} : { coverage: result.coverage }),
+  };
   // The project has errors when the command line would exit non-zero: that is the answer the
   // caller needs, whether it is a person or a host's tool registry.
   return { ok: payload.errorCount === 0, value: { payload, main: result.main, pcbs: result.pcbs } };
@@ -135,6 +160,8 @@ export function buildCheck(root: string): VerbResult<{ payload: DiagnosticsPaylo
  */
 export function analyzeProject(root: string): AnalyzeResult {
   const projectDiagnostics: Diagnostic[] = [];
+  /** How far the electrical comparison reached; absent when there was no root to compare. */
+  let coverage: RatingCoverage | undefined;
   const pcbIds = listPcbs(root);
   const knownPcbs = new Set(pcbIds);
   const uidInputs: ProjectUidInput[] = [];
@@ -430,7 +457,22 @@ export function analyzeProject(root: string): AnalyzeResult {
         ...(mainLocate === undefined ? {} : { locate: mainLocate }),
       }),
     );
+  }
 
+  // The electrical comparison is a schematic-level check: it reads the root's nets, the declared
+  // windows and the component library — no PCB description is needed for it. It therefore runs for
+  // every project with a root, and it reports how much of the design it reached: an instance that
+  // was not compared is not an instance that passed (ADR-0026 D13).
+  const ratings = checkRatings({
+    file: mainSource.file,
+    schematic: mainIr,
+    devices: ratingDevices(),
+    ...(instanceLocator === undefined ? {} : { locateInstance: instanceLocator }),
+  });
+  mainDiagnostics.push(...ratings.diagnostics);
+  coverage = ratings.coverage;
+
+  if (pcbIds.length > 0 && parsedPcbs.length === pcbIds.length) {
     const instances = schematicInstances(
       mainIr,
       (componentId) => resolver.resolve(componentId)?.pins ?? [],
@@ -450,12 +492,6 @@ export function analyzeProject(root: string): AnalyzeResult {
       };
     });
     mainDiagnostics.push(
-      ...checkRatings({
-        file: mainSource.file,
-        schematic: mainIr,
-        devices: ratingDevices(),
-        ...(instanceLocator === undefined ? {} : { locateInstance: instanceLocator }),
-      }),
       ...checkViews({
         file: mainSource.file,
         schematic: mainIr,
@@ -589,5 +625,6 @@ export function analyzeProject(root: string): AnalyzeResult {
     },
     pcbs: pcbAnalyses,
     diagnostics,
+    ...(coverage === undefined ? {} : { coverage }),
   };
 }

@@ -54,7 +54,13 @@ export {
   type ReadabilityText,
 } from "./view/readability.ts";
 
-export { checkRatings, type RatingDevice, type RatingFacts } from "./design/ratings.ts";
+export {
+  checkRatings,
+  type RatingCoverage,
+  type RatingDevice,
+  type RatingFacts,
+  type RatingReport,
+} from "./design/ratings.ts";
 
 export {
   checkDeviceDeclaration,

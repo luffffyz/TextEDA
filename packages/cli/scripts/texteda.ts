@@ -25,7 +25,7 @@ import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { initTree, projectNameFromDir } from "../src/init.ts";
 import { runCompile } from "../src/compile.ts";
-import { buildCheck } from "../src/check.ts";
+import { buildCheck, type CheckPayload } from "../src/check.ts";
 import { runIr } from "../src/ir.ts";
 import { runBom } from "../src/bom.ts";
 import { runViewMetrics, runViewPng, runViewRender, runViewRewire } from "../src/view.ts";
@@ -198,11 +198,38 @@ function runCheck(args: ParsedArgs): void {
     }
     const byStage = payload.countsByStage;
     console.error(
-      `Checked the project schematic and ${pcbs.length} PCBs: ${payload.errorCount} errors, ${payload.warningCount} warnings` +
+      `Checked the project schematic and ${pcbs.length} PCBs: ${payload.errorCount} errors, ${payload.warningCount} warnings, ${payload.noteCount} notes` +
         ` (stages: parse ${byStage.parse} · contract ${byStage.contract} · design ${byStage.semantic})`,
     );
+    // The last line says what the run did not check: an instance that was not compared is not an
+    // instance that passed (ADR-0026 D13), so the report must not end on a green summary.
+    for (const line of coverageLines(payload.coverage)) console.error(line);
   }
   if (payload.errorCount > 0) process.exit(1);
+}
+
+/**
+ * The coverage lines of a check report: what the electrical comparison reached, and what it did not.
+ *
+ * A design whose parts were never compared against a declared window has no electrical
+ * verification, and a report that says "0 errors" without saying so reads as a pass. The numbers
+ * come from the check payload, so the line and the machine payload cannot drift.
+ */
+function coverageLines(coverage: CheckPayload["coverage"]): string[] {
+  if (coverage === undefined) return [];
+  const lines: string[] = [];
+  const { stress, dissipation } = coverage;
+  if (stress.compared < stress.total) {
+    lines.push(
+      `Not fully checked: ${stress.compared} of ${stress.total} instances were compared with a declared window.`,
+    );
+  }
+  if (dissipation.compared < dissipation.total) {
+    lines.push(
+      `Not fully checked: ${dissipation.compared} of ${dissipation.total} resistive instances were compared with a power limit.`,
+    );
+  }
+  return lines;
 }
 
 function runNetlist(args: ParsedArgs): void {

@@ -442,6 +442,8 @@ constraints
 
 器件的电压能力来自 `instances` 行的 `voltage` 列（通用件：设计要求）或器件自己的 `ratings`（`kind: part`：事实，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)）。能力低于应力报 `design.rating-exceeded`；两端的 net 有一个没有窗口、或器件不是两引脚时**不比较**，并在一条 `design.stress-unknown`（note）里报出数量——没比较不等于通过。容差不参与比较（器件独立漂移，语言还无法声明相关性），降额是项目政策而不是检查器的常数：比的是"能不能扛"，不是"留了多少裕量"。
 
+**报告要写覆盖率，不能只写条数**：那条 note 说的是"哪些没比"，但一份最后一行写着"0 errors"的报告，读起来仍然是"过了"——note 淹没在几百行里。所以 `texteda check` 把覆盖率跟结论一起给出来：电压比了**多少个实例 / 一共多少个**、耗散比了**多少个阻性实例 / 一共多少个**。命令行摘要最后一行写明没比的那部分，`--json` 的载荷里同一个数字在 `coverage` 里（人读的摘要和机器读的载荷不会各说各话）。比较是**原理图层**的检查：它读的是根的 net、声明窗口和器件库，不需要 PCB 描述，所以有逻辑根的工程都会跑它（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D13）。
+
 **耗散同理**（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)）：阻性器件（主量是 `resistance` 的两引脚器件）的最坏耗散是 `P = stress² / R`，`stress` 就是上式那一段窗口差，`R` 取实例行的 `value`（通用件）或件的 `value` 额定值。上界有三处来源，比较取**最紧的那一条**：
 
 | 来源 | 写法 | 说的是 |

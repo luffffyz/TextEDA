@@ -300,6 +300,20 @@ board with thirty undecided rails would otherwise bury its real findings.
 
 This is the same policy the binding layer already applies to a missing description.
 
+**The report states the coverage, not only the count (2026-11-16).** The note says what was not
+compared, but a report whose last line reads "0 errors" is still read as a pass on a design where
+most parts were never checked — the note is one line among hundreds. The check therefore carries
+the coverage *with* the findings: how many instances the comparison reached and how many the design
+has, for the voltage comparison and for the dissipation one. It travels in the machine payload
+(`coverage`) and in the summary line the command line prints, so neither a person reading the
+report nor a host's tool registry can read "clean" as "verified". An uncompared instance stays a
+note, not an error: the design is not wrong, the check is incomplete, and the report says which.
+
+**The comparison is a schematic-level check (2026-11-16).** It reads the root's nets, the declared
+windows and the component library; no PCB description is needed for it. It therefore runs for
+every project with a logical root, not only for the ones that have a board — a project without a
+PCB is still checked electrically, and what it could not compare is still counted.
+
 ### D14. Derating is project policy, not a checker constant
 
 The checker reports **violations** — a capability below the stated window — and nothing else. It

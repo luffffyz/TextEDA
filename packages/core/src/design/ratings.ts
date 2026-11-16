@@ -41,6 +41,26 @@ export interface RatingFacts {
   readonly locateInstance?: (instanceId: string) => DiagnosticLocation | undefined;
 }
 
+/**
+ * How far the electrical comparison reached.
+ *
+ * A device that was not compared is not a device that passed (ADR-0026 D13), so the count of the
+ * compared and the count of the uncompared travel with the findings: a report that says "no
+ * errors" and leaves this out reads as a pass on a design where most parts were never checked.
+ */
+export interface RatingCoverage {
+  /** The voltage comparison: instances it reached, and the instances the design has. */
+  readonly stress: { readonly compared: number; readonly total: number };
+  /** The dissipation comparison: resistive instances it reached, and the resistive instances there are. */
+  readonly dissipation: { readonly compared: number; readonly total: number };
+}
+
+/** What the rating comparison found, and how much of the design it reached. */
+export interface RatingReport {
+  readonly diagnostics: Diagnostic[];
+  readonly coverage: RatingCoverage;
+}
+
 /** A voltage window of one net, in microvolts. */
 interface Window {
   readonly min_uv: number;
@@ -61,9 +81,10 @@ function volts(uv: number): string {
  *
  * One diagnostic per violation; one `note` per board naming how many instances were not compared
  * and why — a board with thirty undecided rails must not bury its real findings, and "no findings"
- * must not read as "checked".
+ * must not read as "checked". The coverage travels with the findings (D13): the caller states it
+ * in the report, so a design whose parts were never compared cannot read as a design that passed.
  */
-export function checkRatings(facts: RatingFacts): Diagnostic[] {
+export function checkRatings(facts: RatingFacts): RatingReport {
   const diagnostics: Diagnostic[] = [];
   const { schematic, file } = facts;
 
@@ -162,9 +183,16 @@ export function checkRatings(facts: RatingFacts): Diagnostic[] {
     });
   }
 
-  diagnostics.push(...checkDissipation(facts, windows, netOfPin));
+  const dissipation = checkDissipation(facts, windows, netOfPin);
+  diagnostics.push(...dissipation.diagnostics);
 
-  return diagnostics;
+  return {
+    diagnostics,
+    coverage: {
+      stress: { compared: schematic.instances.length - skipped.length, total: schematic.instances.length },
+      dissipation: dissipation.coverage,
+    },
+  };
 }
 
 /** `2.5W`, `63mW`, `840uW` — the canonical unit is microwatts. */
@@ -227,7 +255,7 @@ function checkDissipation(
   facts: RatingFacts,
   windows: ReadonlyMap<string, Window>,
   netOfPin: ReadonlyMap<string, string>,
-): Diagnostic[] {
+): { diagnostics: Diagnostic[]; coverage: { compared: number; total: number } } {
   const diagnostics: Diagnostic[] = [];
   const { schematic, file } = facts;
 
@@ -349,7 +377,10 @@ function checkDissipation(
     });
   }
 
-  return diagnostics;
+  return {
+    diagnostics,
+    coverage: { compared: resistive - skipped.length, total: resistive },
+  };
 }
 
 /**
