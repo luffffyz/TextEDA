@@ -19,8 +19,8 @@ Three hosts are worth knowing:
 
 - **DSH (DeepSeek Harness)** — a harness with a real plugin market: bundles are npm packages, and
   a bundle carries both a host half and a browser half.
-- **pi (oh-my-pi / OMP)** — the harness this repository is developed in. Its extension surface is
-  code, not pixels: tools, commands, hooks, and a small text widget.
+- **pi (oh-my-pi / OMP)** — a host whose extension surface is code, not pixels: tools, commands,
+  hooks, and a small text widget.
 - **Claude Code** — a plugin can be a **mod**: code that runs inside Claude Code's own process and
   draws into the interface. It has a drawing surface without a page, which is what makes it
   different from the two above.

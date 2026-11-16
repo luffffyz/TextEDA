@@ -162,17 +162,19 @@ directly; and Claude Code's own `workflows/*.js` use plain JSON Schema for struc
 the catalogue is authored as **name + description + JSON Schema**, and each adapter is a projection
 of it.
 
-**Three adapters cover the six hosts.**
+**Three adapters cover the six hosts.** This is a taxonomy, not the order we build them in — that
+order is [`docs/backlog.md`](backlog.md) F58's to set.
 
 1. **The CLI and the skill** — the floor, and it works in all six: Claude Code puts a plugin's
    `bin/` on `PATH`, WorkBuddy documents "Skill + CLI" as a connector form, and Codex and Qoder
    run commands.
-2. **Two native registry adapters** — DSH (`defineTool`) and pi / omp (`pi.registerTool`). Thin:
-   the catalogue's JSON Schema becomes the host's parameter spec.
-3. **One MCP server** — for the four hosts that speak MCP (Claude Code, Codex, WorkBuddy,
+2. **One MCP server** — for the four hosts that speak MCP (Claude Code, Codex, WorkBuddy,
    Qoder). Because MCP is JSON-Schema-native, this is the cheapest adapter of the three, and it
    also carries `outputSchema` / `structuredContent`. Claude Code has a registry of its own as
    well, but it is served over MCP ([ADR-0046](adr/10-process/0046-a-host-is-entered-once.md) D2).
+3. **Two native registry adapters** — DSH (`defineTool`) and pi / omp (`pi.registerTool`). Thin:
+   the catalogue's JSON Schema becomes the host's parameter spec. Per-host, so they are built
+   last.
 
 **What no host needs from us:** a protocol of our own, or a second implementation of the verbs.
 The verbs stay the command line's; the catalogue is a projection of them.

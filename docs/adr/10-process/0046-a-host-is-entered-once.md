@@ -2,9 +2,9 @@
 
 Status: Accepted
 Date: 2026-10-29
-Scope: Decides: that a host is entered once per half — the verbs reach it over one route and the picture reaches it over one surface; that the verbs go over MCP wherever the host speaks it, our own harness excepted; and that what the picture half needs is a drawing surface, not a session page. Does not decide: which host the picture half is built for first, or what a plugin package carries — see ADR-0043 D9 to D11 and the backlog.
+Scope: Decides: that a host is entered once per half — the verbs reach it over one route and the picture reaches it over one surface; that the verbs go over MCP wherever the host speaks it; and that what the picture half needs is a drawing surface, not a session page. Does not decide: which host the picture half is built for first, what a plugin package carries, or in what order the adapters are built — see ADR-0043 D9 to D11 and the backlog.
 Related: [ADR-0043](../09-view/0043-the-review-app-is-a-plugin-of-the-agent-workbench.md), [ADR-0044](0044-the-agent-surface-is-a-set-of-verbs.md), [ADR-0045](0045-the-mcp-server-is-a-slice-we-write-ourselves.md), [ADR-0047](0047-the-picture-reaches-a-host-by-three-routes.md)
-Impact: `docs/tool-formats.md`; `docs/plugin-hosts.md`; `packages/cli/src/mcp.ts`; `packages/cli/src/tools.ts`; `docs/backlog.md` (F53, F59)
+Impact: `docs/tool-formats.md`; `docs/plugin-hosts.md`; `packages/cli/src/mcp.ts`; `packages/cli/src/tools.ts`; `docs/backlog.md` (F53, F58, F59)
 
 ## Background
 
@@ -33,12 +33,19 @@ picture in a way of its own; that is not two routes into one half.
 
 ### D2. The verbs go over MCP wherever the host speaks it
 
+> **Amended (2026-11-16): the exception is gone.** This section used to exempt "our own harness"
+> (pi) from the rule, on the grounds that a native route we own is ours to own. pi is no longer
+> the harness this repository is developed in, so the exception has no ground left — and with it
+> goes the reason a native route would ever be preferred over the one that serves every other
+> host. The rule is now what it always was, without a carve-out: **the verbs go over MCP
+> wherever the host speaks it.** A host with a registry of its own is not thereby served by that
+> registry; it is served by the same MCP server as the rest.
+
 The census, corrected: of the six hosts, **three have no native tool registry of their own**
 (Codex, WorkBuddy, Qoder — Qoder's own `tool()` exists only inside its SDK, so an agent that runs
 in a plain Qoder session has MCP as its route); **DSH has a registry of its own**; **pi has one
 too** and speaks MCP as well,
-but it is our own harness, so the native route is ours to own ([ADR-0044](0044-the-agent-surface-is-a-set-of-verbs.md)
-D5); and **Claude Code has both** — an MCP server declared in a plugin, and a mods registry.
+and **Claude Code has both** — an MCP server declared in a plugin, and a mods registry.
 
 Claude Code's verbs are served by `texteda mcp`
 ([ADR-0045](0045-the-mcp-server-is-a-slice-we-write-ourselves.md)). Its mods registry stays unused

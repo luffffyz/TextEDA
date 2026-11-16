@@ -943,6 +943,8 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 
 ## F58. 两个原生注册表适配器（DSH、pi）（2026-10-29）
 
+**优先级：靠后**（2026-11-16 定）。**MCP 是兼容性首选**：一份 MCP 服务器服务所有会说话的宿主，宿主侧零耦合，所以动词进宿主的路是 MCP；原生注册表适配器是**按宿主**写的薄层，只在我们要用的那个宿主上才值得维护，因此排到最后。规则见 [ADR-0046](adr/10-process/0046-a-host-is-entered-once.md) D2（不再有"我们自己的 harness"这条例外）与 [ADR-0045](adr/10-process/0045-the-mcp-server-is-a-slice-we-write-ourselves.md)。**这条优先级不删掉已经落地的适配器**：pi 与 DSH 的代码留在树里，pi 那份已无我们会用的宿主。
+
 **现状**：pi 侧**已落地**：`plugins/pi-texteda/` 是零构建的扩展（pi 直接加载 `.ts`），把 [ADR-0044](adr/10-process/0044-the-agent-surface-is-a-set-of-verbs.md) D8 的清单的 JSON Schema 投影到 `pi.zod`，注册的工具与清单逐条一致（名字、描述、参数）；真机冒烟已过（omp 会话里模型调 `texteda_check`，拿到诊断；调用失败时工具把诊断本身交回，模型看得见）。**那次真机冒烟在 omp 里做的，omp 已不在工具链里**：这说明扩展本身能用，不说明我们手上有宿主能装它——适配器仍在，但没有我们现在会用的宿主。
 
 DSH 侧**代码已落地**：宿主合同读的是官方 cookbook（`@deepseek-ai/dsh-tools` 的 `defineTool`、`@deepseek-ai/cordis` 的 `apply(ctx)` + `inject`），参数是扁平 spec `{type, required, description}`，结果是 canonical value + `output.render`。`plugins/dsh-texteda/` 是 host 半边，`packages/cli/src/dsh-tools.ts` 是投影，`bun run scripts/build-dsh-plugin.ts` 出一个 bundle（我们的包打进去，宿主的包留在外面）。

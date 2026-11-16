@@ -4,15 +4,21 @@ Status: Accepted
 Date: 2026-10-29
 Scope: Decides: that the MCP server is written by hand, in the CLI package, over the verbs' own functions; that it speaks both eras of the protocol, the `initialize` handshake and the `server/discover` probe; and that its tools are the catalogue's entries and nothing else. Does not decide: what the catalogue holds (ADR-0044 D9), which hosts get a native adapter, or whether the command line's surface gets a version line of its own (ADR-0044).
 Related: [ADR-0044](../10-process/0044-the-agent-surface-is-a-set-of-verbs.md), [ADR-0046](0046-a-host-is-entered-once.md), [ADR-0047](0047-the-picture-reaches-a-host-by-three-routes.md), [ADR-0038](0038-implementation-stack-and-agent-entry.md), [ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md)
-Impact: `packages/cli/src/mcp.ts`; `packages/cli/scripts/texteda.ts`; `packages/cli/test/mcp.test.ts`; `docs/tool-formats.md`; `docs/backlog.md` (F57, F59)
+Impact: `packages/cli/src/mcp.ts`; `packages/cli/scripts/texteda.ts`; `packages/cli/test/mcp.test.ts`; `docs/tool-formats.md`; `docs/backlog.md` (F57, F58, F59)
 
 ## Background
 
 Four of the six hosts surveyed in `docs/tool-formats.md` — Claude Code, Codex, WorkBuddy and Qoder —
 are served over MCP (ADR-0044 D5; [ADR-0046](0046-a-host-is-entered-once.md) D2); a fifth, pi,
-speaks MCP too but is our own harness and gets its own native adapter. So the MCP server is not a
+speaks MCP too. So the MCP server is not a
 compatibility layer for traditional applications; it is the ordinary route into the ecosystem, and
 it is the adapter that has to exist first.
+
+> **Amended (2026-11-16): the pi sentence.** This paragraph used to add "but is our own harness and
+> gets its own native adapter" — the reason pi was carved out of the MCP route. pi is no longer the
+> harness this repository is developed in, so the carve-out is gone; the rest of the paragraph
+> stands, and the priority it states is the one we now build by: **MCP first, the native adapters
+> last** (see `docs/backlog.md` F58).
 
 The question this record answers is what the server is made of: the official SDK
 (`@modelcontextprotocol/sdk`) or the slice we need, written here.

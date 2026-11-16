@@ -77,11 +77,16 @@ files can be separated from a verb that only reads. The last two rows are the co
 
 ### D5. MCP is a transport, not a second implementation
 
+> **Amended (2026-11-16): the harness carve-out is gone.** This section used to say that pi is
+> "our own harness" and that we therefore do not maintain an MCP server for it. pi is no longer
+> the harness this repository is developed in, so that sentence no longer holds — and neither
+> does the shape it implied: one MCP server, serving every host that speaks it.
+
 MCP is how a host accepts a tool from outside its own registry. Of the six hosts surveyed in
 `docs/tool-formats.md` — Claude Code, Codex, WorkBuddy, Qoder, DSH and pi — **three have no native
 registry of their own** (Codex, WorkBuddy, Qoder; Qoder's native `tool()` lives inside its SDK);
-DSH and pi have a registry of their own, and pi is
-our own harness; and Claude Code has both an MCP server and a registry of its own, through its
+DSH and pi have a registry of their own; and Claude Code has both an MCP server and a registry of
+its own, through its
 mods API. MCP is therefore not a legacy compatibility layer for traditional applications; it is
 the ordinary route for most of the ecosystem.
 
@@ -91,8 +96,8 @@ it, and a host is entered once per half.
 
 What that changes is the wording, not the shape: MCP is an **adapter over the same verbs**, never
 a second implementation of them. The functions behind an MCP tool are the same functions the
-command line calls, so the tool and the command cannot drift. What we do not do is maintain an
-MCP server for our own harness, or let MCP become a place where behaviour is defined twice.
+command line calls, so the tool and the command cannot drift. What we do not do is let MCP become
+a place where behaviour is defined twice.
 
 ### D6. The print page's verbs live under one noun
 
