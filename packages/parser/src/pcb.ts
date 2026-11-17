@@ -1,4 +1,4 @@
-// `pcb` description → IR (`schemas/ir/v0.19/pcb.schema.json`). See `spec/pcb.md` for the spec.
+// `pcb` description → IR (`schemas/ir/v0.20/pcb.schema.json`). See `spec/pcb.md` for the spec.
 //
 // This layer only does "text → structure": read sections, validate column counts and enums,
 // and replace unit-bearing literals with integers.
@@ -494,7 +494,7 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
     return { ok: false, diagnostics: diagnostics.items };
   }
   const id = typeLine.cells[1].text;
-  // The v0.19 pcb identity is a slug: the id of this shard and the scope of its board hash (ADR-0069 D2, D5).
+  // The v0.20 pcb identity is a slug: the id of this shard and the scope of its board hash (ADR-0069 D2, D5).
   if (!/^[a-z][a-z0-9-]*$/.test(id)) {
     diagnostics.add(
       "error",

@@ -350,6 +350,13 @@ export const DIAGNOSTIC_CODES = {
     hint: "A rating is a role (what it measures) and a quantity (its unit); the roles are closed",
     spec: ["teda.md §6.4", "docs/adr/07-devices/0026-a-part-states-its-own-ratings.md"],
   },
+  "value.component-rating-terminal-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "A rating names a terminal that is not a pin of the part, or names one pin twice",
+    hint: "The terminal pair names pin numbers, not pin names: a name may be reused, and a rating that picked one of two pins would be a guess",
+    spec: ["teda.md §6.4", "docs/adr/07-devices/0026-a-part-states-its-own-ratings.md"],
+  },
   "value.component-rating-value-invalid": {
     domain: "value",
     severity: "error",

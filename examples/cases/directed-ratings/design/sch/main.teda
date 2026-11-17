@@ -1,0 +1,32 @@
+version 0.14.0
+schematic main
+
+# A 5 V rail comes in on VIN, the LDO makes V3V3, and an N-FET switches the SW rail. The gate is
+# driven from off-board, so GATE is a port. The diode clamps SW back to ground: a flyback diode,
+# so what this design stresses is its *reverse* rating, not its forward drop.
+#
+# The windows are declared here, on the project root, and only here: one net states its window
+# once (spec/teda.md, "one net states one window").
+modules
+  M1  switch-stage
+
+nets
+  GATE:  M1.GATE
+  GND:   M1.GND
+  SW:    M1.SW
+  V3V3:  M1.V3V3
+  VIN:   M1.VIN
+
+ports
+  GATE  GATE
+  GND   GND
+  SW    SW
+  V3V3  V3V3
+  VIN   VIN
+
+constraints
+  voltage  GATE  4.5V..5.5V
+  voltage  GND   0V..0V
+  voltage  SW    4.5V..5.5V
+  voltage  V3V3  3.135V..3.465V
+  voltage  VIN   4.5V..5.5V

@@ -1,0 +1,115 @@
+{
+  "format": "0.11",
+  "ir_version": "0.20",
+  "source": {
+    "file": "assets/symbols/regulators/ldo-sot23-5.teda",
+    "line": 1
+  },
+  "symbol": {
+    "body": [
+      {
+        "end": {
+          "x_nm": 6500000,
+          "y_nm": 4000000
+        },
+        "fill": "background",
+        "kind": "rect",
+        "start": {
+          "x_nm": -6500000,
+          "y_nm": -4000000
+        },
+        "unit": 1,
+        "width_nm": 254000
+      }
+    ],
+    "description": "5-pin LDO regulator in SOT-23-5",
+    "fields": [
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": 9000000
+        },
+        "name": "Reference",
+        "value": "U"
+      },
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": -9000000
+        },
+        "name": "Value",
+        "value": "ldo-sot23-5"
+      }
+    ],
+    "in_bom": true,
+    "library": "regulators",
+    "name": "ldo-sot23-5",
+    "on_board": true,
+    "pin_name_offset_nm": 508000,
+    "pin_names_hidden": false,
+    "pin_numbers_hidden": false,
+    "pins": [
+      {
+        "at": {
+          "rotation_mdeg": 0,
+          "x_nm": -9000000,
+          "y_nm": -1000000
+        },
+        "length_nm": 2500000,
+        "number": "1",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 90000,
+          "x_nm": 0,
+          "y_nm": -6500000
+        },
+        "length_nm": 2500000,
+        "number": "2",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 0,
+          "x_nm": -9000000,
+          "y_nm": 1500000
+        },
+        "length_nm": 2500000,
+        "number": "3",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 180000,
+          "x_nm": 9000000,
+          "y_nm": -1000000
+        },
+        "length_nm": 2500000,
+        "number": "4",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 180000,
+          "x_nm": 9000000,
+          "y_nm": 1500000
+        },
+        "length_nm": 2500000,
+        "number": "5",
+        "style": "line",
+        "unit": 1
+      }
+    ],
+    "power": false,
+    "tags": [
+      "ldo",
+      "regulator"
+    ],
+    "units": 1
+  }
+}

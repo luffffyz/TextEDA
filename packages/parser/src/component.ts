@@ -25,7 +25,7 @@ import { lex } from "./lexer.ts";
 import { SourceFile } from "./sources.ts";
 import type { SourceMap } from "@texteda/ir/spans";
 import { parseQuantity, type QuantityKind } from "./quantities.ts";
-import { checkVersion, typeRange } from "./version.ts";
+import { checkVersion, compareVersions, typeRange, TERMINAL_VERSION } from "./version.ts";
 import { REV_RE } from "./ids.ts";
 
 /** Pin electrical types from `teda.md` §9.1. */
@@ -91,6 +91,12 @@ export interface ComponentRating {
   type: string;
   /** The canonical integer value (the unit comes from the type), or the text for a string type. */
   value: number | string;
+  /**
+   * The two pins this rating is about (ADR-0026 D4): `from` then `to`, in the role's order.
+   *
+   * The columns are where the pair was written, so a diagnostic can point at the offending cell.
+   */
+  terminals?: { from: string; to: string; fromCol: number; toCol: number };
   line: number;
   col: number;
 }
@@ -257,6 +263,9 @@ export function parseComponent(text: string, options: { file: string }): Compone
     error(versionLine.number, versionLine.cells[1]?.col ?? 1, verdict.code, verdict.message);
     return { ok: false, diagnostics };
   }
+  // The terminal pair of a ratings row arrived in language 0.15 (ADR-0026 D4): a file below that
+  // version has no such column.
+  const terminalSyntax = compareVersions(verdict.version, TERMINAL_VERSION) >= 0;
   const typeLine = next();
   if (!typeLine || typeLine.cells.length !== 2 || typeLine.cells[0]!.text !== "component") {
     error(typeLine?.number ?? 1, 1, "syntax.header-invalid", "the second line must be component <id>");
@@ -457,18 +466,16 @@ export function parseComponent(text: string, options: { file: string }): Compone
         error(line.number, line.cells[0]!.col, "syntax.row-too-short", "a ratings row needs 3 columns: role type value");
         continue;
       }
-      if (line.cells.length > 3) {
-        // The terminal pair of ADR-0026 D4 is decided but not implemented. A row that carries one
-        // would lose the terminals silently, and a lost fact is worse than an error.
+      if (line.cells.length !== 3 && line.cells.length !== 5) {
         error(
           line.number,
           line.cells[3]!.col,
           "syntax.column-count",
-          "a ratings row has 3 columns: role type value",
+          "a ratings row has 3 or 5 columns: role type value [from to]",
           {
-            expected: "role type value",
+            expected: "role type value | role type value from to",
             actual: line.cells.map((c) => c.text).join(" "),
-            hint: "the terminal pair (from to) is decided (ADR-0026 D4) but not implemented yet; a row that carries one is refused rather than silently dropping it",
+            hint: "the terminal pair names the two pins the rating is about (ADR-0026 D4); it is written as pin numbers, not names",
           },
         );
         continue;
@@ -486,9 +493,32 @@ export function parseComponent(text: string, options: { file: string }): Compone
         error(line.number, type.col, "value.unknown-param-type", `unknown rating type: ${type.text}`);
         continue;
       }
+      // The terminal pair arrived in language 0.15 (ADR-0026 D4). A file below that version has
+      // no such column, so there is nothing to read.
+      let terminals: ComponentRating["terminals"];
+      if (line.cells.length === 5) {
+        if (!terminalSyntax) {
+          error(
+            line.number,
+            line.cells[3]!.col,
+            "syntax.unknown-field",
+            `unknown column: ${line.cells[3]!.text}`,
+            {
+              hint: "the terminal pair needs language 0.15; a component file below that version writes role type value",
+            },
+          );
+          continue;
+        }
+        terminals = {
+          from: line.cells[3]!.text,
+          to: line.cells[4]!.text,
+          fromCol: line.cells[3]!.col,
+          toCol: line.cells[4]!.col,
+        };
+      }
       // A rating is a fact of the part: the value is parsed with the quantity the row declares.
       if (type.text === "string") {
-        ratings.push({ name: role.text, type: type.text, value: value.text, line: line.number, col: role.col });
+        ratings.push({ name: role.text, type: type.text, value: value.text, ...(terminals ? { terminals } : {}), line: line.number, col: role.col });
         continue;
       }
       const kind = PARAM_TYPE_KINDS[type.text];
@@ -507,7 +537,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
         });
         continue;
       }
-      ratings.push({ name: role.text, type: type.text, value: parsed.value, line: line.number, col: role.col });
+      ratings.push({ name: role.text, type: type.text, value: parsed.value, ...(terminals ? { terminals } : {}), line: line.number, col: role.col });
       continue;
     }
     if (section === "pins") {
@@ -575,7 +605,49 @@ export function parseComponent(text: string, options: { file: string }): Compone
   }
 
   component.params = params;
-  component.ratings = ratings;
+
+  /* ---- the terminal pair of a rating (ADR-0026 D4) ---- */
+
+  // The pair names two pins of this part, written as pin numbers: a name may be reused (`GND` on
+  // a multi-unit part, `A` on a two-pair switch), and a rating that silently picked one of two
+  // pins is the ambiguity the language refuses elsewhere. The pin table is complete only now, so
+  // the check happens after the file has been read.
+  const pinNumbers = new Set(component.pins.map((pin) => pin.number));
+  const keptRatings: ComponentRating[] = [];
+  for (const rating of ratings) {
+    const terminals = rating.terminals;
+    if (terminals === undefined) {
+      keptRatings.push(rating);
+      continue;
+    }
+    if (terminals.from === terminals.to) {
+      error(
+        rating.line,
+        terminals.fromCol,
+        "value.component-rating-terminal-invalid",
+        `the rating names one pin twice: ${terminals.from}`,
+        {
+          expected: "two different pin numbers",
+          actual: terminals.from,
+          hint: "a rating is about the path between two pins; a pin is not a path",
+        },
+      );
+      continue;
+    }
+    const unknown = [terminals.from, terminals.to].find((pin) => !pinNumbers.has(pin));
+    if (unknown !== undefined) {
+      const col = unknown === terminals.from ? terminals.fromCol : terminals.toCol;
+      error(rating.line, col, "value.component-rating-terminal-invalid", `${unknown} is not a pin of ${component.id}`, {
+        expected: `a pin number of this part: ${[...pinNumbers].join(", ")}`,
+        actual: unknown,
+        hint: "the terminal pair names pin numbers, not pin names: a name may be reused, and a rating that picked one of two pins would be a guess",
+      });
+      continue;
+    }
+    keptRatings.push(rating);
+  }
+
+  component.ratings = keptRatings;
 
   /* ---- the part/generic rules (ADR-0024, ADR-0024) ---- */
 
@@ -671,7 +743,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
     diagnostics.push(
       ...checkDeviceRatings({
         file,
-        ratings: ratings.map((r) => ({ name: r.name, type: r.type, value: String(r.value), line: r.line, col: r.col })),
+        ratings: keptRatings.map((r) => ({ name: r.name, type: r.type, value: String(r.value), line: r.line, col: r.col })),
       }),
     );
     for (const rating of ratings) {
@@ -771,11 +843,16 @@ export function parseComponent(text: string, options: { file: string }): Compone
             })),
           }
         : {}),
-      ...(ratings.length > 0
+      ...(keptRatings.length > 0
         ? {
-            ratings: ratings.map(
+            ratings: keptRatings.map(
               (rating) =>
-                ({ name: rating.name, type: rating.type as ParamDecl["type"], value: rating.value }) as Rating,
+                ({
+                  name: rating.name,
+                  type: rating.type as ParamDecl["type"],
+                  value: rating.value,
+                  ...(rating.terminals ? { terminals: { from: rating.terminals.from, to: rating.terminals.to } } : {}),
+                }) as Rating,
             ),
           }
         : {}),

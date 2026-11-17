@@ -1,0 +1,28 @@
+version 0.15
+component irf540n
+
+# N-channel power MOSFET, TO-220AB. Per the Vishay Siliconix IRF540 datasheet
+# (Document Number 91021, S21-0819-Rev. C, 02-Aug-2021):
+#   Absolute Maximum Ratings: drain-source voltage V_DS = 100 V, gate-source voltage V_GS = +/- 20 V.
+#   Configuration: single N-channel MOSFET, TO-220AB, pin order 1 = G (gate), 2 = D (drain),
+#   3 = S (source); the drain is also the metal tab (RthJC is stated to the drain).
+kind         part
+mpn          IRF540N
+manufacturer Vishay Siliconix
+category     transistor
+datasheet    https://www.vishay.com/docs/91021/irf540.pdf
+
+symbol transistors:nmos-3
+footprint to220:to-220-3
+
+# The part's own ratings (ADR-0026): each row names the two pins the rating is about, so the
+# checker can compare the limit with the window the design declares on those two nets (ADR-0026 D4).
+# The pair is written as pin numbers, not names: a name may be reused, a number may not.
+ratings
+  drain_source_voltage  voltage  100V  2 3
+  gate_source_voltage    voltage  20V   1 3
+
+pins
+  1  G  input
+  2  D  passive
+  3  S  passive

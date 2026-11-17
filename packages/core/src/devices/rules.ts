@@ -122,22 +122,68 @@ export const DEVICE_CONSTRUCTIONS: Record<string, DeviceConstruction> = {
 export const DEVICE_CONSTRUCTION_NAMES: readonly string[] = Object.keys(DEVICE_CONSTRUCTIONS);
 
 /**
+ * What a rating role is (ADR-0026 D6) and how a stress check reads it (D5).
+ *
+ * `kind` says whether the role is a boundary the design must stay inside, a property used to
+ * choose or describe a part, or a closed code. `direction` says how a stress check reads the
+ * role's polarity: `symmetric` (either polarity stresses the part), `from` / `to` (only that
+ * polarity does), `none` (the role is not a voltage stress).
+ */
+export type RoleKind = "limit" | "characteristic" | "code";
+export type RoleDirection = "symmetric" | "from" | "to" | "none";
+
+export interface DeviceRoleRule {
+  /** The role's quantity, when the vocabulary fixes it (`value`'s is the construction's primary). */
+  readonly type?: string;
+  /** What the role is. */
+  readonly kind: RoleKind;
+  /** How a stress check reads the role's polarity. */
+  readonly direction: RoleDirection;
+}
+
+/**
+ * The closed role vocabulary (ADR-0025 D7, ADR-0026 D3/D5/D6).
+ *
+ * `value` is deliberately not given a quantity here: its quantity is the construction's primary
+ * (resistance, capacitance, inductance), and a part declares no construction — it states the
+ * quantity of its own `value` row (ADR-0026 D3).
+ *
+ * The three directed voltage roles name the pair they are about, so the pair is never ambiguous
+ * and one role carries one row (ADR-0026 D4: a part states a rating once per role):
+ *
+ * - `drain_source_voltage` — `from` = drain, `to` = source, stressed when the drain is above the
+ *   source;
+ * - `gate_source_voltage` — `from` = gate, `to` = source;
+ * - `reverse_voltage` — `from` = anode, `to` = cathode, stressed when the cathode is above the
+ *   anode.
+ */
+export const DEVICE_ROLES: Record<string, DeviceRoleRule> = {
+  value: { kind: "characteristic", direction: "none" },
+  tolerance: { type: "percent", kind: "limit", direction: "none" },
+  voltage: { type: "voltage", kind: "limit", direction: "symmetric" },
+  power: { type: "power", kind: "limit", direction: "none" },
+  dielectric: { type: "string", kind: "code", direction: "none" },
+  esr: { type: "resistance", kind: "characteristic", direction: "none" },
+  dcr: { type: "resistance", kind: "characteristic", direction: "none" },
+  rated_current: { type: "current", kind: "limit", direction: "none" },
+  sat_current: { type: "current", kind: "limit", direction: "none" },
+  drain_source_voltage: { type: "voltage", kind: "limit", direction: "from" },
+  gate_source_voltage: { type: "voltage", kind: "limit", direction: "from" },
+  reverse_voltage: { type: "voltage", kind: "limit", direction: "to" },
+};
+
+/**
  * The roles whose quantity the vocabulary fixes (`spec/teda.md` §6.2.1).
  *
- * `value` is deliberately not here: its quantity is the construction's primary (resistance,
- * capacitance, inductance), and a part declares no construction — it states the quantity of its
- * own `value` row (ADR-0026 D3).
+ * `value` is not here: its quantity is the construction's primary (resistance, capacitance,
+ * inductance), and a part declares no construction — it states the quantity of its own `value`
+ * row (ADR-0026 D3).
  */
-export const DEVICE_ROLE_TYPES: Record<string, string> = {
-  tolerance: "percent",
-  voltage: "voltage",
-  power: "power",
-  dielectric: "string",
-  esr: "resistance",
-  dcr: "resistance",
-  rated_current: "current",
-  sat_current: "current",
-};
+export const DEVICE_ROLE_TYPES: Record<string, string> = Object.fromEntries(
+  Object.entries(DEVICE_ROLES)
+    .filter(([, rule]) => rule.type !== undefined)
+    .map(([name, rule]) => [name, rule.type!]),
+);
 
 /** The role that names a device's primary quantity, whatever its construction. */
 export const DEVICE_PRIMARY_ROLE = "value";

@@ -195,7 +195,7 @@ The procurement descriptions compile to one shard each:
 
 The primary shard is a PCB-scoped normative shard, so it takes part in the project hash and that PCB's board hash: changing the part a PCB is built from changes its build identity, and its review has to be redone. The alternatives shard is not in the board hash and not in the project hash.
 
-The shard's shape is specified in `schemas/ir/v0.19/procurement.schema.json` ([ADR-0006](../docs/adr/02-ir/0006-ir-shards-and-hashes.md) decision 2).
+The shard's shape is specified in `schemas/ir/v0.20/procurement.schema.json` ([ADR-0006](../docs/adr/02-ir/0006-ir-shards-and-hashes.md) decision 2).
 Both shards have a producer: `texteda ir` writes them, `texteda compile --procurement` compiles the primary one, and `texteda check` parses and
 validates both.
 

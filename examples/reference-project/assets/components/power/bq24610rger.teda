@@ -1,4 +1,4 @@
-version 0.11
+version 0.15
 component bq24610rger
 
 kind         part
@@ -12,6 +12,13 @@ description Standalone synchronous buck battery charger controller, 5-24 V input
 # Pins are governed by the inline table; the symbol only provides the view.
 symbol power:bq24610rger
 footprint vqfn:vqfn-24-ep
+# The part's own rating (ADR-0026): what the device is, not what the design asks of it.
+# The 33V is the datasheet's absolute maximum for VCC with respect to GND (TI SLUS892D section 8.1:
+# "VCC, ACP, ACN, SRP, SRN, BATDRV, ACDRV, CE, STAT1, STAT2, PG  -0.3  33 V"). The terminal pair
+# names the two pins it is about, so the checker can compare it with the window the design declares.
+ratings
+  voltage  voltage  33V   24 17
+
 pins
   1   ACN     input
   2   ACP     input

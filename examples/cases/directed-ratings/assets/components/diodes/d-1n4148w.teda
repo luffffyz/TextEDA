@@ -1,0 +1,26 @@
+version 0.15
+component d-1n4148w
+
+# Switching diode, SOD-123. Per the onsemi 1N4148W-D datasheet:
+#   Absolute Maximum Ratings: peak reverse voltage V_RRM = 100 V.
+#   PINNING: pin 1 = cathode, pin 2 = anode.
+# The id carries a `d-` prefix because an identifier may not start with a digit, and the MPN does
+# (`d-bat54c`, `q-si7617dn` in the reference project are named the same way).
+kind         part
+mpn          1N4148W-D
+manufacturer onsemi
+category     diode
+datasheet    https://www.onsemi.com/pdf/datasheet/1n4148w-d.pdf
+
+symbol diodes:diode-2
+footprint sod:sod-123
+
+# The part's own rating (ADR-0026): the pair names the pins the rating is about -- from = the
+# anode (pin 2), to = the cathode (pin 1). `reverse_voltage` is stressed when the cathode is above
+# the anode (ADR-0026 D5), so the pair's order is the polarity.
+ratings
+  reverse_voltage  voltage  100V  2 1
+
+pins
+  1  K  passive
+  2  A  passive

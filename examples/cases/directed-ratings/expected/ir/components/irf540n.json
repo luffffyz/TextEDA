@@ -1,0 +1,58 @@
+{
+  "component": {
+    "category": "transistor",
+    "datasheet": "https://www.vishay.com/docs/91021/irf540.pdf",
+    "footprint": "to220:to-220-3",
+    "id": "irf540n",
+    "kind": "part",
+    "manufacturer": "Vishay Siliconix",
+    "mpn": "IRF540N",
+    "pins": [
+      {
+        "electrical_type": "input",
+        "name": "G",
+        "number": "1",
+        "unit": 1
+      },
+      {
+        "electrical_type": "passive",
+        "name": "D",
+        "number": "2",
+        "unit": 1
+      },
+      {
+        "electrical_type": "passive",
+        "name": "S",
+        "number": "3",
+        "unit": 1
+      }
+    ],
+    "pins_source": "inline",
+    "ratings": [
+      {
+        "name": "drain_source_voltage",
+        "terminals": {
+          "from": "2",
+          "to": "3"
+        },
+        "type": "voltage",
+        "value": 100000000
+      },
+      {
+        "name": "gate_source_voltage",
+        "terminals": {
+          "from": "1",
+          "to": "3"
+        },
+        "type": "voltage",
+        "value": 20000000
+      }
+    ],
+    "symbol": "transistors:nmos-3"
+  },
+  "ir_version": "0.20",
+  "source": {
+    "file": "assets/components/transistors/irf540n.teda",
+    "line": 1
+  }
+}

@@ -101,7 +101,7 @@ describe("check exit codes", () => {
     const result = run(["check", "examples/reference-project"]);
     expect(result.code).toBe(0);
     expect(result.stderr).toContain("8 notes");
-    expect(result.stderr).toContain("Not fully checked: 21 of 83 instances were compared with a declared window.");
+    expect(result.stderr).toContain("Not fully checked: 24 of 83 instances were compared with a declared window.");
     expect(result.stderr).toContain(
       "Not fully checked: 4 of 27 resistive instances were compared with a power limit.",
     );
@@ -122,7 +122,7 @@ describe("check exit codes", () => {
       };
     };
     expect(report.noteCount).toBeGreaterThan(0);
-    expect(report.coverage?.stress).toEqual({ compared: 21, total: 83 });
+    expect(report.coverage?.stress).toEqual({ compared: 24, total: 83 });
     expect(report.coverage?.dissipation).toEqual({ compared: 4, total: 27 });
     expect(report.coverage?.current).toEqual({ compared: 1, total: 1, rails: 4 });
   });

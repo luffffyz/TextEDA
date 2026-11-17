@@ -5,14 +5,15 @@ import { join } from "node:path";
 import { parseComponent } from "../src/component.ts";
 
 /** A device file with the given scalars and sections (each section is a list of lines). */
-function device(scalars: string[], ...sections: string[][]): string {
+function device(scalars: string[], ...sections: (string[] | string)[]): string {
+  const version = typeof sections[sections.length - 1] === "string" ? (sections.pop() as string) : "0.1.2";
   return [
-    "version 0.1.2",
+    `version ${version}`,
     "component dev",
     "",
     ...scalars,
     "",
-    ...sections.flatMap((section) => [...section, ""]),
+    ...sections.flatMap((section) => [...(section as string[]), ""]),
   ].join("\n");
 }
 
@@ -255,17 +256,67 @@ describe("a part's own ratings (ADR-0026)", () => {
     expect(result.component!.ratings[1]).toMatchObject({ name: "power", type: "power", value: 62_500 });
   });
 
-  test("a ratings row with terminals is refused, not silently truncated (ADR-0026 D4)", () => {
-    // The terminal pair is decided but not implemented yet. A row that carries one must not lose
-    // it quietly: a dropped fact is worse than an error.
+  test("a ratings row names the two pins its rating is about (ADR-0026 D4)", () => {
+    // The pair is written as pin numbers and reaches the IR: a rating that says which pins it is
+    // about can be compared with the window the design declares.
     const result = parseComponent(
-      device(PART_SCALARS, ["ratings", "  voltage  voltage  36V  1 2"], PINS),
+      device(PART_SCALARS, ["ratings", "  voltage  voltage  36V  1 2"], PINS, "0.15"),
+      { file: "x.teda" },
+    );
+    expect(result.diagnostics).toEqual([]);
+    expect(result.component!.ratings[0]).toMatchObject({
+      name: "voltage",
+      type: "voltage",
+      value: 36_000_000,
+      terminals: { from: "1", to: "2" },
+    });
+  });
+
+  test("a ratings row with four columns is an error", () => {
+    const result = parseComponent(
+      device(PART_SCALARS, ["ratings", "  voltage  voltage  36V  1"], PINS, "0.15"),
       { file: "x.teda" },
     );
     expect(result.ok).toBe(false);
     const diagnostic = result.diagnostics.find((d) => d.code === "syntax.column-count");
     expect(diagnostic).toBeDefined();
-    expect(diagnostic!.message).toContain("3 columns");
+    expect(diagnostic!.message).toContain("3 or 5 columns");
+  });
+
+  test("a terminal that is not a pin of the part is an error", () => {
+    // A name may be reused (`GND` on a multi-unit part), so the pair is written as pin numbers;
+    // a terminal the part does not have is a fact about nothing.
+    const result = parseComponent(
+      device(PART_SCALARS, ["ratings", "  voltage  voltage  36V  1 9"], PINS, "0.15"),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "value.component-rating-terminal-invalid");
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.actual).toBe("9");
+  });
+
+  test("a rating that names one pin twice is an error", () => {
+    const result = parseComponent(
+      device(PART_SCALARS, ["ratings", "  voltage  voltage  36V  1 1"], PINS, "0.15"),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "value.component-rating-terminal-invalid");
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.message).toContain("one pin twice");
+  });
+
+  test("the terminal pair needs language 0.15", () => {
+    // A file below that version has no such column, so the row is not read.
+    const result = parseComponent(
+      device(PART_SCALARS, ["ratings", "  voltage  voltage  36V  1 2"], PINS, "0.14"),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "syntax.unknown-field");
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.hint).toContain("language 0.15");
   });
 
   test("a generic states no ratings: a class has no ratings of its own", () => {

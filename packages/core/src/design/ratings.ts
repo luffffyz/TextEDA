@@ -6,30 +6,43 @@
 // part's `ratings`). This module compares them at the endpoint that stresses the device, because a
 // device that survives only the nominal point is a device with an unexamined failure (D8).
 //
-// Deliberately narrow (D10 and D12 of ADR-0026): a **two-terminal** device with a `voltage`
-// capability, against the difference of its two nets' declared windows. Multi-terminal stress
-// (Vds, Vgs, Vin) needs per-construction pin semantics and would otherwise produce noise; a net
-// whose potential is not declared is unknown, and unknown is counted, not passed (D13). The terminal
-// pair, the role's direction and the role's kind are decided (D4, D5, D6) and not implemented yet
-// (`docs/backlog.md` F42).
+// Deliberately narrow (D10 and D12 of ADR-0026): the voltage stress of a device is the difference
+// between the potentials of **two named terminals**, read in the **role's direction**. A part's
+// rating names the pair (`ratings` rows may carry `from` / `to`, ADR-0026 D4); the role table says
+// which polarity stresses the part (D5) and whether the number is a boundary at all (D6). A net
+// whose potential is not declared is unknown, and unknown is counted, not passed (D13). The
+// opposite polarity of a directed role is neither a violation nor an unknown: it is outside the
+// stress the role describes (D12).
 //
 // Pure: facts in, diagnostics out.
 import type { Diagnostic, DiagnosticLocation } from "@texteda/ir/diagnostics";
 import type { Schematic } from "@texteda/ir/schematic";
 import { packagePowerRating } from "../devices/packages.ts";
+import { DEVICE_ROLES, type RoleDirection } from "../devices/rules.ts";
 
 /** What the rules need to know about a device (assembled by the caller from the component facts). */
 export interface RatingDevice {
   /** The pin numbers of the device, in declaration order. */
   readonly pins: readonly string[];
-  /** The device's own ratings (a part only): role → quantity in canonical units. */
-  readonly ratings: Readonly<Record<string, { readonly type: string; readonly value: number | string }>>;
+  /**
+   * The device's own ratings (a part only): role → quantity in canonical units, with the two
+   * pins the rating is about when it names them (ADR-0026 D4).
+   */
+  readonly ratings: Readonly<Record<string, RatingFact>>;
   /** The parameter columns a generic declares: role → quantity (the power check reads `value`'s quantity). */
   readonly params?: readonly { readonly name: string; readonly type: string }[];
   /** The generic's construction (a generic only): the technology the package floor is stated for. */
   readonly construction?: string;
   /** The land pattern's package code (JEDEC spelling): what the package floor is keyed by. */
   readonly package_code?: string;
+}
+
+/** One rating of a part: what it measures, how much, and the two pins it is about. */
+export interface RatingFact {
+  readonly type: string;
+  readonly value: number | string;
+  /** The two pins this rating is about, `from` then `to` (ADR-0026 D4). */
+  readonly terminals?: { readonly from: string; readonly to: string };
 }
 
 export interface RatingFacts {
@@ -77,12 +90,108 @@ interface Window {
 
 /** Why an instance was not compared: the note has to be able to say it. */
 type Skip =
-  | "not_two_terminal"
+  | "no_terminals"
   | "no_capability"
   | "no_window"
   | "conflicting_window"
   | "pin_without_net"
   | "unknown_device";
+
+/** One stress fact: a limit, and the two pins whose potentials it is about. */
+interface StressFact {
+  /** The role it came from (`voltage`, `drain_source_voltage`, …). */
+  readonly role: string;
+  /** How the role's polarity reads (ADR-0026 D5). */
+  readonly direction: RoleDirection;
+  /** The limit, in microvolts. */
+  readonly limit_uv: number;
+  /** The `from` pin: the one the role names first. */
+  readonly from: string;
+  /** The `to` pin: the one the role names second. */
+  readonly to: string;
+}
+
+/**
+ * The stress facts one instance carries: what must not be exceeded, and across which pins.
+ *
+ * A generic states its requirement in the instances row (`voltage`), and the part it is built from
+ * has two pins, so the pair is those two pins. A part states its own ratings, and a rating that
+ * names its two terminals says which pins it is about (ADR-0026 D4). A rating without terminals
+ * keeps the two-pin inference, and is unknown on a part with more pins (D7): a number whose
+ * terminals are not stated cannot be checked against a pair of nets.
+ */
+function stressFactsOf(
+  instance: Schematic["instances"][number],
+  device: RatingDevice,
+): { facts: StressFact[]; unknown: Skip | null } {
+  const facts: StressFact[] = [];
+  let unknown: Skip | null = null;
+
+  // A generic's requirement: the instances row's own `voltage` column.
+  for (const param of instance.params ?? []) {
+    if (param.name !== "voltage") continue;
+    if (!("value" in param) || typeof param.value !== "number") continue;
+    if (device.pins.length !== 2) {
+      unknown ??= "no_terminals";
+      break;
+    }
+    facts.push({
+      role: "voltage",
+      direction: "symmetric",
+      limit_uv: param.value,
+      from: device.pins[0]!,
+      to: device.pins[1]!,
+    });
+    break;
+  }
+  if (facts.length > 0 || unknown !== null) return { facts, unknown };
+
+  // A part's own ratings: the limits a stress check may consume (ADR-0026 D12).
+  for (const [role, rating] of Object.entries(device.ratings)) {
+    const rule = DEVICE_ROLES[role];
+    if (rule === undefined || rule.kind !== "limit" || rule.direction === "none") continue;
+    if (rule.type !== "voltage" || typeof rating.value !== "number") continue;
+    const terminals = rating.terminals;
+    if (terminals !== undefined) {
+      facts.push({
+        role,
+        direction: rule.direction,
+        limit_uv: rating.value,
+        from: terminals.from,
+        to: terminals.to,
+      });
+      continue;
+    }
+    // No terminals: the pair can only be inferred for a two-pin part and a role whose polarity
+    // does not matter. A directed role needs its pair named, or its polarity is a guess.
+    if (rule.direction === "symmetric" && device.pins.length === 2) {
+      facts.push({
+        role,
+        direction: "symmetric",
+        limit_uv: rating.value,
+        from: device.pins[0]!,
+        to: device.pins[1]!,
+      });
+      continue;
+    }
+    unknown ??= "no_terminals";
+  }
+  return { facts, unknown };
+}
+
+/**
+ * The stress across a pair of nets, in the role's direction (ADR-0026 D5, D8).
+ *
+ * `null` when the role's polarity never occurs: the design never stresses the part that way, so
+ * there is nothing to compare — and that is not "not compared" either (D12).
+ */
+function stressOf(direction: RoleDirection, from: Window, to: Window): number | null {
+  if (direction === "symmetric") {
+    return Math.max(Math.abs(from.max_uv - to.min_uv), Math.abs(to.max_uv - from.min_uv));
+  }
+  const stress = direction === "from" ? from.max_uv - to.min_uv : to.max_uv - from.min_uv;
+  return stress >= 0 ? stress : null;
+}
 
 /** `16V`, `4.85V..5.15V` — the canonical unit is microvolts, the surface unit is volts. */
 function volts(uv: number): string {
@@ -140,56 +249,57 @@ export function checkRatings(facts: RatingFacts): RatingReport {
       skipped.push("unknown_device");
       continue;
     }
-    const capability = capabilityOf(instance, device);
-    if (capability === null) {
+    const { facts: stressFacts, unknown } = stressFactsOf(instance, device);
+    if (stressFacts.length === 0 && unknown === null) {
       skipped.push("no_capability");
       continue;
     }
-    if (device.pins.length !== 2) {
-      skipped.push("not_two_terminal");
-      continue;
+    // A fact that cannot be resolved leaves the device partly unchecked, so the device counts as
+    // not compared: unknown is counted, not passed (D13).
+    let reason = unknown;
+    for (const fact of stressFacts) {
+      const netFrom = netOfPin.get(`${instance.id}.${fact.from}`);
+      const netTo = netOfPin.get(`${instance.id}.${fact.to}`);
+      if (netFrom === undefined || netTo === undefined) {
+        reason ??= "pin_without_net";
+        continue;
+      }
+      const windowFrom = windows.get(netFrom);
+      const windowTo = windows.get(netTo);
+      if (!windowFrom || !windowTo) {
+        reason ??=
+          conflicting.has(netFrom) || conflicting.has(netTo) ? "conflicting_window" : "no_window";
+        continue;
+      }
+      // The extreme of the potential difference across the two nets, read in the role's direction.
+      const stress = stressOf(fact.direction, windowFrom, windowTo);
+      if (stress === null) continue;
+      if (fact.limit_uv >= stress) continue;
+      diagnostics.push({
+        code: "design.rating-exceeded",
+        severity: "error",
+        message: `${instance.id} (${instance.component}) is rated ${volts(fact.limit_uv)} (${fact.role}) but ${netFrom} (${volts(windowFrom.min_uv)}..${volts(windowFrom.max_uv)}) against ${netTo} (${volts(windowTo.min_uv)}..${volts(windowTo.max_uv)}) stresses it to ${volts(stress)}`,
+        hint: "use a part with a higher rating, narrow the declared window, or state why the window is what it is",
+        location: facts.locateInstance?.(instance.id) ?? { file, line: 1, col: 1 },
+        data: {
+          instance: instance.id,
+          component: instance.component,
+          capability_uv: fact.limit_uv,
+          stress_uv: stress,
+          net_a: netFrom,
+          net_b: netTo,
+          role: fact.role,
+          pin_from: fact.from,
+          pin_to: fact.to,
+        },
+      });
     }
-    const [pinA, pinB] = [device.pins[0]!, device.pins[1]!];
-    const netA = netOfPin.get(`${instance.id}.${pinA}`);
-    const netB = netOfPin.get(`${instance.id}.${pinB}`);
-    if (netA === undefined || netB === undefined) {
-      skipped.push("pin_without_net");
-      continue;
-    }
-    const windowA = windows.get(netA);
-    const windowB = windows.get(netB);
-    if (!windowA || !windowB) {
-      skipped.push(
-        conflicting.has(netA) || conflicting.has(netB) ? "conflicting_window" : "no_window",
-      );
-      continue;
-    }
-    // The extreme of the potential difference across the two nets.
-    const stress = Math.max(
-      Math.abs(windowA.max_uv - windowB.min_uv),
-      Math.abs(windowB.max_uv - windowA.min_uv),
-    );
-    if (capability >= stress) continue;
-    diagnostics.push({
-      code: "design.rating-exceeded",
-      severity: "error",
-      message: `${instance.id} (${instance.component}) is rated ${volts(capability)} but ${netA} (${volts(windowA.min_uv)}..${volts(windowA.max_uv)}) against ${netB} (${volts(windowB.min_uv)}..${volts(windowB.max_uv)}) stresses it to ${volts(stress)}`,
-      hint: "use a part with a higher rating, narrow the declared window, or state why the window is what it is",
-      location: facts.locateInstance?.(instance.id) ?? { file, line: 1, col: 1 },
-      data: {
-        instance: instance.id,
-        component: instance.component,
-        capability_uv: capability,
-        stress_uv: stress,
-        net_a: netA,
-        net_b: netB,
-      },
-    });
+    if (reason !== null) skipped.push(reason);
   }
 
   if (skipped.length > 0) {
     const counts = {
-      not_two_terminal: skipped.filter((reason) => reason === "not_two_terminal").length,
+      no_terminals: skipped.filter((reason) => reason === "no_terminals").length,
       no_capability: skipped.filter((reason) => reason === "no_capability").length,
       no_window: skipped.filter((reason) => reason === "no_window").length,
       conflicting_window: skipped.filter((reason) => reason === "conflicting_window").length,
@@ -197,7 +307,7 @@ export function checkRatings(facts: RatingFacts): RatingReport {
       unknown_device: skipped.filter((reason) => reason === "unknown_device").length,
     };
     const parts: string[] = [];
-    if (counts.not_two_terminal > 0) parts.push(`${counts.not_two_terminal} not two-terminal`);
+    if (counts.no_terminals > 0) parts.push(`${counts.no_terminals} whose rating names no terminals`);
     if (counts.no_capability > 0) parts.push(`${counts.no_capability} with no declared voltage capability`);
     if (counts.no_window > 0) parts.push(`${counts.no_window} on a net without a declared voltage window`);
     if (counts.conflicting_window > 0) parts.push(`${counts.conflicting_window} on a net whose declared windows conflict`);
@@ -207,7 +317,7 @@ export function checkRatings(facts: RatingFacts): RatingReport {
       code: "design.stress-unknown",
       severity: "note",
       message: `${skipped.length} of ${schematic.instances.length} instances were not compared with a declared window: ${parts.join(", ")}`,
-      hint: "state the reference potential (voltage GND 0V..0V) and a window on the net; multi-pin stress models are not implemented yet",
+      hint: "state the reference potential (voltage GND 0V..0V) and a window on the net; a rating on a part with more than two pins must name its two terminals (ADR-0026 D4)",
       location: { file, line: 1, col: 1 },
       data: { compared: schematic.instances.length - skipped.length, skipped: skipped.length, ...counts },
     });
@@ -424,21 +534,3 @@ function checkDissipation(
   };
 }
 
-/**
- * The voltage capability of one instance, in microvolts.
- *
- * An instance's own `voltage` column comes first: for a generic it is the specification the design
- * needs, and the purchased part has to meet it. A part states the fact in its `ratings` (ADR-0026).
- */
-function capabilityOf(
-  instance: Schematic["instances"][number],
-  device: RatingDevice,
-): number | null {
-  for (const param of instance.params ?? []) {
-    if (param.name !== "voltage") continue;
-    if ("value" in param && typeof param.value === "number") return param.value;
-  }
-  const fromRatings = device.ratings["voltage"];
-  if (fromRatings && typeof fromRatings.value === "number") return fromRatings.value;
-  return null;
-}

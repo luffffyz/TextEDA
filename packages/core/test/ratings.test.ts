@@ -104,7 +104,9 @@ describe("rating checks", () => {
     expect(diagnostics[0]!.message).toContain("without a declared voltage window");
   });
 
-  test("a multi-terminal device is not compared (its stress model is not defined yet)", () => {
+  test("a rating that names no terminals is not compared on a part with more than two pins", () => {
+    // A number whose terminals are not stated cannot be checked against a pair of nets
+    // (ADR-0026 D7): the device is counted as unknown, not passed.
     const schematic = board({
       instances: [{ id: "U1", component: "regulator" }],
       nets: [
@@ -119,7 +121,121 @@ describe("rating checks", () => {
     };
     const { diagnostics } = checkRatings({ file: "b.teda", schematic, devices: new Map([["regulator", device]]) });
     expect(diagnostics.map((d) => d.code)).toEqual(["design.stress-unknown"]);
-    expect(diagnostics[0]!.message).toContain("1 not two-terminal");
+    expect(diagnostics[0]!.message).toContain("1 whose rating names no terminals");
+  });
+
+  test("a rating that names its terminals is compared on a part with more than two pins", () => {
+    // The pair says which pins the rating is about, so the multi-pin part is checkable
+    // (ADR-0026 D4/D12).
+    const schematic = board({
+      instances: [{ id: "U1", component: "regulator" }],
+      nets: [
+        { id: "SYS", members: ["U1.1"] },
+        { id: "GND", members: ["U1.2"] },
+      ],
+      constraints: [VOLTAGE("SYS", 9_000_000, 19_800_000), VOLTAGE("GND", 0, 0)],
+    });
+    const device: RatingDevice = {
+      pins: ["1", "2", "3", "4"],
+      ratings: {
+        voltage: { type: "voltage", value: 28_000_000, terminals: { from: "1", to: "2" } },
+      },
+    };
+    const { diagnostics, coverage } = checkRatings({
+      file: "b.teda",
+      schematic,
+      devices: new Map([["regulator", device]]),
+    });
+    expect(diagnostics).toEqual([]);
+    expect(coverage.stress).toEqual({ compared: 1, total: 1 });
+  });
+
+  test("a rating that names its terminals is exceeded like any other", () => {
+    const schematic = board({
+      instances: [{ id: "U1", component: "regulator" }],
+      nets: [
+        { id: "SYS", members: ["U1.1"] },
+        { id: "GND", members: ["U1.2"] },
+      ],
+      constraints: [VOLTAGE("SYS", 9_000_000, 19_800_000), VOLTAGE("GND", 0, 0)],
+    });
+    const device: RatingDevice = {
+      pins: ["1", "2", "3", "4"],
+      ratings: {
+        voltage: { type: "voltage", value: 12_000_000, terminals: { from: "1", to: "2" } },
+      },
+    };
+    const { diagnostics } = checkRatings({
+      file: "b.teda",
+      schematic,
+      devices: new Map([["regulator", device]]),
+    });
+    const error = diagnostics.find((d) => d.code === "design.rating-exceeded");
+    expect(error?.severity).toBe("error");
+    expect(error?.message).toContain("rated 12V");
+    expect(error?.message).toContain("stresses it to 19.8V");
+    expect(error?.data).toMatchObject({ role: "voltage", pin_from: "1", pin_to: "2" });
+  });
+
+  test("a directed role reads only its own polarity", () => {
+    // `drain_source_voltage` is stressed when the drain is above the source (ADR-0026 D5). Here the
+    // drain is the 12..14 V net and the source the 0 V net, so the role fires and the 30 V limit
+    // holds.
+    const schematic = board({
+      instances: [{ id: "Q1", component: "fet" }],
+      nets: [
+        { id: "VDD", members: ["Q1.1"] },
+        { id: "GND", members: ["Q1.2"] },
+      ],
+      constraints: [VOLTAGE("VDD", 12_000_000, 14_000_000), VOLTAGE("GND", 0, 0)],
+    });
+    const device: RatingDevice = {
+      pins: ["1", "2", "3"],
+      ratings: {
+        drain_source_voltage: {
+          type: "voltage",
+          value: 30_000_000,
+          terminals: { from: "1", to: "2" },
+        },
+      },
+    };
+    const { diagnostics, coverage } = checkRatings({
+      file: "b.teda",
+      schematic,
+      devices: new Map([["fet", device]]),
+    });
+    expect(diagnostics).toEqual([]);
+    expect(coverage.stress).toEqual({ compared: 1, total: 1 });
+  });
+
+  test("a directed role in the other polarity is neither a violation nor an unknown", () => {
+    // The source is above the drain here, so the role's polarity never occurs: the design never
+    // stresses the part that way (ADR-0026 D12).
+    const schematic = board({
+      instances: [{ id: "Q1", component: "fet" }],
+      nets: [
+        { id: "GND", members: ["Q1.1"] },
+        { id: "VDD", members: ["Q1.2"] },
+      ],
+      constraints: [VOLTAGE("GND", 0, 0), VOLTAGE("VDD", 12_000_000, 14_000_000)],
+    });
+    const device: RatingDevice = {
+      pins: ["1", "2", "3"],
+      ratings: {
+        drain_source_voltage: {
+          type: "voltage",
+          value: 5_000_000,
+          terminals: { from: "1", to: "2" },
+        },
+      },
+    };
+    const { diagnostics, coverage } = checkRatings({
+      file: "b.teda",
+      schematic,
+      devices: new Map([["fet", device]]),
+    });
+    expect(diagnostics).toEqual([]);
+    expect(coverage.stress).toEqual({ compared: 1, total: 1 });
   });
 });
 

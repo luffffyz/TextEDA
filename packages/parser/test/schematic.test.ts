@@ -555,7 +555,7 @@ describe("negative cases", () => {
   });
 
   test("version higher than the tool supports", () => {
-    expect(codes(moduleText.replace("version 0.14.0", "version 0.15"))).toContain("format.unsupported-version");
+    expect(codes(moduleText.replace("version 0.14.0", "version 0.16"))).toContain("format.unsupported-version");
   });
 
   test("unknown section", () => {

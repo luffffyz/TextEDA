@@ -788,7 +788,7 @@
 **为什么现在不做**：这一项的收益是"目录语义干净"，成本是动引用面与冻结契约。在十用例语料（F12）与 conformance 还没落地、引用面还没有统一锚点机制之前，**一份 `spec/teda.md` 更省事**。等 §N 引用面有了迁移机制再做不迟。
 
 ## F42. 规格只被"写出"，没有被"验证"（ADR-0025 留下的洞）
-**现状**：**item 0 已落地**（耗散检查），item 1 的第一片已落地（电压），见下（2026-10-23，[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D8 / D11）。
+**现状**：**item 0 已落地**（耗散检查），item 1 的第一片已落地（电压），**端子 / 方向 / `kind` 也落地了**（2026-11-18，见下面那条），见下（2026-10-23，[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D8 / D11）。
 
 - **分析模式（原来记作 item 0）已定**：按**声明窗口的受压端**比（不是标称点）；器件**互相独立**（语言还无法声明相关性，容差不参与比较）；**未声明即未知**，未知要计数（一块板一条 note）；降额是项目政策，不是检查器的常数。
 - **item 0 已落地（耗散）**：阻性两引脚器件的最坏耗散 `P = ΔV²/R`（`ΔV` 同 ADR-0026 的窗口极端差，`R` 取实例行 `value` 或件的 `value` 额定值）同时比三条上界——设计的 `power <引脚> <max>` 约束、实例行的 `power` 要求、件的 `power` 额定值——取最紧那条，超了报 `design.rating-exceeded`；没上限或两端有一个没窗口的不比较，计入 `design.power-unknown`（note，一块板一条）。实现在 `packages/core/src/design/ratings.ts`，决策与局限见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md)（这是**上界**：两端窗口相同时它给 0，所以只报违规、不证明通过；串在两条窗口之间的 RC 阻尼电阻上这个上界没有物理意义）。参考工程实测：charger-buck `24` 个阻性实例里比了 **4** 个（其余 20 个所在 net 无窗口），mcu-board `3` 个全因无窗口跳过，0 违规——比得动是因为**封装底线**（[ADR-0027](adr/07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md)）：`(construction, package_code)` 查表（0402 = 62.5mW），厚膜是同一封装的最低档，所以这张表给的是底线而不是猜测买了哪颗件。底线只在设计/行/件都没声明时生效；同一条底线也让选料拒绝低于底线的件（rule 4a），两个检查不会互相打架。两块参考板的两颗 10k 件（`rc0402fr-0710kl` 62.5mW、`crc0402fr-0710kl` 63mW）补上了件的功率额定值。
@@ -802,6 +802,15 @@
 **2026-11-16 `current` 约束有人消费了（上面"还没做"里的 `current` 一项）**：`current` 约束此前**没有任何检查器读它**（只有 `voltage` 与 `power` 被消费），于是"插座额定 500mA、设计要 4A"这件事只写在件文件的注释里。现在新增比较（`packages/core/src/design/current.ts`，规则见 `spec/teda.md` §7.3）：件能扛多少取件自己的 `ratings.rated_current`（事实）或通用件实例行的 `rated_current` 列（要求）。**能确定到什么程度分三档**：主语是引脚且件是两引脚 → 确定，低于就报 `design.current-exceeded`（error）；主语是 net → 语言没说 net 的电流由谁承担，只能报 `design.current-below-rating`（warning）；件是多引脚 → 额定值属于哪两个脚还没说（端子语法未落地），同样是 warning。另有两种**不比较**：坐在两条声明了不同电流的轨上的件（是转换器还是串联件，语言分不出），以及没写 `rated_current` 的件（计入 `design.current-unknown`，note）。参考工程实测：插座 J1 被点出来（`net ADAPTER_P declares 4A, and M1.J1 (dc-005-20a) on it is rated 0.5A`），参考工程顺带把 4A 适配器上限从模块头注释改成了声明事实（`current ADAPTER_P 4A`）。**仍然没做**：语言没有"这条 net 的电流由谁承担"的写法，所以 net 主语那一档只能是 warning；也没有"网电流归成员"的构造（这就是上面 Open Points 那一条）。
 
 **2026-11-17 `current` 的口径改了：原理图只比引脚主语，轨电流归布局**（[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D18）。上面那条三档规则里"主语是 net"那一档**撤掉了**：net 的电流由成员共享，语言没说谁承担，拿它跟每个成员比就是对整条 net 的一次猜测。现在两种主语各有各的主人——`current <pin> <max>` 是**对这个件的要求**，原理图拿它跟件的额定值比（两引脚件确定，低于 → `design.current-exceeded` error；多引脚件不确定，额定值还没说属于哪两个脚 → `design.current-below-rating` warning）；`current <net> <max>` 是**这条轨总共流多少**，那是**布局**的事（载它的铜要按这个宽度走），原理图不与件比，但也不沉默——每块板一条 `design.current-rail`（note）点名这些轨与它们声明的电流。参考工程现在两种主语都写：模块里的 `current ADAPTER_P 4A`（轨，给布局）与 `current J1.1 4A`（插座的正极脚，给额定值比）；插座 500mA 的额定值重新被点出来（`pin M1.J1.1 carries at most 4A, and M1.J1 (dc-005-20a) is rated 0.5A`），而且这次作者能回答——设计说了这个脚流多少。**仍然没做**：轨电流的分支拆分（语言没有阻抗，也没有"电流从哪个脚进来"，F80）；布局侧还没有规则读轨电流（F82）。
+
+**2026-11-18 端子、方向、`kind` 落地了（上面"还没做"里的"多引脚器件的应力模型"那一条）**：语言升到 **0.15**（增量），IR 契约升到 **`v0.20`**（`v0.19` 保持不变），决策见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D4–D6、D12。
+
+- **语法**：`ratings` 行可以是三列或五列；五列的第四、第五列点名这颗件的**两个端子**（**引脚编号**、有序对、两者不同、都要在 `pins` 段里），一个角色一行——一个角色 = 一对端子。五列自 0.15 起可用；四列报 `syntax.column-count`，版本低于 0.15 写五列报 `syntax.unknown-field`，端子不是本件的引脚或两端同一个引脚报 `value.component-rating-terminal-invalid`。IR 的 `rating` 分片多一个可选的 `terminals`（`{from, to}`）。
+- **词表**：角色表多了 `kind`（`limit` / `characteristic` / `code`）与**应力方向**（`symmetric` / `from` / `to` / `none`），并新增三个定向电压角色（`drain_source_voltage`、`gate_source_voltage`、`reverse_voltage`）。方向属于角色、不属于行——一行不重复写方向。
+- **比较**：多引脚件的 `limit` 额定值**有端子**时，比那两个 net 声明窗口的极差，按角色方向读；**没有端子**时不比较，计入 `design.stress-unknown`（"whose rating names no terminals"）。定向角色的**反极性既不算违规、也不算没比较**——它不在这个角色描述的应力里，算比过了（[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D12）。
+- **参考工程实测**：电压覆盖率从 **21/83** 抬到 **24/83**（TPS5430 / TPS7A2033 / BQ24610 三颗件补了端子额定值，值都来自数据手册）。**覆盖的大头不是模型，是缺件数据**：其余多引脚件（MOSFET、LED、二极管、NTC、电感、晶振、开关）**没有 datasheet URL、也没有额定值**——下一轮的活是查数据手册，不是改模型。
+- **语料**：新增 `examples/cases/directed-ratings/`（第十一个用例），钉住"带端子可比""多脚件不写端子仍是未知""端子进 IR"三件事（[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D4 的语法准入条件）。F12 的十个里仍欠 **BGA 200 脚**。
+- **仍然没做**：同一张表里的**电压底线**（封装版）、`Rds(on)` / `Vgs(th)` 一类**特性角色**（F43）、**P 沟道 MOSFET 的极性**（F84）、**区间额定值**（F42 的区间 ADR）、`current` 的分支拆分（F80）、布局侧读轨电流（F82）。
 
 **2026-10-23 覆盖率审计（实测，用来定下一步做什么）**：`texteda check` 的两块参考板。
 
@@ -855,6 +864,8 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 4. 加角色的流程写进 [ADR-0025](adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) 的后续说明（或新 ADR）：词表版本号怎么走、旧的件文件要不要跟着改。
 
 **为什么现在不做**：角色表的形状要一次想清楚，否则会出现"一个构造一个角色名"的碎法（`cap_cl` / `xtal_cl` / …）和全局角色并存、互相打架。`ratings` 段与检查器已经就位，词表可以按构造逐批长。
+
+**2026-11-18 补记：`kind` 列与应力方向落地了，词表仍然薄**：`kind`（`limit` / `characteristic` / `code`）与应力方向（`symmetric` / `from` / `to` / `none`）已经进了 `packages/core` 的角色表与 `spec/teda.md` §6.2.1 的表（[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D5、D6），并且新增了三个**限值**角色：`drain_source_voltage`、`gate_source_voltage`、`reverse_voltage`——它们带端子与方向，所以能进应力检查（[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D12）。**"特性"那一类一个都没加**：晶振的负载电容 `CL`、MOSFET 的 `Rds(on)` 与 `Vgs(th)`、LED 的光强、连接器的插拔次数仍然写不进去，只能留在注释里（参考工程的 `xtal-8mhz-3225.teda`）。下面"要做的事"的第 1、2 步因此**还没做**：这些候选角色一个都没有名字与量纲的正式决定。`kind` 列的落地只是把"限值"与"特性"分开的那一步——分开了，才知道还差多少。
 
 ## F48. Agent 驱动的布局与布线：sandbox、结构化工具、DRC 反馈与交互式规则拍板（ADR-0017 的落地）
 
@@ -1858,3 +1869,52 @@ thing the policy forbids.
 
 **Note**: this is the analysis route to the attribution hole in F80; the language route stays open
 for the designs that have no analysis. The stale-analysis half is F74.
+
+---
+
+## F84. A directed rating names one polarity, and the other polarity has no role
+
+**Status**: Proposed (2026-11-18). The model is implemented; the vocabulary gap it exposes is not.
+
+**Current state**: the three directed voltage roles read one polarity each —
+`drain_source_voltage` (from = drain, to = source), `gate_source_voltage` (from = gate, to = source)
+and `reverse_voltage` (from = anode, to = cathode). The checker computes the stress in that
+polarity only, and a polarity that never occurs is neither a violation nor an unknown: it counts as
+compared ([ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D12).
+
+That is right for the parts the roles were written for, and wrong for a P-channel MOSFET. As a
+high-side switch its drain sits **below** its source, so `drain_source_voltage` never occurs; the
+checker compares nothing, the instance counts as compared, and the report says nothing. The
+polarity the part really sees — source above drain — has no role at all, so nothing compares it.
+
+**Why it matters**: "compared" is a claim the report makes to a reader. For a P-FET the claim is
+about a polarity the design never exercises, and the polarity it does exercise is invisible. A
+reader who trusts the coverage number is trusting a statement about the wrong thing.
+
+The same shape shows up on the gate side: the datasheet's `V_GS` is ±20 V, and
+`gate_source_voltage` covers the gate-above-source half only. The check is narrower than the
+datasheet, which is safe (no false alarm) but incomplete (the other half is unchecked).
+
+**To do**: one decision, in two possible shapes.
+
+1. **A role for the other polarity.** Add `source_drain_voltage` and `source_gate_voltage`, so a
+   P-FET states its ratings the way its datasheet reads them. Cost: two more role names in the
+   closed vocabulary, and the same question for every other device family that inverts a
+   convention.
+2. **The part says which polarity its rating covers.** Give the role a *pair* of polarities, or let
+   the row say `from`/`to` is the pair and the polarity is the role's `kind`. Cost: the row grows
+   another piece of syntax, and the ambiguity returns to the file that was supposed to avoid it.
+
+Either way, the report must stop claiming "compared" for an instance whose rated polarity never
+occurs: either it counts as unknown, or the note says "compared, nothing in that polarity".
+
+**Acceptance**:
+
+- A design with a P-channel MOSFET either has a role its ratings can use, or the report says the
+  part's stress direction was not compared.
+- The coverage number and the note agree about which instances were really checked.
+
+**Note**: this is the gap the directed model opened; it is recorded as an open point in
+[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) and it is the reason the corpus
+case `examples/cases/directed-ratings/` uses an N-channel part: a case that used a P-FET would
+have pinned a silent gap as if it were a result.

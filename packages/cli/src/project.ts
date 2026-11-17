@@ -155,7 +155,11 @@ export function loadComponents(root: string): LoadedComponents {
       ratings: Object.fromEntries(
         result.component.ratings.map((rating) => [
           rating.name,
-          { type: rating.type, value: rating.value },
+          {
+            type: rating.type,
+            value: rating.value,
+            ...(rating.terminals ? { terminals: { from: rating.terminals.from, to: rating.terminals.to } } : {}),
+          },
         ]),
       ),
       params: result.component.params.map((param) => ({ name: param.name, type: param.type })),

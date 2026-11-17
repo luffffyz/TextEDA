@@ -1,0 +1,29 @@
+version 0.14.0
+module switch-stage
+
+# The stage: a 5 V rail in, a 3.3 V rail made by the LDO, and a switched rail on SW with a
+# flyback diode back to ground.
+#
+# Q1's drain-source and gate-source ratings name their two pins, so the checker can compare them
+# with the windows the root declares (ADR-0026 D4). D1's reverse rating names the anode and the
+# cathode the same way. U1's voltage rating names no pair: the LDO has five pins, so the number
+# cannot be checked against a pair of nets, and the case says so in the report instead of letting
+# it read as a pass.
+instances
+  D1  ID4w7mne  d-1n4148w
+  Q1  IDejj43a  irf540n
+  U1  ID3w0a5b  tps7a2033pdbvr
+
+nets
+  GATE:  Q1.1
+  GND:   D1.2  Q1.3  U1.2
+  SW:    D1.1  Q1.2
+  V3V3:  U1.5
+  VIN:   U1.1  U1.3
+
+ports
+  GATE  GATE
+  GND   GND
+  SW    SW
+  V3V3  V3V3
+  VIN   VIN

@@ -31,7 +31,7 @@ export interface BindingInterconnectPin {
   to: string;
 }
 
-/** v0.19 project-root schematic facts needed by PCB binding checks. */
+/** v0.20 project-root schematic facts needed by PCB binding checks. */
 export interface BindingSchematic {
   project: string;
   modules: readonly BindingModule[];
@@ -41,7 +41,7 @@ export interface BindingSchematic {
   interconnect_pins?: readonly BindingInterconnectPin[];
 }
 
-/** v0.19 PCB IR: existing physical facts plus explicit PCB identity and ownership. */
+/** v0.20 PCB IR: existing physical facts plus explicit PCB identity and ownership. */
 export type BindingPcb = Omit<Pcb, "board"> & {
   pcb: string;
   modules: readonly string[];

@@ -1157,7 +1157,7 @@ export function parseView(text: string, options: ViewParseOptions): ViewParseRes
   modules.sort((a, b) => naturalCompare(a.instance_id, b.instance_id));
   modulePorts.sort((a, b) => naturalCompare(a.id, b.id));
   interconnects.sort((a, b) => naturalCompare(a.id, b.id));
-  // The canonical order of a placement list: by instance, then by position (IR v0.19).
+  // The canonical order of a placement list: by instance, then by position (IR v0.20).
   modulePlaces.sort(
     (a, b) =>
       naturalCompare(a.instance_id, b.instance_id) || a.x_nm - b.x_nm || a.y_nm - b.y_nm,

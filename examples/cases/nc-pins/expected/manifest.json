@@ -1,51 +1,51 @@
 {
-  "ir_version": "0.19",
+  "ir_version": "0.20",
   "shards": [
     {
       "path": "boards/debug-header/pcb.json",
-      "sha256": "dbc681e11965e254f1ad484ec741721497034fd85018802205c6fe6a26e63b11",
+      "sha256": "dc06c8464bfc61b7f30ee72f6fa19d827b591bf8ce7476522d642d6c680030b7",
       "normative": true
     },
     {
       "path": "components/hdr-2x5-127.json",
-      "sha256": "235c42cd9f3115328cd0f2e050ec58668310057f10e0fe90fe06d9e82a490305",
+      "sha256": "3953f8b1ebc27616ace63fc1914a848c461b0a8b45aaa472aef4394849898492",
       "normative": true
     },
     {
       "path": "components/res-10k-0402.json",
-      "sha256": "06386b799f54b84741f69e3e14100ee040510652f834c51541e593c22fe67c08",
+      "sha256": "ebd360cfc2e213e3bf0efa86f4afd4e20f03d29ba9b7238e54111e2d3566308c",
       "normative": true
     },
     {
       "path": "footprints/chip/chip-0402.json",
-      "sha256": "48de49078ff357157ce9d47e15390e7a18b3d8a3642ab8a74da848e49d034f67",
+      "sha256": "255c4ae0acc6f9d80e5f2917ff8e554ac71cb7f88414deef78c224fe4f7c9dd9",
       "normative": true
     },
     {
       "path": "footprints/header/hdr-2x5-127.json",
-      "sha256": "b194018211d9202920627c145e86fc7202af9895b48d8cd0ab9a541568c855a5",
+      "sha256": "45d928c6c10a06a0d1c7dc1bd6a776f6225c5bf58e58478de35d529394fb5631",
       "normative": true
     },
     {
       "path": "project.json",
-      "sha256": "fdc5f6f741cc4d3424ef6e794f7824ab21cdea268261ffe2ad0944d526c4fe1c",
+      "sha256": "4a1c27b55aecac97d3a3d51e72d74caa8194f8ff2f9e0a12521e348c04fd29bd",
       "normative": true
     },
     {
       "path": "project/schematic.json",
-      "sha256": "3b33706e810e1e632465b0c2195b0e9f09cde2b044bdda571fc11fc704b42d2f",
+      "sha256": "4ffde01af6e3c8b3ce6cd8dbddb51f16db110c5e87f805f5b7310f2bf2187baa",
       "normative": true
     },
     {
       "path": "symbols/connectors/hdr-2x5.json",
-      "sha256": "439fd72a92ae41061bb9ca4450181f9c994c78269dc6233ae5afe699b3e50528",
+      "sha256": "d54c413e6a8e1d519490a2d16633c1adc5aba749d177cc7790705de2364a77a4",
       "normative": true
     },
     {
       "path": "symbols/passives/r.json",
-      "sha256": "99c7ca9638ce21e3edbc66dcc3ce7bb76f8c6b4dd2b1003f4623583df0c4e0fe",
+      "sha256": "c5e32786ab29f4ded1c2f57cbcbfe68a5932e310d5a2776e159f8c683654fb74",
       "normative": true
     }
   ],
-  "source_hash": "f98da78969b87ae623bd3b3b471c4333d02568224f0940ba19b80a4d9bd98c78"
+  "source_hash": "b4617e1d2ad5e51e32622c0e8a7d08c3fb0146053f71a757ba9b63fdf96da1f8"
 }

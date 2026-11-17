@@ -6,6 +6,8 @@ Scope: Decides: where a part's ratings live, how they are compared against a des
 Related: [ADR-0024](0024-the-device-kind-is-part-or-generic.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md)
 Impact: `spec/teda.md` §6.2.1, §6.4, §7.3; `spec/procurement.md` §3.2, §3.3; `schemas/ir/**`; `packages/core` (the rating checks); `packages/parser` (the `component` description type); `packages/ir` (the diagnostic code registry)
 
+> **Current rating contract (2026-11-18):** the terminal pair, the role's direction and the role's kind are **implemented** — language `0.15`, IR contract `v0.20`. A `ratings` row may name its two terminals (`role type value from to`, pin numbers, ordered); the role table carries `kind` (`limit` / `characteristic` / `code`) and a stress direction (`symmetric` / `from` / `to` / `none`), plus the three directed voltage roles (`drain_source_voltage`, `gate_source_voltage`, `reverse_voltage`); the checker compares a multi-pin part's `limit` rating across that named pair, in the role's direction, and a `limit` rating without terminals on a part with more than two pins stays unknown (D7, D13). The syntax and the semantics are `spec/teda.md` §6.2.1, §6.4 and §7.3; the code is `packages/core/src/design/ratings.ts` and `packages/core/src/devices/rules.ts`. The wording below that says a decision is "not implemented" is the record of the day it was taken, and stays as it is.
+
 ## Background
 
 The device vocabulary record settled what the numbers in an `instances` row mean: they are the
@@ -133,6 +135,12 @@ terminals (`syntax.column-count`), so a written terminal pair is an error rather
 vanishes on the way in. The syntax, the IR field and the comparison land together
 (`docs/backlog.md` F42).
 
+→ **Implemented (2026-11-18).** The parser accepts five columns from language `0.15` (four columns
+are `syntax.column-count`; a five-column row below `0.15` is `syntax.unknown-field`), the IR carries
+`rating.terminals` (contract `v0.20`), and the checker compares the named pair in the role's
+direction (`packages/core/src/design/ratings.ts`). The paragraph above is the record of 2026-10-27,
+when the syntax was decided and the parser deliberately refused it.
+
 ### D5. Direction belongs to the role, not to the row
 
 A row does not repeat `symmetric` / `forward` / `reverse`. The role table gains a **direction**
@@ -171,6 +179,10 @@ kind and direction decided together.
 are **decided but not implemented**: the role table in `packages/core` maps a role to its quantity
 only, the published table in `spec/teda.md` §6.2.1 has no `direction` or `kind` column, and the
 checker runs the two-terminal model of D10 (`docs/backlog.md` F42).
+
+→ **Implemented (2026-11-18).** `packages/core/src/devices/rules.ts` carries `kind` and `direction`
+per role, and the three directed voltage roles; `spec/teda.md` §6.2.1 publishes the same table. The
+paragraph above is the record of 2026-10-26.
 
 ### D7. No terminals means a device-level rating
 
@@ -291,6 +303,10 @@ forward-biased junction.
 (`packages/core/src/design/ratings.ts`), and everything that needs a named terminal pair, a
 direction or a kind is not implemented (`docs/backlog.md` F42).
 
+→ **Implemented (2026-11-18).** The checker reads the named terminal pair, the role's direction and
+the role's kind, and counts what it could not compare (`packages/core/src/design/ratings.ts`;
+`spec/teda.md` §7.3). The paragraph above is the record of 2026-10-26.
+
 ### D13. Unknown is counted, not passed
 
 A device that is not compared is not a device that passed. Every board gets one `note` naming how
@@ -403,3 +419,12 @@ could only report a warning, because the attribution was unknown.
 - **Derating as a project policy.** Whether the project should be able to state a derating policy
   once, in `project.toml`, is open; the checker deliberately does not pick a factor.
 - **Matched pairs.** Stating that two parts drift together needs its own construct.
+- **A directed role names one polarity, and the vocabulary has no role for the other one.** The
+  three directed voltage roles read the drain-above-source, gate-above-source and
+  cathode-above-anode polarities. A P-channel MOSFET's stress is the opposite polarity: as a
+  high-side switch its drain sits below its source, so `drain_source_voltage` never occurs, the
+  checker compares nothing, and the part reads as "compared" — while the polarity it really sees
+  has no role at all. The rule above (D12) is honest about the role it was given and silent about
+  the role it does not have, and the report does not show the difference. Deciding whether the
+  vocabulary grows a source-drain role, or whether a part may say which polarity its rating
+  covers, is open (`docs/backlog.md` F84).

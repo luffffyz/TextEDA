@@ -1,0 +1,7 @@
+[project]
+name = "directed-ratings"
+version = "0.1.0"
+format = "0.15"
+description = "Case 11: a rating that names the two pins it is about"
+license = "Apache-2.0"
+status = "draft"

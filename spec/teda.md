@@ -263,19 +263,28 @@ params
 
 角色是**哪个额定值**，类型是**量纲**。同一个量纲有多个额定值时，角色名必须指明是哪一个；**判据写在这里，不写进类型词表**——类型词表是纯单位表（[ADR-0006](../docs/adr/02-ir/0006-ir-shards-and-hashes.md)），而件（`kind: part`）在 IR 里根本没有额定值，IR 里只有要求，所以"要求方"与"读数据手册的人"对齐判据是人和 agent 的事，不是两台机器的事（决策见 [ADR-0025](../docs/adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) D3）。
 
-| 角色 | 量纲 | 含义与判据 |
-|---|---|---|
-| `value` | 主量的量纲 | 主量的标称值（容值 / 阻值 / 电感量） |
-| `tolerance` | `percent` | **设计允许的偏差上限**（不是件的容差）：`±1%` = 任何落在 ±1% 内的件都合格，**更好的件（±0.5%）也合格**，更差的（±2%）不合格 |
-| `voltage` | `voltage` | 耐压：能承受的最高电压 |
-| `power` | `power` | 功率额定值：能长期耗散的最大功率（**热限**）。电阻的这一项由封装决定，所以它在 `thick` / `thin` 里是选填 |
-| `dielectric` | `string` | MLCC 的温度特性码（IEC 60068-4）：`C0G` / `NP0` / `X7R` / `X5R` / `Y5V` …，**封闭取值集** |
-| `esr` | `resistance` | 直流等效串联电阻 |
-| `dcr` | `resistance` | 直流电阻 |
-| `rated_current` | `current` | 额定电流：可长期连续流过的 RMS 电流（**热限**） |
-| `sat_current` | `current` | 饱和电流：电感量跌到标称 30% 时的电流（**磁限**，数据手册惯例） |
+| 角色 | 量纲 | kind | 应力方向 | 含义与判据 |
+|---|---|---|---|---|
+| `value` | 主量的量纲 | `characteristic` | `none` | 主量的标称值（容值 / 阻值 / 电感量） |
+| `tolerance` | `percent` | `limit` | `none` | **设计允许的偏差上限**（不是件的容差）：`±1%` = 任何落在 ±1% 内的件都合格，**更好的件（±0.5%）也合格**，更差的（±2%）不合格 |
+| `voltage` | `voltage` | `limit` | `symmetric` | 耐压：能承受的最高电压 |
+| `power` | `power` | `limit` | `none` | 功率额定值：能长期耗散的最大功率（**热限**）。电阻的这一项由封装决定，所以它在 `thick` / `thin` 里是选填 |
+| `dielectric` | `string` | `code` | `none` | MLCC 的温度特性码（IEC 60068-4）：`C0G` / `NP0` / `X7R` / `X5R` / `Y5V` …，**封闭取值集** |
+| `esr` | `resistance` | `characteristic` | `none` | 直流等效串联电阻 |
+| `dcr` | `resistance` | `characteristic` | `none` | 直流电阻 |
+| `rated_current` | `current` | `limit` | `none` | 额定电流：可长期连续流过的 RMS 电流（**热限**） |
+| `sat_current` | `current` | `limit` | `none` | 饱和电流：电感量跌到标称 30% 时的电流（**磁限**，数据手册惯例） |
+| `drain_source_voltage` | `voltage` | `limit` | `from` | 漏源之间的耐压：`from` = 漏极，`to` = 源极；漏极高于源极时受应力 |
+| `gate_source_voltage` | `voltage` | `limit` | `from` | 栅源之间的耐压：`from` = 栅极，`to` = 源极；栅极高于源极时受应力 |
+| `reverse_voltage` | `voltage` | `limit` | `to` | 二极管的反向耐压：`from` = 阳极，`to` = 阴极；阴极高于阳极时受应力 |
 
 `rated_current` 与 `sat_current` 是两种不同的限制，彼此不相关（额定 6A / 饱和 3A 是常见件，磁限通常先到），所以是两个角色。
+
+**`kind` 说的是"这个数是什么性质"**（决策见 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D6）：`limit` 是设计必须待在内的**边界**（耐压、功率、额定电流、容差），`characteristic` 是**用来挑件或描述件**的性质（`value`、`esr`、`dcr`），`code` 是封闭代码（`dielectric`）。只有 `limit` 是"不得超过"的边界，电压/耗散比较只消费 `limit`。
+
+**"应力方向"说的是这个角色的极性怎么读**（决策见 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D5）：`symmetric` 两种极性都受应力（电容、电阻），`from` 只有 `from` 那一端高于 `to` 时受应力，`to` 反之，`none` 不是电压应力。方向**属于角色，不属于行**——一行不重复写方向，两处写就会漂。
+
+> **两个"方向"不是一回事**：下面这张采购比较表的方向说的是"**哪一边更好**"（选料时件的额定值要往哪边比），角色表里的应力方向说的是"**哪种极性会伤到件**"（比较时两个 net 的窗口怎么读）。一张是选料口径，一张是电路口径，别混。
 
 **角色带一个比较方向**：`instances` 行写的是**要求**（见 §6.2.2），选料时拿来和件自己的额定值比。方向决定"哪一边更好"，也决定**更好的件永远合格**：
 
@@ -346,9 +355,17 @@ pins
 ratings
   tolerance  percent  2%
   voltage    voltage  36V
+  drain_source_voltage  voltage  100V  2 3
+  reverse_voltage       voltage  40V   2 1
 ```
 
-列：`role type value`。
+列：`role type value [from to]`——**三列或五列**，四列是语法错误（`syntax.column-count`）。
+
+**三列 = 器件级额定值**：这个数说的是整颗件。五列 = **这个数说的是哪两个脚之间**：`from` 与 `to` 是本件的**引脚编号**，有序（`from` 在前），两者必须不同，且都必须在 `pins` 段里（否则 `value.component-rating-terminal-invalid`）。
+
+- **端子写编号，不写引脚名**：名字可以重复（多单元件的 `GND`、多脚的 `OUT`），额定值挑了其中哪一个就是一次猜测，语言在别处已经拒绝这种猜测（`ref.ambiguous-pin`）。
+- **一个角色一行**：同一个角色写两行报错（`value.component-rating-invalid`）——一个角色 = 一对端子，端子对是行的一部分。
+- 五列自语言 **0.15** 起可用：低于该版本的文件写五列报错（`syntax.unknown-field`），三列在所有版本都合法。
 
 `ratings` 段是**事实段**（和 `pins` 一样）：它写这颗**具体的件**自己有什么额定值。与 `params` 段的分工是硬的：
 
@@ -362,6 +379,7 @@ ratings
 - 角色名取 §6.2.1 的封闭角色词表；`type` 必须是该角色的量纲（`value` 除外：件的量纲由这一行自己写，因为件不声明 `construction`）。
 - 取值按该量纲解析；`dielectric` 这类封闭取值集照样只认集合里的写法。
 - **一个额定值是一个数，不是一个区间**：能承受的最高电压、长期可过的电流、标称值周围的容差。区间是**要求**（`voltage SYS 9V..19.8V`），由设计写在网的约束里。
+- **没有端子 = 器件级额定值**：多引脚件写 `limit` 而不写端子，这个数不能拿去比一对 net——它说的是整颗件（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D7）。两引脚件的 `symmetric` 角色仍可按"它仅有的那一对"推断。
 - 通用器件不得写 `ratings`（它是一个类，类自己没有额定值；它的要求在 `instances` 行里）；`kind: part` 不得写 `params`（参数列是 `instances` 行填的，件没有实例行可填）——两条都报错。
 - `ratings` 不改器件身份：引脚表不变、`mpn` 不变的还是同一颗件。
 
@@ -436,11 +454,31 @@ constraints
 
 **约束是设计的承诺，检查器拿它去比事实**（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)）：`voltage` 声明的是**绝对电位**的窗口，同一个文件里的所有 `voltage` 处在**同一个参考帧**里，帧的原点由设计自己声明——`voltage GND 0V..0V`。工具**不假设**叫 `GND` 的 net 就是 0V：分地或隔离电源有多种参考，猜出来的比较比不比较更糟。
 
-两端的器件（电容、电阻这类两引脚器件）的电压应力是**两端电位的差**，取各自窗口的极值：
+**电压应力是"哪两个脚之间"的差**，取两端各自窗口的极值。**哪两个脚**由额定值自己说：件在 `ratings` 行里点名它的两个端子（§6.4 的五列形式），端子对是**有序的**，顺序就是角色的方向。
 
-`stress = max(|max(a) − min(b)|, |max(b) − min(a)|)`
+| 角色方向 | 应力 | 什么时候受应力 |
+|---|---|---|
+| `symmetric` | `max(|max(a) − min(b)|, |max(b) − min(a)|)` | 两种极性都算（电容、电阻这类两引脚器件） |
+| `from` | `max(a) − min(b)` | `from` 那一端高于 `to` 那一端时；差为负说明**这种极性不发生** |
+| `to` | `max(b) − min(a)` | `to` 那一端高于 `from` 那一端时；差为负说明**这种极性不发生** |
 
-器件的电压能力来自 `instances` 行的 `voltage` 列（通用件：设计要求）或器件自己的 `ratings`（`kind: part`：事实，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)）。能力低于应力报 `design.rating-exceeded`；两端的 net 有一个没有窗口、或器件不是两引脚时**不比较**，并在一条 `design.stress-unknown`（note）里报出数量——没比较不等于通过。容差不参与比较（器件独立漂移，语言还无法声明相关性），降额是项目政策而不是检查器的常数：比的是"能不能扛"，不是"留了多少裕量"。
+（`a` 是 `from` 端所在 net 的窗口，`b` 是 `to` 端所在 net 的窗口。`from` / `to` 的角色约定见 §6.2.1：`drain_source_voltage` 是 from = 漏极、to = 源极；`reverse_voltage` 是 from = 阳极、to = 阴极。）
+
+器件的电压能力来自 `instances` 行的 `voltage` 列（通用件：设计要求）或器件自己的 `ratings`（`kind: part`：事实，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)）。能力低于应力报 `design.rating-exceeded`，载荷里带角色与起作用的两个端子。
+
+**只有 `kind: limit` 的角色参与这个比较**（§6.2.1）：`characteristic` 与 `code` 不是"不得超过"的边界，电压比较不消费它们。
+
+三种情况**不比较**，各自计入一条 `design.stress-unknown`（note，按原因分列）——没比较不等于通过：
+
+- **多引脚件的 `limit` 额定值没有端子**：这个数说的是整颗件，不能拿去比一对 net（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D7）。
+- 端子所在的 net 有一个没有声明窗口。
+- 端子不在任何 net 上。
+
+**定向角色的反极性不算违规，也不算"没比较"**：那种极性不在这个角色描述的应力里——二极管的反向耐压不会因为结被正向偏置而触发（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D12）。它算**比过了**。
+
+两引脚件的 `symmetric` 额定值仍可按"它仅有的那一对"推断；**定向角色必须自己写端子**——极性是猜不得的，而猜错的方向比不猜更糟。
+
+容差不参与比较（器件独立漂移，语言还无法声明相关性），降额是项目政策而不是检查器的常数：比的是"能不能扛"，不是"留了多少裕量"。
 
 **报告要写覆盖率，不能只写条数**：那条 note 说的是"哪些没比"，但一份最后一行写着"0 errors"的报告，读起来仍然是"过了"——note 淹没在几百行里。所以 `texteda check` 把覆盖率跟结论一起给出来：电压比了**多少个实例 / 一共多少个**、耗散比了**多少个阻性实例 / 一共多少个**。命令行摘要最后一行写明没比的那部分，`--json` 的载荷里同一个数字在 `coverage` 里（人读的摘要和机器读的载荷不会各说各话）。比较是**原理图层**的检查：它读的是根的 net、声明窗口和器件库，不需要 PCB 描述，所以有逻辑根的工程都会跑它（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D13）。
 
@@ -551,7 +589,7 @@ interconnect_pins
 - **`interconnects` 数组**：每项 `{ id, from, to }`，端点是 `M1.PORT` 形式的模块端口引用。
 - **`interconnect_pins` 数组**：每项 `{ interconnect, from, to }`，引脚引用是 `M1.J1.1` 形式的展平引脚引用。
 - **可选数组为空时省略**（`interconnects`、`interconnect_pins`）；必填字段恒在。
-- IR 契约版本 **v0.19**（`schemas/ir/`；`v0.18` 保持不变）。`modules` / `interconnects` / `interconnect_pins` 分片是**规范**分片（`normative: true`）：归属与跨板路径进工程哈希。
+- IR 契约版本 **v0.20**（`schemas/ir/`；`v0.19` 保持不变）。`modules` / `interconnects` / `interconnect_pins` 分片是**规范**分片（`normative: true`）：归属与跨板路径进工程哈希。
 - **归属与物理连通性的全局校验在 core，不在 parser**：parser 只管每份文件的形状与本地引用；"每个实例恰好属于一块 PCB""interconnect 端点两侧的物理路径成立"由 `texteda check` 汇总全部文件后执行（`spec/pcb.md` §5.2）。
 
 ---
@@ -678,7 +716,7 @@ interconnect_pins
 
 `version` 为 `MAJOR.MINOR[.PATCH]`，三位各自无前导零。**PATCH 位可省略，省略即 0**：`0.6` 与 `0.6.0` 是同一个版本，IR 里只存一种写法（`0.6`）。
 
-**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.14.0**。
+**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.15.0**。
 
 各描述类型接受的**下界**是当前 reader 仍支持的最早表面形态；它可以晚于类型的历史引入版本。上界对所有描述类型都是同一个——语言当前版本。
 
@@ -697,7 +735,7 @@ interconnect_pins
 
 `packages/parser/src/version.ts` 的 reader-floor 表实现接受下界；`packages/parser/test/version-spec.test.ts` 将其与本表钉在一起。类型引入版本是历史事实，保留在说明列中；它不决定 reader floor。
 
-在 `0.x` 阶段，兼容澄清和诊断改进走 PATCH；新增段或字段、以及**改变已接受文件的表面形态**走 MINOR，并且必须有显式决策记录（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D5）。`0.10.0` 由 [ADR-0055](../docs/adr/09-view/0055-schematic-fields-are-view-overrides.md) 引入 `view` 的 `field` 段；`0.11.0` 由 [ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) 把坐标统一成一个括号元组单元格；`0.12.0` 由 [ADR-0067](../docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md) 加入 module overview/detail 页、module-port 绘图与 `size` 页尺寸声明；`0.13.0` 由 [ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) 加入 `module_view`、`sheet_template`、`template` 与 `module_place`；`0.14.0` 由 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) 收拢工程根并删除板级/系统旧构造。
+在 `0.x` 阶段，兼容澄清和诊断改进走 PATCH；新增段或字段、以及**改变已接受文件的表面形态**走 MINOR，并且必须有显式决策记录（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D5）。`0.10.0` 由 [ADR-0055](../docs/adr/09-view/0055-schematic-fields-are-view-overrides.md) 引入 `view` 的 `field` 段；`0.11.0` 由 [ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) 把坐标统一成一个括号元组单元格；`0.12.0` 由 [ADR-0067](../docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md) 加入 module overview/detail 页、module-port 绘图与 `size` 页尺寸声明；`0.13.0` 由 [ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) 加入 `module_view`、`sheet_template`、`template` 与 `module_place`；`0.14.0` 由 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) 收拢工程根并删除板级/系统旧构造；`0.15.0` 由 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) 让 `ratings` 行可以点名它的两个端子（§6.4）。
 
 
 | 位 | 什么时候动 | 动它意味着 |
@@ -740,6 +778,14 @@ PATCH 位不参与判定（见 §12.1 的硬规则）。
 ### 12.4 版本沿革
 
 语言的每次版本变化在这里留一条，最新的在前。每条写明改了什么，并指向决定它的那份记录。
+
+#### 0.15.0 — A rating may name its two terminals（2026-11-18）
+
+- **`ratings` 行可以点名它的两个端子**（决策见 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D4）：行有**三列或五列**，五列的第四、第五列是本件的**引脚编号**，有序（`from` 在前），两者必须不同、且都在 `pins` 段里（§6.4）。一个角色一行——一个角色 = 一对端子。
+- **角色表带 `kind` 与应力方向**（决策见 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D5、D6）：`kind` 说的是这个数是边界（`limit`）、性质（`characteristic`）还是封闭代码（`code`）；应力方向说的是这个角色的极性怎么读（`symmetric` / `from` / `to` / `none`）。角色表新增三个定向电压角色：`drain_source_voltage`（from = 漏极，to = 源极）、`gate_source_voltage`（from = 栅极，to = 源极）、`reverse_voltage`（from = 阳极，to = 阴极）。`kind` 与方向是**角色表里的元数据**，不是 `ratings` 的新列，也不是 IR 的新字段（§6.2.1）。
+- **比较器按端子对与方向比**（决策见 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D12）：多引脚件的 `limit` 额定值**有端子**时，比的是那两个 net 声明窗口的极差，按角色的方向读；**没有端子**时不比较，计入 `design.stress-unknown`（"whose rating names no terminals"）。定向角色的**反极性既不算违规也不算没比较**——它不在这个角色描述的应力里，算比过了（§7.3）。
+- **IR 契约到 `v0.20`**（`v0.19` 保持不变）：`rating` 分片多一个可选的 `terminals`（`{from, to}`，都是引脚编号），三列的行不带这个字段。
+- **迁移：没有需要迁移的东西。** 0.15 是**增量**：0.14 的文件继续合法，一个字都不用改；只有**要写五列 `ratings` 行的那个文件**需要把 `version` 行改成 `0.15`（工具不批量改版本行——一个工程的文件本来就合法地停在不同版本上，用哪条新构造是作者的事）。写五列但版本低于 0.15 的文件报错 `syntax.unknown-field`，四列报错 `syntax.column-count`，端子不是本件的引脚或两端同一个引脚报错 `value.component-rating-terminal-invalid`。
 
 #### 0.14.0 — One project root, explicit PCB ownership（2026-11-09）
 
@@ -974,7 +1020,7 @@ interconnects
   ic1  M1.PWR  M2.PWR
 ```
 
-两块 PCB 各自声明拥有的模块实例（`design/pcb/pwr-l1.teda`、`design/pcb/pwr-l2.teda`，语法见 `spec/pcb.md` §4.1）：`M1` 属于 `pwr-l1`，`M2` 属于 `pwr-l2`；跨板的 `ic1` 是一条显式物理路径，不是任何 net 名的巧合。展平后的 IR 是**扁平的**：一张实例表（`M1.U1`、`M2.U1`…）、一张 net 表，不含模块结构（§7.7；IR 契约 v0.19）。
+两块 PCB 各自声明拥有的模块实例（`design/pcb/pwr-l1.teda`、`design/pcb/pwr-l2.teda`，语法见 `spec/pcb.md` §4.1）：`M1` 属于 `pwr-l1`，`M2` 属于 `pwr-l2`；跨板的 `ic1` 是一条显式物理路径，不是任何 net 名的巧合。展平后的 IR 是**扁平的**：一张实例表（`M1.U1`、`M2.U1`…）、一张 net 表，不含模块结构（§7.7；IR 契约 v0.20）。
 
 `views/charger.view.teda`（工程打印页，画给评审看）：
 
@@ -1035,7 +1081,7 @@ cell       = non_ws, { non_ws } ;
 non_ws     = any - ( " " | "\t" | NL ) ;
 key        = lower, { lower | digit | "_" } ;
 id         = lower, { lower | digit | "-" } ;
-section_name = "params" | "pins" | "instances" | "nets" | "ports" | "modules"
+section_name = "params" | "pins" | "ratings" | "instances" | "nets" | "ports" | "modules"
              | "constraints" | "interconnects" | "interconnect_pins"
              | "stackup" | "outline" | "place" | "connect" | "trace"
              | "via" | "zone" | "keepout" | "rules" | "silk" | "physical_only"
@@ -1051,7 +1097,7 @@ WS1        = ( " " | "\t" ), { " " | "\t" } ;
 2. `scalar` 只能出现在 `type_line` 之后、第一个 `section` 之前。
 3. `row` 只能出现在 `section` 内。
 4. `section_name` 必须属于当前文件类型：
-   - `component`：`params`、`pins`
+   - `component`：`params`、`pins`、`ratings`
    - `schematic`（根，id 固定 `main`）：`modules`、`nets`、`ports`、`constraints`、`interconnects`、`interconnect_pins`
    - `module`：`instances`、`nets`、`ports`、`constraints`
    - `pcb`：`modules`、`stackup`、`outline`、`place`、`connect`、`trace`、`via`、`zone`、`keepout`、`rules`、`silk`、`physical_only`、`deviation`
@@ -1060,3 +1106,4 @@ WS1        = ( " " | "\t" ), { " " | "\t" } ;
    - `view`：`place`、`field`、`wire`、`label`、`port`、`text`、`module`、`module_port`
 5. 单单元格的非空行只能是 `section`。
 6. `id` 的具体字符集按 §4.2；net 名允许 `.`、`+`、`-`，与文件 id 不同；`module_instance_id` 是保留形状 `^M[0-9]+$`。
+7. `ratings` 段的一行是**三列或五列**（§6.4）：`role type value` 或 `role type value from to`。四列不是合法形状；五列里的 `from` / `to` 是本件的引脚编号，两者不同（§6.4 的语义约束）。五列自语言 0.15 起可用。

@@ -1,4 +1,4 @@
-# netlist main (ir 0.19)
+# netlist main (ir 0.20)
 GND: M1.R1.2
 VREF: M1.R1.1
 

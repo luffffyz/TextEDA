@@ -1,0 +1,17 @@
+# netlist main (ir 0.20)
+GATE: M1.Q1.1
+GND: M1.D1.2 M1.Q1.3 M1.U1.2
+SW: M1.D1.1 M1.Q1.2
+V3V3: M1.U1.5
+VIN: M1.U1.1 M1.U1.3
+
+port GATE: GATE
+port GND: GND
+port SW: SW
+port V3V3: V3V3
+port VIN: VIN
+
+# components 3
+M1.D1 d-1n4148w
+M1.Q1 irf540n
+M1.U1 tps7a2033pdbvr

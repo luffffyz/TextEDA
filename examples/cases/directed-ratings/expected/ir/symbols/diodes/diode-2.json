@@ -1,0 +1,99 @@
+{
+  "format": "0.11",
+  "ir_version": "0.20",
+  "source": {
+    "file": "assets/symbols/diodes/diode-2.teda",
+    "line": 1
+  },
+  "symbol": {
+    "body": [
+      {
+        "end": {
+          "x_nm": 1500000,
+          "y_nm": 1500000
+        },
+        "kind": "line",
+        "start": {
+          "x_nm": 1500000,
+          "y_nm": -1500000
+        },
+        "unit": 1,
+        "width_nm": 250000
+      },
+      {
+        "kind": "poly",
+        "points": [
+          {
+            "x_nm": -1500000,
+            "y_nm": 1500000
+          },
+          {
+            "x_nm": 1500000,
+            "y_nm": 0
+          },
+          {
+            "x_nm": -1500000,
+            "y_nm": -1500000
+          }
+        ],
+        "unit": 1,
+        "width_nm": 250000
+      }
+    ],
+    "description": "Switching diode, 2-pin view: anode, cathode",
+    "fields": [
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": 2500000
+        },
+        "name": "Reference",
+        "value": "D"
+      },
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": -2500000
+        },
+        "name": "Value",
+        "value": "diode-2"
+      }
+    ],
+    "in_bom": true,
+    "library": "diodes",
+    "name": "diode-2",
+    "on_board": true,
+    "pin_name_offset_nm": 508000,
+    "pin_names_hidden": true,
+    "pin_numbers_hidden": false,
+    "pins": [
+      {
+        "at": {
+          "rotation_mdeg": 180000,
+          "x_nm": 4000000,
+          "y_nm": 0
+        },
+        "length_nm": 2500000,
+        "number": "1",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 0,
+          "x_nm": -4000000,
+          "y_nm": 0
+        },
+        "length_nm": 2500000,
+        "number": "2",
+        "style": "line",
+        "unit": 1
+      }
+    ],
+    "power": false,
+    "tags": [
+      "diode"
+    ],
+    "units": 1
+  }
+}

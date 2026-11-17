@@ -1,0 +1,43 @@
+{
+  "component": {
+    "category": "diode",
+    "datasheet": "https://www.onsemi.com/pdf/datasheet/1n4148w-d.pdf",
+    "footprint": "sod:sod-123",
+    "id": "d-1n4148w",
+    "kind": "part",
+    "manufacturer": "onsemi",
+    "mpn": "1N4148W-D",
+    "pins": [
+      {
+        "electrical_type": "passive",
+        "name": "K",
+        "number": "1",
+        "unit": 1
+      },
+      {
+        "electrical_type": "passive",
+        "name": "A",
+        "number": "2",
+        "unit": 1
+      }
+    ],
+    "pins_source": "inline",
+    "ratings": [
+      {
+        "name": "reverse_voltage",
+        "terminals": {
+          "from": "2",
+          "to": "1"
+        },
+        "type": "voltage",
+        "value": 100000000
+      }
+    ],
+    "symbol": "diodes:diode-2"
+  },
+  "ir_version": "0.20",
+  "source": {
+    "file": "assets/components/diodes/d-1n4148w.teda",
+    "line": 1
+  }
+}

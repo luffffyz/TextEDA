@@ -1,0 +1,30 @@
+version 0.11
+symbol nmos-3
+
+description N-channel MOSFET, 3-pin view: gate, drain, source
+tags mosfet n-channel
+pin_names hide
+# The discrete-transistor glyph without the enclosing circle: the gate plate on the left, the
+# channel in the middle, the drain at the top right, the source at the bottom right. The arrow on
+# the source lead points at the channel -- the direction that says N-channel.
+# The names are not drawn: the glyph already says which end is the gate, and a name on an artwork
+# body lands on the artwork (the reference project's `nmos-5` does the same).
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074) in both coordinates; the two
+# right-hand pins are 5 mm apart, above the 2.5 mm floor for a numbered row (ADR-0058).
+field Reference at=[0,5] Q
+field Value at=[0,-5] nmos-3
+
+pins
+  1  [-7.5,0]    0
+  2  [7.5,2.5]   180
+  3  [7.5,-2.5]  180
+
+body
+  line  [-2.5,-2.5,-2.5,2.5]    width=0.25
+  line  [-5,0,-2.5,0]           width=0.25
+  line  [0,-2.5,0,2.5]          width=0.25
+  line  [0,-2.5,5,-2.5]         width=0.25
+  line  [0,2.5,5,2.5]           width=0.25
+  line  [0.5,-1,0.5,1]          width=0.25
+  line  [1,-0.5,1,0.5]          width=0.25
+  poly  [0,-2.5,1.5,-3,1.5,-2]  fill=outline

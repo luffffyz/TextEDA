@@ -1,4 +1,4 @@
-version 0.11
+version 0.15
 component tps7a2033pdbvr
 
 # 3.3V/300mA LDO, SOT-23-5 (DBV). Per TI SBVS348H (TPS7A20) section 4 Pin Functions:
@@ -12,10 +12,13 @@ datasheet    https://www.ti.com/lit/ds/symlink/tps7a20.pdf
 
 symbol regulators:ldo-sot23-5
 footprint sot:sot-23-5
-# The part's own rating (ADR-0026): what the device is, not what the design asks of it.
-# The input voltage limit is not recorded yet: it needs the datasheet, and this file does not cite one value.
+# The part's own ratings (ADR-0026): what the device is, not what the design asks of it.
+# The input voltage limit is the datasheet's absolute maximum, IN to GND (TI SBVS338H §5.1:
+# V_IN -0.3 .. 6.5 V, "all voltages are with respect to the GND pin"). The terminal pair names
+# the two pins it is about, so the checker can compare it with the window the design declares.
 ratings
   rated_current  current  300mA
+  voltage        voltage  6.5V   1 2
 
 pins
   1  IN   power_in

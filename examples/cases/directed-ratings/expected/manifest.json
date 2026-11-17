@@ -1,0 +1,66 @@
+{
+  "ir_version": "0.20",
+  "shards": [
+    {
+      "path": "boards/switch-stage/pcb.json",
+      "sha256": "9b3675f6f6a527236383126fec0a39b3cc626d5c5959d5456fb12493ce68cd6c",
+      "normative": true
+    },
+    {
+      "path": "components/d-1n4148w.json",
+      "sha256": "7db640b01205bb551553f6db0f5c82c50be9895eb7b6c0b9407f06d0ab79ce85",
+      "normative": true
+    },
+    {
+      "path": "components/irf540n.json",
+      "sha256": "231902bd711544ac137ce165e82b4c957fc535c0721c6e1b03432d8564b0bd53",
+      "normative": true
+    },
+    {
+      "path": "components/tps7a2033pdbvr.json",
+      "sha256": "bd914c47c20b1a9f505bbbfd5ea21768ad6e26409d4d1c821c20e61a3a083f40",
+      "normative": true
+    },
+    {
+      "path": "footprints/sod/sod-123.json",
+      "sha256": "faec6e91736cd9b7918e392ab77c3a554ebf1535c6bff03eb7c7a240b27ec7aa",
+      "normative": true
+    },
+    {
+      "path": "footprints/sot/sot-23-5.json",
+      "sha256": "dc4c929401607739933fcecaae84ce00d8ad0aa58236a5f0686ed9b811098728",
+      "normative": true
+    },
+    {
+      "path": "footprints/to220/to-220-3.json",
+      "sha256": "c51de0cf9a58093ce89a257aadd108cddd5709ce17c3503fd683608f41848ebd",
+      "normative": true
+    },
+    {
+      "path": "project.json",
+      "sha256": "ed45a10f4dadbaffc4bb9c922d36a8f167991df2781ff177a892c53b459ca743",
+      "normative": true
+    },
+    {
+      "path": "project/schematic.json",
+      "sha256": "73610bc481974c89c7c7b8b6ab4e4913787d821d140bbdbd170c50e967e3cbf8",
+      "normative": true
+    },
+    {
+      "path": "symbols/diodes/diode-2.json",
+      "sha256": "d566299a1baf62b079affc52bd560a31f6f60796f47cbbb736a7a707f753bcad",
+      "normative": true
+    },
+    {
+      "path": "symbols/regulators/ldo-sot23-5.json",
+      "sha256": "f0d829b5a39d500e1f878f8dd7837b544c904166417815c9b14286fc87237c8f",
+      "normative": true
+    },
+    {
+      "path": "symbols/transistors/nmos-3.json",
+      "sha256": "0fe13a8f0d3377fe1e529e0e451602c8ad0e1e95f1ec94aab88fc63266cfba2e",
+      "normative": true
+    }
+  ],
+  "source_hash": "03f0d9caf25722d3df91631f984f1e263068e7208b4c6998a5e3be1caaaa1522"
+}

@@ -214,6 +214,8 @@ describe("AGENTS.md does not restate the current version", () => {
       .replace(/`[^`\n]*`/g, " ");
     // The language version and the IR contract version are two different lines (ADR-0002 D7). Both
     // live in their own homes — spec/teda.md §12.1/§12.4 and schemas/ir/ — and AGENTS.md points at
-    expect(/(?<![\w.])v?0\.14(?![\w])/.test(text)).toBe(false);
+    // them instead of writing them out, so the version it must not restate is the current one.
+    const current = formatVersion(SUPPORTED_LANGUAGE);
+    expect(new RegExp(`(?<![\\w.])v?${current.replace(".", "\\.")}(?![\\w])`).test(text)).toBe(false);
   });
 });

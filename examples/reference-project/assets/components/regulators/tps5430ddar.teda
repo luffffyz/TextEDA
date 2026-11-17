@@ -1,4 +1,4 @@
-version 0.11
+version 0.15
 component tps5430ddar
 
 kind         part
@@ -10,8 +10,12 @@ datasheet    https://www.ti.com/lit/ds/symlink/tps5430.pdf
 symbol regulators:dc-dc-soic8
 footprint soic:soic-8-ep
 # The part's own ratings (ADR-0026): what the device is, not what the design asks of it.
+# The 28V is the supply voltage limit the datasheet revision this file was written against gives
+# for VIN to GND; TI's current product page lists Vin max 36V, so the figure is due for a re-check
+# against the datasheet (docs/backlog.md F42). The terminal pair names the two pins it is about,
+# so the checker can compare it with the window the design declares.
 ratings
-  voltage        voltage  28V
+  voltage        voltage  28V    7 6
   rated_current  current  3A
 
 pins

@@ -40,7 +40,7 @@ export function runCompile(options: CompileOptions): number {
   return runCompileSchematic({ root, json, outFile });
 }
 
-/** Compile the logical root (`design/sch/main.teda`, `schemas/ir/v0.19/schematic.schema.json`). */
+/** Compile the logical root (`design/sch/main.teda`, `schemas/ir/v0.20/schematic.schema.json`). */
 function runCompileSchematic(options: {
   root: string;
   json: boolean;
@@ -157,7 +157,7 @@ function runCompileProcurement(options: {
   return 0;
 }
 
-/** Compile one physical PCB (`design/pcb/<board>.teda`, `schemas/ir/v0.19/pcb.schema.json`). */
+/** Compile one physical PCB (`design/pcb/<board>.teda`, `schemas/ir/v0.20/pcb.schema.json`). */
 function runCompilePcb(options: {
   root: string;
   board: string;

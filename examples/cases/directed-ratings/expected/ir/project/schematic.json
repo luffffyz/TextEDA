@@ -1,0 +1,163 @@
+{
+  "constraints": [
+    {
+      "max_uv": 5500000,
+      "min_uv": 4500000,
+      "subject": "GATE",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 0,
+      "min_uv": 0,
+      "subject": "GND",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 5500000,
+      "min_uv": 4500000,
+      "subject": "SW",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 3465000,
+      "min_uv": 3135000,
+      "subject": "V3V3",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 5500000,
+      "min_uv": 4500000,
+      "subject": "VIN",
+      "type": "voltage"
+    }
+  ],
+  "format": "0.14",
+  "instances": [
+    {
+      "component": "d-1n4148w",
+      "id": "M1.D1",
+      "uid": "ID4w7mne"
+    },
+    {
+      "component": "irf540n",
+      "id": "M1.Q1",
+      "uid": "IDejj43a"
+    },
+    {
+      "component": "tps7a2033pdbvr",
+      "id": "M1.U1",
+      "uid": "ID3w0a5b"
+    }
+  ],
+  "ir_version": "0.20",
+  "modules": [
+    {
+      "instance_id": "M1",
+      "module_id": "switch-stage",
+      "ports": [
+        {
+          "id": "GATE",
+          "net": "GATE",
+          "pins": [
+            "M1.Q1.1"
+          ]
+        },
+        {
+          "id": "GND",
+          "net": "GND",
+          "pins": [
+            "M1.D1.2",
+            "M1.Q1.3",
+            "M1.U1.2"
+          ]
+        },
+        {
+          "id": "SW",
+          "net": "SW",
+          "pins": [
+            "M1.D1.1",
+            "M1.Q1.2"
+          ]
+        },
+        {
+          "id": "V3V3",
+          "net": "V3V3",
+          "pins": [
+            "M1.U1.5"
+          ]
+        },
+        {
+          "id": "VIN",
+          "net": "VIN",
+          "pins": [
+            "M1.U1.1",
+            "M1.U1.3"
+          ]
+        }
+      ]
+    }
+  ],
+  "nets": [
+    {
+      "id": "GATE",
+      "members": [
+        "M1.Q1.1"
+      ]
+    },
+    {
+      "id": "GND",
+      "members": [
+        "M1.D1.2",
+        "M1.Q1.3",
+        "M1.U1.2"
+      ]
+    },
+    {
+      "id": "SW",
+      "members": [
+        "M1.D1.1",
+        "M1.Q1.2"
+      ]
+    },
+    {
+      "id": "V3V3",
+      "members": [
+        "M1.U1.5"
+      ]
+    },
+    {
+      "id": "VIN",
+      "members": [
+        "M1.U1.1",
+        "M1.U1.3"
+      ]
+    }
+  ],
+  "ports": [
+    {
+      "id": "GATE",
+      "net": "GATE"
+    },
+    {
+      "id": "GND",
+      "net": "GND"
+    },
+    {
+      "id": "SW",
+      "net": "SW"
+    },
+    {
+      "id": "V3V3",
+      "net": "V3V3"
+    },
+    {
+      "id": "VIN",
+      "net": "VIN"
+    }
+  ],
+  "project": "main",
+  "source": {
+    "file": "design/sch/main.teda",
+    "line": 1
+  }
+}

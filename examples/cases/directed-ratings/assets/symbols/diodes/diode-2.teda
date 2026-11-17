@@ -1,0 +1,24 @@
+version 0.11
+symbol diode-2
+
+description Switching diode, 2-pin view: anode, cathode
+tags diode
+pin_names hide
+# The plain diode glyph: the anode triangle points at the cathode bar. This part's datasheet
+# numbering runs the other way -- pin 1 is the cathode, pin 2 the anode -- so the pin numbers are
+# shown and the reader has to look them up. That is why a rating names its terminals by number and
+# not by name (ADR-0026 D4). The names are not drawn: the glyph already says which end is the
+# anode, and a name on an artwork body lands on the artwork (the reference project's `d` does the
+# same).
+# Pin connection points sit on the 0.5 mm placement lattice (ADR-0074); the tails meet the triangle
+# and the cathode bar.
+field Reference at=[0,2.5] D
+field Value at=[0,-2.5] diode-2
+
+pins
+  1  [4,0]   180
+  2  [-4,0]  0
+
+body
+  line  [1.5,-1.5,1.5,1.5]          width=0.25
+  poly  [-1.5,1.5,1.5,0,-1.5,-1.5]  width=0.25

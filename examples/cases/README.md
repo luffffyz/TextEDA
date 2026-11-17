@@ -33,4 +33,10 @@ expectation is the error code alone.
 The ten cases (`AGENTS.md` §10, `docs/backlog.md` F12): BGA 200 pins, dual op-amp multi-unit, 20-way
 power domains, differential pair, DNP variant, net tie, bus, hierarchy reuse, parameterised divider,
 NC pins. Written so far: `dnp-variant`, `dual-opamp-multi-unit`, `nc-pins`, `bus`, `diff-pair`,
-`power-domains`, `hierarchy-reuse`, `net-tie`, `parameterised-divider` (9 of 10).
+`power-domains`, `hierarchy-reuse`, `net-tie`, `parameterised-divider` (9 of 10 — **BGA 200 pins**
+is the one still missing).
+
+**One case outside the ten**: `directed-ratings` — a part's rating naming its two terminals
+([ADR-0026](../../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D4). It is here because
+the terminal pair is a language construct, and a construct may only enter the language once a case
+uses it (`AGENTS.md` §5.2 rule 1). It joins the same corpus; it does not fill one of the ten slots.
