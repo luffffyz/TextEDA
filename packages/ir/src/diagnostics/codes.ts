@@ -1224,15 +1224,22 @@ export const DIAGNOSTIC_CODES = {
   "design.current-below-rating": {
     domain: "design",
     severity: "warning",
-    summary: "A part on a net that declares a current is rated below that current",
-    hint: "use a part rated for the current this path carries, or state the current of the pin itself (current <pin> <max>), which the tool can compare without guessing",
+    summary: "A part whose pin is declared to carry a current is rated below that current, but the rating names no terminal",
+    hint: "use a part rated for the current this pin carries, or state a lower current for it",
     spec: ["spec/teda.md §7.3", "docs/adr/07-devices/0026-a-part-states-its-own-ratings.md"],
   },
   "design.current-unknown": {
     domain: "design",
     severity: "note",
-    summary: "Instances a current limit speaks about that state no rated_current, so they were not compared",
-    hint: "state the part's rated_current (a part's ratings, a generic's line), or state the current of the pin itself",
+    summary: "Instances a pin current requirement speaks about that state no rated_current, so they were not compared",
+    hint: "state the part's rated_current (a part's ratings, a generic's line)",
+    spec: ["spec/teda.md §7.3", "docs/adr/07-devices/0026-a-part-states-its-own-ratings.md"],
+  },
+  "design.current-rail": {
+    domain: "design",
+    severity: "note",
+    summary: "Rails that declare a current, which the schematic does not compare with part ratings",
+    hint: "a rail's current sizes the copper that carries it (a layout question); state the current of a pin (current <pin> <max>) when the design means it as a requirement on one part",
     spec: ["spec/teda.md §7.3", "docs/adr/07-devices/0026-a-part-states-its-own-ratings.md"],
   },
   "cli.bad-usage": {

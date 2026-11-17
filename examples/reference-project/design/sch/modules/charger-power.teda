@@ -111,9 +111,12 @@ ports
   GND      GND
   SYS_OUT  SYS
 
-# The adapter's limit is a declared fact, not a comment: the path from the jack into the board
-# carries it, and the jack's own rating (500mA) is checked against it.
+# The adapter's limit is a declared fact, not a comment. Two statements, two consumers: the rail's
+# current sizes the copper that carries it (a layout question), while the requirement on the jack's
+# tip is what the schematic compares with the jack's own rating (500mA) — which is why the check
+# reports it.
 constraints
   voltage  VCC        5V..28V
   voltage  VFB        2.079V..2.121V
   current  ADAPTER_P  4A
+  current  J1.1       4A

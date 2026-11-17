@@ -231,7 +231,12 @@ function coverageLines(coverage: CheckPayload["coverage"]): string[] {
   }
   if (current.compared < current.total) {
     lines.push(
-      `Not fully checked: ${current.compared} of ${current.total} instances a current limit speaks about were compared with a rated_current.`,
+      `Not fully checked: ${current.compared} of ${current.total} instances a pin current requirement speaks about were compared with a rated_current.`,
+    );
+  }
+  if (current.rails > 0) {
+    lines.push(
+      `Not checked here: ${current.rails} rails declare a current; the schematic does not compare a rail's current with part ratings (a rail's current sizes the copper that carries it).`,
     );
   }
   return lines;

@@ -1,25 +1,20 @@
-// Current limits against the parts that carry them.
+// Current requirements against the parts that carry them.
 //
-// A design states a current limit (`current <pin or net> <max>`); a part states what it is rated
-// for (`rated_current` in its `ratings`). Nothing compared them: the limit was parsed, projected
-// into the IR and read by nobody, so a connector rated 500 mA sat on a rail the design declared
-// 4 A and the conflict was a comment in the component file.
+// A design states a current in two ways, and they are not the same fact:
 //
-// What can be compared, and how certainly, is decided by three things:
+//   current <pin> <max>   a requirement on one pin: this pin carries at most so much.
+//   current <net>  <max>   a rail's current: the rail carries so much in total.
 //
-//   - the **subject**. A limit on a pin says what that pin carries; a limit on a net says what the
-//     net carries, and the language does not say which member carries it — a net's members share
-//     it (ADR-0026, Open Points).
-//   - the **part**. A two-terminal part's rating is about the path between its two pins; a part
-//     with more pins has a rating about some path the language does not name (ADR-0026 D4: naming
-//     the terminals is not implemented yet).
-//   - the **rails around it**. A part that sits on two rails declaring different currents is
-//     either a converter between them or a series element, and the language cannot say which —
-//     so it is not compared with either.
+// The schematic checks the first against what the part is rated for (ADR-0026 D18). A two-terminal
+// part's rating is about the path between its two pins, so a requirement on one of its pins can be
+// compared with it and the comparison is certain. A part with more pins has a rating about a path
+// the language does not name yet (ADR-0026 D4), so the same comparison is a signal, not a verdict.
 //
-// Only when the subject is a pin and the part is two-terminal is the comparison certain, and only
-// then is it an error. Everything else is a warning: the tool names the parts rated below the
-// declared current and leaves the attribution to the reader.
+// The second is a **layout input**: what a rail carries is what sizes the copper that carries it,
+// and what heats it. The schematic does not compare it with part ratings, because the language does
+// not say which member of a net carries the net's current (ADR-0026, Open Points) — a comparison
+// would be a guess about every member of the net at once, and a wrong one. The schematic says so
+// instead of staying silent (ADR-0026 D13), and the layout side is `docs/backlog.md` F82.
 //
 // What a part is rated for is a fact when the part is a part (its own `ratings`) and a
 // requirement when it is a generic (the line's own column, which the procurement layer turns
@@ -29,7 +24,6 @@
 // Pure: facts in, diagnostics out.
 import type { Diagnostic, DiagnosticLocation } from "@texteda/ir/diagnostics";
 import type { Schematic } from "@texteda/ir/schematic";
-import type { ComparisonCoverage } from "./ratings.ts";
 
 /** What the rule needs to know about a device. */
 export interface CurrentDevice {
@@ -48,10 +42,25 @@ export interface CurrentFacts {
   readonly devices: ReadonlyMap<string, CurrentDevice>;
   /** Where an instance was written (ADR-0004 D1: the IR carries no line numbers). */
   readonly locateInstance?: (instanceId: string) => DiagnosticLocation | undefined;
+  /** Where a constraint was written (ADR-0004 D1: the IR carries no line numbers). */
+  readonly locateConstraint?: (index: number) => DiagnosticLocation | undefined;
 }
 
-/** How much of the design the current comparison reached. */
-export type CurrentCoverage = ComparisonCoverage;
+/**
+ * How much of the design the current comparison reached.
+ *
+ * The two counts are the schematic's business; the third is the layout's. A rail's current is
+ * declared, and the schematic does not compare it with anything, so it is counted here rather than
+ * left implicit — a report that says "0 errors" must not read as "the currents were checked".
+ */
+export interface CurrentCoverage {
+  /** The instances a pin requirement spoke about that were compared with a rating. */
+  readonly compared: number;
+  /** The instances a pin requirement spoke about. */
+  readonly total: number;
+  /** The rails that declare a current: the layout's input, not compared here. */
+  readonly rails: number;
+}
 
 /** What the comparison found, and how far it reached. */
 export interface CurrentReport {
@@ -100,139 +109,106 @@ function instanceOfPinRef(schematic: Schematic, subject: string): string | null 
   return schematic.instances.some((instance) => instance.id === owner) ? owner : null;
 }
 
-/** Why an instance was not compared. */
-type NotCompared = "no_rating" | "between_rails";
-
 /**
- * Compare every current limit with what the parts it speaks about are rated for.
+ * Compare every pin requirement with what the part it names is rated for.
  *
- * One diagnostic per part that is rated below the limit; one `note` naming how many parts were
- * not compared at all, and why (ADR-0026 D13: unknown is counted, not passed).
+ * One diagnostic per part that is rated below the requirement, and one `note` naming how many
+ * parts were not compared at all, and why (ADR-0026 D13: unknown is counted, not passed).
  */
 export function checkCurrentRatings(facts: CurrentFacts): CurrentReport {
   const diagnostics: Diagnostic[] = [];
   const { schematic, file } = facts;
 
-  // Which instances each net carries.
-  const instancesOfNet = new Map<string, string[]>();
-  for (const net of schematic.nets) {
-    const instances: string[] = [];
-    for (const member of net.members) {
-      const instanceId = member.slice(0, member.lastIndexOf("."));
-      if (!instances.includes(instanceId)) instances.push(instanceId);
+  /** The rails that declare a current: the layout's input, never compared here. */
+  const rails = new Map<string, { max_na: number; index: number }>();
+  /** The pin requirements, in the order the design states them. */
+  const requirements: { owner: string; subject: string; max_na: number }[] = [];
+
+  (schematic.constraints ?? []).forEach((constraint, index) => {
+    if (constraint.type !== "current") return;
+    if (schematic.nets.some((net) => net.id === constraint.subject)) {
+      rails.set(constraint.subject, { max_na: constraint.max_na, index });
+      return;
     }
-    instancesOfNet.set(net.id, instances);
-  }
+    const owner = instanceOfPinRef(schematic, constraint.subject);
+    if (owner !== null) requirements.push({ owner, subject: constraint.subject, max_na: constraint.max_na });
+  });
 
-  // The rails that declare a current, and what they declare.
-  const netLimits = new Map<string, number>();
-  for (const constraint of schematic.constraints ?? []) {
-    if (constraint.type !== "current") continue;
-    if (!schematic.nets.some((net) => net.id === constraint.subject)) continue;
-    netLimits.set(constraint.subject, constraint.max_na);
-  }
-
-  /** The distinct currents the rails around one instance declare. */
-  const railsOf = (instanceId: string): number[] => {
-    const values = new Set<number>();
-    for (const [net, limit] of netLimits) {
-      if (instancesOfNet.get(net)?.includes(instanceId)) values.add(limit);
-    }
-    return [...values];
-  };
-
-  /** The instances a limit speaks about. */
+  /** The instances a pin requirement speaks about. */
   const subjects = new Set<string>();
   /** The instances that could not be compared, and why. */
-  const notCompared = new Map<string, NotCompared>();
+  const notCompared = new Set<string>();
 
-  const compare = (
-    instance: Schematic["instances"][number],
-    subject: string,
-    declared: number,
-    onNet: boolean,
-  ): void => {
+  for (const requirement of requirements) {
+    const instance = schematic.instances.find((item) => item.id === requirement.owner);
+    if (instance === undefined) continue;
+    subjects.add(requirement.owner);
+
     const device = facts.devices.get(instance.component);
     const rated = device === undefined ? null : ratedCurrentOf(instance, device);
     if (rated === null) {
-      notCompared.set(instance.id, "no_rating");
-      return;
+      notCompared.add(requirement.owner);
+      continue;
     }
-    // Certain means both sides are pinned down: the design states the current of that pin, and
-    // the part's rating is about the path between its two pins.
-    const certain = !onNet && device !== undefined && device.pins.length === 2;
-    if (rated < declared) {
-      const caveat = onNet
-        ? "; the language does not say which member of a net carries its current"
-        : (certain ? "" : "; the part's rating does not name the pin it applies to");
-      diagnostics.push({
-        code: certain ? "design.current-exceeded" : "design.current-below-rating",
-        severity: certain ? "error" : "warning",
-        message: `${onNet ? `net ${subject} declares ${amps(declared)}` : `pin ${subject} carries at most ${amps(declared)}`}, and ${instance.id} (${instance.component}) is rated ${amps(rated)}${caveat}`,
-        hint: "use a part rated for the current this path carries, or state the current of the pin itself (current <pin> <max>), which the tool can compare without guessing",
-        location: facts.locateInstance?.(instance.id) ?? { file, line: 1, col: 1 },
-        data: {
-          instance: instance.id,
-          component: instance.component,
-          declared_na: declared,
-          rated_na: rated,
-          ...(onNet ? { net: subject } : { pin: subject }),
-        },
-      });
-    }
-  };
+    if (rated >= requirement.max_na) continue;
 
-  for (const [net, declared] of netLimits) {
-    for (const instanceId of instancesOfNet.get(net) ?? []) {
-      const instance = schematic.instances.find((item) => item.id === instanceId);
-      if (instance === undefined) continue;
-      subjects.add(instanceId);
-      // A part between two rails that declare different currents carries a current the tool
-      // cannot attribute to either one: it is a converter, or a series element, and the language
-      // does not say which.
-      if (railsOf(instanceId).length > 1) {
-        notCompared.set(instanceId, "between_rails");
-        continue;
-      }
-      compare(instance, net, declared, true);
-    }
+    // Certain means the rating is about the path the requirement speaks of: a two-terminal part's
+    // rating is about the path between its two pins, and the requirement names one of them.
+    const certain = device !== undefined && device.pins.length === 2;
+    diagnostics.push({
+      code: certain ? "design.current-exceeded" : "design.current-below-rating",
+      severity: certain ? "error" : "warning",
+      message: `pin ${requirement.subject} carries at most ${amps(requirement.max_na)}, and ${instance.id} (${instance.component}) is rated ${amps(rated)}${certain ? "" : "; the part's rating does not name the pin it applies to"}`,
+      hint: "use a part rated for the current this pin carries, or state a lower current for it",
+      location: facts.locateInstance?.(instance.id) ?? { file, line: 1, col: 1 },
+      data: {
+        instance: instance.id,
+        component: instance.component,
+        declared_na: requirement.max_na,
+        rated_na: rated,
+        pin: requirement.subject,
+      },
+    });
   }
 
-  for (const constraint of schematic.constraints ?? []) {
-    if (constraint.type !== "current") continue;
-    const owner = instanceOfPinRef(schematic, constraint.subject);
-    if (owner === null) continue;
-    const instance = schematic.instances.find((item) => item.id === owner);
-    if (instance === undefined) continue;
-    subjects.add(owner);
-    compare(instance, constraint.subject, constraint.max_na, false);
-  }
-
-  const compared = [...subjects].filter((instance) => !notCompared.has(instance));
   if (notCompared.size > 0) {
-    const withoutRating = [...notCompared.values()].filter((reason) => reason === "no_rating").length;
-    const betweenRails = notCompared.size - withoutRating;
-    const parts: string[] = [];
-    if (withoutRating > 0) parts.push(`${withoutRating} state no rated_current`);
-    if (betweenRails > 0) parts.push(`${betweenRails} sit between two rails that declare different currents`);
+    const first = [...notCompared][0]!;
     diagnostics.push({
       code: "design.current-unknown",
       severity: "note",
-      message: `${notCompared.size} of ${subjects.size} instances a current limit speaks about were not compared: ${parts.join(", ")}`,
-      hint: "state the part's rated_current (a part's ratings, a generic's line), or state the current of the pin itself",
-      location: { file, line: 1, col: 1 },
+      message: `${notCompared.size} of ${subjects.size} instances a pin current requirement speaks about were not compared: they state no rated_current`,
+      hint: "state the part's rated_current (a part's ratings, a generic's line)",
+      location: facts.locateInstance?.(first) ?? { file, line: 1, col: 1 },
       data: {
-        compared: compared.length,
+        compared: subjects.size - notCompared.size,
         skipped: notCompared.size,
         total: subjects.size,
-        no_rating: withoutRating,
-        between_rails: betweenRails,
+        no_rating: notCompared.size,
+      },
+    });
+  }
+
+  if (rails.size > 0) {
+    const first = [...rails.values()][0]!;
+    diagnostics.push({
+      code: "design.current-rail",
+      severity: "note",
+      message: `${rails.size} rails declare a current: ${[...rails].map(([net, rail]) => `${net} ${amps(rail.max_na)}`).join(", ")}; the schematic does not compare a rail's current with part ratings`,
+      hint: "a rail's current sizes the copper that carries it (a layout question); state the current of a pin (current <pin> <max>) when the design means it as a requirement on one part",
+      location: facts.locateConstraint?.(first.index) ?? { file, line: 1, col: 1 },
+      data: {
+        rails: rails.size,
+        declared: [...rails].map(([net, rail]) => `${net} ${amps(rail.max_na)}`).join(", "),
       },
     });
   }
 
   return {
     diagnostics,
-    coverage: { compared: compared.length, total: subjects.size },
+    coverage: {
+      compared: subjects.size - notCompared.size,
+      total: subjects.size,
+      rails: rails.size,
+    },
   };
 }

@@ -106,7 +106,7 @@ describe("check exit codes", () => {
       "Not fully checked: 4 of 27 resistive instances were compared with a power limit.",
     );
     expect(result.stderr).toContain(
-      "Not fully checked: 1 of 32 instances a current limit speaks about were compared with a rated_current.",
+      "Not checked here: 4 rails declare a current; the schematic does not compare a rail's current with part ratings",
     );
   });
 
@@ -118,26 +118,39 @@ describe("check exit codes", () => {
       coverage?: {
         stress: { compared: number; total: number };
         dissipation: { compared: number; total: number };
-        current: { compared: number; total: number };
+        current: { compared: number; total: number; rails: number };
       };
     };
     expect(report.noteCount).toBeGreaterThan(0);
     expect(report.coverage?.stress).toEqual({ compared: 21, total: 83 });
     expect(report.coverage?.dissipation).toEqual({ compared: 4, total: 27 });
-    expect(report.coverage?.current).toEqual({ compared: 1, total: 32 });
+    expect(report.coverage?.current).toEqual({ compared: 1, total: 1, rails: 4 });
   });
 
-  test("a part rated below the current its rail declares is reported", () => {
-    // The jack is rated 500mA and the adapter rail declares 4A; the design used to say so in a
-    // comment, and nothing checked it.
+  test("a part rated below the current its pin is declared to carry is reported", () => {
+    // The jack is rated 500mA and the design declares its tip carries up to 4A; the design used
+    // to say so in a comment, and nothing checked it.
     const result = run(["check", "examples/reference-project", "--json"]);
     const report = JSON.parse(result.stdout) as {
       diagnostics: { code: string; severity: string; message: string }[];
     };
     const finding = report.diagnostics.find((d) => d.code === "design.current-below-rating");
     expect(finding?.severity).toBe("warning");
-    expect(finding?.message).toContain("net ADAPTER_P declares 4A");
+    expect(finding?.message).toContain("pin M1.J1.1 carries at most 4A");
     expect(finding?.message).toContain("M1.J1");
+  });
+
+  test("a rail's current is handed to the layout, not compared with the parts on it", () => {
+    // The rail's current sizes the copper that carries it; the schematic says it did not compare
+    // it rather than staying silent about it (ADR-0026 D13).
+    const result = run(["check", "examples/reference-project", "--json"]);
+    const report = JSON.parse(result.stdout) as {
+      diagnostics: { code: string; severity: string; message: string }[];
+    };
+    const rail = report.diagnostics.find((d) => d.code === "design.current-rail");
+    expect(rail?.severity).toBe("note");
+    expect(rail?.message).toContain("ADAPTER_P 4A");
+    expect(report.diagnostics.some((d) => d.code === "design.current-exceeded")).toBe(false);
   });
 
   test("a window the root and the module both state is reported once, with both places", () => {

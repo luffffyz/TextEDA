@@ -348,6 +348,30 @@ part's own worst case (its nominal ± its own tolerance) must fall inside the li
 The component shard gains `ratings`, so the IR stays a faithful projection of the file. This is an
 additive change to the IR contract.
 
+### D18. A rail's current is a layout input; the schematic compares a pin's requirement
+
+A design states a current in two ways, and they are not the same fact:
+
+- `current <net> <max>` says what a rail carries **in total**. That is a **layout** input: it sizes
+  the copper that carries the rail, and it is what heats that copper. The language does not say
+  which member of a net carries the net's current (Open Points), so the schematic does not compare
+  it with part ratings — such a comparison would be a guess about every member of the net at once,
+  and a guess the reader cannot check. The schematic says so instead of staying silent: one
+  `design.current-rail` note per board names the rails and the currents they declare (D13). The
+  layout side has no rule yet (`docs/backlog.md` F82).
+- `current <pin> <max>` says what **one pin** carries. That is a requirement on one part, and it is
+  what the schematic compares with what the part is rated for.
+
+The comparison: a two-terminal part's rating is about the path between its two pins, and the
+requirement names one of them, so the comparison is certain and a rating below it is an error
+(`design.current-exceeded`). A part with more pins has a rating about a path the language does not
+name yet (D4), so the same finding is a warning (`design.current-below-rating`) that says where it
+is unsure. A part that states no `rated_current` is counted, not passed (`design.current-unknown`,
+D13).
+
+This replaces the earlier rule, which compared a net's current with every part on that net and
+could only report a warning, because the attribution was unknown.
+
 ## Consequences
 
 - **A part can now be checked against a design.** The gap that made the check unwritable — the
@@ -365,13 +389,17 @@ additive change to the IR contract.
   manual derating note was doing by hand.
 - **A stated rating is not a verified rating**, exactly as a stated requirement is not a verified
   one. The hole stays visible.
+- **A rail's current and a pin's current are different facts.** The schematic checks the second
+  against the parts; the first belongs to the layout (D18).
 - **The library check does not check the ratings against anything yet**: there is nothing to check
   them against until a part is selected for a line, or the evaluator compares them.
 
 ## Open Points
 
-- **Current.** A net's current is shared by its members; a part sees the current through its own
-  pins, which the language does not state yet. The current check stays undefined.
+- **Current.** A net's current is shared by its members, and the language still does not say who
+  carries it; a rail's current is therefore the layout's input (D18), not the schematic's. What a
+  rail's branches each carry is still undefined, and so is the relation between a rail-level
+  statement and the pin-level ones under it (`docs/backlog.md` F80).
 - **Derating as a project policy.** Whether the project should be able to state a derating policy
   once, in `project.toml`, is open; the checker deliberately does not pick a factor.
 - **Matched pairs.** Stating that two parts drift together needs its own construct.

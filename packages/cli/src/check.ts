@@ -52,6 +52,7 @@ import {
   checkReadability,
   checkViews,
   type ComparisonCoverage,
+  type CurrentCoverage,
   type RatingDevice,
   type ReadabilityGeometry,
   type ViewPage,
@@ -124,8 +125,8 @@ export interface CheckCoverage {
   readonly stress: ComparisonCoverage;
   /** The dissipation comparison: resistive instances it compared, and the resistive instances there are. */
   readonly dissipation: ComparisonCoverage;
-  /** The current comparison: instances it compared, and the instances a current limit speaks about. */
-  readonly current: ComparisonCoverage;
+  /** The current comparison: instances it compared, and the instances a pin requirement speaks about. */
+  readonly current: CurrentCoverage;
 }
 
 /**
@@ -489,12 +490,16 @@ export function analyzeProject(root: string): AnalyzeResult {
   });
   mainDiagnostics.push(...ratings.diagnostics);
 
-  // The current limits the design states, against what the parts on those paths are rated for.
+  // The pin requirements the design states, against what the parts are rated for. A rail's current
+  // is the layout's input and is not compared here (ADR-0026 D18).
   const currents = checkCurrentRatings({
     file: mainSource.file,
     schematic: mainIr,
     devices: ratingDevices(),
     ...(instanceLocator === undefined ? {} : { locateInstance: instanceLocator }),
+    ...(mainLocate === undefined
+      ? {}
+      : { locateConstraint: (index: number) => mainLocate(`/constraints/${index}`) }),
   });
   mainDiagnostics.push(...currents.diagnostics);
 

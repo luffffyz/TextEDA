@@ -464,15 +464,23 @@ constraints
 
 **一条 net 只说一次窗口**：根与模块各写一遍同一个 net 的窗口时（模块的局部 net 被端口并进项目 net），两条声明就撞在一起了。值相同是**一个事实两个家**——改一次电压要改两个文件，漏改一个没人说得清——报 `net.constraint-duplicate`（note，两处位置都指出来）；值不同是**设计自相矛盾**——同一个 net 说了两个不同的窗口——报 `net.constraint-conflict`（error）。两条都是 net 自己的事，不进 `design` 域。`power` 约束不在此列：同一个引脚写多条 `power` 是合法的（取最紧的那条，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D11）。窗口冲突时，电压比较**不挑**其中一条当窗口——那个 net 的窗口按未知处理（计入 `design.stress-unknown`），因为设计自己说了两个互相矛盾的话。
 
-**`current` 约束现在有人消费了**：设计声明的电流上限与件自己的额定值比。件能扛多少来自件自己的 `ratings`（`kind: part`：`rated_current`，事实）或通用件实例行的 `rated_current` 列（要求，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D16）。比的结果分三档，因为**能确定到什么程度**取决于三件事：
+**`current` 约束现在有人消费了**：设计声明的电流与件自己的额定值比。件能扛多少来自件自己的 `ratings`（`kind: part`：`rated_current`，事实）或通用件实例行的 `rated_current` 列（要求，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D16）。**但主语是 net 还是引脚，决定了它是谁的事**（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D18）：
 
-| 主语 | 件 | 结论 |
+| 主语 | 它说的是 | 谁消费 |
 |---|---|---|
-| 引脚（`M1.J1.1`） | 两引脚 | **确定**：设计说了这个脚流多少，件的额定值说的就是它两个脚之间的路径。额定值低于它 → `design.current-exceeded`（error） |
-| net | 任意 | **不确定**：net 的电流由成员共享，语言没说谁承担（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) 的 Open Points）→ `design.current-below-rating`（warning），点名额定值低于该电流的件 |
-| 引脚 | 多引脚 | **不确定**：件的额定值属于哪两个脚，语言还没说（端子语法未落地，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D4）→ 同上 warning |
+| net（`current ADAPTER_P 4A`） | 这条轨**总共**流多少 | **布局**：载它的铜要按这个宽度走，它也决定发热 |
+| 引脚（`current M1.J1.1 4A`） | 这个脚流多少 | **原理图**：拿它跟件的额定值比 |
 
-还有一条不比较的：**坐在两条声明了不同电流的轨上的件**，要么是转换器、要么是串联件，而语言分不出是哪个（串联件两侧电流相同，转换器不同）→ 不与任何一条比，计入 `design.current-unknown`（note）。没声明 `rated_current` 的件同样计入（note，一块板一条）——没比较不等于通过。电流比较的覆盖率跟电压、耗散一起进报告（`coverage.current`）。
+**原理图只比引脚主语**。net 主语**不与件比**：net 的电流由成员共享，语言没说谁承担（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) 的 Open Points），拿它跟每个成员比就是对整条 net 的一次猜测——而且是可能猜错的那种。原理图不沉默：每块板一条 `design.current-rail`（note）点名这些轨与它们声明的电流，说明原理图没有拿它们跟额定值比（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D13）。布局那一侧还没有规则（铜宽怎么跟电流对上，`docs/backlog.md` F82）。
+
+引脚主语与额定值比，结果分两档，因为**能确定到什么程度**取决于件的端子：
+
+| 件 | 结论 |
+|---|---|
+| 两引脚 | **确定**：件的额定值说的就是它两个脚之间的路径，而设计说了这个脚流多少。额定值低于它 → `design.current-exceeded`（error） |
+| 多引脚 | **不确定**：件的额定值属于哪两个脚，语言还没说（端子语法未落地，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D4）→ `design.current-below-rating`（warning），说清它不确定在哪 |
+
+没声明 `rated_current` 的件不比较，计入 `design.current-unknown`（note，一块板一条）——没比较不等于通过。电流比较的覆盖率跟电压、耗散一起进报告（`coverage.current`：`compared` / `total` 是引脚主语那部分，`rails` 是声明了电流的轨数，那些是布局的输入）。
 
 ### 7.4 `ports` 段（可选）
 

@@ -793,13 +793,15 @@
 - **分析模式（原来记作 item 0）已定**：按**声明窗口的受压端**比（不是标称点）；器件**互相独立**（语言还无法声明相关性，容差不参与比较）；**未声明即未知**，未知要计数（一块板一条 note）；降额是项目政策，不是检查器的常数。
 - **item 0 已落地（耗散）**：阻性两引脚器件的最坏耗散 `P = ΔV²/R`（`ΔV` 同 ADR-0026 的窗口极端差，`R` 取实例行 `value` 或件的 `value` 额定值）同时比三条上界——设计的 `power <引脚> <max>` 约束、实例行的 `power` 要求、件的 `power` 额定值——取最紧那条，超了报 `design.rating-exceeded`；没上限或两端有一个没窗口的不比较，计入 `design.power-unknown`（note，一块板一条）。实现在 `packages/core/src/design/ratings.ts`，决策与局限见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md)（这是**上界**：两端窗口相同时它给 0，所以只报违规、不证明通过；串在两条窗口之间的 RC 阻尼电阻上这个上界没有物理意义）。参考工程实测：charger-buck `24` 个阻性实例里比了 **4** 个（其余 20 个所在 net 无窗口），mcu-board `3` 个全因无窗口跳过，0 违规——比得动是因为**封装底线**（[ADR-0027](adr/07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md)）：`(construction, package_code)` 查表（0402 = 62.5mW），厚膜是同一封装的最低档，所以这张表给的是底线而不是猜测买了哪颗件。底线只在设计/行/件都没声明时生效；同一条底线也让选料拒绝低于底线的件（rule 4a），两个检查不会互相打架。两块参考板的两颗 10k 件（`rc0402fr-0710kl` 62.5mW、`crc0402fr-0710kl` 63mW）补上了件的功率额定值。
 - **电压第一片已落地**：两引脚器件的 `voltage` 能力 vs 它两个 net 的声明窗口之差。`packages/core/src/design/ratings.ts`，新域 `design`（ADR-0026 D15）：`design.rating-exceeded`（error）+ `design.stress-unknown`（note，报覆盖率）。`spec/teda.md` §7.3 写清了口径；两块参考板补了 `voltage GND 0V..0V`（帧原点由设计声明，工具不假设 GND = 0V），覆盖从 0 抬到 charger-buck 11/61、mcu-board 10/21，且参考设计 0 违规。
-- **还没做**：**同一张表里的电压底线**（0402 = 50V、2010 = 200V 之类，是 F42 item 1 的封装版；它受件限制多于受封装限制，所以跟对称电压一起做）；串在窗口之间的**交流/阻尼**位置怎么声明"这个上界不适用"（现在是"没写上界"，两种状态分不开）；多引脚器件的应力模型（`Vds` / `Vgs` / `Vin` 要按构造定引脚语义——这是覆盖率的大头，也是下一个真正的一步）；`current`（网电流由谁承担语言还没说）；`power` / 磁饱和 / 温度；项目级降额政策进 `project.toml`。
+- **还没做**：**同一张表里的电压底线**（0402 = 50V、2010 = 200V 之类，是 F42 item 1 的封装版；它受件限制多于受封装限制，所以跟对称电压一起做）；串在窗口之间的**交流/阻尼**位置怎么声明"这个上界不适用"（现在是"没写上界"，两种状态分不开）；多引脚器件的应力模型（`Vds` / `Vgs` / `Vin` 要按构造定引脚语义——这是覆盖率的大头，也是下一个真正的一步）；`current` / 磁饱和 / 温度；项目级降额政策进 `project.toml`。（`current` 一项在 2026-11-17 落地：原理图比的是**引脚主语**的要求与件的额定值，轨电流归布局，见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D18 与下面 2026-11-17 那一条。）
 
 **2026-10-26 端子与方向已定，未实现**：`ratings` 行可以写成 `role type value from to`（pin 编号、有序对），方向由角色表决定（`symmetric` / `from` / `to` / `none`），角色表同时加 `kind`（`limit` / `characteristic` / `code`）。决策见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md)。**解析器先落地了一半**（2026-10-27）：带端子的 `ratings` 行被**拒绝**（`syntax.column-count`）而不是静默截断——端子语法没落地之前，宁可让文件写不进去，也不让事实悄悄消失。IR 契约 `rating.terminals`、`packages/core` 的端子比较仍未开始；参考工程没有可用的 datasheet 值，先用合成夹具。
 
 **2026-11-16 报告口径已落地（"不能读成通过"那一半）**：多引脚应力模型本身**仍未实现**（下面第 2 / 3 条照旧），但报告不再把"没比"读成"过了"。`texteda check` 的摘要最后一行现在写明没比的那部分（`Not fully checked: 21 of 83 instances were compared with a declared window.` / `4 of 27 resistive instances were compared with a power limit.`），`--json` 载荷里同一个数字在 `coverage` 里（`stress` / `dissipation`，各带 `compared` 与 `total`）；摘要与载荷同源，不会各说各话。另外比较**不再挂在 PCB 分支下**：它读的是根的 net、声明窗口和器件库，有逻辑根的工程都会跑（决策见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D13）。这条的来源是 2026-11-16 的设计方法评审（`docs/reviews/2026-11-16-design-method-r1.md` 第 3 条 note）。**剩下的还是模型**：端子对、方向、`kind`，以及 datasheet 里的值。
 
 **2026-11-16 `current` 约束有人消费了（上面"还没做"里的 `current` 一项）**：`current` 约束此前**没有任何检查器读它**（只有 `voltage` 与 `power` 被消费），于是"插座额定 500mA、设计要 4A"这件事只写在件文件的注释里。现在新增比较（`packages/core/src/design/current.ts`，规则见 `spec/teda.md` §7.3）：件能扛多少取件自己的 `ratings.rated_current`（事实）或通用件实例行的 `rated_current` 列（要求）。**能确定到什么程度分三档**：主语是引脚且件是两引脚 → 确定，低于就报 `design.current-exceeded`（error）；主语是 net → 语言没说 net 的电流由谁承担，只能报 `design.current-below-rating`（warning）；件是多引脚 → 额定值属于哪两个脚还没说（端子语法未落地），同样是 warning。另有两种**不比较**：坐在两条声明了不同电流的轨上的件（是转换器还是串联件，语言分不出），以及没写 `rated_current` 的件（计入 `design.current-unknown`，note）。参考工程实测：插座 J1 被点出来（`net ADAPTER_P declares 4A, and M1.J1 (dc-005-20a) on it is rated 0.5A`），参考工程顺带把 4A 适配器上限从模块头注释改成了声明事实（`current ADAPTER_P 4A`）。**仍然没做**：语言没有"这条 net 的电流由谁承担"的写法，所以 net 主语那一档只能是 warning；也没有"网电流归成员"的构造（这就是上面 Open Points 那一条）。
+
+**2026-11-17 `current` 的口径改了：原理图只比引脚主语，轨电流归布局**（[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D18）。上面那条三档规则里"主语是 net"那一档**撤掉了**：net 的电流由成员共享，语言没说谁承担，拿它跟每个成员比就是对整条 net 的一次猜测。现在两种主语各有各的主人——`current <pin> <max>` 是**对这个件的要求**，原理图拿它跟件的额定值比（两引脚件确定，低于 → `design.current-exceeded` error；多引脚件不确定，额定值还没说属于哪两个脚 → `design.current-below-rating` warning）；`current <net> <max>` 是**这条轨总共流多少**，那是**布局**的事（载它的铜要按这个宽度走），原理图不与件比，但也不沉默——每块板一条 `design.current-rail`（note）点名这些轨与它们声明的电流。参考工程现在两种主语都写：模块里的 `current ADAPTER_P 4A`（轨，给布局）与 `current J1.1 4A`（插座的正极脚，给额定值比）；插座 500mA 的额定值重新被点出来（`pin M1.J1.1 carries at most 4A, and M1.J1 (dc-005-20a) is rated 0.5A`），而且这次作者能回答——设计说了这个脚流多少。**仍然没做**：轨电流的分支拆分（语言没有阻抗，也没有"电流从哪个脚进来"，F80）；布局侧还没有规则读轨电流（F82）。
 
 **2026-10-23 覆盖率审计（实测，用来定下一步做什么）**：`texteda check` 的两块参考板。
 
@@ -823,7 +825,7 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 2. **端子（`ratings` 行说清跨哪两个引脚）**：多引脚器件的**前置**——晶体管、稳压器、二极管都要它。charger-buck 今天只有 1 个实例因此被跳过，但上面第 3 条全靠它。
 3. **极性**：二极管的 `Vr`、LED 的 `Vr`、晶体管的 `Vds` / `Vgs` 都是**有方向**的应力；现在两引脚比较取 `max|Δ|`，对二极管是错的（正向压降不是应力）。10 个实例等这一步。
 4. **额定值可以是区间**（IC 的工作窗口，如 MCU 的 2.7..3.6V）：**这一步要推翻 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D3 的"额定值不是区间"**——IC 的供电窗口是件的事实，而设计声明的窗口必须**落在**它里面。要新 ADR，不能顺手改。
-5. **电流**：语言还没说"谁承担这条 net 的电流"（`current VOUT 3A` 不指成员），排最后。
+5. **电流**（2026-11-17 落地）：原理图只比**引脚主语**的要求与件的额定值；轨电流（`current VOUT 3A`）是布局的输入，原理图不与件比（[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D18）。网电流的分支拆分仍没做（F80）。
 
 2 与 3 已由**同一个 ADR** 定（[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md)，2026-10-26）：一条 `ratings` 行说的是哪两个端子、哪个方向，角色表同时带 `kind`；实现未开始。
 
@@ -1630,8 +1632,10 @@ there.
 
 ## F80. Nothing derives who carries a rail's current, and nothing splits it between branches
 
-**Status**: Proposed (2026-11-17). The comparison landed; the rail-level form stays a warning
-because of this.
+**Status**: Proposed (2026-11-17). The schematic's side is decided
+([ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D18): a rail's current is the
+layout's input, and the schematic compares a **pin's** requirement with the part's rating. The
+layout's side, and the split between branches, are still open.
 
 **Current state**: `current <net> <max>` says what a rail carries **in total**; its members share
 it, and the language cannot say how much each takes. Two different things are missing, and they
@@ -1652,35 +1656,45 @@ are worth separating:
    carries. The two forms are not two spellings of one fact, and nothing derives one from the
    other.
 
-So the tool can compare a pin's declared current with a two-terminal part's rating, and can only
-point at a rail's members: `design.current-below-rating` (warning), with the caveat that the
-language does not say which member carries a rail's current.
+**What was decided (2026-11-17)**: the schematic's rule separates the two forms instead of
+guessing at one ([ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D18):
 
-**Why it matters**: the conflict the reviewer found — a connector rated 500 mA against a rail the
-design declares 4 A — is reported, but as a warning the author cannot answer: there is no way to
-say "this member carries 100 mA and the rest of the rail carries the rest", so every
-current-carrying rail collects warnings that only a human can dismiss, and the rule that could
-be an error is stuck at a warning.
+- `current <pin> <max>` is a **requirement on one part**: the schematic compares it with what the
+  part is rated for — certain for a two-terminal part (`design.current-exceeded`, error), a warning
+  for a part with more pins (`design.current-below-rating`, because its rating names no terminal
+  yet, D4).
+- `current <net> <max>` is a **rail's current**: the schematic does not compare it with part
+  ratings, because the language does not say which member carries the net's current — such a
+  comparison would be a guess about every member of the net at once. The schematic says so
+  (`design.current-rail`, note) instead of staying silent, and the layout side is F82.
 
-**To do**: decide where a design states a current, and what the tool may then conclude.
+The reference project states both now: `current ADAPTER_P 4A` (the rail, for the copper) and
+`current J1.1 4A` (the jack's tip, for the rating). The conflict the reviewer found — a jack
+rated 500 mA against 4 A — is reported again, and now it is answerable: the design says what that
+pin carries, so the reader can act on it, instead of a warning about a net whose current nobody
+could attribute.
 
-1. **At the pin** — `current M1.J1.1 4A`: checkable, one fact per path, and the reference
-   project's jack case becomes an error instead of a warning. The cost: the rail-level fact ("this
-   rail carries 4 A") is then not stated anywhere, and a reader of the rail alone has to find the
-   pin.
-2. **At the rail** — `current ADAPTER_P 4A`: a promise about the rail, checkable only as a hint,
-   because the split is not derivable.
-3. **Both**, which is two homes for one fact (the rail's and the path's) — the thing
-   `net.constraint-duplicate` complains about, so it needs the same decision as F79.
-4. **A two-subject current limit**, the way `diff` and `skew` name a pair of nets: "the current
+**Why it matters**: the rail's current is what sizes the copper that carries it. Nothing checks
+that (F82), so the declaration is currently read by nothing that can act on it — the schematic
+says that out loud, and the layout has no rule yet.
+
+**To do**: what is left of the question:
+
+1. **The layout's consumer.** The rail's current is the layout's input, and the layout does not
+   read it yet (F82).
+2. **The split.** A rail with parallel branches divides its current between them, and nothing
+   derives the division (the impedances and the entry direction are not in the language).
+3. **A two-subject current limit**, the way `diff` and `skew` name a pair of nets: "the current
    that flows from this net to that one". It names the path, so the part between the two nets is
    the one that carries it, and the comparison becomes definite. This is the construct F80 was
-   written for; the pin subject above is the cheap approximation of it.
+   written for; the pin subject is the cheap approximation of it.
 
 **Acceptance**:
 
-- The rail-level comparison is either definite, or the specification says it is advisory and
-  says which form a design should use for a definite check.
+- The rail-level statement has a consumer that checks it (the layout rule in F82), or the
+  specification says it is advisory and says which form a design should use for a definite check.
+  The second half is met: `spec/teda.md` §7.3 says a rail's current is the layout's input and that
+  the pin form is the one the schematic compares.
 
 **Note**: this is the open half of the fourth note of the 2026-11-16 design-method review
 (`docs/reviews/2026-11-16-design-method-r1.md`). There is a second route to the same fact — an
@@ -1729,8 +1743,8 @@ warning is the same colour as the 195 other warnings the reference project produ
 
 ## F82. The copper is never checked against the current the design declares
 
-**Status**: Proposed (2026-11-16). The decision on record settles the shape; the rule is a
-language change.
+**Status**: Proposed (2026-11-16). The decision on record settles the shape; the report half landed
+on 2026-11-17; the rule is a language change.
 
 **Current state**: the root declares `current VOUT 3A` (`design/sch/main.teda:50`) and the board
 declares `rules width 0.3` (`design/pcb/charger-buck.teda:83`), and the 3 A rail is carried on
@@ -1738,11 +1752,19 @@ declares `rules width 0.3` (`design/pcb/charger-buck.teda:83`), and the 3 A rail
 has no current-carrying form (`clearance`, `width`, `via`, `net`, `diff`, `match`, `mask`,
 `paste`, `thermal`, `min_width`), and the rule that would compare them does not exist.
 
+**What was decided (2026-11-17)**: a rail's current is the layout's input and the schematic does
+not check the copper against it ([ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md)
+D18). The schematic says so rather than staying silent: `design.current-rail` (note) names the
+rails that declare a current and the currents they declare, and the check's last line says "Not
+checked here: N rails declare a current; the schematic does not compare a rail's current with part
+ratings". Road 3 below is therefore done — the hole is visible instead of silent, at the cost of a
+note on every project that declares a current.
+
 **Why it matters**: the two facts live in different files and nothing in the language relates a
 net's current to the width of the copper on it. A reader has to know the process's own
 current-carrying table to judge the 0.3 mm — and the table is not in the repository.
 
-**To do**: two roads, and the cheap half is separate.
+**To do**: the rule itself, which is a language change.
 
 1. **Let the design state its own rule**: a new `rules` form, e.g. `current <net> <max> <min
    width>`, and a check that the traces on that net are at least that wide. The design states the
@@ -1753,15 +1775,16 @@ current-carrying table to judge the 0.3 mm — and the table is not in the repos
 2. **Embed a process table** (IPC-style current-carrying capacity): out of scope. The repository
    does not build a process-rule library ("not a manufacturing tool: no CAM-level DFM judgement,
    no process-rule library").
-3. **Say so in the report** (the cheap half): the copper was not checked against the declared
-   current, so the hole is visible instead of silent. A note plus a sentence in the
-   specification — no IR change, at the cost of a note on every project that declares a current
-   and has a board.
+3. ~~**Say so in the report** (the cheap half)~~ **done (2026-11-17)**: the copper is not checked
+   against the declared current, and the report says so — `design.current-rail` (note), plus the
+   summary's last line.
 
 **Acceptance**:
 
 - Either the rule exists and the 0.3 mm traces on a 3 A rail are checked against a declared
-  limit, or the specification says the checker does not do it and why.
+  limit, or the specification says the checker does not do it and why. The second half is met
+  (`spec/teda.md` §7.3 and [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D18);
+  the first half is not.
 
 **Note**: this is the seventh note of the 2026-11-16 design-method review
 (`docs/reviews/2026-11-16-design-method-r1.md`).

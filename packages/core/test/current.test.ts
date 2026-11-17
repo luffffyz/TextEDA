@@ -1,4 +1,4 @@
-// Current limits against what the parts are rated for (the `current` constraint, finally consumed).
+// Current requirements against what the parts are rated for (the `current` constraint, finally consumed).
 import { irVersion } from "@texteda/ir";
 import { describe, expect, test } from "bun:test";
 import { checkCurrentRatings } from "../src/index.ts";
@@ -40,7 +40,7 @@ function board(options: {
 const CURRENT = (subject: string, max_na: number) =>
   ({ type: "current", subject, max_na }) as NonNullable<Schematic["constraints"]>[number];
 
-describe("current limits", () => {
+describe("current requirements", () => {
   test("a pin declared to carry more than a two-terminal part is rated for is an error", () => {
     const schematic = board({
       instances: [{ id: "J1", component: "jack" }],
@@ -59,29 +59,30 @@ describe("current limits", () => {
     expect(error?.data).toMatchObject({ declared_na: 4_000_000_000, rated_na: 500_000_000 });
   });
 
-  test("a net's current against a part on it is a warning, not a verdict", () => {
-    // The tool sees one net; it does not know which member carries the net's current.
+  test("a rail's current is the layout's input and is not compared with the parts on it", () => {
+    // The tool sees one net; it does not know which member carries the net's current, so it does
+    // not compare. It says so instead of staying silent (ADR-0026 D13).
     const schematic = board({
       instances: [{ id: "J1", component: "jack" }],
       nets: [{ id: "ADAPTER_P", members: ["J1.1"] }],
       constraints: [CURRENT("ADAPTER_P", 4_000_000_000)],
     });
-    const { diagnostics } = checkCurrentRatings({
+    const { diagnostics, coverage } = checkCurrentRatings({
       file: "b.teda",
       schematic,
       devices: new Map([["jack", JACK]]),
     });
-    const warning = diagnostics.find((d) => d.code === "design.current-below-rating");
-    expect(warning?.severity).toBe("warning");
-    expect(warning?.message).toContain("net ADAPTER_P declares 4A");
-    expect(warning?.message).toContain("the language does not say which member of a net carries its current");
+    expect(diagnostics.map((d) => d.code)).toEqual(["design.current-rail"]);
+    expect(diagnostics[0]!.severity).toBe("note");
+    expect(diagnostics[0]!.message).toContain("ADAPTER_P 4A");
+    expect(coverage).toEqual({ compared: 0, total: 0, rails: 1 });
   });
 
-  test("a part rated for the current it carries is not reported", () => {
+  test("a part rated for the current its pin carries is not reported", () => {
     const schematic = board({
       instances: [{ id: "J1", component: "jack" }],
       nets: [{ id: "ADAPTER_P", members: ["J1.1"] }],
-      constraints: [CURRENT("ADAPTER_P", 500_000_000)],
+      constraints: [CURRENT("J1.1", 500_000_000)],
     });
     const { diagnostics, coverage } = checkCurrentRatings({
       file: "b.teda",
@@ -89,14 +90,14 @@ describe("current limits", () => {
       devices: new Map([["jack", JACK]]),
     });
     expect(diagnostics).toEqual([]);
-    expect(coverage).toEqual({ compared: 1, total: 1 });
+    expect(coverage).toEqual({ compared: 1, total: 1, rails: 0 });
   });
 
   test("a part that states no rating is counted, not passed", () => {
     const schematic = board({
       instances: [{ id: "R1", component: "resistor" }],
       nets: [{ id: "VOUT", members: ["R1.1"] }],
-      constraints: [CURRENT("VOUT", 3_000_000_000)],
+      constraints: [CURRENT("R1.1", 3_000_000_000)],
     });
     const { diagnostics, coverage } = checkCurrentRatings({
       file: "b.teda",
@@ -106,35 +107,54 @@ describe("current limits", () => {
     expect(diagnostics.map((d) => d.code)).toEqual(["design.current-unknown"]);
     expect(diagnostics[0]!.severity).toBe("note");
     expect(diagnostics[0]!.data).toMatchObject({ compared: 0, skipped: 1, total: 1, no_rating: 1 });
-    expect(coverage).toEqual({ compared: 0, total: 1 });
+    expect(coverage).toEqual({ compared: 0, total: 1, rails: 0 });
   });
 
-  test("a part between two rails that declare different currents is not compared with either", () => {
-    // It is a converter or a series element, and the language does not say which: a series
-    // element carries the same current on both sides, a converter does not.
+  test("a part with more than two pins is a signal, not a verdict", () => {
+    // Its rating names no terminal yet (ADR-0026 D4), so the comparison is not certain.
     const schematic = board({
       instances: [{ id: "U2", component: "regulator" }],
-      nets: [
-        { id: "VOUT", members: ["U2.1"] },
-        { id: "V3V3", members: ["U2.2"] },
-      ],
-      constraints: [CURRENT("VOUT", 3_000_000_000), CURRENT("V3V3", 300_000_000)],
+      nets: [{ id: "VOUT", members: ["U2.1"] }],
+      constraints: [CURRENT("U2.1", 3_000_000_000)],
     });
-    const { diagnostics, coverage } = checkCurrentRatings({
+    const { diagnostics } = checkCurrentRatings({
       file: "b.teda",
       schematic,
       devices: new Map([["regulator", REGULATOR]]),
     });
-    expect(diagnostics.map((d) => d.code)).toEqual(["design.current-unknown"]);
-    expect(diagnostics[0]!.data).toMatchObject({ between_rails: 1, no_rating: 0 });
-    expect(coverage).toEqual({ compared: 0, total: 1 });
+    const warning = diagnostics.find((d) => d.code === "design.current-below-rating");
+    expect(warning?.severity).toBe("warning");
+    expect(warning?.message).toContain("pin U2.1 carries at most 3A");
+    expect(warning?.message).toContain("is rated 0.3A");
+    expect(warning?.message).toContain("the part's rating does not name the pin it applies to");
+  });
+
+  test("a part between two rails is compared with the requirement on its own pin", () => {
+    // The design says what that pin carries, so the comparison holds: a series element carries
+    // the same current on both sides, and the rails say nothing about the pin in question.
+    const schematic = board({
+      instances: [{ id: "R1", component: "resistor" }],
+      nets: [
+        { id: "VOUT", members: ["R1.1"] },
+        { id: "V3V3", members: ["R1.2"] },
+      ],
+      constraints: [CURRENT("R1.1", 3_000_000_000), CURRENT("V3V3", 300_000_000)],
+    });
+    const { diagnostics, coverage } = checkCurrentRatings({
+      file: "b.teda",
+      schematic,
+      devices: new Map([["resistor", JACK]]),
+    });
+    const error = diagnostics.find((d) => d.code === "design.current-exceeded");
+    expect(error?.message).toContain("pin R1.1 carries at most 3A");
+    expect(coverage).toEqual({ compared: 1, total: 1, rails: 1 });
   });
 
   test("a generic's own line column is the current the part must carry", () => {
     const schematic = board({
       instances: [{ id: "L1", component: "inductor" }],
       nets: [{ id: "VOUT", members: ["L1.1"] }],
-      constraints: [CURRENT("VOUT", 3_000_000_000)],
+      constraints: [CURRENT("L1.1", 3_000_000_000)],
       params: { L1: [{ name: "rated_current", value: 2_000_000_000 }] },
     });
     const inductor: CurrentDevice = {
@@ -147,7 +167,7 @@ describe("current limits", () => {
       schematic,
       devices: new Map([["inductor", inductor]]),
     });
-    const warning = diagnostics.find((d) => d.code === "design.current-below-rating");
-    expect(warning?.message).toContain("is rated 2A");
+    const error = diagnostics.find((d) => d.code === "design.current-exceeded");
+    expect(error?.message).toContain("is rated 2A");
   });
 });
