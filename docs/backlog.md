@@ -1628,44 +1628,64 @@ there.
 
 ---
 
-## F80. The language cannot say which member of a net carries its current
+## F80. Nothing derives who carries a rail's current, and nothing splits it between branches
 
-**Status**: Proposed (2026-11-16). The comparison landed; one of its two forms stays a warning
+**Status**: Proposed (2026-11-17). The comparison landed; the rail-level form stays a warning
 because of this.
 
-**Current state**: `current <net> <max>` says what the net carries, and a net's members share it
-— the language does not say which member carries how much (ADR-0026, Open Points). So the
-comparison against the parts on that net is a warning (`design.current-below-rating`), and a part
-that sits on two rails declaring different currents is not compared with either (it is a
-converter or a series element, and the language cannot say which). `current <pin> <max>` is
-different: it names the pin, and with a two-terminal part the comparison is certain and is an
-error (`design.current-exceeded`).
+**Current state**: `current <net> <max>` says what a rail carries **in total**; its members share
+it, and the language cannot say how much each takes. Two different things are missing, and they
+are worth separating:
+
+1. **The split.** A rail with parallel branches divides its current between them. The reference
+   project's `ADAPTER_P` is the example: the current enters at the jack's tip and leaves through
+   the sleeve, and between them it divides into the input FET's path (the bulk of it), three LED
+   indicator paths (microamps), and the damping path (`R20` into `C16`, which carries the
+   insertion transient and nothing in steady state). The division needs the branches' impedances
+   and the direction the current enters from — the language has neither, and the jack's three
+   pins are typed `passive`, so even "this pin is the entry" is not written down.
+2. **The derivation.** The pin subject says the attribution directly: `current M1.J1.1 4A` is
+   "this pin carries at most 4 A", and with a two-terminal part the comparison against its rating
+   is certain (`design.current-exceeded`, error). What does not exist is a relation between that
+   and the rail-level statement: a design that writes `current ADAPTER_P 4A` has not said what
+   flows through the jack, and a design that writes the pin form has not said what the rail
+   carries. The two forms are not two spellings of one fact, and nothing derives one from the
+   other.
+
+So the tool can compare a pin's declared current with a two-terminal part's rating, and can only
+point at a rail's members: `design.current-below-rating` (warning), with the caveat that the
+language does not say which member carries a rail's current.
 
 **Why it matters**: the conflict the reviewer found — a connector rated 500 mA against a rail the
-design declares 4 A — is reported, but as a warning the author cannot answer. There is no way to
+design declares 4 A — is reported, but as a warning the author cannot answer: there is no way to
 say "this member carries 100 mA and the rest of the rail carries the rest", so every
 current-carrying rail collects warnings that only a human can dismiss, and the rule that could
 be an error is stuck at a warning.
 
-**To do**: decide whether the language gets a construct that attributes a current to a path.
+**To do**: decide where a design states a current, and what the tool may then conclude.
 
-1. A **two-subject current limit**, the way `diff` and `skew` name a pair of nets: "the current
+1. **At the pin** — `current M1.J1.1 4A`: checkable, one fact per path, and the reference
+   project's jack case becomes an error instead of a warning. The cost: the rail-level fact ("this
+   rail carries 4 A") is then not stated anywhere, and a reader of the rail alone has to find the
+   pin.
+2. **At the rail** — `current ADAPTER_P 4A`: a promise about the rail, checkable only as a hint,
+   because the split is not derivable.
+3. **Both**, which is two homes for one fact (the rail's and the path's) — the thing
+   `net.constraint-duplicate` complains about, so it needs the same decision as F79.
+4. **A two-subject current limit**, the way `diff` and `skew` name a pair of nets: "the current
    that flows from this net to that one". It names the path, so the part between the two nets is
-   the one that carries it, and the comparison becomes definite.
-2. A **per-part series declaration**: the design says which parts sit in a path (a new segment,
-   and therefore an IR version bump).
-3. Accept the warning: the net-subject form stays advisory, and the pin-subject form is the one
-   to use when a definite check is wanted.
+   the one that carries it, and the comparison becomes definite. This is the construct F80 was
+   written for; the pin subject above is the cheap approximation of it.
 
 **Acceptance**:
 
-- The net-subject comparison is either definite, or the specification says it is advisory and
+- The rail-level comparison is either definite, or the specification says it is advisory and
   says which form a design should use for a definite check.
 
 **Note**: this is the open half of the fourth note of the 2026-11-16 design-method review
-(`docs/reviews/2026-11-16-design-method-r1.md`). There is a second route to the same fact: an
+(`docs/reviews/2026-11-16-design-method-r1.md`). There is a second route to the same fact — an
 analysis that reports per-path currents settles the attribution without any language change
-(F83). The language route stays open for the designs that have no analysis.
+(F83) — but it is shelved for now.
 
 ---
 
@@ -1750,7 +1770,9 @@ current-carrying table to judge the 0.3 mm — and the table is not in the repos
 
 ## F83. A rail's capability is the target; an analysis can gate it
 
-**Status**: Proposed (2026-11-17). The shape is already on record; the rule is not.
+**Status**: Proposed (2026-11-17). The shape is already on record; the rule is not. **Shelved on
+2026-11-17**: the analysis route is not pursued for now, so this stays as a written idea rather
+than a plan.
 
 **Current state**: three halves of the idea are decided, and one is not.
 
