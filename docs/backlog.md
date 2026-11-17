@@ -1329,6 +1329,10 @@ implementation it is not.
 nothing that can be stale. The cost of the check is a small parser (three header lines) plus the
 project hash, which the tree builder already computes.
 
+**Also the entry point for F83**: an analysis that reports per-path currents would let the
+checker gate a design against the limits it states, without any language change — which makes
+this parser the first thing that has to exist for that to be possible.
+
 **To do**:
 
 1. Say where an analysis report lives — a directory beside the project, or a path the design
@@ -1659,7 +1663,9 @@ be an error is stuck at a warning.
   says which form a design should use for a definite check.
 
 **Note**: this is the open half of the fourth note of the 2026-11-16 design-method review
-(`docs/reviews/2026-11-16-design-method-r1.md`).
+(`docs/reviews/2026-11-16-design-method-r1.md`). There is a second route to the same fact: an
+analysis that reports per-path currents settles the attribution without any language change
+(F83). The language route stays open for the designs that have no analysis.
 
 ---
 
@@ -1739,3 +1745,71 @@ current-carrying table to judge the 0.3 mm — and the table is not in the repos
 
 **Note**: this is the seventh note of the 2026-11-16 design-method review
 (`docs/reviews/2026-11-16-design-method-r1.md`).
+
+---
+
+## F83. A rail's capability is the target; an analysis can gate it
+
+**Status**: Proposed (2026-11-17). The shape is already on record; the rule is not.
+
+**Current state**: three halves of the idea are decided, and one is not.
+
+- **A capability is a limit, a demand is a requirement.** That is ADR-0026's pair: a part states
+  what it is rated for, the design states what it needs, and the checker asks whether the limit
+  covers the requirement (D8, D11, D14). Both halves are in the language today: a part's
+  `rated_current` (a datasheet fact) and `current <net>` (what the design promises a rail
+  carries). What is missing is not the pair but the **attribution** — a net's current is shared by
+  its members, so the tool cannot say which member carries it (F80).
+- **An analysis is a reference, not part of the design** ([ADR-0040](adr/10-process/0040-process-entities-outside-the-language.md)
+  D3): it is not in the IR tree, not in the manifest, it does not change the project hash; it
+  points at the design version it verified (`source_hash`), plus the tool and the corner. When the
+  hash no longer matches, the checker says so — a **warning**, not an error, because the design
+  is not wrong, the evidence is old (D4). The header is decided but not built (F74).
+- **Models and results are different things** ([ADR-0008](adr/03-project/0008-project-tree-has-owners.md)):
+  `external/simulation/` holds third-party models; a simulation *result* is evidence this project
+  produced.
+
+**Why it matters**: an analysis that reports currents settles the attribution question without
+touching the language — "which member carries how much" is an analysis question, not a syntax
+question. It also gives the checker the one thing it cannot have otherwise: a number per path, to
+compare with a limit the design states. And the gate has a cost worth naming: the analysis is not
+in the design's hash, so the hash binding says which design version the evidence was made for but
+nothing detects that the evidence file itself was replaced.
+
+**To do**: three things, and the first is a decision.
+
+1. **What the target is, and where it lives.** A rail's capability is not a property of a part on
+   the rail's net. On the reference project the LDO's OUT pin is on `V3V3` and typed `power_out`,
+   so "the part with a `power_out` pin on this net" finds it — 300 mA against the rail's declared
+   300 mA. The buck is a different shape: its output pin (`PH`) sits on the switch node, the
+   inductor separates that from `VOUT`, and `PH` is typed `passive` — the rule finds nothing, and
+   the TPS5430's 3 A is a part-level rating about a path the language does not name
+   ([ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D4). So the capability has to
+   be **declared** — most plausibly by the module that produces the rail, since the root's net
+   section already says which module owns which rail — or the comparison stays the
+   member-by-member one that is implemented now.
+2. **What an analysis has to report.** A net's current is not the current through a member: it is
+   the sum of the branches, and a member carries the net's current only when it is the sole path.
+   So the analysis must report **per-path currents** (per branch or per pin), not per net.
+   ADR-0040 D3's header carries only the hash, the tool and the corner — the numbers need a
+   machine-readable home of their own, which is a new artifact shape.
+3. **What a simulation may gate, and how loudly.** Comparing a reported number with a limit the
+   design states is not judging the simulation (ADR-0040 D4's "never 'is the conclusion true'");
+   it is applying the design's own rule to a number. But the severity is a decision: a design
+   whose *model* says 4 A through a 500 mA connector is a different statement from a design that
+   is known to do it. The margin stays the project's (ADR-0026 D14).
+
+**Not "ignore", but "hint"**: ADR-0026 D13 counts what was not compared, and the report already
+says it — the check's last line reads "Not fully checked: 1 of 32 instances a current limit
+speaks about were compared with a rated_current". That is the hint. Ignoring the gap is the one
+thing the policy forbids.
+
+**Acceptance**:
+
+- A design with an analysis that reports per-path currents is checked against the limits the
+  design states, and the report says which analysis it used and whether its hash still matches.
+- A design without one says so, and is not treated as checked.
+- The severity of a violation found through an analysis is decided and written down.
+
+**Note**: this is the analysis route to the attribution hole in F80; the language route stays open
+for the designs that have no analysis. The stale-analysis half is F74.
