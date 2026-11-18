@@ -1,0 +1,159 @@
+{
+  "footprint": {
+    "attr": [
+      "through_hole"
+    ],
+    "description": "Approximate DC barrel jack land pattern; hole positions from the Xun Pu DC-005-A200 drawing, not fabrication-ready because the source drill syntax cannot encode the datasheet slots.",
+    "fields": [
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": -6500000
+        },
+        "effects": {
+          "height_nm": 1000000,
+          "thickness_nm": 150000,
+          "width_nm": 1000000
+        },
+        "layer": "F.SilkS",
+        "name": "Reference",
+        "value": "REF**"
+      },
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": 6500000
+        },
+        "effects": {
+          "height_nm": 1000000,
+          "thickness_nm": 150000,
+          "width_nm": 1000000
+        },
+        "layer": "F.Fab",
+        "name": "Value",
+        "value": "dc-jack-th"
+      }
+    ],
+    "graphics": [
+      {
+        "end": {
+          "x_nm": 7450000,
+          "y_nm": 5000000
+        },
+        "kind": "rect",
+        "layer": "F.CrtYd",
+        "start": {
+          "x_nm": -8100000,
+          "y_nm": -5950000
+        },
+        "width_nm": 50000
+      },
+      {
+        "end": {
+          "x_nm": 6200000,
+          "y_nm": 4500000
+        },
+        "kind": "rect",
+        "layer": "F.Fab",
+        "start": {
+          "x_nm": -7600000,
+          "y_nm": -4500000
+        },
+        "width_nm": 100000
+      },
+      {
+        "end": {
+          "x_nm": 6200000,
+          "y_nm": 4500000
+        },
+        "kind": "rect",
+        "layer": "F.SilkS",
+        "start": {
+          "x_nm": -7600000,
+          "y_nm": -4500000
+        },
+        "width_nm": 120000
+      }
+    ],
+    "library": "connector",
+    "name": "dc-jack-th",
+    "package_code": "DC-JACK-TH",
+    "pads": [
+      {
+        "at": {
+          "x_nm": 6200000,
+          "y_nm": 0
+        },
+        "drill": {
+          "x_nm": 800000,
+          "y_nm": 800000
+        },
+        "layers": [
+          "*.Cu",
+          "*.Mask"
+        ],
+        "number": "1",
+        "shape": "oval",
+        "size": {
+          "x_nm": 1500000,
+          "y_nm": 3800000
+        },
+        "type": "th"
+      },
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": 0
+        },
+        "drill": {
+          "x_nm": 800000,
+          "y_nm": 800000
+        },
+        "layers": [
+          "*.Cu",
+          "*.Mask"
+        ],
+        "number": "2",
+        "shape": "oval",
+        "size": {
+          "x_nm": 1500000,
+          "y_nm": 3800000
+        },
+        "type": "th"
+      },
+      {
+        "at": {
+          "x_nm": 3500000,
+          "y_nm": -4700000
+        },
+        "drill": {
+          "x_nm": 800000,
+          "y_nm": 800000
+        },
+        "layers": [
+          "*.Cu",
+          "*.Mask"
+        ],
+        "number": "3",
+        "shape": "oval",
+        "size": {
+          "x_nm": 3800000,
+          "y_nm": 1500000
+        },
+        "type": "th"
+      }
+    ],
+    "tags": [
+      "connector",
+      "dc",
+      "jack",
+      "through-hole"
+    ]
+  },
+  "format": "0.16",
+  "ir_version": "0.20",
+  "source": {
+    "file": "assets/footprints/connector/dc-jack-th.teda",
+    "line": 1
+  }
+}

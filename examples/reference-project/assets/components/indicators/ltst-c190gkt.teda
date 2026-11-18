@@ -1,0 +1,26 @@
+version 0.16.0
+component ltst-c190gkt
+
+# Lite-On's LTST-C190GKT: a 0603 green LED on GaP. The datasheet (DS-22-98-0011, revision H)
+# states a peak wavelength of 565 nm, a dominant wavelength of 569 nm, a DC forward current of
+# 30 mA, a reverse voltage of 5 V and a power dissipation of 100 mW.
+
+kind         part
+mpn          LTST-C190GKT
+manufacturer Lite-On
+category     led
+datasheet    https://optoelectronics.liteon.com/upload/download/DS-22-98-0011/LTST-C190GKT.pdf
+lcsc         C125093
+description  0603 green LED, 565 nm peak, 30 mA
+symbol       indicators:led
+footprint chip:chip-0603
+
+pins
+  1  K  polarized
+  2  A  polarized
+
+ratings
+  value           string  green
+  wavelength      length  565nm
+  rated_current   current 30mA
+  reverse_voltage voltage 5V   2 1

@@ -1,0 +1,43 @@
+{
+  "component": {
+    "category": "led",
+    "construction": "indicator",
+    "footprint": "chip:chip-0603",
+    "id": "led-indicator-0603",
+    "kind": "generic",
+    "params": [
+      {
+        "name": "value",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "wavelength",
+        "required": true,
+        "type": "length"
+      }
+    ],
+    "pins": [
+      {
+        "electrical_type": "polarized",
+        "name": "K",
+        "number": "1",
+        "unit": 1
+      },
+      {
+        "electrical_type": "polarized",
+        "name": "A",
+        "number": "2",
+        "unit": 1
+      }
+    ],
+    "pins_source": "inline",
+    "polarized": true,
+    "symbol": "indicators:led"
+  },
+  "ir_version": "0.20",
+  "source": {
+    "file": "assets/components/indicators/led-indicator-0603.teda",
+    "line": 1
+  }
+}

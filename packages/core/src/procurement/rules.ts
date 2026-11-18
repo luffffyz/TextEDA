@@ -100,7 +100,25 @@ const DIRECTIONS: Readonly<Record<string, Direction>> = {
   dcr: "upper",
   rated_current: "lower",
   sat_current: "lower",
+  wavelength: "equal",
 };
+
+/**
+ * How a role is compared, given what the line states.
+ *
+ * The primary role follows the kind of its value (ADR-0077 D3): a numeric primary is a quantity
+ * with an envelope, and a class-valued primary (a colour, a code) has neither an envelope nor an
+ * ordering — there is no better green. A class-valued primary is compared for equality.
+ */
+function directionOf(role: string, required: number | string): Direction | undefined {
+  const direction = DIRECTIONS[role];
+  if (direction === undefined) return undefined;
+  if (role === PRIMARY_ROLE && typeof required === "string") return "equal";
+  return direction;
+}
+
+/** The role that names a device's primary quantity, whatever its construction. */
+const PRIMARY_ROLE = "value";
 
 /** `1W`, `62.5mW`, `840uW` — the canonical unit is microwatts. */
 function watts(uw: number): string {
@@ -109,9 +127,6 @@ function watts(uw: number): string {
   if (uw >= 1_000) return `${trim(uw / 1_000)}mW`;
   return `${trim(uw)}uW`;
 }
-
-/** The role that names a device's primary quantity, whatever its construction. */
-const PRIMARY_ROLE = "value";
 
 /** The tolerance is a ratio: the canonical integer is parts per million. */
 const PPM = 1_000_000;
@@ -357,7 +372,7 @@ function compareWithLine(selection: Selection, part: Device): ComparisonFailure[
   for (const [role, required] of Object.entries(selection.params)) {
     const rating = part.ratings[role];
     if (!rating) continue;
-    const direction = DIRECTIONS[role];
+    const direction = directionOf(role, required);
     if (!direction) continue;
     if (typeof required !== "number" || typeof rating.value !== "number") {
       // A class-valued role (dielectric): the classes must be the same.

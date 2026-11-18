@@ -20,12 +20,12 @@
 import { irVersion } from "@texteda/ir";
 import type { Component, ParamDecl, Rating } from "@texteda/ir/component";
 import type { Diagnostic, DiagnosticCodeId } from "./diagnostics.ts";
-import { checkDeviceDeclaration, checkDeviceRatingValue, checkDeviceRatings } from "@texteda/core";
+import { checkDeviceDeclaration, checkDeviceRatingValue, checkDeviceRatings, DEVICE_CONSTRUCTIONS, DEVICE_ROLES } from "@texteda/core";
 import { lex } from "./lexer.ts";
 import { SourceFile } from "./sources.ts";
 import type { SourceMap } from "@texteda/ir/spans";
 import { parseQuantity, type QuantityKind } from "./quantities.ts";
-import { checkVersion, compareVersions, typeRange, TERMINAL_VERSION } from "./version.ts";
+import { checkVersion, compareVersions, parseVersion, typeRange, type LanguageVersion, CLASS_VERSION, TERMINAL_VERSION } from "./version.ts";
 import { REV_RE } from "./ids.ts";
 
 /** Pin electrical types from `teda.md` §9.1. */
@@ -191,6 +191,7 @@ export const PARAM_TYPE_KINDS: Record<string, QuantityKind> = {
   percent: "percent",
   frequency: "frequency",
   temperature: "temperature",
+  length: "length",
 };
 
 /**
@@ -266,6 +267,24 @@ export function parseComponent(text: string, options: { file: string }): Compone
   // The terminal pair of a ratings row arrived in language 0.15 (ADR-0026 D4): a file below that
   // version has no such column.
   const terminalSyntax = compareVersions(verdict.version, TERMINAL_VERSION) >= 0;
+  // The closed vocabularies gained members in language 0.16 (ADR-0077): the constructions `barrel`
+  // and `indicator`, and the role `wavelength`. A file below that version may not name them.
+  const classSyntax = compareVersions(verdict.version, CLASS_VERSION) >= 0;
+
+  /**
+   * Whether a vocabulary member is in this file's vocabulary.
+   *
+   * The closed vocabularies grow with the language (ADR-0077 D5): a member that joined them in a
+   * later version is not in an older file's vocabulary, so an older file may not name it. The
+   * quantities behind the new members are not versioned here: the IR contract's `param_type`
+   * always listed `length`, so naming it was never illegal — the parser simply did not read it
+   * (ADR-0077 D4).
+   */
+  const inVocabulary = (since: string | undefined): boolean => {
+    if (since === undefined) return true;
+    const joined = parseVersion(since);
+    return joined !== null && compareVersions(verdict.version, joined) >= 0;
+  };
   const typeLine = next();
   if (!typeLine || typeLine.cells.length !== 2 || typeLine.cells[0]!.text !== "component") {
     error(typeLine?.number ?? 1, 1, "syntax.header-invalid", "the second line must be component <id>");
@@ -430,6 +449,15 @@ export function parseComponent(text: string, options: { file: string }): Compone
         error(line.number, name.col, "syntax.invalid-identifier", `invalid parameter name: ${name.text}`);
         continue;
       }
+      const roleRule = DEVICE_ROLES[name.text];
+      if (roleRule !== undefined && !inVocabulary(roleRule.since)) {
+        error(line.number, name.col, "value.component-param-invalid", `the ${name.text} role arrived in language ${roleRule.since}`, {
+          expected: `a role of language ${verdict.version.major}.${verdict.version.minor}`,
+          actual: name.text,
+          hint: "raise the file's version line, or use a role this version has",
+        });
+        continue;
+      }
       if (RESERVED_PARAM_NAMES[name.text]) {
         error(line.number, name.col, "value.component-param-reserved", `${name.text} is fixed, not a parameter`, {
           expected: "a parameter that is not part of the pin table's electrical behaviour",
@@ -489,6 +517,15 @@ export function parseComponent(text: string, options: { file: string }): Compone
         error(line.number, role.col, "syntax.invalid-identifier", `invalid rating role: ${role.text}`);
         continue;
       }
+      const ratingRole = DEVICE_ROLES[role.text];
+      if (ratingRole !== undefined && !inVocabulary(ratingRole.since)) {
+        error(line.number, role.col, "value.component-rating-invalid", `the ${role.text} role arrived in language ${ratingRole.since}`, {
+          expected: `a role of language ${verdict.version.major}.${verdict.version.minor}`,
+          actual: role.text,
+          hint: "raise the file's version line, or use a role this version has",
+        });
+        continue;
+      }
       if (!PARAM_TYPES[type.text]) {
         error(line.number, type.col, "value.unknown-param-type", `unknown rating type: ${type.text}`);
         continue;
@@ -518,13 +555,29 @@ export function parseComponent(text: string, options: { file: string }): Compone
       }
       // A rating is a fact of the part: the value is parsed with the quantity the row declares.
       if (type.text === "string") {
-        ratings.push({ name: role.text, type: type.text, value: value.text, ...(terminals ? { terminals } : {}), line: line.number, col: role.col });
+        // A class value has no polarity: there is no pair of pins it is about, so the terminal pair
+        // has nowhere to go in the IR. The row is refused rather than quietly losing two columns.
+        if (terminals !== undefined) {
+          error(
+            line.number,
+            line.cells[3]!.col,
+            "syntax.column-count",
+            "a rating measured in a class has no terminal pair: role type value",
+            {
+              expected: "role type value",
+              actual: line.cells.map((c) => c.text).join(" "),
+              hint: "the terminal pair is for a rating that measures a quantity; a class value (a colour, a code) is about no pair of pins",
+            },
+          );
+          continue;
+        }
+        ratings.push({ name: role.text, type: type.text, value: value.text, line: line.number, col: role.col });
         continue;
       }
       const kind = PARAM_TYPE_KINDS[type.text];
       if (kind === undefined) {
         error(line.number, type.col, "value.unknown-param-type", `a rating is measured in a quantity: ${type.text} has none`, {
-          expected: "a quantity type: resistance, capacitance, inductance, voltage, current, power, impedance, percent, frequency, temperature",
+          expected: "a quantity type: resistance, capacitance, inductance, voltage, current, power, impedance, percent, frequency, temperature, length",
           actual: type.text,
         });
         continue;
@@ -728,6 +781,21 @@ export function parseComponent(text: string, options: { file: string }): Compone
   // in `@texteda/core` (device engineering knowledge, not language structure).
   if (component.kind === "generic") {
     const constructionAt = scalarAt.get("construction");
+    const constructionRule =
+      component.construction === undefined ? undefined : DEVICE_CONSTRUCTIONS[component.construction];
+    if (constructionRule !== undefined && !inVocabulary(constructionRule.since)) {
+      error(
+        constructionAt?.line ?? (sectionLine || 1),
+        constructionAt?.col ?? 1,
+        "value.component-construction-invalid",
+        `the ${component.construction} class arrived in language ${constructionRule.since}`,
+        {
+          expected: `a construction of language ${verdict.version.major}.${verdict.version.minor}`,
+          actual: String(component.construction),
+          hint: "raise the file's version line, or use a construction this version has",
+        },
+      );
+    }
     diagnostics.push(
       ...checkDeviceDeclaration({
         file,
@@ -845,14 +913,21 @@ export function parseComponent(text: string, options: { file: string }): Compone
         : {}),
       ...(keptRatings.length > 0
         ? {
-            ratings: keptRatings.map(
-              (rating) =>
-                ({
-                  name: rating.name,
-                  type: rating.type as ParamDecl["type"],
-                  value: rating.value,
-                  ...(rating.terminals ? { terminals: { from: rating.terminals.from, to: rating.terminals.to } } : {}),
-                }) as Rating,
+            ratings: keptRatings.map((rating) =>
+              // A rating measured in a code carries text, not a number: the contract's `rating` is a
+              // union of the two shapes (`value` for a quantity, `text` for a class).
+              rating.type === "string"
+                ? ({
+                    name: rating.name,
+                    type: "string" as const,
+                    text: String(rating.value),
+                  }) as Rating
+                : ({
+                    name: rating.name,
+                    type: rating.type as ParamDecl["type"],
+                    value: rating.value as number,
+                    ...(rating.terminals ? { terminals: { from: rating.terminals.from, to: rating.terminals.to } } : {}),
+                  }) as Rating,
             ),
           }
         : {}),

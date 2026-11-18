@@ -1,0 +1,22 @@
+version 0.16.0
+component led-indicator-0603
+
+# An indicator LED in 0603, stated as a class: the colour it shows and the wavelength that colour
+# was measured at. The colour is a class, not a quantity — there is no better green — so it is
+# the `value` of this class and the wavelength says which bin the colour came from.
+
+kind         generic
+category     led
+construction indicator
+polarized    yes
+
+symbol indicators:led
+footprint chip:chip-0603
+params
+  value      string  required
+  wavelength length  required
+
+# The cathode and the anode are not interchangable: the LED only conducts one way round.
+pins
+  1  K  polarized
+  2  A  polarized

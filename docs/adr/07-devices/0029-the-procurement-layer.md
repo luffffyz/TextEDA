@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-22
 Scope: Decides: how a design's generic requirement becomes a purchasable part, how the BOM is keyed and counted, and how variants and second sources sit relative to that. Does not decide: the language's rating vocabulary — see ADR-0025; nor the device kinds — see ADR-0024.
-Related: [ADR-0008](../03-project/0008-project-tree-has-owners.md), [ADR-0015](../04-schematic/0015-flattening-and-the-net-set.md), [ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md), [ADR-0022](../06-manufacturing/0022-jlc-prototype-delivery.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md)
+Related: [ADR-0008](../03-project/0008-project-tree-has-owners.md), [ADR-0015](../04-schematic/0015-flattening-and-the-net-set.md), [ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md), [ADR-0022](../06-manufacturing/0022-jlc-prototype-delivery.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md), [ADR-0077](0077-a-jack-and-an-led-are-classes.md)
 Impact: `spec/procurement.md`; `spec/teda.md` §6, §11; `schemas/ir/**`; `packages/core` (the procurement checks); `packages/cli` (the `texteda bom` command); `packages/ir` (the diagnostic code registry)
 
 ## Background
@@ -168,6 +168,22 @@ A row is checked at compile time:
 
 The last two are the checks that make the layer worth having: they catch the case where a
 selection quietly alters the board.
+
+→ **Extended (2026-11-18).** The row "the part's ratings cover the generic's roles — same
+names, same types" got the direction it needed
+([ADR-0077](0077-a-jack-and-an-led-are-classes.md) D3). Coverage is not enough on its own: a
+part's rating has to satisfy the line's, **in that role's own direction**. For a primary whose
+value is a class, the direction is equality:
+
+| The line's primary | The part must have | Compared as |
+|---|---|---|
+| a quantity (resistance, capacitance, length, …) | its own worst case inside the line's envelope | envelope |
+| a class (a colour, a code) | the same class | **equality** |
+
+So an indicator line reading `green 565nm` is filled by a part whose `value` is `green` and
+whose `wavelength` is `565nm` — and by nothing else. A 570 nm green LED is a different bin, and
+it does not qualify. This is the price of a class, stated rather than hidden: the line buys a
+bin, not a colour.
 
 ### D6. The land pattern is a hard constraint, and it is ours to define
 

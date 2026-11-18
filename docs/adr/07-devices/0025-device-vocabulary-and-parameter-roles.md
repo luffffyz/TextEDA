@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-23
 Scope: Decides: that the device vocabulary is closed and checked, and that a parameter is a role plus a quantity with a dimension. Does not decide: the ratings a part may state — see ADR-0026.
-Related: [ADR-0007](../02-ir/0007-device-description-enters-the-ir.md), [ADR-0024](0024-the-device-kind-is-part-or-generic.md), [ADR-0026](0026-a-part-states-its-own-ratings.md), [ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md), [ADR-0029](0029-the-procurement-layer.md), [ADR-0075](0075-a-ratings-polarity-is-the-roles.md)
+Related: [ADR-0007](../02-ir/0007-device-description-enters-the-ir.md), [ADR-0024](0024-the-device-kind-is-part-or-generic.md), [ADR-0026](0026-a-part-states-its-own-ratings.md), [ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md), [ADR-0029](0029-the-procurement-layer.md), [ADR-0075](0075-a-ratings-polarity-is-the-roles.md), [ADR-0077](0077-a-jack-and-an-led-are-classes.md)
 Impact: `spec/teda.md` §6.2.1, §6.2.2; `packages/core/src/devices/**`
 
 ## Background
@@ -101,6 +101,12 @@ closes it. An unknown construction is an error, not a warning — an unknown con
 [ADR-0028](0028-package-code-and-3d-models.md)'s envelope rule silently, and
 a silent miss is the failure mode this record exists to remove.
 
+→ **Extended (2026-11-18).** The set gained two members, decided by
+[ADR-0077](0077-a-jack-and-an-led-are-classes.md) D1 and D2: `barrel` (a DC barrel jack,
+primary `length`) and `indicator` (an indicator LED, primary `string`). The set is closed
+exactly as this decision says it is — an unknown construction is still an error, and a new
+construction is still a tool upgrade rather than a project decision (D7).
+
 ### D5. `dielectric` has a closed value set
 
 The set is the temperature-characteristic codes of IEC 60068-4 (`C0G`, `NP0`, `X7R`, `X5R`,
@@ -160,6 +166,20 @@ a capacitor's voltage rating against the net it sits on, and none that checks a 
 requirement, because a part carries no ratings in the IR (D3). Stating a requirement and
 verifying a requirement are two different pieces of work; this record settles the first.
 
+→ **Extended (2026-11-18).** Two constructions were added to the table above, and each brought
+its own required set ([ADR-0077](0077-a-jack-and-an-led-are-classes.md) D1, D2):
+
+| `construction` | required | optional |
+|---|---|---|
+| `barrel` | `value`, `rated_current`, `voltage` | — |
+| `indicator` | `value`, `wavelength` | — |
+
+Both follow the rule this decision states — the required set is the specification on a
+purchasing document. A jack's purchasing line reads "2.0 mm, 2 A, 19 V": the plug size, the
+current it carries and the voltage it survives are what a buyer is asked for. An indicator's
+reads "green, 565 nm": the colour and the bin it came from. The `wavelength` column is a
+length, which is a new type in the parameter column but an old one in the IR contract.
+
 ### D7. The table that knows all of this lives in the tool, not in the language
 
 One table in `packages/core` holds the closed `construction` set, the per-construction role set
@@ -206,6 +226,21 @@ evaluator checks the constraints over that interval, not over the nominal value:
 guarantees its behaviour for every part it permits, and the bought part is inside that guarantee
 by construction. **The number that bounds the purchase is the number the analysis must
 survive** — one value, two uses.
+
+→ **Extended (2026-11-18).** The direction table above has one case it did not have: a primary
+whose value is a **class** rather than a quantity ([ADR-0077](0077-a-jack-and-an-led-are-classes.md)
+D3). `value` was an envelope, because a part's worst case has to lie inside the line's envelope
+— but a colour has no worst case and no envelope around it: there is no better green. So the
+primary's direction follows the kind of its value:
+
+| The primary's value | Compared as |
+|---|---|
+| a quantity (resistance, capacitance, length, …) | envelope |
+| a class (a colour, a code) | **equality** |
+
+The role `wavelength` joins `dielectric` as an equality: 570 nm is a different bin, not a
+better 565 nm. The price is stated rather than hidden — a second source for an indicator has to
+be in the same bin, so a narrower line buys a narrower market.
 
 ### D9. A broken device file is reported at the file
 

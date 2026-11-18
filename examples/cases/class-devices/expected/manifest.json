@@ -1,0 +1,91 @@
+{
+  "ir_version": "0.20",
+  "shards": [
+    {
+      "path": "boards/adapter-front/pcb.json",
+      "sha256": "5304a10a798639bdac86c38f03014cf193a9ed097b348b18f57a89a609669e42",
+      "normative": true
+    },
+    {
+      "path": "boards/adapter-front/procurement.json",
+      "sha256": "000b8e4b58a6d36e8c3534a98d05b75b432953b35b7ca14235d415dfdac333c9",
+      "normative": true
+    },
+    {
+      "path": "components/cap-mlcc-0402.json",
+      "sha256": "a1617e042f99e442ad071049dc6217fc7d675ee9960e7462696ed8c0a778bb4e",
+      "normative": true
+    },
+    {
+      "path": "components/dc-005-a200.json",
+      "sha256": "f5fd65f56aa4cfbeebbb0341704335e91d5ce2a5a91e99b4a61a8d5d29a630fb",
+      "normative": true
+    },
+    {
+      "path": "components/dc-jack-th.json",
+      "sha256": "d4fc451d68c031289b87031864f89aab2a936fd6ae82a2757cca6653d25d5554",
+      "normative": true
+    },
+    {
+      "path": "components/led-indicator-0603.json",
+      "sha256": "a10a356c6c92dba24cb0d6ba2f91eb35a90306f8322e9feb71ce38dbdd011ac2",
+      "normative": true
+    },
+    {
+      "path": "components/ltst-c190gkt.json",
+      "sha256": "58c0a5fa3e18781dfacb0136e4a5812ec04b4f43aebbe04f2f119dc51d6c6ceb",
+      "normative": true
+    },
+    {
+      "path": "components/res-thick-0402.json",
+      "sha256": "aac0b4ebe14395eaf4643996df18797dd784e15b19b5723d37b7e207c39537d8",
+      "normative": true
+    },
+    {
+      "path": "footprints/chip/chip-0402.json",
+      "sha256": "255c4ae0acc6f9d80e5f2917ff8e554ac71cb7f88414deef78c224fe4f7c9dd9",
+      "normative": true
+    },
+    {
+      "path": "footprints/chip/chip-0603.json",
+      "sha256": "856bf885299ccfcfc7b6c0bb9777644fc0baa3d98d77bf2409690e77deaf9fc1",
+      "normative": true
+    },
+    {
+      "path": "footprints/connector/dc-jack-th.json",
+      "sha256": "b203cc84470be4f98b6b5141b077e43f584b17c37c31aa9075ba1aa9bc235dab",
+      "normative": true
+    },
+    {
+      "path": "project.json",
+      "sha256": "c4b2f75e7b74ddcfa2b23c9cc110fa1e53591649db7ccdfece9a8ee04573b7d5",
+      "normative": true
+    },
+    {
+      "path": "project/schematic.json",
+      "sha256": "ad93837006d720991d8f74eff6a351168fdf6bee65b51ee5726be743408def52",
+      "normative": true
+    },
+    {
+      "path": "symbols/connectors/dc-jack-th.json",
+      "sha256": "688ef4e70910a308a8ee158767b8a6b22662315f8342888ad7a3a82a5b51248a",
+      "normative": true
+    },
+    {
+      "path": "symbols/indicators/led.json",
+      "sha256": "7b2c2fc6c8f92c5364fc3df8dad7d4c8fe3a6dabeaac94d00f1191b759350b18",
+      "normative": true
+    },
+    {
+      "path": "symbols/passives/c.json",
+      "sha256": "9cd6ad7e7c30f105c7e8b089c106f2858404e144ffde65f9515e0802110744eb",
+      "normative": true
+    },
+    {
+      "path": "symbols/passives/r.json",
+      "sha256": "86d68db083a9edae49c495ca7a62c559d6b2c3889916c58001e11546b907cea3",
+      "normative": true
+    }
+  ],
+  "source_hash": "081d0c5da262bf2eec95d53b6eb79dd971174287429f2f77002daadff27dc729"
+}

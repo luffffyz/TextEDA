@@ -86,6 +86,7 @@ export {
   DEVICE_PARAM_VALUE_SETS,
   DEVICE_PRIMARY_ROLE,
   DEVICE_ROLE_TYPES,
+  DEVICE_ROLES,
   type DeviceConstruction,
   type DeviceDeclarationFacts,
   type DeviceParamFact,

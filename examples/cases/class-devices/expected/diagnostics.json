@@ -1,0 +1,26 @@
+[
+  {
+    "code": "bind.instance-unplaced",
+    "severity": "warning",
+    "file": "design/pcb/adapter-front.teda",
+    "line": 1
+  },
+  {
+    "code": "design.stress-unknown",
+    "severity": "note",
+    "file": "design/sch/main.teda",
+    "line": 1
+  },
+  {
+    "code": "value.procurement-generic-unsourced",
+    "severity": "warning",
+    "file": "design/sch/modules/adapter-front.teda",
+    "line": 18
+  },
+  {
+    "code": "value.procurement-generic-unsourced",
+    "severity": "warning",
+    "file": "design/sch/modules/adapter-front.teda",
+    "line": 21
+  }
+]

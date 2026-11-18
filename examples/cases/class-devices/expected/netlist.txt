@@ -1,0 +1,15 @@
+# netlist main (ir 0.20)
+GND: M1.C1.2 M1.D1.1 M1.J1.2
+M1.LED_A: M1.D1.2 M1.R1.2
+PLUG: M1.J1.3
+VIN: M1.C1.1 M1.J1.1 M1.R1.1
+
+port GND: GND
+port PLUG: PLUG
+port VIN: VIN
+
+# components 4
+M1.C1 cap-mlcc-0402
+M1.D1 led-indicator-0603
+M1.J1 dc-jack-th
+M1.R1 res-thick-0402

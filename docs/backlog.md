@@ -9,7 +9,7 @@
 
 ## F1. 校准自建封装的几何（footprint 校准）
 
-**现状**：`examples/reference-project/assets/footprints/<family>/` 下的 17 个封装是**通用 land pattern**——焊盘尺寸与间距按 IPC 通用推荐取整，不是各料号 datasheet 的精确 land pattern（见 [ADR-0032](adr/08-libraries/0032-the-reference-project-is-self-built.md) decision 5）。17 个里有 16 个的 `description` 写了 `generic land pattern` 作为标记；唯一的例外是 `dc-in-th-dc-005-20a`，它的槽位在现在的源语法里表达不了，那条 `description` 直接写明了这一点。
+**现状**：`examples/reference-project/assets/footprints/<family>/` 下的 17 个封装是**通用 land pattern**——焊盘尺寸与间距按 IPC 通用推荐取整，不是各料号 datasheet 的精确 land pattern（见 [ADR-0032](adr/08-libraries/0032-the-reference-project-is-self-built.md) decision 5）。17 个里有 16 个的 `description` 写了 `generic land pattern` 作为标记；唯一的例外是 `dc-jack-th`，它的槽位在现在的源语法里表达不了，那条 `description` 直接写明了这一点。
 
 **为什么现在不做**：库级闭环（`bun run lib:verify`：引用可解析、canonical、契约通过、KiCad 能读能渲染、合并板 DRC 0 违规）已经成立，几何精度不影响链路验证。参考工程的价值是"可复现的样本"，不是"厂商级库"。
 
@@ -21,7 +21,7 @@
 4. ~~改完重算库内容哈希~~ **不需要**：自建库没有 `content_hash`（`[libs]` 已撤销，[ADR-0034](adr/08-libraries/0034-trust-in-a-library-you-do-not-own.md)），几何就在 `assets/` 里。
 5. 跑 `bun run fmt:teda examples/reference-project/assets/footprints`（canonical form）与 `bun run lib:verify`。
 
-**涉及封装**（16 个，也就是上面 17 个里除 `dc-in-th-dc-005-20a` 之外的）：`chip-0402` `chip-0603` `chip-1210` `chip-2010` `tantalum-7343` `ihlp-4040` `ihlp-2525` `crystal-3225-4` `switch-5x5-4` `sot-23` `sot-23-5` `soic-8-ep` `powerpak-1212-8` `lqfp-100` `vqfn-24-ep` `sma`
+**涉及封装**（16 个，也就是上面 17 个里除 `dc-jack-th` 之外的）：`chip-0402` `chip-0603` `chip-1210` `chip-2010` `tantalum-7343` `ihlp-4040` `ihlp-2525` `crystal-3225-4` `switch-5x5-4` `sot-23` `sot-23-5` `soic-8-ep` `powerpak-1212-8` `lqfp-100` `vqfn-24-ep` `sma`
 
 **验收**：
 - 每个封装的 body 尺寸、焊盘间距能在对应料号的 datasheet 上逐项对上（datasheet **不入库**，自行从厂商官网下载到 `examples/reference-project/external/cache/`，该目录已 gitignore；文件名见 `examples/reference-project/docs/datasheets.md` 的表）。
@@ -210,6 +210,8 @@
 | `net-tie` | 两个 sch net 在铜上短接：板文件里 `connect` 有一对跨 net 的焊盘，`deviation` 段声明 `net_tie V3V3 V3V3_SENSE` → 报告出一条 **note**（`bind.net-tie`）；没声明的短接是 **error**（`bind.net-mismatch`）；sch 仍是权威，网表里两个 net 仍然分开 | 抓到一个**表面缺口**：语言没有 net tie **器件**——`construction` 词表是封闭的（只有被动件工艺：`mlcc`/`film`/`tantalum`/`electrolytic`/`thick`/`thin`/`shielded`/`molded`），所以 `kind: generic` 的 tie 写不出来（`value.component-construction-invalid`）。用例改用「铜连 + 声明」的形式，并在 README 里写明这个缺口；往语言里加一种 construction 要另起 ADR（[ADR-0025](adr/07-devices/0025-device-vocabulary-and-parameter-roles.md)） |
 | `parameterised-divider` | 五个同值电阻（`100k`）做出三个不同抽头电压：三腿梯形网络两个抽头 + 两腿分压一个抽头；抽头电压写成字面量（`2.2V` / `1.1V` / `1.65V`）| 没有新的语言缺口，但**记录了一条边界**：分压比是**拓扑**的事，语言里没有表达式（[ADR-0001](adr/01-language/0001-fact-layer-has-no-expressions.md) D3）、模块参数也没做（F13），所以「抽头电压」是设计者手算的字面量——检查器拿它跟器件比，不验证分压本身。用例同时钉住 Q2 的另一个形状：分压器不是宽表，ADR-0001 D6 的触发条件不成立 |
 | `dnp-variant` | a default project variant and a component-scoped DNP list; variant state stays outside logical connectivity | no new surface was needed: `[variants.<id>]` is parsed into the project shard, while the schematic and netlist remain unchanged; instance-scoped generic DNP remains outside this case |
+
+**两个在十个之外的用例**：`directed-ratings`（件的额定值点名它说的那两个端子，[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D4）与 `class-devices`（插头与 LED 是**类**、类值主值按**相等**比、`length` 参数可用、字符串额定值进 IR，[ADR-0077](adr/07-devices/0077-a-jack-and-an-led-are-classes.md)）。它们不占那十个名额：一个构造进语言就得有一个用例用它（`AGENTS.md` §5.2 规则 1），而这两个构造不进那十个用例要证明的事。
 
 **`diff` / `skew` 的落地状态（写于 2026-10-27）**：语法（`spec/teda.md` §7.4）、解析（`packages/parser/src/schematic.ts` 的 `case "diff"` / `case "skew"`）、契约（`schematic.schema.json` 的 `constraint` 分支）都在，**没有**任何规则消费它们：`impedance` / `length` / `diff` / `skew` 目前只被「pcb 里点名的 net 必须存在」这条绑定校验顺带看到（`packages/core/src/binding/checks.ts`）。差分阻抗与等长要能判定，得先有 B0 的走线数据与 DRC 指标（F48），所以本项不重复登记。
 
@@ -484,7 +486,7 @@
 
 ## F25. 器件拆成 part / generic，器件资产归到 `assets/`（ADR-0024 / ADR-0024 的落地）
 
-**现状**：**语言与实现已落地**（2026-10-22；2026-10-23 按 [ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D6 改名并合目录）——`component` 有必填 `kind`（`part` / `generic`）、通用器件专有的 `construction` / `polarized`，`part` 禁 `params`、通用器件必带必填 `value`；`packages/parser` 有真正的 `component` 解析器（`packages/parser/src/component.ts`）；**件与通用器件同在 `assets/components/` 一个目录**，`kind` 只写在文件里、不从目录推断；参考工程是 16 个件与 6 个通用器件。**本项目尚无外部使用者，没有需要迁移的旧文件，所以不写迁移脚本**——改法写在 `spec/teda.md` §12.4。决策见 [ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D1 与 [ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D7。
+**现状**：**语言与实现已落地**（2026-10-22；2026-10-23 按 [ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D6 改名并合目录）——`component` 有必填 `kind`（`part` / `generic`）、通用器件专有的 `construction` / `polarized`，`part` 禁 `params`、通用器件必带必填 `value`；`packages/parser` 有真正的 `component` 解析器（`packages/parser/src/component.ts`）；**件与通用器件同在 `assets/components/` 一个目录**，`kind` 只写在文件里、不从目录推断；参考工程是 17 个件与 8 个通用器件。**本项目尚无外部使用者，没有需要迁移的旧文件，所以不写迁移脚本**——改法写在 `spec/teda.md` §12.4。决策见 [ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D1 与 [ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D7。
 
 **未落地**：`lib:id` 限定名与库解析顺序、变体对通用器件的作用域、库的信任模型（F26）。**采购描述类型已落地**（F35：解析器、`fmt`、IR 契约 v0.6 的 `procurement` 分片）。
 
@@ -2016,3 +2018,92 @@ belongs to the connectivity check rather than to the stress comparison),
 it is the role's; this asks the same question about the requirement a generic states in the
 instances row, where the answer may be "the class's" — because the class file already says which
 pin is positive.
+
+---
+
+## F86. A colour has no closed vocabulary, so it is a second spelling waiting to happen
+
+**Status**: Proposed (2026-11-18). The open point of
+[ADR-0077](adr/07-devices/0077-a-jack-and-an-led-are-classes.md).
+
+**Current state**: an `indicator`'s `value` is a plain `string`. `green` parses, `GREEN` parses,
+`Grün` parses, and each is a different BOM line, because the BOM line key is the generic's id
+plus the parameter values
+([ADR-0025](adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) D1). The comparison
+between a line and a part is an equality ([ADR-0077](adr/07-devices/0077-a-jack-and-an-led-are-classes.md)
+D3), so a misspelling does not merely split the BOM — it makes the part unsuitable, and the
+report says the value class is not the one the line asks for.
+
+**Why it matters**: this is the failure mode the `dielectric` value set exists to prevent
+([ADR-0025](adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) D5): a closed set of
+legal spellings, no aliases, no normalisation. A colour is now a class value in the same
+position, and the set that would catch the typo is not written. The reference project happens to
+spell `green` once; nothing keeps it spelling it that way.
+
+**To do**: one decision, and it is a device-world question rather than a language question.
+
+1. **A closed colour set**, in the same table that holds the constructions and the roles
+   (`packages/core/src/devices/rules.ts`). Cost: the set is global, so a project that needs a
+   colour the table does not know waits for a tool upgrade — the same trade the construction set
+   already makes, and the same open point ADR-0025 records for the whole vocabulary.
+2. **The set is a `codes` value set** rather than a new parameter type, so a project that needs
+   another colour has to change the tool rather than the file.
+
+**Involved files**: `packages/core/src/devices/rules.ts` (the construction table and the closed
+value sets), `packages/core/src/procurement/rules.ts` (the class equality comparison),
+`packages/parser/src/component.ts` (the value-set check on a parameter column),
+`spec/teda.md` §6.2.1, §6.2.2.
+
+**Acceptance**:
+
+- A colour outside the set is an error at the file, with the legal spellings listed.
+- `green` and `GREEN` are one BOM line, or the second one is an error — never two lines.
+- The set does not silently normalise: the file says what it means.
+
+**Note**: this is deliberately not decided here. The set of colours a class may take is a
+device-world fact, and the table that would hold it is global; writing it in a project file would
+put a vocabulary in the wrong place. The reason it is written down now is that the indicator
+class landed with the hole open, and the hole is the kind that shows up as a wrong BOM line
+rather than as an error.
+
+---
+
+## F87. `value.procurement-generic-unsourced` is reported against part rows too
+
+**Status**: Proposed (2026-11-18). Found while replacing the reference project's jack with a
+class and a part ([ADR-0077](adr/07-devices/0077-a-jack-and-an-led-are-classes.md)).
+
+**Current state**: the check reports `value.procurement-generic-unsourced` for every row of the
+procurement file that has no selection — including rows whose left side is a `kind: part`. A
+part is its own answer ([ADR-0029](adr/07-devices/0029-the-procurement-layer.md) D3): it needs
+no selection, so there is nothing unsourced about it. In the reference project 13 of the 45
+warnings are for part rows — `bq24610rger`, `ch32v307vct6`, `d-b340a`, `d-bat54c`,
+`ihlp2525czer6r8m01`, `ihlp4040dzer150m11`, `ntc-103at`, `q-si7617dn`, `q-sis412dn`,
+`sw-ts-1187`, `tps5430ddar`, `tps7a2033pdbvr`, `xtal-8mhz-3225`.
+
+**Why it matters**: the check and the BOM **contradict each other** on the same project. `texteda
+bom examples/reference-project charger-buck` writes `bq24610rger,BQ24610RGER,,1,bought,M1.U1,` —
+the part is bought, it has a part number — while `texteda check` warns that `bq24610rger` is used
+by `M1.U1` but no part is selected for it. Two outputs of one tool on one project answer the same
+question differently, and the warning's own text says "generic" about a part. The rule it should
+follow is already written: only generic lines appear in the selection table
+([ADR-0029](adr/07-devices/0029-the-procurement-layer.md) D3), and the unsourced rule is about a
+generic line.
+
+**To do**: decide whether the check reads the left side's `kind` and skips part rows, or whether
+part rows are not supposed to appear in a procurement file at all — the second reading would be a
+parser rule rather than a checker rule. The first is the smaller change and matches the spec's
+wording.
+
+**Involved files**: `packages/core/src/procurement/rules.ts` (the unsourced rule, and the BOM's
+`status` rule that says `bought` when the device has an `mpn`),
+`packages/ir/src/diagnostics/codes.ts` (the code's `spec` list),
+`spec/procurement.md` §3.1, §3.2.
+
+**Acceptance**:
+
+- A procurement file with a part row and no selection produces no warning.
+- A generic line with no selection still reports `value.procurement-generic-unsourced`.
+- A generic line that says `not-required` still reports nothing.
+- The check and the BOM agree on every row: a row is `unsourced` in one iff it is `unsourced` in
+  the other.

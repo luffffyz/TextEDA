@@ -1,0 +1,26 @@
+version 0.16.0
+component dc-jack-th
+
+# A through-hole DC barrel jack, stated as a class: the plug size that fits it, the current it
+# has to carry and the voltage it has to survive. Which part is bought for it is a procurement
+# decision (assets/procurement/primary/charger-buck.teda), not a fact of the class.
+
+kind         generic
+category     connector
+construction barrel
+polarized    yes
+
+symbol connectors:dc-jack-th
+footprint connector:dc-jack-th
+params
+  value         length  required
+  rated_current current  required
+  voltage       voltage  required
+
+# The plug's tip is the positive pole and the sleeve the negative one: they are not interchangable,
+# so the two poles are typed `polarized`. The switch contact is not a pole — it joins the tip to
+# the sleeve while no plug is in — so it stays `passive`.
+pins
+  1  TIP     polarized
+  2  SLEEVE  polarized
+  3  SWITCH  passive

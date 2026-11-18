@@ -1,0 +1,60 @@
+{
+  "component": {
+    "category": "led",
+    "datasheet": "https://optoelectronics.liteon.com/upload/download/DS-22-98-0011/LTST-C190GKT.pdf",
+    "description": "0603 green LED, 565 nm peak, 30 mA",
+    "footprint": "chip:chip-0603",
+    "id": "ltst-c190gkt",
+    "kind": "part",
+    "lcsc": "C125093",
+    "manufacturer": "Lite-On",
+    "mpn": "LTST-C190GKT",
+    "pins": [
+      {
+        "electrical_type": "polarized",
+        "name": "K",
+        "number": "1",
+        "unit": 1
+      },
+      {
+        "electrical_type": "polarized",
+        "name": "A",
+        "number": "2",
+        "unit": 1
+      }
+    ],
+    "pins_source": "inline",
+    "ratings": [
+      {
+        "name": "value",
+        "text": "green",
+        "type": "string"
+      },
+      {
+        "name": "wavelength",
+        "type": "length",
+        "value": 565
+      },
+      {
+        "name": "rated_current",
+        "type": "current",
+        "value": 30000000
+      },
+      {
+        "name": "reverse_voltage",
+        "terminals": {
+          "from": "2",
+          "to": "1"
+        },
+        "type": "voltage",
+        "value": 5000000
+      }
+    ],
+    "symbol": "indicators:led"
+  },
+  "ir_version": "0.20",
+  "source": {
+    "file": "assets/components/indicators/ltst-c190gkt.teda",
+    "line": 1
+  }
+}

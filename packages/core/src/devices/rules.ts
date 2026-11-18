@@ -25,6 +25,14 @@ export interface DeviceConstruction {
   /** The quantity of the primary role (`value`). */
   readonly primary: string;
   readonly roles: readonly DeviceRole[];
+  /**
+   * The language version this construction joined the closed vocabulary in.
+   *
+   * Omitted means it was in the vocabulary from the start. A file's version line declares the
+   * language surface it is written against, so a file below this version has no such member in its
+   * vocabulary and may not name it (ADR-0077 D5).
+   */
+  readonly since?: string;
 }
 
 /**
@@ -116,6 +124,28 @@ export const DEVICE_CONSTRUCTIONS: Record<string, DeviceConstruction> = {
       { name: "dcr", type: "resistance", required: false },
     ],
   },
+  // A DC barrel jack (ADR-0077 D1): the class is a plug size, and a plug size is a fit, not a
+  // range — 2.0 mm and 2.5 mm are different jacks. The current it carries and the voltage it
+  // survives are requirements of the class, not of one part number.
+  barrel: {
+    primary: "length",
+    since: "0.16",
+    roles: [
+      { name: "value", type: "length", required: true },
+      { name: "rated_current", type: "current", required: true },
+      { name: "voltage", type: "voltage", required: true },
+    ],
+  },
+  // An indicator LED (ADR-0077 D2): the class is a colour, and the colour is a code, not a
+  // quantity — there is no better green. The wavelength says how the colour was measured.
+  indicator: {
+    primary: "string",
+    since: "0.16",
+    roles: [
+      { name: "value", type: "string", required: true },
+      { name: "wavelength", type: "length", required: true },
+    ],
+  },
 };
 
 /** The constructions, in a stable order (for diagnostics and generated docs). */
@@ -141,6 +171,11 @@ export interface DeviceRoleRule {
   readonly kind: RoleKind;
   /** How a stress check reads the role's polarity. */
   readonly direction: RoleDirection;
+  /**
+   * The language version this role joined the closed vocabulary in; omitted means it was there
+   * from the start. A file below this version may not name it (ADR-0077 D5).
+   */
+  readonly since?: string;
 }
 
 /**
@@ -175,6 +210,10 @@ export const DEVICE_ROLES: Record<string, DeviceRoleRule> = {
   drain_source_voltage: { type: "voltage", kind: "limit", direction: "symmetric" },
   gate_source_voltage: { type: "voltage", kind: "limit", direction: "symmetric" },
   reverse_voltage: { type: "voltage", kind: "limit", direction: "to" },
+  // The peak wavelength of a light source (ADR-0077 D2). It is a characteristic, not a limit:
+  // nothing stresses an LED at 565 nm, and a part's wavelength says which bin its colour came
+  // from. It is compared for equality, because a wavelength has no better direction.
+  wavelength: { type: "length", kind: "characteristic", direction: "none", since: "0.16" },
 };
 
 /**

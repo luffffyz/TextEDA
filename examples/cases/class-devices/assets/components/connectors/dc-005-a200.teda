@@ -1,0 +1,31 @@
+version 0.16.0
+component dc-005-a200
+
+# Xun Pu's DC-005-A200: a 2.0 mm right-angle through-hole DC jack with a switched sleeve contact.
+# The vendor's own page states 2 A / 30 V DC; the vendor's own drawing states 30 V DC / 3 A. The
+# lower number is used here: the page is the vendor's product statement, the drawing is not a
+# newer statement of the rating, and a design must not sit on the higher of two numbers the
+# vendor publishes for one part. The difference is written down in docs/datasheets.md.
+
+kind         part
+mpn          DC-005-A200
+manufacturer Xun Pu
+category     connector
+datasheet    https://www.xunpu.com.cn/product/458.html
+lcsc         C720557
+description  Right-angle 2.0 mm DC power jack with switched sleeve contact, 2 A / 30 V DC
+symbol       connectors:dc-jack-th
+footprint    connector:dc-jack-th
+
+# The drawing's pin table: the plug is 2.0 mm (DC-005-A200; the 2.5 mm variant is DC-005-A250),
+# and the electrical circuit gives 4 = tip, 3 = switch, 2 = sleeve. The project's pin numbers are
+# its own: 1 = tip, 2 = sleeve, 3 = switch.
+pins
+  1  TIP     polarized
+  2  SLEEVE  polarized
+  3  SWITCH  passive
+
+ratings
+  value         length  2.0mm
+  rated_current current 2A
+  voltage       voltage 30V

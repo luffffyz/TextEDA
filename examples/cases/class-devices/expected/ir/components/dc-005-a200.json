@@ -1,0 +1,57 @@
+{
+  "component": {
+    "category": "connector",
+    "datasheet": "https://www.xunpu.com.cn/product/458.html",
+    "description": "Right-angle 2.0 mm DC power jack with switched sleeve contact, 2 A / 30 V DC",
+    "footprint": "connector:dc-jack-th",
+    "id": "dc-005-a200",
+    "kind": "part",
+    "lcsc": "C720557",
+    "manufacturer": "Xun Pu",
+    "mpn": "DC-005-A200",
+    "pins": [
+      {
+        "electrical_type": "polarized",
+        "name": "TIP",
+        "number": "1",
+        "unit": 1
+      },
+      {
+        "electrical_type": "polarized",
+        "name": "SLEEVE",
+        "number": "2",
+        "unit": 1
+      },
+      {
+        "electrical_type": "passive",
+        "name": "SWITCH",
+        "number": "3",
+        "unit": 1
+      }
+    ],
+    "pins_source": "inline",
+    "ratings": [
+      {
+        "name": "value",
+        "type": "length",
+        "value": 2000000
+      },
+      {
+        "name": "rated_current",
+        "type": "current",
+        "value": 2000000000
+      },
+      {
+        "name": "voltage",
+        "type": "voltage",
+        "value": 30000000
+      }
+    ],
+    "symbol": "connectors:dc-jack-th"
+  },
+  "ir_version": "0.20",
+  "source": {
+    "file": "assets/components/connectors/dc-005-a200.teda",
+    "line": 1
+  }
+}

@@ -1,0 +1,15 @@
+version 0.11
+procurement adapter-front
+role primary
+
+# Which parts the panel is bought with. The left side is the BOM line key -- the generic and the
+# values it was given -- and the right side is the part that is bought (spec/procurement.md).
+#
+# The jack: a 2.0 mm plug that carries 2 A and survives 6 V. Xun Pu's DC-005-A200 states 2 A and
+# 30 V on its own page, which is the number this selection is compared against.
+selections
+  dc-jack-th 2.0mm 2A 6V -> dc-005-a200
+# The indicator: a green LED whose peak wavelength is 565 nm. Lite-On's LTST-C190GKT is a 565 nm
+# green LED rated 30 mA. The colour is a class and the wavelength is a bin, so this row is compared
+# for equality, not for "at least" (ADR-0077 D3).
+  led-indicator-0603 green 565nm -> ltst-c190gkt

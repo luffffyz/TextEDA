@@ -1,0 +1,46 @@
+{
+  "format": "0.11",
+  "ir_version": "0.20",
+  "procurement": {
+    "board": "adapter-front",
+    "role": "primary",
+    "selections": [
+      {
+        "generic": "dc-jack-th",
+        "params": [
+          {
+            "name": "value",
+            "value": 2000000
+          },
+          {
+            "name": "rated_current",
+            "value": 2000000000
+          },
+          {
+            "name": "voltage",
+            "value": 6000000
+          }
+        ],
+        "part": "dc-005-a200"
+      },
+      {
+        "generic": "led-indicator-0603",
+        "params": [
+          {
+            "name": "value",
+            "text": "green"
+          },
+          {
+            "name": "wavelength",
+            "value": 565
+          }
+        ],
+        "part": "ltst-c190gkt"
+      }
+    ]
+  },
+  "source": {
+    "file": "assets/procurement/primary/adapter-front.teda",
+    "line": 1
+  }
+}

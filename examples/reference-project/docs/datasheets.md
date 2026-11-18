@@ -22,11 +22,39 @@ cached copy, never from memory or a second-hand page.
 | `q-sis412dn` | `sis412dn.pdf` | Vishay 69006 (S09-0135-Rev. C, 2009-02-02) |
 | `d-b340a` | `DS30891.pdf` | Diodes Incorporated DS30891 (B320A–B360A family) |
 | `d-bat54c` | `bat54-d.pdf` | onsemi BAT54 series (2017-09, Rev. 3) |
+| `dc-005-a200` | `DC-005-A200.pdf` | Xun Pu `DC-005` series drawing (the product page is the `datasheet` field) |
+| `ltst-c190gkt` | `LTST-C190GKT.pdf` | Lite-On DS-22-98-0011 (Rev. H, 2021-10-19) |
 
-## Parts with no datasheet
+## Two vendor documents that disagree
 
-- `dc-005-20a` — the vendor does not publish a PDF for the jack; the part page (linked from
-  the component's `datasheet` field) carries the rating (30 V, 500 mA).
+- `dc-005-a200` — Xun Pu publishes **two** documents for the `DC-005` series, and they do not
+  agree on the current:
+
+  | Document | Current | Voltage |
+  |---|---|---|
+  | the product page (`https://www.xunpu.com.cn/product/458.html`) | 2 A | 30 V DC |
+  | the series drawing (`DC-005-A200.pdf`) | 3 A | 30 V DC |
+
+  The component file takes the **lower** number, 2 A, and says which document it came from
+  ([ADR-0077](../../../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) D6). A design
+  must not sit on the higher of two numbers a vendor publishes for one part: the lower one is the
+  one both documents agree survives. The product page is also the `datasheet` field, because it is
+  the vendor's own statement about the part; the drawing is the source of the pin table and the
+  land pattern.
+
+  The cached drawing is named after the part, because that is the vendor's own name for it. The
+  series page numbers the variants by plug size: `DC-005-A200` is the 2.0 mm one, `DC-005-A250`
+  the 2.5 mm one.
+
+## A part number that was not an identity
+
+- `dc-005-20a` — **deleted** (2026-11-18). The string `DC-005-20A` names two different drawings
+  (a 2013 one and a 2021 one) with different PCB layouts and different ratings (0.5 A / 30 V
+  against 3 A / 24 V), and the series name `DC-005` is used by at least two manufacturers, each
+  with its own drawing. A number that names two drawings is not the identity of a device. The
+  design now states what it needs (`dc-jack-th`) and the procurement layer names the part
+  (`dc-005-a200`). The round that recorded this is
+  `docs/reviews/2026-11-18-charger-buck-sch-r3.md`.
 
 ## A part that turned out not to exist
 

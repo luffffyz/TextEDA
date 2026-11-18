@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-23
 Scope: Decides: the two kinds of device description, where the devices live, and what makes two devices the same device. Does not decide: which part to buy for a generic — see ADR-0029; nor the parameter roles — see ADR-0025.
-Related: [ADR-0005](../02-ir/0005-ir-representation.md), [ADR-0007](../02-ir/0007-device-description-enters-the-ir.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0026](0026-a-part-states-its-own-ratings.md), [ADR-0034](../08-libraries/0034-trust-in-a-library-you-do-not-own.md), [ADR-0049](../08-libraries/0049-assets-are-filed-by-what-they-are.md).
+Related: [ADR-0005](../02-ir/0005-ir-representation.md), [ADR-0007](../02-ir/0007-device-description-enters-the-ir.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0026](0026-a-part-states-its-own-ratings.md), [ADR-0034](../08-libraries/0034-trust-in-a-library-you-do-not-own.md), [ADR-0049](../08-libraries/0049-assets-are-filed-by-what-they-are.md), [ADR-0077](0077-a-jack-and-an-led-are-classes.md).
 Impact: `spec/teda.md` §2, §6, §7.1, §12; `spec/procurement.md`; `schemas/ir/**`; `packages/parser` (the `component` description type); `packages/cli` (the project layout, `texteda init`); `packages/ir` (the diagnostic code registry)
 
 ## Background

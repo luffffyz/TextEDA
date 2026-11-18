@@ -319,6 +319,30 @@ describe("a part's own ratings (ADR-0026)", () => {
     expect(diagnostic!.hint).toContain("language 0.15");
   });
 
+  test("a rating measured in a class carries no terminal pair", () => {
+    // A colour has no polarity: there is no pair of pins it is about, and the IR has nowhere to put
+    // one. The row is refused rather than quietly losing two columns.
+    const result = parseComponent(
+      device(PART_SCALARS, ["ratings", "  value  string  green  1 2"], PINS, "0.16"),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "syntax.column-count");
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.message).toContain("no terminal pair");
+  });
+
+  test("a rating measured in a class reaches the IR as text", () => {
+    // The contract's `rating` is a union of the two shapes: `value` for a quantity, `text` for a
+    // class (ADR-0077 D4).
+    const result = parseComponent(
+      device(PART_SCALARS, ["ratings", "  value  string  green"], PINS, "0.16"),
+      { file: "x.teda" },
+    );
+    expect(result.diagnostics).toEqual([]);
+    expect(result.ir!.component.ratings).toEqual([{ name: "value", type: "string", text: "green" }]);
+  });
+
   test("a generic states no ratings: a class has no ratings of its own", () => {
     const result = parseComponent(device(GENERIC_SCALARS, VALUE_PARAM, RATINGS, PINS), { file: "x.teda" });
     expect(result.ok).toBe(false);
@@ -427,5 +451,63 @@ describe("the file revision", () => {
   test("a file without one has no `rev` in the IR", () => {
     const result = parseComponent(device(PART_SCALARS, PINS), { file: "dev.teda" });
     expect(result.ir!.component.rev).toBeUndefined();
+  });
+});
+
+describe("the closed vocabularies grow with the language (ADR-0077 D5)", () => {
+  const BARREL_SCALARS = [
+    "kind generic",
+    "category connector",
+    "construction barrel",
+    "polarized yes",
+    "symbol project:s",
+    "footprint project:f",
+  ];
+  const BARREL_PARAMS = [
+    "params",
+    "  value         length  required",
+    "  rated_current current  required",
+    "  voltage       voltage  required",
+  ];
+
+  test("a construction that arrived in 0.16 is refused in an older file", () => {
+    // The file's version line declares the surface it is written against, so a 0.15 file has no
+    // `barrel` in its vocabulary and may not name it.
+    const result = parseComponent(
+      device(BARREL_SCALARS, BARREL_PARAMS, PINS, "0.15"),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "value.component-construction-invalid");
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.message).toContain("arrived in language 0.16");
+  });
+
+  test("the same file is accepted from 0.16 on", () => {
+    const result = parseComponent(
+      device(BARREL_SCALARS, BARREL_PARAMS, PINS, "0.16"),
+      { file: "x.teda" },
+    );
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  test("a role that arrived in 0.16 is refused in an older file", () => {
+    const result = parseComponent(
+      device(PART_SCALARS, ["ratings", "  wavelength  length  565nm"], PINS, "0.15"),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "value.component-rating-invalid");
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.message).toContain("arrived in language 0.16");
+  });
+
+  test("a construction that was always in the vocabulary is accepted in any version", () => {
+    // The gate is on the member, not on the file: an `mlcc` was in the vocabulary from the start.
+    const result = parseComponent(
+      device(GENERIC_SCALARS, VALUE_PARAM, PINS, "0.15"),
+      { file: "x.teda" },
+    );
+    expect(result.diagnostics).toEqual([]);
   });
 });

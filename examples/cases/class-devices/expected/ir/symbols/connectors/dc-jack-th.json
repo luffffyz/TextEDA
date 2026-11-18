@@ -1,0 +1,234 @@
+{
+  "format": "0.16",
+  "ir_version": "0.20",
+  "source": {
+    "file": "assets/symbols/connectors/dc-jack-th.teda",
+    "line": 1
+  },
+  "symbol": {
+    "body": [
+      {
+        "center": {
+          "x_nm": 3000000,
+          "y_nm": 2500000
+        },
+        "fill": "outline",
+        "kind": "circle",
+        "radius_nm": 750000,
+        "unit": 1
+      },
+      {
+        "end": {
+          "x_nm": 2000000,
+          "y_nm": -2500000
+        },
+        "kind": "line",
+        "start": {
+          "x_nm": -4500000,
+          "y_nm": -2500000
+        },
+        "unit": 1,
+        "width_nm": 250000
+      },
+      {
+        "end": {
+          "x_nm": 0,
+          "y_nm": 0
+        },
+        "kind": "line",
+        "start": {
+          "x_nm": -4500000,
+          "y_nm": 0
+        },
+        "unit": 1,
+        "width_nm": 250000
+      },
+      {
+        "end": {
+          "x_nm": -2500000,
+          "y_nm": 2500000
+        },
+        "kind": "line",
+        "start": {
+          "x_nm": -4500000,
+          "y_nm": 2500000
+        },
+        "unit": 1,
+        "width_nm": 250000
+      },
+      {
+        "end": {
+          "x_nm": -250000,
+          "y_nm": -2000000
+        },
+        "kind": "line",
+        "start": {
+          "x_nm": 0,
+          "y_nm": -2500000
+        },
+        "unit": 1,
+        "width_nm": 250000
+      },
+      {
+        "end": {
+          "x_nm": 0,
+          "y_nm": 0
+        },
+        "kind": "line",
+        "start": {
+          "x_nm": 0,
+          "y_nm": -2500000
+        },
+        "unit": 1,
+        "width_nm": 250000
+      },
+      {
+        "end": {
+          "x_nm": 250000,
+          "y_nm": -2000000
+        },
+        "kind": "line",
+        "start": {
+          "x_nm": 0,
+          "y_nm": -2500000
+        },
+        "unit": 1,
+        "width_nm": 250000
+      },
+      {
+        "end": {
+          "x_nm": 3000000,
+          "y_nm": -750000
+        },
+        "kind": "line",
+        "start": {
+          "x_nm": 2000000,
+          "y_nm": -2500000
+        },
+        "unit": 1,
+        "width_nm": 250000
+      },
+      {
+        "end": {
+          "x_nm": 4000000,
+          "y_nm": -2500000
+        },
+        "kind": "line",
+        "start": {
+          "x_nm": 3000000,
+          "y_nm": -750000
+        },
+        "unit": 1,
+        "width_nm": 250000
+      },
+      {
+        "end": {
+          "x_nm": 4500000,
+          "y_nm": -2500000
+        },
+        "kind": "line",
+        "start": {
+          "x_nm": 4000000,
+          "y_nm": -2500000
+        },
+        "unit": 1,
+        "width_nm": 250000
+      },
+      {
+        "end": {
+          "x_nm": 4500000,
+          "y_nm": 4000000
+        },
+        "kind": "rect",
+        "start": {
+          "x_nm": -4500000,
+          "y_nm": -4000000
+        },
+        "unit": 1,
+        "width_nm": 250000
+      },
+      {
+        "end": {
+          "x_nm": 3000000,
+          "y_nm": 3250000
+        },
+        "fill": "outline",
+        "kind": "rect",
+        "start": {
+          "x_nm": -2500000,
+          "y_nm": 1750000
+        },
+        "unit": 1
+      }
+    ],
+    "description": "Through-hole DC barrel jack with switched sleeve contact",
+    "fields": [
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": -6000000
+        },
+        "name": "Reference",
+        "value": "J"
+      },
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": 6000000
+        },
+        "name": "Value",
+        "value": "dc-jack-th"
+      }
+    ],
+    "in_bom": true,
+    "library": "connectors",
+    "name": "dc-jack-th",
+    "on_board": true,
+    "pin_name_offset_nm": 508000,
+    "pin_names_hidden": true,
+    "pin_numbers_hidden": false,
+    "pins": [
+      {
+        "at": {
+          "rotation_mdeg": 0,
+          "x_nm": -7000000,
+          "y_nm": 2500000
+        },
+        "length_nm": 2500000,
+        "number": "1",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 0,
+          "x_nm": -7000000,
+          "y_nm": -2500000
+        },
+        "length_nm": 2500000,
+        "number": "2",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 0,
+          "x_nm": -7000000,
+          "y_nm": 0
+        },
+        "length_nm": 2500000,
+        "number": "3",
+        "style": "line",
+        "unit": 1
+      }
+    ],
+    "power": false,
+    "tags": [
+      "connector",
+      "dc",
+      "jack",
+      "power"
+    ],
+    "units": 1
+  }
+}

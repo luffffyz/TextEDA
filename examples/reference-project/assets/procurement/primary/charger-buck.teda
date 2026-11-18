@@ -5,4 +5,10 @@ role primary
 # Which parts the board is bought with. The left side is the BOM line key — the generic and the
 # values it was given — the right side is the part that is bought (spec/procurement.md).
 selections
+# The jack: a 2.0mm plug that carries 2A and survives 19V. Xun Pu's DC-005-A200 states 2A and
+# 30V on its own page, which is the number this selection is compared against.
+  dc-jack-th 2.0mm 2A 19V -> dc-005-a200
+# The indicators: a green LED whose peak wavelength is 565nm. Lite-On's LTST-C190GKT is a
+# 565nm green LED rated 30mA.
+  led-indicator-0603 green 565nm -> ltst-c190gkt
   res-thick-0402 10k ±1% -> rc0402fr-0710kl

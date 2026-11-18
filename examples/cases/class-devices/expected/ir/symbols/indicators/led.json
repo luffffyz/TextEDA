@@ -1,0 +1,164 @@
+{
+  "format": "0.11",
+  "ir_version": "0.20",
+  "source": {
+    "file": "assets/symbols/indicators/led.teda",
+    "line": 1
+  },
+  "symbol": {
+    "body": [
+      {
+        "end": {
+          "x_nm": 300000,
+          "y_nm": 2250000
+        },
+        "kind": "line",
+        "start": {
+          "x_nm": -250000,
+          "y_nm": 1700000
+        },
+        "unit": 1,
+        "width_nm": 250000
+      },
+      {
+        "end": {
+          "x_nm": 1300000,
+          "y_nm": 2250000
+        },
+        "kind": "line",
+        "start": {
+          "x_nm": 750000,
+          "y_nm": 1700000
+        },
+        "unit": 1,
+        "width_nm": 250000
+      },
+      {
+        "end": {
+          "x_nm": 1500000,
+          "y_nm": 1500000
+        },
+        "kind": "line",
+        "start": {
+          "x_nm": 1500000,
+          "y_nm": -1500000
+        },
+        "unit": 1,
+        "width_nm": 250000
+      },
+      {
+        "kind": "poly",
+        "points": [
+          {
+            "x_nm": -1500000,
+            "y_nm": 1500000
+          },
+          {
+            "x_nm": 1500000,
+            "y_nm": 0
+          },
+          {
+            "x_nm": -1500000,
+            "y_nm": -1500000
+          }
+        ],
+        "unit": 1,
+        "width_nm": 250000
+      },
+      {
+        "fill": "outline",
+        "kind": "poly",
+        "points": [
+          {
+            "x_nm": 700000,
+            "y_nm": 2650000
+          },
+          {
+            "x_nm": 500000,
+            "y_nm": 2050000
+          },
+          {
+            "x_nm": 100000,
+            "y_nm": 2450000
+          }
+        ],
+        "unit": 1
+      },
+      {
+        "fill": "outline",
+        "kind": "poly",
+        "points": [
+          {
+            "x_nm": 1700000,
+            "y_nm": 2650000
+          },
+          {
+            "x_nm": 1500000,
+            "y_nm": 2050000
+          },
+          {
+            "x_nm": 1100000,
+            "y_nm": 2450000
+          }
+        ],
+        "unit": 1
+      }
+    ],
+    "description": "LED, 2-pin generic view",
+    "fields": [
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": 3500000
+        },
+        "name": "Reference",
+        "value": "U"
+      },
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": -2500000
+        },
+        "name": "Value",
+        "value": "led"
+      }
+    ],
+    "in_bom": true,
+    "library": "indicators",
+    "name": "led",
+    "on_board": true,
+    "pin_name_offset_nm": 508000,
+    "pin_names_hidden": true,
+    "pin_numbers_hidden": true,
+    "pins": [
+      {
+        "at": {
+          "rotation_mdeg": 0,
+          "x_nm": -4000000,
+          "y_nm": 0
+        },
+        "length_nm": 2500000,
+        "number": "1",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 180000,
+          "x_nm": 4000000,
+          "y_nm": 0
+        },
+        "length_nm": 2500000,
+        "number": "2",
+        "style": "line",
+        "unit": 1
+      }
+    ],
+    "power": false,
+    "tags": [
+      "diode",
+      "led"
+    ],
+    "units": 1
+  }
+}

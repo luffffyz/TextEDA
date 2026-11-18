@@ -10,6 +10,7 @@ import {
   checkDeviceParamValue,
   DEVICE_CONSTRUCTIONS,
   DEVICE_PARAM_VALUE_SETS,
+  DEVICE_ROLES,
   type DeviceDeclarationFacts,
   type DeviceParamFact,
 } from "../src/index.ts";
@@ -127,6 +128,58 @@ describe("declaration checks", () => {
 
   test("a part (no construction) is not checked", () => {
     expect(checkDeviceDeclaration({ file: "x.teda", params: [] })).toEqual([]);
+  });
+});
+
+describe("the two classes of ADR-0077", () => {
+  test("a barrel jack declares its plug size, its current and its voltage", () => {
+    expect(
+      checkDeviceDeclaration(
+        facts("barrel", [
+          param("value", "length", true),
+          param("rated_current", "current", true),
+          param("voltage", "voltage", true),
+        ]),
+      ),
+    ).toEqual([]);
+  });
+
+  test("an indicator declares its colour and its wavelength", () => {
+    expect(
+      checkDeviceDeclaration(
+        facts("indicator", [param("value", "string", true), param("wavelength", "length", true)]),
+      ),
+    ).toEqual([]);
+  });
+
+  test("an indicator without its wavelength is an error", () => {
+    const diagnostics = checkDeviceDeclaration(facts("indicator", [param("value", "string", true)]));
+    expect(diagnostics.map((d) => d.code)).toEqual(["value.component-param-invalid"]);
+    expect(diagnostics[0]!.message).toContain("wavelength");
+  });
+
+  test("a barrel's value is a length and an indicator's value is a class", () => {
+    expect(DEVICE_CONSTRUCTIONS["barrel"]!.primary).toBe("length");
+    expect(DEVICE_CONSTRUCTIONS["indicator"]!.primary).toBe("string");
+  });
+
+  test("the wavelength is a characteristic, so no stress check ever reads it", () => {
+    expect(DEVICE_ROLES["wavelength"]).toMatchObject({
+      type: "length",
+      kind: "characteristic",
+      direction: "none",
+    });
+  });
+
+  test("the new members say which language version they joined the vocabulary in", () => {
+    // A file's version line declares the surface it is written against, so a file below 0.16 has
+    // no `barrel` and no `wavelength` in its vocabulary (ADR-0077 D5).
+    expect(DEVICE_CONSTRUCTIONS["barrel"]!.since).toBe("0.16");
+    expect(DEVICE_CONSTRUCTIONS["indicator"]!.since).toBe("0.16");
+    expect(DEVICE_ROLES["wavelength"]!.since).toBe("0.16");
+    // The members that were always there carry no version: they were in the vocabulary from the start.
+    expect(DEVICE_CONSTRUCTIONS["mlcc"]!.since).toBeUndefined();
+    expect(DEVICE_ROLES["voltage"]!.since).toBeUndefined();
   });
 });
 

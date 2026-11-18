@@ -1,0 +1,22 @@
+version 0.16.0
+schematic main
+
+# A 5 V / 2 A adapter comes in on VIN, and the jack's switch contact leaves the board as PLUG so
+# that the system can tell a plug from no plug. The windows are declared here, on the project
+# root, and only here: one net states its window once (spec/teda.md, "one net states one window").
+modules
+  M1  ID8mz4k1  adapter-front
+
+nets
+  GND:   M1.GND
+  PLUG:  M1.PLUG
+  VIN:   M1.VIN
+
+ports
+  GND   GND
+  PLUG  PLUG
+  VIN   VIN
+
+constraints
+  voltage  GND  0V..0V
+  voltage  VIN  0V..6V

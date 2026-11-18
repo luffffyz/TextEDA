@@ -1,0 +1,7 @@
+[project]
+name = "class-devices"
+version = "0.1.0"
+format = "0.16"
+description = "Case 12: a jack and an LED are classes, and a class compares by equality"
+license = "Apache-2.0"
+status = "draft"

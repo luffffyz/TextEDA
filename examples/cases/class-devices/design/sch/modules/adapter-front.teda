@@ -1,0 +1,38 @@
+version 0.16.0
+module adapter-front
+
+# A small front panel: a 5 V adapter plugs into the jack, a capacitor takes the input ripple, and a
+# green LED says the rail is there. The jack's switch contact goes out as its own port, because a
+# switch contact that is wired to ground would short the input when no plug is in it.
+#
+# The two classes this case is about are stated here, not bought here: `dc-jack-th` says the plug
+# size, the current and the voltage it has to take; `led-indicator-0603` says the colour and the
+# bin the colour was measured at. Which parts fill them is the procurement layer's business
+# (assets/procurement/primary/adapter-front.teda).
+#
+# The jack states `rated_current 2A` and the design says the same current runs through its tip, so
+# the requirement on the pin and the requirement in the class agree (ADR-0026 D18). The jack has
+# three contacts, so the stress check cannot pair its voltage requirement with two nets; the report
+# says so instead of reading the jack as checked.
+instances
+  C1  IDa1b2c3  cap-mlcc-0402       100n   10%    16V  X7R
+  D1  IDk7m2n4  led-indicator-0603  green  565nm
+  J1  IDp3x8q4  dc-jack-th          2.0mm  2A     6V
+  R1  IDt5w9r2  res-thick-0402      1k     ±1%
+
+nets
+  GND:    C1.2  D1.1  J1.2
+  LED_A:  D1.2  R1.2
+  PLUG:   J1.3
+  VIN:    C1.1  J1.1  R1.1
+
+ports
+  GND   GND
+  PLUG  PLUG
+  VIN   VIN
+
+constraints
+  current  J1.1   2A
+# The LED's anode is behind the series resistor, so it never rises above the rail it comes from.
+# The window is what lets the resistor's dissipation be compared at all.
+  voltage  LED_A  0V..6V

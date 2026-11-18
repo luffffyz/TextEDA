@@ -104,8 +104,11 @@ A row's left side is a **requirement**, not a description of a part: it says wha
 | `dielectric` | the same class | equality |
 | `esr` `dcr` | ≤ the line's maximum | upper bound |
 | `rated_current` `sat_current` | ≥ the line's minimum | lower bound |
+| `wavelength` | the same wavelength | equality — 570 nm is a different bin, not a better 565 nm |
 
 **A better part always qualifies.** `R1 10k ±1%` accepts a 0.5% part (which is what you buy when 1% is out of stock) and rejects a 2% one: the design's guarantee holds for every part inside the envelope, and a part outside it breaks the guarantee. Substitution is blocked by *stating a value as a fact*, never by stating a bound.
+**The primary role follows the kind of its value** (decision: [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) D3): a primary that is a quantity is compared as an envelope, a primary that is a **class** (a colour, a code) is compared for **equality** — there is no better green, and a class has no envelope around it. `value` therefore has no single direction of its own; the class's primary decides it.
+
 
 The part's own ratings are what the comparison reads: they live in the part file's `ratings` section ([ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)). The rule above is decided.
 

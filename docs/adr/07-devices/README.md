@@ -19,6 +19,7 @@ The device layer: the two kinds of device, the closed vocabulary of their parame
 6. [0029](0029-the-procurement-layer.md) — which part to buy is a project-local decision.
 7. [0075](0075-a-ratings-polarity-is-the-roles.md) — a rating's polarity is the role's, and a MOSFET's rating covers both polarities.
 8. [0076](0076-a-parts-dissipation-is-bounded-by-its-stated-current.md) — a part's dissipation is bounded by the current the design states for it, and by the window span.
+9. [0077](0077-a-jack-and-an-led-are-classes.md) — a jack and an LED are classes; a class-valued primary compares by equality.
 
 ## Records
 
@@ -32,3 +33,4 @@ The device layer: the two kinds of device, the closed vocabulary of their parame
 | [ADR-0029](0029-the-procurement-layer.md) | The Procurement Layer — Which Part to Buy Is a Project-Local Decision | Accepted | 2026-10-22 |
 | [ADR-0075](0075-a-ratings-polarity-is-the-roles.md) | A Rating's Polarity Is the Role's, and a MOSFET's Rating Covers Both Polarities | Accepted | 2026-11-18 |
 | [ADR-0076](0076-a-parts-dissipation-is-bounded-by-its-stated-current.md) | A Part's Dissipation Is Bounded by the Current the Design States for It, and by the Window Span | Accepted | 2026-11-18 |
+| [ADR-0077](0077-a-jack-and-an-led-are-classes.md) | A Jack and an LED Are Classes; a Class-Valued Primary Compares by Equality | Accepted | 2026-11-18 |

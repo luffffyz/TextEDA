@@ -40,3 +40,10 @@ is the one still missing).
 ([ADR-0026](../../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D4). It is here because
 the terminal pair is a language construct, and a construct may only enter the language once a case
 uses it (`AGENTS.md` §5.2 rule 1). It joins the same corpus; it does not fill one of the ten slots.
+
+**A second case outside the ten**: `class-devices` — a DC barrel jack and an indicator LED as
+**classes**, a class-valued primary compared for **equality**, a `length`-typed parameter column,
+and a rating measured in a class reaching the IR as `text`
+([ADR-0077](../../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md)). Two constructions
+and one role entered the language with it, so it has a case too; it does not fill one of the ten
+slots either.

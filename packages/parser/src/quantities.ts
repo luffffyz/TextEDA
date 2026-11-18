@@ -1,13 +1,13 @@
-// Quantity parsing: the surface writes `16V` / `100n` / `±1%` / `0.010Ω` / `4R7`; the IR stores **integers in canonical units**.
+// Quantity parsing: the surface writes `16V` / `100n` / `±1%` / `0.010Ω` / `4R7` / `565nm`; the IR stores **integers in canonical units**.
 //
-// Division of labor with `units.ts`: `units.ts` serves only symbols and footprints (the two geometric quantities, length and angle); this file is the general-purpose one for schematics.
+// Division of labor with `units.ts`: `units.ts` serves symbols and footprints, whose length and angle columns carry the drawing units (`mm`, `mil`, `in`); this file is the general-purpose one for schematics, where a length is the metre with its SI prefixes.
 //
 // Conversion goes through decimal strings + BigInt, never through floating point (same rationale as `units.ts`): `0.1` is not an exact value in binary floating point,
 // and using it to decide "is it an integer" would misreport. If an exact integer cannot be parsed, report an error; do not round.
 //
 // Unit conventions (an application of ADR-0006 decision 7, not a new standard):
 //   resistance → µΩ, capacitance → fF, inductance → pH, voltage → µV, current → nA, power → µW, impedance → mΩ,
-//   ratio → ppm, frequency → mHz, temperature → m°C.
+//   ratio → ppm, frequency → mHz, temperature → m°C, length → nm.
 // Within realistic value ranges every one of these tiers stays inside exact-integer range (100nF = 1e5 fF, 1F = 1e12 fF,
 // both far below the 9.007e15 safe-integer limit), so no tier needs changing for safe-integer safety.
 import type { DiagnosticCodeId } from "./diagnostics.ts";
@@ -16,9 +16,10 @@ import { IR_QUANTITY_SPECS, type IRQuantityKind, type IRQuantitySpec } from "@te
 /**
  * The supported quantities. The dimensions themselves are defined by the IR (ADR-0006 decision 7); here we only add the fields parsing needs.
  *
- * Length and angle are not listed here: they are geometric quantities, parsed separately by `units.ts` (for symbols and footprints).
+ * Angle is not listed here: it is a drawing quantity, parsed separately by `units.ts` (for symbols and footprints). Length is listed, because a
+ * parameter may measure one (the contract's `param_type` says so: `length` → nm).
  */
-export type QuantityKind = Exclude<IRQuantityKind, "length" | "angle">;
+export type QuantityKind = Exclude<IRQuantityKind, "angle">;
 
 export interface QuantitySpec extends IRQuantitySpec {
   /** Explicit unit spellings (not eligible for prefix decoration, e.g. `%` / `C`). */
@@ -40,6 +41,9 @@ export const QUANTITY_SPECS: Record<QuantityKind, QuantitySpec> = {
   percent: { ...IR_QUANTITY_SPECS.percent, units: ["%"], unitExp: -2, canonicalExp: 6 },
   frequency: { ...IR_QUANTITY_SPECS.frequency, units: ["Hz"], unitExp: 0, canonicalExp: 3 },
   temperature: { ...IR_QUANTITY_SPECS.temperature, units: ["C", "°C"], unitExp: 0, canonicalExp: 3 },
+  // The metre, with the SI prefixes on top: `nm`, `mm`, `m`. The drawing units (`mil`, `in`) belong to the
+  // geometry surface, which parses them itself (`units.ts`).
+  length: { ...IR_QUANTITY_SPECS.length, units: ["m"], unitExp: 0, canonicalExp: 9 },
 };
 
 /** Decimal exponent of the SI prefix. Both `u` and `µ` read as micro. */

@@ -3,7 +3,7 @@
 // The focus is errors like "a flag's value being treated as a positional argument": they don't crash, but they steer the command off course.
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 
 const script = join(import.meta.dir, "../scripts/texteda.ts");
@@ -130,16 +130,32 @@ describe("check exit codes", () => {
   });
 
   test("a part rated below the current its pin is declared to carry is reported", () => {
-    // The jack is rated 500mA and the design declares its tip carries up to 4A; the design used
-    // to say so in a comment, and nothing checked it.
-    const result = run(["check", "examples/reference-project", "--json"]);
-    const report = JSON.parse(result.stdout) as {
-      diagnostics: { code: string; severity: string; message: string }[];
-    };
-    const finding = report.diagnostics.find((d) => d.code === "design.current-below-rating");
-    expect(finding?.severity).toBe("warning");
-    expect(finding?.message).toContain("pin M1.J1.1 carries at most 4A");
-    expect(finding?.message).toContain("M1.J1");
+    // The jack is rated 2A and the design declares its tip carries up to 2A, so the board agrees
+    // and the check has nothing to say. Raising the requirement above the part's rating is what
+    // makes the check speak, so the copy below is what this test looks at.
+    const root = mkdtempSync(join(tmpdir(), "texteda-cli-current-"));
+    try {
+      const project = join(root, "project");
+      cpSync("examples/reference-project", project, {
+        recursive: true,
+        filter: (src) => !src.includes("/external") && !src.includes("/dist"),
+      });
+      const module = join(project, "design/sch/modules/charger-power.teda");
+      writeFileSync(
+        module,
+        readFileSync(module, "utf8").replace("current  J1.1       2A", "current  J1.1       5A"),
+      );
+      const result = run(["check", project, "--json"]);
+      const report = JSON.parse(result.stdout) as {
+        diagnostics: { code: string; severity: string; message: string }[];
+      };
+      const finding = report.diagnostics.find((d) => d.code === "design.current-below-rating");
+      expect(finding?.severity).toBe("warning");
+      expect(finding?.message).toContain("pin M1.J1.1 carries at most 5A");
+      expect(finding?.message).toContain("M1.J1");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   test("a rail's current is handed to the layout, not compared with the parts on it", () => {
@@ -151,7 +167,7 @@ describe("check exit codes", () => {
     };
     const rail = report.diagnostics.find((d) => d.code === "design.current-rail");
     expect(rail?.severity).toBe("note");
-    expect(rail?.message).toContain("ADAPTER_P 4A");
+    expect(rail?.message).toContain("ADAPTER_P 2A");
     expect(report.diagnostics.some((d) => d.code === "design.current-exceeded")).toBe(false);
   });
 

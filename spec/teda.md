@@ -204,7 +204,7 @@ schematic main
 | `polarized` | 条件 | 是否有极性：`kind: generic` 必填（`yes` / `no`），`kind: part` **必须不写** |
 | `manufacturer` | 否 | 厂商 |
 | `category` | 否 | 器件类别，开放取值集：`mcu` / `resistor` / `capacitor` / `inductor` / `led` / `diode` / `mosfet_p` / `regulator` / `battery_charger` / … |
-| `datasheet` | 否 | URL |
+| `datasheet` | 否 | URL：**厂商自己的文件**——写载明这个件那些数的那一份（额定值写在产品页上就写产品页，写在 PDF 里就写 PDF；机械图纸载的是引脚表与 land pattern，不是额定值）；分销商的购买页不是数据手册（决策见 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) D6） |
 | `lcsc` | 否 | 嘉立创商城料号（`C` + 数字），供 BOM 匹配 SMT 物料；见 `docs/adr/06-manufacturing/0022-jlc-prototype-delivery.md` |
 | `description` | 否 | 一行人类描述（如 `SOT-23-5 500 mA LDO`）。只是散文：不参与任何检查，也不进身份（[ADR-0007](../docs/adr/02-ir/0007-device-description-enters-the-ir.md)） |
 | `symbol` | 是 | `lib:name` |
@@ -229,7 +229,7 @@ schematic main
 | `generic` | 一个通用器件类别（类别 + 构造 + 封装） | **禁止** | 至少一列必填的 `value` | `C1 cap-tantalum-7343 220uF 10V` |
 
 - `part` 是**买得到的那一颗**：料号固定了它的一切，所以它没有参数列，也不写构造与极性（那是从它所属的通用器件继承的）。
-- `generic` 是**设计要求的规格**：文件里没有料号，值、耐压、容差都在 `instances` 行里；`construction`（`mlcc` / `film` / `tantalum` / `electrolytic` / `thick` / `thin` / `shielded` / `molded`，**封闭取值集**，由 `texteda check` 按 [ADR-0025](../docs/adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) D4 检查）与 `polarized`（`yes` / `no`）是它自己的事实，不再靠文件名或符号选择暗示。买哪一颗由采购层决定（`spec/procurement.md`），不在器件文件里。**封闭的理由**：已经有一条**已决的规则**按构造分流（[ADR-0028](../docs/adr/07-devices/0028-package-code-and-3d-models.md) decision 2 用它区分"能不能带封装包络"，检查落在 `lib:verify`，**实现未落地**，见 `docs/backlog.md` F32），开放词表里的拼错不会报错，只会**静默漏掉一条安全检查**。
+- `generic` 是**设计要求的规格**：文件里没有料号，值、耐压、容差都在 `instances` 行里；`construction`（`mlcc` / `film` / `tantalum` / `electrolytic` / `thick` / `thin` / `shielded` / `molded` / `barrel` / `indicator`，**封闭取值集**，由 `texteda check` 按 [ADR-0025](../docs/adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) D4 检查；后两个由 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) D1、D2 加入）与 `polarized`（`yes` / `no`）是它自己的事实，不再靠文件名或符号选择暗示。买哪一颗由采购层决定（`spec/procurement.md`），不在器件文件里。**封闭的理由**：已经有一条**已决的规则**按构造分流（[ADR-0028](../docs/adr/07-devices/0028-package-code-and-3d-models.md) decision 2 用它区分"能不能带封装包络"，检查落在 `lib:verify`，**实现未落地**，见 `docs/backlog.md` F32），开放词表里的拼错不会报错，只会**静默漏掉一条安全检查**。
 - 两种器件**同在一个目录**：`assets/components/**` 放全部器件文件，子目录只用于分类。`kind` 是文件里的事实，**不从目录推断**，目录也不表达种类（决策见 [ADR-0024](../docs/adr/07-devices/0024-the-device-kind-is-part-or-generic.md)）。两者共用一个 id 命名空间，id 取文件名。
 - 通用器件的 id 不带值、不带耐压、不带容差（`cap-mlcc-0402`、`res-thick-0402`、`cap-tantalum-7343`）。
 
@@ -277,6 +277,7 @@ params
 | `drain_source_voltage` | `voltage` | `limit` | `symmetric` | 漏源之间的耐压：`from` = 漏极，`to` = 源极；**两个极性都受应力**（数据手册的 `V_DS` 是一个幅值，`±` 是省略的写法） |
 | `gate_source_voltage` | `voltage` | `limit` | `symmetric` | 栅源之间的耐压：`from` = 栅极，`to` = 源极；**两个极性都受应力**（数据手册写 `V_GS ± 25 V`） |
 | `reverse_voltage` | `voltage` | `limit` | `to` | 二极管的反向耐压：`from` = 阳极，`to` = 阴极；阴极高于阳极时受应力 |
+| `wavelength` | `length` | `characteristic` | `none` | 发光器件的**峰值波长**：这个数说的是它的颜色是从哪个 bin 来的（决策见 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) D2） |
 
 `rated_current` 与 `sat_current` 是两种不同的限制，彼此不相关（额定 6A / 饱和 3A 是常见件，磁限通常先到），所以是两个角色。
 
@@ -294,13 +295,16 @@ params
 
 | 角色 | 件必须 | 方向 |
 |---|---|---|
-| `value` | 落在设计给的包络内：件自己的最坏值（标称 ± 件自己的容差）必须在 `value ± tolerance` 之内 | 包络 |
+| `value` | 落在设计给的包络内：件自己的最坏值（标称 ± 件自己的容差）必须在 `value ± tolerance` 之内 | 包络（**类值主值按相等**，见下） |
 | `tolerance` | ≤ 设计给的容差 | 上限（更小更好） |
 | `voltage` | ≥ 设计给的耐压 | 下限（越大越好） |
 | `power` | ≥ 设计给的功率额定值 | 下限（越大越好） |
 | `dielectric` | 与设计给的同一类别 | 相等（类别之间无序：X7R 温度特性比 X5R 好，直流偏压又更差，没有"至少"这一说） |
 | `esr` `dcr` | ≤ 设计给的上限 | 上限（更小更好） |
 | `rated_current` `sat_current` | ≥ 设计给的下限 | 下限（更大更好） |
+| `wavelength` | 与设计给的同一波长 | 相等（570nm 不是更好的 565nm，是另一个 bin） |
+
+**主值的比较方向跟着主值的种类走**（决策见 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) D3）：主值是**量**（阻值、容值、长度……）比包络，主值是**类别**（颜色、代码）比**相等**——没有更好的绿，类别周围也没有包络。`value` 的方向因此不是一个固定的方向，由这一类的主值决定。
 
 所以 `R1 10k ±1%` 允许买 ±0.5% 的件（更好，合格），不允许买 ±2% 的件（更差，超出设计给的包络）。**写容差不挡替代料，挡替代料的是"把值当事实写死"。** 比较用的件额定值从哪来已经定了：件在自己的文件里用 `ratings` 段写（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)，§6.4）。
 
@@ -319,6 +323,8 @@ params
 | `electrolytic` | `value` `tolerance` `voltage` | `esr` |
 | `thick` `thin` | `value` `tolerance` | `power` |
 | `shielded` `molded` | `value` `tolerance` `rated_current` | `sat_current` `dcr` |
+| `barrel` | `value` `rated_current` `voltage` | — |
+| `indicator` | `value` `wavelength` | — |
 
 理由：
 
@@ -328,6 +334,7 @@ params
 - 钽电容与电解电容的罐体随耐压变（[ADR-0028](../docs/adr/07-devices/0028-package-code-and-3d-models.md) 自己就是拿这条拒绝它们带封装包络的），所以耐压是要求的一部分。
 - 电阻的功率额定值由封装决定（0402 厚膜惯例 1/16W），但**三件事要分开**：件自己的额定值写在件的 `ratings` 段里（它是件的事实）；设计需要的**最低功率能力**写在实例行的 `power` 参数里（它是采购要求，见 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D1）；设计的**耗散上限**是**约束**（`power M1.R1.1 63mW`）。三者在 `texteda check` 里会合：阻性器件的做最坏耗散 `ΔV²/R` 同时比这三条边界（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D11、§7.3）。**封装惯例不在语言里，在工具的器件表里**（[ADR-0027](../docs/adr/07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md)）：片式电阻的功率底线按 `(construction, package_code)` 查表（0402 = 62.5mW、0603 = 100mW……），而厚膜是同一封装的最低档，所以这张表给的是**底线**而不是猜测买了哪颗件——超过底线意味着这个封装的任何标准件都扛不住（确定的违规），不超过不证明通过了（高功率档的件确实存在，要它就把要求写出来）。底线**只在没有任何声明时**生效：设计的耗散上限、行的 `power` 要求、件的 `power` 额定值，哪一个说了话，就按它比。
 - `sat_current` 是角色（§6.2.1），但**选填**：它要不要写取决于设计有没有峰值电流；"峰值电流会不会让磁饱和"是**比对**，那是 `docs/backlog.md` F42 的事。
+- **`barrel` 与 `indicator`**（决策见 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) D1、D2）：插头的**插头直径**是这一类的身份（2.0mm 与 2.5mm 是两种插座，插得进就是插得进），额定电流与耐压是设计对它的两条要求；指示灯的**颜色**是这一类的主值——颜色是类别不是量，没有更好的绿，波长说明这个颜色来自哪个 bin，所以两者都是必填列。
 
 **必填只保证"写出来了"**：解析器强制 `instances` 行给齐每个必填列，所以规格写在源码里。**写出来**与**验证**是两件事（决策见 [ADR-0025](../docs/adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) D6）：现在有**两样**东西拿事实去比要求——采购层拿选中的件自己的 `ratings` 逐角色比这组要求（`spec/procurement.md` §3.3），检查器拿两引脚器件的耐压与耗散去比它两个 net 的声明窗口（§7.3）。**还没有**的是在**容差区间**上判约束的评估器：容差不参与比较（器件互相独立，语言还无法声明相关性），所以"这段容差里每个可能的件都满足约束"这句话今天没人说（`docs/backlog.md` F42）。
 
@@ -648,7 +655,7 @@ interconnect_pins
 | 电流 | `A` | `500mA`、`2A` |
 | 功率 | `W` | `0.25W` |
 | 频率 | `Hz` | `8MHz`、`32.768kHz` |
-| 长度 | `m` / `mm` / `mil` / `in` | `0.5mm`、`10mil`、`1in` |
+| 长度 | `m` / `mm` / `mil` / `in` | `0.5mm`、`10mil`、`1in` |（**参数列**里的长度是米加 SI 前缀：`nm`、`mm`、`m`；`mil` / `in` 是绘图单位，只在符号与封装里用，见 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) D4）
 | 温度 | `C` | `-40C`、`85C` |
 | 百分比 | `%` | `±1%`、`+-1%` |
 | 阻抗 | `Ω` | `90Ω` |
@@ -731,7 +738,7 @@ interconnect_pins
 
 `version` 为 `MAJOR.MINOR[.PATCH]`，三位各自无前导零。**PATCH 位可省略，省略即 0**：`0.6` 与 `0.6.0` 是同一个版本，IR 里只存一种写法（`0.6`）。
 
-**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.15.0**。
+**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.16.0**。
 
 各描述类型接受的**下界**是当前 reader 仍支持的最早表面形态；它可以晚于类型的历史引入版本。上界对所有描述类型都是同一个——语言当前版本。
 
@@ -750,7 +757,7 @@ interconnect_pins
 
 `packages/parser/src/version.ts` 的 reader-floor 表实现接受下界；`packages/parser/test/version-spec.test.ts` 将其与本表钉在一起。类型引入版本是历史事实，保留在说明列中；它不决定 reader floor。
 
-在 `0.x` 阶段，兼容澄清和诊断改进走 PATCH；新增段或字段、以及**改变已接受文件的表面形态**走 MINOR，并且必须有显式决策记录（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D5）。`0.10.0` 由 [ADR-0055](../docs/adr/09-view/0055-schematic-fields-are-view-overrides.md) 引入 `view` 的 `field` 段；`0.11.0` 由 [ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) 把坐标统一成一个括号元组单元格；`0.12.0` 由 [ADR-0067](../docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md) 加入 module overview/detail 页、module-port 绘图与 `size` 页尺寸声明；`0.13.0` 由 [ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) 加入 `module_view`、`sheet_template`、`template` 与 `module_place`；`0.14.0` 由 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) 收拢工程根并删除板级/系统旧构造；`0.15.0` 由 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) 让 `ratings` 行可以点名它的两个端子（§6.4）。
+在 `0.x` 阶段，兼容澄清和诊断改进走 PATCH；新增段或字段、以及**改变已接受文件的表面形态**走 MINOR，并且必须有显式决策记录（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D5）。`0.10.0` 由 [ADR-0055](../docs/adr/09-view/0055-schematic-fields-are-view-overrides.md) 引入 `view` 的 `field` 段；`0.11.0` 由 [ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) 把坐标统一成一个括号元组单元格；`0.12.0` 由 [ADR-0067](../docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md) 加入 module overview/detail 页、module-port 绘图与 `size` 页尺寸声明；`0.13.0` 由 [ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) 加入 `module_view`、`sheet_template`、`template` 与 `module_place`；`0.14.0` 由 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) 收拢工程根并删除板级/系统旧构造；`0.15.0` 由 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) 让 `ratings` 行可以点名它的两个端子（§6.4）。`0.16.0` 由 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) 加入 `barrel` / `indicator` 两个构造与 `wavelength` 角色，并让 `length` 参数类型可用（§6.2.1、§6.2.2）。
 
 
 | 位 | 什么时候动 | 动它意味着 |
@@ -793,6 +800,17 @@ PATCH 位不参与判定（见 §12.1 的硬规则）。
 ### 12.4 版本沿革
 
 语言的每次版本变化在这里留一条，最新的在前。每条写明改了什么，并指向决定它的那份记录。
+
+#### 0.16.0 — A jack and an LED are classes; a class-valued primary compares by equality（2026-11-18）
+
+- **封闭的构造集合多两个**（决策见 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) D1、D2）：`barrel`（直流桶形插头：必填 `value` `rated_current` `voltage`）与 `indicator`（指示 LED：必填 `value` `wavelength`），按构造收紧必填列的表见 §6.2.2。
+- **角色表多一个 `wavelength`**（§6.2.1）：量纲 `length`，性质 `characteristic`，比较方向为**相等**——570nm 不是更好的 565nm，是另一个 bin。
+- **主值的比较方向跟着主值的种类走**（决策见 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) D3）：主值是量就比包络，主值是类别（颜色、代码）就比**相等**。类值主值没有包络，也没有"更好"的方向。
+- **`length` 参数类型可用了**（决策见 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) D4）：IR 契约的 `param_type` 一直有 `length`（→ nm），解析器此前拒绝它。参数列里的长度是**米加 SI 前缀**（`nm`、`mm`、`m`）；`mil` / `in` 是绘图单位，仍只在符号与封装里（§9.2）。
+- **件可以写一个类别额定值**：`ratings` 行量纲为 `string` 时，IR 里是 `text`（契约的第二个形状），不是 `value`——于是件可以写自己的颜色。
+- **`datasheet` 字段指厂商自己的文件**（决策见 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) D6）：写**载明这个件那些数的那一份**——额定值写在产品页上就写产品页，写在 PDF 里就写 PDF；机械图纸载的是引脚表与 land pattern，不是额定值。分销商的购买页不是数据手册。厂商自己的两份文件对同一颗件不一致时，**取低的那个**，并写清每个数出自哪份文件。
+- **IR 契约不动**：`construction` 与角色名在 IR 里都是普通字符串，`param_type` 本来就有 `length`。
+- **迁移：没有需要迁移的东西。** 0.16 是**增量**：0.15 的文件继续合法，一个字都不用改。**闸门在词表成员上**：版本行声明这个文件写的是哪一版表面，所以 0.15 的文件里没有 `barrel` / `indicator` / `wavelength` 这几个成员，写了就是错（`value.component-construction-invalid` / `value.component-rating-invalid`，诊断里写明这个成员是哪一版加入的）。**量纲本身不设闸门**：IR 契约的 `param_type` 一直有 `length`，写它从来不是非法的，只是解析器此前不读；要写 `length` 参数列或 `wavelength` 参数列的文件本来就得用 `barrel` / `indicator` 两个构造之一，所以它们跟着构造一起要改成 `0.16`。
 
 #### 0.15.0 — A rating may name its two terminals（2026-11-18）
 

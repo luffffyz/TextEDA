@@ -182,6 +182,170 @@ describe("procurement rules", () => {
   });
 });
 
+describe("a class-valued line (ADR-0077 D3)", () => {
+  /** A generic: a green indicator LED. */
+  const indicator: Device = {
+    id: "led-indicator-0603",
+    kind: "generic",
+    footprint: "project:chip-0603",
+    ratings: {},
+    params: [
+      { name: "value", type: "string" },
+      { name: "wavelength", type: "length" },
+    ],
+  };
+
+  /** A part: Lite-On's green indicator, λP = 565 nm. */
+  const indicatorPart: Device = {
+    id: "ltst-c190gkt",
+    kind: "part",
+    mpn: "LTST-C190GKT",
+    footprint: "project:chip-0603",
+    ratings: {
+      value: { type: "string", value: "green" },
+      wavelength: { type: "length", value: 565 },
+    },
+    params: [],
+  };
+
+  /** A generic: a 2.0 mm barrel jack. */
+  const barrel: Device = {
+    id: "dc-jack-th",
+    kind: "generic",
+    footprint: "project:connector-dc-jack-th",
+    ratings: {},
+    params: [
+      { name: "value", type: "length" },
+      { name: "rated_current", type: "current" },
+      { name: "voltage", type: "voltage" },
+    ],
+  };
+
+  /** A part: the 2.0 mm jack, rated 2 A and 30 V. */
+  const jackPart: Device = {
+    id: "dc-005-a200",
+    kind: "part",
+    mpn: "DC-005-A200",
+    footprint: "project:connector-dc-jack-th",
+    ratings: {
+      value: { type: "length", value: 2_000_000 },
+      rated_current: { type: "current", value: 2_000_000_000 },
+      voltage: { type: "voltage", value: 30_000_000 },
+    },
+    params: [],
+  };
+
+  const at = { file: "assets/procurement/primary/b.teda", line: 8, col: 1 };
+
+  function indicatorFacts(part: Device): ProcurementFacts {
+    const params = { value: "green", wavelength: 565 };
+    return {
+      lines: [
+        {
+          component: "led-indicator-0603",
+          params,
+          instances: ["D1"],
+          location: { file: "design/sch/main.teda", line: 10, col: 1 },
+        },
+      ],
+      selections: [
+        {
+          generic: "led-indicator-0603",
+          params,
+          part: part.id,
+          role: "primary",
+          location: at,
+        },
+      ],
+      devices: new Map([
+        [indicator.id, indicator],
+        [part.id, part],
+      ]),
+    };
+  }
+
+  test("a part of the same colour and the same bin satisfies the line", () => {
+    expect(checkProcurement(indicatorFacts(indicatorPart))).toEqual([]);
+  });
+
+  test("a part of another colour does not qualify", () => {
+    // There is no better green: a colour is a class, not a quantity with an envelope.
+    const red: Device = {
+      ...indicatorPart,
+      id: "ltst-c190ekt",
+      mpn: "LTST-C190EKT",
+      ratings: { ...indicatorPart.ratings, value: { type: "string", value: "red" } },
+    };
+    const diagnostics = checkProcurement(indicatorFacts(red));
+    const failure = diagnostics.find((d) => d.code === "value.procurement-part-unsuitable");
+    expect(failure?.severity).toBe("error");
+    expect(failure?.message).toContain("the value class is not the one the line asks for");
+    expect(failure?.data).toMatchObject({ role: "value", part: "red", line: "green" });
+  });
+
+  test("a part of the right colour in another bin does not qualify", () => {
+    // 570 nm is a different bin, not a better 565 nm.
+    const amber: Device = {
+      ...indicatorPart,
+      id: "ltst-c190aekt",
+      mpn: "LTST-C190AEKT",
+      ratings: { ...indicatorPart.ratings, wavelength: { type: "length", value: 570 } },
+    };
+    const diagnostics = checkProcurement(indicatorFacts(amber));
+    const failure = diagnostics.find((d) => d.code === "value.procurement-part-unsuitable");
+    expect(failure?.message).toContain("the wavelength is not the one the line asks for");
+    expect(failure?.data).toMatchObject({ role: "wavelength", part: 570, line: 565 });
+  });
+
+  test("a quantity-valued primary is still compared as an envelope", () => {
+    // The plug size is a length, so it keeps the envelope reading: 2.5 mm is not a 2.0 mm jack.
+    const params = { value: 2_000_000, rated_current: 2_000_000_000, voltage: 19_000_000 };
+    const wider: Device = {
+      ...jackPart,
+      id: "dc-005-a250",
+      mpn: "DC-005-A250",
+      ratings: { ...jackPart.ratings, value: { type: "length", value: 2_500_000 } },
+    };
+    const diagnostics = checkProcurement({
+      lines: [
+        {
+          component: "dc-jack-th",
+          params,
+          instances: ["J1"],
+          location: { file: "design/sch/main.teda", line: 12, col: 1 },
+        },
+      ],
+      selections: [{ generic: "dc-jack-th", params, part: wider.id, role: "primary", location: at }],
+      devices: new Map([
+        [barrel.id, barrel],
+        [wider.id, wider],
+      ]),
+    });
+    const failure = diagnostics.find((d) => d.code === "value.procurement-part-unsuitable");
+    expect(failure?.message).toContain("the part's worst case falls outside the line's envelope");
+  });
+
+  test("the jack of the right size satisfies the line", () => {
+    const params = { value: 2_000_000, rated_current: 2_000_000_000, voltage: 19_000_000 };
+    const diagnostics = checkProcurement({
+      lines: [
+        {
+          component: "dc-jack-th",
+          params,
+          instances: ["J1"],
+          location: { file: "design/sch/main.teda", line: 12, col: 1 },
+        },
+      ],
+      selections: [{ generic: "dc-jack-th", params, part: jackPart.id, role: "primary", location: at }],
+      devices: new Map([
+        [barrel.id, barrel],
+        [jackPart.id, jackPart],
+      ]),
+    });
+    expect(diagnostics).toEqual([]);
+  });
+});
+
 describe("the bill of materials", () => {
   test("a generic line with a selection carries the part's number", () => {
     const rows = buildBomLines(facts());

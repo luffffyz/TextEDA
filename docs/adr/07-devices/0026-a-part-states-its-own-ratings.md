@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-26
 Scope: Decides: where a part's ratings live, how they are compared against a design's declared windows, and how a multi-terminal rating names its stress. Does not decide: the current check — a net's current is not attributed to its members yet; nor the derating policy — see the open points below.
-Related: [ADR-0024](0024-the-device-kind-is-part-or-generic.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md), [ADR-0075](0075-a-ratings-polarity-is-the-roles.md), [ADR-0076](0076-a-parts-dissipation-is-bounded-by-its-stated-current.md)
+Related: [ADR-0024](0024-the-device-kind-is-part-or-generic.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md), [ADR-0075](0075-a-ratings-polarity-is-the-roles.md), [ADR-0076](0076-a-parts-dissipation-is-bounded-by-its-stated-current.md), [ADR-0077](0077-a-jack-and-an-led-are-classes.md)
 Impact: `spec/teda.md` §6.2.1, §6.4, §7.3; `spec/procurement.md` §3.2, §3.3; `schemas/ir/**`; `packages/core` (the rating checks); `packages/parser` (the `component` description type); `packages/ir` (the diagnostic code registry)
 
 > **Current rating contract (2026-11-18):** the terminal pair, the role's direction and the role's kind are **implemented** — language `0.15`, IR contract `v0.20`. A `ratings` row may name its two terminals (`role type value from to`, pin numbers, ordered); the role table carries `kind` (`limit` / `characteristic` / `code`) and a stress direction (`symmetric` / `from` / `to` / `none`), plus the three directed voltage roles (`drain_source_voltage`, `gate_source_voltage`, `reverse_voltage`); the checker compares a multi-pin part's `limit` rating across that named pair, in the role's direction, and a `limit` rating without terminals on a part with more than two pins stays unknown (D7, D13). The syntax and the semantics are `spec/teda.md` §6.2.1, §6.4 and §7.3; the code is `packages/core/src/design/ratings.ts` and `packages/core/src/devices/rules.ts`. The wording below that says a decision is "not implemented" is the record of the day it was taken, and stays as it is. The same day corrected the direction of the two MOSFET roles: `drain_source_voltage` and `gate_source_voltage` are **symmetric**, because a datasheet's `V_DS` and `V_GS` bound the difference in either direction ([ADR-0075](0075-a-ratings-polarity-is-the-roles.md)).
@@ -103,6 +103,24 @@ continuously, the tolerance around its nominal value. A range is not a rating �
 requirement the design states on a net or a pair of bounds the evaluator compares against. Roles
 that need a range (an integrated circuit's operating voltage window) are not in the vocabulary
 yet, and the vocabulary does not grow for them here.
+
+→ **Extended (2026-11-18).** The role vocabulary gained one role, `wavelength`, and the
+vocabulary's exception (`value`) gained a second shape
+([ADR-0077](0077-a-jack-and-an-led-are-classes.md) D2, D4):
+
+- **`wavelength`** — the emission peak of an indicator, a length. Its role is a
+  **characteristic**: nothing stresses an LED at 565 nm, so it never takes part in the voltage
+  or dissipation comparisons this record describes (D6). Its comparison direction is
+  **equality** (D8's table): 570 nm is a different bin, not a better 565 nm.
+- **`value` may be a class, not only a quantity.** This decision said a part states the
+  quantity of its `value` row itself. A part that states a **colour** has no quantity, so its
+  `value` row reaches the IR in the contract's second shape — `text`, not `value` — and its
+  quantity is declared as `string`. The colour is the class's primary value
+  ([ADR-0025](0025-device-vocabulary-and-parameter-roles.md) D6).
+
+The class value sets still apply unchanged: a `dielectric` row must spell a member of the set,
+and a colour has no closed set yet ([ADR-0077](0077-a-jack-and-an-led-are-classes.md), open
+point).
 
 ### D4. A rating row may name its two terminals after the value
 

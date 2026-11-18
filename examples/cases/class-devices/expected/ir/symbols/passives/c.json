@@ -1,0 +1,94 @@
+{
+  "format": "0.11",
+  "ir_version": "0.20",
+  "source": {
+    "file": "assets/symbols/passives/c.teda",
+    "line": 1
+  },
+  "symbol": {
+    "body": [
+      {
+        "end": {
+          "x_nm": -1000000,
+          "y_nm": 1500000
+        },
+        "kind": "line",
+        "start": {
+          "x_nm": -1000000,
+          "y_nm": -1500000
+        },
+        "unit": 1,
+        "width_nm": 250000
+      },
+      {
+        "end": {
+          "x_nm": 1000000,
+          "y_nm": 1500000
+        },
+        "kind": "line",
+        "start": {
+          "x_nm": 1000000,
+          "y_nm": -1500000
+        },
+        "unit": 1,
+        "width_nm": 250000
+      }
+    ],
+    "description": "Non-polarized capacitor, 2-pin generic view",
+    "fields": [
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": 2500000
+        },
+        "name": "Reference",
+        "value": "U"
+      },
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": -2500000
+        },
+        "name": "Value",
+        "value": "c"
+      }
+    ],
+    "in_bom": true,
+    "library": "passives",
+    "name": "c",
+    "on_board": true,
+    "pin_name_offset_nm": 508000,
+    "pin_names_hidden": true,
+    "pin_numbers_hidden": true,
+    "pins": [
+      {
+        "at": {
+          "rotation_mdeg": 0,
+          "x_nm": -4000000,
+          "y_nm": 0
+        },
+        "length_nm": 3000000,
+        "number": "1",
+        "style": "line",
+        "unit": 1
+      },
+      {
+        "at": {
+          "rotation_mdeg": 180000,
+          "x_nm": 4000000,
+          "y_nm": 0
+        },
+        "length_nm": 3000000,
+        "number": "2",
+        "style": "line",
+        "unit": 1
+      }
+    ],
+    "power": false,
+    "tags": [
+      "capacitor",
+      "passive"
+    ],
+    "units": 1
+  }
+}

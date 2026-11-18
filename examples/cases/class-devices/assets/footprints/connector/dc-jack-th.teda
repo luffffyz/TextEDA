@@ -1,0 +1,32 @@
+version 0.16.0
+footprint dc-jack-th
+
+description Approximate DC barrel jack land pattern; hole positions from the Xun Pu DC-005-A200 drawing, not fabrication-ready because the source drill syntax cannot encode the datasheet slots.
+tags connector dc jack through-hole
+attr through_hole
+package_code DC-JACK-TH
+field Reference at=[0,-6.5] layer=F.SilkS size=[1,1] thickness=0.15 REF**
+field Value at=[0,6.5] layer=F.Fab size=[1,1] thickness=0.15 dc-jack-th
+
+# The drawing's recommended PCB layout gives the hole positions: the sleeve hole 7.60 mm from the
+# board's front edge, the tip hole 13.80 mm (6.20 mm behind the sleeve) and the switch hole
+# 11.10 mm from the front edge and 4.70 mm to the side. The origin is the sleeve hole; the tip
+# hole is 6.20 mm behind it and the switch hole 3.50 mm behind and 4.70 mm to the side.
+#
+# The drawing's three slots are 3 x 0.8 mm ("3-3X0.8"). TextEDA source accepts only scalar drill
+# diameters, so drill=0.8 is a round hole of the slot's width instead of the slot itself, and the
+# pads are the drawing's slots grown to keep copper beside that hole: 1.5 mm wide for the two
+# vertical slots and 1.5 mm tall for the horizontal one. This is a drawing of the land pattern,
+# not a fabrication-ready one.
+#
+# The body's outline is the drawing's 13.80 mm deep and 9.00 mm wide rectangle; the switch's tab
+# reaches 0.70 mm past the body's edge, as the drawing has it.
+pads
+  1  th  oval  [6.2,0]     [1.5,3.8]  drill=0.8
+  2  th  oval  [0,0]       [1.5,3.8]  drill=0.8
+  3  th  oval  [3.5,-4.7]  [3.8,1.5]  drill=0.8
+
+graphics
+  rect  F.CrtYd  [-8.1,-5.95,7.45,5]  width=0.05
+  rect  F.Fab    [-7.6,-4.5,6.2,4.5]  width=0.1
+  rect  F.SilkS  [-7.6,-4.5,6.2,4.5]  width=0.12
