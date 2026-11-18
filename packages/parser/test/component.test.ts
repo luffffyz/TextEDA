@@ -512,7 +512,7 @@ describe("the closed vocabularies grow with the language (ADR-0077 D5)", () => {
   });
 });
 
-describe("the polarity of a class (ADR-0078)", () => {
+describe("the polarity of a generic or part (ADR-0078, ADR-0080)", () => {
   const POLARIZED_SCALARS = [
     "kind generic",
     "category capacitor",
@@ -584,15 +584,35 @@ describe("the polarity of a class (ADR-0078)", () => {
     expect(diagnostic!.message).toContain("unpolarised");
   });
 
-  test("a part must not name a positive pole: it inherits the polarity of its class", () => {
+  test("a part may name its own positive pole from 0.18, and the fact reaches the IR", () => {
     const result = parseComponent(
-      device([...PART_SCALARS, "positive_pin 1"], PINS, "0.17"),
+      device([...PART_SCALARS, "positive_pin 1"], POLES, "0.18"),
+      { file: "x.teda" },
+    );
+    expect(result.diagnostics).toEqual([]);
+    expect(result.ir!.component.positive_pin).toBe("1");
+  });
+
+  test("a part positive pin is refused before language 0.18", () => {
+    const result = parseComponent(
+      device([...PART_SCALARS, "positive_pin 1"], POLES, "0.17"),
       { file: "x.teda" },
     );
     expect(result.ok).toBe(false);
-    const diagnostic = result.diagnostics.find((d) => d.code === "value.component-generic-fact-invalid");
+    const diagnostic = result.diagnostics.find((d) => d.code === "value.component-positive-pin-invalid");
     expect(diagnostic).toBeDefined();
-    expect(diagnostic!.message).toContain("part");
+    expect(diagnostic!.message).toContain("0.18");
+  });
+
+  test("a part's named positive pole must be typed polarized", () => {
+    const result = parseComponent(
+      device([...PART_SCALARS, "positive_pin 1"], PINS, "0.18"),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "value.component-positive-pin-invalid");
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.message).toContain("not polarized");
   });
 
   test("the named pole must be a pin of the class", () => {

@@ -93,7 +93,7 @@ All three types live under `views/`, distinguished by directory and suffix (`.vi
 - Without an explicit size or template, the page defaults to A4 landscape, 297 × 210 mm. A template supplies the extent instead.
 - Language `0.14` is the minimum view version, so `size` is available in every valid project page. The reader also accepts the legacy `sheet` spelling; canonical output writes `size`.
 - Scalar order is irrelevant; canonical form places page-size scalars before the sections (§11).
-- The IR page extent remains `SchematicView.sheet` (`{width_nm, height_nm}`). A page using a template omits its own `sheet` field (IR contract `v0.21`; [ADR-0067](../docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md) D7).
+- The IR page extent remains `SchematicView.sheet` (`{width_nm, height_nm}`). A page using a template omits its own `sheet` field (IR contract `v0.22`; [ADR-0067](../docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md) D7).
 
 
 ### 2.1 坐标系

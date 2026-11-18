@@ -1,4 +1,4 @@
-# netlist main (ir 0.21)
+# netlist main (ir 0.22)
 GND: M1.J1.3 M1.J1.5
 NRST: M1.J1.10 M1.R1.1
 SWCLK: M1.J1.4

@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-23
 Scope: Decides: the two kinds of device description, where the devices live, and what makes two devices the same device. Does not decide: which part to buy for a generic — see ADR-0029; nor the parameter roles — see ADR-0025.
-Related: [ADR-0005](../02-ir/0005-ir-representation.md), [ADR-0007](../02-ir/0007-device-description-enters-the-ir.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0026](0026-a-part-states-its-own-ratings.md), [ADR-0034](../08-libraries/0034-trust-in-a-library-you-do-not-own.md), [ADR-0049](../08-libraries/0049-assets-are-filed-by-what-they-are.md), [ADR-0077](0077-a-jack-and-an-led-are-classes.md), [ADR-0078](0078-a-polarised-class-names-its-positive-pin.md).
+Related: [ADR-0005](../02-ir/0005-ir-representation.md), [ADR-0007](../02-ir/0007-device-description-enters-the-ir.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0026](0026-a-part-states-its-own-ratings.md), [ADR-0034](../08-libraries/0034-trust-in-a-library-you-do-not-own.md), [ADR-0049](../08-libraries/0049-assets-are-filed-by-what-they-are.md), [ADR-0077](0077-a-jack-and-an-led-are-classes.md), [ADR-0078](0078-a-polarised-class-names-its-positive-pin.md), [ADR-0080](0080-a-part-names-its-positive-pin-for-procurement-comparison.md).
 Impact: `spec/teda.md` §2, §6, §7.1, §12; `spec/procurement.md`; `schemas/ir/**`; `packages/parser` (the `component` description type); `packages/cli` (the project layout, `texteda init`); `packages/ir` (the diagnostic code registry)
 
 ## Background
@@ -233,3 +233,10 @@ neither is deprecated: the registry is the source of truth and it changes with t
 - **A library of parts only is not a device library**, and the library check says so.
 - **A die is not a fact we carry.** The project that cares about shared silicon writes an
   assembly note.
+
+→ **Extended (2026-11-18).** A part still inherits its **classification** as polarised or
+unpolarised from the generic, and the generic still owns the design requirement. A part may
+additionally state which of its own pins is positive, solely for same-footprint procurement
+comparison ([ADR-0080](0080-a-part-names-its-positive-pin-for-procurement-comparison.md)). The
+historical text above records the original restriction; `construction` and `polarized` remain
+generic-only facts.

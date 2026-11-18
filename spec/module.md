@@ -198,7 +198,7 @@ members decide). Reaching into a module's interior (`M1.R1.2`) is `ref.module-in
 The project IR is the **flattened result**: one instance table, one net table, **no module
 structure** in the tables themselves (the `modules` array records instances and their port/pin
 mappings for endpoint validation; the connectivity tables are flat). Constraint 1 of
-`docs/backlog.md` F13; the IR contract is `v0.21` ([ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md)).
+`docs/backlog.md` F13; the IR contract is `v0.22` ([ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md)).
 
 | Thing | After flattening |
 |---|---|

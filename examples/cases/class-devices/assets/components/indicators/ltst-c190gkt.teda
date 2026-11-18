@@ -1,4 +1,4 @@
-version 0.16.0
+version 0.18.0
 component ltst-c190gkt
 
 # Lite-On's LTST-C190GKT: a 0603 green LED on GaP. The datasheet (DS-22-98-0011, revision H)
@@ -14,6 +14,7 @@ lcsc         C125093
 description  0603 green LED, 565 nm peak, 30 mA
 symbol       indicators:led
 footprint chip:chip-0603
+positive_pin 2
 
 pins
   1  K  polarized

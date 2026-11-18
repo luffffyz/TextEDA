@@ -66,12 +66,12 @@ export interface VersionRange {
  *
  * The language has one version number (ADR-0002): every `.teda` file declares the version of the
  * language it was written against, and it is the same for all description types. It is the `0.x`
- * line the whole language moves on while the surface is still open (ADR-0002 D2): `0.17` is the
+ * line the whole language moves on while the surface is still open (ADR-0002 D2): `0.18` is the
  * current global MINOR, and `1.0` is a milestone reached by a decision, not a counter.
  *
  * It is also the upper bound every description type accepts — there is no per-type ceiling.
  */
-export const SUPPORTED_LANGUAGE: LanguageVersion = { major: 0, minor: 17, patch: 0 };
+export const SUPPORTED_LANGUAGE: LanguageVersion = { major: 0, minor: 18, patch: 0 };
 /** Coordinate tuples became one cell in language 0.11 (ADR-0065 D5). */
 export const TUPLE_VERSION: LanguageVersion = { major: 0, minor: 11, patch: 0 };
 /** A rating row may name its two terminals in language 0.15 (ADR-0026 D4). */
@@ -94,6 +94,8 @@ export const CLASS_VERSION: LanguageVersion = { major: 0, minor: 16, patch: 0 };
  * as a magnitude, as the language read it before.
  */
 export const POLARITY_VERSION: LanguageVersion = { major: 0, minor: 17, patch: 0 };
+/** A part may state its own positive pin for procurement comparison from language 0.18 (ADR-0080). */
+export const PART_POLARITY_VERSION: LanguageVersion = { major: 0, minor: 18, patch: 0 };
 
 /** Every description type this implementation reads. */
 export type DescriptionType =

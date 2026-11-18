@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-11-18
 Scope: Decides: that a polarised generic names its positive pole (`positive_pin`); that the poles of a class are the pins typed `polarized`; that the class's voltage requirement is compared in the class's own direction, and the opposite direction is a reversal rather than a magnitude; that the language moves to 0.17.0 and the IR contract to v0.21. Does not decide: whether the procurement layer compares the polarity of a class with the polarity of the part bought for it ([ADR-0029](0029-the-procurement-layer.md), `docs/backlog.md` F89); the derating policy ([ADR-0026](0026-a-part-states-its-own-ratings.md) D14).
-Related: [ADR-0024](0024-the-device-kind-is-part-or-generic.md) (D2), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md) (D7), [ADR-0026](0026-a-part-states-its-own-ratings.md) (D8, D12, D13), [ADR-0075](0075-a-ratings-polarity-is-the-roles.md) (the same hole one level up), [ADR-0077](0077-a-jack-and-an-led-are-classes.md) (D2)
+Related: [ADR-0024](0024-the-device-kind-is-part-or-generic.md) (D2), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md) (D7), [ADR-0026](0026-a-part-states-its-own-ratings.md) (D8, D12, D13), [ADR-0075](0075-a-ratings-polarity-is-the-roles.md) (the same hole one level up), [ADR-0077](0077-a-jack-and-an-led-are-classes.md) (D2), [ADR-0080](0080-a-part-names-its-positive-pin-for-procurement-comparison.md)
 Impact: `spec/teda.md` §6.1, §6.1.1, §6.2.1, §6.3, §7.3, §12.1, §12.3, §12.4; `packages/parser/src/component.ts`, `packages/parser/src/version.ts`; `packages/core/src/design/ratings.ts`, `packages/core/src/devices/rules.ts`; `packages/cli/src/check.ts`, `packages/cli/src/project.ts`; `schemas/ir/v0.21/**`; `examples/reference-project` (the jack, the tantalum capacitor, the indicator)
 
 ## Background
@@ -141,3 +141,5 @@ optional field in `schemas/ir/v0.21/component.schema.json`. `v0.20` is unchanged
 - **The two windows may overlap.** When both nets' windows overlap, the design may drive the part
   either way, and the reversal is reported. That is the honest reading of the declared windows,
   but a design that intends a symmetric drive has to say so in the windows.
+
+→ **Settled (2026-11-18).** The first open point above is resolved by [ADR-0080](0080-a-part-names-its-positive-pin-for-procurement-comparison.md): a part may state its own `positive_pin`, and procurement compares that number with a directed generic only when both use the same footprint. The open point above is retained as the state at the time ADR-0078 was accepted. The separate open point about a part's directed **ratings** is unchanged.

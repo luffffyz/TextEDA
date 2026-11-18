@@ -68,10 +68,10 @@ export interface Device {
   /** The generic's construction (ADR-0025): the technology a package floor is stated for. */
   readonly construction?: string;
   /**
-   * The pin that carries the positive pole of a polarised class (ADR-0078).
+   * The pin that carries the positive pole of a polarised generic or part (ADR-0080).
    *
-   * A class that names it says which way round the part goes; the negative pole is the class's
-   * other `polarized` pin.
+   * A directed generic says which way round a selected part must go; a part may state its own pin
+   * number, which is compared only when both devices use the same footprint.
    */
   readonly positive_pin?: string;
   /** The land pattern's package code (ADR-0028 decision 1, JEDEC spelling): the floor's other key. */
@@ -231,6 +231,30 @@ export function checkProcurement(facts: ProcurementFacts): Diagnostic[] {
         expected: generic.footprint,
         actual: part.footprint,
         hint: "a selection that changes the land pattern is a design change",
+        location: { file: at.file, line: at.line, col: at.col },
+      });
+    }
+
+    // A directed class and a part on the same land pattern must name the same positive pin. When
+    // the footprint differs there is no shared pin-number space, so the footprint error stands
+    // alone; an undirected class keeps the legacy magnitude comparison.
+    if (
+      part.footprint === generic.footprint &&
+      generic.positive_pin !== undefined &&
+      part.positive_pin !== generic.positive_pin
+    ) {
+      const partPin = part.positive_pin ?? "not stated";
+      diagnostics.push({
+        code: "value.procurement-part-unsuitable",
+        severity,
+        message:
+          part.positive_pin === undefined
+            ? `${selection.part} does not state its positive pin, but ${selection.generic} requires pin ${generic.positive_pin}`
+            : `${selection.part} names pin ${part.positive_pin} as positive, but ${selection.generic} requires pin ${generic.positive_pin}`,
+        expected: generic.positive_pin,
+        actual: partPin,
+        hint: "select a part with the same positive pin as the directed generic, or use a generic without a directed polarity",
+        data: { role: "positive_pin", part: partPin, line: generic.positive_pin },
         location: { file: at.file, line: at.line, col: at.col },
       });
     }

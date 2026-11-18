@@ -10,7 +10,7 @@ One flat counter, handed out in the order the records are written, starting at
 `0001`. A number names one record and nothing else: what a record is about is said by
 its folder, not by its number. A number is **never changed and never reused** — a link
 to `ADR-0006` names the same decision forever — so a new record takes the next free
-number and disturbs nothing that already exists. The next free number is `0080`.
+number and disturbs nothing that already exists. The next free number is `0081`.
 The sequence is not contiguous; gaps are normal.
 
 ## Retired
@@ -111,6 +111,7 @@ that was meant for it, and by nothing else.
 | [ADR-0077](07-devices/0077-a-jack-and-an-led-are-classes.md) | A Jack and an LED Are Classes; a Class-Valued Primary Compares by Equality | Accepted | 2026-11-18 |
 | [ADR-0078](07-devices/0078-a-polarised-class-names-its-positive-pin.md) | A Polarised Class Names Its Positive Pin, and Its Requirement Is Read in That Direction | Accepted | 2026-11-18 |
 | [ADR-0079](07-devices/0079-a-colour-has-a-closed-vocabulary.md) | A Colour Has a Closed Vocabulary, and the Set Is Keyed by Role and Quantity | Accepted | 2026-11-18 |
+| [ADR-0080](07-devices/0080-a-part-names-its-positive-pin-for-procurement-comparison.md) | A Part Names Its Positive Pin for Procurement Comparison | Accepted | 2026-11-18 |
 
 ## Libraries
 

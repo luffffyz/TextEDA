@@ -112,6 +112,10 @@ A row's left side is a **requirement**, not a description of a part: it says wha
 
 The part's own ratings are what the comparison reads: they live in the part file's `ratings` section ([ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)). The rule above is decided.
 
+**Polarity is compared when the generic states a direction** ([ADR-0080](../docs/adr/07-devices/0080-a-part-names-its-positive-pin-for-procurement-comparison.md)). A directed generic's `positive_pin` is in that generic's pin-number space, so the selected part must state its own `positive_pin`; when both devices use the same `footprint`, the numbers must be equal. The part field is optional in general, but a missing or different number makes the selection unsuitable. This rule applies only when the generic names a positive pin and the footprints match: an undirected generic keeps the existing comparison, and a different footprint is already rejected by the footprint check without attempting to compare pin numbers.
+
+An unsuitable primary selection is an error; an unsuitable alternative is a warning (or an error in strict mode), using the existing `value.procurement-part-unsuitable` diagnostic. A same-footprint match is a pass. The selected part's declared `positive_pin` must itself name one of exactly two pins typed `polarized`; the parser checks that local fact before procurement.
+
 ## 4. The two files
 
 | | Primary | Alternatives |
@@ -198,7 +202,7 @@ The procurement descriptions compile to one shard each:
 
 The primary shard is a PCB-scoped normative shard, so it takes part in the project hash and that PCB's board hash: changing the part a PCB is built from changes its build identity, and its review has to be redone. The alternatives shard is not in the board hash and not in the project hash.
 
-The shard's shape is specified in `schemas/ir/v0.21/procurement.schema.json` ([ADR-0006](../docs/adr/02-ir/0006-ir-shards-and-hashes.md) decision 2).
+The shard's shape is specified in `schemas/ir/v0.22/procurement.schema.json` ([ADR-0006](../docs/adr/02-ir/0006-ir-shards-and-hashes.md) decision 2).
 Both shards have a producer: `texteda ir` writes them, `texteda compile --procurement` compiles the primary one, and `texteda check` parses and
 validates both.
 

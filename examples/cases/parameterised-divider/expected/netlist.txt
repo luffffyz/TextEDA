@@ -1,4 +1,4 @@
-# netlist main (ir 0.21)
+# netlist main (ir 0.22)
 GND: M1.R3.2 M1.R5.2
 TAP1: M1.R1.2 M1.R2.1
 TAP2: M1.R2.2 M1.R3.1

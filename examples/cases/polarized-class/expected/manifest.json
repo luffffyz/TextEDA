@@ -1,41 +1,41 @@
 {
-  "ir_version": "0.21",
+  "ir_version": "0.22",
   "shards": [
     {
       "path": "boards/bulk-cap/pcb.json",
-      "sha256": "dfd911d71bf4610a6d6d944a257968c51b56038d180da8826e5dfc8ff2bed9f4",
+      "sha256": "e74665f2a8c64299531178d120705ab910943af7bd5900f16689c166908d1851",
       "normative": true
     },
     {
       "path": "boards/bulk-cap/procurement.json",
-      "sha256": "9ba5e389b4a1233f7a2feb9fee07b62bb3cd186d804e29cd6beec86cd89343ef",
+      "sha256": "999567720b33375c477d4b80610097c870c89f250a5900d5c45a898ae45db1c7",
       "normative": true
     },
     {
       "path": "components/cap-tantalum-7343.json",
-      "sha256": "4f1249151f87d6569d94ce89d8b612c8e404c99bb4fa200d2a01e03618a9558e",
+      "sha256": "e6dd9ce45e8aeed5d020122929db2203b4f225fe010a75b2b430efbf8b6e3ec3",
       "normative": true
     },
     {
       "path": "footprints/tantalum/tantalum-7343.json",
-      "sha256": "ad87ba8c3478d48c52b9b83a0c45ef81528cccf79cc337c386591fe066dd64a0",
+      "sha256": "adda4c0697f8e2eee6bf19a92303d3c47aa2e245e6c9f9ae90659ca22a6d1daf",
       "normative": true
     },
     {
       "path": "project.json",
-      "sha256": "39f24618616907512faa515d54bcd74934f4a1e2d490b8e035f982eb1d9c4ce9",
+      "sha256": "d2e173c6f678eb673883fbf81adecbfaec5432c6af26e6388eb24bae1a84cf79",
       "normative": true
     },
     {
       "path": "project/schematic.json",
-      "sha256": "5fa1d2e7299e59b3205b1a0b2e29ab8b71161fe2a06f2f517d9a6f525117ac6c",
+      "sha256": "afc5c6758a0587d8a9128d62a3d83b91fb7d25f0d4df05b9e2b4932de50e24d9",
       "normative": true
     },
     {
       "path": "symbols/passives/c-pol.json",
-      "sha256": "22a2444f61b03867a5dad6dcc458619ac83d6e2b2b02ec0ceef64f6355796db8",
+      "sha256": "71f6e25f2dc75016341308798dc1d509260919ab0971d3c785f7ee4f95803ca8",
       "normative": true
     }
   ],
-  "source_hash": "ab616622ac9d0793a34d30a258a39982b25800ceb3c98878e50b4064416c6a04"
+  "source_hash": "e9e24fdcac0016af0b935011c48acbbcac1ee483e74a9166786bbdf1b5427ba1"
 }

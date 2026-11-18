@@ -17,7 +17,7 @@ import {
 } from "../src/index.ts";
 
 /**
- * The overview rows a view may carry (IR contract v0.21).
+ * The overview rows a view may carry (IR contract v0.22).
  *
  * The same two optional arrays the IR type grows; declared here so the case writes the rows the
  * way a view file does.

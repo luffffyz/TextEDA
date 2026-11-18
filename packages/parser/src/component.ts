@@ -25,7 +25,7 @@ import { lex } from "./lexer.ts";
 import { SourceFile } from "./sources.ts";
 import type { SourceMap } from "@texteda/ir/spans";
 import { parseQuantity, type QuantityKind } from "./quantities.ts";
-import { checkVersion, compareVersions, parseVersion, typeRange, type LanguageVersion, CLASS_VERSION, POLARITY_VERSION, TERMINAL_VERSION } from "./version.ts";
+import { checkVersion, compareVersions, parseVersion, typeRange, type LanguageVersion, CLASS_VERSION, PART_POLARITY_VERSION, POLARITY_VERSION, TERMINAL_VERSION } from "./version.ts";
 import { REV_RE } from "./ids.ts";
 
 /** Pin electrical types from `teda.md` §9.1. */
@@ -116,11 +116,11 @@ export interface ComponentFile {
   /** Whether the device is polarised (generic only). */
   polarized?: boolean;
   /**
-   * The pin that carries the positive pole of a polarised class (generic only, ADR-0078).
+   * The pin that carries the positive pole of a polarised device (generic or part, ADR-0080).
    *
-   * The class says which of its two `polarized` pins is the positive one; the other is the
-   * negative pole. A class written against a language before 0.17 does not name it, and its
-   * requirement is then read as a magnitude.
+   * A generic says which of its two `polarized` pins is positive; a part may state its own pin for
+   * comparison during procurement. A part may omit it, and a generic written before 0.17 has no
+   * directed polarity fact, so its requirement is read as a magnitude.
    */
   positive_pin?: string;
   symbol: string;
@@ -735,14 +735,30 @@ export function parseComponent(text: string, options: { file: string }): Compone
 
   component.ratings = keptRatings;
 
-  /* ---- the polarity of a class (ADR-0078) ---- */
+  /* ---- the polarity of a generic or part (ADR-0078, ADR-0080) ---- */
 
-  // A polarised class says which of its two poles is the positive one. The poles are the pins
-  // typed `polarized`: a pin typed `passive` does not say which way round it is, so a class that
-  // does not type its poles cannot name a positive one. The pin table is complete only now, so
-  // the check happens after the file has been read.
+  // A directed device says which of its two poles is positive. The poles are the pins typed
+  // `polarized`: a pin typed `passive` does not say which way round it is. The pin table is complete
+  // only now, so the check happens after the file has been read. Generic files gained this fact in
+  // 0.17; a part may declare it for procurement comparison from 0.18.
   const positivePinAt = scalarAt.get("positive_pin");
-  if (component.positive_pin !== undefined) {
+  if (
+    component.positive_pin !== undefined &&
+    component.kind === "part" &&
+    compareVersions(verdict.version, PART_POLARITY_VERSION) < 0
+  ) {
+    error(
+      positivePinAt?.line ?? 1,
+      positivePinAt?.col ?? 1,
+      "value.component-positive-pin-invalid",
+      `a part's positive_pin arrived in language ${PART_POLARITY_VERSION.major}.${PART_POLARITY_VERSION.minor}`,
+      {
+        expected: `a part file written against language ${PART_POLARITY_VERSION.major}.${PART_POLARITY_VERSION.minor} or later`,
+        actual: component.positive_pin,
+        hint: "raise the part file's version line, or leave positive_pin out",
+      },
+    );
+  } else if (component.positive_pin !== undefined) {
     const poles = component.pins.filter((pin) => pin.type === "polarized");
     const named = component.pins.find((pin) => pin.number === component.positive_pin);
     if (named === undefined) {
@@ -752,9 +768,9 @@ export function parseComponent(text: string, options: { file: string }): Compone
         "value.component-positive-pin-invalid",
         `${component.positive_pin} is not a pin of ${component.id}`,
         {
-          expected: `a pin number of this class: ${component.pins.map((pin) => pin.number).join(", ")}`,
+          expected: `a pin number of this device: ${component.pins.map((pin) => pin.number).join(", ")}`,
           actual: component.positive_pin,
-          hint: "the positive pole is a pin of the class, named by its pin number",
+          hint: "the positive pole is a pin of the device, named by its pin number",
         },
       );
     } else if (named.type !== "polarized") {
@@ -766,7 +782,7 @@ export function parseComponent(text: string, options: { file: string }): Compone
         {
           expected: "a pin typed polarized",
           actual: `${named.number} (${named.type})`,
-          hint: "the two poles of a polarised class are the pins typed `polarized`: a pin typed `passive` does not say which way round it is",
+          hint: "the two poles are the pins typed `polarized`: a pin typed `passive` does not say which way round it is",
         },
       );
     } else if (poles.length !== 2) {
@@ -774,11 +790,11 @@ export function parseComponent(text: string, options: { file: string }): Compone
         positivePinAt?.line ?? 1,
         positivePinAt?.col ?? 1,
         "value.component-positive-pin-invalid",
-        `a polarised class has two poles, and ${component.id} types ${poles.length} as polarized`,
+        `a polarised device has two poles, and ${component.id} types ${poles.length} as polarized`,
         {
           expected: "exactly two pins typed polarized",
           actual: `${poles.length} (${poles.map((pin) => pin.number).join(", ")})`,
-          hint: "the negative pole is the other `polarized` pin: a class with one pole or with three has no pair to compare across",
+          hint: "the negative pole is the other `polarized` pin: a device with one pole or with three has no pair to compare across",
         },
       );
     }
@@ -801,10 +817,10 @@ export function parseComponent(text: string, options: { file: string }): Compone
         hint: "a part is a specific device: it names the part number it is bought as",
       });
     }
-    if (component.construction !== undefined || component.polarized !== undefined || component.positive_pin !== undefined) {
-      error(scalarAt.get("construction")?.line ?? scalarAt.get("polarized")?.line ?? scalarAt.get("positive_pin")?.line ?? (sectionLine || 1), 1, "value.component-generic-fact-invalid", "construction, polarized and positive_pin are generic facts, not part facts", {
-        expected: "a part declares neither construction nor polarized nor positive_pin",
-        hint: "a part inherits its construction and polarity from the generic it is chosen for",
+    if (component.construction !== undefined || component.polarized !== undefined) {
+      error(scalarAt.get("construction")?.line ?? scalarAt.get("polarized")?.line ?? (sectionLine || 1), 1, "value.component-generic-fact-invalid", "construction and polarized are generic facts, not part facts", {
+        expected: "a part declares neither construction nor polarized",
+        hint: "a part inherits its construction and polarity classification from the generic it is chosen for; it may state positive_pin only when it documents its own orientation",
       });
     }
     if (params.length > 0) {

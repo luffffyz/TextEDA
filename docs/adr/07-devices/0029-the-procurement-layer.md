@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-22
 Scope: Decides: how a design's generic requirement becomes a purchasable part, how the BOM is keyed and counted, and how variants and second sources sit relative to that. Does not decide: the language's rating vocabulary — see ADR-0025; nor the device kinds — see ADR-0024.
-Related: [ADR-0008](../03-project/0008-project-tree-has-owners.md), [ADR-0015](../04-schematic/0015-flattening-and-the-net-set.md), [ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md), [ADR-0022](../06-manufacturing/0022-jlc-prototype-delivery.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md), [ADR-0077](0077-a-jack-and-an-led-are-classes.md)
+Related: [ADR-0008](../03-project/0008-project-tree-has-owners.md), [ADR-0015](../04-schematic/0015-flattening-and-the-net-set.md), [ADR-0021](../06-manufacturing/0021-the-manufacturing-output-path.md), [ADR-0022](../06-manufacturing/0022-jlc-prototype-delivery.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0069](../03-project/0069-project-level-logical-root-and-physical-board-mapping.md), [ADR-0077](0077-a-jack-and-an-led-are-classes.md), [ADR-0080](0080-a-part-names-its-positive-pin-for-procurement-comparison.md)
 Impact: `spec/procurement.md`; `spec/teda.md` §6, §11; `schemas/ir/**`; `packages/core` (the procurement checks); `packages/cli` (the `texteda bom` command); `packages/ir` (the diagnostic code registry)
 
 ## Background
@@ -392,3 +392,5 @@ build and it does not stay silent.
   nothing to say about it.
 - **The IR holds both halves.** The alternatives are facts, so they are checked; they are simply
   not part of the build identity.
+
+→ **Extended (2026-11-18).** D3.2 and D14 also apply to directed polarity ([ADR-0080](0080-a-part-names-its-positive-pin-for-procurement-comparison.md)): when a generic declares `positive_pin` and the selected part has the same footprint, the part must state the same positive pin number. Missing or unequal polarity uses the existing suitability diagnostic and the existing primary/alternative severity split. The original role-by-role rating comparison and footprint requirement remain unchanged.

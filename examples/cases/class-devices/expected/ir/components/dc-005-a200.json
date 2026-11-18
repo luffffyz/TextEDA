@@ -30,6 +30,7 @@
       }
     ],
     "pins_source": "inline",
+    "positive_pin": "1",
     "ratings": [
       {
         "name": "value",
@@ -49,7 +50,7 @@
     ],
     "symbol": "connectors:dc-jack-th"
   },
-  "ir_version": "0.21",
+  "ir_version": "0.22",
   "source": {
     "file": "assets/components/connectors/dc-005-a200.teda",
     "line": 1

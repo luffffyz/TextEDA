@@ -30,7 +30,7 @@
     }
   ],
   "format": "0.14",
-  "ir_version": "0.21",
+  "ir_version": "0.22",
   "modules": [
     "M1"
   ],

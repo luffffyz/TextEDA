@@ -24,6 +24,7 @@
       }
     ],
     "pins_source": "inline",
+    "positive_pin": "2",
     "ratings": [
       {
         "name": "value",
@@ -52,7 +53,7 @@
     ],
     "symbol": "indicators:led"
   },
-  "ir_version": "0.21",
+  "ir_version": "0.22",
   "source": {
     "file": "assets/components/indicators/ltst-c190gkt.teda",
     "line": 1

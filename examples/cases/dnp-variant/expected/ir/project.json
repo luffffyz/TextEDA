@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.21",
+  "ir_version": "0.22",
   "project": {
     "default_variant": "lite",
     "description": "Case 9 of the ten: a project variant leaves a generic component unpopulated",

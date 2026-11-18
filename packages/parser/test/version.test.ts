@@ -5,7 +5,7 @@
 // version number and every description type shares its ceiling; reader floors are per type and may
 // be later than a type's historical introduction after a breaking surface rewrite; 1.0 is a milestone.
 //
-// The language is at 0.17 and every type accepts it; 0.18 is refused for every type. The `pcb`,
+// The language is at 0.18 and every type accepts it; 0.19 is refused for every type. The `pcb`,
 // `schematic`, and `view` reader floors moved to 0.14 under ADR-0069; module_view and sheet_template
 // remain at 0.13.
 import { describe, expect, test } from "bun:test";
@@ -85,7 +85,7 @@ describe("version acceptance", () => {
   });
 
   test("rejects a version beyond the supported language", () => {
-    const verdict = checkVersion("0.18", range, "view");
+    const verdict = checkVersion("0.19", range, "view");
     expect(verdict.ok).toBe(false);
     expect(verdict.ok === false && verdict.code).toBe("format.unsupported-version");
   });
@@ -95,18 +95,18 @@ describe("version acceptance", () => {
     // patch bit never decides (a patch does not change the accepted file set).
     for (const type of ALL_TYPES) {
       const range = typeRange(type);
-      for (const text of ["0.17", "0.17.0", "0.17.1", "0.17.99"]) {
+      for (const text of ["0.18", "0.18.0", "0.18.1", "0.18.99"]) {
         expect({ type, text, ok: checkVersion(text, range, type).ok }).toEqual({ type, text, ok: true });
       }
     }
   });
 
   test("every description type refuses a version the language has not reached", () => {
-    // 0.18 is beyond the language's current MINOR, and 1.0 is the frozen-surface milestone — neither
+    // 0.19 is beyond the language's current MINOR, and 1.0 is the frozen-surface milestone — neither
     // is implemented, for any type.
     for (const type of ALL_TYPES) {
       const range = typeRange(type);
-      for (const text of ["0.18", "1.0"]) {
+      for (const text of ["0.19", "1.0"]) {
         const verdict = checkVersion(text, range, type);
         expect({ type, text, ok: verdict.ok }).toEqual({ type, text, ok: false });
         expect(verdict.ok === false && verdict.code).toBe("format.unsupported-version");
@@ -136,13 +136,13 @@ describe("version acceptance", () => {
     }
   });
 
-  test("the language is at 0.17 and the view floor is at 0.14", () => {
-    // The language ceiling moved to 0.17 with the polarised class's positive pin (ADR-0078); the
-    // view reader floor stayed at 0.14 (ADR-0069). The floor and the ceiling are separate facts.
-    expect(SUPPORTED_LANGUAGE).toEqual({ major: 0, minor: 17, patch: 0 });
+  test("the language is at 0.18 and the view floor is at 0.14", () => {
+    // The language ceiling moved to 0.18 for part-side polarity (ADR-0080); the view reader floor
+    // stayed at 0.14 (ADR-0069). The floor and the ceiling are separate facts.
+    expect(SUPPORTED_LANGUAGE).toEqual({ major: 0, minor: 18, patch: 0 });
     expect({ required: typeRange("view").required.minor, supported: typeRange("view").supported.minor }).toEqual({
       required: 14,
-      supported: 17,
+      supported: 18,
     });
   });
 
@@ -172,7 +172,7 @@ describe("version acceptance", () => {
     for (const text of ["0.14", "0.14.1", "0.14.99"]) {
       expect({ text, ok: checkVersion(text, schematic, "schematic").ok }).toEqual({ text, ok: true });
     }
-    expect(checkVersion("0.18", schematic, "schematic").ok).toBe(false);
+    expect(checkVersion("0.19", schematic, "schematic").ok).toBe(false);
     expect(checkVersion("1.0", schematic, "schematic").ok).toBe(false);
   });
 
@@ -205,7 +205,7 @@ describe("parsers accept a patch version", () => {
   });
 
   test("a view file beyond the ceiling is refused", () => {
-    const source = "version 0.18\nview main\n\nplace\n  U1  [10.0,10.0]\n";
+    const source = "version 0.19\nview main\n\nplace\n  U1  [10.0,10.0]\n";
     const result = parseView(source, { file: "v.teda" });
     expect(result.ok).toBe(false);
     expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(["format.unsupported-version"]);
@@ -225,12 +225,12 @@ describe("parsers accept a patch version", () => {
   });
 
   test("a schematic file may declare the current language version", () => {
-    const result = parseSchematicDocument("version 0.17.0\nschematic main\n", { file: "main.teda" });
+    const result = parseSchematicDocument("version 0.18.0\nschematic main\n", { file: "main.teda" });
     expect(result.ok).toBe(true);
   });
 
   test("a schematic file beyond the ceiling is refused", () => {
-    const result = parseSchematicDocument("version 0.18\nschematic main\n", { file: "main.teda" });
+    const result = parseSchematicDocument("version 0.19\nschematic main\n", { file: "main.teda" });
     expect(result.ok).toBe(false);
     expect(result.diagnostics[0]!.code).toBe("format.unsupported-version");
   });

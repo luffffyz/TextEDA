@@ -157,7 +157,7 @@
     ]
   },
   "format": "0.11",
-  "ir_version": "0.21",
+  "ir_version": "0.22",
   "source": {
     "file": "assets/footprints/header/hdr-1x4-254.teda",
     "line": 1

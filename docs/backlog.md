@@ -2199,47 +2199,21 @@ schematic should be the one that says so at all. Settling the first two settles 
 
 ---
 
-## F89. The procurement layer does not compare the polarity of a class with the polarity of the part bought for it
+## F89. The procurement layer does not compare the polarity of a class with the polarity of the part bought for it — Settled
 
-**Status**: Proposed (2026-11-18). The open point of
-[ADR-0078](adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md).
+**Status**: Settled (2026-11-18) by [ADR-0080](adr/07-devices/0080-a-part-names-its-positive-pin-for-procurement-comparison.md), which closes the open point of [ADR-0078](adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md).
 
-**Current state**: a polarised class says which way round its part goes (`positive_pin`, ADR-0078
-D1), and the part bought for it says in its own pin table which of its pins are poles (the pins
-typed `polarized`). The procurement comparison ([ADR-0029](adr/07-devices/0029-the-procurement-layer.md)
-decision 3.2) compares the parameter values and the ratings role by role — the voltage, the
-current, the class-valued primary — but it says nothing about the polarity, so the two facts are
-never put next to each other.
+**Decision**: a part may optionally state its own `positive_pin` from language 0.18. A directed generic and selected part are compared only when both use the same footprint; their positive pin numbers must match. A missing or different part pin makes the selection unsuitable, with an error for a primary and a warning for an alternative (or an error in strict mode). An undirected generic keeps its existing behaviour, and a different footprint is reported by the footprint check without a polarity comparison.
 
-**Why it matters**: a part with the same footprint and the **opposite** polarity can be selected
-for a polarised class. The class asks for 10 V and 2 A; the part states 10 V and 2 A; the
-comparison passes, and the part is mounted the other way round. The schematic-level check
-(ADR-0078 D3) cannot see it either: it compares the class's requirement with the nets, and the
-part is not in the schematic — the procurement layer is where the class and the part meet.
+**What landed**:
 
-**To do**: one question, and it is about the part.
-
-1. **How a part says which of its poles is positive.** A part inherits its polarity from the class
-   it is chosen for ([ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D2), so
-   it names no positive pin — and the class's `positive_pin` is a pin *number of the class*, which
-   need not be the part's pin number (the two files may number their pins differently). The
-   comparison needs either a way for a part to say which of its poles is positive, or a rule that
-   the poles are matched by something both files agree on.
-2. **What the comparison reports.** A part whose polarity does not match the class is not a part
-   for that class: it is the same failure as a colour that is not the one the line asks for
-   ([ADR-0079](adr/07-devices/0079-a-colour-has-a-closed-vocabulary.md) D1), and the report should
-   say so rather than select it.
-
-**Involved files**: `packages/core/src/procurement/rules.ts` (the class-to-part comparison),
-`packages/parser/src/component.ts` (what a part file may say about its poles),
-`spec/procurement.md` §3.3.
+- `packages/parser` accepts and validates a part's optional positive pin from language 0.18; older part descriptions remain valid without it.
+- `packages/core` applies the exact same-footprint comparison with the existing `value.procurement-part-unsuitable` diagnostic and severity rules.
+- The IR contract is now v0.22; it copies v0.21 with updated version identifiers and a clarified `component.positive_pin` description. v0.21 is unchanged.
+- `examples/cases/class-devices/` pins matching jack and LED orientations; unit tests pin opposite and missing values, alternative severity, different footprints and undirected generics. The reference project's jack and LED parts also state their orientations.
 
 **Acceptance**:
 
-- A part bought for a polarised class states which way round it goes, and the selection compares
-  it with the class.
-- A part with the opposite polarity is not selected for the class, and the report says why.
-- A part for an unpolarised class is unaffected.
-
-**Note**: this is the same shape as the class-valued primary: the comparison is by equality, not
-by envelope. A polarity is not "at least" — the other way round is simply not the part.
+- A same-footprint part bought for a directed generic states the same positive pin, and the selection compares it with the class.
+- A part with the opposite or unstated polarity is unsuitable and the report identifies the mismatch.
+- A part for an undirected generic is unaffected.

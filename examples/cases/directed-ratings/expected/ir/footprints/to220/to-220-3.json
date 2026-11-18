@@ -143,7 +143,7 @@
     ]
   },
   "format": "0.11",
-  "ir_version": "0.21",
+  "ir_version": "0.22",
   "source": {
     "file": "assets/footprints/to220/to-220-3.teda",
     "line": 1

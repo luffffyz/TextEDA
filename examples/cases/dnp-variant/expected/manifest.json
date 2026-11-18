@@ -1,36 +1,36 @@
 {
-  "ir_version": "0.21",
+  "ir_version": "0.22",
   "shards": [
     {
       "path": "boards/dnp-variant/pcb.json",
-      "sha256": "bf28b1a1e8772d03a4c164e82e35399cfc3b783bd7dd8c4c4ee330a96cc26c69",
+      "sha256": "8079f33e82e461600d7003bc3e27fc693c363fc20978586b8eb4d7759a89735b",
       "normative": true
     },
     {
       "path": "components/res-thick-0402.json",
-      "sha256": "a13f95048385437b36c3f0655f0e94fd50866f2fbb1f62f0150d9cd5c8d237d2",
+      "sha256": "ad46adaeceb99f74808c32d25214c4146210113500c22973673f102c49a2b43c",
       "normative": true
     },
     {
       "path": "footprints/chip/chip-0402.json",
-      "sha256": "b1c276946dae007b256746881f973ec9705e065260c51d476a58ca20f73eb420",
+      "sha256": "11cd719229ae7136807a842463ce9dd10174279598ab519bd3fc999b7c2a75fe",
       "normative": true
     },
     {
       "path": "project.json",
-      "sha256": "5c2d4f45dd3a11a07a61de879fdf0b1d5a611e1e50b13adc0101c3479c305044",
+      "sha256": "b888da6b7609aa3166fd639e8147df750d118bf0ae6c248c73f0c7f3f5fc942c",
       "normative": true
     },
     {
       "path": "project/schematic.json",
-      "sha256": "0125dd076e844d2846cd8e607195282a20e79863a6d930d99afd18e52f790616",
+      "sha256": "b28648e1b8ca060ccea991f06f1bba882dc8a82466b71ef3df2c2ae94bc8b740",
       "normative": true
     },
     {
       "path": "symbols/passives/r.json",
-      "sha256": "fddc63665813c59a4bf39b8d9ce8a85741293e7321e8274990fed6a033f67de5",
+      "sha256": "b00859e410552fedab086fd77c948087b00e1f459794ef9d943273399e95b48c",
       "normative": true
     }
   ],
-  "source_hash": "2b1bb42c4b4394f8c0db075ed03c86f89088819a19d54d4e776df278b519f5ef"
+  "source_hash": "010bc7908db4a0250a115eeb955750212e6da62044e7ff44af359221d93033fd"
 }

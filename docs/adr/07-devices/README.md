@@ -22,6 +22,7 @@ The device layer: the two kinds of device, the closed vocabulary of their parame
 9. [0077](0077-a-jack-and-an-led-are-classes.md) — a jack and an LED are classes; a class-valued primary compares by equality.
 10. [0078](0078-a-polarised-class-names-its-positive-pin.md) — a polarised class names its positive pin, and its requirement is read in that direction.
 11. [0079](0079-a-colour-has-a-closed-vocabulary.md) — a colour has a closed vocabulary, and the set is keyed by role and quantity.
+12. [0080](0080-a-part-names-its-positive-pin-for-procurement-comparison.md) — a part states its positive pin for same-footprint procurement comparison.
 
 ## Records
 
@@ -38,3 +39,4 @@ The device layer: the two kinds of device, the closed vocabulary of their parame
 | [ADR-0077](0077-a-jack-and-an-led-are-classes.md) | A Jack and an LED Are Classes; a Class-Valued Primary Compares by Equality | Accepted | 2026-11-18 |
 | [ADR-0078](0078-a-polarised-class-names-its-positive-pin.md) | A Polarised Class Names Its Positive Pin, and Its Requirement Is Read in That Direction | Accepted | 2026-11-18 |
 | [ADR-0079](0079-a-colour-has-a-closed-vocabulary.md) | A Colour Has a Closed Vocabulary, and the Set Is Keyed by Role and Quantity | Accepted | 2026-11-18 |
+| [ADR-0080](0080-a-part-names-its-positive-pin-for-procurement-comparison.md) | A Part Names Its Positive Pin for Procurement Comparison | Accepted | 2026-11-18 |

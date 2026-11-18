@@ -36,7 +36,7 @@
     "positive_pin": "2",
     "symbol": "indicators:led"
   },
-  "ir_version": "0.21",
+  "ir_version": "0.22",
   "source": {
     "file": "assets/components/indicators/led-indicator-0603.teda",
     "line": 1

@@ -4,8 +4,10 @@ A 5 V / 2 A adapter plugs into `J1`, a capacitor takes the input ripple, a resis
 current, and a green LED says the rail is there. What the case is about is not the circuit: it is
 that **two of these devices are classes and not parts**, that a class's primary value may be a
 **class** (a colour) rather than a quantity, and that a part chosen for such a class is compared
-for **equality** rather than for "at least"
-([ADR-0077](../../../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md)).
+for **equality** rather than for "at least". It also pins the directed-class procurement rule: the
+chosen part states its own positive pin, and the same-footprint pair must agree
+([ADR-0077](../../../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md),
+[ADR-0080](../../../docs/adr/07-devices/0080-a-part-names-its-positive-pin-for-procurement-comparison.md)).
 
 ## What it proves
 
@@ -17,6 +19,7 @@ for **equality** rather than for "at least"
 | A quantity-valued primary still compares as an envelope | the procurement row `dc-jack-th 2.0mm 2A 6V -> dc-005-a200` | nothing — the plug size is a length, so 2.5 mm is not a 2.0 mm jack, while the part's 30 V and 2 A both cover what the line asks for |
 | A class states a requirement, and the requirement is comparable | `current J1.1 2A` in the module, against the class's own `rated_current 2A` | nothing — the pin's requirement and the class's requirement agree, so the pin is **compared** rather than skipped (ADR-0026 D18). The coverage line says so: "1 of 4 instances were compared with a declared window" is about the stress check; this one is the current check, which has no note because nothing was left unknown |
 | A polarised class reads its requirement in its own direction | `dc-jack-th` declares `polarized yes` and `positive_pin 1` (the tip); its poles are the two pins typed `polarized`, so the pair is the tip and the sleeve even though the jack has a third contact | nothing — the 6 V requirement is compared against `VIN` (0–6 V) on the tip and `GND` (0 V) on the sleeve, in the class's own direction, and the reverse direction is zero. The jack is **compared** now, where before it was counted as unknown ([ADR-0078](../../../docs/adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md) D1, D3) |
+| A directed generic is compared with the selected part's orientation | the generic jack names pin 1 as positive and `dc-005-a200` does the same; the indicator generic and `ltst-c190gkt` both name pin 2 | nothing — both selections use the generic's footprint and agree on the positive pin number. Opposite and missing part polarities are pinned by procurement unit tests ([ADR-0080](../../../docs/adr/07-devices/0080-a-part-names-its-positive-pin-for-procurement-comparison.md)) |
 | Unknown is counted, not passed | the LED and the resistor state no voltage capability at all | `design.stress-unknown`, a **note**: "2 of 4 instances were not compared with a declared window: 2 with no declared voltage capability". The capacitor `C1` and the jack `J1` *are* compared: the capacitor's 16 V requirement against `VIN` (0–6 V) and `GND` (0 V), the jack's 6 V requirement across its two poles |
 | A resistor's dissipation is bounded when the design states the windows | `R1` is 1 kΩ between `VIN` (0–6 V) and `LED_A` (0–6 V) | nothing — the bound is ΔV²/R = 36 mW against the 0402 package floor of 62.5 mW, so the resistor is compared and passes. Without `LED_A`'s window the check says "1 on a net without a declared voltage window" instead |
 
@@ -33,13 +36,9 @@ for **equality** rather than for "at least"
   an error, and an error does not belong in the corpus: it is pinned by a unit test
   (`packages/core/test/ratings.test.ts`), where the same class mounted the other way round is
   reported as `design.polarity-reversed`.
-- **The LED's polarity is not compared.** The class states `polarized yes` and `positive_pin 2`
-  (the anode), but an indicator declares no `voltage` requirement, so there is no stress to
-  compare — the LED is counted as one of the instances with no declared voltage capability.
-- **The procurement layer does not compare polarities.** The class says which way round the part
-  goes, and the part bought for it says in its own pin table which of its pins are poles, but
-  nothing puts the two next to each other (`docs/backlog.md` F89). The case pins the comparison
-  the layer does today, not the one it does not.
+- **The LED has no voltage stress to compare.** Its generic and selected part agree on orientation
+  in procurement, but an indicator declares no `voltage` requirement, so there is no stress to
+  compare at schematic level; the LED is counted among instances with no declared voltage capability.
 - **A second source.** The procurement file has one role (`primary`). The alternatives file
   exists for every board in the reference project and is empty there too.
 
@@ -50,8 +49,8 @@ for **equality** rather than for "at least"
 - `expected/ir/components/dc-jack-th.json`: the class's `positive_pin` (the tip) next to its two
   `polarized` pins — the polarity of the class is a fact of the device file, and it reaches the IR
   as one.
-- `expected/ir/components/ltst-c190gkt.json`: a rating measured in a class reaches the IR in the
-  contract's **second** shape — `{"name": "value", "type": "string", "text": "green"}` — next to
+- `expected/ir/components/ltst-c190gkt.json`: the part's `positive_pin` and a rating measured in a
+  class reach the IR in the contract's **second** shape — `{"name": "value", "type": "string", "text": "green"}` — next to
   the numeric ones (`{"name": "wavelength", "type": "length", "value": 565}`).
 - `expected/ir/components/dc-005-a200.json` and `expected/ir/components/dc-jack-th.teda`: the
   same, with the plug size as a length of 2 000 000 nm.

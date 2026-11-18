@@ -411,6 +411,74 @@ describe("a class-valued line (ADR-0077 D3)", () => {
   });
 });
 
+describe("a directed polarised class and its selected part (ADR-0080)", () => {
+  const directedGeneric: Device = { ...generic, positive_pin: "1" };
+  const matchingPart: Device = { ...part, positive_pin: "1" };
+  const devicesFor = (selected: Device, deviceGeneric: Device = directedGeneric) =>
+    new Map<string, Device>([
+      [deviceGeneric.id, deviceGeneric],
+      [selected.id, selected],
+    ]);
+
+  test("a part with the same positive pin qualifies", () => {
+    expect(checkProcurement(facts({ devices: devicesFor(matchingPart) }))).toEqual([]);
+  });
+
+  test("a part with the opposite positive pin is unsuitable", () => {
+    const reversed: Device = { ...matchingPart, positive_pin: "2" };
+    const result = checkProcurement(facts({ devices: devicesFor(reversed) }));
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      code: "value.procurement-part-unsuitable",
+      severity: "error",
+      message: expect.stringContaining("requires pin 1"),
+      expected: "1",
+      actual: "2",
+      data: { role: "positive_pin", part: "2", line: "1" },
+    });
+  });
+
+  test("a directed generic makes an unstated part polarity unsuitable", () => {
+    const noPolarity: Device = { ...part };
+    const result = checkProcurement(facts({ devices: devicesFor(noPolarity) }));
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      code: "value.procurement-part-unsuitable",
+      severity: "error",
+      message: expect.stringContaining("does not state its positive pin"),
+      actual: "not stated",
+    });
+  });
+
+  test("a missing polarity is a warning for an alternative", () => {
+    const noPolarity: Device = { ...part };
+    const result = checkProcurement(
+      facts({
+        devices: devicesFor(noPolarity),
+        selections: [selection({ role: "alternatives" })],
+      }),
+    );
+    const mismatch = result.find((diagnostic) => diagnostic.code === "value.procurement-part-unsuitable");
+    expect(mismatch?.severity).toBe("warning");
+  });
+
+  test("polarity is not compared when the part changes footprint", () => {
+    const otherFootprint: Device = {
+      ...matchingPart,
+      footprint: "project:chip-0603",
+      positive_pin: "2",
+    };
+    const result = checkProcurement(facts({ devices: devicesFor(otherFootprint) }));
+    expect(result.map((diagnostic) => diagnostic.code)).toEqual(["bind.procurement-footprint-mismatch"]);
+  });
+
+  test("a generic without a directed positive pin keeps magnitude-era procurement behavior", () => {
+    const undirected: Device = { ...generic };
+    const opposite: Device = { ...matchingPart, positive_pin: "2" };
+    expect(checkProcurement(facts({ devices: devicesFor(opposite, undirected) }))).toEqual([]);
+  });
+});
+
 describe("the bill of materials", () => {
   test("a generic line with a selection carries the part's number", () => {
     const rows = buildBomLines(facts());

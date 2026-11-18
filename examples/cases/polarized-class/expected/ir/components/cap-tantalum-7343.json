@@ -46,7 +46,7 @@
     "positive_pin": "1",
     "symbol": "passives:c-pol"
   },
-  "ir_version": "0.21",
+  "ir_version": "0.22",
   "source": {
     "file": "assets/components/passives/cap-tantalum-7343.teda",
     "line": 1

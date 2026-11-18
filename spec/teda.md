@@ -202,7 +202,7 @@ schematic main
 | `mpn` | 条件 | 制造商料号：`kind: part` 必填，`kind: generic` **必须不写** |
 | `construction` | 条件 | 构造工艺：`kind: generic` 必填，`kind: part` **必须不写** |
 | `polarized` | 条件 | 是否有极性：`kind: generic` 必填（`yes` / `no`），`kind: part` **必须不写** |
-| `positive_pin` | 条件 | 正极是哪个引脚：**引脚编号**（引脚号，不是引脚名）。`kind: generic` 且 `polarized yes` 时**必填**，`polarized no` 时**必须不写**；`kind: part` **必须不写**（件从它所属的通用件继承极性）。自语言 **0.17** 起可用（决策见 [ADR-0078](../docs/adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md) D1） |
+| `positive_pin` | 条件 | 正极是哪个引脚：**引脚编号**（引脚号，不是引脚名）。`kind: generic` 且 `polarized yes` 时**必填**，`polarized no` 时**必须不写**；`kind: part` 可选，表示该料自身的正极引脚（自语言 **0.18** 起可写，见 [ADR-0080](../docs/adr/07-devices/0080-a-part-names-its-positive-pin-for-procurement-comparison.md)）。有值时必须点名 `pins` 表中类型为 `polarized` 的引脚，且器件恰有两个此类引脚。通用件的字段自语言 **0.17** 起可用（[ADR-0078](../docs/adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md) D1） |
 | `manufacturer` | 否 | 厂商 |
 | `category` | 否 | 器件类别，开放取值集：`mcu` / `resistor` / `capacitor` / `inductor` / `led` / `diode` / `mosfet_p` / `regulator` / `battery_charger` / … |
 | `datasheet` | 否 | URL：**厂商自己的文件**——写载明这个件那些数的那一份（额定值写在产品页上就写产品页，写在 PDF 里就写 PDF；机械图纸载的是引脚表与 land pattern，不是额定值）；分销商的购买页不是数据手册（决策见 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) D6） |
@@ -620,7 +620,7 @@ interconnect_pins
 - **`interconnects` 数组**：每项 `{ id, from, to }`，端点是 `M1.PORT` 形式的模块端口引用。
 - **`interconnect_pins` 数组**：每项 `{ interconnect, from, to }`，引脚引用是 `M1.J1.1` 形式的展平引脚引用。
 - **可选数组为空时省略**（`interconnects`、`interconnect_pins`）；必填字段恒在。
-- IR 契约版本 **v0.21**（`schemas/ir/`；`v0.20` 保持不变）。`modules` / `interconnects` / `interconnect_pins` 分片是**规范**分片（`normative: true`）：归属与跨板路径进工程哈希。
+- IR 契约版本 **v0.22**（`schemas/ir/`；`v0.21` 保持不变）。`modules` / `interconnects` / `interconnect_pins` 分片是**规范**分片（`normative: true`）：归属与跨板路径进工程哈希。
 - **归属与物理连通性的全局校验在 core，不在 parser**：parser 只管每份文件的形状与本地引用；"每个实例恰好属于一块 PCB""interconnect 端点两侧的物理路径成立"由 `texteda check` 汇总全部文件后执行（`spec/pcb.md` §5.2）。
 
 ---
@@ -747,7 +747,7 @@ interconnect_pins
 
 `version` 为 `MAJOR.MINOR[.PATCH]`，三位各自无前导零。**PATCH 位可省略，省略即 0**：`0.6` 与 `0.6.0` 是同一个版本，IR 里只存一种写法（`0.6`）。
 
-**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.17.0**。
+**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.18.0**。
 
 各描述类型接受的**下界**是当前 reader 仍支持的最早表面形态；它可以晚于类型的历史引入版本。上界对所有描述类型都是同一个——语言当前版本。
 
@@ -766,7 +766,7 @@ interconnect_pins
 
 `packages/parser/src/version.ts` 的 reader-floor 表实现接受下界；`packages/parser/test/version-spec.test.ts` 将其与本表钉在一起。类型引入版本是历史事实，保留在说明列中；它不决定 reader floor。
 
-在 `0.x` 阶段，兼容澄清和诊断改进走 PATCH；新增段或字段、以及**改变已接受文件的表面形态**走 MINOR，并且必须有显式决策记录（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D5）。`0.10.0` 由 [ADR-0055](../docs/adr/09-view/0055-schematic-fields-are-view-overrides.md) 引入 `view` 的 `field` 段；`0.11.0` 由 [ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) 把坐标统一成一个括号元组单元格；`0.12.0` 由 [ADR-0067](../docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md) 加入 module overview/detail 页、module-port 绘图与 `size` 页尺寸声明；`0.13.0` 由 [ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) 加入 `module_view`、`sheet_template`、`template` 与 `module_place`；`0.14.0` 由 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) 收拢工程根并删除板级/系统旧构造；`0.15.0` 由 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) 让 `ratings` 行可以点名它的两个端子（§6.4）。`0.16.0` 由 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) 加入 `barrel` / `indicator` 两个构造与 `wavelength` 角色，并让 `length` 参数类型可用（§6.2.1、§6.2.2）。`0.17.0` 由 [ADR-0078](../docs/adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md) 让有极性的通用件点名它的正极引脚（`positive_pin`，§6.1），并把颜色的取值集封闭（[ADR-0079](../docs/adr/07-devices/0079-a-colour-has-a-closed-vocabulary.md)，§6.2.1）。
+在 `0.x` 阶段，兼容澄清和诊断改进走 PATCH；新增段或字段、以及**改变已接受文件的表面形态**走 MINOR，并且必须有显式决策记录（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D5）。`0.10.0` 由 [ADR-0055](../docs/adr/09-view/0055-schematic-fields-are-view-overrides.md) 引入 `view` 的 `field` 段；`0.11.0` 由 [ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) 把坐标统一成一个括号元组单元格；`0.12.0` 由 [ADR-0067](../docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md) 加入 module overview/detail 页、module-port 绘图与 `size` 页尺寸声明；`0.13.0` 由 [ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) 加入 `module_view`、`sheet_template`、`template` 与 `module_place`；`0.14.0` 由 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) 收拢工程根并删除板级/系统旧构造；`0.15.0` 由 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) 让 `ratings` 行可以点名它的两个端子（§6.4）。`0.16.0` 由 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) 加入 `barrel` / `indicator` 两个构造与 `wavelength` 角色，并让 `length` 参数类型可用（§6.2.1、§6.2.2）。`0.17.0` 由 [ADR-0078](../docs/adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md) 让有极性的通用件点名它的正极引脚（`positive_pin`，§6.1），并把颜色的取值集封闭（[ADR-0079](../docs/adr/07-devices/0079-a-colour-has-a-closed-vocabulary.md)，§6.2.1）。`0.18.0` 由 [ADR-0080](../docs/adr/07-devices/0080-a-part-names-its-positive-pin-for-procurement-comparison.md) 允许具体料声明自己的正极引脚（`positive_pin`，§6.1），用于同封装通用件的选料极性比较；原来的通用件语法不变。
 
 
 | 位 | 什么时候动 | 动它意味着 |
@@ -809,6 +809,13 @@ PATCH 位不参与判定（见 §12.1 的硬规则）。
 ### 12.4 版本沿革
 
 语言的每次版本变化在这里留一条，最新的在前。每条写明改了什么，并指向决定它的那份记录。
+
+#### 0.18.0 — 具体料声明正极引脚以供选料比较（2026-11-18）
+
+- **具体料可以声明自己的正极引脚**（决策见 [ADR-0080](../docs/adr/07-devices/0080-a-part-names-its-positive-pin-for-procurement-comparison.md)）：`kind: part` 可选写 `positive_pin <引脚编号>`。该引脚必须在本件的 `pins` 表里，类型为 `polarized`，且本件恰有两个 `polarized` 引脚（§6.1、§6.3）。省略此字段仍合法，但对需要方向比较的选料不构成通过。
+- **选料在共享同一封装时比较方向**：仅当通用件声明了 `positive_pin` 且具体料与通用件的 `footprint` 相同时，要求两者的 `positive_pin` 引脚编号相同；具体料未声明或编号不同均为不合适的选料。不同封装没有共用的引脚编号空间，封装不匹配诊断独立报告；未指定方向的通用件不触发极性比较（`spec/procurement.md` §3.3）。
+- **IR 契约到 `v0.22`**（`v0.21` 保持不变）：`component.positive_pin` 的语义扩展为可选的通用件或具体料字段；v0.22 以 v0.21 为基础，更新版本标识与该字段说明。
+- **迁移：没有需要迁移的东西。** 0.18 是增量：旧文件继续合法；只有要在具体料文件中写入 `positive_pin` 的文件需要把版本行改成 `0.18`。通用件的 `positive_pin` 仍自 0.17 起可用。
 
 #### 0.17.0 — A polarised class names its positive pin; a colour has a closed vocabulary（2026-11-18）
 
@@ -1071,7 +1078,7 @@ interconnects
   ic1  M1.PWR  M2.PWR
 ```
 
-两块 PCB 各自声明拥有的模块实例（`design/pcb/pwr-l1.teda`、`design/pcb/pwr-l2.teda`，语法见 `spec/pcb.md` §4.1）：`M1` 属于 `pwr-l1`，`M2` 属于 `pwr-l2`；跨板的 `ic1` 是一条显式物理路径，不是任何 net 名的巧合。展平后的 IR 是**扁平的**：一张实例表（`M1.U1`、`M2.U1`…）、一张 net 表，不含模块结构（§7.7；IR 契约 v0.21）。
+两块 PCB 各自声明拥有的模块实例（`design/pcb/pwr-l1.teda`、`design/pcb/pwr-l2.teda`，语法见 `spec/pcb.md` §4.1）：`M1` 属于 `pwr-l1`，`M2` 属于 `pwr-l2`；跨板的 `ic1` 是一条显式物理路径，不是任何 net 名的巧合。展平后的 IR 是**扁平的**：一张实例表（`M1.U1`、`M2.U1`…）、一张 net 表，不含模块结构（§7.7；IR 契约 v0.22）。
 
 `views/charger.view.teda`（工程打印页，画给评审看）：
 
