@@ -315,6 +315,11 @@ export function checkProcurement(facts: ProcurementFacts): Diagnostic[] {
   for (const line of facts.lines) {
     if (lineKeys.has(lineKey(line.component, line.params)) === false) continue;
     if (sourced.has(lineKey(line.component, line.params))) continue;
+    // A part is its own answer (ADR-0029 D3): the design names it, it is bought as itself, and
+    // only generic lines appear in the selection table (`spec/procurement.md` §3.1). A part row is
+    // therefore never waiting for a selection — and saying so here is what keeps the report and
+    // the BOM from disagreeing about the same row (`bought` there, `unsourced` here).
+    if (facts.devices.get(line.component)?.kind === "part") continue;
     diagnostics.push({
       code: "value.procurement-generic-unsourced",
       severity: "warning",

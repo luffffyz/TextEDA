@@ -2068,42 +2068,96 @@ rather than as an error.
 
 ---
 
-## F87. `value.procurement-generic-unsourced` is reported against part rows too
+## F87. `value.procurement-generic-unsourced` is reported against part rows too — **已落地（2026-11-18）**
 
-**Status**: Proposed (2026-11-18). Found while replacing the reference project's jack with a
+**Status**: Settled (2026-11-18). Found while replacing the reference project's jack with a
 class and a part ([ADR-0077](adr/07-devices/0077-a-jack-and-an-led-are-classes.md)).
 
-**Current state**: the check reports `value.procurement-generic-unsourced` for every row of the
-procurement file that has no selection — including rows whose left side is a `kind: part`. A
+**What was wrong**: the check reported `value.procurement-generic-unsourced` for every row of
+the procurement file that has no selection — including rows whose left side is a `kind: part`. A
 part is its own answer ([ADR-0029](adr/07-devices/0029-the-procurement-layer.md) D3): it needs
 no selection, so there is nothing unsourced about it. In the reference project 13 of the 45
-warnings are for part rows — `bq24610rger`, `ch32v307vct6`, `d-b340a`, `d-bat54c`,
+warnings were for part rows — `bq24610rger`, `ch32v307vct6`, `d-b340a`, `d-bat54c`,
 `ihlp2525czer6r8m01`, `ihlp4040dzer150m11`, `ntc-103at`, `q-si7617dn`, `q-sis412dn`,
 `sw-ts-1187`, `tps5430ddar`, `tps7a2033pdbvr`, `xtal-8mhz-3225`.
 
-**Why it matters**: the check and the BOM **contradict each other** on the same project. `texteda
-bom examples/reference-project charger-buck` writes `bq24610rger,BQ24610RGER,,1,bought,M1.U1,` —
-the part is bought, it has a part number — while `texteda check` warns that `bq24610rger` is used
-by `M1.U1` but no part is selected for it. Two outputs of one tool on one project answer the same
-question differently, and the warning's own text says "generic" about a part. The rule it should
-follow is already written: only generic lines appear in the selection table
-([ADR-0029](adr/07-devices/0029-the-procurement-layer.md) D3), and the unsourced rule is about a
-generic line.
+**Why it mattered**: the check and the BOM **contradicted each other** on the same project.
+`texteda bom examples/reference-project charger-buck` writes
+`bq24610rger,BQ24610RGER,,1,bought,M1.U1,` — the part is bought, it has a part number — while
+`texteda check` warned that `bq24610rger` is used by `M1.U1` but no part is selected for it. Two
+outputs of one tool on one project answered the same question differently, and the warning's own
+text said "generic" about a part.
 
-**To do**: decide whether the check reads the left side's `kind` and skips part rows, or whether
-part rows are not supposed to appear in a procurement file at all — the second reading would be a
-parser rule rather than a checker rule. The first is the smaller change and matches the spec's
-wording.
+**What changed**: the unsourced rule skips a line whose component is a `kind: part`
+(`packages/core/src/procurement/rules.ts`). **The record did not move** — the spec already said
+what the tool now does: "a device the design names as a part is already bought as itself …
+only generic lines appear in the selection table" (`spec/procurement.md` §3.1), and "every
+unsourced **generic** line" (`spec/procurement.md` §5.2). It was the implementation that had
+drifted.
 
-**Involved files**: `packages/core/src/procurement/rules.ts` (the unsourced rule, and the BOM's
-`status` rule that says `bought` when the device has an `mpn`),
-`packages/ir/src/diagnostics/codes.ts` (the code's `spec` list),
-`spec/procurement.md` §3.1, §3.2.
+**Acceptance** — all four hold:
 
-**Acceptance**:
-
-- A procurement file with a part row and no selection produces no warning.
+- A part row nobody selected produces no warning.
 - A generic line with no selection still reports `value.procurement-generic-unsourced`.
 - A generic line that says `not-required` still reports nothing.
 - The check and the BOM agree on every row: a row is `unsourced` in one iff it is `unsourced` in
   the other.
+
+The reference project now reports **179** warnings instead of 192; the 32 that remain are all
+generic lines nobody has chosen a part for.
+
+---
+
+## F88. The schematic does not carry a net's current; the pcb layer sizes the copper from the actual maximum current
+
+**Status**: Decided (2026-11-18), **not implemented**. The correction of
+[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D18.
+
+**Current state**: the schematic has a `current <net> <max>` constraint, and the reference project
+uses it four times — `current VBAT 3A`, `current VOUT 3A`, `current V3V3 300mA` (the project root)
+and `current ADAPTER_P 2A` (the input stage). The checker compares none of them with anything and
+says so in a note (`design.current-rail`): "4 rails declare a current; the schematic does not
+compare a rail's current with part ratings".
+
+**The decision**: a net's current is not the schematic's fact. The schematic's business is
+**component parameters** — a pin's requirement (`current <pin> <max>`) and what a part is rated
+for. A rail's current belongs to the **pcb layer**: it sizes the copper that carries the rail, and
+the value to size it with is the **actual maximum current** the rail carries, not a number
+restated by hand in the schematic.
+
+**Why**: a rail's current in the schematic is a hand-written restatement, and a restatement is
+what goes stale. The reference project is the example: `current VBAT 3A` came from the "3 A of
+charge" claim that never followed from the resistors — the stage sets 1.9 A — and nothing
+compares the two, so the number stayed until a reader noticed. The pin requirements
+(`current J1.1 2A`, `current R21.1 2A`) are different: they are requirements on one part, and the
+schematic checks them against what the part is rated for.
+
+**To do**: three things, and they are one problem.
+
+1. **Where the pcb description states a rail's current.** The pcb has `rules` with a `width`, but
+   no rail-current surface, and no rule that compares a rail's copper with a current (F82).
+2. **Where the actual maximum current comes from.** The language does not say which member of a
+   net carries the net's current (F80), so it cannot be derived from the design's own pin
+   requirements yet. Deriving it and stating it are two halves of one decision: a derived value
+   needs no surface, a stated one needs a home.
+3. **What happens to the four declarations**, to the `current <net>` constraint itself, and to the
+   `design.current-rail` note. Removing a constraint from the language before 1.0 needs an
+   explicit decision, a migration note and a migration script
+   ([ADR-0002](adr/01-language/0002-one-language-version-number.md) D5).
+
+**Involved files**: `packages/parser/src/schematic.ts` (the constraint),
+`packages/core/src/design/current.ts` (the rail note), `spec/teda.md` §7.3, `spec/pcb.md` §4,
+`packages/cli/src/check.ts`, `examples/reference-project/design/sch/main.teda`.
+
+**Acceptance**:
+
+- The schematic has no way to declare a net's current, and the reference project declares none.
+- A rail's copper is sized from the actual maximum current, and the pcb says where that number
+  came from.
+- The pin requirements are untouched: `current J1.1 2A` and `current R21.1 2A` stay, because they
+  are requirements on one part.
+- No note fires about a rail the schematic cannot compare.
+
+**Note**: this is the same hole F80 and F82 point at, from the other side. F80 asks who carries a
+rail's current; F82 asks whether the copper is checked against it; this asks whether the
+schematic should be the one that says so at all. Settling the first two settles this one.

@@ -429,6 +429,23 @@ D13).
 This replaces the earlier rule, which compared a net's current with every part on that net and
 could only report a warning, because the attribution was unknown.
 
+→ **Corrected (2026-11-18).** The decision on 2026-11-18: **a net's current is not the
+schematic's fact.** The schematic's business is **component parameters** — a pin's requirement
+(`current <pin> <max>`) and what a part is rated for — and nothing else. A rail's current is a
+**pcb-layer** fact: it sizes the copper that carries the rail, and the value to size it with is
+the **actual maximum current** the rail carries, not a number restated by hand in the schematic.
+
+So `current <net> <max>` has no place in the schematic, and the `design.current-rail` note that
+names the rails and their currents is a symptom of a surface that should not exist: the reference
+project's four rails (`VBAT`, `VOUT`, `V3V3`, `ADAPTER_P`) are hand-written restatements of what
+the design's own components already say.
+
+**Not implemented** (2026-11-18): the language still has the `current <net>` constraint, the
+reference project still declares four rails, and the note still fires. Executing this needs a
+decision of its own — where the pcb description states a rail's current
+(`docs/backlog.md` F82), and where the actual maximum current comes from (the language does not
+yet say who carries a rail's current, F80). The work is registered as `docs/backlog.md` F88.
+
 ## Consequences
 
 - **A part can now be checked against a design.** The gap that made the check unwritable — the

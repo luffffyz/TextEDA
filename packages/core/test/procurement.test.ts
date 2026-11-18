@@ -182,6 +182,71 @@ describe("procurement rules", () => {
   });
 });
 
+describe("a part the design names is its own answer (ADR-0029 D3)", () => {
+  /** A part the design names directly: it is bought as itself, so it needs no selection. */
+  const namedPart: Device = {
+    id: "bq24610rger",
+    kind: "part",
+    mpn: "BQ24610RGER",
+    footprint: "project:powerpak-1212-8",
+    ratings: {},
+    params: [],
+  };
+
+  /** The design line that names it. */
+  const partLine: DesignLine = {
+    component: "bq24610rger",
+    params: {},
+    instances: ["M1.U1"],
+    location: { file: "design/sch/main.teda", line: 10, col: 1 },
+  };
+
+  const partFacts = (overrides: Partial<ProcurementFacts> = {}): ProcurementFacts => ({
+    lines: [partLine],
+    selections: [],
+    devices: new Map([[namedPart.id, namedPart]]),
+    ...overrides,
+  });
+
+  test("a part row nobody selected is not an unsourced line", () => {
+    // The check used to warn that the part had "no part selected for it", while the BOM printed
+    // the same row as `bought`. One project, two answers; the spec says the part is the purchase
+    // (`spec/procurement.md` §3.1).
+    expect(checkProcurement(partFacts())).toEqual([]);
+  });
+
+  test("the BOM and the check agree about the row", () => {
+    const rows = buildBomLines(partFacts());
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      component: "bq24610rger",
+      mpn: "BQ24610RGER",
+      status: "bought",
+      quantity: 1,
+    });
+    const unsourced = checkProcurement(partFacts()).filter(
+      (diagnostic) => diagnostic.code === "value.procurement-generic-unsourced",
+    );
+    expect(unsourced).toEqual([]);
+  });
+
+  test("a generic line nobody selected is still an unsourced line", () => {
+    const result = checkProcurement(
+      facts({
+        lines: [line(), partLine],
+        selections: [],
+        devices: new Map([
+          [generic.id, generic],
+          [namedPart.id, namedPart],
+        ]),
+      }),
+    );
+    expect(result.map((d) => d.code)).toEqual(["value.procurement-generic-unsourced"]);
+    expect(result[0]!.message).toContain("res-thick-0402");
+    expect(result[0]!.message).not.toContain("bq24610rger");
+  });
+});
+
 describe("a class-valued line (ADR-0077 D3)", () => {
   /** A generic: a green indicator LED. */
   const indicator: Device = {
