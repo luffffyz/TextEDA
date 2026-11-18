@@ -8,6 +8,7 @@ import { describe, expect, test } from "bun:test";
 import {
   checkDeviceDeclaration,
   checkDeviceParamValue,
+  checkDeviceRatingValue,
   DEVICE_CONSTRUCTIONS,
   DEVICE_PARAM_VALUE_SETS,
   DEVICE_ROLES,
@@ -44,8 +45,10 @@ describe("the rule table", () => {
   });
 
   test("the closed value sets have no duplicates", () => {
-    for (const [role, set] of Object.entries(DEVICE_PARAM_VALUE_SETS)) {
-      expect(new Set(set).size, role).toBe(set.length);
+    for (const [role, byType] of Object.entries(DEVICE_PARAM_VALUE_SETS)) {
+      for (const [type, set] of Object.entries(byType)) {
+        expect(new Set(set).size, `${role}.${type}`).toBe(set.length);
+      }
     }
   });
 });
@@ -187,17 +190,45 @@ describe("value checks", () => {
   const at = { file: "design/sch/main.teda", line: 12, col: 5 };
 
   test("a member of the closed set is accepted", () => {
-    expect(checkDeviceParamValue("dielectric", "X7R", at)).toEqual([]);
+    expect(checkDeviceParamValue("dielectric", "string", "X7R", at)).toEqual([]);
   });
 
   test("a spelling outside the closed set is an error", () => {
-    const diagnostics = checkDeviceParamValue("dielectric", "X7r", at);
+    const diagnostics = checkDeviceParamValue("dielectric", "string", "X7r", at);
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0]!.code).toBe("value.component-param-value-invalid");
     expect(diagnostics[0]!.actual).toBe("X7r");
   });
 
   test("a role without a value set accepts any text", () => {
-    expect(checkDeviceParamValue("value", "whatever", at)).toEqual([]);
+    expect(checkDeviceParamValue("value", "capacitance", "whatever", at)).toEqual([]);
+  });
+
+  test("a set applies only to the quantity it was written for", () => {
+    // `value` is a capacitance for a capacitor and a colour for an indicator: the set is keyed
+    // by the role and the quantity, so a capacitance is not read as a colour.
+    expect(checkDeviceParamValue("value", "capacitance", "10u", at)).toEqual([]);
+    expect(checkDeviceParamValue("value", "string", "green", at)).toEqual([]);
+  });
+
+  test("a colour outside the closed set is an error, and the legal spellings are listed", () => {
+    const diagnostics = checkDeviceParamValue("value", "string", "GREEN", at);
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]!.code).toBe("value.component-param-value-invalid");
+    expect(diagnostics[0]!.actual).toBe("GREEN");
+    expect(diagnostics[0]!.expected).toContain("green");
+    expect(diagnostics[0]!.expected).toContain("amber");
+  });
+
+  test("amber and orange are one colour, so only one spelling is legal", () => {
+    expect(checkDeviceParamValue("value", "string", "amber", at)).toEqual([]);
+    expect(checkDeviceParamValue("value", "string", "orange", at)).toHaveLength(1);
+  });
+
+  test("a part's own rating is checked against the same set", () => {
+    expect(checkDeviceRatingValue("value", "string", "green", at)).toEqual([]);
+    const diagnostics = checkDeviceRatingValue("value", "string", "Grün", at);
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]!.code).toBe("value.component-rating-value-invalid");
   });
 });

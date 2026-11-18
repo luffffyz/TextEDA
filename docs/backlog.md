@@ -211,7 +211,7 @@
 | `parameterised-divider` | 五个同值电阻（`100k`）做出三个不同抽头电压：三腿梯形网络两个抽头 + 两腿分压一个抽头；抽头电压写成字面量（`2.2V` / `1.1V` / `1.65V`）| 没有新的语言缺口，但**记录了一条边界**：分压比是**拓扑**的事，语言里没有表达式（[ADR-0001](adr/01-language/0001-fact-layer-has-no-expressions.md) D3）、模块参数也没做（F13），所以「抽头电压」是设计者手算的字面量——检查器拿它跟器件比，不验证分压本身。用例同时钉住 Q2 的另一个形状：分压器不是宽表，ADR-0001 D6 的触发条件不成立 |
 | `dnp-variant` | a default project variant and a component-scoped DNP list; variant state stays outside logical connectivity | no new surface was needed: `[variants.<id>]` is parsed into the project shard, while the schematic and netlist remain unchanged; instance-scoped generic DNP remains outside this case |
 
-**两个在十个之外的用例**：`directed-ratings`（件的额定值点名它说的那两个端子，[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D4）与 `class-devices`（插头与 LED 是**类**、类值主值按**相等**比、`length` 参数可用、字符串额定值进 IR，[ADR-0077](adr/07-devices/0077-a-jack-and-an-led-are-classes.md)）。它们不占那十个名额：一个构造进语言就得有一个用例用它（`AGENTS.md` §5.2 规则 1），而这两个构造不进那十个用例要证明的事。
+**三个在十个之外的用例**：`directed-ratings`（件的额定值点名它说的那两个端子，[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D4）、`class-devices`（插头与 LED 是**类**、类值主值按**相等**比、`length` 参数可用、字符串额定值进 IR，[ADR-0077](adr/07-devices/0077-a-jack-and-an-led-are-classes.md)）与 `polarized-class`（有极性的类点名它的正极引脚，要求按那个方向比，[ADR-0078](adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md)）。它们不占那十个名额：一个构造进语言就得有一个用例用它（`AGENTS.md` §5.2 规则 1），而这三个构造不进那十个用例要证明的事。
 
 **`diff` / `skew` 的落地状态（写于 2026-10-27）**：语法（`spec/teda.md` §7.4）、解析（`packages/parser/src/schematic.ts` 的 `case "diff"` / `case "skew"`）、契约（`schematic.schema.json` 的 `constraint` 分支）都在，**没有**任何规则消费它们：`impedance` / `length` / `diff` / `skew` 目前只被「pcb 里点名的 net 必须存在」这条绑定校验顺带看到（`packages/core/src/binding/checks.ts`）。差分阻抗与等长要能判定，得先有 B0 的走线数据与 DRC 指标（F48），所以本项不重复登记。
 
@@ -1965,10 +1965,11 @@ have pinned a silent gap as if it were a result.
 
 ---
 
-## F85. A polarized generic's requirement is read as a magnitude
+## F85. A polarized generic's requirement is read as a magnitude — **已落地（2026-11-18）**
 
-**Status**: Proposed (2026-11-18). The open point of
-[ADR-0075](adr/07-devices/0075-a-ratings-polarity-is-the-roles.md).
+**Status**: Settled (2026-11-18). The open point of
+[ADR-0075](adr/07-devices/0075-a-ratings-polarity-is-the-roles.md), closed by
+[ADR-0078](adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md).
 
 **Current state**: a generic states its requirements in the instances row, and the stress check
 reads the `voltage` requirement as a magnitude across the part's two pins, with no polarity
@@ -2005,14 +2006,33 @@ belongs to the connectivity check rather than to the stress comparison),
 `packages/parser/src/component.ts` (what reaches the IR: the `polarized` fact and the pin types),
 `spec/teda.md` §6.3, §7.3.
 
-**Acceptance**:
+**What changed**: a polarised class names its positive pole with a new scalar, `positive_pin
+<pin number>` (language 0.17, ADR-0078 D1). The poles are the pins typed `polarized`, and the
+class names which of the two is the positive one (D2). The requirement is then read in the
+class's own direction: the **forward** stress (positive pole above the negative one) is compared
+with the requirement, and the **reverse** stress is compared with zero — a reverse stress above
+zero is a part mounted the wrong way round and is reported as `design.polarity-reversed` (D3).
+An unpolarised class is untouched: its requirement stays a magnitude across its two pins.
+
+The language moves to **0.17.0** and the IR contract to **v0.21** (`component.positive_pin`).
+A file below 0.17 may not name a positive pin, so a polarised class written against an older
+language says only that it is polarised and its requirement stays a magnitude — the reading that
+language had.
+
+**Acceptance** — all four hold:
 
 - A polarized generic whose positive pin sits at a lower potential than its negative pin is
-  reported, naming both nets and both potentials.
+  reported, naming both nets and both potentials. (Pinned by
+  `packages/core/test/ratings.test.ts`: the report names both nets, both windows and both poles.)
 - The same part with the correct polarity is not reported.
 - An unpolarized generic is unaffected: its requirement stays a magnitude.
 - The report states which polarity it compared, so that "compared" is not a claim about the wrong
-  half again.
+  half again. (The two comparisons report two different things: the forward one is "is the
+  requirement enough", the reverse one is "is it the right way round".)
+
+The reference project's jack is compared for the first time — it has three contacts, so the old
+two-pin inference could not pair its requirement with two nets — and the coverage goes from 28 of
+83 instances to 29. The corpus gains `examples/cases/polarized-class/`.
 
 **Note**: this is the counterpart of F84. F84 asked what a rating's polarity is and decided that
 it is the role's; this asks the same question about the requirement a generic states in the
@@ -2021,10 +2041,11 @@ pin is positive.
 
 ---
 
-## F86. A colour has no closed vocabulary, so it is a second spelling waiting to happen
+## F86. A colour has no closed vocabulary, so it is a second spelling waiting to happen — **已落地（2026-11-18）**
 
-**Status**: Proposed (2026-11-18). The open point of
-[ADR-0077](adr/07-devices/0077-a-jack-and-an-led-are-classes.md).
+**Status**: Settled (2026-11-18). The open point of
+[ADR-0077](adr/07-devices/0077-a-jack-and-an-led-are-classes.md), closed by
+[ADR-0079](adr/07-devices/0079-a-colour-has-a-closed-vocabulary.md).
 
 **Current state**: an `indicator`'s `value` is a plain `string`. `green` parses, `GREEN` parses,
 `Grün` parses, and each is a different BOM line, because the BOM line key is the generic's id
@@ -2054,11 +2075,25 @@ value sets), `packages/core/src/procurement/rules.ts` (the class equality compar
 `packages/parser/src/component.ts` (the value-set check on a parameter column),
 `spec/teda.md` §6.2.1, §6.2.2.
 
-**Acceptance**:
+**What changed**: the colour set is closed and lives in the tool's device table next to
+`dielectric`'s (ADR-0079 D1). The set holds seven members — `red`, `amber`, `yellow`, `green`,
+`cyan`, `blue`, `white` — and `orange` is deliberately **not** one of them: amber and orange are
+the same colour in two spellings, and a set holding both would be the failure mode a closed set
+exists to prevent (D3). The closed sets are now keyed by the role **and** the quantity: `value` +
+`string` is a colour, `value` + `capacitance` is a capacitance and has no set (D2) — one key per
+role would have read a capacitance as a colour.
+
+**Acceptance** — all three hold:
 
 - A colour outside the set is an error at the file, with the legal spellings listed.
 - `green` and `GREEN` are one BOM line, or the second one is an error — never two lines.
 - The set does not silently normalise: the file says what it means.
+
+The check reaches all three places a colour is written — the instance row, the procurement
+selection and the part's own `value` rating — because all three are read by the same column
+reader. The reference project and the corpus already spell `green`, so nothing in the tree
+changes; a file that spells a colour outside the set is now an error, and the diagnostic lists
+the legal spellings.
 
 **Note**: this is deliberately not decided here. The set of colours a class may take is a
 device-world fact, and the table that would hold it is global; writing it in a project file would
@@ -2161,3 +2196,50 @@ schematic checks them against what the part is rated for.
 **Note**: this is the same hole F80 and F82 point at, from the other side. F80 asks who carries a
 rail's current; F82 asks whether the copper is checked against it; this asks whether the
 schematic should be the one that says so at all. Settling the first two settles this one.
+
+---
+
+## F89. The procurement layer does not compare the polarity of a class with the polarity of the part bought for it
+
+**Status**: Proposed (2026-11-18). The open point of
+[ADR-0078](adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md).
+
+**Current state**: a polarised class says which way round its part goes (`positive_pin`, ADR-0078
+D1), and the part bought for it says in its own pin table which of its pins are poles (the pins
+typed `polarized`). The procurement comparison ([ADR-0029](adr/07-devices/0029-the-procurement-layer.md)
+decision 3.2) compares the parameter values and the ratings role by role — the voltage, the
+current, the class-valued primary — but it says nothing about the polarity, so the two facts are
+never put next to each other.
+
+**Why it matters**: a part with the same footprint and the **opposite** polarity can be selected
+for a polarised class. The class asks for 10 V and 2 A; the part states 10 V and 2 A; the
+comparison passes, and the part is mounted the other way round. The schematic-level check
+(ADR-0078 D3) cannot see it either: it compares the class's requirement with the nets, and the
+part is not in the schematic — the procurement layer is where the class and the part meet.
+
+**To do**: one question, and it is about the part.
+
+1. **How a part says which of its poles is positive.** A part inherits its polarity from the class
+   it is chosen for ([ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md) D2), so
+   it names no positive pin — and the class's `positive_pin` is a pin *number of the class*, which
+   need not be the part's pin number (the two files may number their pins differently). The
+   comparison needs either a way for a part to say which of its poles is positive, or a rule that
+   the poles are matched by something both files agree on.
+2. **What the comparison reports.** A part whose polarity does not match the class is not a part
+   for that class: it is the same failure as a colour that is not the one the line asks for
+   ([ADR-0079](adr/07-devices/0079-a-colour-has-a-closed-vocabulary.md) D1), and the report should
+   say so rather than select it.
+
+**Involved files**: `packages/core/src/procurement/rules.ts` (the class-to-part comparison),
+`packages/parser/src/component.ts` (what a part file may say about its poles),
+`spec/procurement.md` §3.3.
+
+**Acceptance**:
+
+- A part bought for a polarised class states which way round it goes, and the selection compares
+  it with the class.
+- A part with the opposite polarity is not selected for the class, and the report says why.
+- A part for an unpolarised class is unaffected.
+
+**Note**: this is the same shape as the class-valued primary: the comparison is by equality, not
+by envelope. A polarity is not "at least" — the other way round is simply not the part.

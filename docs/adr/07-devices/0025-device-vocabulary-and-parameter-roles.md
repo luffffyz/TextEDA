@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-23
 Scope: Decides: that the device vocabulary is closed and checked, and that a parameter is a role plus a quantity with a dimension. Does not decide: the ratings a part may state — see ADR-0026.
-Related: [ADR-0007](../02-ir/0007-device-description-enters-the-ir.md), [ADR-0024](0024-the-device-kind-is-part-or-generic.md), [ADR-0026](0026-a-part-states-its-own-ratings.md), [ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md), [ADR-0029](0029-the-procurement-layer.md), [ADR-0075](0075-a-ratings-polarity-is-the-roles.md), [ADR-0077](0077-a-jack-and-an-led-are-classes.md)
+Related: [ADR-0007](../02-ir/0007-device-description-enters-the-ir.md), [ADR-0024](0024-the-device-kind-is-part-or-generic.md), [ADR-0026](0026-a-part-states-its-own-ratings.md), [ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md), [ADR-0029](0029-the-procurement-layer.md), [ADR-0075](0075-a-ratings-polarity-is-the-roles.md), [ADR-0077](0077-a-jack-and-an-led-are-classes.md), [ADR-0078](0078-a-polarised-class-names-its-positive-pin.md), [ADR-0079](0079-a-colour-has-a-closed-vocabulary.md)
 Impact: `spec/teda.md` §6.2.1, §6.2.2; `packages/core/src/devices/**`
 
 ## Background
@@ -115,6 +115,13 @@ spelling for one code is a second BOM line, so accepting `X-7R` next to `X7R` wo
 problem rather than solve it. A value outside the set is an error at the source, and the
 diagnostic lists the legal values.
 
+→ **Extended (2026-11-18).** A second closed set joined the table: the colours an indicator may
+show (`red`, `amber`, `yellow`, `green`, `cyan`, `blue`, `white`)
+([ADR-0079](0079-a-colour-has-a-closed-vocabulary.md) D1, D3). The sets are keyed by the role
+**and** the quantity from now on: the same role means a capacitance for a capacitor and a colour
+for an indicator, so a set applies only to the values it was written for
+([ADR-0079](0079-a-colour-has-a-closed-vocabulary.md) D2).
+
 ### D6. A parameter is required when the specification is incomplete without it
 
 The rule:
@@ -189,6 +196,10 @@ It is tool-side because it is device engineering knowledge, not language structu
 when the device world changes, and a language should not carry a table it must be versioned for.
 The same reasoning as [ADR-0001](../01-language/0001-fact-layer-has-no-expressions.md) — the knowledge lives
 next to the language, not inside it.
+
+→ **Extended (2026-11-18).** The table holds the colour set as well
+([ADR-0079](0079-a-colour-has-a-closed-vocabulary.md) D1), and the closed sets are keyed by role
+**and** quantity ([ADR-0079](0079-a-colour-has-a-closed-vocabulary.md) D2).
 
 It is closed, and it fails closed. A new construction is a tool upgrade, not a project decision.
 That is the cost, stated plainly.

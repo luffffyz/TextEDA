@@ -331,7 +331,7 @@ describe("check (the project logical root composes modules)", () => {
       const result = analyzeProject(root);
       expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
       const ir = result.main.ir!;
-      expect(ir.ir_version).toBe("0.20");
+      expect(ir.ir_version).toBe("0.21");
       expect(ir.project).toBe("main");
       expect(ir.instances.map((i) => i.id)).toEqual(["M1.R1"]);
       expect(ir.nets.map((n) => n.id)).toEqual(["VCC"]);

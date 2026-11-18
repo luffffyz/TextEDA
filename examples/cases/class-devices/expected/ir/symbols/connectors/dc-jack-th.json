@@ -1,6 +1,6 @@
 {
   "format": "0.16",
-  "ir_version": "0.20",
+  "ir_version": "0.21",
   "source": {
     "file": "assets/symbols/connectors/dc-jack-th.teda",
     "line": 1

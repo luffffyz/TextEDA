@@ -10,7 +10,7 @@ import { viewHouseStyleProblems } from "./lib/view-style.ts";
 const nm = (mm: number): number => Math.round(mm * 1e6);
 
 const page = (over: Partial<SchematicView> = {}): SchematicView => ({
-  ir_version: "0.20",
+  ir_version: "0.21",
   format: "view",
   project: "main",
   page: "p",

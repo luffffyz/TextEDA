@@ -232,15 +232,64 @@ export const DEVICE_ROLE_TYPES: Record<string, string> = Object.fromEntries(
 /** The role that names a device's primary quantity, whatever its construction. */
 export const DEVICE_PRIMARY_ROLE = "value";
 
+/** The electrical type the two poles of a polarised device carry. */
+export const POLARIZED_PIN_TYPE = "polarized";
+
 /**
- * Closed value sets, keyed by role.
+ * The two poles of a polarised class: the pin it names as positive, and the other one.
+ *
+ * The poles are the pins typed `polarized` — a pin typed `passive` does not say which way round
+ * it is — and the class names which of the two is the positive one (ADR-0078).
+ *
+ * `null` when the class does not say: a class written against a language before 0.17 names no
+ * positive pin, and its requirement is then read as a magnitude, the way the language read it
+ * before.
+ */
+export function polesOf(device: {
+  readonly pins: readonly string[];
+  readonly pin_types?: Readonly<Record<string, string>>;
+  readonly positive_pin?: string;
+}): { readonly positive: string; readonly negative: string } | null {
+  const positive = device.positive_pin;
+  if (positive === undefined) return null;
+  const poles = device.pins.filter((pin) => device.pin_types?.[pin] === POLARIZED_PIN_TYPE);
+  if (poles.length !== 2) return null;
+  if (!poles.includes(positive)) return null;
+  const negative = poles.find((pin) => pin !== positive);
+  if (negative === undefined) return null;
+  return { positive, negative };
+}
+
+/**
+ * Closed value sets, keyed by role and then by the role's quantity.
  *
  * A member is the only legal spelling: no normalisation, no aliases. Two spellings of one code
  * would be two BOM lines (the BOM line key is the device id plus the parameter values).
+ *
+ * The second key is the quantity, because a role's quantity is what decides whether its value is
+ * a code at all: `value` is a capacitance for an MLCC (no set — every capacitance is legal) and a
+ * colour for an indicator (a set of seven). One table keyed by the role alone would have to hold
+ * both, and the capacitor's capacitance would be read as a colour.
  */
-export const DEVICE_PARAM_VALUE_SETS: Record<string, readonly string[]> = {
-  // IEC 60068-4 temperature characteristic codes.
-  dielectric: ["C0G", "NP0", "X5R", "X5S", "X6S", "X7R", "Y5V"],
+export const DEVICE_PARAM_VALUE_SETS: Record<
+  string,
+  Readonly<Record<string, readonly string[]>>
+> = {
+  // IEC 60068-4 temperature characteristic codes. The quantity is `string`: a dielectric is a
+  // class, not a measurement.
+  dielectric: {
+    string: ["C0G", "NP0", "X5R", "X5S", "X6S", "X7R", "Y5V"],
+  },
+  // The colours an indicator may show. A colour is a class, not a quantity (ADR-0077 D3), so the
+  // set is closed like a dielectric's.
+  //
+  // `orange` is not a member: amber and orange are the same colour in two spellings, and a set
+  // that held both would be the very failure mode a closed set exists to prevent — two BOM lines
+  // for one colour. A project that needs a colour the set does not hold waits for a tool
+  // upgrade (ADR-0025 D7), which is the price stated there.
+  value: {
+    string: ["red", "amber", "yellow", "green", "cyan", "blue", "white"],
+  },
 };
 
 /** One declared parameter column, with where it was written. */
@@ -361,14 +410,16 @@ export function checkDeviceDeclaration(facts: DeviceDeclarationFacts): Diagnosti
  * Check a parameter value against its role's closed value set.
  *
  * Only roles whose value is a code (not a quantity) have one; a role without a set accepts any
- * text. The spelling must be a member: no normalisation, no aliases.
+ * text. The spelling must be a member: no normalisation, no aliases. The quantity is part of the
+ * key, so a set only applies to the values it was written for.
  */
 export function checkDeviceParamValue(
   role: string,
+  type: string,
   text: string,
   location: { file: string; line: number; col: number },
 ): Diagnostic[] {
-  return valueSetDiagnostic(role, text, location, "value.component-param-value-invalid");
+  return valueSetDiagnostic(role, type, text, location, "value.component-param-value-invalid");
 }
 
 /**
@@ -380,20 +431,22 @@ export function checkDeviceParamValue(
  */
 export function checkDeviceRatingValue(
   role: string,
+  type: string,
   text: string,
   location: { file: string; line: number; col: number },
 ): Diagnostic[] {
-  return valueSetDiagnostic(role, text, location, "value.component-rating-value-invalid");
+  return valueSetDiagnostic(role, type, text, location, "value.component-rating-value-invalid");
 }
 
 /** The shared body of the two value-set checks. */
 function valueSetDiagnostic(
   role: string,
+  type: string,
   text: string,
   location: { file: string; line: number; col: number },
   code: "value.component-param-value-invalid" | "value.component-rating-value-invalid",
 ): Diagnostic[] {
-  const set = DEVICE_PARAM_VALUE_SETS[role];
+  const set = DEVICE_PARAM_VALUE_SETS[role]?.[type];
   if (set === undefined) return [];
   if (set.includes(text)) return [];
   return [

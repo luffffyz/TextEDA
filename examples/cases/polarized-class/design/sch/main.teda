@@ -1,0 +1,21 @@
+version 0.17.0
+schematic main
+
+# A 5 V rail with a bulk capacitor on it. The windows are declared here, on the project root, and
+# only here: one net states its window once (spec/teda.md, "one net states one window"). Both nets
+# need a window — without one of them the capacitor is not compared at all, and the report says so
+# instead of reading the instance as checked.
+modules
+  M1  IDm4t7qz  bulk-cap
+
+nets
+  GND:   M1.GND
+  VOUT:  M1.VOUT
+
+ports
+  GND   GND
+  VOUT  VOUT
+
+constraints
+  voltage  GND   0V..0V
+  voltage  VOUT  4.5V..5.5V

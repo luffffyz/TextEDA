@@ -202,6 +202,7 @@ schematic main
 | `mpn` | 条件 | 制造商料号：`kind: part` 必填，`kind: generic` **必须不写** |
 | `construction` | 条件 | 构造工艺：`kind: generic` 必填，`kind: part` **必须不写** |
 | `polarized` | 条件 | 是否有极性：`kind: generic` 必填（`yes` / `no`），`kind: part` **必须不写** |
+| `positive_pin` | 条件 | 正极是哪个引脚：**引脚编号**（引脚号，不是引脚名）。`kind: generic` 且 `polarized yes` 时**必填**，`polarized no` 时**必须不写**；`kind: part` **必须不写**（件从它所属的通用件继承极性）。自语言 **0.17** 起可用（决策见 [ADR-0078](../docs/adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md) D1） |
 | `manufacturer` | 否 | 厂商 |
 | `category` | 否 | 器件类别，开放取值集：`mcu` / `resistor` / `capacitor` / `inductor` / `led` / `diode` / `mosfet_p` / `regulator` / `battery_charger` / … |
 | `datasheet` | 否 | URL：**厂商自己的文件**——写载明这个件那些数的那一份（额定值写在产品页上就写产品页，写在 PDF 里就写 PDF；机械图纸载的是引脚表与 land pattern，不是额定值）；分销商的购买页不是数据手册（决策见 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) D6） |
@@ -217,6 +218,8 @@ schematic main
 
 `category` 是**器件类别**，取值是**开放集合**：不设封闭目录，库里没有的类别直接用，小写加下划线。它只做分类，不参与校验逻辑分支；与文件头的类型（`component` / `schematic` / `pcb`）无关。
 
+**`positive_pin` 说的是"两极里哪个是正极"**：两极是 `pins` 段里类型为 `polarized` 的那两个引脚（§6.3），`positive_pin` 点名其中一个。点名的那个引脚不是 `polarized` 类型、或这一类不是恰好两个 `polarized` 引脚，报 `value.component-positive-pin-invalid`。有了它，这一类的 `voltage` 要求才按自己的方向比（§7.3）。
+
 **封装名不在器件文件里**。器件只引用一个 `footprint`（`lib:name`），封装代号由封装文件自己写（`package_code`，见 `spec/footprint.md` §2）：封装代号是**焊盘图案**的名字（`0402`、`SOT-23-5`、`LQFP-100`），两个字段说同一件事、且没人校验它们一致，所以删掉一个（决策见 [ADR-0028](../docs/adr/07-devices/0028-package-code-and-3d-models.md) decision 1）。
 
 ### 6.1.1 两种器件：`part` 与 `generic`
@@ -230,6 +233,7 @@ schematic main
 
 - `part` 是**买得到的那一颗**：料号固定了它的一切，所以它没有参数列，也不写构造与极性（那是从它所属的通用器件继承的）。
 - `generic` 是**设计要求的规格**：文件里没有料号，值、耐压、容差都在 `instances` 行里；`construction`（`mlcc` / `film` / `tantalum` / `electrolytic` / `thick` / `thin` / `shielded` / `molded` / `barrel` / `indicator`，**封闭取值集**，由 `texteda check` 按 [ADR-0025](../docs/adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) D4 检查；后两个由 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) D1、D2 加入）与 `polarized`（`yes` / `no`）是它自己的事实，不再靠文件名或符号选择暗示。买哪一颗由采购层决定（`spec/procurement.md`），不在器件文件里。**封闭的理由**：已经有一条**已决的规则**按构造分流（[ADR-0028](../docs/adr/07-devices/0028-package-code-and-3d-models.md) decision 2 用它区分"能不能带封装包络"，检查落在 `lib:verify`，**实现未落地**，见 `docs/backlog.md` F32），开放词表里的拼错不会报错，只会**静默漏掉一条安全检查**。
+- **有极性的类别还要说哪个是正极**：`polarized yes` 的通用件用 `positive_pin` 点名正极引脚（§6.1）。两极是引脚表里类型为 `polarized` 的两个引脚。于是它的 `voltage` 要求按**正极高于负极**的方向比，反过来的方向是**装反了**（§7.3，决策见 [ADR-0078](../docs/adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md) D1、D3）。
 - 两种器件**同在一个目录**：`assets/components/**` 放全部器件文件，子目录只用于分类。`kind` 是文件里的事实，**不从目录推断**，目录也不表达种类（决策见 [ADR-0024](../docs/adr/07-devices/0024-the-device-kind-is-part-or-generic.md)）。两者共用一个 id 命名空间，id 取文件名。
 - 通用器件的 id 不带值、不带耐压、不带容差（`cap-mlcc-0402`、`res-thick-0402`、`cap-tantalum-7343`）。
 
@@ -287,7 +291,7 @@ params
 
 **极性是角色的，因为它是数据手册的写法**（决策见 [ADR-0075](../docs/adr/07-devices/0075-a-ratings-polarity-is-the-roles.md)）：MOSFET 的 `V_DS` / `V_GS` 限的是**差值**，两个方向都算，所以这两个角色是 `symmetric`；二极管的 `V_RRM` 只管反向，正向压降是 `characteristic` 不是 `limit`，所以 `reverse_voltage` 保持单向。早先这两个 MOSFET 角色是单向的（`from`），结果 P 沟道件作为高边开关时**真实受力的那一侧不在角色里**：比较器什么都不比，件却读作"比过了"。极性写进角色表，行里不重复（语言里因此没有极性列，也没有多出角色）。
 
-> **通用件的要求还没有极性**：`voltage` 对电解电容这类**有极性**的类别也按 `symmetric` 读（语言说不出通用件两脚里哪个是正极），这是已知的缺口（`docs/backlog.md` F85）。
+> **通用件的要求按它自己的极性读**：有极性的类别用 `positive_pin` 点名正极（§6.1），于是它的 `voltage` 要求限的是**正极高于负极**时的电压；反过来的方向不是另一个幅值，而是**装反了**（报 `design.polarity-reversed`，§7.3）。没有极性的类别仍按 `symmetric` 读（决策见 [ADR-0078](../docs/adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md) D3）。
 
 > **两个"方向"不是一回事**：下面这张采购比较表的方向说的是"**哪一边更好**"（选料时件的额定值要往哪边比），角色表里的应力方向说的是"**哪种极性会伤到件**"（比较时两个 net 的窗口怎么读）。一张是选料口径，一张是电路口径，别混。
 
@@ -309,6 +313,8 @@ params
 所以 `R1 10k ±1%` 允许买 ±0.5% 的件（更好，合格），不允许买 ±2% 的件（更差，超出设计给的包络）。**写容差不挡替代料，挡替代料的是"把值当事实写死"。** 比较用的件额定值从哪来已经定了：件在自己的文件里用 `ratings` 段写（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)，§6.4）。
 
 **封闭取值集**：成员就是唯一合法拼写，**不归一化、不收别名**——同一个码的两种写法会变成两行 BOM。取值不在集合里 → 源码侧报错并列出合法值（决策见 [ADR-0025](../docs/adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) D5）。
+
+取值集按**角色与量纲**两重键：`dielectric` 的量纲是 `string`，指示灯的 `value` 的量纲也是 `string`（主值是颜色这一类），而电容的 `value` 量纲是 `capacitance`——只按角色一个键的话，容值会被读成颜色。指示灯的颜色取值集是 `red`、`amber`、`yellow`、`green`、`cyan`、`blue`、`white`（决策见 [ADR-0079](../docs/adr/07-devices/0079-a-colour-has-a-closed-vocabulary.md) D2、D3）。
 
 #### 6.2.2 哪些参数必填
 
@@ -359,6 +365,7 @@ pins
 - `pins` 对指向**自建符号**的器件是**必填**：自建 `symbol` 只描述视图，不带引脚名与电气类型（[ADR-0031](../docs/adr/08-libraries/0031-symbol-format.md)），事实只能内联。
 - 可以省略的唯一情形：`symbol` 指向**自带引脚事实**的第三方库（如 KiCad `.kicad_sym`），此时引脚由库解析、`pins_source = symbol`。自建符号不能成为这个来源。
 - 两种来源同时存在时**内联优先**（用于修正库里的错误）；差异由校验报告输出，不静默采用。
+- **两极**：有极性的器件（`polarized yes`）把两极的类型写成 `polarized`，这两个引脚**不可互换**；`positive_pin` 点名其中哪个是正极（§6.1）。恰好两个 `polarized` 引脚是这一类的前提——一个或三个都没有"那一对"可比较（决策见 [ADR-0078](../docs/adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md) D2）。
 
 ### 6.4 `ratings` 段（`kind: part`）
 
@@ -478,6 +485,8 @@ constraints
 **哪个角色用哪个方向，是数据手册的写法，不是符号的正负**（决策见 [ADR-0075](../docs/adr/07-devices/0075-a-ratings-polarity-is-the-roles.md)）：MOSFET 的 `V_DS` / `V_GS` 限的是差值的**幅值**，所以 `drain_source_voltage` 与 `gate_source_voltage` 是 `symmetric`——P 沟道件作为高边开关时，真实受力的那一侧（源高于栅/漏）因此也在比较之内；二极管的 `V_RRM` 只管反向，`reverse_voltage` 保持 `to`。今天没有角色用 `from`。
 
 器件的电压能力来自 `instances` 行的 `voltage` 列（通用件：设计要求）或器件自己的 `ratings`（`kind: part`：事实，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)）。能力低于应力报 `design.rating-exceeded`，载荷里带角色与起作用的两个端子。
+
+**有极性的通用件按它自己的方向比**（决策见 [ADR-0078](../docs/adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md) D3）：这一类的 `voltage` 要求限的是**正极高于负极**时的电压，所以**正向**应力（`max(V(+) − V(−))`）拿去比这个要求；**反过来的**方向（`max(V(−) − V(+))`）不是另一个幅值，而是**装反了**——它超过 0 就报 `design.polarity-reversed`（error，载荷里带两个 net、两个窗口与两个引脚）。两个方向报的是两件事：正向是"要求够不够"，反向是"方向对不对"。没有极性的类别仍按幅值读。这条比较**只在类别点名了正极时进行**：版本低于 0.17 的文件没有这个事实，它的要求仍按幅值读（§6.1）。
 
 **只有 `kind: limit` 的角色参与这个比较**（§6.2.1）：`characteristic` 与 `code` 不是"不得超过"的边界，电压比较不消费它们。
 
@@ -611,7 +620,7 @@ interconnect_pins
 - **`interconnects` 数组**：每项 `{ id, from, to }`，端点是 `M1.PORT` 形式的模块端口引用。
 - **`interconnect_pins` 数组**：每项 `{ interconnect, from, to }`，引脚引用是 `M1.J1.1` 形式的展平引脚引用。
 - **可选数组为空时省略**（`interconnects`、`interconnect_pins`）；必填字段恒在。
-- IR 契约版本 **v0.20**（`schemas/ir/`；`v0.19` 保持不变）。`modules` / `interconnects` / `interconnect_pins` 分片是**规范**分片（`normative: true`）：归属与跨板路径进工程哈希。
+- IR 契约版本 **v0.21**（`schemas/ir/`；`v0.20` 保持不变）。`modules` / `interconnects` / `interconnect_pins` 分片是**规范**分片（`normative: true`）：归属与跨板路径进工程哈希。
 - **归属与物理连通性的全局校验在 core，不在 parser**：parser 只管每份文件的形状与本地引用；"每个实例恰好属于一块 PCB""interconnect 端点两侧的物理路径成立"由 `texteda check` 汇总全部文件后执行（`spec/pcb.md` §5.2）。
 
 ---
@@ -738,7 +747,7 @@ interconnect_pins
 
 `version` 为 `MAJOR.MINOR[.PATCH]`，三位各自无前导零。**PATCH 位可省略，省略即 0**：`0.6` 与 `0.6.0` 是同一个版本，IR 里只存一种写法（`0.6`）。
 
-**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.16.0**。
+**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.17.0**。
 
 各描述类型接受的**下界**是当前 reader 仍支持的最早表面形态；它可以晚于类型的历史引入版本。上界对所有描述类型都是同一个——语言当前版本。
 
@@ -757,7 +766,7 @@ interconnect_pins
 
 `packages/parser/src/version.ts` 的 reader-floor 表实现接受下界；`packages/parser/test/version-spec.test.ts` 将其与本表钉在一起。类型引入版本是历史事实，保留在说明列中；它不决定 reader floor。
 
-在 `0.x` 阶段，兼容澄清和诊断改进走 PATCH；新增段或字段、以及**改变已接受文件的表面形态**走 MINOR，并且必须有显式决策记录（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D5）。`0.10.0` 由 [ADR-0055](../docs/adr/09-view/0055-schematic-fields-are-view-overrides.md) 引入 `view` 的 `field` 段；`0.11.0` 由 [ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) 把坐标统一成一个括号元组单元格；`0.12.0` 由 [ADR-0067](../docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md) 加入 module overview/detail 页、module-port 绘图与 `size` 页尺寸声明；`0.13.0` 由 [ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) 加入 `module_view`、`sheet_template`、`template` 与 `module_place`；`0.14.0` 由 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) 收拢工程根并删除板级/系统旧构造；`0.15.0` 由 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) 让 `ratings` 行可以点名它的两个端子（§6.4）。`0.16.0` 由 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) 加入 `barrel` / `indicator` 两个构造与 `wavelength` 角色，并让 `length` 参数类型可用（§6.2.1、§6.2.2）。
+在 `0.x` 阶段，兼容澄清和诊断改进走 PATCH；新增段或字段、以及**改变已接受文件的表面形态**走 MINOR，并且必须有显式决策记录（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D5）。`0.10.0` 由 [ADR-0055](../docs/adr/09-view/0055-schematic-fields-are-view-overrides.md) 引入 `view` 的 `field` 段；`0.11.0` 由 [ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) 把坐标统一成一个括号元组单元格；`0.12.0` 由 [ADR-0067](../docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md) 加入 module overview/detail 页、module-port 绘图与 `size` 页尺寸声明；`0.13.0` 由 [ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) 加入 `module_view`、`sheet_template`、`template` 与 `module_place`；`0.14.0` 由 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) 收拢工程根并删除板级/系统旧构造；`0.15.0` 由 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) 让 `ratings` 行可以点名它的两个端子（§6.4）。`0.16.0` 由 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) 加入 `barrel` / `indicator` 两个构造与 `wavelength` 角色，并让 `length` 参数类型可用（§6.2.1、§6.2.2）。`0.17.0` 由 [ADR-0078](../docs/adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md) 让有极性的通用件点名它的正极引脚（`positive_pin`，§6.1），并把颜色的取值集封闭（[ADR-0079](../docs/adr/07-devices/0079-a-colour-has-a-closed-vocabulary.md)，§6.2.1）。
 
 
 | 位 | 什么时候动 | 动它意味着 |
@@ -800,6 +809,15 @@ PATCH 位不参与判定（见 §12.1 的硬规则）。
 ### 12.4 版本沿革
 
 语言的每次版本变化在这里留一条，最新的在前。每条写明改了什么，并指向决定它的那份记录。
+
+#### 0.17.0 — A polarised class names its positive pin; a colour has a closed vocabulary（2026-11-18）
+
+- **有极性的通用件点名它的正极**（决策见 [ADR-0078](../docs/adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md) D1）：新增标量 `positive_pin <引脚编号>`，只在 `kind: generic` 且 `polarized yes` 时必填，`polarized no` 与 `kind: part` 必须不写（§6.1）。两极是引脚表里类型为 `polarized` 的两个引脚，`positive_pin` 点名其中哪个是正极（§6.3）。
+- **它的 `voltage` 要求按自己的方向比**（D3）：正向应力（正极高于负极）拿去比这个要求；反过来的方向超过 0 报 `design.polarity-reversed`（error，载荷里带两个 net、两个窗口、两个引脚）。没有极性的类别仍按幅值读（§7.3）。
+- **颜色是封闭取值集**（决策见 [ADR-0079](../docs/adr/07-devices/0079-a-colour-has-a-closed-vocabulary.md)）：`red` / `amber` / `yellow` / `green` / `cyan` / `blue` / `white`；取值集按**角色与量纲**两重键，`value` + `string` 是颜色，`value` + `capacitance` 没有集合（§6.2.1）。
+- **IR 契约到 `v0.21`**（`v0.20` 保持不变）：`component` 分片多一个可选的 `positive_pin`（引脚编号）。
+- **迁移**：语言表面是**增量**——0.16 的文件继续合法，只写 `positive_pin` 的那个文件要把版本行改成 `0.17`（工具不批量改版本行）。**闸门在事实上**：`positive_pin` 自 0.17 起可用，低于该版本的文件写它报错 `value.component-positive-pin-invalid`；0.16 的有极性类别仍然只说"有极性"，它的要求按幅值读。
+- **迁移（颜色）**：颜色的封闭取值集**收窄了接受的文件集合**——写集合外颜色的文件（不论它声明哪个版本）现在报错，诊断里列出合法拼写。这是本次唯一的破坏性变化，它不来自语言表面，而来自工具侧的封闭词表（[ADR-0025](../docs/adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) D7）。**没有迁移脚本**：选哪个成员是作者的判断，工具不替人把 `GREEN` 改成 `green`（不归一化是这条规则的一部分）。
 
 #### 0.16.0 — A jack and an LED are classes; a class-valued primary compares by equality（2026-11-18）
 
@@ -1053,7 +1071,7 @@ interconnects
   ic1  M1.PWR  M2.PWR
 ```
 
-两块 PCB 各自声明拥有的模块实例（`design/pcb/pwr-l1.teda`、`design/pcb/pwr-l2.teda`，语法见 `spec/pcb.md` §4.1）：`M1` 属于 `pwr-l1`，`M2` 属于 `pwr-l2`；跨板的 `ic1` 是一条显式物理路径，不是任何 net 名的巧合。展平后的 IR 是**扁平的**：一张实例表（`M1.U1`、`M2.U1`…）、一张 net 表，不含模块结构（§7.7；IR 契约 v0.20）。
+两块 PCB 各自声明拥有的模块实例（`design/pcb/pwr-l1.teda`、`design/pcb/pwr-l2.teda`，语法见 `spec/pcb.md` §4.1）：`M1` 属于 `pwr-l1`，`M2` 属于 `pwr-l2`；跨板的 `ic1` 是一条显式物理路径，不是任何 net 名的巧合。展平后的 IR 是**扁平的**：一张实例表（`M1.U1`、`M2.U1`…）、一张 net 表，不含模块结构（§7.7；IR 契约 v0.21）。
 
 `views/charger.view.teda`（工程打印页，画给评审看）：
 

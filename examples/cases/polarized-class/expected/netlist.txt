@@ -1,0 +1,9 @@
+# netlist main (ir 0.21)
+GND: M1.C1.2
+VOUT: M1.C1.1
+
+port GND: GND
+port VOUT: VOUT
+
+# components 1
+M1.C1 cap-tantalum-7343

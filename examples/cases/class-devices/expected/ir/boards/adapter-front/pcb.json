@@ -2,7 +2,7 @@
   "board_thickness_nm": 1600000,
   "connect": [],
   "format": "0.16",
-  "ir_version": "0.20",
+  "ir_version": "0.21",
   "modules": [
     "M1"
   ],

@@ -35,7 +35,7 @@
     ],
     "symbol": "diodes:diode-2"
   },
-  "ir_version": "0.20",
+  "ir_version": "0.21",
   "source": {
     "file": "assets/components/diodes/d-1n4148w.teda",
     "line": 1

@@ -18,13 +18,27 @@
 import type { Diagnostic, DiagnosticLocation } from "@texteda/ir/diagnostics";
 import type { Schematic } from "@texteda/ir/schematic";
 import { packagePowerRating } from "../devices/packages.ts";
-import { DEVICE_ROLES, type RoleDirection } from "../devices/rules.ts";
+import { DEVICE_ROLES, polesOf, type RoleDirection } from "../devices/rules.ts";
 import { amps } from "./current.ts";
 
 /** What the rules need to know about a device (assembled by the caller from the component facts). */
 export interface RatingDevice {
   /** The pin numbers of the device, in declaration order. */
   readonly pins: readonly string[];
+  /**
+   * Each pin's electrical type, by pin number.
+   *
+   * The poles of a polarised class are the pins typed `polarized`; a pin typed `passive` does not
+   * say which way round it is (ADR-0078).
+   */
+  readonly pin_types?: Readonly<Record<string, string>>;
+  /**
+   * The pin that carries the positive pole of a polarised class (ADR-0078).
+   *
+   * Absent for a class written against a language before 0.17: its requirement is then read as a
+   * magnitude, the way the language read it before.
+   */
+  readonly positive_pin?: string;
   /**
    * The device's own ratings (a part only): role → quantity in canonical units, with the two
    * pins the rating is about when it names them (ADR-0026 D4).
@@ -104,6 +118,15 @@ interface StressFact {
   readonly role: string;
   /** How the role's polarity reads (ADR-0026 D5). */
   readonly direction: RoleDirection;
+  /**
+   * What the fact is for.
+   *
+   * `limit` — the number bounds the stress, and a stress above it is a violation.
+   * `polarity` — the number says which way round the pair may be, and a stress above zero means
+   * the part is the wrong way round (ADR-0078). Its `limit_uv` is zero: there is no number to
+   * exceed, only a direction to keep.
+   */
+  readonly kind: "limit" | "polarity";
   /** The limit, in microvolts. */
   readonly limit_uv: number;
   /** The `from` pin: the one the role names first. */
@@ -120,6 +143,10 @@ interface StressFact {
  * names its two terminals says which pins it is about (ADR-0026 D4). A rating without terminals
  * keeps the two-pin inference, and is unknown on a part with more pins (D7): a number whose
  * terminals are not stated cannot be checked against a pair of nets.
+ *
+ * A polarised class is the third case (ADR-0078): it names its positive pole, so the requirement
+ * bounds the voltage in the class's own direction, and the opposite direction is a reversal rather
+ * than a magnitude.
  */
 function stressFactsOf(
   instance: Schematic["instances"][number],
@@ -132,12 +159,36 @@ function stressFactsOf(
   for (const param of instance.params ?? []) {
     if (param.name !== "voltage") continue;
     if (!("value" in param) || typeof param.value !== "number") continue;
+    const poles = polesOf(device);
+    if (poles !== null) {
+      // The requirement of a polarised class bounds the voltage in the class's own direction: the
+      // positive pole above the negative one. The opposite direction is not a magnitude to compare
+      // — it is a part mounted the wrong way round.
+      facts.push({
+        role: "voltage",
+        kind: "limit",
+        direction: "from",
+        limit_uv: param.value,
+        from: poles.positive,
+        to: poles.negative,
+      });
+      facts.push({
+        role: "voltage",
+        kind: "polarity",
+        direction: "to",
+        limit_uv: 0,
+        from: poles.positive,
+        to: poles.negative,
+      });
+      break;
+    }
     if (device.pins.length !== 2) {
       unknown ??= "no_terminals";
       break;
     }
     facts.push({
       role: "voltage",
+      kind: "limit",
       direction: "symmetric",
       limit_uv: param.value,
       from: device.pins[0]!,
@@ -156,6 +207,7 @@ function stressFactsOf(
     if (terminals !== undefined) {
       facts.push({
         role,
+        kind: "limit",
         direction: rule.direction,
         limit_uv: rating.value,
         from: terminals.from,
@@ -168,6 +220,7 @@ function stressFactsOf(
     if (rule.direction === "symmetric" && device.pins.length === 2) {
       facts.push({
         role,
+        kind: "limit",
         direction: "symmetric",
         limit_uv: rating.value,
         from: device.pins[0]!,
@@ -275,6 +328,30 @@ export function checkRatings(facts: RatingFacts): RatingReport {
       // The extreme of the potential difference across the two nets, read in the role's direction.
       const stress = stressOf(fact.direction, windowFrom, windowTo);
       if (stress === null) continue;
+      if (fact.kind === "polarity") {
+        // The opposite direction of a polarised class's pair: a stress above zero means the part
+        // may be the wrong way round (ADR-0078). Zero is not a reversal: the two poles are at the
+        // same potential, and nothing is reverse-biased.
+        if (stress > 0) {
+          diagnostics.push({
+            code: "design.polarity-reversed",
+            severity: "error",
+            message: `${instance.id} (${instance.component}) is mounted the wrong way round: its positive pin ${fact.from} is on ${netFrom} (${volts(windowFrom.min_uv)}..${volts(windowFrom.max_uv)}) and its negative pin ${fact.to} on ${netTo} (${volts(windowTo.min_uv)}..${volts(windowTo.max_uv)}), so the design reverse-biases it by ${volts(stress)}`,
+            hint: "swap the two poles, or state why the design may reverse-bias the part",
+            location: facts.locateInstance?.(instance.id) ?? { file, line: 1, col: 1 },
+            data: {
+              instance: instance.id,
+              component: instance.component,
+              stress_uv: stress,
+              net_positive: netFrom,
+              net_negative: netTo,
+              pin_positive: fact.from,
+              pin_negative: fact.to,
+            },
+          });
+        }
+        continue;
+      }
       if (fact.limit_uv >= stress) continue;
       diagnostics.push({
         code: "design.rating-exceeded",

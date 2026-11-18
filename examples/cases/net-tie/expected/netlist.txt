@@ -1,4 +1,4 @@
-# netlist main (ir 0.20)
+# netlist main (ir 0.21)
 GND: M1.C1.2 M1.R1.2 M1.U1.2
 V3V3: M1.C1.1 M1.U1.5
 V3V3_SENSE: M1.R1.1

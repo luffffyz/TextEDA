@@ -150,7 +150,7 @@
     ]
   },
   "format": "0.11",
-  "ir_version": "0.20",
+  "ir_version": "0.21",
   "source": {
     "file": "assets/footprints/connector/jst-sh-4.teda",
     "line": 1

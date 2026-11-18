@@ -1,4 +1,4 @@
-version 0.16.0
+version 0.17.0
 component dc-jack-th
 
 # A through-hole DC barrel jack, stated as a class: the plug size that fits it, the current it
@@ -9,6 +9,7 @@ kind         generic
 category     connector
 construction barrel
 polarized    yes
+positive_pin  1
 
 symbol connectors:dc-jack-th
 footprint connector:dc-jack-th
@@ -18,8 +19,9 @@ params
   voltage       voltage  required
 
 # The plug's tip is the positive pole and the sleeve the negative one: they are not interchangable,
-# so the two poles are typed `polarized`. The switch contact is not a pole — it joins the tip to
-# the sleeve while no plug is in — so it stays `passive`.
+# so the two poles are typed `polarized`, and `positive_pin 1` names the tip as the positive pole
+# (ADR-0078). The switch contact is not a pole — it joins the tip to the sleeve while no plug is
+# in — so it stays `passive`.
 pins
   1  TIP     polarized
   2  SLEEVE  polarized

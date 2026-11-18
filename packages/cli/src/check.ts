@@ -319,8 +319,13 @@ export function analyzeProject(root: string): AnalyzeResult {
   const ratingDevices = (): Map<string, RatingDevice> => {
     const built = new Map<string, RatingDevice>();
     for (const [id, device] of devices) {
+      // The pin table carries the electrical type of every pin, and the type is what says which
+      // pins are the two poles of a polarised class (ADR-0078).
+      const pins = resolver.resolve(id)?.pins ?? [];
       built.set(id, {
-        pins: (resolver.resolve(id)?.pins ?? []).map((pin) => pin.number),
+        pins: pins.map((pin) => pin.number),
+        pin_types: Object.fromEntries(pins.map((pin) => [pin.number, pin.type])),
+        ...(device.positive_pin === undefined ? {} : { positive_pin: device.positive_pin }),
         ratings: device.ratings,
         params: device.params,
         ...(device.construction === undefined ? {} : { construction: device.construction }),

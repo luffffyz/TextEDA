@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.20",
+  "ir_version": "0.21",
   "project": {
     "description": "Case 11: a rating that names the two pins it is about",
     "format": "0.15",

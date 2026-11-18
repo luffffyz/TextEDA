@@ -511,3 +511,131 @@ describe("the closed vocabularies grow with the language (ADR-0077 D5)", () => {
     expect(result.diagnostics).toEqual([]);
   });
 });
+
+describe("the polarity of a class (ADR-0078)", () => {
+  const POLARIZED_SCALARS = [
+    "kind generic",
+    "category capacitor",
+    "construction tantalum",
+    "polarized yes",
+    "positive_pin 1",
+    "symbol project:c",
+    "footprint project:f",
+  ];
+  const TANTALUM_PARAMS = [
+    "params",
+    "  value      capacitance  required",
+    "  tolerance  percent      required",
+    "  voltage    voltage      required",
+    "  esr        resistance   optional",
+  ];
+  const POLES = ["pins", "  1  P  polarized", "  2  N  polarized"];
+
+  test("a polarised class names its positive pole, and the fact reaches the IR", () => {
+    const result = parseComponent(
+      device(POLARIZED_SCALARS, TANTALUM_PARAMS, POLES, "0.17"),
+      { file: "x.teda" },
+    );
+    expect(result.diagnostics).toEqual([]);
+    expect(result.ir!.component.positive_pin).toBe("1");
+  });
+
+  test("a polarised class must name its positive pole from 0.17 on", () => {
+    const result = parseComponent(
+      device(POLARIZED_SCALARS.filter((line) => !line.startsWith("positive_pin")), TANTALUM_PARAMS, POLES, "0.17"),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "value.component-generic-fact-invalid");
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.message).toContain("positive pin");
+  });
+
+  test("a class written against an older language may not name one", () => {
+    // The fact arrived in 0.17: a 0.16 file has no such fact in its vocabulary.
+    const result = parseComponent(
+      device(POLARIZED_SCALARS, TANTALUM_PARAMS, POLES, "0.16"),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "value.component-positive-pin-invalid");
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.message).toContain("0.17");
+  });
+
+  test("a polarised class written against an older language is still legal", () => {
+    // It says only that it is polarised: the requirement is read as a magnitude, the way the
+    // language read it before.
+    const result = parseComponent(
+      device(POLARIZED_SCALARS.filter((line) => !line.startsWith("positive_pin")), TANTALUM_PARAMS, POLES, "0.16"),
+      { file: "x.teda" },
+    );
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  test("an unpolarised class must not name a positive pole", () => {
+    const result = parseComponent(
+      device([...GENERIC_SCALARS, "positive_pin 1"], VALUE_PARAM, PINS, "0.17"),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "value.component-generic-fact-invalid");
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.message).toContain("unpolarised");
+  });
+
+  test("a part must not name a positive pole: it inherits the polarity of its class", () => {
+    const result = parseComponent(
+      device([...PART_SCALARS, "positive_pin 1"], PINS, "0.17"),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "value.component-generic-fact-invalid");
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.message).toContain("part");
+  });
+
+  test("the named pole must be a pin of the class", () => {
+    const result = parseComponent(
+      device([...POLARIZED_SCALARS.slice(0, 4), "positive_pin 3", ...POLARIZED_SCALARS.slice(5)], TANTALUM_PARAMS, POLES, "0.17"),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "value.component-positive-pin-invalid");
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.message).toContain("not a pin");
+  });
+
+  test("the named pole must be typed polarized", () => {
+    const result = parseComponent(
+      device(POLARIZED_SCALARS, TANTALUM_PARAMS, ["pins", "  1  P  passive", "  2  N  polarized"], "0.17"),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "value.component-positive-pin-invalid");
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.message).toContain("not polarized");
+  });
+
+  test("a class must have exactly two poles", () => {
+    const result = parseComponent(
+      device(POLARIZED_SCALARS, TANTALUM_PARAMS, ["pins", "  1  P  polarized", "  2  N  polarized", "  3  X  polarized"], "0.17"),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "value.component-positive-pin-invalid");
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.message).toContain("two poles");
+  });
+
+  test("a class with one pole has no pair, so it cannot name one", () => {
+    const result = parseComponent(
+      device(POLARIZED_SCALARS, TANTALUM_PARAMS, ["pins", "  1  P  polarized", "  2  N  passive"], "0.17"),
+      { file: "x.teda" },
+    );
+    expect(result.ok).toBe(false);
+    const diagnostic = result.diagnostics.find((d) => d.code === "value.component-positive-pin-invalid");
+    expect(diagnostic).toBeDefined();
+    expect(diagnostic!.message).toContain("two poles");
+  });
+});

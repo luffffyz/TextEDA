@@ -1,0 +1,14 @@
+[
+  {
+    "code": "bind.instance-unplaced",
+    "severity": "warning",
+    "file": "design/pcb/bulk-cap.teda",
+    "line": 1
+  },
+  {
+    "code": "value.procurement-generic-unsourced",
+    "severity": "warning",
+    "file": "design/sch/modules/bulk-cap.teda",
+    "line": 13
+  }
+]

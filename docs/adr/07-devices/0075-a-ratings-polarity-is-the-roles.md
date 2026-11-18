@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-11-18
 Scope: Decides: which polarity of a pair of terminals a rating bounds, and where that fact lives. Does not decide: the vocabulary of roles (a new role is still vocabulary work, [ADR-0025](0025-device-vocabulary-and-parameter-roles.md)); the polarity of a **generic's requirement** (an electrolytic capacitor's `voltage` is still read symmetrically — open point); the derating policy ([ADR-0026](0026-a-part-states-its-own-ratings.md) D14).
-Related: [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0026](0026-a-part-states-its-own-ratings.md) (D4, D5, D12, and the open point this record closes), [ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md), [ADR-0076](0076-a-parts-dissipation-is-bounded-by-its-stated-current.md)
+Related: [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0026](0026-a-part-states-its-own-ratings.md) (D4, D5, D12, and the open point this record closes), [ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md), [ADR-0076](0076-a-parts-dissipation-is-bounded-by-its-stated-current.md), [ADR-0078](0078-a-polarised-class-names-its-positive-pin.md) (the same hole one level down)
 Impact: `spec/teda.md` §6.2.1, §6.4, §7.3; `packages/core/src/devices/rules.ts` (the role table), `packages/core/src/design/ratings.ts` (the stress comparison); `examples/reference-project` (the input stage's FETs and diodes)
 
 ## Background
@@ -107,11 +107,10 @@ the corpus depends on the old reading.
 
 ## Open Points
 
-- **A generic's requirement has no polarity either.** The same hole exists one level down: an
-  electrolytic capacitor's `voltage` requirement is read symmetrically, because the language does
-  not say which of the generic's two pins is the positive one. A polarized class needs a
-  polarity of its own, in the generic's rule table or in the instance row
-  (`docs/backlog.md` F85).
+- ~~**A generic's requirement has no polarity either.**~~ **Closed**: a polarised class names its
+  positive pole (`positive_pin`), and its requirement is read in that direction — the forward
+  stress against the requirement, and the opposite direction as a reversal
+  ([ADR-0078](0078-a-polarised-class-names-its-positive-pin.md) D1, D3).
 - **The body diode is not modelled.** A symmetric drain-source comparison bounds the channel; the
   fact that the other polarity is clamped by a diode is engineering knowledge the tool does not
   carry. The comparison stays conservative because the clamp only makes the real stress smaller

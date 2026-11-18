@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-23
 Scope: Decides: the two kinds of device description, where the devices live, and what makes two devices the same device. Does not decide: which part to buy for a generic — see ADR-0029; nor the parameter roles — see ADR-0025.
-Related: [ADR-0005](../02-ir/0005-ir-representation.md), [ADR-0007](../02-ir/0007-device-description-enters-the-ir.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0026](0026-a-part-states-its-own-ratings.md), [ADR-0034](../08-libraries/0034-trust-in-a-library-you-do-not-own.md), [ADR-0049](../08-libraries/0049-assets-are-filed-by-what-they-are.md), [ADR-0077](0077-a-jack-and-an-led-are-classes.md).
+Related: [ADR-0005](../02-ir/0005-ir-representation.md), [ADR-0007](../02-ir/0007-device-description-enters-the-ir.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0026](0026-a-part-states-its-own-ratings.md), [ADR-0034](../08-libraries/0034-trust-in-a-library-you-do-not-own.md), [ADR-0049](../08-libraries/0049-assets-are-filed-by-what-they-are.md), [ADR-0077](0077-a-jack-and-an-led-are-classes.md), [ADR-0078](0078-a-polarised-class-names-its-positive-pin.md).
 Impact: `spec/teda.md` §2, §6, §7.1, §12; `spec/procurement.md`; `schemas/ir/**`; `packages/parser` (the `component` description type); `packages/cli` (the project layout, `texteda init`); `packages/ir` (the diagnostic code registry)
 
 ## Background
@@ -62,6 +62,12 @@ choices:
   `shielded`, …). It is an open vocabulary, like `category`.
 - `polarized` — `yes` / `no`. A polarised generic must declare it, and its pins may carry a
   polarised electrical type so that ERC can detect a reversed part.
+
+→ **Extended (2026-11-18).** The polarity of a class is now more than a yes: a polarised generic
+names **which** of its two poles is the positive one, with `positive_pin <pin number>`
+([ADR-0078](0078-a-polarised-class-names-its-positive-pin.md) D1). The scalar is a generic fact
+like `construction` and `polarized` before it, so a part that declares it is an error, and the
+class's voltage requirement is then read in that direction rather than as a magnitude (D3).
 
 A generic's id names the class, not a value: `cap-tantalum-7343`, `res-thick-0402`,
 `ind-shielded-6045`. A generic id never carries a value, a tolerance or a rating. The id's middle

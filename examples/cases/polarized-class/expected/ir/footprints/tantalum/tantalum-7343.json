@@ -1,0 +1,133 @@
+{
+  "footprint": {
+    "attr": [
+      "smd"
+    ],
+    "description": "Tantalum capacitor 7343 case, generic land pattern",
+    "fields": [
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": -3300000
+        },
+        "effects": {
+          "height_nm": 1000000,
+          "thickness_nm": 150000,
+          "width_nm": 1000000
+        },
+        "layer": "F.SilkS",
+        "name": "Reference",
+        "value": "REF**"
+      },
+      {
+        "at": {
+          "x_nm": 0,
+          "y_nm": 3300000
+        },
+        "effects": {
+          "height_nm": 1000000,
+          "thickness_nm": 150000,
+          "width_nm": 1000000
+        },
+        "layer": "F.Fab",
+        "name": "Value",
+        "value": "tantalum-7343"
+      }
+    ],
+    "graphics": [
+      {
+        "end": {
+          "x_nm": -3900000,
+          "y_nm": 1200000
+        },
+        "kind": "line",
+        "layer": "F.SilkS",
+        "start": {
+          "x_nm": -3900000,
+          "y_nm": -1200000
+        },
+        "width_nm": 150000
+      },
+      {
+        "end": {
+          "x_nm": 3850000,
+          "y_nm": 2200000
+        },
+        "kind": "rect",
+        "layer": "F.CrtYd",
+        "start": {
+          "x_nm": -3850000,
+          "y_nm": -2200000
+        },
+        "width_nm": 50000
+      },
+      {
+        "end": {
+          "x_nm": 3650000,
+          "y_nm": 2150000
+        },
+        "kind": "rect",
+        "layer": "F.Fab",
+        "start": {
+          "x_nm": -3650000,
+          "y_nm": -2150000
+        },
+        "width_nm": 100000
+      }
+    ],
+    "library": "tantalum",
+    "name": "tantalum-7343",
+    "package_code": "7343",
+    "pads": [
+      {
+        "at": {
+          "x_nm": -2500000,
+          "y_nm": 0
+        },
+        "layers": [
+          "F.Cu",
+          "F.Mask",
+          "F.Paste"
+        ],
+        "number": "1",
+        "roundrect_ratio_ppm": 100000,
+        "shape": "roundrect",
+        "size": {
+          "x_nm": 2400000,
+          "y_nm": 3200000
+        },
+        "type": "smd"
+      },
+      {
+        "at": {
+          "x_nm": 2500000,
+          "y_nm": 0
+        },
+        "layers": [
+          "F.Cu",
+          "F.Mask",
+          "F.Paste"
+        ],
+        "number": "2",
+        "roundrect_ratio_ppm": 100000,
+        "shape": "roundrect",
+        "size": {
+          "x_nm": 2400000,
+          "y_nm": 3200000
+        },
+        "type": "smd"
+      }
+    ],
+    "tags": [
+      "capacitor",
+      "smd",
+      "tantalum"
+    ]
+  },
+  "format": "0.11",
+  "ir_version": "0.21",
+  "source": {
+    "file": "assets/footprints/tantalum/tantalum-7343.teda",
+    "line": 1
+  }
+}

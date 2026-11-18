@@ -87,6 +87,8 @@ export {
   DEVICE_PRIMARY_ROLE,
   DEVICE_ROLE_TYPES,
   DEVICE_ROLES,
+  POLARIZED_PIN_TYPE,
+  polesOf,
   type DeviceConstruction,
   type DeviceDeclarationFacts,
   type DeviceParamFact,

@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.20",
+  "ir_version": "0.21",
   "project": {
     "description": "Case 12: a jack and an LED are classes, and a class compares by equality",
     "format": "0.16",

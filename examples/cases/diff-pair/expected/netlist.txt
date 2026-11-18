@@ -1,4 +1,4 @@
-# netlist main (ir 0.20)
+# netlist main (ir 0.21)
 CANH: M1.J1.1 M1.R1.1 M1.U1.7
 CANL: M1.J1.2 M1.R2.1 M1.U1.6
 CAN_RX: M1.U1.4

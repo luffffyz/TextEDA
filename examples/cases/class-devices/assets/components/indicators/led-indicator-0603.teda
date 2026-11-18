@@ -1,4 +1,4 @@
-version 0.16.0
+version 0.17.0
 component led-indicator-0603
 
 # An indicator LED in 0603, stated as a class: the colour it shows and the wavelength that colour
@@ -9,6 +9,7 @@ kind         generic
 category     led
 construction indicator
 polarized    yes
+positive_pin  2
 
 symbol indicators:led
 footprint chip:chip-0603
@@ -16,7 +17,8 @@ params
   value      string  required
   wavelength length  required
 
-# The cathode and the anode are not interchangable: the LED only conducts one way round.
+# The cathode and the anode are not interchargable: the LED only conducts one way round. Pin 2 is
+# the anode, so it is the positive pole (ADR-0078).
 pins
   1  K  polarized
   2  A  polarized

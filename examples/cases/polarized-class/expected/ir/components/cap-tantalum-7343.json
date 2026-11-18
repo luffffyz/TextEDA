@@ -1,0 +1,54 @@
+{
+  "component": {
+    "category": "capacitor",
+    "construction": "tantalum",
+    "footprint": "tantalum:tantalum-7343",
+    "id": "cap-tantalum-7343",
+    "kind": "generic",
+    "params": [
+      {
+        "name": "value",
+        "required": true,
+        "type": "capacitance"
+      },
+      {
+        "name": "tolerance",
+        "required": true,
+        "type": "percent"
+      },
+      {
+        "name": "voltage",
+        "required": true,
+        "type": "voltage"
+      },
+      {
+        "name": "esr",
+        "required": false,
+        "type": "resistance"
+      }
+    ],
+    "pins": [
+      {
+        "electrical_type": "polarized",
+        "name": "P",
+        "number": "1",
+        "unit": 1
+      },
+      {
+        "electrical_type": "polarized",
+        "name": "N",
+        "number": "2",
+        "unit": 1
+      }
+    ],
+    "pins_source": "inline",
+    "polarized": true,
+    "positive_pin": "1",
+    "symbol": "passives:c-pol"
+  },
+  "ir_version": "0.21",
+  "source": {
+    "file": "assets/components/passives/cap-tantalum-7343.teda",
+    "line": 1
+  }
+}

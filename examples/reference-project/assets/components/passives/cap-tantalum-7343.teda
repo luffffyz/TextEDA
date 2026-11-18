@@ -1,13 +1,15 @@
-version 0.11
+version 0.17.0
 component cap-tantalum-7343
 
 # A polarised tantalum capacitor. The polarity is a fact of the generic, not a hint in the file
-# name: the pins are typed `polarized`, so a reversed part is visible.
+# name: the pins are typed `polarized` and `positive_pin` names the positive pole, so a reversed
+# part is visible and the stress check can say so (ADR-0078).
 
 kind         generic
 category     capacitor
 construction tantalum
 polarized    yes
+positive_pin  1
 
 symbol passives:c-pol
 footprint tantalum:tantalum-7343

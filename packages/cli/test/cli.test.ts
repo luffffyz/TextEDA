@@ -101,7 +101,7 @@ describe("check exit codes", () => {
     const result = run(["check", "examples/reference-project"]);
     expect(result.code).toBe(0);
     expect(result.stderr).toContain("9 notes");
-    expect(result.stderr).toContain("Not fully checked: 28 of 83 instances were compared with a declared window.");
+    expect(result.stderr).toContain("Not fully checked: 29 of 83 instances were compared with a declared window.");
     expect(result.stderr).toContain(
       "Not fully checked: 7 of 27 resistive instances were compared with a power limit.",
     );
@@ -122,7 +122,7 @@ describe("check exit codes", () => {
       };
     };
     expect(report.noteCount).toBeGreaterThan(0);
-    expect(report.coverage?.stress).toEqual({ compared: 28, total: 83 });
+    expect(report.coverage?.stress).toEqual({ compared: 29, total: 83 });
     expect(report.coverage?.dissipation).toEqual({ compared: 7, total: 27 });
     // Three pins carry a current requirement now: the jack (compared with its 500mA rating) and
     // the two series positions of the input stage, whose chip resistors state no rated_current.

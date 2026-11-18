@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.20",
+  "ir_version": "0.21",
   "format": "0.9.1",
   "source": {
     "file": "sch/charger-buck/buck-5v.view.teda",

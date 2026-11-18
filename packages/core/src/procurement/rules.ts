@@ -67,6 +67,13 @@ export interface Device {
   readonly params: readonly { readonly name: string; readonly type: string }[];
   /** The generic's construction (ADR-0025): the technology a package floor is stated for. */
   readonly construction?: string;
+  /**
+   * The pin that carries the positive pole of a polarised class (ADR-0078).
+   *
+   * A class that names it says which way round the part goes; the negative pole is the class's
+   * other `polarized` pin.
+   */
+  readonly positive_pin?: string;
   /** The land pattern's package code (ADR-0028 decision 1, JEDEC spelling): the floor's other key. */
   readonly package_code?: string;
 }

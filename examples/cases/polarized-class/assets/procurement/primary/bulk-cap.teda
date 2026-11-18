@@ -1,0 +1,9 @@
+version 0.17.0
+procurement bulk-cap
+role primary
+
+# Which parts the bulk capacitor is bought with. Nothing is selected yet: the case is about the
+# class and its polarity, not about a part. The line is therefore unsourced, and `texteda check`
+# says so (`value.procurement-generic-unsourced`) — a board may legitimately be designed before it
+# is bought (spec/procurement.md §10.2).
+selections

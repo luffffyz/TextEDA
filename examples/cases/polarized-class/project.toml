@@ -1,0 +1,7 @@
+[project]
+name = "polarized-class"
+version = "0.1.0"
+format = "0.17"
+description = "Case 13: a polarised class names its positive pin, and its requirement is read in that direction"
+license = "Apache-2.0"
+status = "draft"

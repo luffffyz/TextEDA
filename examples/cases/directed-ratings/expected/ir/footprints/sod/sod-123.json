@@ -124,7 +124,7 @@
     ]
   },
   "format": "0.11",
-  "ir_version": "0.20",
+  "ir_version": "0.21",
   "source": {
     "file": "assets/footprints/sod/sod-123.teda",
     "line": 1

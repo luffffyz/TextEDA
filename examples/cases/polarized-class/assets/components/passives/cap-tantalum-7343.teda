@@ -1,0 +1,29 @@
+version 0.17.0
+component cap-tantalum-7343
+
+# A polarised tantalum capacitor, stated as a class: the capacitance, the tolerance and the working
+# voltage it has to take. Which part is bought for it is a procurement decision, not a fact of the
+# class.
+#
+# The polarity is a fact of the class, not a hint in the file name: pin 1 is the positive pole and
+# pin 2 the negative one, so the two pins are typed `polarized` and `positive_pin 1` says which of
+# them is the positive one (ADR-0078). The requirement is then read in that direction — the forward
+# stress across the two poles — instead of as a magnitude across the part's two pins.
+
+kind         generic
+category     capacitor
+construction tantalum
+polarized    yes
+positive_pin  1
+
+symbol passives:c-pol
+footprint tantalum:tantalum-7343
+params
+  value      capacitance required
+  tolerance  percent     required
+  voltage    voltage     required
+  esr        resistance  optional
+
+pins
+  1  P  polarized
+  2  N  polarized

@@ -1,0 +1,41 @@
+{
+  "ir_version": "0.21",
+  "shards": [
+    {
+      "path": "boards/bulk-cap/pcb.json",
+      "sha256": "dfd911d71bf4610a6d6d944a257968c51b56038d180da8826e5dfc8ff2bed9f4",
+      "normative": true
+    },
+    {
+      "path": "boards/bulk-cap/procurement.json",
+      "sha256": "9ba5e389b4a1233f7a2feb9fee07b62bb3cd186d804e29cd6beec86cd89343ef",
+      "normative": true
+    },
+    {
+      "path": "components/cap-tantalum-7343.json",
+      "sha256": "4f1249151f87d6569d94ce89d8b612c8e404c99bb4fa200d2a01e03618a9558e",
+      "normative": true
+    },
+    {
+      "path": "footprints/tantalum/tantalum-7343.json",
+      "sha256": "ad87ba8c3478d48c52b9b83a0c45ef81528cccf79cc337c386591fe066dd64a0",
+      "normative": true
+    },
+    {
+      "path": "project.json",
+      "sha256": "39f24618616907512faa515d54bcd74934f4a1e2d490b8e035f982eb1d9c4ce9",
+      "normative": true
+    },
+    {
+      "path": "project/schematic.json",
+      "sha256": "5fa1d2e7299e59b3205b1a0b2e29ab8b71161fe2a06f2f517d9a6f525117ac6c",
+      "normative": true
+    },
+    {
+      "path": "symbols/passives/c-pol.json",
+      "sha256": "22a2444f61b03867a5dad6dcc458619ac83d6e2b2b02ec0ceef64f6355796db8",
+      "normative": true
+    }
+  ],
+  "source_hash": "ab616622ac9d0793a34d30a258a39982b25800ceb3c98878e50b4064416c6a04"
+}

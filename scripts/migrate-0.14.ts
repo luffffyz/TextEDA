@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// Migration to language 0.14 / IR v0.20 (ADR-0069): one project root, explicit PCB ownership,
+// Migration to language 0.14 / IR v0.21 (ADR-0069): one project root, explicit PCB ownership,
 // root interconnects, and project-scoped views. The old descriptions no longer parse, so this
 // migration reads their structure directly and refuses any fact it cannot determine.
 import {

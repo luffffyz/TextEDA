@@ -164,6 +164,7 @@ export function loadComponents(root: string): LoadedComponents {
       ),
       params: result.component.params.map((param) => ({ name: param.name, type: param.type })),
       ...(result.component.construction ? { construction: result.component.construction } : {}),
+      ...(result.component.positive_pin ? { positive_pin: result.component.positive_pin } : {}),
     });
   }
   // A tree under `external/libs/` that holds asset groups is the shape this project no longer reads

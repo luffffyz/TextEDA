@@ -1,0 +1,13 @@
+{
+  "format": "0.17",
+  "ir_version": "0.21",
+  "procurement": {
+    "board": "bulk-cap",
+    "role": "primary",
+    "selections": []
+  },
+  "source": {
+    "file": "assets/procurement/primary/bulk-cap.teda",
+    "line": 1
+  }
+}

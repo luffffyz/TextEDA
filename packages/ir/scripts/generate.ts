@@ -1,4 +1,4 @@
-// Generates IR contract artifacts from schemas/ir/<version>/*.schema.json (current contract: v0.20):
+// Generates IR contract artifacts from schemas/ir/<version>/*.schema.json (current contract: v0.21):
 //   1. schemas.ts and types/*.ts in src/generated/ (runtime schemas and TypeScript types)
 //   2. docs/error-codes.md and docs/ir-reference.md (generated navigation for the same contract)
 // The root `bun run gen` additionally generates `docs/api-reference/` from public package exports.
@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { codeEntry, DIAGNOSTIC_CODES, DIAGNOSTIC_CODE_IDS, DIAGNOSTIC_DOMAINS } from "../src/diagnostics/codes.ts";
 import { IR_QUANTITY_SPECS, quantityOfField } from "../src/units.ts";
 
-const irVersion = process.env.IR_VERSION ?? "v0.20";
+const irVersion = process.env.IR_VERSION ?? "v0.21";
 const here = dirname(fileURLToPath(import.meta.url));
 const schemaDir = join(here, "../../../schemas/ir", irVersion);
 const outDir = join(here, "../src/generated");

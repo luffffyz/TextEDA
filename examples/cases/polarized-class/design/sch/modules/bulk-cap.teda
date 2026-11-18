@@ -1,0 +1,21 @@
+version 0.17.0
+module bulk-cap
+
+# A bulk capacitor on a 5 V rail. The class is the point of this case: `cap-tantalum-7343` is a
+# generic, it names its positive pole (`positive_pin 1`), and its `voltage` requirement is compared
+# in that direction — the forward stress across the two poles — instead of as a magnitude across
+# the part's two pins (ADR-0078).
+#
+# The positive pole (pin 1, `P`) sits on the higher net and the negative pole (pin 2, `N`) on
+# ground: the way round a polarised part goes. The requirement of 10 V covers the forward stress of
+# 5.5 V, so the instance is compared and passes.
+instances
+  C1  ID7kq3mz  cap-tantalum-7343  220u  20%  10V
+
+nets
+  GND:   C1.2
+  VOUT:  C1.1
+
+ports
+  GND   GND
+  VOUT  VOUT

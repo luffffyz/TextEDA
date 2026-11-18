@@ -1,4 +1,4 @@
-# netlist main (ir 0.20)
+# netlist main (ir 0.21)
 GND: M1.C1.2 M1.D1.1 M1.J1.2
 M1.LED_A: M1.D1.2 M1.R1.2
 PLUG: M1.J1.3

@@ -98,7 +98,7 @@ export function resolveParamColumns(
       // A code-valued role has a closed value set (ADR-0025 D5): the spelling is exact, because
       // two spellings of one code would be two BOM lines.
       diagnostics.items.push(
-        ...checkDeviceParamValue(decl.name, text, { file, line, col }),
+        ...checkDeviceParamValue(decl.name, decl.type, text, { file, line, col }),
       );
       params.push({ name: decl.name, text });
       continue;

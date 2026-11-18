@@ -367,8 +367,170 @@ describe("rating checks", () => {
   });
 });
 
-describe("the coverage the comparison reports (ADR-0026 D13)", () => {
-  test("an uncompared instance is counted, not passed", () => {
+describe("a polarised class reads its requirement in its own direction (ADR-0078)", () => {
+  /** A two-terminal polarised class whose positive pole is pin 1. */
+  const POLARIZED: RatingDevice = {
+    pins: ["1", "2"],
+    pin_types: { "1": "polarized", "2": "polarized" },
+    positive_pin: "1",
+    ratings: {},
+  };
+
+  /** The same class, written against a language that had no `positive_pin`. */
+  const UNPOLARIZED_READING: RatingDevice = { pins: ["1", "2"], ratings: {} };
+
+  test("the right way round is not reported, and the requirement is compared", () => {
+    const schematic = board({
+      instances: [{ id: "C1", component: "cap-tantalum" }],
+      nets: [
+        { id: "VOUT", members: ["C1.1"] },
+        { id: "GND", members: ["C1.2"] },
+      ],
+      constraints: [VOLTAGE("VOUT", 4_500_000, 5_500_000), VOLTAGE("GND", 0, 0)],
+      params: { C1: [{ name: "voltage", value: 10_000_000 }] },
+    });
+    const { diagnostics, coverage } = checkRatings({
+      file: "b.teda",
+      schematic,
+      devices: new Map([["cap-tantalum", POLARIZED]]),
+    });
+    expect(diagnostics).toEqual([]);
+    expect(coverage.stress).toEqual({ compared: 1, total: 1 });
+  });
+
+  test("the wrong way round is reported, naming both nets and both potentials", () => {
+    // The same part, mounted the other way round: 5.5 V on the negative pole and 0 V on the
+    // positive one. The requirement of 10 V covers the magnitude, so a magnitude reading says
+    // nothing at all — and the part is destroyed (ADR-0078).
+    const schematic = board({
+      instances: [{ id: "C1", component: "cap-tantalum" }],
+      nets: [
+        { id: "GND", members: ["C1.1"] },
+        { id: "VOUT", members: ["C1.2"] },
+      ],
+      constraints: [VOLTAGE("VOUT", 4_500_000, 5_500_000), VOLTAGE("GND", 0, 0)],
+      params: { C1: [{ name: "voltage", value: 10_000_000 }] },
+    });
+    const { diagnostics } = checkRatings({
+      file: "b.teda",
+      schematic,
+      devices: new Map([["cap-tantalum", POLARIZED]]),
+    });
+    const error = diagnostics.find((d) => d.code === "design.polarity-reversed");
+    expect(error?.severity).toBe("error");
+    expect(error?.message).toContain("wrong way round");
+    expect(error?.message).toContain("VOUT");
+    expect(error?.message).toContain("GND");
+    expect(error?.message).toContain("5.5V");
+    expect(error?.data).toMatchObject({
+      instance: "C1",
+      net_positive: "GND",
+      net_negative: "VOUT",
+      pin_positive: "1",
+      pin_negative: "2",
+      stress_uv: 5_500_000,
+    });
+  });
+
+  test("the requirement is compared in the class's direction, not as a magnitude", () => {
+    // 12 V on the positive pole against 0 V: the forward stress is 12 V, and a 10 V requirement
+    // does not cover it.
+    const schematic = board({
+      instances: [{ id: "C1", component: "cap-tantalum" }],
+      nets: [
+        { id: "VOUT", members: ["C1.1"] },
+        { id: "GND", members: ["C1.2"] },
+      ],
+      constraints: [VOLTAGE("VOUT", 9_000_000, 12_000_000), VOLTAGE("GND", 0, 0)],
+      params: { C1: [{ name: "voltage", value: 10_000_000 }] },
+    });
+    const { diagnostics } = checkRatings({
+      file: "b.teda",
+      schematic,
+      devices: new Map([["cap-tantalum", POLARIZED]]),
+    });
+    const error = diagnostics.find((d) => d.code === "design.rating-exceeded");
+    expect(error?.severity).toBe("error");
+    expect(error?.data).toMatchObject({ capability_uv: 10_000_000, stress_uv: 12_000_000 });
+  });
+
+  test("a class that names no positive pin keeps the magnitude reading", () => {
+    // A class written against a language before 0.17 says only that it is polarised: its
+    // requirement is read as a magnitude, and the same pair is not reported as reversed.
+    const schematic = board({
+      instances: [{ id: "C1", component: "cap-tantalum" }],
+      nets: [
+        { id: "GND", members: ["C1.1"] },
+        { id: "VOUT", members: ["C1.2"] },
+      ],
+      constraints: [VOLTAGE("VOUT", 4_500_000, 5_500_000), VOLTAGE("GND", 0, 0)],
+      params: { C1: [{ name: "voltage", value: 10_000_000 }] },
+    });
+    const { diagnostics } = checkRatings({
+      file: "b.teda",
+      schematic,
+      devices: new Map([["cap-tantalum", UNPOLARIZED_READING]]),
+    });
+    expect(diagnostics).toEqual([]);
+  });
+
+  test("a class whose poles are not exactly two names no pair, so it is counted, not passed", () => {
+    // Three poles: there is no pair to compare across, and the instance is not compared. (The
+    // parser refuses such a class; the check stays conservative if one reaches it.)
+    const schematic = board({
+      instances: [{ id: "U1", component: "triple" }],
+      nets: [
+        { id: "VIN", members: ["U1.1"] },
+        { id: "GND", members: ["U1.2"] },
+        { id: "PLUG", members: ["U1.3"] },
+      ],
+      constraints: [VOLTAGE("VIN", 0, 6_000_000), VOLTAGE("GND", 0, 0)],
+      params: { U1: [{ name: "voltage", value: 6_000_000 }] },
+    });
+    const device: RatingDevice = {
+      pins: ["1", "2", "3"],
+      pin_types: { "1": "polarized", "2": "polarized", "3": "polarized" },
+      positive_pin: "1",
+      ratings: {},
+    };
+    const { diagnostics, coverage } = checkRatings({
+      file: "b.teda",
+      schematic,
+      devices: new Map([["triple", device]]),
+    });
+    expect(diagnostics.map((d) => d.code)).toEqual(["design.stress-unknown"]);
+    expect(coverage.stress).toEqual({ compared: 0, total: 1 });
+  });
+
+  test("a three-contact class with two poles is compared across them", () => {
+    // The same jack: the switch contact is not a pole, so the pair is the tip and the sleeve.
+    const schematic = board({
+      instances: [{ id: "J1", component: "dc-jack" }],
+      nets: [
+        { id: "VIN", members: ["J1.1"] },
+        { id: "GND", members: ["J1.2"] },
+        { id: "PLUG", members: ["J1.3"] },
+      ],
+      constraints: [VOLTAGE("VIN", 0, 6_000_000), VOLTAGE("GND", 0, 0)],
+      params: { J1: [{ name: "voltage", value: 6_000_000 }] },
+    });
+    const device: RatingDevice = {
+      pins: ["1", "2", "3"],
+      pin_types: { "1": "polarized", "2": "polarized", "3": "passive" },
+      positive_pin: "1",
+      ratings: {},
+    };
+    const { diagnostics, coverage } = checkRatings({
+      file: "b.teda",
+      schematic,
+      devices: new Map([["dc-jack", device]]),
+    });
+    expect(diagnostics).toEqual([]);
+    expect(coverage.stress).toEqual({ compared: 1, total: 1 });
+  });
+});
+
+describe("the coverage the comparison reports (ADR-0026 D13)", () => {  test("an uncompared instance is counted, not passed", () => {
     const schematic = board({
       instances: [
         { id: "C1", component: "cap-0402" },

@@ -16,7 +16,8 @@ for **equality** rather than for "at least"
 | A class-valued primary compares for **equality** | the procurement row `led-indicator-0603 green 565nm -> ltst-c190gkt`, against the part's own `value green` and `wavelength 565nm` | nothing — the two sides are the same class and the same bin. A 570 nm green LED would not qualify, and the report would say "the value class is not the one the line asks for" (pinned by `packages/core/test/procurement.test.ts`) |
 | A quantity-valued primary still compares as an envelope | the procurement row `dc-jack-th 2.0mm 2A 6V -> dc-005-a200` | nothing — the plug size is a length, so 2.5 mm is not a 2.0 mm jack, while the part's 30 V and 2 A both cover what the line asks for |
 | A class states a requirement, and the requirement is comparable | `current J1.1 2A` in the module, against the class's own `rated_current 2A` | nothing — the pin's requirement and the class's requirement agree, so the pin is **compared** rather than skipped (ADR-0026 D18). The coverage line says so: "1 of 4 instances were compared with a declared window" is about the stress check; this one is the current check, which has no note because nothing was left unknown |
-| Unknown is counted, not passed | `J1` has three contacts, so its `voltage` requirement cannot be paired with two nets; the LED and the resistor state no voltage capability at all | `design.stress-unknown`, a **note**: "3 of 4 instances were not compared with a declared window: 1 whose rating names no terminals, 2 with no declared voltage capability". The capacitor `C1` *is* compared: its 16 V requirement against `VIN` (0–6 V) and `GND` (0 V) |
+| A polarised class reads its requirement in its own direction | `dc-jack-th` declares `polarized yes` and `positive_pin 1` (the tip); its poles are the two pins typed `polarized`, so the pair is the tip and the sleeve even though the jack has a third contact | nothing — the 6 V requirement is compared against `VIN` (0–6 V) on the tip and `GND` (0 V) on the sleeve, in the class's own direction, and the reverse direction is zero. The jack is **compared** now, where before it was counted as unknown ([ADR-0078](../../../docs/adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md) D1, D3) |
+| Unknown is counted, not passed | the LED and the resistor state no voltage capability at all | `design.stress-unknown`, a **note**: "2 of 4 instances were not compared with a declared window: 2 with no declared voltage capability". The capacitor `C1` and the jack `J1` *are* compared: the capacitor's 16 V requirement against `VIN` (0–6 V) and `GND` (0 V), the jack's 6 V requirement across its two poles |
 | A resistor's dissipation is bounded when the design states the windows | `R1` is 1 kΩ between `VIN` (0–6 V) and `LED_A` (0–6 V) | nothing — the bound is ΔV²/R = 36 mW against the 0402 package floor of 62.5 mW, so the resistor is compared and passes. Without `LED_A`'s window the check says "1 on a net without a declared voltage window" instead |
 
 ## What it deliberately leaves out
@@ -27,24 +28,28 @@ for **equality** rather than for "at least"
   those rows are the ones the comparison reads.
 - **No layout.** The board description exists and owns the module instance, but its `place` and
   `connect` sections are empty; `bind.instance-unplaced` is the standing warning that says so.
-- **No reversed polarity.** The jack and the LED both declare `polarized yes`, and their two
-  poles are typed `polarized`, but nothing reads the polarity of a **generic's requirement** yet:
-  the stress check still reads it as a magnitude across the part's two pins
-  ([ADR-0075](../../../docs/adr/07-devices/0075-a-ratings-polarity-is-the-roles.md) closed the
-  same hole for a part's rating, one level up; `docs/backlog.md` F85 is the same hole one level
-  down). The jack is not compared at all, so the case does not pin a wrong reading as if it were a
-  result.
-- **A closed colour set.** "green" is a plain string here, so "GREEN" would be a second BOM line.
-  The colour vocabulary is not decided
-  ([ADR-0077](../../../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md), open point;
-  `docs/backlog.md` F86). The case pins the comparison, not the spelling.
+- **No reversed polarity.** The jack is wired the right way round — the tip on `VIN`, the sleeve
+  on `GND` — and the reverse direction is zero, so nothing is reported. The **reversal** itself is
+  an error, and an error does not belong in the corpus: it is pinned by a unit test
+  (`packages/core/test/ratings.test.ts`), where the same class mounted the other way round is
+  reported as `design.polarity-reversed`.
+- **The LED's polarity is not compared.** The class states `polarized yes` and `positive_pin 2`
+  (the anode), but an indicator declares no `voltage` requirement, so there is no stress to
+  compare — the LED is counted as one of the instances with no declared voltage capability.
+- **The procurement layer does not compare polarities.** The class says which way round the part
+  goes, and the part bought for it says in its own pin table which of its pins are poles, but
+  nothing puts the two next to each other (`docs/backlog.md` F89). The case pins the comparison
+  the layer does today, not the one it does not.
 - **A second source.** The procurement file has one role (`primary`). The alternatives file
   exists for every board in the reference project and is empty there too.
 
 ## What this case pins
 
-- `expected/ir/components/led-indicator-0603.json`: the class's two required columns, and the
-  instance's `value` and `wavelength` as they reach the IR.
+- `expected/ir/components/led-indicator-0603.json`: the class's two required columns, its
+  `positive_pin`, and the instance's `value` and `wavelength` as they reach the IR.
+- `expected/ir/components/dc-jack-th.json`: the class's `positive_pin` (the tip) next to its two
+  `polarized` pins — the polarity of the class is a fact of the device file, and it reaches the IR
+  as one.
 - `expected/ir/components/ltst-c190gkt.json`: a rating measured in a class reaches the IR in the
   contract's **second** shape — `{"name": "value", "type": "string", "text": "green"}` — next to
   the numeric ones (`{"name": "wavelength", "type": "length", "value": 565}`).

@@ -20,6 +20,8 @@ The device layer: the two kinds of device, the closed vocabulary of their parame
 7. [0075](0075-a-ratings-polarity-is-the-roles.md) — a rating's polarity is the role's, and a MOSFET's rating covers both polarities.
 8. [0076](0076-a-parts-dissipation-is-bounded-by-its-stated-current.md) — a part's dissipation is bounded by the current the design states for it, and by the window span.
 9. [0077](0077-a-jack-and-an-led-are-classes.md) — a jack and an LED are classes; a class-valued primary compares by equality.
+10. [0078](0078-a-polarised-class-names-its-positive-pin.md) — a polarised class names its positive pin, and its requirement is read in that direction.
+11. [0079](0079-a-colour-has-a-closed-vocabulary.md) — a colour has a closed vocabulary, and the set is keyed by role and quantity.
 
 ## Records
 
@@ -34,3 +36,5 @@ The device layer: the two kinds of device, the closed vocabulary of their parame
 | [ADR-0075](0075-a-ratings-polarity-is-the-roles.md) | A Rating's Polarity Is the Role's, and a MOSFET's Rating Covers Both Polarities | Accepted | 2026-11-18 |
 | [ADR-0076](0076-a-parts-dissipation-is-bounded-by-its-stated-current.md) | A Part's Dissipation Is Bounded by the Current the Design States for It, and by the Window Span | Accepted | 2026-11-18 |
 | [ADR-0077](0077-a-jack-and-an-led-are-classes.md) | A Jack and an LED Are Classes; a Class-Valued Primary Compares by Equality | Accepted | 2026-11-18 |
+| [ADR-0078](0078-a-polarised-class-names-its-positive-pin.md) | A Polarised Class Names Its Positive Pin, and Its Requirement Is Read in That Direction | Accepted | 2026-11-18 |
+| [ADR-0079](0079-a-colour-has-a-closed-vocabulary.md) | A Colour Has a Closed Vocabulary, and the Set Is Keyed by Role and Quantity | Accepted | 2026-11-18 |

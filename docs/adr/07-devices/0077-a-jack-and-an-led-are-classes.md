@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-11-18
 Scope: Decides: that the closed construction set gains `barrel` (a DC barrel jack) and `indicator` (an indicator LED); that the role vocabulary gains `wavelength`; that a class-valued primary is compared for equality when a part is selected; that a `length`-typed parameter is readable and a string-valued rating reaches the IR; and what a part file's `datasheet` field may point at. Does not decide: which spellings a colour may take (open point below); how a polarized class's requirement is read (`docs/backlog.md` F85); which part a project buys ([ADR-0029](0029-the-procurement-layer.md)).
-Related: [ADR-0024](0024-the-device-kind-is-part-or-generic.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md) (D4, D6, D8), [ADR-0026](0026-a-part-states-its-own-ratings.md) (D3, D6), [ADR-0029](0029-the-procurement-layer.md) (decision 3.2)
+Related: [ADR-0024](0024-the-device-kind-is-part-or-generic.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md) (D4, D6, D8), [ADR-0026](0026-a-part-states-its-own-ratings.md) (D3, D6), [ADR-0029](0029-the-procurement-layer.md) (decision 3.2), [ADR-0078](0078-a-polarised-class-names-its-positive-pin.md), [ADR-0079](0079-a-colour-has-a-closed-vocabulary.md)
 Impact: `spec/teda.md` §6.1, §6.1.1, §6.2.1, §6.2.2, §9.2, §12.1, §12.3; `spec/procurement.md` §3.3; `packages/core/src/devices/rules.ts`; `packages/core/src/procurement/rules.ts`; `packages/parser/src/quantities.ts`; `packages/parser/src/component.ts`; `examples/reference-project` (the jack and the indicators)
 
 ## Background
@@ -155,14 +155,12 @@ survives, and the contradiction is recorded where a reader will meet it
 
 ## Open Points
 
-- **The spelling of a colour is still open.** The `value` of an `indicator` is a plain string,
-  so "green" and "GREEN" would be two BOM lines — the failure mode `dielectric`'s closed value
-  set exists to prevent ([ADR-0025](0025-device-vocabulary-and-parameter-roles.md) D5). A closed
-  colour vocabulary is not decided; the set of colours a class may take is a device-world
-  question, and the table that would hold it is global.
-- **A polarized class's requirement is still read as a magnitude.** The jack and the LED both
-  declare `polarized yes`, and their `voltage` requirement is compared symmetrically across
-  their two pins ([ADR-0075](0075-a-ratings-polarity-is-the-roles.md) closed the same hole for
-  a part's rating, one level up; `docs/backlog.md` F85 is the same hole one level down).
+- ~~**The spelling of a colour is still open.**~~ **Closed**: the colour set is closed — `red`,
+  `amber`, `yellow`, `green`, `cyan`, `blue`, `white` — and it lives in the tool's device table
+  ([ADR-0079](0079-a-colour-has-a-closed-vocabulary.md) D1, D3).
+- ~~**A polarized class's requirement is still read as a magnitude.**~~ **Closed**: the class
+  names its positive pole (`positive_pin`), and the requirement is compared in that direction —
+  the opposite direction is a reversal, not a magnitude
+  ([ADR-0078](0078-a-polarised-class-names-its-positive-pin.md) D1, D3).
 - **A class states what the design needs, not what is on the shelf.** The wavelength decides
   which bin is bought, and the bin is narrower than "a green LED".

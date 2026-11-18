@@ -1,0 +1,91 @@
+{
+  "constraints": [
+    {
+      "max_uv": 0,
+      "min_uv": 0,
+      "subject": "GND",
+      "type": "voltage"
+    },
+    {
+      "max_uv": 5500000,
+      "min_uv": 4500000,
+      "subject": "VOUT",
+      "type": "voltage"
+    }
+  ],
+  "format": "0.17",
+  "instances": [
+    {
+      "component": "cap-tantalum-7343",
+      "id": "M1.C1",
+      "params": [
+        {
+          "name": "value",
+          "value": 220000000000
+        },
+        {
+          "name": "tolerance",
+          "value": 200000
+        },
+        {
+          "name": "voltage",
+          "value": 10000000
+        }
+      ],
+      "uid": "IDm4t7qz/ID7kq3mz"
+    }
+  ],
+  "ir_version": "0.21",
+  "modules": [
+    {
+      "instance_id": "M1",
+      "module_id": "bulk-cap",
+      "ports": [
+        {
+          "id": "GND",
+          "net": "GND",
+          "pins": [
+            "M1.C1.2"
+          ]
+        },
+        {
+          "id": "VOUT",
+          "net": "VOUT",
+          "pins": [
+            "M1.C1.1"
+          ]
+        }
+      ],
+      "uid": "IDm4t7qz"
+    }
+  ],
+  "nets": [
+    {
+      "id": "GND",
+      "members": [
+        "M1.C1.2"
+      ]
+    },
+    {
+      "id": "VOUT",
+      "members": [
+        "M1.C1.1"
+      ]
+    }
+  ],
+  "ports": [
+    {
+      "id": "GND",
+      "net": "GND"
+    },
+    {
+      "id": "VOUT",
+      "net": "VOUT"
+    }
+  ],
+  "project": "main",
+  "source": {
+    "file": "design/sch/main.teda",
+    "line": 1
+  }
+}

@@ -47,3 +47,10 @@ and a rating measured in a class reaching the IR as `text`
 ([ADR-0077](../../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md)). Two constructions
 and one role entered the language with it, so it has a case too; it does not fill one of the ten
 slots either.
+
+**A third case outside the ten**: `polarized-class` — a polarised class names its positive pole
+(`positive_pin`), and its voltage requirement is read in that direction: the forward stress across
+the two poles against the requirement, and the opposite direction as a reversal rather than a
+magnitude ([ADR-0078](../../docs/adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md)).
+The scalar entered the language with it, so it has a case too; it does not fill one of the ten slots
+either.

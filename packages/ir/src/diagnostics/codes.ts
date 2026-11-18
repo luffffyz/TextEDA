@@ -302,6 +302,13 @@ export const DIAGNOSTIC_CODES = {
     summary: "A generic must declare its construction and whether it is polarised; a part must declare neither",
     spec: ["teda.md §6.1", "docs/adr/07-devices/0024-the-device-kind-is-part-or-generic.md D1"],
   },
+  "value.component-positive-pin-invalid": {
+    domain: "value",
+    severity: "error",
+    summary: "A polarised class names a positive pin that is not one of its two poles, or the class does not have two poles",
+    hint: "type the two poles of a polarised class `polarized` and name the positive one: `positive_pin <pin number>`",
+    spec: ["teda.md §6.1", "docs/adr/07-devices/0024-the-device-kind-is-part-or-generic.md D2"],
+  },
   "value.component-identity-invalid": {
     domain: "value",
     severity: "error",
@@ -1206,6 +1213,13 @@ export const DIAGNOSTIC_CODES = {
     summary: "A device's declared rating cannot cover the declared window of the net it sits on",
     hint: "raise the device's rating, lower the declared window, or state why the window is what it is",
     spec: ["spec/teda.md §7.3", "docs/adr/07-devices/0026-a-part-states-its-own-ratings.md D8、D11"],
+  },
+  "design.polarity-reversed": {
+    domain: "design",
+    severity: "error",
+    summary: "A polarised device is mounted the wrong way round: its negative pole can sit above its positive one",
+    hint: "swap the two poles, or state why the design may reverse-bias the part",
+    spec: ["spec/teda.md §7.3", "docs/adr/07-devices/0075-a-ratings-polarity-is-the-roles.md", "docs/adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md"],
   },
   "design.stress-unknown": {
     domain: "design",
