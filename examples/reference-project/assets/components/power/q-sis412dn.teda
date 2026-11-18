@@ -1,14 +1,25 @@
-version 0.11
+version 0.15
 component q-sis412dn
 
 kind         part
 mpn          SiS412DN
 manufacturer Vishay Siliconix
 category     mosfet_n
+datasheet    https://www.vishay.com/docs/69006/sis412dn_new.pdf
 
 # KiCad official library has no SiS412DN; it borrows the SiS454DN symbol with the same package, pins are governed by the inline table.
 symbol power:nmos-5
 footprint inductor:powerpak-1212-8
+
+# The part's own ratings (ADR-0026): what the device is, not what the design asks of it.
+# Per the Vishay datasheet 69006 (S09-0135-Rev. C), Absolute Maximum Ratings: drain-source voltage
+# V_DS 30 V, gate-source voltage V_GS +/- 20 V. The terminal pair names the two pins each rating
+# is about: the drain is pin 5, the source pin 1 (S1, S2 and S3 are one node), the gate pin 4.
+# Both ratings bound the difference in either direction, so their roles are symmetric (ADR-0075 D2).
+ratings
+  drain_source_voltage  voltage  30V  5 1
+  gate_source_voltage   voltage  20V  4 1
+
 pins
   1  S1  passive
   2  S2  passive

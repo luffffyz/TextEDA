@@ -99,7 +99,7 @@ Hard limits:
 - **A screenshot of a different circuit is only inspiration.** Do not copy its net names or part
   identities. If it is the same circuit, it is still only a cross-check, not the authority.
 - **Do not commit the screenshot or the datasheet PDF.** Vendor figures are copyrighted; keep them
-  local (the reference project's `docs/datasheets/` is gitignored) and cite the source in prose if
+  local (the reference project's `external/cache/` is gitignored) and cite the source in prose if
   needed.
 - **Snap placement to the 0.5 mm layout grid.** Image coordinates are approximate; write rounded `place`
   rows. The grid is the symbol pin lattice ([ADR-0074](../adr/09-view/0074-the-lattice-binds-what-must-reach-each-other.md) D1):

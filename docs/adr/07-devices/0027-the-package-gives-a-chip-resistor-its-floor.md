@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-23
 Scope: Decides: that a chip resistor's package gives it a floor rating, and that the floor binds procurement too. Does not decide: the rating vocabulary — see ADR-0026.
-Related: [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0026](0026-a-part-states-its-own-ratings.md), [ADR-0028](0028-package-code-and-3d-models.md)
+Related: [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0026](0026-a-part-states-its-own-ratings.md), [ADR-0028](0028-package-code-and-3d-models.md), [ADR-0075](0075-a-ratings-polarity-is-the-roles.md), [ADR-0076](0076-a-parts-dissipation-is-bounded-by-its-stated-current.md)
 Impact: `spec/teda.md` §6.4; `packages/core/src/design/ratings.ts`; `packages/core/src/devices/packages.ts`
 
 ## Context

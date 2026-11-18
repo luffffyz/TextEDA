@@ -47,7 +47,7 @@ nets, ports, and cross-PCB interconnects; the PCB files record physical implemen
 
 ## docs/
 
-- `datasheets/`: a **directory of local copies** of component datasheets, **not committed** (already excluded by `.gitignore`; vendor PDFs are copyrighted and are not distributed with the repository). File names correspond to components (`tps7a20.pdf` serves `tps7a2033pdbvr`); download them from the vendor websites as needed using the table in `mcu-board-components.md`. Components are always built from the datasheet, with pins and parameters taken from the local copy; the `datasheet` field in a component file records only the original URL.
+- `datasheets.md`: the index of the **cached datasheets** — which file in `external/cache/` serves which component, and which vendor document it is. The PDFs themselves are **not committed** (already excluded by `.gitignore`; vendor PDFs are copyrighted and are not distributed with the repository). File names correspond to components (`tps7a20.pdf` serves `tps7a2033pdbvr`); download them from the vendor websites as needed. Components are always built from the datasheet, with pins and parameters taken from the local copy; the `datasheet` field in a component file records only the original URL.
 - `mcu-board-components.md`: component selection for the MCU module and its physical PCB, load-capacitance/current-budget calculations, other key computations, and open items.
 - `reviews/`: design-review records for the root logic, PCB implementation, and advisory drawings.
 - Trial-run baselines (DRC report, Gerber list, and KiCad project files) are retained under `docs/trial-run/charger-buck/` when generated; the field-level IR → KiCad mapping is in `docs/guides/kicad-pcb-format.md`.

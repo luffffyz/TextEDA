@@ -1,13 +1,23 @@
-version 0.11
+version 0.15
 component d-b340a
 
 kind         part
 mpn          B340A
 manufacturer Diodes Incorporated
 category     diode
+datasheet    https://www.diodes.com/assets/Datasheets/ds30891.pdf
 
 symbol power:d
 footprint sma:sma
+
+# The part's own rating (ADR-0026): what the device is, not what the design asks of it.
+# Per the Diodes Incorporated datasheet DS30891 (B320A - B360A), Maximum Ratings: peak repetitive
+# reverse voltage V_RRM 40 V for the B340A. The terminal pair names the two pins the rating is
+# about: from = the anode (pin 2), to = the cathode (pin 1). A diode's reverse rating covers the
+# reverse polarity only -- the forward voltage is a characteristic, not a limit (ADR-0075 D3).
+ratings
+  reverse_voltage  voltage  40V  2 1
+
 pins
   1  K  passive
   2  A  passive

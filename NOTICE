@@ -76,7 +76,7 @@ Third-party documents not included:
 - Vendor datasheet PDFs (TI, WCH, 四川索斯特, 硕方精密, ...) are NOT
   distributed with this repository: they are third-party copyrighted
   documents. Obtain them from the manufacturer. The local directory
-  examples/reference-project/docs/datasheets/ is git-ignored for that
+  examples/reference-project/external/cache/ is git-ignored for that
   reason. See ADR-0039 decision 1.
 
 Copyright (c) 2019 - Present, Microsoft Corporation,

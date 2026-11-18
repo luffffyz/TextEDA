@@ -127,7 +127,9 @@ export const DEVICE_CONSTRUCTION_NAMES: readonly string[] = Object.keys(DEVICE_C
  * `kind` says whether the role is a boundary the design must stay inside, a property used to
  * choose or describe a part, or a closed code. `direction` says how a stress check reads the
  * role's polarity: `symmetric` (either polarity stresses the part), `from` / `to` (only that
- * polarity does), `none` (the role is not a voltage stress).
+ * polarity does), `none` (the role is not a voltage stress). The four are the vocabulary of
+ * directions; the roles that use them are listed in `DEVICE_ROLES` below (ADR-0075 D2: no role
+ * reads `from` today — a MOSFET's `V_DS` and `V_GS` cover both polarities).
  */
 export type RoleKind = "limit" | "characteristic" | "code";
 export type RoleDirection = "symmetric" | "from" | "to" | "none";
@@ -142,20 +144,23 @@ export interface DeviceRoleRule {
 }
 
 /**
- * The closed role vocabulary (ADR-0025 D7, ADR-0026 D3/D5/D6).
+ * The closed role vocabulary (ADR-0025 D7, ADR-0026 D3/D5/D6, ADR-0075).
  *
  * `value` is deliberately not given a quantity here: its quantity is the construction's primary
  * (resistance, capacitance, inductance), and a part declares no construction — it states the
  * quantity of its own `value` row (ADR-0026 D3).
  *
- * The three directed voltage roles name the pair they are about, so the pair is never ambiguous
- * and one role carries one row (ADR-0026 D4: a part states a rating once per role):
+ * The three voltage roles that name a pair of terminals say, in their direction, which polarity
+ * of that pair their number bounds (ADR-0026 D4, ADR-0075 D1):
  *
- * - `drain_source_voltage` — `from` = drain, `to` = source, stressed when the drain is above the
- *   source;
- * - `gate_source_voltage` — `from` = gate, `to` = source;
- * - `reverse_voltage` — `from` = anode, `to` = cathode, stressed when the cathode is above the
- *   anode.
+ * - `drain_source_voltage` — the pair is the drain and the source, and the rating covers **both**
+ *   polarities: a datasheet's `V_DS` bounds the difference in either direction;
+ * - `gate_source_voltage` — the pair is the gate and the source, and the rating covers **both**
+ *   polarities: `V_GS` is written with an explicit `±`;
+ * - `reverse_voltage` — the pair is the anode and the cathode, and the rating covers **one**
+ *   polarity, the reverse one: a diode's forward voltage is a characteristic, not a limit.
+ *
+ * The polarity is the role's, so it is not repeated in the part's file (ADR-0075 D1).
  */
 export const DEVICE_ROLES: Record<string, DeviceRoleRule> = {
   value: { kind: "characteristic", direction: "none" },
@@ -167,8 +172,8 @@ export const DEVICE_ROLES: Record<string, DeviceRoleRule> = {
   dcr: { type: "resistance", kind: "characteristic", direction: "none" },
   rated_current: { type: "current", kind: "limit", direction: "none" },
   sat_current: { type: "current", kind: "limit", direction: "none" },
-  drain_source_voltage: { type: "voltage", kind: "limit", direction: "from" },
-  gate_source_voltage: { type: "voltage", kind: "limit", direction: "from" },
+  drain_source_voltage: { type: "voltage", kind: "limit", direction: "symmetric" },
+  gate_source_voltage: { type: "voltage", kind: "limit", direction: "symmetric" },
   reverse_voltage: { type: "voltage", kind: "limit", direction: "to" },
 };
 

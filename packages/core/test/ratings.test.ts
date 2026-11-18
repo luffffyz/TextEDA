@@ -31,6 +31,9 @@ function board(options: {
 const VOLTAGE = (subject: string, min_uv: number, max_uv: number) =>
   ({ type: "voltage", subject, min_uv, max_uv }) as NonNullable<Schematic["constraints"]>[number];
 
+const CURRENT = (subject: string, max_na: number) =>
+  ({ type: "current", subject, max_na }) as NonNullable<Schematic["constraints"]>[number];
+
 describe("rating checks", () => {
   test("a capability below the declared window is an error, with both numbers", () => {
     const schematic = board({
@@ -178,61 +181,186 @@ describe("rating checks", () => {
   });
 
   test("a directed role reads only its own polarity", () => {
-    // `drain_source_voltage` is stressed when the drain is above the source (ADR-0026 D5). Here the
-    // drain is the 12..14 V net and the source the 0 V net, so the role fires and the 30 V limit
+    // `reverse_voltage` is stressed when the cathode is above the anode (ADR-0026 D5). Here the
+    // cathode is the 12..14 V net and the anode the 0 V net, so the role fires and the 30 V limit
     // holds.
     const schematic = board({
-      instances: [{ id: "Q1", component: "fet" }],
+      instances: [{ id: "D1", component: "diode" }],
       nets: [
-        { id: "VDD", members: ["Q1.1"] },
-        { id: "GND", members: ["Q1.2"] },
+        { id: "VDD", members: ["D1.1"] },
+        { id: "GND", members: ["D1.2"] },
       ],
       constraints: [VOLTAGE("VDD", 12_000_000, 14_000_000), VOLTAGE("GND", 0, 0)],
     });
     const device: RatingDevice = {
       pins: ["1", "2", "3"],
       ratings: {
-        drain_source_voltage: {
+        reverse_voltage: {
           type: "voltage",
           value: 30_000_000,
-          terminals: { from: "1", to: "2" },
+          terminals: { from: "2", to: "1" },
         },
       },
     };
     const { diagnostics, coverage } = checkRatings({
       file: "b.teda",
       schematic,
-      devices: new Map([["fet", device]]),
+      devices: new Map([["diode", device]]),
     });
     expect(diagnostics).toEqual([]);
     expect(coverage.stress).toEqual({ compared: 1, total: 1 });
   });
 
   test("a directed role in the other polarity is neither a violation nor an unknown", () => {
-    // The source is above the drain here, so the role's polarity never occurs: the design never
-    // stresses the part that way (ADR-0026 D12).
+    // The anode is above the cathode here, so the role's polarity never occurs: the design never
+    // stresses the part that way (ADR-0026 D12). The limit is deliberately tiny — a polarity that
+    // does not occur is not a violation at any limit.
     const schematic = board({
-      instances: [{ id: "Q1", component: "fet" }],
+      instances: [{ id: "D1", component: "diode" }],
       nets: [
-        { id: "GND", members: ["Q1.1"] },
-        { id: "VDD", members: ["Q1.2"] },
+        { id: "GND", members: ["D1.1"] },
+        { id: "VDD", members: ["D1.2"] },
       ],
       constraints: [VOLTAGE("GND", 0, 0), VOLTAGE("VDD", 12_000_000, 14_000_000)],
     });
     const device: RatingDevice = {
       pins: ["1", "2", "3"],
       ratings: {
-        drain_source_voltage: {
+        reverse_voltage: {
           type: "voltage",
           value: 5_000_000,
-          terminals: { from: "1", to: "2" },
+          terminals: { from: "2", to: "1" },
         },
       },
     };
     const { diagnostics, coverage } = checkRatings({
       file: "b.teda",
       schematic,
-      devices: new Map([["fet", device]]),
+      devices: new Map([["diode", device]]),
+    });
+    expect(diagnostics).toEqual([]);
+    expect(coverage.stress).toEqual({ compared: 1, total: 1 });
+  });
+
+  test("a symmetric role is stressed in the polarity the design exercises", () => {
+    // A P-channel high-side switch has its source above its drain (ADR-0075 D2). The drain-source
+    // rating is a magnitude, so it covers that polarity too: the stress is the span of the
+    // difference, 14 V, and a 10 V limit is exceeded. A directed reading would have compared
+    // nothing here and reported the instance as compared.
+    const schematic = board({
+      instances: [{ id: "Q1", component: "pfet" }],
+      nets: [
+        { id: "ADP", members: ["Q1.5"] },
+        { id: "SYS", members: ["Q1.1"] },
+      ],
+      constraints: [VOLTAGE("ADP", 0, 5_000_000), VOLTAGE("SYS", 12_000_000, 14_000_000)],
+    });
+    const device: RatingDevice = {
+      pins: ["1", "2", "3", "4", "5"],
+      ratings: {
+        drain_source_voltage: {
+          type: "voltage",
+          value: 10_000_000,
+          terminals: { from: "5", to: "1" },
+        },
+      },
+    };
+    const { diagnostics, coverage } = checkRatings({
+      file: "b.teda",
+      schematic,
+      devices: new Map([["pfet", device]]),
+    });
+    const error = diagnostics.find((d) => d.code === "design.rating-exceeded");
+    expect(error?.severity).toBe("error");
+    expect(error?.data).toMatchObject({ stress_uv: 14_000_000, role: "drain_source_voltage" });
+    expect(coverage.stress).toEqual({ compared: 1, total: 1 });
+  });
+
+  test("a symmetric role takes the larger of the two polarities", () => {
+    // The same part, the other way round: the drain above the source. The stress is the same span
+    // of the difference, so the rating covers the part either way.
+    const schematic = board({
+      instances: [{ id: "Q1", component: "nfet" }],
+      nets: [
+        { id: "SYS", members: ["Q1.5"] },
+        { id: "ADP", members: ["Q1.1"] },
+      ],
+      constraints: [VOLTAGE("ADP", 0, 5_000_000), VOLTAGE("SYS", 12_000_000, 14_000_000)],
+    });
+    const device: RatingDevice = {
+      pins: ["1", "2", "3", "4", "5"],
+      ratings: {
+        drain_source_voltage: {
+          type: "voltage",
+          value: 10_000_000,
+          terminals: { from: "5", to: "1" },
+        },
+      },
+    };
+    const { diagnostics } = checkRatings({
+      file: "b.teda",
+      schematic,
+      devices: new Map([["nfet", device]]),
+    });
+    const error = diagnostics.find((d) => d.code === "design.rating-exceeded");
+    expect(error?.data).toMatchObject({ stress_uv: 14_000_000 });
+  });
+
+  test("a symmetric gate-source role is stressed when the gate is pulled below the source", () => {
+    // The gate of a P-channel switch is pulled to ground while the source sits at the rail, so the
+    // |V_GS| the part really sees is the opposite of the "gate above source" reading (ADR-0075 D2).
+    const schematic = board({
+      instances: [{ id: "Q1", component: "pfet" }],
+      nets: [
+        { id: "GND", members: ["Q1.4"] },
+        { id: "SYS", members: ["Q1.1"] },
+      ],
+      constraints: [VOLTAGE("GND", 0, 0), VOLTAGE("SYS", 12_000_000, 14_000_000)],
+    });
+    const device: RatingDevice = {
+      pins: ["1", "2", "3", "4", "5"],
+      ratings: {
+        gate_source_voltage: {
+          type: "voltage",
+          value: 10_000_000,
+          terminals: { from: "4", to: "1" },
+        },
+      },
+    };
+    const { diagnostics } = checkRatings({
+      file: "b.teda",
+      schematic,
+      devices: new Map([["pfet", device]]),
+    });
+    const error = diagnostics.find((d) => d.code === "design.rating-exceeded");
+    expect(error?.severity).toBe("error");
+    expect(error?.data).toMatchObject({ stress_uv: 14_000_000, role: "gate_source_voltage" });
+  });
+
+  test("a symmetric role inside its limit is not reported", () => {
+    // The same P-channel part with a 30 V rating: the 14 V span is inside the limit.
+    const schematic = board({
+      instances: [{ id: "Q1", component: "pfet" }],
+      nets: [
+        { id: "ADP", members: ["Q1.5"] },
+        { id: "SYS", members: ["Q1.1"] },
+      ],
+      constraints: [VOLTAGE("ADP", 0, 5_000_000), VOLTAGE("SYS", 12_000_000, 14_000_000)],
+    });
+    const device: RatingDevice = {
+      pins: ["1", "2", "3", "4", "5"],
+      ratings: {
+        drain_source_voltage: {
+          type: "voltage",
+          value: 30_000_000,
+          terminals: { from: "5", to: "1" },
+        },
+      },
+    };
+    const { diagnostics, coverage } = checkRatings({
+      file: "b.teda",
+      schematic,
+      devices: new Map([["pfet", device]]),
     });
     expect(diagnostics).toEqual([]);
     expect(coverage.stress).toEqual({ compared: 1, total: 1 });
@@ -462,5 +590,151 @@ describe("dissipation checks (ADR-0026)", () => {
     });
     expect(diagnostics.some((diagnostic) => diagnostic.code === "design.rating-exceeded")).toBe(false);
     expect(diagnostics.find((diagnostic) => diagnostic.code === "design.power-unknown")?.data?.no_package_rating).toBe(1);
+  });
+});
+
+describe("the stated current bounds a part in series (ADR-0076)", () => {
+  /** A 0402 between two rails whose windows are far apart: the span bound is enormous. */
+  const RESISTOR_0402: RatingDevice = {
+    pins: ["1", "2"],
+    ratings: {},
+    params: [
+      { name: "value", type: "resistance" },
+      { name: "tolerance", type: "percent" },
+      { name: "power", type: "power" },
+    ],
+    construction: "thick",
+    package_code: "0402",
+  };
+
+  test("without a stated current the window span still speaks for the part", () => {
+    // The span of the two windows is 28 V, so the bound is 78.4 W against a 0402's 62.5 mW.
+    const schematic = board({
+      instances: [{ id: "R1", component: "res-thick-0402" }],
+      nets: [
+        { id: "A", members: ["R1.1"] },
+        { id: "B", members: ["R1.2"] },
+      ],
+      constraints: [VOLTAGE("A", 0, 19_000_000), VOLTAGE("B", 5_000_000, 28_000_000)],
+      params: { R1: [{ name: "value", value: 10_000_000 }] }, // 10 Ω
+    });
+    const { diagnostics } = checkRatings({
+      file: "sch/b.teda",
+      schematic,
+      devices: new Map([["res-thick-0402", RESISTOR_0402]]),
+    });
+    const error = diagnostics.find((diagnostic) => diagnostic.code === "design.rating-exceeded");
+    expect(error?.severity).toBe("error");
+    expect(error?.data?.stress_uw).toBe(78_400_000);
+    expect(error?.data?.bound).toBe("window_span");
+  });
+
+  test("a stated current bounds the dissipation and the part passes", () => {
+    // 25 mA through 10 Ω is 62.5 µW: the design knows what flows here, and the part can take it.
+    const schematic = board({
+      instances: [{ id: "R1", component: "res-thick-0402" }],
+      nets: [
+        { id: "A", members: ["R1.1"] },
+        { id: "B", members: ["R1.2"] },
+      ],
+      constraints: [
+        VOLTAGE("A", 0, 19_000_000),
+        VOLTAGE("B", 5_000_000, 28_000_000),
+        CURRENT("R1.1", 25_000_000),
+      ],
+      params: { R1: [{ name: "value", value: 10_000_000 }] }, // 10 Ω
+    });
+    const { diagnostics, coverage } = checkRatings({
+      file: "sch/b.teda",
+      schematic,
+      devices: new Map([["res-thick-0402", RESISTOR_0402]]),
+    });
+    expect(diagnostics.some((diagnostic) => diagnostic.code === "design.rating-exceeded")).toBe(false);
+    expect(coverage.dissipation).toEqual({ compared: 1, total: 1 });
+  });
+
+  test("a stated current the part cannot carry is an error, and the message names it", () => {
+    const schematic = board({
+      instances: [{ id: "R1", component: "res-thick-0402" }],
+      nets: [
+        { id: "A", members: ["R1.1"] },
+        { id: "B", members: ["R1.2"] },
+      ],
+      constraints: [VOLTAGE("A", 0, 12_000_000), VOLTAGE("B", 0, 0), CURRENT("R1.1", 4_000_000_000)],
+      params: { R1: [{ name: "value", value: 1_000_000 }] }, // 1 Ω
+    });
+    const { diagnostics } = checkRatings({
+      file: "sch/b.teda",
+      schematic,
+      devices: new Map([["res-thick-0402", RESISTOR_0402]]),
+    });
+    const error = diagnostics.find((diagnostic) => diagnostic.code === "design.rating-exceeded");
+    expect(error?.severity).toBe("error");
+    expect(error?.message).toContain("carries at most 4A (current R1.1)");
+    expect(error?.message).toContain("16W");
+    expect(error?.data).toMatchObject({ bound: "stated_current", current_na: 4_000_000_000 });
+  });
+
+  test("a rail's current is not the current of a part on it", () => {
+    // The rail's current is a layout input (ADR-0026 D18): the language does not say which member
+    // of the net carries it, so it may not become the bound of this part.
+    const schematic = board({
+      instances: [{ id: "R1", component: "res-thick-0402" }],
+      nets: [
+        { id: "A", members: ["R1.1"] },
+        { id: "B", members: ["R1.2"] },
+      ],
+      constraints: [VOLTAGE("A", 0, 12_000_000), VOLTAGE("B", 0, 0), CURRENT("A", 4_000_000_000)],
+      params: { R1: [{ name: "value", value: 1_000_000 }] }, // 1 Ω
+    });
+    const { diagnostics } = checkRatings({
+      file: "sch/b.teda",
+      schematic,
+      devices: new Map([["res-thick-0402", RESISTOR_0402]]),
+    });
+    const error = diagnostics.find((diagnostic) => diagnostic.code === "design.rating-exceeded");
+    expect(error?.data?.bound).toBe("window_span");
+  });
+
+  test("the tighter of the two bounds binds", () => {
+    // 1 kΩ across 12 V is 144 mW, which a 0402 cannot take; a stated 1 A would say 1 W, which is
+    // looser. The span binds, so the finding is the one the windows give.
+    const schematic = board({
+      instances: [{ id: "R1", component: "res-thick-0402" }],
+      nets: [
+        { id: "A", members: ["R1.1"] },
+        { id: "B", members: ["R1.2"] },
+      ],
+      constraints: [VOLTAGE("A", 0, 12_000_000), VOLTAGE("B", 0, 0), CURRENT("R1.1", 1_000_000_000)],
+      params: { R1: [{ name: "value", value: 1_000_000_000 }] }, // 1 kΩ
+    });
+    const { diagnostics } = checkRatings({
+      file: "sch/b.teda",
+      schematic,
+      devices: new Map([["res-thick-0402", RESISTOR_0402]]),
+    });
+    const error = diagnostics.find((diagnostic) => diagnostic.code === "design.rating-exceeded");
+    expect(error?.data).toMatchObject({ bound: "window_span", stress_uw: 144_000 });
+  });
+
+  test("a position with a stated current and no window is still compared", () => {
+    // Each bound needs only the facts it uses (ADR-0076 D5): the current bound does not need a
+    // window, so the position is compared rather than counted as unknown.
+    const schematic = board({
+      instances: [{ id: "R1", component: "res-thick-0402" }],
+      nets: [
+        { id: "A", members: ["R1.1"] },
+        { id: "B", members: ["R1.2"] },
+      ],
+      constraints: [CURRENT("R1.1", 25_000_000)],
+      params: { R1: [{ name: "value", value: 10_000_000 }] }, // 10 Ω
+    });
+    const { diagnostics, coverage } = checkRatings({
+      file: "sch/b.teda",
+      schematic,
+      devices: new Map([["res-thick-0402", RESISTOR_0402]]),
+    });
+    expect(diagnostics.some((diagnostic) => diagnostic.code === "design.power-unknown")).toBe(false);
+    expect(coverage.dissipation).toEqual({ compared: 1, total: 1 });
   });
 });

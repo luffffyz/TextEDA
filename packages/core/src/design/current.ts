@@ -69,7 +69,7 @@ export interface CurrentReport {
 }
 
 /** The canonical unit is nanoamperes; the surface unit is amperes. */
-function amps(na: number): string {
+export function amps(na: number): string {
   const value = na / 1e9;
   return `${Number.isInteger(value) ? value : Number(value.toFixed(4))}A`;
 }

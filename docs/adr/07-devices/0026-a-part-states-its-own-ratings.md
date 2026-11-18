@@ -3,10 +3,10 @@
 Status: Accepted
 Date: 2026-10-26
 Scope: Decides: where a part's ratings live, how they are compared against a design's declared windows, and how a multi-terminal rating names its stress. Does not decide: the current check — a net's current is not attributed to its members yet; nor the derating policy — see the open points below.
-Related: [ADR-0024](0024-the-device-kind-is-part-or-generic.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md)
+Related: [ADR-0024](0024-the-device-kind-is-part-or-generic.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md), [ADR-0075](0075-a-ratings-polarity-is-the-roles.md), [ADR-0076](0076-a-parts-dissipation-is-bounded-by-its-stated-current.md)
 Impact: `spec/teda.md` §6.2.1, §6.4, §7.3; `spec/procurement.md` §3.2, §3.3; `schemas/ir/**`; `packages/core` (the rating checks); `packages/parser` (the `component` description type); `packages/ir` (the diagnostic code registry)
 
-> **Current rating contract (2026-11-18):** the terminal pair, the role's direction and the role's kind are **implemented** — language `0.15`, IR contract `v0.20`. A `ratings` row may name its two terminals (`role type value from to`, pin numbers, ordered); the role table carries `kind` (`limit` / `characteristic` / `code`) and a stress direction (`symmetric` / `from` / `to` / `none`), plus the three directed voltage roles (`drain_source_voltage`, `gate_source_voltage`, `reverse_voltage`); the checker compares a multi-pin part's `limit` rating across that named pair, in the role's direction, and a `limit` rating without terminals on a part with more than two pins stays unknown (D7, D13). The syntax and the semantics are `spec/teda.md` §6.2.1, §6.4 and §7.3; the code is `packages/core/src/design/ratings.ts` and `packages/core/src/devices/rules.ts`. The wording below that says a decision is "not implemented" is the record of the day it was taken, and stays as it is.
+> **Current rating contract (2026-11-18):** the terminal pair, the role's direction and the role's kind are **implemented** — language `0.15`, IR contract `v0.20`. A `ratings` row may name its two terminals (`role type value from to`, pin numbers, ordered); the role table carries `kind` (`limit` / `characteristic` / `code`) and a stress direction (`symmetric` / `from` / `to` / `none`), plus the three directed voltage roles (`drain_source_voltage`, `gate_source_voltage`, `reverse_voltage`); the checker compares a multi-pin part's `limit` rating across that named pair, in the role's direction, and a `limit` rating without terminals on a part with more than two pins stays unknown (D7, D13). The syntax and the semantics are `spec/teda.md` §6.2.1, §6.4 and §7.3; the code is `packages/core/src/design/ratings.ts` and `packages/core/src/devices/rules.ts`. The wording below that says a decision is "not implemented" is the record of the day it was taken, and stays as it is. The same day corrected the direction of the two MOSFET roles: `drain_source_voltage` and `gate_source_voltage` are **symmetric**, because a datasheet's `V_DS` and `V_GS` bound the difference in either direction ([ADR-0075](0075-a-ratings-polarity-is-the-roles.md)).
 
 ## Background
 
@@ -157,6 +157,12 @@ The sign convention is the role's definition, not a second fact in the file. `re
 names `from = anode`, `to = cathode` and uses `to`: the stress is the cathode above the anode.
 `drain_source_voltage` names `from = drain`, `to = source` and uses `from`.
 
+→ **Corrected (2026-11-18).** [ADR-0075](0075-a-ratings-polarity-is-the-roles.md) D2 read the two
+MOSFET roles as `symmetric`: a datasheet's `V_DS` and `V_GS` bound the difference in **either**
+direction, and the directed reading left a P-channel part's real stress outside the role. The
+paragraph above is the record of 2026-10-26, when the direction was read off the sign of the
+symbol rather than off the datasheet's convention.
+
 ### D6. The role table also carries `kind`
 
 The same role table gains a **kind** column:
@@ -269,6 +275,23 @@ error reported", not "verified safe". And an element between two declared window
 dissipation is **not** a DC quantity — the series resistor of an RC snubber, a damping element —
 gets a meaningless bound; such a position must not be given a dissipation ceiling in the first
 place.
+
+→ **Corrected (2026-11-18).** The sentence above says two nets with the same window yield `0`; the
+implementation and the formula in D10 do not: the bound takes the **spread** of the two windows
+(each at its own extreme, independently), so identical windows give the window's width, not `0`.
+The formula in D10 is the authority; the sentence above misdescribed it. The correction matters
+because the bound is meaningless for a **series** element — a feed resistor or a sense resistor
+between two rails — and the reference project now declares windows on both of its ends (see
+`docs/backlog.md` F42).
+
+→ **Corrected (2026-11-18, later the same day).** The paragraph above says "no current is
+computed", and at the time that was true: the language could not say who carries the current of a
+net, so an ohmic bound was the only one that needed no invention.
+[ADR-0076](0076-a-parts-dissipation-is-bounded-by-its-stated-current.md) gave the design a second
+way: a `current` requirement on a **pin** is the current through that part, so the dissipation is
+bounded by `I² × R` as well, and the tighter of the two bounds binds. The window span stays the
+fallback and stays the ceiling — a stated current adds a bound, it never removes one — but for a
+series position it is now the bound that speaks.
 
 **Every declared bound binds; the tightest wins.** The three sources are upper bounds on the same
 quantity, so the comparison takes the minimum and reports which one bound:
@@ -428,3 +451,9 @@ could only report a warning, because the attribution was unknown.
   the role it does not have, and the report does not show the difference. Deciding whether the
   vocabulary grows a source-drain role, or whether a part may say which polarity its rating
   covers, is open (`docs/backlog.md` F84).
+
+  → **Settled (2026-11-18).** [ADR-0075](0075-a-ratings-polarity-is-the-roles.md): neither. The
+  polarity is the role's, and the two MOSFET roles became `symmetric` — a datasheet's `V_DS` and
+  `V_GS` bound the difference in either direction, so the polarity the part really sees is now
+  compared instead of falling outside the role. `reverse_voltage` stays directed. The vocabulary
+  did not grow and the language gained no column.

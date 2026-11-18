@@ -19,6 +19,7 @@ import type { Diagnostic, DiagnosticLocation } from "@texteda/ir/diagnostics";
 import type { Schematic } from "@texteda/ir/schematic";
 import { packagePowerRating } from "../devices/packages.ts";
 import { DEVICE_ROLES, type RoleDirection } from "../devices/rules.ts";
+import { amps } from "./current.ts";
 
 /** What the rules need to know about a device (assembled by the caller from the component facts). */
 export interface RatingDevice {
@@ -389,6 +390,30 @@ function resistanceOf(
 }
 
 /**
+ * The current the design states for one instance: the largest requirement on any of its pins.
+ *
+ * A requirement on a pin is a requirement on the current through the path that pin is on
+ * (ADR-0026 D16–D18), so for a two-terminal part it is the current through the part, and it
+ * bounds what the part dissipates (ADR-0076 D2). A rail's current is **not** this: it is what the
+ * whole net carries, and the language does not say which member of a net carries it
+ * (ADR-0026 D18), so it may not become the current of a part.
+ */
+function statedCurrentOf(
+  instance: Schematic["instances"][number],
+  schematic: Schematic,
+): { max_na: number; subject: string } | null {
+  let found: { max_na: number; subject: string } | null = null;
+  for (const constraint of schematic.constraints ?? []) {
+    if (constraint.type !== "current") continue;
+    if (instanceOfPinRef(schematic, constraint.subject) !== instance.id) continue;
+    if (found === null || constraint.max_na > found.max_na) {
+      found = { max_na: constraint.max_na, subject: constraint.subject };
+    }
+  }
+  return found;
+}
+
+/**
  * Worst-case dissipation of a resistive device, against every declared upper bound (ADR-0026).
  *
  * The bound is `ΔV² / R`, with `ΔV` the extreme difference of the declared windows of the two nets —
@@ -396,6 +421,11 @@ function resistanceOf(
  * two nets with the same window yield zero even when the part really dissipates, because the current
  * through it is not stated by the language (`current VOUT 3A` does not say who carries it). So this
  * check reports violations and never proves a pass; what it could not compare is counted.
+ *
+ * A second bound joins it (ADR-0076): when the design states the current through the position, the
+ * dissipation is at most `I² × R`, and that is the bound that speaks for a part **in series** — the
+ * window span assumes the two windows' extremes co-occur, which for a series element they do not.
+ * The tighter of the two binds, so a stated current adds a bound and never removes one.
  */
 function checkDissipation(
   facts: RatingFacts,
@@ -440,7 +470,11 @@ function checkDissipation(
     }
     const windowA = windows.get(netA);
     const windowB = windows.get(netB);
-    if (!windowA || !windowB) {
+    const windowsKnown = windowA !== undefined && windowB !== undefined;
+    // The current the design states for this position (ADR-0076 D2). It bounds the dissipation on
+    // its own, so a position whose nets carry no window is still comparable (D5).
+    const stated = statedCurrentOf(instance, schematic);
+    if (!windowsKnown && stated === null) {
       skipped.push(
         conflicting.has(netA) || conflicting.has(netB) ? "conflicting_window" : "no_window",
       );
@@ -476,27 +510,53 @@ function checkDissipation(
     const binding = limits[0]!;
 
     // ΔV in microvolts, R in microohms: the quotient is microwatts.
-    const stress_uv = Math.max(
-      Math.abs(windowA.max_uv - windowB.min_uv),
-      Math.abs(windowB.max_uv - windowA.min_uv),
-    );
-    const stress_uw = Math.round((stress_uv * stress_uv) / resistance);
-    if (stress_uw <= binding.max_uw) continue;
+    const span_uw = windowsKnown
+      ? Math.round(
+          (Math.max(
+            Math.abs(windowA.max_uv - windowB.min_uv),
+            Math.abs(windowB.max_uv - windowA.min_uv),
+          ) **
+            2) /
+            resistance,
+        )
+      : null;
+    // I in amperes, R in ohms: the quotient is watts, and a watt is a million microwatts.
+    const current_uw =
+      stated === null
+        ? null
+        : Math.round((stated.max_na / 1e9) ** 2 * (resistance / 1e6) * 1e6);
+    // The tighter of the two bounds binds (ADR-0076 D1): a stated current adds a bound, it never
+    // removes the window's ceiling.
+    const bound =
+      span_uw === null
+        ? { uw: current_uw!, basis: "stated_current" as const }
+        : current_uw === null
+          ? { uw: span_uw, basis: "window_span" as const }
+          : current_uw <= span_uw
+            ? { uw: current_uw, basis: "stated_current" as const }
+            : { uw: span_uw, basis: "window_span" as const };
+    if (bound.uw <= binding.max_uw) continue;
 
+    const message =
+      bound.basis === "stated_current"
+        ? `${instance.id} (${instance.component}) carries at most ${amps(stated!.max_na)} (current ${stated!.subject}), so it can dissipate ${watts(bound.uw)}, but ${binding.what} is ${watts(binding.max_uw)}`
+        : `${instance.id} (${instance.component}) can dissipate ${watts(bound.uw)} over its declared windows (${netA} ${volts(windowA!.min_uv)}..${volts(windowA!.max_uv)} against ${netB} ${volts(windowB!.min_uv)}..${volts(windowB!.max_uv)}) but ${binding.what} is ${watts(binding.max_uw)}`;
     diagnostics.push({
       code: "design.rating-exceeded",
       severity: "error",
-      message: `${instance.id} (${instance.component}) can dissipate ${watts(stress_uw)} over its declared windows (${netA} ${volts(windowA.min_uv)}..${volts(windowA.max_uv)} against ${netB} ${volts(windowB.min_uv)}..${volts(windowB.max_uv)}) but ${binding.what} is ${watts(binding.max_uw)}`,
+      message,
       hint: "buy a part with a higher power rating, narrow the declared window on the net, or state why the window is what it is",
       location: facts.locateInstance?.(instance.id) ?? { file, line: 1, col: 1 },
       data: {
         instance: instance.id,
         component: instance.component,
-        stress_uw,
+        stress_uw: bound.uw,
         limit_uw: binding.max_uw,
         resistance_uohm: resistance,
         net_a: netA,
         net_b: netB,
+        bound: bound.basis,
+        ...(stated === null ? {} : { current_na: stated.max_na }),
       },
     });
   }

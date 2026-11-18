@@ -3,18 +3,11 @@
 ## Board positioning
 
 - CH32V307VCT6 minimal system + 3.3V LDO: 5V in, 3.3V out, SWD (PA13/PA14) reserved.
-- Selection principle: the pins and electrical parameters of every component can be looked up in the **local datasheet** (`docs/datasheets/`); no values taken from memory or second-hand pages.
+- Selection principle: the pins and electrical parameters of every component can be looked up in the **local datasheet** (`external/cache/`); no values taken from memory or second-hand pages.
 
 ## Datasheet localization
 
-> The vendor PDFs in `docs/datasheets/` are **not committed** (copyright-protected, already excluded by `.gitignore`). Download them yourself from the vendor websites using the file names in the table below.
-
-| Component | Local file | Original source |
-|---|---|---|
-| TPS7A2033PDBVR | `docs/datasheets/tps7a20.pdf` | TI SBVS348H (TPS7A20, 2024-07 revision) |
-| CH32V307VCT6 | `docs/datasheets/CH32V307DS0.pdf` | WCH V3.9 (CH32V303/305/307/317 datasheet) |
-| SST-3225/8.000M-12PF | `docs/datasheets/SST-3225-8M-12PF-10PPM.pdf` | Sichuan Sorst "Approval Sheet" |
-| TS-1187 | `docs/datasheets/TS-1187.pdf` | Shuofang Precision TS-1187 series specification |
+> The vendor PDFs in `external/cache/` are **not committed** (copyright-protected, already excluded by `.gitignore`). Download them yourself from the vendor websites; the file names are listed in `datasheets.md`, which is the index of the whole cache.
 
 ## Component selection table
 

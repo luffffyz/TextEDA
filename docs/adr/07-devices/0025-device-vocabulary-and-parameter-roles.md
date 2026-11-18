@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-23
 Scope: Decides: that the device vocabulary is closed and checked, and that a parameter is a role plus a quantity with a dimension. Does not decide: the ratings a part may state — see ADR-0026.
-Related: [ADR-0007](../02-ir/0007-device-description-enters-the-ir.md), [ADR-0024](0024-the-device-kind-is-part-or-generic.md), [ADR-0026](0026-a-part-states-its-own-ratings.md), [ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md), [ADR-0029](0029-the-procurement-layer.md)
+Related: [ADR-0007](../02-ir/0007-device-description-enters-the-ir.md), [ADR-0024](0024-the-device-kind-is-part-or-generic.md), [ADR-0026](0026-a-part-states-its-own-ratings.md), [ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md), [ADR-0029](0029-the-procurement-layer.md), [ADR-0075](0075-a-ratings-polarity-is-the-roles.md)
 Impact: `spec/teda.md` §6.2.1, §6.2.2; `packages/core/src/devices/**`
 
 ## Background

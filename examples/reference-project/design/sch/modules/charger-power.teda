@@ -8,6 +8,10 @@ module charger-power
 # VCC through R17 from the input FETs' common-source node (AC_COMMON), and that node sits at the
 # adapter's *positive* rail — the sleeve does not belong there.
 #
+# The adapter's positive rail is a declared window, not a comment: 0V..19V (see the constraints
+# below). The input FETs' gate node rides between the two rails it is wired to -- ground through
+# the charger's ACDRV, AC_COMMON through R14 -- so it carries the same window.
+#
 # The module owns its refdes and net names; the board reaches it through its ports
 # (spec/module.md §3). Its nets are flattened to M1.<net> unless a port merges them into a
 # board-level net.
@@ -38,7 +42,7 @@ instances
   L1    IDm6dcbm  ihlp2525czer6r8m01
   NTC1  IDwdvkr6  ntc-103at
   Q1    ID1m7gxg  q-si7617dn
-  Q2    ID9x8fxw  q-si7616dn
+  Q2    ID9x8fxw  q-si7617dn
   Q3    ID2132jp  q-si7617dn
   Q4    ID8mah9c  q-sis412dn
   Q5    IDxnahe6  q-sis412dn
@@ -118,5 +122,19 @@ ports
 constraints
   voltage  VCC        5V..28V
   voltage  VFB        2.079V..2.121V
+  voltage  ADAPTER_P  0V..19V
+  voltage  AC_COMMON  0V..19V
+  voltage  ACP        0V..19V
+  voltage  AC_GATE    0V..19V
   current  ADAPTER_P  4A
   current  J1.1       4A
+# The two series positions, with the current that flows through each of them (ADR-0076): a part
+# in series does not see the difference between its two nets' windows, so the current is what
+# bounds its dissipation.
+#   R17 feeds the charger's VCC pin: TI SLUS892D (8.5) gives IAC -- the current into VCC, ACP and
+#   ACN together -- as 5 mA max when the charge is done and 25 mA max while charging. 25 mA is
+#   the worst case of that sum, so it bounds the current into VCC alone.
+  current  R17.1      25mA
+#   R21 is the current-sense resistor between ACP and SYS: it carries the adapter current into
+#   the charger's sense input, the same 4 A the adapter rail declares.
+  current  R21.1      4A

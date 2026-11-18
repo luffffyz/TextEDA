@@ -10,8 +10,9 @@ each limit is about.
 | Claim | Where it lives | What the checker says |
 |---|---|---|
 | A rating may name the two pins it is about | the part files: `drain_source_voltage voltage 100V 2 3` and `gate_source_voltage voltage 20V 1 3` in `irf540n`, `reverse_voltage voltage 100V 2 1` in `d-1n4148w` | nothing — the five-column row is legal in language 0.15, and the pair is carried into the IR as `ratings[].terminals` (`{"from": "2", "to": "3"}`). A row below 0.15 is rejected with `syntax.unknown-field`: the column arrived with the construct |
-| A multi-pin part can be compared | `Q1`: the drain-source limit (100 V) against `SW` (4.5–5.5 V) and `GND` (0 V); the gate-source limit (20 V) against `GATE` (4.5–5.5 V) and `GND` | nothing — the stress is `SW.max − GND.min = 5.5 V` and `GATE.max − GND.min = 5.5 V`, both inside the limits. `Q1` and `D1` are **compared**: 2 of 3 instances |
+| A multi-pin part can be compared | `Q1`: the drain-source limit (100 V) against `SW` (4.5–5.5 V) and `GND` (0 V); the gate-source limit (20 V) against `GATE` (4.5–5.5 V) and `GND` | nothing — the stress is the span of the difference between the two windows: 5.5 V across `SW` and `GND`, 5.5 V across `GATE` and `GND`, both inside the limits. `Q1` and `D1` are **compared**: 2 of 3 instances |
 | The pair carries the polarity | `D1`: `reverse_voltage` names from = the anode (pin 2), to = the cathode (pin 1) | nothing — the reverse stress is `SW.max − GND.min = 5.5 V` against a 100 V limit. The diode is a flyback clamp, so the design stresses it in reverse, and the pair says which way that is |
+| A role says which polarity it covers | `irf540n`: `drain_source_voltage` and `gate_source_voltage` are magnitudes in the datasheet (`V_DS`, `V_GS = ±20 V`), so both roles are **symmetric** ([ADR-0075](../../../docs/adr/07-devices/0075-a-ratings-polarity-is-the-roles.md) D2); `reverse_voltage` stays directed, because a diode's reverse rating is a reverse-only rating | nothing — the numbers are the same under either reading here: this N-channel part's drain sits above its source and its gate above its source, so the span and the one-polarity reading agree. The polarity that used to be invisible — a P-channel part whose source sits above its drain — is pinned by the unit tests in `packages/core/test/ratings.test.ts` |
 | A number without a pair is not a pass | `U1`: the `voltage` rating (6.5 V) names no terminals, and the part has five pins | `design.stress-unknown`, a **note**: "1 of 3 instances were not compared with a declared window: 1 whose rating names no terminals". Unknown is counted, not passed (ADR-0026 D13) |
 
 ## What it deliberately leaves out
@@ -22,10 +23,12 @@ each limit is about.
   anywhere in the design, so the current comparison has nothing to compare (ADR-0026 D16–D18).
 - **No layout.** The board description exists and owns the module instance, but its `place` and
   `connect` sections are empty; `bind.instance-unplaced` is the standing warning that says so.
-- **The opposite polarity.** The "the source is above the drain, so the role's polarity never
-  occurs" branch of the directed model is pinned by the unit tests in
+- **The opposite polarity.** The "the role's polarity never occurs, so the design never stresses the
+  part that way" branch of the directed model is pinned by the unit tests in
   `packages/core/test/ratings.test.ts`, not by this case. A case is a whole project; a branch with
-  no design behind it is a fixture.
+  no design behind it is a fixture. After [ADR-0075](../../../docs/adr/07-devices/0075-a-ratings-polarity-is-the-roles.md)
+  that branch belongs to the directed roles only (`reverse_voltage`); the two MOSFET roles are
+  symmetric, so the polarity they once could not see is compared like any other.
 - **No violation.** The design is inside every limit it can be compared against, so the case pins
   the *coverage*, not a failure. The numbers are real: `VIN` at 4.5–5.5 V would satisfy `U1`'s own
   6.5 V limit even if that rating named its pins, so the unknown is not hiding a violation.

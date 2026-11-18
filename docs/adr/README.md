@@ -106,6 +106,8 @@ that was meant for it, and by nothing else.
 | [ADR-0027](07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md) | The Package Gives a Chip Resistor Its Floor | Accepted | 2026-10-23 |
 | [ADR-0028](07-devices/0028-package-code-and-3d-models.md) | The Package Code Lives in the Footprint; 3D Models Belong to Parts | Accepted | 2026-10-22 |
 | [ADR-0029](07-devices/0029-the-procurement-layer.md) | The Procurement Layer — Which Part to Buy Is a Project-Local Decision | Accepted | 2026-10-22 |
+| [ADR-0075](07-devices/0075-a-ratings-polarity-is-the-roles.md) | A Rating's Polarity Is the Role's, and a MOSFET's Rating Covers Both Polarities | Accepted | 2026-11-18 |
+| [ADR-0076](07-devices/0076-a-parts-dissipation-is-bounded-by-its-stated-current.md) | A Part's Dissipation Is Bounded by the Current the Design States for It, and by the Window Span | Accepted | 2026-11-18 |
 
 ## Libraries
 

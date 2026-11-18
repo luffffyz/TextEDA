@@ -100,10 +100,10 @@ describe("check exit codes", () => {
     // never compared (ADR-0026 D13). The summary says so.
     const result = run(["check", "examples/reference-project"]);
     expect(result.code).toBe(0);
-    expect(result.stderr).toContain("8 notes");
-    expect(result.stderr).toContain("Not fully checked: 24 of 83 instances were compared with a declared window.");
+    expect(result.stderr).toContain("9 notes");
+    expect(result.stderr).toContain("Not fully checked: 28 of 83 instances were compared with a declared window.");
     expect(result.stderr).toContain(
-      "Not fully checked: 4 of 27 resistive instances were compared with a power limit.",
+      "Not fully checked: 7 of 27 resistive instances were compared with a power limit.",
     );
     expect(result.stderr).toContain(
       "Not checked here: 4 rails declare a current; the schematic does not compare a rail's current with part ratings",
@@ -122,9 +122,11 @@ describe("check exit codes", () => {
       };
     };
     expect(report.noteCount).toBeGreaterThan(0);
-    expect(report.coverage?.stress).toEqual({ compared: 24, total: 83 });
-    expect(report.coverage?.dissipation).toEqual({ compared: 4, total: 27 });
-    expect(report.coverage?.current).toEqual({ compared: 1, total: 1, rails: 4 });
+    expect(report.coverage?.stress).toEqual({ compared: 28, total: 83 });
+    expect(report.coverage?.dissipation).toEqual({ compared: 7, total: 27 });
+    // Three pins carry a current requirement now: the jack (compared with its 500mA rating) and
+    // the two series positions of the input stage, whose chip resistors state no rated_current.
+    expect(report.coverage?.current).toEqual({ compared: 1, total: 3, rails: 4 });
   });
 
   test("a part rated below the current its pin is declared to carry is reported", () => {

@@ -1,14 +1,27 @@
-version 0.11
+version 0.15
 component q-si7617dn
 
 kind         part
 mpn          Si7617DN
 manufacturer Vishay Siliconix
 category     mosfet_p
+datasheet    https://www.vishay.com/docs/65164/si7617dn.pdf
 
 # KiCad official library has no Si7617DN; it borrows the SiS443DN symbol with the same package, pins are governed by the inline table.
 symbol power:nmos-5
 footprint inductor:powerpak-1212-8
+
+# The part's own ratings (ADR-0026): what the device is, not what the design asks of it.
+# Per the Vishay datasheet 65164 (S15-1032-Rev. B), Absolute Maximum Ratings: drain-source voltage
+# V_DS -30 V, gate-source voltage V_GS +/- 25 V. The terminal pair names the two pins each rating
+# is about: the drain is pin 5, the source pin 1 (S1, S2 and S3 are one node), the gate pin 4.
+# Both ratings bound the difference in either direction, so their roles are symmetric (ADR-0075 D2).
+# The datasheet writes V_DS as a negative number because the part is P-channel; the rating is the
+# magnitude, 30 V.
+ratings
+  drain_source_voltage  voltage  30V  5 1
+  gate_source_voltage   voltage  25V  4 1
+
 pins
   1  S1  passive
   2  S2  passive

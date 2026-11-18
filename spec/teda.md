@@ -274,8 +274,8 @@ params
 | `dcr` | `resistance` | `characteristic` | `none` | 直流电阻 |
 | `rated_current` | `current` | `limit` | `none` | 额定电流：可长期连续流过的 RMS 电流（**热限**） |
 | `sat_current` | `current` | `limit` | `none` | 饱和电流：电感量跌到标称 30% 时的电流（**磁限**，数据手册惯例） |
-| `drain_source_voltage` | `voltage` | `limit` | `from` | 漏源之间的耐压：`from` = 漏极，`to` = 源极；漏极高于源极时受应力 |
-| `gate_source_voltage` | `voltage` | `limit` | `from` | 栅源之间的耐压：`from` = 栅极，`to` = 源极；栅极高于源极时受应力 |
+| `drain_source_voltage` | `voltage` | `limit` | `symmetric` | 漏源之间的耐压：`from` = 漏极，`to` = 源极；**两个极性都受应力**（数据手册的 `V_DS` 是一个幅值，`±` 是省略的写法） |
+| `gate_source_voltage` | `voltage` | `limit` | `symmetric` | 栅源之间的耐压：`from` = 栅极，`to` = 源极；**两个极性都受应力**（数据手册写 `V_GS ± 25 V`） |
 | `reverse_voltage` | `voltage` | `limit` | `to` | 二极管的反向耐压：`from` = 阳极，`to` = 阴极；阴极高于阳极时受应力 |
 
 `rated_current` 与 `sat_current` 是两种不同的限制，彼此不相关（额定 6A / 饱和 3A 是常见件，磁限通常先到），所以是两个角色。
@@ -283,6 +283,10 @@ params
 **`kind` 说的是"这个数是什么性质"**（决策见 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D6）：`limit` 是设计必须待在内的**边界**（耐压、功率、额定电流、容差），`characteristic` 是**用来挑件或描述件**的性质（`value`、`esr`、`dcr`），`code` 是封闭代码（`dielectric`）。只有 `limit` 是"不得超过"的边界，电压/耗散比较只消费 `limit`。
 
 **"应力方向"说的是这个角色的极性怎么读**（决策见 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D5）：`symmetric` 两种极性都受应力（电容、电阻），`from` 只有 `from` 那一端高于 `to` 时受应力，`to` 反之，`none` 不是电压应力。方向**属于角色，不属于行**——一行不重复写方向，两处写就会漂。
+
+**极性是角色的，因为它是数据手册的写法**（决策见 [ADR-0075](../docs/adr/07-devices/0075-a-ratings-polarity-is-the-roles.md)）：MOSFET 的 `V_DS` / `V_GS` 限的是**差值**，两个方向都算，所以这两个角色是 `symmetric`；二极管的 `V_RRM` 只管反向，正向压降是 `characteristic` 不是 `limit`，所以 `reverse_voltage` 保持单向。早先这两个 MOSFET 角色是单向的（`from`），结果 P 沟道件作为高边开关时**真实受力的那一侧不在角色里**：比较器什么都不比，件却读作"比过了"。极性写进角色表，行里不重复（语言里因此没有极性列，也没有多出角色）。
+
+> **通用件的要求还没有极性**：`voltage` 对电解电容这类**有极性**的类别也按 `symmetric` 读（语言说不出通用件两脚里哪个是正极），这是已知的缺口（`docs/backlog.md` F85）。
 
 > **两个"方向"不是一回事**：下面这张采购比较表的方向说的是"**哪一边更好**"（选料时件的额定值要往哪边比），角色表里的应力方向说的是"**哪种极性会伤到件**"（比较时两个 net 的窗口怎么读）。一张是选料口径，一张是电路口径，别混。
 
@@ -454,15 +458,17 @@ constraints
 
 **约束是设计的承诺，检查器拿它去比事实**（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)）：`voltage` 声明的是**绝对电位**的窗口，同一个文件里的所有 `voltage` 处在**同一个参考帧**里，帧的原点由设计自己声明——`voltage GND 0V..0V`。工具**不假设**叫 `GND` 的 net 就是 0V：分地或隔离电源有多种参考，猜出来的比较比不比较更糟。
 
-**电压应力是"哪两个脚之间"的差**，取两端各自窗口的极值。**哪两个脚**由额定值自己说：件在 `ratings` 行里点名它的两个端子（§6.4 的五列形式），端子对是**有序的**，顺序就是角色的方向。
+**电压应力是"哪两个脚之间"的差**，取两端各自窗口的极值。**哪两个脚**由额定值自己说：件在 `ratings` 行里点名它的两个端子（§6.4 的五列形式），端子对是**有序的**，顺序按角色的约定写（`from` / `to` 分别是哪一端）；`symmetric` 角色两种极性都算，顺序不影响结果。
 
 | 角色方向 | 应力 | 什么时候受应力 |
 |---|---|---|
-| `symmetric` | `max(|max(a) − min(b)|, |max(b) − min(a)|)` | 两种极性都算（电容、电阻这类两引脚器件） |
+| `symmetric` | `max(|max(a) − min(b)|, |max(b) − min(a)|)` | 两种极性都算（电容、电阻这类两引脚器件；MOSFET 的 `V_DS` / `V_GS`） |
 | `from` | `max(a) − min(b)` | `from` 那一端高于 `to` 那一端时；差为负说明**这种极性不发生** |
 | `to` | `max(b) − min(a)` | `to` 那一端高于 `from` 那一端时；差为负说明**这种极性不发生** |
 
-（`a` 是 `from` 端所在 net 的窗口，`b` 是 `to` 端所在 net 的窗口。`from` / `to` 的角色约定见 §6.2.1：`drain_source_voltage` 是 from = 漏极、to = 源极；`reverse_voltage` 是 from = 阳极、to = 阴极。）
+（`a` 是 `from` 端所在 net 的窗口，`b` 是 `to` 端所在 net 的窗口。`from` / `to` 的角色约定见 §6.2.1：`drain_source_voltage` 是 from = 漏极、to = 源极；`gate_source_voltage` 是 from = 栅极、to = 源极；`reverse_voltage` 是 from = 阳极、to = 阴极。）
+
+**哪个角色用哪个方向，是数据手册的写法，不是符号的正负**（决策见 [ADR-0075](../docs/adr/07-devices/0075-a-ratings-polarity-is-the-roles.md)）：MOSFET 的 `V_DS` / `V_GS` 限的是差值的**幅值**，所以 `drain_source_voltage` 与 `gate_source_voltage` 是 `symmetric`——P 沟道件作为高边开关时，真实受力的那一侧（源高于栅/漏）因此也在比较之内；二极管的 `V_RRM` 只管反向，`reverse_voltage` 保持 `to`。今天没有角色用 `from`。
 
 器件的电压能力来自 `instances` 行的 `voltage` 列（通用件：设计要求）或器件自己的 `ratings`（`kind: part`：事实，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)）。能力低于应力报 `design.rating-exceeded`，载荷里带角色与起作用的两个端子。
 
@@ -476,13 +482,22 @@ constraints
 
 **定向角色的反极性不算违规，也不算"没比较"**：那种极性不在这个角色描述的应力里——二极管的反向耐压不会因为结被正向偏置而触发（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D12）。它算**比过了**。
 
-两引脚件的 `symmetric` 额定值仍可按"它仅有的那一对"推断；**定向角色必须自己写端子**——极性是猜不得的，而猜错的方向比不猜更糟。
+两引脚件的 `symmetric` 额定值仍可按"它仅有的那一对"推断；**多引脚件的定向角色必须自己写端子**——没有端子就不知道说的是哪一对。`symmetric` 角色在多引脚件上同样要写端子（推断要靠"它只有那一对"这个前提）。
 
 容差不参与比较（器件独立漂移，语言还无法声明相关性），降额是项目政策而不是检查器的常数：比的是"能不能扛"，不是"留了多少裕量"。
 
 **报告要写覆盖率，不能只写条数**：那条 note 说的是"哪些没比"，但一份最后一行写着"0 errors"的报告，读起来仍然是"过了"——note 淹没在几百行里。所以 `texteda check` 把覆盖率跟结论一起给出来：电压比了**多少个实例 / 一共多少个**、耗散比了**多少个阻性实例 / 一共多少个**。命令行摘要最后一行写明没比的那部分，`--json` 的载荷里同一个数字在 `coverage` 里（人读的摘要和机器读的载荷不会各说各话）。比较是**原理图层**的检查：它读的是根的 net、声明窗口和器件库，不需要 PCB 描述，所以有逻辑根的工程都会跑它（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D13）。
 
-**耗散同理**（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)）：阻性器件（主量是 `resistance` 的两引脚器件）的最坏耗散是 `P = stress² / R`，`stress` 就是上式那一段窗口差，`R` 取实例行的 `value`（通用件）或件的 `value` 额定值。上界有三处来源，比较取**最紧的那一条**：
+**耗散同理**（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md)）：阻性器件（主量是 `resistance` 的两引脚器件）的最坏耗散有**两个上界**，比较时取**更紧的那一个**：
+
+| 上界 | 写法 | 它说的是 |
+|---|---|---|
+| 窗口跨距 | `P = stress² / R`，`stress` 是两端窗口的跨距 | 两端窗口各自取极端时，这条路上能有多大的耗散 |
+| 声明的电流 | `P = I² × R`，`I` 是设计为这个位置声明的电流 | 这个位置最多流多少，于是最多耗散多少 |
+
+`I` 来自**引脚主语**的 `current` 约束（`current M1.R21.1 4A`）：两引脚器件两脚的电流是同一个，所以引脚上的要求就是这条路上的电流（[ADR-0076](../docs/adr/07-devices/0076-a-parts-dissipation-is-bounded-by-its-stated-current.md) D2）。**轨的电流不是这个**——`current ADAPTER_P 4A` 说的是这条轨总共流多少，语言没说轨上哪个成员承担它，所以它不能变成某个件的电流（D3）。声明了电流的位置两个上界都算、取紧的；声明的电流只会**收紧**上界，不会取消窗口跨距这条天花板（D1）。
+
+上界（也就是"能扛多少"）另有三处来源，比较取**最紧的那一条**：
 
 | 来源 | 写法 | 说的是 |
 |---|---|---|
@@ -494,9 +509,9 @@ constraints
 
 三处都没说话时，还有一条**兜底**的边界：片式电阻的**封装底线**——同一封装的最低档（厚膜）的功率额定值，按 `(construction, package_code)` 查器件的规则表（`0402` = 62.5mW，[ADR-0027](../docs/adr/07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md)）。它是**下界**：超过它意味着这个封装的任何标准件都扛不住，违规是确定的；不超过它不证明通过了（更高档的件存在，也需要更高档就把要求写出来）。底线**只在三处都没有声明时**才用，声明了就以声明为准——`power 1W` 的 2010 行买的是 1W 的件，封装惯例不许反过来质疑它。
 
-两端有一个没有窗口、器件不是两引脚、或封装代号这张表不认（例如按 IEC 写成 `1005`）时**不比较**，计入 `design.power-unknown`（note，按原因分列）。
+两端有一个没有窗口、器件不是两引脚、或封装代号这张表不认（例如按 IEC 写成 `1005`）时**不比较**，计入 `design.power-unknown`（note，按原因分列）。**例外**：设计为这个位置声明了电流时，电流上界自己就能比——它不需要窗口（[ADR-0076](../docs/adr/07-devices/0076-a-parts-dissipation-is-bounded-by-its-stated-current.md) D5）。
 
-**这是上界，不是实测**：它假设两端同时到达各自窗口的极端，所以两端窗口相同时它给 0——而实际耗散可以不是 0（电流由谁承担，语言还没说，`current VOUT 3A` 不指成员）。因此它只能报违规、不能证明通过。同一个道理，串在两条声明窗口的**交流/阻尼**元件（RC 缓冲的串联电阻）上，这个上界没有物理意义：设计不该给这种位置写耗散上限。
+**这是上界，不是实测**：窗口跨距取的是两端窗口的**跨距**（各自独立取极端），不是这条路上真实存在的压降——实际耗散可以不是 0（电流由谁承担，语言还没说，`current VOUT 3A` 不指成员）。因此它只能报违规、不能证明通过。同一个道理，串在两条声明窗口之间的**串联**元件（馈电电阻、采样电阻、RC 缓冲的串联电阻）上，窗口跨距这个上界没有物理意义：那里的压降由路径电流决定，不由窗口跨距决定，于是这个上界会算出荒唐的数（一条 10 Ω 馈电电阻算出 78 W）。**这个洞现在有解**：设计为那个位置声明电流（`current M1.R17.1 25mA`），`I² × R` 就是它的上界，跨距那条不再替它说话（[ADR-0076](../docs/adr/07-devices/0076-a-parts-dissipation-is-bounded-by-its-stated-current.md)）。写"这个上界不适用"仍然不是语言能说的话，但**说清楚这里流多少**就够了。
 
 `power` 约束的**主语必须是引脚**（`M1.R1.1`）：耗散属于器件实例，不属于 net；写 net 的 `power` 约束当前不参与任何比较，也不报错（net 的功率预算还没有语义）。
 

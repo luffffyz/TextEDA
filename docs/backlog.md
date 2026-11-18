@@ -24,7 +24,7 @@
 **涉及封装**（16 个，也就是上面 17 个里除 `dc-in-th-dc-005-20a` 之外的）：`chip-0402` `chip-0603` `chip-1210` `chip-2010` `tantalum-7343` `ihlp-4040` `ihlp-2525` `crystal-3225-4` `switch-5x5-4` `sot-23` `sot-23-5` `soic-8-ep` `powerpak-1212-8` `lqfp-100` `vqfn-24-ep` `sma`
 
 **验收**：
-- 每个封装的 body 尺寸、焊盘间距能在对应料号的 datasheet 上逐项对上（datasheet **不入库**，自行从厂商官网下载到 `examples/reference-project/docs/datasheets/`，该目录已 gitignore；文件名见 `examples/reference-project/docs/mcu-board-components.md` 的表）。
+- 每个封装的 body 尺寸、焊盘间距能在对应料号的 datasheet 上逐项对上（datasheet **不入库**，自行从厂商官网下载到 `examples/reference-project/external/cache/`，该目录已 gitignore；文件名见 `examples/reference-project/docs/datasheets.md` 的表）。
 - `bun run lib:verify` 仍全绿（合并板 DRC `violations=0`）。
 - `bun run fmt:teda --check examples/reference-project` 退出 0。
 
@@ -791,7 +791,7 @@
 **现状**：**item 0 已落地**（耗散检查），item 1 的第一片已落地（电压），**端子 / 方向 / `kind` 也落地了**（2026-11-18，见下面那条），见下（2026-10-23，[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D8 / D11）。
 
 - **分析模式（原来记作 item 0）已定**：按**声明窗口的受压端**比（不是标称点）；器件**互相独立**（语言还无法声明相关性，容差不参与比较）；**未声明即未知**，未知要计数（一块板一条 note）；降额是项目政策，不是检查器的常数。
-- **item 0 已落地（耗散）**：阻性两引脚器件的最坏耗散 `P = ΔV²/R`（`ΔV` 同 ADR-0026 的窗口极端差，`R` 取实例行 `value` 或件的 `value` 额定值）同时比三条上界——设计的 `power <引脚> <max>` 约束、实例行的 `power` 要求、件的 `power` 额定值——取最紧那条，超了报 `design.rating-exceeded`；没上限或两端有一个没窗口的不比较，计入 `design.power-unknown`（note，一块板一条）。实现在 `packages/core/src/design/ratings.ts`，决策与局限见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md)（这是**上界**：两端窗口相同时它给 0，所以只报违规、不证明通过；串在两条窗口之间的 RC 阻尼电阻上这个上界没有物理意义）。参考工程实测：charger-buck `24` 个阻性实例里比了 **4** 个（其余 20 个所在 net 无窗口），mcu-board `3` 个全因无窗口跳过，0 违规——比得动是因为**封装底线**（[ADR-0027](adr/07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md)）：`(construction, package_code)` 查表（0402 = 62.5mW），厚膜是同一封装的最低档，所以这张表给的是底线而不是猜测买了哪颗件。底线只在设计/行/件都没声明时生效；同一条底线也让选料拒绝低于底线的件（rule 4a），两个检查不会互相打架。两块参考板的两颗 10k 件（`rc0402fr-0710kl` 62.5mW、`crc0402fr-0710kl` 63mW）补上了件的功率额定值。
+- **item 0 已落地（耗散）**：阻性两引脚器件的最坏耗散 `P = ΔV²/R`（`ΔV` 同 ADR-0026 的窗口极端差，`R` 取实例行 `value` 或件的 `value` 额定值）同时比三条上界——设计的 `power <引脚> <max>` 约束、实例行的 `power` 要求、件的 `power` 额定值——取最紧那条，超了报 `design.rating-exceeded`；没上限或两端有一个没窗口的不比较，计入 `design.power-unknown`（note，一块板一条）。实现在 `packages/core/src/design/ratings.ts`，决策与局限见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md)（这是**上界**：它取的是两端窗口的**跨距**（各自独立取极端），所以两端窗口相同时它给的是窗口的宽度而不是 0；它只报违规、不证明通过；串在两条窗口之间的 RC 阻尼电阻上这个上界没有物理意义）。参考工程实测：charger-buck `24` 个阻性实例里比了 **4** 个（其余 20 个所在 net 无窗口），mcu-board `3` 个全因无窗口跳过，0 违规——比得动是因为**封装底线**（[ADR-0027](adr/07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md)）：`(construction, package_code)` 查表（0402 = 62.5mW），厚膜是同一封装的最低档，所以这张表给的是底线而不是猜测买了哪颗件。底线只在设计/行/件都没声明时生效；同一条底线也让选料拒绝低于底线的件（rule 4a），两个检查不会互相打架。两块参考板的两颗 10k 件（`rc0402fr-0710kl` 62.5mW、`crc0402fr-0710kl` 63mW）补上了件的功率额定值。
 - **电压第一片已落地**：两引脚器件的 `voltage` 能力 vs 它两个 net 的声明窗口之差。`packages/core/src/design/ratings.ts`，新域 `design`（ADR-0026 D15）：`design.rating-exceeded`（error）+ `design.stress-unknown`（note，报覆盖率）。`spec/teda.md` §7.3 写清了口径；两块参考板补了 `voltage GND 0V..0V`（帧原点由设计声明，工具不假设 GND = 0V），覆盖从 0 抬到 charger-buck 11/61、mcu-board 10/21，且参考设计 0 违规。
 - **还没做**：**同一张表里的电压底线**（0402 = 50V、2010 = 200V 之类，是 F42 item 1 的封装版；它受件限制多于受封装限制，所以跟对称电压一起做）；串在窗口之间的**交流/阻尼**位置怎么声明"这个上界不适用"（现在是"没写上界"，两种状态分不开）；多引脚器件的应力模型（`Vds` / `Vgs` / `Vin` 要按构造定引脚语义——这是覆盖率的大头，也是下一个真正的一步）；`current` / 磁饱和 / 温度；项目级降额政策进 `project.toml`。（`current` 一项在 2026-11-17 落地：原理图比的是**引脚主语**的要求与件的额定值，轨电流归布局，见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D18 与下面 2026-11-17 那一条。）
 
@@ -812,6 +812,23 @@
 - **语料**：新增 `examples/cases/directed-ratings/`（第十一个用例），钉住"带端子可比""多脚件不写端子仍是未知""端子进 IR"三件事（[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D4 的语法准入条件）。F12 的十个里仍欠 **BGA 200 脚**。
 - **仍然没做**：同一张表里的**电压底线**（封装版）、`Rds(on)` / `Vgs(th)` 一类**特性角色**（F43）、**P 沟道 MOSFET 的极性**（F84）、**区间额定值**（F42 的区间 ADR）、`current` 的分支拆分（F80）、布局侧读轨电流（F82）。
 
+**2026-11-18 极性口径定了（F84 收口），参考工程补了输入级的窗口，耗散上界撞上"串联元件"这个洞**：决策见 [ADR-0075](adr/07-devices/0075-a-ratings-polarity-is-the-roles.md)——**极性属于角色**，MOSFET 的 `drain_source_voltage` / `gate_source_voltage` 改成 `symmetric`（数据手册的 `V_DS` / `V_GS` 限的是差值的幅值），`reverse_voltage` 保持定向；词表没有长，语言没有多一列，版本不动。
+
+- **件数据**：参考工程的输入级补齐了数据手册来源与带端子的额定值——`q-si7617dn`（Vishay 65164：`V_DS` 30 V、`V_GS` ±25 V）、`q-sis412dn`（Vishay 69006：30 V、±20 V）、`d-b340a`（Diodes DS30891：`V_RRM` 40 V）、`d-bat54c`（onsemi BAT54 系列：`V_RRM` 30 V），都点名了端子对。`q-si7616dn` **查无此件**（Vishay 的 `Si76xxDN` 家族是 Si7611DN / Si7613DN / Si7615DN 系列 / Si7617DN / Si7619DN；文档号 64700–65300 全扫过，没有 7616 的文件，分销商也没有这个料号），Q2 因此改用 `q-si7617dn`，那个器件文件删掉了——查不到的料号不许带额定值。
+- **窗口**：模块补了适配器输入级的窗口 `ADAPTER_P` / `AC_COMMON` / `ACP` / `AC_GATE` = `0V..19V`（19 V 适配器，标称，不写容差），评审记录 2026-10-23 的 architect note 因此收口。
+- **实测**：电压覆盖率 **24/83 → 28/83**，耗散覆盖 **4/27 → 7/27**。Q1 / Q2 这两颗 P 沟道件第一次被真正比到：`|V_GS|` = 19 V 对 Si7617DN 的 ±25 V，`|V_DS|` = 19 V 对 30 V——正是旧口径看不见的那一侧。
+- **撞上的洞（两个误报）**：参考工程因此报了 **2 个 error**，都在**串联元件**上——`R17`（10 Ω 馈电电阻，AC_COMMON → VCC）算出 78.4 W，`R21`（10 mΩ 采样电阻，ACP → SYS）算出 39 kW。这两个是**模型的上界没有物理意义**，不是设计错了：那里的压降由路径电流决定（`R17` 上是充电器的静态电流，`R21` 上是适配器电流，4 A × 10 mΩ = 40 mV），不由两端窗口的跨距决定。上面"还没做"里的那条——"串在窗口之间的交流/阻尼位置怎么声明'这个上界不适用'（现在是'没写上界'，两种状态分不开）"——就是它：语言缺一个说法，让设计能说"这个位置的上界不适用"。**两个误报留在报告里**，因为报告要说出口；模型修好之前，它们是这条缺口第一次在参考工程上露出来。
+- **订正**：耗散上界的**发布口径**原来写"两端窗口相同时它给 0"，实现不是这样（实现取窗口的**跨距**，相同窗口给的是窗口宽度）。[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D11 的公式才是准的，那句话写错了；`spec/teda.md` §7.3 与本条一并订正。
+- **（同日已修，见下面那条。）** 那两个误报不是留下的缺口，是模型缺了一条上界。
+
+**2026-11-18（同日）模型补上：耗散上界多一个来源，串联元件不再被窗口跨距误伤**：决策见 [ADR-0076](adr/07-devices/0076-a-parts-dissipation-is-bounded-by-its-stated-current.md)——耗散有**两个上界**，取紧的那个：`ΔV²/R`（两端窗口的跨距）与 `I² × R`（设计为这个位置声明的电流）。引脚主语的 `current` 就是这条路的电流（两引脚件两脚电流相同），**轨电流不算**（轨是布局的输入，语言没说轨上谁承担它）。声明的电流只**收紧**上界，不取消窗口跨距这条天花板。
+
+- **语言没变**：复用已有的 `current <引脚>` 约束，没有新语法、没有新 IR 字段、两个版本号都不动。
+- **参考工程补了两条电流声明**：`current R17.1 25mA`（充电器的 `VCC` 引脚电流——TI SLUS892D §8.5 的 `IAC`，即流进 `VCC` / `ACP` / `ACN` 的电流之和，充完 5 mA max、充电时 25 mA max，取 25 mA）与 `current R21.1 4A`（采样电阻走的就是适配器电流）。于是 `R17` 的上界是 62.5 µW、`R21` 是 160 mW，两个误报消失，参考工程回到 **0 error**。
+- **没有变弱**：窗口跨距那条上界仍然在（声明电流只会让上界更紧，不会更松），"没有声明电流"的设计照旧按跨距比。两条上界都比过，报告写明是"这条位置声明的电流"还是"两端窗口的跨距"越了界。
+- **顺带多比了一批**：只声明了电流、两端没有窗口的位置现在也能比（每个上界只用它需要的事实），这类位置不再计入 `design.power-unknown`。
+- **仍然没做**：轨电流怎么进布局（F82）、区间额定值（F42 的区间 ADR）、以及"这个上界不适用"作为**语言说法**（现在用"说清楚这里流多少"绕过去，不是同一个东西）。
+
 **2026-10-23 覆盖率审计（实测，用来定下一步做什么）**：`texteda check` 的两块参考板。
 
 | 板 | 实例 | 已比 | 跳过 | 跳过原因 |
@@ -825,7 +842,7 @@ charger-buck 那 38 个"无电压能力"的实例，按器件拆开是：**电�
 
 - 最坏耗散 = ΔV² / R，ΔV 取两端 net 声明窗口的极端差（ADR-0026 D8/D2 的口径），R 取实例行的阻值；
 - 两个比较：**设计的耗散上限**（`power R1 63mW`）比它 → 设计自己说的话错了就报；**件的功率额定值**（件 `ratings` 的 `power`，或实例行的 `power` 要求）比它 → ADR-0026 的 `design.rating-exceeded` 家族；
-- 局限说清楚：这是**从声明窗口推出来的上界**，不是实测；两端窗口相同时它给 0，实际耗散可能不是 0（电流不可推），所以它只能报违规、不能证明通过——与 ADR-0026 D13 同一个口径。
+- 局限说清楚：这是**从声明窗口推出来的上界**，不是实测；它取两端窗口的**跨距**，两端窗口相同时给的是窗口宽度而不是 0，实际耗散可能不是 0（电流不可推），所以它只能报违规、不能证明通过——与 ADR-0026 D13 同一个口径。
 
 按"能抬多少覆盖率 ÷ 要多少设计工作"排序，下一步是这个顺序，不是按器件类别补词：
 
@@ -1874,7 +1891,32 @@ for the designs that have no analysis. The stale-analysis half is F74.
 
 ## F84. A directed rating names one polarity, and the other polarity has no role
 
-**Status**: Proposed (2026-11-18). The model is implemented; the vocabulary gap it exposes is not.
+**Status**: Settled (2026-11-18). Neither of the two shapes below was taken: **the polarity is the
+role's**, and the two MOSFET roles became `symmetric` ([ADR-0075](adr/07-devices/0075-a-ratings-polarity-is-the-roles.md)).
+The vocabulary did not grow and the language gained no column. The record below is the proposal of
+2026-11-18, before the decision.
+
+**The decision (2026-11-18)**: a datasheet's `V_DS` and `V_GS` bound the difference in **either**
+direction (`V_GS` is even written with an explicit `±`), so the polarity those two roles cover is
+both — not "drain above source" and not "gate above source". `reverse_voltage` stays directed: a
+diode's reverse rating is a reverse-only rating, and its forward voltage is a characteristic, not a
+limit. The polarity is a device-world fact, so it lives in the role table
+(`packages/core/src/devices/rules.ts`) and not in the part's file.
+
+**What landed**:
+
+- `drain_source_voltage` and `gate_source_voltage` are `symmetric` in the role table; the checker
+  takes the larger of the two polarities (`packages/core/src/design/ratings.ts`).
+- The reference project's input stage is compared for the first time: `Q1` and `Q2` are P-channel
+  MOSFETs whose source sits at the adapter rail and whose gate is pulled to ground, so the stress is
+  the polarity the directed role could not see. With the windows declared (`ADAPTER_P`,
+  `AC_COMMON`, `ACP`, `AC_GATE` = 0 V..19 V) and the ratings read off the datasheets, `|V_GS|` is
+  19 V against Si7617DN's ±25 V, and `|V_DS|` 19 V against its 30 V.
+- The published role table and the stress comparison were corrected with it (`spec/teda.md` §6.2.1 and §7.3), and [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D5 carries the
+  correction.
+- The corpus case `examples/cases/directed-ratings/` is unchanged in its numbers — the N-channel
+  part's stress is the same under either reading — and the branch is pinned by the unit tests in
+  `packages/core/test/ratings.test.ts`.
 
 **Current state**: the three directed voltage roles read one polarity each —
 `drain_source_voltage` (from = drain, to = source), `gate_source_voltage` (from = gate, to = source)
@@ -1918,3 +1960,59 @@ occurs: either it counts as unknown, or the note says "compared, nothing in that
 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) and it is the reason the corpus
 case `examples/cases/directed-ratings/` uses an N-channel part: a case that used a P-FET would
 have pinned a silent gap as if it were a result.
+
+---
+
+## F85. A polarized generic's requirement is read as a magnitude
+
+**Status**: Proposed (2026-11-18). The open point of
+[ADR-0075](adr/07-devices/0075-a-ratings-polarity-is-the-roles.md).
+
+**Current state**: a generic states its requirements in the instances row, and the stress check
+reads the `voltage` requirement as a magnitude across the part's two pins, with no polarity
+(`packages/core/src/design/ratings.ts`, the generic branch of `stressFactsOf`: `direction:
+"symmetric"`).
+
+The file already knows more than the check does. A generic declares `polarized yes | no`
+([ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md)) and its pins are typed
+`polarized` (`spec/teda.md` §6.3 — `1 P polarized`, `2 N polarized` in `cap-tantalum-7343`). The
+design says which of the two pins is the positive one; nothing reads it.
+
+**Why it matters**: for a polarized part the two polarities are not the same quantity. A tantalum
+capacitor with 10 V on P and 0 V on N is within its requirement; the same part with 10 V on N is
+destroyed. The symmetric reading compares the same |ΔV| in both cases, so it cannot tell a mounted
+part from a reversed one — and the report says "compared" either way. This is the shape F84 closed
+for a part's rating, one level down: the fact is in the file, the comparison does not use it.
+
+**To do**: one decision, in three shapes.
+
+1. **The class says which pin is positive.** The polarity of a generic class is a device-world
+   fact, and it belongs where the class is described — the same reasoning as ADR-0075 D1, where a
+   rating's polarity belongs to the role. Cost: the check has to read the pin type (or a fact that
+   says the same thing) instead of assuming; this may need no new syntax at all.
+2. **The instance row states the polarity.** `voltage` plus a polarity column. Cost: the same fact
+   repeated in every row of every polarized instance, and a column the language would have to
+   define, migrate and pin with a hard case.
+3. **A role for the reversed polarity.** Vocabulary work rather than a comparison change
+   ([ADR-0025](adr/07-devices/0025-device-vocabulary-and-parameter-roles.md)); and a requirement is
+   not a rating, so the roles of `spec/teda.md` §6.2.1 may not be the right home for it.
+
+**Involved files**: `packages/core/src/design/ratings.ts` (the generic branch of `stressFactsOf`),
+`packages/core/src/devices/rules.ts` (the role table), `packages/core/src/erc/**` (if the reversal
+belongs to the connectivity check rather than to the stress comparison),
+`packages/parser/src/component.ts` (what reaches the IR: the `polarized` fact and the pin types),
+`spec/teda.md` §6.3, §7.3.
+
+**Acceptance**:
+
+- A polarized generic whose positive pin sits at a lower potential than its negative pin is
+  reported, naming both nets and both potentials.
+- The same part with the correct polarity is not reported.
+- An unpolarized generic is unaffected: its requirement stays a magnitude.
+- The report states which polarity it compared, so that "compared" is not a claim about the wrong
+  half again.
+
+**Note**: this is the counterpart of F84. F84 asked what a rating's polarity is and decided that
+it is the role's; this asks the same question about the requirement a generic states in the
+instances row, where the answer may be "the class's" — because the class file already says which
+pin is positive.
