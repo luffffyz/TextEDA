@@ -54,7 +54,7 @@
     ],
     "symbol": "regulators:ldo-sot23-5"
   },
-  "ir_version": "0.22",
+  "ir_version": "0.23",
   "source": {
     "file": "assets/components/regulators/tps7a2033pdbvr.teda",
     "line": 1

@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.22",
+  "ir_version": "0.23",
   "format": "0.14",
   "source": {
     "file": "design/pcb/demo.teda"
@@ -175,6 +175,13 @@
       "width_nm": 500000,
       "via_size_nm": 800000,
       "via_drill_nm": 400000
+    },
+    {
+      "type": "current",
+      "net": "VOUT",
+      "max_na": 3000000000,
+      "min_width_nm": 500000,
+      "source": "docs/power-budget.md#vout"
     },
     {
       "type": "diff",

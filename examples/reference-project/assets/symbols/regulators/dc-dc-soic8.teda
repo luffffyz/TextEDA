@@ -1,4 +1,4 @@
-version 0.11
+version 0.19.0
 symbol dc-dc-soic8
 
 description 8-pin step-down converter with exposed pad in SOIC-8

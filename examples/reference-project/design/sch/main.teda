@@ -1,4 +1,4 @@
-version 0.14.0
+version 0.19.0
 schematic main
 
 # The project's one logical root (ADR-0069 D1). All component facts live in the reusable
@@ -46,10 +46,10 @@ constraints
   voltage  VBAT  9V..12.6V
   voltage  VOUT  4.5V..5.5V
   voltage  V3V3  3.0V..3.6V
-  current  VBAT  3A
-  current  VOUT  3A
-  current  V3V3  300mA
 
+# TODO(F88): review rail VBAT maximum current 3A; add a reviewed PCB rules current row with min_width and source before enabling.
+# TODO(F88): review rail VOUT maximum current 3A; add a reviewed PCB rules current row with min_width and source before enabling.
+# TODO(F88): review rail V3V3 maximum current 300mA; add a reviewed PCB rules current row with min_width and source before enabling.
 # Cross-PCB paths. Each joins two module ports on one project net, on different PCBs.
 interconnects
   ic1  M2.VOUT  M3.DC_IN

@@ -8,7 +8,7 @@
 [project]
 name = "reference-project"
 version = "0.1.0"
-format = "0.14"
+format = "0.19"
 description = "Reference project for TextEDA"
 license = "CERN-OHL-S-2.0"   # SPDX identifier
 status = "draft"             # draft / prototype / frozen / production / deprecated

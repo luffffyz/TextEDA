@@ -6,6 +6,12 @@
     "line": 1
   },
   {
+    "code": "drc.current-trace-only",
+    "severity": "note",
+    "file": "design/pcb/power-domains.teda",
+    "line": 28
+  },
+  {
     "code": "design.power-unknown",
     "severity": "note",
     "file": "design/sch/main.teda",

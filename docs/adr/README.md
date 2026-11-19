@@ -10,7 +10,7 @@ One flat counter, handed out in the order the records are written, starting at
 `0001`. A number names one record and nothing else: what a record is about is said by
 its folder, not by its number. A number is **never changed and never reused** — a link
 to `ADR-0006` names the same decision forever — so a new record takes the next free
-number and disturbs nothing that already exists. The next free number is `0081`.
+number and disturbs nothing that already exists. The next free number is `0082`.
 The sequence is not contiguous; gaps are normal.
 
 ## Retired
@@ -87,6 +87,7 @@ that was meant for it, and by nothing else.
 | [ADR-0018](05-pcb/0018-copper-fill-uses-a-geometry-kernel.md) | Copper Fill Uses a Self-Built Constrained Geometry Kernel | Accepted | 2026-10-26 |
 | [ADR-0019](05-pcb/0019-a-partial-layout-is-legal.md) | A Partial Layout Is Legal, and It Is Reported | Accepted | 2026-10-23 |
 | [ADR-0020](05-pcb/0020-connect-pairs-need-copper.md) | A Declared `connect` Pair Must Be Implemented by Copper | Accepted | 2026-10-23 |
+| [ADR-0081](05-pcb/0081-rail-current-is-a-pcb-rule.md) | A Rail's Maximum Current and Trace Minimum Width Are PCB Rules | Accepted | 2026-11-19 |
 
 ## Manufacturing
 

@@ -53,7 +53,7 @@
     ],
     "symbol": "indicators:led"
   },
-  "ir_version": "0.22",
+  "ir_version": "0.23",
   "source": {
     "file": "assets/components/indicators/ltst-c190gkt.teda",
     "line": 1

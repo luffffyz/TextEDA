@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.22",
+  "ir_version": "0.23",
   "project": {
     "description": "Case 4 of the ten: a differential pair is a constraint, not a geometry",
     "format": "0.11",

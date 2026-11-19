@@ -1,8 +1,8 @@
 {
-  "ir_version": "0.22",
+  "ir_version": "0.23",
   "project": {
     "description": "Case 3 of the ten: twenty power domains, one table",
-    "format": "0.11",
+    "format": "0.19",
     "name": "power-domains",
     "status": "draft",
     "version": "0.1.0"

@@ -226,6 +226,7 @@ rules
   width      0.25mm
   via        0.6mm  0.3mm
   net        GND  0.3mm  0.5mm  0.8mm  0.4mm
+  current    VBUS  3A  0.5mm  docs/power-budget.md#vbus
   diff       USB_DP  USB_DN  90Ω  0.2mm
   match      USB_DP  USB_DN  0.5mm
   mask       0.05mm
@@ -240,12 +241,17 @@ rules
 | `width` | `<value>` | 默认线宽 |
 | `via` | `<size> <drill>` | 默认过孔环与钻孔 |
 | `net` | `<net> <clearance> <width> <via_size> <via_drill>` | 按 net 覆盖默认（值必须写全，不写"继承"） |
+| `current` | `<net> <max_current> <min_width> <source>` | 声明该 net 的实际最大电流、trace 最小声明线宽与来源 |
 | `diff` | `<netA> <netB> <impedance> <gap>` | 差分对：目标阻抗与对内间距 |
 | `match` | `<netA> <netB> <max_delta>` | 等长容差 |
 | `mask` | `<expansion>` | 阻焊开窗相对焊盘的扩张量（板级 ≥ 0；要收窗写焊盘自己的 `mask=`，它可负） |
 | `paste` | `<ratio> <offset>` | 锡膏开口的**面积**比例（0–1）与比例之后的逐边偏移（可负） |
 | `thermal` | `<gap> <bridge>` | 铜皮与焊盘之间的热焊盘间距与桥宽 |
 | `min_width` | `<value>` | 铜皮填充与走线的最小线宽 |
+
+`current` 行是 `0.19` 起可用的新规则，列为 `<net> <max_current> <min_width> <source>`。`max_current` 是带单位的电流量；`min_width` 是带单位的长度；`source` 必须是一个非空单元格，可以是 URI 或项目相对路径/锚点。来源只按原文存储：工具不联网、不检查该来源是否真实或已审核。每条 net 只能有一条 `current` 规则。
+
+该规则只要求每条同 net `trace` 的**声明线宽**不小于 `min_width`；低于时报 error，等于或更宽通过。检查结果明确说明它只检查 trace，且不验证几何载流能力；它不根据最大电流推导线宽、不应用 IPC 或制造商载流规则、不证明 net 的每个分支都承载整个最大电流。普通 `via` 和 `physical_only stitching` 过孔，以及 zone/pour 的载流能力不在此检查范围内；若同 net 上存在，会在未检查提示中列出。不得把 trace 宽度检查读作整条 rail 已通过载流能力验证。
 
 - **缺省就是恒等**：没有 `mask` 行时扩张量是 0（开窗**就是**焊盘本身），没有 `paste` 行时比例 1、偏移 0（钢网开口**就是**焊盘本身）。两者都是一个描述在什么都没说时唯一能表达的东西——不是对板厂偏好的猜测。
 - **`mask` 的扩张是逐边的**：开窗 = 焊盘外轮廓按 `<expansion>` 向外（或向内）平移，收缩到没有面积就不出图元。板级规则只表达“往外留多少”（契约要求 ≥ 0：一块板上该留的量是同一个，而该收的量逐焊盘不同），要收窗写在焊盘自己的 `mask=` 上，那里可负——收窗是压掉焊盘间的桥接风险。
@@ -402,7 +408,7 @@ pcb 里写的 net 名就是**展平后**的 net 名（模块内部 net 用 `<mod
 | `via` | 按 `(net, 归一后点)` | — |
 | `zone` | 按 `(net, layer, 归一后首点)` | 起点旋转到字典序最小的顶点；方向统一为有向面积为正 |
 | `keepout` | 按 `(type, layer, 归一后首点)` | 同 `zone` |
-| `rules` | 按类型固定序 `clearance` `width` `via` `net` `diff` `match` `mask` `paste` `thermal` `min_width`；同类型按主体名 | — |
+| `rules` | 按类型固定序 `clearance` `width` `via` `net` `current` `diff` `match` `mask` `paste` `thermal` `min_width`；同类型按主体名 | — |
 | `silk` | 按 `item` 名（`refdes` 在 `value` 前） | — |
 | `physical_only` | 按 `id` | — |
 | `deviation` | 按 `(type, 主体)` | — |

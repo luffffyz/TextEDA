@@ -100,13 +100,10 @@ describe("check exit codes", () => {
     // never compared (ADR-0026 D13). The summary says so.
     const result = run(["check", "examples/reference-project"]);
     expect(result.code).toBe(0);
-    expect(result.stderr).toContain("9 notes");
+    expect(result.stderr).toContain("7 notes");
     expect(result.stderr).toContain("Not fully checked: 29 of 83 instances were compared with a declared window.");
     expect(result.stderr).toContain(
       "Not fully checked: 7 of 27 resistive instances were compared with a power limit.",
-    );
-    expect(result.stderr).toContain(
-      "Not checked here: 4 rails declare a current; the schematic does not compare a rail's current with part ratings",
     );
   });
 
@@ -118,7 +115,7 @@ describe("check exit codes", () => {
       coverage?: {
         stress: { compared: number; total: number };
         dissipation: { compared: number; total: number };
-        current: { compared: number; total: number; rails: number };
+        current: { compared: number; total: number };
       };
     };
     expect(report.noteCount).toBeGreaterThan(0);
@@ -126,7 +123,7 @@ describe("check exit codes", () => {
     expect(report.coverage?.dissipation).toEqual({ compared: 7, total: 27 });
     // Three pins carry a current requirement now: the jack (compared with its 500mA rating) and
     // the two series positions of the input stage, whose chip resistors state no rated_current.
-    expect(report.coverage?.current).toEqual({ compared: 1, total: 3, rails: 4 });
+    expect(report.coverage?.current).toEqual({ compared: 1, total: 3 });
   });
 
   test("a part rated below the current its pin is declared to carry is reported", () => {
@@ -158,16 +155,12 @@ describe("check exit codes", () => {
     }
   });
 
-  test("a rail's current is handed to the layout, not compared with the parts on it", () => {
-    // The rail's current sizes the copper that carries it; the schematic says it did not compare
-    // it rather than staying silent about it (ADR-0026 D13).
+  test("the reference project no longer emits schematic rail-current notes", () => {
     const result = run(["check", "examples/reference-project", "--json"]);
     const report = JSON.parse(result.stdout) as {
-      diagnostics: { code: string; severity: string; message: string }[];
+      diagnostics: { code: string }[];
     };
-    const rail = report.diagnostics.find((d) => d.code === "design.current-rail");
-    expect(rail?.severity).toBe("note");
-    expect(rail?.message).toContain("ADAPTER_P 2A");
+    expect(report.diagnostics.some((d) => d.code === "design.current-rail")).toBe(false);
     expect(report.diagnostics.some((d) => d.code === "design.current-exceeded")).toBe(false);
   });
 
@@ -177,7 +170,7 @@ describe("check exit codes", () => {
       diagnostics: { code: string; severity: string; message: string }[];
     };
     const duplicates = report.diagnostics.filter((d) => d.code === "net.constraint-duplicate");
-    expect(duplicates.length).toBe(4);
+    expect(duplicates.length).toBe(3);
     expect(duplicates.every((d) => d.severity === "note")).toBe(true);
     expect(duplicates.some((d) => d.message.includes("net VOUT states its window (4.5V..5.5V) 2 times"))).toBe(true);
   });

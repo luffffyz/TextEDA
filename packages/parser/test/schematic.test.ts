@@ -117,7 +117,7 @@ describe("project schematic root (ADR-0069)", () => {
 
   test("the root has project identity and the current language format", () => {
     expect(result.ir!.project).toBe("main");
-    expect(result.ir!.format).toBe("0.14");
+    expect(result.ir!.format).toBe("0.19");
     expect(result.modules!.length).toBeGreaterThan(0);
   });
 
@@ -364,7 +364,7 @@ describe("constraint types", () => {
     "  diff      A   B   90Ω   ±10%",
     "  skew      A   B   <    1mm",
     "  length    A   0.5mm..2mm",
-    "  current   A   100mA",
+    "  current   R1.1   100mA",
     "  power     A   1W",
     "",
   ].join("\n");
@@ -376,15 +376,21 @@ describe("constraint types", () => {
       { type: "diff", net_a: "A", net_b: "B", impedance_mohm: 90_000, tolerance_ppm: 100_000 },
       { type: "skew", net_a: "A", net_b: "B", op: "<", length_nm: 1_000_000 },
       { type: "length", net: "A", min_nm: 500_000, max_nm: 2_000_000 },
-      { type: "current", subject: "A", max_na: 100_000_000 },
+      { type: "current", subject: "M1.R1.1", max_na: 100_000_000 },
       { type: "power", subject: "A", max_uw: 1_000_000 },
     ]);
   });
 
   test("errors when a constraint's subject does not exist", () => {
-    const bad = text.replace("  current   A   100mA", "  current   NOPE   100mA");
+    const bad = text.replace("  current   R1.1   100mA", "  current   NOPE   100mA");
     const result2 = parseFlatModule(bad);
     expect(result2.diagnostics.map((d) => d.code)).toContain("ref.unknown-net");
+  });
+
+  test("rejects current constraints on a declared net", () => {
+    const bad = text.replace("  current   R1.1   100mA", "  current   A   100mA");
+    const result2 = parseFlatModule(bad);
+    expect(result2.diagnostics.some((d) => d.message.includes("names one pin, not a net"))).toBe(true);
   });
 
   test("errors when a range's lower bound exceeds its upper bound", () => {
@@ -555,7 +561,7 @@ describe("negative cases", () => {
   });
 
   test("version higher than the tool supports", () => {
-    expect(codes(moduleText.replace("version 0.14.0", "version 0.19"))).toContain("format.unsupported-version");
+    expect(codes(moduleText.replace("version 0.14.0", "version 0.20"))).toContain("format.unsupported-version");
   });
 
   test("unknown section", () => {

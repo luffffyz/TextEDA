@@ -1667,9 +1667,7 @@ there.
 layout's input, and the schematic compares a **pin's** requirement with the part's rating. The
 layout's side, and the split between branches, are still open.
 
-**Current state**: `current <net> <max>` says what a rail carries **in total**; its members share
-it, and the language cannot say how much each takes. Two different things are missing, and they
-are worth separating:
+**Current state**: the old schematic form `current <net> <max>` was removed in language 0.19 by F88. A PCB may now state a net maximum, minimum declared trace width and provenance with `rules current <net> <max> <min_width> <source>` (F82 / ADR-0081); this does not derive current from the circuit or allocate it between branches. The remaining model gap is how a rail's stated maximum is derived and which branches/components carry it. Two different things are missing, and they are worth separating:
 
 1. **The split.** A rail with parallel branches divides its current between them. The reference
    project's `ADAPTER_P` is the example: the current enters at the jack's tip and leaves through
@@ -1689,42 +1687,40 @@ are worth separating:
 **What was decided (2026-11-17)**: the schematic's rule separates the two forms instead of
 guessing at one ([ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D18):
 
-- `current <pin> <max>` is a **requirement on one part**: the schematic compares it with what the
-  part is rated for — certain for a two-terminal part (`design.current-exceeded`, error), a warning
+- `current <pin> <max>` remains a **requirement on one part**: the schematic compares it with
+  the part's rating — certain for a two-terminal part (`design.current-exceeded`, error), a warning
   for a part with more pins (`design.current-below-rating`, because its rating names no terminal
   yet, D4).
-- `current <net> <max>` is a **rail's current**: the schematic does not compare it with part
-  ratings, because the language does not say which member carries the net's current — such a
-  comparison would be a guess about every member of the net at once. The schematic says so
-  (`design.current-rail`, note) instead of staying silent, and the layout side is F82.
+- The former `current <net> <max>` schematic form and `design.current-rail` note were retired by
+  F88 / ADR-0081. A PCB `rules current` row now records the stated rail maximum, minimum declared
+  trace width and source; it checks only same-net trace declarations and does not infer current
+  allocation or physical ampacity (F82).
 
-The reference project states both now: `current ADAPTER_P 4A` (the rail, for the copper) and
-`current J1.1 4A` (the jack's tip, for the rating). The conflict the reviewer found — a jack
-rated 500 mA against 4 A — is reported again, and now it is answerable: the design says what that
-pin carries, so the reader can act on it, instead of a warning about a net whose current nobody
-could attribute.
+The reference project once stated both forms: `current ADAPTER_P 4A` (rail) and
+`current J1.1 4A` (pin). Those rail values were later converted to `TODO(F88)` comments rather than
+promoted to active PCB rules, because their values, widths and evidence had not been jointly reviewed.
+The pin requirement remains a distinct fact and continues to be checked against the part rating.
 
-**Why it matters**: the rail's current is what sizes the copper that carries it. Nothing checks
-that (F82), so the declaration is currently read by nothing that can act on it — the schematic
-says that out loud, and the layout has no rule yet.
+**Why it matters**: a PCB current rule now checks an explicit minimum declaration, but does not
+prove the physical copper can carry the stated maximum or assign it to branches. Those derivation,
+branch-split and ampacity gaps remain open; they are not a missing consumer for the PCB rule.
 
 **To do**: what is left of the question:
 
-1. **The layout's consumer.** The rail's current is the layout's input, and the layout does not
-   read it yet (F82).
-2. **The split.** A rail with parallel branches divides its current between them, and nothing
+1. **The split.** A rail with parallel branches divides its current between them, and nothing
    derives the division (the impedances and the entry direction are not in the language).
-3. **A two-subject current limit**, the way `diff` and `skew` name a pair of nets: "the current
+2. **A two-subject current limit**, the way `diff` and `skew` name a pair of nets: "the current
    that flows from this net to that one". It names the path, so the part between the two nets is
    the one that carries it, and the comparison becomes definite. This is the construct F80 was
-   written for; the pin subject is the cheap approximation of it.
+   written for; the pin subject is the cheap approximation of it. This is a separate design
+   question from F82's PCB trace-width declaration check.
 
 **Acceptance**:
 
-- The rail-level statement has a consumer that checks it (the layout rule in F82), or the
-  specification says it is advisory and says which form a design should use for a definite check.
-  The second half is met: `spec/teda.md` §7.3 says a rail's current is the layout's input and that
-  the pin form is the one the schematic compares.
+- F82 provides a PCB consumer for the stated maximum/minimum-width rule; `spec/teda.md` §7.3
+  specifies that schematic `current` is pin-only and pin requirements are compared with part
+  ratings. The remaining F80 question is branch/path attribution, not where a rail maximum is
+  declared or whether a PCB trace obeys its stated minimum width.
 
 **Note**: this is the open half of the fourth note of the 2026-11-16 design-method review
 (`docs/reviews/2026-11-16-design-method-r1.md`). There is a second route to the same fact — an
@@ -1771,50 +1767,26 @@ warning is the same colour as the 195 other warnings the reference project produ
 
 ---
 
-## F82. The copper is never checked against the current the design declares
+## F82. The copper is never checked against the current the design declares — Settled
 
-**Status**: Proposed (2026-11-16). The decision on record settles the shape; the report half landed
-on 2026-11-17; the rule is a language change.
+**Status**: Settled (2026-11-19) by [ADR-0081](adr/05-pcb/0081-rail-current-is-a-pcb-rule.md), which
+implements the rule shape proposed here without embedding a manufacturing ampacity table.
 
-**Current state**: the root declares `current VOUT 3A` (`design/sch/main.teda:50`) and the board
-declares `rules width 0.3` (`design/pcb/charger-buck.teda:83`), and the 3 A rail is carried on
-0.3 mm traces (`design/pcb/charger-buck.teda:65-67`). Nothing reads the two together: `pcb.rules`
-has no current-carrying form (`clearance`, `width`, `via`, `net`, `diff`, `match`, `mask`,
-`paste`, `thermal`, `min_width`), and the rule that would compare them does not exist.
+**What landed**:
 
-**What was decided (2026-11-17)**: a rail's current is the layout's input and the schematic does
-not check the copper against it ([ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md)
-D18). The schematic says so rather than staying silent: `design.current-rail` (note) names the
-rails that declare a current and the currents they declare, and the check's last line says "Not
-checked here: N rails declare a current; the schematic does not compare a rail's current with part
-ratings". Road 3 below is therefore done — the hole is visible instead of silent, at the cost of a
-note on every project that declares a current.
+- PCB rules accept `current <net> <max_current> <min_width> <source>`. The current is retained as
+  reviewed design context; the checker does not calculate a width from it or apply IPC/manufacturer
+  rules.
+- Every same-net trace declaration is compared with `min_width`; a narrower trace is an error and
+  equality passes. A trace-only note names the unverified ordinary/stitching-via and zone capacity
+  and branch-current distribution. This does not prove physical current capacity.
+- The old schematic rail-current surface and `design.current-rail` note were removed by F88; pin
+  current requirements remain in the schematic. The reference project retains unresolved historical
+  values as `TODO(F88)` and has no active rule without reviewed values and a source.
 
-**Why it matters**: the two facts live in different files and nothing in the language relates a
-net's current to the width of the copper on it. A reader has to know the process's own
-current-carrying table to judge the 0.3 mm — and the table is not in the repository.
-
-**To do**: the rule itself, which is a language change.
-
-1. **Let the design state its own rule**: a new `rules` form, e.g. `current <net> <max> <min
-   width>`, and a check that the traces on that net are at least that wide. The design states the
-   limit and the checker verifies the design obeys it — the same shape as ADR-0026's "a rating is
-   a limit the design states". It is a language change (`spec/pcb.md` §4) and an IR shape change,
-   so `ir_version` goes 0.19 → 0.20 (the schema directory, the generator's default, the
-   fixtures, `spec/teda.md` §7.7 and §12.4).
-2. **Embed a process table** (IPC-style current-carrying capacity): out of scope. The repository
-   does not build a process-rule library ("not a manufacturing tool: no CAM-level DFM judgement,
-   no process-rule library").
-3. ~~**Say so in the report** (the cheap half)~~ **done (2026-11-17)**: the copper is not checked
-   against the declared current, and the report says so — `design.current-rail` (note), plus the
-   summary's last line.
-
-**Acceptance**:
-
-- Either the rule exists and the 0.3 mm traces on a 3 A rail are checked against a declared
-  limit, or the specification says the checker does not do it and why. The second half is met
-  (`spec/teda.md` §7.3 and [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D18);
-  the first half is not.
+**Acceptance**: the rule exists and the trace-width comparison is covered by parser/core tests; an active
+rule is represented in the cases corpus and IR schema fixtures; `bun run cases:check` and the full test
+suite pass. The remaining ampacity and branch-distribution questions are tracked by F80.
 
 **Note**: this is the seventh note of the 2026-11-16 design-method review
 (`docs/reviews/2026-11-16-design-method-r1.md`).
@@ -1831,10 +1803,11 @@ than a plan.
 
 - **A capability is a limit, a demand is a requirement.** That is ADR-0026's pair: a part states
   what it is rated for, the design states what it needs, and the checker asks whether the limit
-  covers the requirement (D8, D11, D14). Both halves are in the language today: a part's
-  `rated_current` (a datasheet fact) and `current <net>` (what the design promises a rail
-  carries). What is missing is not the pair but the **attribution** — a net's current is shared by
-  its members, so the tool cannot say which member carries it (F80).
+  covers the requirement (D8, D11, D14). The part's `rated_current` remains a datasheet fact and
+  schematic `current <pin> <max>` remains a component requirement. The former schematic
+  `current <net>` form was removed by F88 / ADR-0081; a PCB `rules current` row now records a rail
+  maximum and a declared trace-width minimum, but does not attribute
+  the current to branches or parts. That attribution remains open (F80).
 - **An analysis is a reference, not part of the design** ([ADR-0040](adr/10-process/0040-process-entities-outside-the-language.md)
   D3): it is not in the IR tree, not in the manifest, it does not change the project hash; it
   points at the design version it verified (`source_hash`), plus the tool and the corner. When the
@@ -1861,8 +1834,9 @@ nothing detects that the evidence file itself was replaced.
    the TPS5430's 3 A is a part-level rating about a path the language does not name
    ([ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D4). So the capability has to
    be **declared** — most plausibly by the module that produces the rail, since the root's net
-   section already says which module owns which rail — or the comparison stays the
-   member-by-member one that is implemented now.
+   section already says which module owns which rail — or the comparison stays limited to the
+   implemented direct pin-requirement versus part-rating check; no rail-to-member current comparison
+   is performed today.
 2. **What an analysis has to report.** A net's current is not the current through a member: it is
    the sum of the branches, and a member carries the net's current only when it is the sole path.
    So the analysis must report **per-path currents** (per branch or per pin), not per net.
@@ -2143,59 +2117,33 @@ generic lines nobody has chosen a part for.
 
 ---
 
-## F88. The schematic does not carry a net's current; the pcb layer sizes the copper from the actual maximum current
+## F88. The schematic does not carry a net's current; the PCB layer sizes the copper from the reviewed maximum — Settled
 
-**Status**: Decided (2026-11-18), **not implemented**. The correction of
-[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D18.
+**Status**: Settled (2026-11-19) by [ADR-0081](adr/05-pcb/0081-rail-current-is-a-pcb-rule.md).
 
-**Current state**: the schematic has a `current <net> <max>` constraint, and the reference project
-uses it four times — `current VBAT 3A`, `current VOUT 3A`, `current V3V3 300mA` (the project root)
-and `current ADAPTER_P 2A` (the input stage). The checker compares none of them with anything and
-says so in a note (`design.current-rail`): "4 rails declare a current; the schematic does not
-compare a rail's current with part ratings".
+**Decision**: language 0.19 removes `current <net> <max>` from schematic constraints. The schematic keeps
+`current <pin> <max>` for component requirements and continues comparing those requirements with part
+ratings. A PCB `rules current <net> <max_current> <min_width> <source>` row records the reviewed rail
+maximum, the designer-declared minimum trace width, and the provenance text. The source is stored
+verbatim; TextEDA does not fetch or validate it, and the current value is not used to derive a width.
 
-**The decision**: a net's current is not the schematic's fact. The schematic's business is
-**component parameters** — a pin's requirement (`current <pin> <max>`) and what a part is rated
-for. A rail's current belongs to the **pcb layer**: it sizes the copper that carries the rail, and
-the value to size it with is the **actual maximum current** the rail carries, not a number
-restated by hand in the schematic.
+**What landed**:
 
-**Why**: a rail's current in the schematic is a hand-written restatement, and a restatement is
-what goes stale. The reference project is the example: `current VBAT 3A` came from the "3 A of
-charge" claim that never followed from the resistors — the stage sets 1.9 A — and nothing
-compares the two, so the number stayed until a reader noticed. The pin requirements
-(`current J1.1 2A`, `current R21.1 2A`) are different: they are requirements on one part, and the
-schematic checks them against what the part is rated for.
+- PCB parsing, formatting, IR v0.23 and schema support the current rule; duplicate rules for one net
+  are rejected and the rule's net participates in PCB binding checks.
+- The checker compares every same-net trace's declared width with `min_width` (below is an error,
+  equality passes). It reports a trace-only note and explicitly leaves via/pour capacity, geometric
+  ampacity and branch-current distribution outside the check.
+- `bun run migrate:0.19 <project dir>` updates language headers, turns recognized old net-current rows
+  into `TODO(F88)` comments without guessing a replacement rule, and preserves pin-current rows.
+  The reference project has no active rail-current rule until its maximum, width and source are
+  reviewed.
+- Parser, checker, migration and corpus/version checks were added; the old IR v0.22 schema remains
+  unchanged.
 
-**To do**: three things, and they are one problem.
-
-1. **Where the pcb description states a rail's current.** The pcb has `rules` with a `width`, but
-   no rail-current surface, and no rule that compares a rail's copper with a current (F82).
-2. **Where the actual maximum current comes from.** The language does not say which member of a
-   net carries the net's current (F80), so it cannot be derived from the design's own pin
-   requirements yet. Deriving it and stating it are two halves of one decision: a derived value
-   needs no surface, a stated one needs a home.
-3. **What happens to the four declarations**, to the `current <net>` constraint itself, and to the
-   `design.current-rail` note. Removing a constraint from the language before 1.0 needs an
-   explicit decision, a migration note and a migration script
-   ([ADR-0002](adr/01-language/0002-one-language-version-number.md) D5).
-
-**Involved files**: `packages/parser/src/schematic.ts` (the constraint),
-`packages/core/src/design/current.ts` (the rail note), `spec/teda.md` §7.3, `spec/pcb.md` §4,
-`packages/cli/src/check.ts`, `examples/reference-project/design/sch/main.teda`.
-
-**Acceptance**:
-
-- The schematic has no way to declare a net's current, and the reference project declares none.
-- A rail's copper is sized from the actual maximum current, and the pcb says where that number
-  came from.
-- The pin requirements are untouched: `current J1.1 2A` and `current R21.1 2A` stay, because they
-  are requirements on one part.
-- No note fires about a rail the schematic cannot compare.
-
-**Note**: this is the same hole F80 and F82 point at, from the other side. F80 asks who carries a
-rail's current; F82 asks whether the copper is checked against it; this asks whether the
-schematic should be the one that says so at all. Settling the first two settles this one.
+**Remaining separately**: deriving branch current and proving physical current capacity remain open
+questions tracked by F80; this decision does not make a passing trace-width comparison an ampacity
+verdict.
 
 ---
 

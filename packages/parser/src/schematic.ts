@@ -1874,6 +1874,13 @@ function buildConstraint(
     case "current":
     case "power": {
       if (raw.args.length !== 2) return fail(`a ${raw.type} constraint must be written as ${raw.type} <subject> <value>`);
+      if (raw.type === "current" && (scope.nets.has(raw.args[0]!) || scope.busNets.has(raw.args[0]!))) {
+        return fail(
+          "a current constraint names one pin, not a net; net current belongs in the PCB rules section",
+          "current <pin> <max>",
+          raw.args[0]!,
+        );
+      }
       const subject = resolveSubject(raw.args[0]!, false);
       if (subject === null) return null;
       if (raw.type === "voltage") {

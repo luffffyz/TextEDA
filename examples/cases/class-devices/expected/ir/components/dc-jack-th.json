@@ -47,7 +47,7 @@
     "positive_pin": "1",
     "symbol": "connectors:dc-jack-th"
   },
-  "ir_version": "0.22",
+  "ir_version": "0.23",
   "source": {
     "file": "assets/components/connectors/dc-jack-th.teda",
     "line": 1

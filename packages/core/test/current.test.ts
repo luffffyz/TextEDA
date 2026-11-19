@@ -59,9 +59,9 @@ describe("current requirements", () => {
     expect(error?.data).toMatchObject({ declared_na: 4_000_000_000, rated_na: 500_000_000 });
   });
 
-  test("a rail's current is the layout's input and is not compared with the parts on it", () => {
-    // The tool sees one net; it does not know which member carries the net's current, so it does
-    // not compare. It says so instead of staying silent (ADR-0026 D13).
+  test("does not count or emit coverage for a net-current fact", () => {
+    // The parser no longer accepts this removed schematic construct; raw legacy IR is ignored here
+    // rather than recreating the retired rail note (ADR-0081).
     const schematic = board({
       instances: [{ id: "J1", component: "jack" }],
       nets: [{ id: "ADAPTER_P", members: ["J1.1"] }],
@@ -72,10 +72,8 @@ describe("current requirements", () => {
       schematic,
       devices: new Map([["jack", JACK]]),
     });
-    expect(diagnostics.map((d) => d.code)).toEqual(["design.current-rail"]);
-    expect(diagnostics[0]!.severity).toBe("note");
-    expect(diagnostics[0]!.message).toContain("ADAPTER_P 4A");
-    expect(coverage).toEqual({ compared: 0, total: 0, rails: 1 });
+    expect(diagnostics).toEqual([]);
+    expect(coverage).toEqual({ compared: 0, total: 0 });
   });
 
   test("a part rated for the current its pin carries is not reported", () => {
@@ -90,7 +88,7 @@ describe("current requirements", () => {
       devices: new Map([["jack", JACK]]),
     });
     expect(diagnostics).toEqual([]);
-    expect(coverage).toEqual({ compared: 1, total: 1, rails: 0 });
+    expect(coverage).toEqual({ compared: 1, total: 1 });
   });
 
   test("a part that states no rating is counted, not passed", () => {
@@ -107,7 +105,7 @@ describe("current requirements", () => {
     expect(diagnostics.map((d) => d.code)).toEqual(["design.current-unknown"]);
     expect(diagnostics[0]!.severity).toBe("note");
     expect(diagnostics[0]!.data).toMatchObject({ compared: 0, skipped: 1, total: 1, no_rating: 1 });
-    expect(coverage).toEqual({ compared: 0, total: 1, rails: 0 });
+    expect(coverage).toEqual({ compared: 0, total: 1 });
   });
 
   test("a part with more than two pins is a signal, not a verdict", () => {
@@ -147,7 +145,7 @@ describe("current requirements", () => {
     });
     const error = diagnostics.find((d) => d.code === "design.current-exceeded");
     expect(error?.message).toContain("pin R1.1 carries at most 3A");
-    expect(coverage).toEqual({ compared: 1, total: 1, rails: 1 });
+    expect(coverage).toEqual({ compared: 1, total: 1 });
   });
 
   test("a generic's own line column is the current the part must carry", () => {

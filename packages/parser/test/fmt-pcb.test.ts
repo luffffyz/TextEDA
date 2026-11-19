@@ -97,4 +97,13 @@ describe("normalization (spec §6.2)", () => {
     expect(section("stackup")[0]).toBe("B.Cu copper 0.035 signal");
     expect(section("stackup")[2]).toBe("F.Cu copper 0.035 signal");
   });
+
+  test("current rules canonicalize quantities but preserve provenance text", () => {
+    const input = messy
+      .replace("version 0.14", "version 0.19")
+      .replace("  width  0.25mm", "  width  0.25mm\n  current USB_DP 0.003A 0.500mm docs/power-budget.md#usb-dp");
+    const output = fmt(input);
+    expect(output).toContain("current  USB_DP  3mA  0.5  docs/power-budget.md#usb-dp");
+    expect(irOf(output)).toBe(irOf(input));
+  });
 });

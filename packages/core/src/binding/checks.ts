@@ -86,7 +86,7 @@ function referencedNets(pcb: BindingPcb): string[] {
   for (const via of pcb.via ?? []) nets.push(via.net);
   for (const zone of pcb.zone ?? []) nets.push(zone.net);
   for (const rule of pcb.rules) {
-    if (rule.type === "net") nets.push(rule.net);
+    if (rule.type === "net" || rule.type === "current") nets.push(rule.net);
     if (rule.type === "diff" || rule.type === "match") nets.push(rule.net_a, rule.net_b);
   }
   for (const item of pcb.physical_only ?? []) {

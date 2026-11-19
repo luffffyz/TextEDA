@@ -1,4 +1,4 @@
-version 0.14.0
+version 0.19.0
 module_view mcu-board
 
 bounds [270,190]

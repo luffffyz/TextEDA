@@ -331,7 +331,7 @@ describe("check (the project logical root composes modules)", () => {
       const result = analyzeProject(root);
       expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
       const ir = result.main.ir!;
-      expect(ir.ir_version).toBe("0.22");
+      expect(ir.ir_version).toBe("0.23");
       expect(ir.project).toBe("main");
       expect(ir.instances.map((i) => i.id)).toEqual(["M1.R1"]);
       expect(ir.nets.map((n) => n.id)).toEqual(["VCC"]);
@@ -390,7 +390,7 @@ describe("a PCB without the logical root (ADR-0014 D5)", () => {
       expect(result.coverage).toEqual({
         stress: { compared: 0, total: 1 },
         dissipation: { compared: 0, total: 1 },
-        current: { compared: 0, total: 0, rails: 0 },
+        current: { compared: 0, total: 0 },
       });
       expect(result.diagnostics.some((d) => d.code === "design.stress-unknown")).toBe(true);
     } finally {

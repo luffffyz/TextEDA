@@ -43,6 +43,7 @@ import {
   checkConstraintAgreement,
   checkCopperCoverage,
   checkCurrentRatings,
+  checkCurrentTraceWidths,
   checkDeviceUsage,
   fillBoard,
   fillBoardFacts,
@@ -502,9 +503,6 @@ export function analyzeProject(root: string): AnalyzeResult {
     schematic: mainIr,
     devices: ratingDevices(),
     ...(instanceLocator === undefined ? {} : { locateInstance: instanceLocator }),
-    ...(mainLocate === undefined
-      ? {}
-      : { locateConstraint: (index: number) => mainLocate(`/constraints/${index}`) }),
   });
   mainDiagnostics.push(...currents.diagnostics);
 
@@ -590,6 +588,11 @@ export function analyzeProject(root: string): AnalyzeResult {
           schematic: mainIr,
           pcb: pcb.ir,
           pads: padsByInstance(mainIr, devices, footprints),
+        }),
+        ...checkCurrentTraceWidths({
+          file: pcb.file,
+          pcb: pcb.ir,
+          ...(locate === undefined ? {} : { locate }),
         }),
         ...fillBoard(
           fillBoardFacts({

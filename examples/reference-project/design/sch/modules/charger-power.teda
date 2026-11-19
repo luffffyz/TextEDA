@@ -1,4 +1,4 @@
-version 0.11
+version 0.19.0
 module charger-power
 
 # The BQ24610 charge and power path (datasheet SLUS892D Figure 20): 19V adapter, 3-cell Li-ion
@@ -127,11 +127,10 @@ ports
   GND      GND
   SYS_OUT  SYS
 
-# The adapter's limit is a declared fact, not a comment. Two statements, two consumers: the rail's
-# current sizes the copper that carries it (a layout question), while the requirement on the jack's
-# tip is what the schematic compares with the jack's own rating (2A) — the jack is a generic, so
-# the rating compared against is the line's own requirement, and the part bought for it states
-# 2A as well.
+# A rail's reviewed maximum belongs in the PCB current rule; this old 2A net value is retained below
+# as TODO(F88) for manual review. The requirement on the jack's tip remains a pin-current constraint
+# checked against the jack's own rating (2A) — the jack is a generic, so the line supplies the
+# requirement, and the part bought for it states 2A as well.
 constraints
   voltage  VCC        5V..28V
   voltage  VFB        2.079V..2.121V
@@ -139,7 +138,7 @@ constraints
   voltage  AC_COMMON  0V..19V
   voltage  ACP        0V..19V
   voltage  AC_GATE    0V..19V
-  current  ADAPTER_P  2A
+# TODO(F88): review rail ADAPTER_P maximum current 2A; add a reviewed PCB rules current row with min_width and source before enabling.
   current  J1.1       2A
 # The two series positions, with the current that flows through each of them (ADR-0076): a part
 # in series does not see the difference between its two nets' windows, so the current is what
@@ -149,5 +148,5 @@ constraints
 #   the worst case of that sum, so it bounds the current into VCC alone.
   current  R17.1      25mA
 #   R21 is the current-sense resistor between ACP and SYS: it carries the adapter current into
-#   the charger's sense input, the same 2 A the adapter rail declares.
+#   the charger's sense input; the former 2 A rail maximum is retained for manual review in TODO(F88).
   current  R21.1      2A

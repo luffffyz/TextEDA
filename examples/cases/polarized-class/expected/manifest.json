@@ -1,41 +1,41 @@
 {
-  "ir_version": "0.22",
+  "ir_version": "0.23",
   "shards": [
     {
       "path": "boards/bulk-cap/pcb.json",
-      "sha256": "e74665f2a8c64299531178d120705ab910943af7bd5900f16689c166908d1851",
+      "sha256": "026e2df6855816fa56779a4a50e1894818a55b191879eeeaf9062044cacc3600",
       "normative": true
     },
     {
       "path": "boards/bulk-cap/procurement.json",
-      "sha256": "999567720b33375c477d4b80610097c870c89f250a5900d5c45a898ae45db1c7",
+      "sha256": "97c8d2e0b988173dcd58501c6ef535d135beb0cebde86d13727aea5b754f9719",
       "normative": true
     },
     {
       "path": "components/cap-tantalum-7343.json",
-      "sha256": "e6dd9ce45e8aeed5d020122929db2203b4f225fe010a75b2b430efbf8b6e3ec3",
+      "sha256": "43c2518235809dfa1c77f6b6c373d516944080d703635624ff849f7b43998ead",
       "normative": true
     },
     {
       "path": "footprints/tantalum/tantalum-7343.json",
-      "sha256": "adda4c0697f8e2eee6bf19a92303d3c47aa2e245e6c9f9ae90659ca22a6d1daf",
+      "sha256": "7e529d0dc7db8727ad9b9a1bdb1c7983a995489ef1400f892f87eb9cdfacf417",
       "normative": true
     },
     {
       "path": "project.json",
-      "sha256": "d2e173c6f678eb673883fbf81adecbfaec5432c6af26e6388eb24bae1a84cf79",
+      "sha256": "6cd2967db163d36c71c5359355d0919c382b7a2441bbaa49519c914b3b048964",
       "normative": true
     },
     {
       "path": "project/schematic.json",
-      "sha256": "afc5c6758a0587d8a9128d62a3d83b91fb7d25f0d4df05b9e2b4932de50e24d9",
+      "sha256": "9c01838fe0151c0bb9db847608b92a79414c80252573f41b0c942dcf9f028d1a",
       "normative": true
     },
     {
       "path": "symbols/passives/c-pol.json",
-      "sha256": "71f6e25f2dc75016341308798dc1d509260919ab0971d3c785f7ee4f95803ca8",
+      "sha256": "c9db6fdb21a1b1054e1a2c8d89de4c8e25ffbe6c9ebb6b663fa41368c5463888",
       "normative": true
     }
   ],
-  "source_hash": "e9e24fdcac0016af0b935011c48acbbcac1ee483e74a9166786bbdf1b5427ba1"
+  "source_hash": "c65f17446ac029b3e9be757b9fbd56923d110589a08400d6eda086aed974685a"
 }

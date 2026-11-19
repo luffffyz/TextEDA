@@ -1,4 +1,4 @@
-version 0.11
+version 0.19.0
 symbol ch32v307vct6
 
 description CH32V307 RISC-V MCU in LQFP-100

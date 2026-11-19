@@ -1,4 +1,4 @@
-# netlist main (ir 0.22)
+# netlist main (ir 0.23)
 GND: M1.C1.2
 VOUT: M1.C1.1
 

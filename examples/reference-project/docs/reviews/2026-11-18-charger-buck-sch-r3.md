@@ -105,12 +105,10 @@ notes stay where they are. The method is
   project-level fact, and the stage's charge current is a module-level one.
   Settled by: the schematic ceasing to carry a net's current at all, and the pcb layer sizing
   the copper from the rail's actual maximum current.
-  → addressed 2026-11-18: the question this note asked was the wrong one — it asked whether the
-  root's 3 A should become 1.9 A, as if the root should carry a rail current at all. The
-  decision is that **it should not**: the schematic states component parameters, and a rail's
-  current is a pcb-layer fact, with the copper sized from the actual maximum current
-  ([ADR-0026](../../../../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D18,
-  corrected; `docs/backlog.md` F88). **Not implemented**: the language still has the
-  `current <net>` constraint, the reference project still declares four rails, and the
-  `design.current-rail` note still fires. The pin requirements stay — `current J1.1 2A` and
-  `current R21.1 2A` are requirements on one part, which is the schematic's business.
+  → addressed 2026-11-19 by [ADR-0081](../../../../docs/adr/05-pcb/0081-rail-current-is-a-pcb-rule.md):
+  rail maximum current belongs in PCB rules, while schematic current constraints remain for
+  individual pins. Language 0.19 removes `current <net>`; the migration preserves each old
+  net/value as a `TODO(F88)` and does not invent an active PCB rule. The reference project has
+  no active current rule until its values, minimum widths and sources are reviewed. The retired
+  `design.current-rail` note no longer fires. Pin requirements such as `current J1.1 2A` and
+  `current R21.1 2A` remain.

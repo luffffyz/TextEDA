@@ -2,8 +2,8 @@
 
 Status: Accepted
 Date: 2026-10-26
-Scope: Decides: where a part's ratings live, how they are compared against a design's declared windows, and how a multi-terminal rating names its stress. Does not decide: the current check — a net's current is not attributed to its members yet; nor the derating policy — see the open points below.
-Related: [ADR-0024](0024-the-device-kind-is-part-or-generic.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md), [ADR-0075](0075-a-ratings-polarity-is-the-roles.md), [ADR-0076](0076-a-parts-dissipation-is-bounded-by-its-stated-current.md), [ADR-0077](0077-a-jack-and-an-led-are-classes.md), [ADR-0078](0078-a-polarised-class-names-its-positive-pin.md)
+Scope: Decides: where a part's ratings live, how they are compared against a design's declared windows, and how a multi-terminal rating names its stress. Does not decide: how rail current is derived or divided between branches, or the physical current capacity of copper; see [ADR-0081](../05-pcb/0081-rail-current-is-a-pcb-rule.md) and the open points below.
+Related: [ADR-0024](0024-the-device-kind-is-part-or-generic.md), [ADR-0025](0025-device-vocabulary-and-parameter-roles.md), [ADR-0027](0027-the-package-gives-a-chip-resistor-its-floor.md), [ADR-0075](0075-a-ratings-polarity-is-the-roles.md), [ADR-0076](0076-a-parts-dissipation-is-bounded-by-its-stated-current.md), [ADR-0077](0077-a-jack-and-an-led-are-classes.md), [ADR-0078](0078-a-polarised-class-names-its-positive-pin.md), [ADR-0081](../05-pcb/0081-rail-current-is-a-pcb-rule.md)
 Impact: `spec/teda.md` §6.2.1, §6.4, §7.3; `spec/procurement.md` §3.2, §3.3; `schemas/ir/**`; `packages/core` (the rating checks); `packages/parser` (the `component` description type); `packages/ir` (the diagnostic code registry)
 
 > **Current rating contract (2026-11-18):** the terminal pair, the role's direction and the role's kind are **implemented** — language `0.15`, IR contract `v0.20`. A `ratings` row may name its two terminals (`role type value from to`, pin numbers, ordered); the role table carries `kind` (`limit` / `characteristic` / `code`) and a stress direction (`symmetric` / `from` / `to` / `none`), plus the three directed voltage roles (`drain_source_voltage`, `gate_source_voltage`, `reverse_voltage`); the checker compares a multi-pin part's `limit` rating across that named pair, in the role's direction, and a `limit` rating without terminals on a part with more than two pins stays unknown (D7, D13). The syntax and the semantics are `spec/teda.md` §6.2.1, §6.4 and §7.3; the code is `packages/core/src/design/ratings.ts` and `packages/core/src/devices/rules.ts`. The wording below that says a decision is "not implemented" is the record of the day it was taken, and stays as it is. The same day corrected the direction of the two MOSFET roles: `drain_source_voltage` and `gate_source_voltage` are **symmetric**, because a datasheet's `V_DS` and `V_GS` bound the difference in either direction ([ADR-0075](0075-a-ratings-polarity-is-the-roles.md)).
@@ -409,15 +409,9 @@ additive change to the IR contract.
 
 A design states a current in two ways, and they are not the same fact:
 
-- `current <net> <max>` says what a rail carries **in total**. That is a **layout** input: it sizes
-  the copper that carries the rail, and it is what heats that copper. The language does not say
-  which member of a net carries the net's current (Open Points), so the schematic does not compare
-  it with part ratings — such a comparison would be a guess about every member of the net at once,
-  and a guess the reader cannot check. The schematic says so instead of staying silent: one
-  `design.current-rail` note per board names the rails and the currents they declare (D13). The
-  layout side has no rule yet (`docs/backlog.md` F82).
-- `current <pin> <max>` says what **one pin** carries. That is a requirement on one part, and it is
-  what the schematic compares with what the part is rated for.
+- `current <pin> <max>` says what **one pin** carries. It is a requirement on one part, and the
+  schematic compares it with what the part is rated for. A rail's total current belongs in the PCB
+  rules, not the schematic; it is not attributed to every component on that net.
 
 The comparison: a two-terminal part's rating is about the path between its two pins, and the
 requirement names one of them, so the comparison is certain and a rating below it is an error
@@ -426,25 +420,16 @@ name yet (D4), so the same finding is a warning (`design.current-below-rating`) 
 is unsure. A part that states no `rated_current` is counted, not passed (`design.current-unknown`,
 D13).
 
-This replaces the earlier rule, which compared a net's current with every part on that net and
-could only report a warning, because the attribution was unknown.
+A PCB `current <net> <max> <min_width> <source>` rule now retains the rail's maximum current and
+its stated provenance. The checker compares the rule's minimum declared width only with same-net
+traces: a narrower trace is an error, equality passes. It does not derive width from current or
+check actual copper capacity; via and zone/pour capacity and branch-current distribution remain
+unmodeled ([ADR-0081](../05-pcb/0081-rail-current-is-a-pcb-rule.md)).
 
-→ **Corrected (2026-11-18).** The decision on 2026-11-18: **a net's current is not the
-schematic's fact.** The schematic's business is **component parameters** — a pin's requirement
-(`current <pin> <max>`) and what a part is rated for — and nothing else. A rail's current is a
-**pcb-layer** fact: it sizes the copper that carries the rail, and the value to size it with is
-the **actual maximum current** the rail carries, not a number restated by hand in the schematic.
-
-So `current <net> <max>` has no place in the schematic, and the `design.current-rail` note that
-names the rails and their currents is a symptom of a surface that should not exist: the reference
-project's four rails (`VBAT`, `VOUT`, `V3V3`, `ADAPTER_P`) are hand-written restatements of what
-the design's own components already say.
-
-**Not implemented** (2026-11-18): the language still has the `current <net>` constraint, the
-reference project still declares four rails, and the note still fires. Executing this needs a
-decision of its own — where the pcb description states a rail's current
-(`docs/backlog.md` F82), and where the actual maximum current comes from (the language does not
-yet say who carries a rail's current, F80). The work is registered as `docs/backlog.md` F88.
+Language 0.19 removes `current <net> <max>` from schematic constraints and removes the
+`design.current-rail` note. Migration preserves each old net and value in a `TODO(F88)` comment and
+requires a designer to add a reviewed PCB rule manually; the reference project makes no active
+current-rule claim without an approved maximum, width and source.
 
 ## Consequences
 
@@ -470,10 +455,10 @@ yet say who carries a rail's current, F80). The work is registered as `docs/back
 
 ## Open Points
 
-- **Current.** A net's current is shared by its members, and the language still does not say who
-  carries it; a rail's current is therefore the layout's input (D18), not the schematic's. What a
-  rail's branches each carry is still undefined, and so is the relation between a rail-level
-  statement and the pin-level ones under it (`docs/backlog.md` F80).
+- **Current distribution.** A PCB rule records a rail's total maximum current, but the language
+  does not say how that current splits between branches or which members carry it. The rule is not
+  a statement about every pin on the net; this distribution question remains open (`docs/backlog.md`
+  F80).
 - **Derating as a project policy.** Whether the project should be able to state a derating policy
   once, in `project.toml`, is open; the checker deliberately does not pick a factor.
 - **Matched pairs.** Stating that two parts drift together needs its own construct.

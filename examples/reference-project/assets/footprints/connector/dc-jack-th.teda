@@ -1,4 +1,4 @@
-version 0.16.0
+version 0.19.0
 footprint dc-jack-th
 
 description Approximate DC barrel jack land pattern; hole positions from the Xun Pu DC-005-A200 drawing, not fabrication-ready because the source drill syntax cannot encode the datasheet slots.

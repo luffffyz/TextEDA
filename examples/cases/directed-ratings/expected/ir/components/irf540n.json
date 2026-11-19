@@ -50,7 +50,7 @@
     ],
     "symbol": "transistors:nmos-3"
   },
-  "ir_version": "0.22",
+  "ir_version": "0.23",
   "source": {
     "file": "assets/components/transistors/irf540n.teda",
     "line": 1

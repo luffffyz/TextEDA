@@ -1,6 +1,6 @@
 {
   "format": "0.17",
-  "ir_version": "0.22",
+  "ir_version": "0.23",
   "procurement": {
     "board": "bulk-cap",
     "role": "primary",

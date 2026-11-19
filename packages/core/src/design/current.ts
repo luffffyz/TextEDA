@@ -1,20 +1,7 @@
 // Current requirements against the parts that carry them.
 //
-// A design states a current in two ways, and they are not the same fact:
-//
-//   current <pin> <max>   a requirement on one pin: this pin carries at most so much.
-//   current <net>  <max>   a rail's current: the rail carries so much in total.
-//
-// The schematic checks the first against what the part is rated for (ADR-0026 D18). A two-terminal
-// part's rating is about the path between its two pins, so a requirement on one of its pins can be
-// compared with it and the comparison is certain. A part with more pins has a rating about a path
-// the language does not name yet (ADR-0026 D4), so the same comparison is a signal, not a verdict.
-//
-// The second is a **layout input**: what a rail carries is what sizes the copper that carries it,
-// and what heats it. The schematic does not compare it with part ratings, because the language does
-// not say which member of a net carries the net's current (ADR-0026, Open Points) — a comparison
-// would be a guess about every member of the net at once, and a wrong one. The schematic says so
-// instead of staying silent (ADR-0026 D13), and the layout side is `docs/backlog.md` F82.
+// A design states a current requirement on one pin: `current <pin> <max>` (ADR-0026 D18).
+// Rail maximum current and its trace-width check belong to PCB rules (ADR-0081).
 //
 // What a part is rated for is a fact when the part is a part (its own `ratings`) and a
 // requirement when it is a generic (the line's own column, which the procurement layer turns
@@ -42,24 +29,18 @@ export interface CurrentFacts {
   readonly devices: ReadonlyMap<string, CurrentDevice>;
   /** Where an instance was written (ADR-0004 D1: the IR carries no line numbers). */
   readonly locateInstance?: (instanceId: string) => DiagnosticLocation | undefined;
-  /** Where a constraint was written (ADR-0004 D1: the IR carries no line numbers). */
-  readonly locateConstraint?: (index: number) => DiagnosticLocation | undefined;
 }
 
 /**
  * How much of the design the current comparison reached.
  *
- * The two counts are the schematic's business; the third is the layout's. A rail's current is
- * declared, and the schematic does not compare it with anything, so it is counted here rather than
- * left implicit — a report that says "0 errors" must not read as "the currents were checked".
+ * Both counts cover pin-current requirements only; PCB rail-current checks live in current-traces.ts.
  */
 export interface CurrentCoverage {
   /** The instances a pin requirement spoke about that were compared with a rating. */
   readonly compared: number;
   /** The instances a pin requirement spoke about. */
   readonly total: number;
-  /** The rails that declare a current: the layout's input, not compared here. */
-  readonly rails: number;
 }
 
 /** What the comparison found, and how far it reached. */
@@ -119,20 +100,14 @@ export function checkCurrentRatings(facts: CurrentFacts): CurrentReport {
   const diagnostics: Diagnostic[] = [];
   const { schematic, file } = facts;
 
-  /** The rails that declare a current: the layout's input, never compared here. */
-  const rails = new Map<string, { max_na: number; index: number }>();
   /** The pin requirements, in the order the design states them. */
   const requirements: { owner: string; subject: string; max_na: number }[] = [];
 
-  (schematic.constraints ?? []).forEach((constraint, index) => {
-    if (constraint.type !== "current") return;
-    if (schematic.nets.some((net) => net.id === constraint.subject)) {
-      rails.set(constraint.subject, { max_na: constraint.max_na, index });
-      return;
-    }
+  for (const constraint of schematic.constraints ?? []) {
+    if (constraint.type !== "current") continue;
     const owner = instanceOfPinRef(schematic, constraint.subject);
     if (owner !== null) requirements.push({ owner, subject: constraint.subject, max_na: constraint.max_na });
-  });
+  }
 
   /** The instances a pin requirement speaks about. */
   const subjects = new Set<string>();
@@ -188,27 +163,11 @@ export function checkCurrentRatings(facts: CurrentFacts): CurrentReport {
     });
   }
 
-  if (rails.size > 0) {
-    const first = [...rails.values()][0]!;
-    diagnostics.push({
-      code: "design.current-rail",
-      severity: "note",
-      message: `${rails.size} rails declare a current: ${[...rails].map(([net, rail]) => `${net} ${amps(rail.max_na)}`).join(", ")}; the schematic does not compare a rail's current with part ratings`,
-      hint: "a rail's current sizes the copper that carries it (a layout question); state the current of a pin (current <pin> <max>) when the design means it as a requirement on one part",
-      location: facts.locateConstraint?.(first.index) ?? { file, line: 1, col: 1 },
-      data: {
-        rails: rails.size,
-        declared: [...rails].map(([net, rail]) => `${net} ${amps(rail.max_na)}`).join(", "),
-      },
-    });
-  }
-
   return {
     diagnostics,
     coverage: {
       compared: subjects.size - notCompared.size,
       total: subjects.size,
-      rails: rails.size,
     },
   };
 }

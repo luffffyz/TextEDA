@@ -1,5 +1,5 @@
 {
-  "ir_version": "0.22",
+  "ir_version": "0.23",
   "format": "0.9.1",
   "source": {
     "file": "design/sch/main.teda"
@@ -205,11 +205,6 @@
       "subject": "M1.BUCK_VFB",
       "min_uv": 1203000,
       "max_uv": 1239000
-    },
-    {
-      "type": "current",
-      "subject": "VOUT",
-      "max_na": 3000000000
     }
   ],
   "project": "main",

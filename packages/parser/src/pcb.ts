@@ -26,7 +26,7 @@ import { lex, type Cell, type Line } from "./lexer.ts";
 import { SourceFile, recordAll, recordObjects } from "./sources.ts";
 import type { SourceMap, Span } from "@texteda/ir/spans";
 import { parseAngleMdeg, parseLengthNm } from "./units.ts";
-import { checkVersion, typeRange } from "./version.ts";
+import { checkVersion, compareVersions, typeRange, PCB_CURRENT_RULE_VERSION } from "./version.ts";
 import { POINT, readTupleCells, tupleShapeText } from "./tuple.ts";
 import { parseQuantity } from "./quantities.ts";
 import { byteCompare, naturalCompare } from "@texteda/ir/order";
@@ -81,7 +81,7 @@ const PHYSICAL_ONLY_TYPES = new Set(["mounting", "fiducial", "stitching", "cutou
 const DEVIATION_TYPES = new Set(["net_tie", "split_ground"]);
 
 /** The type order for `rules` (`spec/pcb.md` §6.2): IR and the formatter share the same convention. */
-export const RULE_ORDER = ["clearance", "width", "via", "net", "diff", "match", "mask", "paste", "thermal", "min_width"];
+export const RULE_ORDER = ["clearance", "width", "via", "net", "current", "diff", "match", "mask", "paste", "thermal", "min_width"];
 
 /** Rule type → required number of columns (including the type column). */
 const RULE_COLUMNS: Record<string, number> = {
@@ -89,6 +89,7 @@ const RULE_COLUMNS: Record<string, number> = {
   width: 2,
   via: 3,
   net: 6,
+  current: 5,
   diff: 5,
   match: 4,
   mask: 2,
@@ -482,6 +483,7 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
     );
     return { ok: false, diagnostics: diagnostics.items };
   }
+  const currentRuleSyntax = compareVersions(verdict.version, PCB_CURRENT_RULE_VERSION) >= 0;
 
   const typeLine = lines[1];
   if (
@@ -550,6 +552,7 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
   const zone: Zone[] = [];
   const keepout: Keepout[] = [];
   const rules: Rule[] = [];
+  const currentRuleNets = new Set<string>();
   const silk: Silk[] = [];
   const physicalOnly: PhysicalOnly[] = [];
   const deviation: Deviation[] = [];
@@ -743,6 +746,48 @@ export function parsePcb(text: string, options: PcbParseOptions): PcbParseResult
                 via_drill_nm: nm(5),
               }, line);
               break;
+            case "current": {
+              if (!currentRuleSyntax) {
+                diagnostics.add(
+                  "error",
+                  "format.unsupported-version",
+                  `the current PCB rule arrived in language ${PCB_CURRENT_RULE_VERSION.major}.${PCB_CURRENT_RULE_VERSION.minor}`,
+                  file,
+                  line.number,
+                  c[0]!.col,
+                  {
+                    expected: `a file written against language ${PCB_CURRENT_RULE_VERSION.major}.${PCB_CURRENT_RULE_VERSION.minor} or later`,
+                    actual: format,
+                    hint: "raise the PCB version line, or remove the current rule",
+                  },
+                );
+                break;
+              }
+              const current = parseQuantity(c[2]!.text, "current", { code: "value.invalid-value" });
+              if (!current.ok) {
+                diagnostics.add("error", "value.invalid-value", `invalid maximum current: ${current.reason}`, file, line.number, c[2]!.col, { actual: c[2]!.text });
+                break;
+              }
+              if (current.value <= 0) {
+                diagnostics.add("error", "value.invalid-value", "maximum current must be greater than zero", file, line.number, c[2]!.col, { expected: "a positive current", actual: c[2]!.text });
+              }
+              const minWidthNm = nm(3);
+              if (minWidthNm <= 0) {
+                diagnostics.add("error", "value.invalid-value", "minimum width must be greater than zero", file, line.number, c[3]!.col, { expected: "a positive length", actual: c[3]!.text });
+              }
+              const source = c[4]!.text;
+              if (source.trim() === "") {
+                diagnostics.add("error", "value.invalid-value", "current rule source must not be empty", file, line.number, c[4]!.col, { expected: "a URI or project-relative path/anchor", actual: source });
+              }
+              const net = netId(c[1]!);
+              if (currentRuleNets.has(net)) {
+                diagnostics.add("error", "value.duplicate-field", `duplicate current rule for net ${net}`, file, line.number, c[1]!.col, { actual: net });
+                break;
+              }
+              currentRuleNets.add(net);
+              put(rules, { type: "current", net, max_na: current.value, min_width_nm: minWidthNm, source }, line);
+              break;
+            }
             case "diff": {
               const impedance = parseQuantity(c[3]!.text, "impedance", { code: "value.invalid-unit" });
               if (!impedance.ok) {

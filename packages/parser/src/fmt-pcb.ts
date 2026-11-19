@@ -4,7 +4,7 @@
 // The approach is to **walk the source lines** instead of rebuilding from the IR: comments stay in place, only semantically meaningful columns and rows are rearranged.
 import { lex } from "./lexer.ts";
 import { parseAngleMdeg, parseLengthNm } from "./units.ts";
-import { parseQuantity } from "./quantities.ts";
+import { formatQuantity, parseQuantity } from "./quantities.ts";
 import { byteCompare } from "@texteda/ir/order";
 import { PCB_SECTIONS, RULE_ORDER, normalizeRing, parsePcb } from "./pcb.ts";
 import type { Diagnostic } from "@texteda/ir/diagnostics";
@@ -326,6 +326,12 @@ function formatRule(cells: string[]): string[] {
       lenAt(4);
       lenAt(5);
       break;
+    case "current": {
+      const current = parseQuantity(cells[2]!, "current", { code: "value.invalid-unit" });
+      out[2] = current.ok ? formatQuantity(current.value, "current") : cells[2]!;
+      lenAt(3);
+      break;
+    }
     case "diff": {
       const impedance = parseQuantity(cells[3]!, "impedance", { code: "value.invalid-unit" });
       out[3] = impedance.ok ? ohm(impedance.value) : cells[3]!;

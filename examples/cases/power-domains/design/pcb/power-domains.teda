@@ -1,4 +1,4 @@
-version 0.14.0
+version 0.19.0
 pcb power-domains
 
 board_thickness  1.6
@@ -25,3 +25,7 @@ rules
   clearance  0.2
   width  0.3
   via  0.6  0.3
+  current  VDD_IN  1A  0.3mm  docs/power-domains/README.md#illustrative-current-rule
+
+physical_only
+  S1  stitching  [10,10]  VDD_IN  0.6  0.3

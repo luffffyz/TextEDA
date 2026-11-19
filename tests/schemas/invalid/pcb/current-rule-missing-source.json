@@ -1,0 +1,21 @@
+{
+  "ir_version": "0.23",
+  "format": "0.19",
+  "pcb": "demo",
+  "modules": ["M1"],
+  "board_thickness_nm": 1600000,
+  "stackup": [
+    { "layer": "F.Cu", "type": "copper", "thickness_nm": 35000, "kind": "signal" },
+    { "layer": "B.Cu", "type": "copper", "thickness_nm": 35000, "kind": "signal" }
+  ],
+  "outline": [
+    { "x_nm": 0, "y_nm": 0 },
+    { "x_nm": 20000000, "y_nm": 0 },
+    { "x_nm": 0, "y_nm": 15000000 }
+  ],
+  "place": [],
+  "connect": [],
+  "rules": [
+    { "type": "current", "net": "VOUT", "max_na": 3000000000, "min_width_nm": 500000 }
+  ]
+}

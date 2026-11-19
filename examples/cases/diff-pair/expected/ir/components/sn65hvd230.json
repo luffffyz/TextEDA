@@ -60,7 +60,7 @@
     "pins_source": "inline",
     "symbol": "interface:sn65hvd230"
   },
-  "ir_version": "0.22",
+  "ir_version": "0.23",
   "source": {
     "file": "assets/components/interface/sn65hvd230.teda",
     "line": 1

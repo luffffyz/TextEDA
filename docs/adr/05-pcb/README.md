@@ -16,6 +16,7 @@ The board description: the segment set it stores, who produces the layout, how c
 3. [0018](0018-copper-fill-uses-a-geometry-kernel.md) — copper fill is computed by a self-built geometry kernel.
 4. [0019](0019-a-partial-layout-is-legal.md) — a partial layout is legal, and it is reported.
 5. [0020](0020-connect-pairs-need-copper.md) — a declared `connect` pair must be implemented by copper.
+6. [0081](0081-rail-current-is-a-pcb-rule.md) — a rail's maximum current and trace minimum width are PCB rules.
 
 ## Records
 
@@ -26,3 +27,4 @@ The board description: the segment set it stores, who produces the layout, how c
 | [ADR-0018](0018-copper-fill-uses-a-geometry-kernel.md) | Copper Fill Uses a Self-Built Constrained Geometry Kernel | Accepted | 2026-10-26 |
 | [ADR-0019](0019-a-partial-layout-is-legal.md) | A Partial Layout Is Legal, and It Is Reported | Accepted | 2026-10-23 |
 | [ADR-0020](0020-connect-pairs-need-copper.md) | A Declared `connect` Pair Must Be Implemented by Copper | Accepted | 2026-10-23 |
+| [ADR-0081](0081-rail-current-is-a-pcb-rule.md) | A Rail's Maximum Current and Trace Minimum Width Are PCB Rules | Accepted | 2026-11-19 |

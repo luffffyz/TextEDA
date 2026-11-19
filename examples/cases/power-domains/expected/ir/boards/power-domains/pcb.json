@@ -1,8 +1,8 @@
 {
   "board_thickness_nm": 1600000,
   "connect": [],
-  "format": "0.14",
-  "ir_version": "0.22",
+  "format": "0.19",
+  "ir_version": "0.23",
   "modules": [
     "M1"
   ],
@@ -25,6 +25,17 @@
     }
   ],
   "pcb": "power-domains",
+  "physical_only": [
+    {
+      "drill_nm": 300000,
+      "id": "S1",
+      "net": "VDD_IN",
+      "size_nm": 600000,
+      "type": "stitching",
+      "x_nm": 10000000,
+      "y_nm": 10000000
+    }
+  ],
   "place": [],
   "rules": [
     {
@@ -39,6 +50,13 @@
       "drill_nm": 300000,
       "size_nm": 600000,
       "type": "via"
+    },
+    {
+      "max_na": 1000000000,
+      "min_width_nm": 300000,
+      "net": "VDD_IN",
+      "source": "docs/power-domains/README.md#illustrative-current-rule",
+      "type": "current"
     }
   ],
   "source": {

@@ -1,61 +1,61 @@
 {
-  "ir_version": "0.22",
+  "ir_version": "0.23",
   "shards": [
     {
       "path": "boards/power-domains/pcb.json",
-      "sha256": "684922de7d58115efa0a8fdc686034924c6fe5274418b4dbf3a2b0b6c5a0bea4",
+      "sha256": "5005cc4cc7c94ac1a43ddc7f31c4d32b2c31be7d99211d0c455fbbad536226ab",
       "normative": true
     },
     {
       "path": "components/cap-mlcc-0402.json",
-      "sha256": "ba394a20a9bb2bab4bb326bc94f2a5575279272e10f9a20e51672489da3c4a3f",
+      "sha256": "bb7a084cd4a03f8f7cb07927b2f1aeb1fbabd74db78bf44a8ca5cf8d4f3a17b0",
       "normative": true
     },
     {
       "path": "components/res-thick-0402.json",
-      "sha256": "ad46adaeceb99f74808c32d25214c4146210113500c22973673f102c49a2b43c",
+      "sha256": "bc20249e71c923d74194f3b67945064da8d67065d2d872963bdc0f1c29494fea",
       "normative": true
     },
     {
       "path": "components/tps7a2033pdbvr.json",
-      "sha256": "9d564936dd11c28e81abeb41ca8e3a7dd8a4708840e936ad91dfe6fe8adf31e3",
+      "sha256": "e4405792645562faed2b445a7d1fea2778ad85eac01ffa5b50025c02e1065244",
       "normative": true
     },
     {
       "path": "footprints/chip/chip-0402.json",
-      "sha256": "11cd719229ae7136807a842463ce9dd10174279598ab519bd3fc999b7c2a75fe",
+      "sha256": "f883cccaa7d61974878afddf7bebf04c8c74d9e655b2f30fa7b94cb1bd62e60b",
       "normative": true
     },
     {
       "path": "footprints/sot/sot-23-5.json",
-      "sha256": "52cb58eedccf4bb3a9465f1148bf3a1c5f073ce31d7d7eaaab0a874fbd80f1d7",
+      "sha256": "6c6740d3a7bb60c65ef76bde5147f82cb50fdd3b16fe86b6a94bf6ce20decb23",
       "normative": true
     },
     {
       "path": "project.json",
-      "sha256": "4e24bc7025d92960d32ac146801accd161618c24436858817064a7fd3a60e13b",
+      "sha256": "f85114768f6d656ff9bc433f065af8b6dc9d919c59895f4bbc2b8b917baa2f72",
       "normative": true
     },
     {
       "path": "project/schematic.json",
-      "sha256": "68264335fec9ec9adb5933e6939bbc88d64cc2fb0e9e7adc98d6c6f51a3f5cd7",
+      "sha256": "d8ceab5bddb615d98d16790ce1c32dcf3af44706cefd1b2cb88976e445c20d2e",
       "normative": true
     },
     {
       "path": "symbols/passives/c.json",
-      "sha256": "3f91bedfcdcd152cd518486e0d3fc5839c641f9fdf11c91cade6a393a57d4971",
+      "sha256": "c246a7cbf0de25ce41953a52456114c174fb8993bb1018729dcf82d42ba9d0a9",
       "normative": true
     },
     {
       "path": "symbols/passives/r.json",
-      "sha256": "b00859e410552fedab086fd77c948087b00e1f459794ef9d943273399e95b48c",
+      "sha256": "a5cfce0821be30dcd6c68f084555bf3c19b19741ec0ef18d2e6e0cd54f16221b",
       "normative": true
     },
     {
       "path": "symbols/regulators/ldo-sot23-5.json",
-      "sha256": "50894fd2226d28a2525f11ea7c7128304eb6aabe00dc666a513fbab22f45b61e",
+      "sha256": "c7f4c395c482c58620ad63dee9418cce9e7386686b1b362c05425267ed7bf77a",
       "normative": true
     }
   ],
-  "source_hash": "6311d31b16240dcc88ea21098351156cd77e209b93a2864ef16286fea0dd7d18"
+  "source_hash": "9f25c057430b31938d2537cc9b37f45c6fda5750a458ef77d48f8bfcd8fe1dec"
 }

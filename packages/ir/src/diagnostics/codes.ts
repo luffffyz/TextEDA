@@ -1172,6 +1172,20 @@ export const DIAGNOSTIC_CODES = {
     hint: "The `system` description type and its voltage cross-check have been removed",
     spec: ["spec/teda.md §12.4"],
   },
+  "drc.current-trace-only": {
+    domain: "drc",
+    severity: "note",
+    summary: "A PCB current rule compared trace declarations only, not physical current capacity",
+    hint: "review via and zone/pour capacity and branch-current distribution separately",
+    spec: ["spec/pcb.md §4.10", "docs/adr/05-pcb/0081-rail-current-is-a-pcb-rule.md"],
+  },
+  "drc.current-trace-width": {
+    domain: "drc",
+    severity: "error",
+    summary: "A trace on a current-rule net declares less than the rule's minimum width",
+    hint: "declare a trace width at least as wide as the current rule's min_width",
+    spec: ["spec/pcb.md §4.10", "docs/adr/05-pcb/0081-rail-current-is-a-pcb-rule.md"],
+  },
   "drc.silk-small": {
     domain: "drc",
     severity: "warning",
@@ -1259,9 +1273,9 @@ export const DIAGNOSTIC_CODES = {
   "design.current-rail": {
     domain: "design",
     severity: "note",
-    summary: "Rails that declare a current, which the schematic does not compare with part ratings",
-    hint: "a rail's current sizes the copper that carries it (a layout question); state the current of a pin (current <pin> <max>) when the design means it as a requirement on one part",
-    spec: ["spec/teda.md §7.3", "docs/adr/07-devices/0026-a-part-states-its-own-ratings.md"],
+    summary: "[DEPRECATED] Schematic rail-current coverage; rail current now belongs in PCB rules",
+    hint: "write current <pin> <max> for a pin requirement, or a PCB rules current row for a rail",
+    spec: ["spec/teda.md §7.3", "docs/adr/05-pcb/0081-rail-current-is-a-pcb-rule.md"],
   },
   "cli.bad-usage": {
     domain: "cli",

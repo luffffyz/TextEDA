@@ -1,4 +1,4 @@
-version 0.18.0
+version 0.19.0
 component ltst-c190gkt
 
 # Lite-On's LTST-C190GKT: a 0603 green LED on GaP. The datasheet (DS-22-98-0011, revision H)

@@ -456,12 +456,12 @@ constraints
 
 约束段也是表：列间至少两个空格，同段内按最宽单元格对齐（§11）。
 
-第一列是约束类型，列数与语义由类型决定；主语可以是**根 net**、**模块端口引用**（`M2.SYS_IN`）或展平后的实例引脚（`M2.U1.VDD`，工具在展平视图中解析）：
+第一列是约束类型，列数与语义由类型决定；主语可以是**根 net**、**模块端口引用**（`M2.SYS_IN`）或展平后的实例引脚（`M2.U1.VDD`，工具在展平视图中解析），但每种约束只允许表中指定的主体。`current` 仅接受实例引脚；轨电流与布线规则属于 `spec/pcb.md` §4.10。
 
 | 约束类型 | 形式 |
 |---|---|
 | `voltage` | `voltage <pin 或 net> <min>..<max>` |
-| `current` | `current <pin 或 net> <max>` |
+| `current` | `current <pin> <max>` |
 | `power` | `power <pin> <max>` |
 | `impedance` | `impedance <net> <value>` |
 | `length` | `length <net> <min>..<max>` |
@@ -533,14 +533,7 @@ constraints
 
 **一条 net 只说一次窗口**：根与模块各写一遍同一个 net 的窗口时（模块的局部 net 被端口并进项目 net），两条声明就撞在一起了。值相同是**一个事实两个家**——改一次电压要改两个文件，漏改一个没人说得清——报 `net.constraint-duplicate`（note，两处位置都指出来）；值不同是**设计自相矛盾**——同一个 net 说了两个不同的窗口——报 `net.constraint-conflict`（error）。两条都是 net 自己的事，不进 `design` 域。`power` 约束不在此列：同一个引脚写多条 `power` 是合法的（取最紧的那条，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D11）。窗口冲突时，电压比较**不挑**其中一条当窗口——那个 net 的窗口按未知处理（计入 `design.stress-unknown`），因为设计自己说了两个互相矛盾的话。
 
-**`current` 约束现在有人消费了**：设计声明的电流与件自己的额定值比。件能扛多少来自件自己的 `ratings`（`kind: part`：`rated_current`，事实）或通用件实例行的 `rated_current` 列（要求，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D16）。**但主语是 net 还是引脚，决定了它是谁的事**（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D18）：
-
-| 主语 | 它说的是 | 谁消费 |
-|---|---|---|
-| net（`current ADAPTER_P 4A`） | 这条轨**总共**流多少 | **布局**：载它的铜要按这个宽度走，它也决定发热 |
-| 引脚（`current M1.J1.1 4A`） | 这个脚流多少 | **原理图**：拿它跟件的额定值比 |
-
-**原理图只比引脚主语**。net 主语**不与件比**：net 的电流由成员共享，语言没说谁承担（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) 的 Open Points），拿它跟每个成员比就是对整条 net 的一次猜测——而且是可能猜错的那种。原理图不沉默：每块板一条 `design.current-rail`（note）点名这些轨与它们声明的电流，说明原理图没有拿它们跟额定值比（[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D13）。布局那一侧还没有规则（铜宽怎么跟电流对上，`docs/backlog.md` F82）。
+**Schematic `current` constraints are pin-only**：`current <pin> <max>` is a requirement on one component pin. The part's capability comes from its own `ratings` (`kind: part`: `rated_current`, a fact) or the generic instance row's `rated_current` column (a requirement; [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D16). A net subject is not accepted here: a rail's stated maximum current and minimum trace width belong to PCB `rules current` (see `spec/pcb.md` §4.10 and [ADR-0081](../docs/adr/05-pcb/0081-rail-current-is-a-pcb-rule.md)). The checker compares the pin requirement with the part's rating, but does not derive a rail current or branch allocation.
 
 引脚主语与额定值比，结果分两档，因为**能确定到什么程度**取决于件的端子：
 
@@ -549,7 +542,7 @@ constraints
 | 两引脚 | **确定**：件的额定值说的就是它两个脚之间的路径，而设计说了这个脚流多少。额定值低于它 → `design.current-exceeded`（error） |
 | 多引脚 | **不确定**：件的额定值属于哪两个脚，语言还没说（端子语法未落地，[ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) D4）→ `design.current-below-rating`（warning），说清它不确定在哪 |
 
-没声明 `rated_current` 的件不比较，计入 `design.current-unknown`（note，一块板一条）——没比较不等于通过。电流比较的覆盖率跟电压、耗散一起进报告（`coverage.current`：`compared` / `total` 是引脚主语那部分，`rails` 是声明了电流的轨数，那些是布局的输入）。
+没声明 `rated_current` 的件不比较，计入 `design.current-unknown`（note，一块板一条）——没比较不等于通过。电流比较的覆盖率跟电压、耗散一起进报告（`coverage.current`：`compared` / `total` 只覆盖引脚主语要求；PCB current-rule 检查独立报告）。
 
 ### 7.4 `ports` 段（可选）
 
@@ -747,7 +740,7 @@ interconnect_pins
 
 `version` 为 `MAJOR.MINOR[.PATCH]`，三位各自无前导零。**PATCH 位可省略，省略即 0**：`0.6` 与 `0.6.0` 是同一个版本，IR 里只存一种写法（`0.6`）。
 
-**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.18.0**。
+**语言只有一个版本号。** 每个 `.teda` 文件声明的是**语言**的版本，不是它那一种描述类型的版本——所有描述类型共用这一个号（决策见 [ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D2）。`project.toml` 的 `format` 是同一个号，IR 的 `format` 字段记的也是它。当前语言版本是 **0.19.0**。
 
 各描述类型接受的**下界**是当前 reader 仍支持的最早表面形态；它可以晚于类型的历史引入版本。上界对所有描述类型都是同一个——语言当前版本。
 
@@ -766,7 +759,7 @@ interconnect_pins
 
 `packages/parser/src/version.ts` 的 reader-floor 表实现接受下界；`packages/parser/test/version-spec.test.ts` 将其与本表钉在一起。类型引入版本是历史事实，保留在说明列中；它不决定 reader floor。
 
-在 `0.x` 阶段，兼容澄清和诊断改进走 PATCH；新增段或字段、以及**改变已接受文件的表面形态**走 MINOR，并且必须有显式决策记录（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D5）。`0.10.0` 由 [ADR-0055](../docs/adr/09-view/0055-schematic-fields-are-view-overrides.md) 引入 `view` 的 `field` 段；`0.11.0` 由 [ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) 把坐标统一成一个括号元组单元格；`0.12.0` 由 [ADR-0067](../docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md) 加入 module overview/detail 页、module-port 绘图与 `size` 页尺寸声明；`0.13.0` 由 [ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) 加入 `module_view`、`sheet_template`、`template` 与 `module_place`；`0.14.0` 由 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) 收拢工程根并删除板级/系统旧构造；`0.15.0` 由 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) 让 `ratings` 行可以点名它的两个端子（§6.4）。`0.16.0` 由 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) 加入 `barrel` / `indicator` 两个构造与 `wavelength` 角色，并让 `length` 参数类型可用（§6.2.1、§6.2.2）。`0.17.0` 由 [ADR-0078](../docs/adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md) 让有极性的通用件点名它的正极引脚（`positive_pin`，§6.1），并把颜色的取值集封闭（[ADR-0079](../docs/adr/07-devices/0079-a-colour-has-a-closed-vocabulary.md)，§6.2.1）。`0.18.0` 由 [ADR-0080](../docs/adr/07-devices/0080-a-part-names-its-positive-pin-for-procurement-comparison.md) 允许具体料声明自己的正极引脚（`positive_pin`，§6.1），用于同封装通用件的选料极性比较；原来的通用件语法不变。
+在 `0.x` 阶段，兼容澄清和诊断改进走 PATCH；新增段或字段、以及**改变已接受文件的表面形态**走 MINOR，并且必须有显式决策记录（[ADR-0002](../docs/adr/01-language/0002-one-language-version-number.md) D5）。`0.10.0` 由 [ADR-0055](../docs/adr/09-view/0055-schematic-fields-are-view-overrides.md) 引入 `view` 的 `field` 段；`0.11.0` 由 [ADR-0065](../docs/adr/01-language/0065-a-coordinate-tuple-is-one-cell.md) 把坐标统一成一个括号元组单元格；`0.12.0` 由 [ADR-0067](../docs/adr/09-view/0067-hierarchical-module-views-and-custom-page-size.md) 加入 module overview/detail 页、module-port 绘图与 `size` 页尺寸声明；`0.13.0` 由 [ADR-0068](../docs/adr/09-view/0068-reusable-module-drawings-and-sheet-templates.md) 加入 `module_view`、`sheet_template`、`template` 与 `module_place`；`0.14.0` 由 [ADR-0069](../docs/adr/03-project/0069-project-level-logical-root-and-physical-board-mapping.md) 收拢工程根并删除板级/系统旧构造；`0.15.0` 由 [ADR-0026](../docs/adr/07-devices/0026-a-part-states-its-own-ratings.md) 让 `ratings` 行可以点名它的两个端子（§6.4）。`0.16.0` 由 [ADR-0077](../docs/adr/07-devices/0077-a-jack-and-an-led-are-classes.md) 加入 `barrel` / `indicator` 两个构造与 `wavelength` 角色，并让 `length` 参数类型可用（§6.2.1、§6.2.2）。`0.17.0` 由 [ADR-0078](../docs/adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md) 让有极性的通用件点名它的正极引脚（`positive_pin`，§6.1），并把颜色的取值集封闭（[ADR-0079](../docs/adr/07-devices/0079-a-colour-has-a-closed-vocabulary.md)，§6.2.1）。`0.18.0` 由 [ADR-0080](../docs/adr/07-devices/0080-a-part-names-its-positive-pin-for-procurement-comparison.md) 允许具体料声明自己的正极引脚（`positive_pin`，§6.1），用于同封装通用件的选料极性比较；原来的通用件语法不变。`0.19.0` 由 [ADR-0081](../docs/adr/05-pcb/0081-rail-current-is-a-pcb-rule.md) 将轨最大电流与最小线宽规则移入 PCB、从 schematic 移除 net-current constraint，并增加迁移脚本。
 
 
 | 位 | 什么时候动 | 动它意味着 |
@@ -809,6 +802,13 @@ PATCH 位不参与判定（见 §12.1 的硬规则）。
 ### 12.4 版本沿革
 
 语言的每次版本变化在这里留一条，最新的在前。每条写明改了什么，并指向决定它的那份记录。
+
+#### 0.19.0 — Rail current is a PCB rule（2026-11-19）
+
+- **Schematic current is pin-only**: `current <pin> <max>` remains a part requirement; `current <net> <max>` is removed. A PCB `rules current <net> <max> <min_width> <source>` states a net's maximum current, minimum declared trace width and provenance text. The source is stored verbatim and is not verified; current capacity is not derived from the value.
+- **The PCB checker compares trace declarations only**: every trace on the rule's net must declare at least `min_width`; equality passes. It does not verify via or zone/pour capacity, infer conductor geometry capacity, or prove branch-current distribution. Reports explicitly identify this limit and any same-net via/zone.
+- **IR contract to `v0.23`** (`v0.22` remains unchanged): PCB rules gain the current-rule variant.
+- **Migration**: `bun run migrate:0.19 <project dir>` updates language version headers and leaves each removed net-current row as a `TODO(F88)` comment containing its original net/value; it never guesses a PCB rule. Add a reviewed maximum current, minimum width and source manually before enabling one. Pin-current rows are unchanged.
 
 #### 0.18.0 — 具体料声明正极引脚以供选料比较（2026-11-18）
 

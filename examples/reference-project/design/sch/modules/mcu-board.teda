@@ -1,4 +1,4 @@
-version 0.14.0
+version 0.19.0
 module mcu-board
 
 # CH32V307VCT6 minimum system: 5V in → TPS7A2033PDBVR (3.3V/300mA LDO) → MCU.
@@ -62,4 +62,5 @@ constraints
   voltage  VIN_5V  4.5V..5.5V
   voltage  GND     0V..0V
   voltage  V3V3    3.0V..3.6V
-  current  V3V3    300mA
+
+# TODO(F88): review rail V3V3 maximum current 300mA; add a reviewed PCB rules current row with min_width and source before enabling.

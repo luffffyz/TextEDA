@@ -72,6 +72,11 @@ export {
 } from "./design/current.ts";
 
 export {
+  checkCurrentTraceWidths,
+  type CurrentTraceFacts,
+} from "./design/current-traces.ts";
+
+export {
   checkConstraintAgreement,
   type ConstraintFacts,
 } from "./design/constraints.ts";

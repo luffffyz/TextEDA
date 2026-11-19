@@ -93,6 +93,39 @@ describe("complete file", () => {
   });
 });
 
+describe("PCB current rules", () => {
+  const language19 = valid.replace("version 0.14", "version 0.19");
+  const withCurrent = language19.replace(
+    "  min_width  0.15mm",
+    "  min_width  0.15mm\n  current    VBUS  3A  0.5mm  docs/power-budget.md#vbus",
+  );
+
+  test("parses current, minimum declared width and verbatim provenance", () => {
+    const result = parse(withCurrent);
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+    expect(result.ir!.rules).toContainEqual({
+      type: "current",
+      net: "VBUS",
+      max_na: 3_000_000_000,
+      min_width_nm: 500_000,
+      source: "docs/power-budget.md#vbus",
+    });
+  });
+
+  test("current rules require language 0.19", () => {
+    const result = parse(withCurrent.replace("version 0.19", "version 0.18"));
+    expect(result.diagnostics.map((d) => d.code)).toContain("format.unsupported-version");
+  });
+
+  test("at most one current rule may name a net", () => {
+    const duplicated = withCurrent.replace(
+      "  current    VBUS  3A  0.5mm  docs/power-budget.md#vbus",
+      "  current    VBUS  3A  0.5mm  docs/power-budget.md#vbus\n  current    VBUS  2A  0.6mm  docs/other.md#vbus",
+    );
+    expect(codes(duplicated)).toContain("value.duplicate-field");
+  });
+});
+
 describe("optional sections", () => {
   test("trace / via / zone / keepout / silk / physical_only / deviation", () => {
     const text = `${valid}
