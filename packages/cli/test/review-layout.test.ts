@@ -922,6 +922,26 @@ describe("the layout Apply keeps the drawing honest", () => {
     expect(buildIrTree(dir).projectHash).toBe(before);
   });
 
+  test("a field-only module drawing edit keeps its module_view header", () => {
+    const dir = scratch();
+    const request = {
+      module: "buck-5v",
+      places: [],
+      fields: [{ instance_id: "U1", name: "Reference" as const, x: 5, y: -2 }],
+    };
+    const plan = planLayout(dir, request);
+
+    expect(plan.changed).toBe(true);
+    expect(parseModuleView(plan.text, { file: plan.file }).ir?.field?.find(
+      (field) => field.instance_id === "U1" && field.name === "Reference",
+    )).toMatchObject({ x_nm: 5_000_000, y_nm: -2_000_000 });
+
+    applyLayout(dir, request);
+    expect(parseModuleView(content(dir, plan.file), { file: plan.file }).ir?.field?.find(
+      (field) => field.instance_id === "U1" && field.name === "Reference",
+    )).toMatchObject({ x_nm: 5_000_000, y_nm: -2_000_000 });
+  });
+
   test("a layout request names a page or a module drawing, not both", () => {
     const dir = scratch();
     expect(() => planLayout(dir, { page: "buck-5v", module: "buck-5v", places: [] })).toThrow(LayoutError);

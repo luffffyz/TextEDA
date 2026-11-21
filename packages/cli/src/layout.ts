@@ -503,6 +503,7 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
     }
     const edited = rewritePage(text, {
       file,
+      kind: target.kind,
       sources: parsed.sources ?? new Map(),
       places: [],
       fields: plannedFields.set,
