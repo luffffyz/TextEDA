@@ -147,6 +147,36 @@ describe("texteda view rewire", () => {
     expect(c1?.points).toBeUndefined();
   });
 
+  test("shortens a redundant detour when re-anchoring a page", () => {
+    const dir = copyProject();
+    const page = join(dir, "views/buck-5v.view.teda");
+    const original = readFileSync(page, "utf8");
+    const withJunctions = original.replace(
+      "  J_PH_D1    [176.5,98.0]\n\nwire",
+      "  J_PH_D1    [176.5,98.0]\n  J_TEST_A   [250.0,150.0]\n  J_TEST_B   [280.0,150.0]\n\nwire",
+    );
+    const detour = withJunctions.replace(
+      "\nwire\n",
+      "\nwire\n  VOUT  J_TEST_A  J_TEST_B  [250.0,140.0]  [270.0,140.0]  [270.0,150.0]\n",
+    );
+    expect(detour).not.toBe(original);
+    writeFileSync(page, detour);
+
+    const result = run(["view", "rewire", dir, "buck-5v", "--json"]);
+    expect(result.code).toBe(0);
+    const payload = JSON.parse(result.stdout) as { written: boolean; rewired: string[]; conflicts: string[] };
+    expect(payload.written).toBe(true);
+    expect(payload.rewired).toContain("VOUT J_TEST_A → J_TEST_B");
+    expect(payload.conflicts).toEqual([]);
+
+    const parsed = parseView(readFileSync(page, "utf8"), { file: "views/buck-5v.view.teda" });
+    const wire = parsed.ir?.wire?.find((candidate) => candidate.from_pin === "J_TEST_A");
+    expect(wire?.points).toEqual([
+      { x_nm: 250_000_000, y_nm: 140_000_000 },
+      { x_nm: 280_000_000, y_nm: 140_000_000 },
+    ]);
+  });
+
   test("a page that needs nothing is reported as such", () => {
     const dir = copyProject();
     // The charger-power page is a placement sketch: it has no wire, so there is nothing to

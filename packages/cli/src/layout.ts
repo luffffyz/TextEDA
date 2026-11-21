@@ -571,23 +571,23 @@ export function planLayout(root: string, request: LayoutRequest): LayoutPlan {
       );
     }
     const kept = result.points.map((point) => ({ x_nm: point.x_nm, y_nm: point.y_nm }));
+    const drawn = [
+      fromBefore,
+      ...(wire.points ?? []).map((point) => ({ x_nm: point.x_nm, y_nm: point.y_nm })),
+      toBefore,
+    ];
+    const candidate = [fromAfter, ...kept, toAfter];
     // Re-anchoring keeps the shape, and a shape can be longer than the shortest drawing of the same
     // run: a corner that was needed before the move may be unnecessary after it. The shorter
     // drawing is used only when it is legal by the same rules the readability check applies, so a
     // detour drawn around something on purpose survives.
-    const simplified = simplifyRun(
-      [fromAfter, ...kept, toAfter],
-      {
-        ...obstaclesFor(wire, after),
-        // Anchors are read off the run as it was drawn: where the labels and ports sat before the
-        // move. They are the reason a bus keeps its line.
-        anchors: anchorsFor(wire, [fromBefore, ...(wire.points ?? []).map((point) => ({ x_nm: point.x_nm, y_nm: point.y_nm })), toBefore], {
-          labels: view.label ?? [],
-          ports: view.port ?? [],
-          portNets: facts.portNets,
-          moved: { from: fromBefore, newFrom: fromAfter, to: toBefore, newTo: toAfter },
-        }),
-      },
+    const simplified = simplifyViewRun(
+      wire,
+      drawn,
+      candidate,
+      after,
+      { labels: view.label ?? [], ports: view.port ?? [], portNets: facts.portNets },
+      { from: fromBefore, newFrom: fromAfter, to: toBefore, newTo: toAfter },
     );
     return { ...wire, points: simplified.path.slice(1, -1) };
   });
@@ -1160,7 +1160,7 @@ export function projectFacts(root: string): ProjectFacts {
  * ends. The candidate paths are axis-parallel, so one pass over the symbols answers the question the
  * readability check would otherwise answer after a write.
  */
-function obstaclesFor(
+export function obstaclesFor(
   wire: NonNullable<SchematicView["wire"]>[number],
   geometry: SheetGeometry,
 ): RunObstacles {
@@ -1179,7 +1179,7 @@ function obstaclesFor(
  * for, and this is the fact that tells a bus apart from a redundant detour when the two are the
  * same shape on the sheet.
  */
-function anchorsFor(
+export function anchorsFor(
   wire: NonNullable<SchematicView["wire"]>[number],
   drawn: readonly WireCorners[],
   texts: {
@@ -1215,6 +1215,25 @@ function anchorsFor(
     if (on(port)) anchors.push({ point: { x_nm: port.x_nm, y_nm: port.y_nm }, slack_nm: slack });
   }
   return anchors;
+}
+
+/** Apply the shared shortening pass to a re-anchored run. */
+export function simplifyViewRun(
+  wire: NonNullable<SchematicView["wire"]>[number],
+  drawn: readonly WireCorners[],
+  candidate: readonly WireCorners[],
+  geometry: SheetGeometry,
+  texts: {
+    labels: readonly NonNullable<SchematicView["label"]>[number][];
+    ports: readonly NonNullable<SchematicView["port"]>[number][];
+    portNets: ReadonlyMap<string, string>;
+  },
+  moved: { from: WireCorners; newFrom: WireCorners; to: WireCorners; newTo: WireCorners },
+): { path: WireCorners[]; changed: boolean } {
+  return simplifyRun(candidate, {
+    ...obstaclesFor(wire, geometry),
+    anchors: anchorsFor(wire, drawn, { ...texts, moved }),
+  });
 }
 /**
  * Where a run's end sits on the sheet: a pin, a drawn port, a drawn module port, or an absolute

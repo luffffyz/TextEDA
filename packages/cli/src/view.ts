@@ -19,7 +19,7 @@ import { rerouteWire, viewMetrics, type ViewMetrics } from "@texteda/core";
 import { loadSchematic, loadViews, loadComponents, loadModules } from "./project.ts";
 import { loadPageComposition, pageCompositionError } from "./page-composition.ts";
 import { loadSymbolLibrary, schematicInstances, type DeviceFacts } from "./symbols.ts";
-import { pinPoint, renderInterconnects, renderPageSource, rewritePage } from "./layout.ts";
+import { pinPoint, renderInterconnects, renderPageSource, rewritePage, simplifyViewRun } from "./layout.ts";
 import { writeOut, writeOutBytes } from "./output.ts";
 import type { VerbResult } from "./result.ts";
 
@@ -172,11 +172,10 @@ export interface ViewRewireResult {
 /**
  * Bring the page's wiring back onto its pins.
  *
- * The page's wires name their ends by pin, so the ends follow the symbols; the corners do not.
  * When a symbol moves, the run that leaves it can stop being orthogonal — that is what
- * `view.wire-diagonal` reports. This rewrites those corners: the interior keeps its coordinates,
- * the ends are put back where the pins are, and a wire whose interior is broken is reported instead
- * of redrawn (ADR-0042 D6).
+ * `view.wire-diagonal` reports. This rewrites those corners, then applies the same legal
+ * shortening pass as the review app; a wire whose interior is broken is reported instead of
+ * redrawn (ADR-0042 D6, ADR-0063).
  */
 export function buildViewRewire(options: ViewRewireOptions): VerbResult<ViewRewireResult> {
   const { root, page } = options;
@@ -207,6 +206,7 @@ export function buildViewRewire(options: ViewRewireOptions): VerbResult<ViewRewi
   if (!view.ir) {
     return { ok: false, error: view.diagnostics.map((diagnostic) => diagnostic.message).join("; ") };
   }
+  const viewIr = view.ir;
 
   const symbols = loadSymbolLibrary(root);
   const instances = schematicInstances(
@@ -229,6 +229,7 @@ export function buildViewRewire(options: ViewRewireOptions): VerbResult<ViewRewi
     ...(view.ir.port ?? []).map((port) => [port.id, { x_nm: port.x_nm, y_nm: port.y_nm }] as const),
     ...(view.ir.junction ?? []).map((junction) => [junction.id, { x_nm: junction.x_nm, y_nm: junction.y_nm }] as const),
   ]);
+  const portNets = new Map((schematic.ir.ports ?? []).map((port) => [port.id, port.net] as const));
   const modulePortPoints = new Map(geometry.modulePortPoints ?? []);
 
   const rewired: string[] = [];
@@ -253,9 +254,19 @@ export function buildViewRewire(options: ViewRewireOptions): VerbResult<ViewRewi
       conflicts.push(`${wire.net} ${wire.from_pin} → ${wire.to_pin}: the wire's shape could not be kept (${result.conflict})`);
       return;
     }
-    if (!result.changed) return;
+    const drawn = [from, ...(wire.points ?? []).map((point) => ({ x_nm: point.x_nm, y_nm: point.y_nm })), to];
+    const candidate = [from, ...result.points, to];
+    const simplified = simplifyViewRun(
+      wire,
+      drawn,
+      candidate,
+      geometry,
+      { labels: viewIr.label ?? [], ports: viewIr.port ?? [], portNets },
+      { from, newFrom: from, to, newTo: to },
+    );
+    if (!result.changed && !simplified.changed) return;
     rewired.push(`${wire.net} ${wire.from_pin} → ${wire.to_pin}`);
-    changed.push({ index, wire: { ...wire, points: result.points } });
+    changed.push({ index, wire: { ...wire, points: simplified.path.slice(1, -1) } });
   });
 
   if (changed.length === 0) {
