@@ -152,12 +152,11 @@ function checkPcb(
   });
   const unplaced = physical.filter((instance) => !placed.has(instance.id)).map((instance) => instance.id);
   if (unplaced.length > 0) {
-    const shown = unplaced.slice(0, 8).join(", ");
-    const more = unplaced.length > 8 ? `, … (${unplaced.length - 8} more)` : "";
+    const missing = unplaced.join(", ");
     diagnostics.push({
       code: "bind.instance-unplaced",
       severity: "warning",
-      message: `PCB ${pcb.pcb} places ${physical.length - unplaced.length} of its ${physical.length} physical instances; ${unplaced.length} not placed: ${shown}${more}`,
+      message: `PCB ${pcb.pcb} places ${physical.length - unplaced.length} of its ${physical.length} physical instances; ${unplaced.length} not placed: ${missing}`,
       location: fileOnly,
       expected: `every physical instance owned by PCB ${pcb.pcb} has a place (${physical.length})`,
       actual: `${physical.length - unplaced.length} placed`,

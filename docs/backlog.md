@@ -1684,23 +1684,23 @@ analysis that reports per-path currents settles the attribution without any lang
 
 ## F81. A board that declares a module it does not place still reads like a finished board
 
-**Status**: Proposed (2026-11-16). One half needs no decision; the other does, and it contradicts
-a decision on record.
+**Status**: Partially implemented (2026-11-21). The report now names every unplaced instance; the
+severity decision remains open.
 
 **Current state**: `bind.instance-unplaced` (warning) says "PCB charger-buck places 9 of its 62
-physical instances; 53 not placed: M1.C1, M1.C2, … (45 more)" — one warning, eight names, the
-rest as a count. The board that would come off the line is a buck converter with no charger in
-it, and the report reads like a finished board.
+physical instances; 53 not placed: the complete list of 53 instance IDs" — one warning that names
+every missing instance. The board that would come off the line is a buck converter with no charger
+in it, and the report still reads like a finished board because the severity remains a warning.
 
-**Why it matters**: the count is there, so a reader can see the gap; the names are not, so the
-reader cannot see *which* board is short without running the tool over the file by hand. And a
-warning is the same colour as the 195 other warnings the reference project produces.
+**Why it matters**: the count and complete list now show the gap, so a reader can see which board
+is short without running the tool over the file by hand. The remaining question is whether a
+warning is the right colour among the 195 other warnings the reference project produces.
 
 **To do**: two halves, and only one of them is a decision.
 
-1. **Name every missing instance.** ADR-0019 D3 says the diagnostic "states `placed / total` and
-   names the unplaced instances"; the implementation truncates at eight. Aligning the code with
-   the decision is a small change, and the cost is one long message on a large board.
+1. ~~**Name every missing instance.**~~ ADR-0019 D3 says the diagnostic "states `placed / total`
+   and names the unplaced instances"; the implementation now follows that decision. The cost is
+   one long message on a large board.
 2. **Fail instead of warn when a board declares a module it does not place.** This contradicts
    ADR-0019 D4 ("severity is `warning`; an error would make a partial description un-checkable"),
    so it needs a record of its own or an amendment to that one — and it turns the reference
@@ -1710,8 +1710,8 @@ warning is the same colour as the 195 other warnings the reference project produ
 
 **Acceptance**:
 
-- The report names every instance a board does not place, or the decision says the count is
-  enough.
+- ~~The report names every instance a board does not place, or the decision says the count is
+  enough.~~ The report names every unplaced instance.
 - If the gate fails, the record that says a partial layout is legal is amended, and the
   reference project's boards are finished or marked.
 

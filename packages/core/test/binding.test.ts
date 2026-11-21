@@ -81,6 +81,16 @@ describe("project PCB ownership diagnostics", () => {
     const empty = { ...pcbBase, modules: [], place: [], connect: [] };
     expect(checkBoards(schematic, [empty]).map((diagnostic) => diagnostic.code)).toContain("bind.instance-unowned");
   });
+  test("names every unplaced instance in the single board warning", () => {
+    const manyInstances: Schematic = {
+      ...schematic,
+      instances: Array.from({ length: 10 }, (_, index) => ({ id: `M1.R${index + 1}`, component: "res-thick-0402" })),
+    };
+    const diagnostic = checkBoards(manyInstances, [{ ...pcbBase, place: [], connect: [] }]).find((item) => item.code === "bind.instance-unplaced");
+    expect(diagnostic).toBeDefined();
+    for (let index = 1; index <= 10; index += 1) expect(diagnostic!.message).toContain(`M1.R${index}`);
+    expect(diagnostic!.message).not.toContain("more");
+  });
 
   test("a module instance claimed by two PCBs uses the split code", () => {
     const first = { ...pcbBase, pcb: "b", modules: ["M1"] };
