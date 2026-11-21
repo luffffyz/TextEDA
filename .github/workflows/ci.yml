@@ -42,6 +42,9 @@ jobs:
       - name: Unit, contract and round-trip tests
         run: bun run test
 
+      - name: New-project skill smoke
+        run: bun run skill:new-project
+
       - name: Type check all packages
         run: bun run typecheck
 
@@ -56,6 +59,9 @@ jobs:
 
       - name: Cross-references resolve
         run: bun run check:links
+
+      - name: Package runtime boundary
+        run: bun run check:packages
 
       - name: Public sweep (history-wide)
         run: bun run check:public

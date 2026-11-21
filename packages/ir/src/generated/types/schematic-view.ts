@@ -280,6 +280,9 @@ export interface Place {
  */
 export interface Field {
   instance_id: InstanceId;
+  /**
+   * Symbol field name whose anchor is being placed. The closed vocabulary is `Reference` or `Value`.
+   */
   name: "Reference" | "Value";
   /**
    * Field anchor x in symbol-local coordinates, nanometres. +x is right.
@@ -409,6 +412,9 @@ export interface ModulePlace {
  * via the `definition` "junction".
  */
 export interface Junction {
+  /**
+   * Stable identifier for this view-only junction within the schematic drawing; wire endpoints refer to it, and it carries no electrical identity.
+   */
   id: string;
   /**
    * Junction position, x from the sheet's upper-left corner.

@@ -19,6 +19,7 @@
     "texteda": "bun run packages/cli/scripts/texteda.ts",
     "check:links": "bun run scripts/check-links.ts",
     "check:public": "bun run scripts/check-public.ts",
+    "check:packages": "bun run scripts/check-packages.ts",
     "cases:check": "bun run scripts/cases.ts",
     "cases:update": "bun run scripts/cases.ts --update",
     "migrate:0.7": "bun run scripts/migrate-0.7.ts",
@@ -43,7 +44,8 @@
     "ir": "bun run packages/cli/scripts/texteda.ts ir",
     "logo": "bun run docs/assets/build_logo.ts",
     "build:dsh-plugin": "bun run scripts/build-dsh-plugin.ts",
-    "smoke:dsh-plugin": "bun run scripts/smoke-dsh-plugin.ts"
+    "smoke:dsh-plugin": "bun run scripts/smoke-dsh-plugin.ts",
+    "skill:new-project": "bun run scripts/skill-new-project.ts"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",

@@ -201,7 +201,8 @@
           "enum": [
             "Reference",
             "Value"
-          ]
+          ],
+          "description": "Symbol field name whose anchor is being placed. The closed vocabulary is `Reference` or `Value`."
         },
         "x_nm": {
           "type": "integer",
@@ -368,7 +369,7 @@
       "additionalProperties": false,
       "required": ["id", "x_nm", "y_nm"],
       "properties": {
-        "id": { "type": "string", "pattern": "^[A-Za-z0-9_+-]+$" },
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9_+-]+$", "description": "Stable identifier for this view-only junction within the schematic drawing; wire endpoints refer to it, and it carries no electrical identity." },
         "x_nm": { "type": "integer", "description": "Junction position, x from the sheet's upper-left corner." },
         "y_nm": { "type": "integer", "description": "Junction position, y from the sheet's upper-left corner, increasing downward." }
       }

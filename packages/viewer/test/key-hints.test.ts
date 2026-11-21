@@ -4,7 +4,7 @@
 // teaches the wrong thing, so the list is derived from the state rather than written out — and the
 // derivation is a pure function, so that claim can be checked without a browser.
 import { describe, expect, test } from "bun:test";
-import { keyHints, moveStatus, type KeyHintState } from "../src/app.ts";
+import { appliedLayoutStatus, keyHints, moveStatus, previewLayoutStatus, type KeyHintState } from "../src/app.ts";
 
 /** A state with nothing selected, on a schematic page, with a host that may write. */
 function state(overrides: Partial<KeyHintState> = {}): KeyHintState {
@@ -137,6 +137,31 @@ describe("the status line after a move", () => {
   test("a field or a label has no name to add, only the notice", () => {
     expect(moveStatus({ kind: "field", id: "M2.C1:Value" }, true, undefined)).toBe(
       "move kept locally; Apply to write it",
+    );
+  });
+
+});
+
+describe("reseated layout notices", () => {
+  test("a preview names every reseated label and port", () => {
+    expect(previewLayoutStatus([], [], ["label VOUT", "port DC_IN"])).toBe(
+      "preview · reseated: label VOUT, port DC_IN · not applied",
+    );
+  });
+
+  test("a preview with no notices stays silent", () => {
+    expect(previewLayoutStatus([], [], [])).toBeUndefined();
+  });
+
+  test("Apply names reseated entries", () => {
+    expect(appliedLayoutStatus(1, 0, "main.view.teda", [], [], ["label VOUT", "port DC_IN"])).toBe(
+      "applied, but reseated: label VOUT, port DC_IN",
+    );
+  });
+
+  test("Apply preserves its ordinary status when nothing was reseated", () => {
+    expect(appliedLayoutStatus(1, 0, "main.view.teda", [], [], [])).toBe(
+      "applied: 1 symbol moved, 0 field changes, main.view.teda written",
     );
   });
 });

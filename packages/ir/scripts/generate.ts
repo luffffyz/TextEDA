@@ -403,6 +403,12 @@ function renderIrReferenceDoc(): string {
     }
     lines.push("");
   }
+  if (missing.length > 0) {
+    throw new Error(
+      `IR field-description coverage is incomplete: ${missing.join("; ")}`,
+    );
+  }
+
   return `${lines.join("\n")}\n`;
 }
 

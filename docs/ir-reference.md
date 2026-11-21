@@ -313,7 +313,7 @@
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `instance_id` | refdes | yes | — | Reference designator, e.g. U1, R10; unique within its module definition. |
-| `name` | `Reference` \| `Value` | yes | — | **(missing description)** |
+| `name` | `Reference` \| `Value` | yes | — | Symbol field name whose anchor is being placed. The closed vocabulary is `Reference` or `Value`. |
 | `x_nm` | integer | yes | nm | Field anchor x in symbol-local coordinates, nanometres. +x is right. |
 | `y_nm` | integer | yes | nm | Field anchor y in symbol-local coordinates, nanometres. +y is up. |
 
@@ -321,7 +321,7 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `id` | string | yes | — | **(missing description)** |
+| `id` | string | yes | — | Stable identifier for this view-only junction within the module drawing; wire endpoints refer to it, and it carries no electrical identity. |
 | `x_nm` | integer | yes | nm | Junction position, x from the drawing's upper-left corner. |
 | `y_nm` | integer | yes | nm | Junction position, y from the drawing's upper-left corner, increasing downward. |
 
@@ -790,7 +790,7 @@
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
 | `instance_id` | instance_id | yes | — | Instance id in the project's flat schematic list: M1.U1. An instance of a module carries the module's prefix: <module_instance_id>.<refdes>. This is the identity key; see ADR-0006 decision 6 and ADR-0013 decision 2. |
-| `name` | `Reference` \| `Value` | yes | — | **(missing description)** |
+| `name` | `Reference` \| `Value` | yes | — | Symbol field name whose anchor is being placed. The closed vocabulary is `Reference` or `Value`. |
 | `x_nm` | integer | yes | nm | Field anchor x in symbol-local coordinates, nanometres. +x is right. |
 | `y_nm` | integer | yes | nm | Field anchor y in symbol-local coordinates, nanometres. +y is up. |
 
@@ -809,7 +809,7 @@
 
 | Field | Type | Required | Unit | Description |
 |---|---|---|---|---|
-| `id` | string | yes | — | **(missing description)** |
+| `id` | string | yes | — | Stable identifier for this view-only junction within the schematic drawing; wire endpoints refer to it, and it carries no electrical identity. |
 | `x_nm` | integer | yes | nm | Junction position, x from the sheet's upper-left corner. |
 | `y_nm` | integer | yes | nm | Junction position, y from the sheet's upper-left corner, increasing downward. |
 
@@ -1209,12 +1209,5 @@
 
 ## Field-description coverage
 
-548/552 fields described (99%). Fields without a description have no citable semantics; agents can only guess when reading them.
-
-| Location | Field |
-|---|---|
-| module-view.field  | `name` |
-| module-view.junction  | `id` |
-| schematic-view.field  | `name` |
-| schematic-view.junction  | `id` |
+552/552 fields described (100%). Fields without a description have no citable semantics; agents can only guess when reading them.
 

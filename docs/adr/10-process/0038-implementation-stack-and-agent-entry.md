@@ -52,10 +52,12 @@ Hard rules:
   The rule above applies to what a **consumer imports**, not to what a maintainer runs.
 - Two deliberate exceptions inside the library surface, both narrow:
   `packages/exporter/src/footprint.ts` uses `node:crypto` for a synchronous SHA-256 (`crypto.subtle`
-  is asynchronous, and the exporter's API is synchronous), and
-  `packages/viewer/src/build.ts` uses `Bun.build` plus `node:url` to bundle the review app at
-  serving time — it is a build helper on the Bun side, not part of the browser bundle (the
-  browser's entry point is `packages/viewer/src/client.ts`).
+  is asynchronous, and the exporter's API is synchronous), and `packages/viewer/src/build.ts`
+  uses `Bun.build` plus `node:url` to bundle the review app at serving time — it is a build helper
+  on the Bun side, not part of the browser bundle (the browser's entry point is
+  `packages/viewer/src/client.ts`). The executable exception list for the Bun API is maintained in
+  `scripts/check-packages.ts`; that gate rejects every other `Bun.*`, all `process.env`, and
+  `node:fs` / `node:path` / `node:os` use in the library surface.
 - All packages are ESM, `exports` points at ESM, and the browser can bundle them (no top-level
   side effects).
 - Byte-level determinism does not depend on the runtime: the same input produces the same
@@ -71,8 +73,9 @@ Hard rules:
 > the bundle loaded in the smoke test and threw `ReferenceError: module is not defined` in the
 > host's page.
 
-**This boundary has no gate yet.** Nothing in the tree checks the rule, so it holds by review
-alone; the check that would hold it is filed in `docs/backlog.md` (F75).
+**The boundary is enforced by `bun run check:packages`** (the `scripts/check-packages.ts` gate).
+It scans every `packages/*/src/**` tree except the filesystem-owning `packages/cli/src/**` tree and
+reports the file and line for each forbidden access.
 
 ### D2. There is only one contract chain: JSON Schema → TS types; no zod
 

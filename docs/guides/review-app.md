@@ -95,7 +95,8 @@ use local overlays rather than a server layout preview. Apply commits the move.
 A moved label or port that lands off its net is **reported, not snapped back**: `check` says
 `view.label-not-on-net` / `view.port-not-on-net` and the status line carries the distance. An
 explicit position is a decision (ADR-0056 D6); the automatic reseat that a symbol move triggers
-abstains from rows the person placed by hand.
+abstains from rows the person placed by hand. After **Apply**, the status line names each automatic
+reseat (`label <net>` or `port <id>`); when none occurred, it does not mention reseating.
 
 ## What the app shows
 

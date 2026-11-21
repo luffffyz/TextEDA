@@ -101,6 +101,7 @@ interface LayoutPreview {
   fields: ReviewField[];
   stale: string[];
   conflicts: string[];
+  reseated: string[];
 }
 
 /** The action bar's buttons follow the current drawing and pending changes. */
@@ -346,14 +347,16 @@ async function requestLayoutPreview(): Promise<void> {
       fields: (payload["fields"] as ReviewField[] | undefined) ?? [],
       stale: (payload["stale"] as string[] | undefined) ?? [],
       conflicts: (payload["conflicts"] as string[] | undefined) ?? [],
+      reseated: (payload["reseated"] as string[] | undefined) ?? [],
     };
     renderStage(true);
     if (state.sourceOpen) void refreshDraft();
-    const previewIssues = [
-      ...(state.layoutPreview.conflicts.length === 0 ? [] : [`${state.layoutPreview.conflicts.length} wire shape conflict(s)`]),
-      ...(state.layoutPreview.stale.length === 0 ? [] : [`${state.layoutPreview.stale.length} stale net(s)`]),
-    ];
-    if (previewIssues.length > 0) setStatus(`preview · ${previewIssues.join(", ")} · not applied`);
+    const previewStatus = previewLayoutStatus(
+      state.layoutPreview.conflicts,
+      state.layoutPreview.stale,
+      state.layoutPreview.reseated,
+    );
+    if (previewStatus !== undefined) setStatus(previewStatus);
   } catch (error) {
     if (ticket !== layoutPreviewTicket) return;
     setStatus(`layout preview failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -1142,6 +1145,40 @@ export function keyHints(state: KeyHintState): KeyHint[] {
   if (selected !== null) hints.push({ key: "Esc", what: "clear the selection" });
   hints.push({ key: "?", what: state.keysOpen ? "hide this list" : "show this list" });
   return hints;
+}
+
+function layoutNotices(conflicts: readonly string[], stale: readonly string[], reseated: readonly string[]): string[] {
+  return [
+    ...(conflicts.length === 0 ? [] : [`${conflicts.length} wire shape conflict(s)`]),
+    ...(stale.length === 0 ? [] : [`${stale.length} stale net(s)`]),
+    ...(reseated.length === 0 ? [] : [`reseated: ${reseated.join(", ")}`]),
+  ];
+}
+
+export function previewLayoutStatus(
+  conflicts: readonly string[],
+  stale: readonly string[],
+  reseated: readonly string[],
+): string | undefined {
+  const notices = layoutNotices(conflicts, stale, reseated);
+  return notices.length === 0 ? undefined : `preview · ${notices.join(", ")} · not applied`;
+}
+
+export function appliedLayoutStatus(
+  places: number,
+  fieldChanges: number,
+  file: string,
+  conflicts: readonly string[],
+  stale: readonly string[],
+  reseated: readonly string[],
+): string {
+  const repairs = [
+    ...(conflicts.length === 0 ? [] : [`${conflicts.length} wire could not keep their shape`]),
+    ...(stale.length === 0 ? [] : [`${stale.length} net stale: run \`texteda view rewire\``]),
+    ...(reseated.length === 0 ? [] : [`reseated: ${reseated.join(", ")}`]),
+  ];
+  if (repairs.length > 0) return `applied, but ${repairs.join("; ")}`;
+  return `applied: ${places} symbol${places === 1 ? "" : "s"} moved, ${fieldChanges} field change${fieldChanges === 1 ? "" : "s"}, ${file} written`;
 }
 
 /**
@@ -1984,6 +2021,7 @@ async function applyPendingMoves(): Promise<void> {
       fields: (payload["fields"] as ReviewField[] | undefined) ?? [],
       stale: (payload["stale"] as string[] | undefined) ?? [],
       conflicts: (payload["conflicts"] as string[] | undefined) ?? [],
+      reseated: (payload["reseated"] as string[] | undefined) ?? [],
     } : null;
     if (draft !== undefined) {
       state.draft = null;
@@ -1995,17 +2033,10 @@ async function applyPendingMoves(): Promise<void> {
     }
     const conflicts = (payload["conflicts"] as string[] | undefined) ?? [];
     const stale = (payload["stale"] as string[] | undefined) ?? [];
-    const repairs = [
-      ...(conflicts.length === 0 ? [] : [`${conflicts.length} wire could not keep their shape`]),
-      ...(stale.length === 0 ? [] : [`${stale.length} net stale: run \`texteda view rewire\``]),
-    ];
+    const reseated = (payload["reseated"] as string[] | undefined) ?? [];
     const fieldChanges = fields.length + remove_fields.length;
     renderAll();
-    setStatus(
-      repairs.length > 0
-        ? `applied, but ${repairs.join("; ")}`
-        : `applied: ${places.length} symbol${places.length === 1 ? "" : "s"} moved, ${fieldChanges} field change${fieldChanges === 1 ? "" : "s"}, ${current.file} written`,
-    );
+    setStatus(appliedLayoutStatus(places.length, fieldChanges, current.file, conflicts, stale, reseated));
   } catch (error) {
     setStatus(`the apply failed: ${error instanceof Error ? error.message : String(error)}`);
   }

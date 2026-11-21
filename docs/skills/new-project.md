@@ -425,9 +425,7 @@ row.
 The following notes preserve the original draft's follow-up list; check current implementation
 before treating an item as open:
 
-1. **Executable form**: `scripts/skill-new-project.ts` (build a minimal project → `check` with zero
-   errors → export → assert the products exist and are byte-reproducible), plus
-   `bun run skill:new-project` and a gate. See [F23](../backlog.md).
+1. **Executable form**: implemented by `scripts/skill-new-project.ts` and `bun run skill:new-project`. It builds a temporary project from `init`, runs `check`, netlist, BOM, symbol/footprint export and Gerber/Excellon export, and asserts the products are present and byte-reproducible. The command is part of CI.
 2. **Board file exporter** (`pcb` IR → `.kicad_pcb`): move the one-off prototype from
    `docs/trial-run/` into `packages/exporter`.
 3. **Gerber / Excellon writer** (F15): this historical to-do has since been implemented as

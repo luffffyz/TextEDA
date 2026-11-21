@@ -67,7 +67,7 @@
 - ~~`bun run preview view <page_id>` emits a full-page SVG~~ **satisfied**: devices, wires, net labels, and ports render on the reference project's three current flat print pages.
 - ~~同一份 IR 渲染两次字节相同~~ **已满足**（`packages/renderer/test/schematic.test.ts`）。
 - ~~sch 的 round-trip 测试通过~~ **已满足**（第 4 条）。
-- 越界与"连线穿符号"能被报出来——**部分**：越界在解析器，穿符号未做。
+- `preview`、可读性检查、项目逻辑 ↔ 打印页交叉校验与 round-trip 已落地；剩余工作只有与 KiCad 原理图的一次性人工比对（不进 CI）和页面来源戳（`source_hash`）。
 
 **注意**：
 
@@ -373,28 +373,17 @@
 
 ## F16. 网表与 KiCad 原理图导出（P1）
 
-**现状**：`packages/parser` 能把板文件编译成板级 IR 分片（`bun run compile:schematic <项目目录> <board_id>`），IR 里已有实例、net（编号形式的引脚引用）、端口与约束。**网表已落地**：`texteda netlist <项目目录> [--board <id>] [--json] [--out <文件>]`，实现在 `packages/exporter/src/netlist.ts`，是 IR 的纯函数投影（net/成员/实例都排序，逐字节可复现；有 error 时拒绝导出）。**netlist 只带连通性**：值、容差、封装属于 BOM，不进来。**KiCad 原理图导出仍是空的**：`packages/exporter` 只有封装与符号；原记录：`packages/exporter` 只做封装（`.kicad_mod`）与符号（`.kicad_sym`）→ KiCad，没有原理图方向的产物；BOM 与网表也没做。
+**现状**：项目级网表与 BOM 已落地；KiCad 原理图导出仍未实现。`texteda netlist` 是 IR 的纯函数投影（net、成员、实例稳定排序，逐字节可复现；有 error 时拒绝导出）；`texteda bom` 按采购层输出项目内部 BOM。`packages/exporter` 目前还没有 `.kicad_sch` 写出器。
 
 **要做的事**：
 
-1. **网表导出**：从板级 IR 出网表（先定中间形态：项目自己的 JSON 网表，还是直接 KiCad 的 `.net`）。这一层是**纯连通性**（实例、引脚、net 名），没有几何。
-2. **KiCad 原理图导出**（`.kicad_sch`）：目标是 KiCad 能打开、能读出同样的连通性。**连线几何属于 S1 视图层**（可自由），但导出物必须能被反解校验：`kicad-cli sch export netlist` 出来的 netlist 与源 IR 的连通性一致。
-3. **BOM**：按 AGENTS.md §4.2 的聚合键（`component_id` + 参数字典 + 变体状态，不含 refdes）出 CSV 与 JSON。
+1. **KiCad 原理图导出**（`.kicad_sch`）：目标是 KiCad 能打开并读出与源 IR 相同的连通性。连线几何属于 S1 视图层；导出物必须能被反解校验：`kicad-cli sch export netlist` 的连通性与源 IR 一致。
 
-**涉及文件**：`packages/exporter/src/`（新增网表 / BOM / 原理图导出）、`packages/ir/src/generated/types/schematic.ts`（若 IR 要补字段，先改 schema 再改生成物）。
+**涉及文件**：`packages/exporter/src/`（新增原理图导出）、必要时 `schemas/ir/` 与生成的 IR 类型。
 
-**验收**：
+**验收**：参考工程两块板的导出能被 KiCad 读入并导出 netlist；连通性集合与源 IR 逐条相等；同一 IR 两次导出逐字节相同，UUID 由内容派生。
 
-- 参考工程两块板（`mcu-board`、`charger-buck`）都能出网表；网表里的 net 成员集合与板级 IR 的 `nets[].members` **逐条相等**。
-- KiCad 导出的原理图能被 `kicad-cli` 读入并导出 netlist，导出的 netlist 与源 IR 连通性一致（`extract(export(ir)) == ir` 的连通性口径）。
-- 同一 IR 两次导出逐字节相同（UUID 必须由内容派生，不能随机——不变量 11 的可复现要求）。
-
-**注意**：
-
-- **网表/BOM 不是渲染**：不要在导出器里塞"排版好看"的目标；KiCad 原理图里的符号摆放与连线走向属于 S1，可以任意，只要连通性对。
-- BOM 的参数值要人读（`10k` 而不是 `10000000 µΩ`），所以需要"规范单位 → 显示值"的换算；**规范单位表只有一份**（[ADR-0006](adr/02-ir/0006-ir-shards-and-hashes.md) decision 7），不要在导出器里另抄一张。
-- 变体（DNP / 不贴）还没进 IR，BOM 的"变体状态"这一列先留空，等 P3。
-
+**注意**：网表与 BOM 不是渲染；不要在导出器里塞排版目标。KiCad 原理图的摆放与连线属于 S1，只要连通性正确即可。
 ---
 
 ## F18. `texteda check`：一条命令跑完解析、契约校验与 ERC
@@ -437,14 +426,14 @@
 
 ## F20. IR 契约参考的字段说明补齐 + `pcb` 分片
 
-**现状**：`docs/ir-reference.md`（[ADR-0038](adr/10-process/0038-implementation-stack-and-agent-entry.md)）已生成，每个字段一行（类型 / 必填 / 单位 / 说明），联合类型按分支展开（`constraint（type=voltage）` …），文末有"缺说明"清单。**非 pcb 分片已 100% 覆盖**（common / component / schematic / manifest / system / project / symbol / footprint）；**`pcb` 分片还剩 81 个字段没说明**，而 `pcb` 描述本身还没实现。
+**现状**：`docs/ir-reference.md` 已生成，当前 IR schema 为 `v0.23`。`pcb` 分片已经实现，字段说明也已补齐；生成文档仍报告 4 个缺说明字段，均属于 `module-view` / `schematic-view` 的 `field.name` 与 `junction.id`。当前没有字段说明覆盖率门槛。
 
 **要做的事**：
 
-1. 给 `schemas/ir/v0.3/pcb.schema.json` 的字段补 `description`（`pcb` 描述落地时一并做，否则会返工）。
-2. 把"缺说明字段数"变成一个门槛（`gen:check` 或 CI 里卡覆盖率），防止新字段裸奔。
+1. 补齐这 4 个字段的 schema `description`，然后运行 `bun run gen`。
+2. 把“缺说明字段数”为零变成 `gen:check` 或 CI 门槛，防止新字段裸奔。
 
-**注意**：description 是**契约的一部分**（写的是这个字段装什么），不是文档润色；补它等于把 IR 语义写进唯一真源。补说明时若给 `$ref` 加兄弟 `description`，生成器必须开 `unreachableDefinitions`，否则命名类型会被内联掉（[ADR-0038](adr/10-process/0038-implementation-stack-and-agent-entry.md)）。
+**注意**：description 是契约的一部分，不是文档润色；补说明时若给 `$ref` 加兄弟 `description`，生成器必须保留命名定义（[ADR-0038](adr/10-process/0038-implementation-stack-and-agent-entry.md)）。
 
 ## F21. pcb 描述：绑定校验、`fmt`、参考工程的 pcb
 
@@ -461,21 +450,19 @@
 
 ## F23. "从零到板"的 skill：一步一步建一个 TextEDA 工程
 
-**现状**：零件齐了，**路径没连起来**。仓库里有走完前半程要用的每一样东西，但没有一条被验证过的、从空目录走到成品的路径。
+**Status**: `docs/skills/new-project.md` and its automated regression are implemented. `bun run skill:new-project` creates a temporary project from `texteda init`, runs `check`, netlist, BOM, symbol/footprint export, and Gerber/Excellon export, then checks that products exist and are byte-reproducible. `.kicad_pcb` and `.kicad_sch` export remain unimplemented.
 
-- `texteda init <dir>` creates only the skeleton directories (`assets/components/`, `design/sch/` for the logical root, `design/sch/modules/`, `design/pcb/`, and `docs/`) plus `project.toml`; it does **not** create `design/sch/main.teda` or any device, symbol, footprint, or schematic content. There is no `design/system/`.
-- 库的写法分散在三处：`docs/guides/symbol-authoring.md`（符号）、`docs/guides/footprint-authoring.md`（封装）、`teda.md` §6（器件）。**没有一份"一个工程该有哪些文件、它们怎么互相引用"的总账**。
-- 命令有四条（`init` / `compile` / `check` / `netlist`），但**没有一条把它们串起来的脚本**；用法只能从源码里读。CLI 也**没有 `export` 子命令**——KiCad 符号/封装导出只能走仓库脚本（`bun run export:symbol` / `export:footprint`），而且它们吃的是**IR JSON 不是 `.teda`**：`compile:symbol` / `compile:footprint` 先出 JSON，`export:symbol` 再拿 JSON **加 `--component <器件文件>`** 合并引脚事实（引脚的电学事实归 `component`，符号只写视图，[ADR-0031](adr/08-libraries/0031-symbol-format.md)）。这条两步链没人写在文档里，是最容易踩的地方。
-- **终点缺两块**：`.kicad_pcb` 板文件导出器**不在仓库里**（`docs/trial-run/charger-buck/` 那份是**一次性原型**生成的，README 明写"未进仓库"）；Gerber / Excellon 写出器也没有（F15）。
-- 所以今天能走通的最远终点是：`init → 库 → 器件 → sch → check → 网表 / .kicad_sym / .kicad_mod`。**skill 不能假装能走到 Gerber**。（这条链已手工试跑通过：`init` → 两个无源件 → 三实例的最小板根 → `check` 零 error 零 warning → `compile` 出 IR → `netlist` 出连通性投影 → `compile:symbol` + `export:symbol` 出 `.kicad_sym`。）
+**Remaining**:
 
-**要做的事**：
+1. Continue `.kicad_pcb` export separately; extend the skill endpoint to board files after that exporter is complete. `.kicad_sch` remains covered by F16.
 
-1. 写 `docs/skills/new-project.md`：**给 agent 的操作手册**（**英文**——skill 是 agent 读的操作手册，不是设计文档，见 AGENTS.md §12 的语言例外）。每一步 = 一条命令 + 预期输出 + **失败时怎么办**（指到诊断码与修复动作，不写"照着做"）。步骤：`init` → 建符号/封装/器件 → 写板文件与打印页 → `texteda check` → `texteda compile` → 导出网表与 KiCad 库。**每条命令都必须真的能跑**（由第 2 条逐条验证）。
-2. 写 `scripts/skill-new-project.ts`：把上面那串步骤做成**可执行、可断言**的脚本——在临时目录里从零建一个最小工程（一条电源轨 + 一路分压 + 一颗去耦），跑 `check`（必须**零 error**）、导出网表与符号/封装，并断言：产物存在、**同输入逐字节相同**（`init` 的确定性契约要一路守到终点）。这是 skill 的**可执行形态**：文档会烂，脚本不会。
-3. 给它 `bun run skill:new-project`，并**接进门禁**（`bun test` 的一个 case，或并进 `scripts/verify-libs.ts` 那一串）。**不接进门禁的 skill 等于没有**。
-4. 终点分两段接：**先到 `.kicad_pcb`**（依赖第 5 条的板文件导出器），**再到 Gerber / Excellon**（F15）。skill 每一步都要标出"这一步依赖什么"；依赖没到的步骤就写到"到此为止"，**不要写仓库里并不存在的命令**（"然后在 KiCad 里导出 Gerber"这种是给 KiCad 用户的，不是给本仓库的）。
-5. **板文件导出器单独立项**（`pcb` IR → `.kicad_pcb`）：把 `docs/trial-run/charger-buck/` 那个一次性原型收进 `packages/exporter`（确定性：uuid 由内容派生），一并生成 `.kicad_pro` 与 `fp-lib-table`（设计规则在工程文件里，不在板文件里——见 `docs/trial-run/charger-buck/README.md` 的实测结论）。**这一步不做，skill 的终点就只能停在网表**。
+**Completed**:
+
+- `scripts/skill-new-project.ts` is wired to `bun run skill:new-project`.
+- CI runs that command as a skill gate.
+- The script verifies the `init`, library, component, project root, module, PCB, procurement, check, netlist, BOM, KiCad library, and Gerber/Excellon steps as one flow.
+
+**Note**: the skill does not define the language or change the schema; it describes how to build a project under the current contract and must track language versions and CLI commands.
 
 **注意**：
 
@@ -795,41 +782,15 @@
 - **分析模式（原来记作 item 0）已定**：按**声明窗口的受压端**比（不是标称点）；器件**互相独立**（语言还无法声明相关性，容差不参与比较）；**未声明即未知**，未知要计数（一块板一条 note）；降额是项目政策，不是检查器的常数。
 - **item 0 已落地（耗散）**：阻性两引脚器件的最坏耗散 `P = ΔV²/R`（`ΔV` 同 ADR-0026 的窗口极端差，`R` 取实例行 `value` 或件的 `value` 额定值）同时比三条上界——设计的 `power <引脚> <max>` 约束、实例行的 `power` 要求、件的 `power` 额定值——取最紧那条，超了报 `design.rating-exceeded`；没上限或两端有一个没窗口的不比较，计入 `design.power-unknown`（note，一块板一条）。实现在 `packages/core/src/design/ratings.ts`，决策与局限见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md)（这是**上界**：它取的是两端窗口的**跨距**（各自独立取极端），所以两端窗口相同时它给的是窗口的宽度而不是 0；它只报违规、不证明通过；串在两条窗口之间的 RC 阻尼电阻上这个上界没有物理意义）。参考工程实测：charger-buck `24` 个阻性实例里比了 **4** 个（其余 20 个所在 net 无窗口），mcu-board `3` 个全因无窗口跳过，0 违规——比得动是因为**封装底线**（[ADR-0027](adr/07-devices/0027-the-package-gives-a-chip-resistor-its-floor.md)）：`(construction, package_code)` 查表（0402 = 62.5mW），厚膜是同一封装的最低档，所以这张表给的是底线而不是猜测买了哪颗件。底线只在设计/行/件都没声明时生效；同一条底线也让选料拒绝低于底线的件（rule 4a），两个检查不会互相打架。两块参考板的两颗 10k 件（`rc0402fr-0710kl` 62.5mW、`crc0402fr-0710kl` 63mW）补上了件的功率额定值。
 - **电压第一片已落地**：两引脚器件的 `voltage` 能力 vs 它两个 net 的声明窗口之差。`packages/core/src/design/ratings.ts`，新域 `design`（ADR-0026 D15）：`design.rating-exceeded`（error）+ `design.stress-unknown`（note，报覆盖率）。`spec/teda.md` §7.3 写清了口径；两块参考板补了 `voltage GND 0V..0V`（帧原点由设计声明，工具不假设 GND = 0V），覆盖从 0 抬到 charger-buck 11/61、mcu-board 10/21，且参考设计 0 违规。
-- **还没做**：**同一张表里的电压底线**（0402 = 50V、2010 = 200V 之类，是 F42 item 1 的封装版；它受件限制多于受封装限制，所以跟对称电压一起做）；串在窗口之间的**交流/阻尼**位置怎么声明"这个上界不适用"（现在是"没写上界"，两种状态分不开）；多引脚器件的应力模型（`Vds` / `Vgs` / `Vin` 要按构造定引脚语义——这是覆盖率的大头，也是下一个真正的一步）；`current` / 磁饱和 / 温度；项目级降额政策进 `project.toml`。（`current` 一项在 2026-11-17 落地：原理图比的是**引脚主语**的要求与件的额定值，轨电流归布局，见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D18 与下面 2026-11-17 那一条。）
 
-**2026-10-26 端子与方向已定，未实现**：`ratings` 行可以写成 `role type value from to`（pin 编号、有序对），方向由角色表决定（`symmetric` / `from` / `to` / `none`），角色表同时加 `kind`（`limit` / `characteristic` / `code`）。决策见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md)。**解析器先落地了一半**（2026-10-27）：带端子的 `ratings` 行被**拒绝**（`syntax.column-count`）而不是静默截断——端子语法没落地之前，宁可让文件写不进去，也不让事实悄悄消失。IR 契约 `rating.terminals`、`packages/core` 的端子比较仍未开始；参考工程没有可用的 datasheet 值，先用合成夹具。
+**2026-11-17 `current` 的口径改了：原理图只比引脚主语，轨电流归布局**（[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D18）。上面那条三档规则里“主语是 net”那一档**撤掉了**：net 的电流由成员共享，语言没说谁承担，拿它跟每个成员比就是对整条 net 的一次猜测。现在 `current <pin> <max>` 是**对这个件的要求**，原理图拿它跟件的额定值比；轨电流是 PCB 布局的输入，PCB 规则见 [ADR-0081](adr/05-pcb/0081-rail-current-is-a-pcb-rule.md)。网电流的分支拆分仍没做（F80）。
+**2026-11-18 已落地的应力模型**：`ratings` 支持带端子的五列行；`kind`（`limit` / `characteristic` / `code`）与角色方向（`symmetric` / `from` / `to` / `none`）已进入词表；多引脚件的带端子 `limit` 额定值按端子对的 net 窗口比较，无端子则计入 `design.stress-unknown`。极性口径见 [ADR-0075](adr/07-devices/0075-a-ratings-polarity-is-the-roles.md)，耗散的第二个 `I² × R` 上界见 [ADR-0076](adr/07-devices/0076-a-parts-dissipation-is-bounded-by-its-stated-current.md)。
 
-**2026-11-16 报告口径已落地（"不能读成通过"那一半）**：多引脚应力模型本身**仍未实现**（下面第 2 / 3 条照旧），但报告不再把"没比"读成"过了"。`texteda check` 的摘要最后一行现在写明没比的那部分（`Not fully checked: 21 of 83 instances were compared with a declared window.` / `4 of 27 resistive instances were compared with a power limit.`），`--json` 载荷里同一个数字在 `coverage` 里（`stress` / `dissipation`，各带 `compared` 与 `total`）；摘要与载荷同源，不会各说各话。另外比较**不再挂在 PCB 分支下**：它读的是根的 net、声明窗口和器件库，有逻辑根的工程都会跑（决策见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D13）。这条的来源是 2026-11-16 的设计方法评审（`docs/reviews/2026-11-16-design-method-r1.md` 第 3 条 note）。**剩下的还是模型**：端子对、方向、`kind`，以及 datasheet 里的值。
+- 参考工程的端子、方向、`kind`、极性和引脚电流比较已落地；这部分不再是 backlog 工作。
+- 仍未完成：封装/器件电压底线、`Rds(on)` / `Vgs(th)` 等特性角色（F43）、区间额定值，以及“串联/阻尼位置的这个上界不适用”这一语言表达。
+- 额定值覆盖率的主要缺口仍是器件文件缺少 datasheet URL 与额定值；下一步应补数据，而不是重复设计已落地的端子模型。
 
-**2026-11-16 `current` 约束有人消费了（上面"还没做"里的 `current` 一项）**：`current` 约束此前**没有任何检查器读它**（只有 `voltage` 与 `power` 被消费），于是"插座额定 500mA、设计要 4A"这件事只写在件文件的注释里。现在新增比较（`packages/core/src/design/current.ts`，规则见 `spec/teda.md` §7.3）：件能扛多少取件自己的 `ratings.rated_current`（事实）或通用件实例行的 `rated_current` 列（要求）。**能确定到什么程度分三档**：主语是引脚且件是两引脚 → 确定，低于就报 `design.current-exceeded`（error）；主语是 net → 语言没说 net 的电流由谁承担，只能报 `design.current-below-rating`（warning）；件是多引脚 → 额定值属于哪两个脚还没说（端子语法未落地），同样是 warning。另有两种**不比较**：坐在两条声明了不同电流的轨上的件（是转换器还是串联件，语言分不出），以及没写 `rated_current` 的件（计入 `design.current-unknown`，note）。参考工程实测：插座 J1 被点出来（`net ADAPTER_P declares 4A, and M1.J1 (dc-005-20a) on it is rated 0.5A`），参考工程顺带把 4A 适配器上限从模块头注释改成了声明事实（`current ADAPTER_P 4A`）。**仍然没做**：语言没有"这条 net 的电流由谁承担"的写法，所以 net 主语那一档只能是 warning；也没有"网电流归成员"的构造（这就是上面 Open Points 那一条）。
-
-**2026-11-17 `current` 的口径改了：原理图只比引脚主语，轨电流归布局**（[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D18）。上面那条三档规则里"主语是 net"那一档**撤掉了**：net 的电流由成员共享，语言没说谁承担，拿它跟每个成员比就是对整条 net 的一次猜测。现在两种主语各有各的主人——`current <pin> <max>` 是**对这个件的要求**，原理图拿它跟件的额定值比（两引脚件确定，低于 → `design.current-exceeded` error；多引脚件不确定，额定值还没说属于哪两个脚 → `design.current-below-rating` warning）；`current <net> <max>` 是**这条轨总共流多少**，那是**布局**的事（载它的铜要按这个宽度走），原理图不与件比，但也不沉默——每块板一条 `design.current-rail`（note）点名这些轨与它们声明的电流。参考工程现在两种主语都写：模块里的 `current ADAPTER_P 4A`（轨，给布局）与 `current J1.1 4A`（插座的正极脚，给额定值比）；插座 500mA 的额定值重新被点出来（`pin M1.J1.1 carries at most 4A, and M1.J1 (dc-005-20a) is rated 0.5A`），而且这次作者能回答——设计说了这个脚流多少。**仍然没做**：轨电流的分支拆分（语言没有阻抗，也没有"电流从哪个脚进来"，F80）；布局侧还没有规则读轨电流（F82）。
-
-**2026-11-18 端子、方向、`kind` 落地了（上面"还没做"里的"多引脚器件的应力模型"那一条）**：语言升到 **0.15**（增量），IR 契约升到 **`v0.20`**（`v0.19` 保持不变），决策见 [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D4–D6、D12。
-
-- **语法**：`ratings` 行可以是三列或五列；五列的第四、第五列点名这颗件的**两个端子**（**引脚编号**、有序对、两者不同、都要在 `pins` 段里），一个角色一行——一个角色 = 一对端子。五列自 0.15 起可用；四列报 `syntax.column-count`，版本低于 0.15 写五列报 `syntax.unknown-field`，端子不是本件的引脚或两端同一个引脚报 `value.component-rating-terminal-invalid`。IR 的 `rating` 分片多一个可选的 `terminals`（`{from, to}`）。
-- **词表**：角色表多了 `kind`（`limit` / `characteristic` / `code`）与**应力方向**（`symmetric` / `from` / `to` / `none`），并新增三个定向电压角色（`drain_source_voltage`、`gate_source_voltage`、`reverse_voltage`）。方向属于角色、不属于行——一行不重复写方向。
-- **比较**：多引脚件的 `limit` 额定值**有端子**时，比那两个 net 声明窗口的极差，按角色方向读；**没有端子**时不比较，计入 `design.stress-unknown`（"whose rating names no terminals"）。定向角色的**反极性既不算违规、也不算没比较**——它不在这个角色描述的应力里，算比过了（[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D12）。
-- **参考工程实测**：电压覆盖率从 **21/83** 抬到 **24/83**（TPS5430 / TPS7A2033 / BQ24610 三颗件补了端子额定值，值都来自数据手册）。**覆盖的大头不是模型，是缺件数据**：其余多引脚件（MOSFET、LED、二极管、NTC、电感、晶振、开关）**没有 datasheet URL、也没有额定值**——下一轮的活是查数据手册，不是改模型。
-- **语料**：新增 `examples/cases/directed-ratings/`（第十一个用例），钉住"带端子可比""多脚件不写端子仍是未知""端子进 IR"三件事（[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D4 的语法准入条件）。F12 的十个里仍欠 **BGA 200 脚**。
-- **仍然没做**：同一张表里的**电压底线**（封装版）、`Rds(on)` / `Vgs(th)` 一类**特性角色**（F43）、**P 沟道 MOSFET 的极性**（F84）、**区间额定值**（F42 的区间 ADR）、`current` 的分支拆分（F80）、布局侧读轨电流（F82）。
-
-**2026-11-18 极性口径定了（F84 收口），参考工程补了输入级的窗口，耗散上界撞上"串联元件"这个洞**：决策见 [ADR-0075](adr/07-devices/0075-a-ratings-polarity-is-the-roles.md)——**极性属于角色**，MOSFET 的 `drain_source_voltage` / `gate_source_voltage` 改成 `symmetric`（数据手册的 `V_DS` / `V_GS` 限的是差值的幅值），`reverse_voltage` 保持定向；词表没有长，语言没有多一列，版本不动。
-
-- **件数据**：参考工程的输入级补齐了数据手册来源与带端子的额定值——`q-si7617dn`（Vishay 65164：`V_DS` 30 V、`V_GS` ±25 V）、`q-sis412dn`（Vishay 69006：30 V、±20 V）、`d-b340a`（Diodes DS30891：`V_RRM` 40 V）、`d-bat54c`（onsemi BAT54 系列：`V_RRM` 30 V），都点名了端子对。`q-si7616dn` **查无此件**（Vishay 的 `Si76xxDN` 家族是 Si7611DN / Si7613DN / Si7615DN 系列 / Si7617DN / Si7619DN；文档号 64700–65300 全扫过，没有 7616 的文件，分销商也没有这个料号），Q2 因此改用 `q-si7617dn`，那个器件文件删掉了——查不到的料号不许带额定值。
-- **窗口**：模块补了适配器输入级的窗口 `ADAPTER_P` / `AC_COMMON` / `ACP` / `AC_GATE` = `0V..19V`（19 V 适配器，标称，不写容差），评审记录 2026-10-23 的 architect note 因此收口。
-- **实测**：电压覆盖率 **24/83 → 28/83**，耗散覆盖 **4/27 → 7/27**。Q1 / Q2 这两颗 P 沟道件第一次被真正比到：`|V_GS|` = 19 V 对 Si7617DN 的 ±25 V，`|V_DS|` = 19 V 对 30 V——正是旧口径看不见的那一侧。
-- **撞上的洞（两个误报）**：参考工程因此报了 **2 个 error**，都在**串联元件**上——`R17`（10 Ω 馈电电阻，AC_COMMON → VCC）算出 78.4 W，`R21`（10 mΩ 采样电阻，ACP → SYS）算出 39 kW。这两个是**模型的上界没有物理意义**，不是设计错了：那里的压降由路径电流决定（`R17` 上是充电器的静态电流，`R21` 上是适配器电流，4 A × 10 mΩ = 40 mV），不由两端窗口的跨距决定。上面"还没做"里的那条——"串在窗口之间的交流/阻尼位置怎么声明'这个上界不适用'（现在是'没写上界'，两种状态分不开）"——就是它：语言缺一个说法，让设计能说"这个位置的上界不适用"。**两个误报留在报告里**，因为报告要说出口；模型修好之前，它们是这条缺口第一次在参考工程上露出来。
-- **订正**：耗散上界的**发布口径**原来写"两端窗口相同时它给 0"，实现不是这样（实现取窗口的**跨距**，相同窗口给的是窗口宽度）。[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D11 的公式才是准的，那句话写错了；`spec/teda.md` §7.3 与本条一并订正。
-- **（同日已修，见下面那条。）** 那两个误报不是留下的缺口，是模型缺了一条上界。
-
-**2026-11-18（同日）模型补上：耗散上界多一个来源，串联元件不再被窗口跨距误伤**：决策见 [ADR-0076](adr/07-devices/0076-a-parts-dissipation-is-bounded-by-its-stated-current.md)——耗散有**两个上界**，取紧的那个：`ΔV²/R`（两端窗口的跨距）与 `I² × R`（设计为这个位置声明的电流）。引脚主语的 `current` 就是这条路的电流（两引脚件两脚电流相同），**轨电流不算**（轨是布局的输入，语言没说轨上谁承担它）。声明的电流只**收紧**上界，不取消窗口跨距这条天花板。
-
-- **语言没变**：复用已有的 `current <引脚>` 约束，没有新语法、没有新 IR 字段、两个版本号都不动。
-- **参考工程补了两条电流声明**：`current R17.1 25mA`（充电器的 `VCC` 引脚电流——TI SLUS892D §8.5 的 `IAC`，即流进 `VCC` / `ACP` / `ACN` 的电流之和，充完 5 mA max、充电时 25 mA max，取 25 mA）与 `current R21.1 4A`（采样电阻走的就是适配器电流）。于是 `R17` 的上界是 62.5 µW、`R21` 是 160 mW，两个误报消失，参考工程回到 **0 error**。
-- **没有变弱**：窗口跨距那条上界仍然在（声明电流只会让上界更紧，不会更松），"没有声明电流"的设计照旧按跨距比。两条上界都比过，报告写明是"这条位置声明的电流"还是"两端窗口的跨距"越了界。
-- **顺带多比了一批**：只声明了电流、两端没有窗口的位置现在也能比（每个上界只用它需要的事实），这类位置不再计入 `design.power-unknown`。
-- **仍然没做**：轨电流怎么进布局（F82）、区间额定值（F42 的区间 ADR）、以及"这个上界不适用"作为**语言说法**（现在用"说清楚这里流多少"绕过去，不是同一个东西）。
+**剩余验收**：新增的额定值字段继续进入 canonical IR 与生成参考文档；没有端子或缺少窗口时必须保持“未知”而不是“通过”；新增角色仍需配反例和诊断文案。
 
 **2026-10-23 覆盖率审计（实测，用来定下一步做什么）**：`texteda check` 的两块参考板。
 
@@ -1172,37 +1133,46 @@ this is about the two pictures agreeing, not about the picture becoming evidence
 
 ## F70. The review app does not show what a move reseated
 
-**Status**: Proposed (2026-11-14).
+**Status**: Implemented (2026-11-21).
 
 **Current state**: a move's plan names every label or port that followed its net in a `reseated`
-list (`packages/cli/src/layout.ts`), and the host route carries it to the app
-(`packages/cli/src/review.ts`). The app reads the plan's `conflicts` and `stale` lists and shows
-their counts; it does not read `reseated`, so the reviewer never learns which labels and ports the
-app moved on their behalf.
-[ADR-0061](adr/09-view/0061-a-move-carries-only-what-belonged-to-the-net.md) D4 promises the
-report.
+list (`packages/cli/src/layout.ts`), and the host route already carries it to the app
+(`packages/cli/src/review.ts`). The viewer now preserves that list in its layout preview payload and
+reports `reseated: label <net>, port <id>` in the preview and Apply status formatting. An empty list
+does not add a reseat notice. Explicitly moved labels and ports remain excluded by the existing
+places-only and manual-placement rules.
+[ADR-0061](adr/09-view/0061-a-move-carries-only-what-belonged-to-the-net.md) D4 remains the
+behavioral authority; the re-anchor itself is unchanged.
 
-**To do**:
+**Implementation**:
 
-1. Add `reseated` to the viewer's plan payload and to the layout preview's status line: name the
-   labels and ports that followed their net, so the reviewer can see what the app decided.
-2. Decide where the list lives: the status line (counts, as today), the findings column, or a small
-   panel. The status line is the cheapest and matches how `conflicts` and `stale` are reported today.
-3. Keep the places-only host honest: it does not reseat, so it must not report a reseat it did not
-   perform.
-
-**Involved files**: `packages/cli/src/layout.ts`, `packages/cli/src/review.ts`,
-`packages/viewer/src/app.ts`, `packages/viewer/src/types.ts`, `docs/guides/review-app.md`.
+- `packages/viewer/src/app.ts` parses `reseated` from both preview and commit responses and names
+  every entry in the existing status line.
+- `packages/viewer/test/key-hints.test.ts` covers named preview entries, named Apply entries, the
+  silent empty preview, and the unchanged ordinary Apply message.
+- `docs/guides/review-app.md` documents the post-Apply report.
 
 **Acceptance**:
 
-- After a move that reseats a label or a port, the app names it.
+- After a move that reseats a label or a port, the app's status formatter names it.
 - A move that reseats nothing says nothing that suggests it did.
 - The places-only host never reports a reseat it did not perform.
 - `bun test` and `bun run typecheck` pass.
 
-**Note**: the reseat is the one thing the app does to the drawing that the reviewer did not ask for,
-so it is worth naming. The plan already computes it; nothing about the re-anchor itself changes.
+**Verification**:
+
+- `bun test packages/viewer/test/key-hints.test.ts --timeout 30000`: 23 pass, 0 fail.
+- `bun run typecheck`: passed.
+- `bun run test`: 1418 pass, 0 fail.
+- Real Chromium opened a copy of `examples/reference-project`, opened the `buck-5v` module, and
+  drove a real symbol move with Re-anchor wires enabled. The Apply click was not executed because
+  the user deliberately kept `tools.approval.eval=prompt`; the browser approval was therefore not
+  bypassed. The remaining Apply-surface check requires one explicit approval in that browser
+  session.
+
+**Note**: the status line is the cheapest report surface and keeps the reviewer beside the move
+  controls. No new payload producer was needed because the CLI plan and route already carried the
+  list.
 
 ## F71. `texteda view rewire` does not shorten a run
 
@@ -1398,9 +1368,9 @@ description type — the whole point of ADR-0040 is that prose does not enter th
 
 ---
 
-## F75. The package-layer boundary has no gate
+## F75. The package-layer boundary gate
 
-**Status**: Proposed (2026-11-14). The rule is written down; nothing checks it.
+**Status**: Implemented (2026-11-21). `scripts/check-packages.ts` enforces the library/runtime boundary from [ADR-0038](adr/10-process/0038-implementation-stack-and-agent-entry.md) D1, and CI runs it through `bun run check:packages`.
 
 **Current state**: the library surface — the `src/**` tree of `core`, `ir`, `parser`, `exporter`,
 `renderer`, `geom` and `viewer` — must not use `Bun.*`, must not use `process.env`, and must not
@@ -1408,8 +1378,8 @@ touch the filesystem
 ([ADR-0038](adr/10-process/0038-implementation-stack-and-agent-entry.md) D1). That is what makes
 those packages runnable in a Node extension host and in a browser.
 
-Today the rule holds because it is written down and reviewed, not because anything verifies it.
-There is no test and no CI step that looks for `Bun.` or `process.env` in the library surface.
+The rule is now machine-checked rather than review-only. The gate scans every `packages/*/src/**`
+tree except the filesystem-owning `packages/cli/src/**` tree.
 
 Two exceptions are deliberate and narrow: `packages/exporter/src/footprint.ts` uses `node:crypto`
 for a synchronous SHA-256, and `packages/viewer/src/build.ts` uses `Bun.build` to bundle the review
@@ -1421,31 +1391,26 @@ the spec from this repository will copy the shape of what it finds here. A `Bun.
 into the library surface makes the package unusable in the editor host it claims to support, and
 nothing would notice until somebody tried.
 
-**To do**:
+**Implemented**:
 
-1. Write the check as a script (`scripts/check-packages.ts`) and wire it into CI next to
-   `check:links` and `check:public`.
-2. The rule: no `Bun.` and no `process.env` in `packages/*/src/**`, except the two named
-   exceptions; and no `node:fs`, `node:path` or `node:os` in the library surface at all.
-3. The exception list lives in the script, as named paths, so the check reads as the rule rather
-   than as a list of failures.
-4. Fail with the file and the line, in the style of the other gates.
+1. `scripts/check-packages.ts` scans TypeScript source files under every package except the CLI.
+2. It rejects `Bun.*`, `process.env`, and `node:fs` / `node:path` / `node:os` access, while allowing
+   only `Bun.build` in `packages/viewer/src/build.ts`.
+3. It reports the relative file path, line number, forbidden rule, and source line.
+4. `scripts/check-packages.test.ts` covers forbidden access and the named viewer exception.
 
-**Involved files**: `scripts/check-packages.ts` (new), `package.json` (the script),
-`.github/workflows/ci.yml`, `AGENTS.md` §12,
+**Involved files**: `scripts/check-packages.ts`, `scripts/check-packages.test.ts`, `package.json`,
+`.github/workflows/ci.yml`, `AGENTS.md` §12, and
 `docs/adr/10-process/0038-implementation-stack-and-agent-entry.md` (D1).
 
-**Acceptance**:
+**Acceptance**: satisfied.
 
-- The script exits 0 on the current tree, and exits 1 with a file and a line when a `Bun.` call is
-  added under `packages/*/src/**`.
-- CI runs it.
-- The ADR's D1 and the script name the same exceptions, and the script fails when an exception is
-  widened in one place and not the other — that is, the exception list has one home and the ADR
-  points at it.
+- The gate exits 0 on the current tree and reports a file and line for forbidden synthetic inputs.
+- CI runs `bun run check:packages`.
+- The ADR and the script name the same filesystem-owning CLI boundary and `Bun.build` exception.
 
-**Note**: this is a gate, not a refactor. Nothing has to move for it to pass; the only change it
-forces later is that a new exception is an explicit, reviewable line.
+**Note**: this remains a gate, not a refactor. Future exceptions require an explicit change to both
+the ADR and the executable exception table.
 
 ---
 
@@ -1667,7 +1632,7 @@ there.
 layout's input, and the schematic compares a **pin's** requirement with the part's rating. The
 layout's side, and the split between branches, are still open.
 
-**Current state**: the old schematic form `current <net> <max>` was removed in language 0.19 by F88. A PCB may now state a net maximum, minimum declared trace width and provenance with `rules current <net> <max> <min_width> <source>` (F82 / ADR-0081); this does not derive current from the circuit or allocate it between branches. The remaining model gap is how a rail's stated maximum is derived and which branches/components carry it. Two different things are missing, and they are worth separating:
+**Current state**: the old schematic form `current <net> <max>` was removed in language 0.19 as part of [ADR-0081](adr/05-pcb/0081-rail-current-is-a-pcb-rule.md). A PCB may now state a net maximum, minimum declared trace width and provenance with `rules current <net> <max> <min_width> <source>`; this does not derive current from the circuit or allocate it between branches. The remaining model gap is how a rail's stated maximum is derived and which branches/components carry it. Two different things are missing, and they are worth separating:
 
 1. **The split.** A rail with parallel branches divides its current between them. The reference
    project's `ADAPTER_P` is the example: the current enters at the jack's tip and leaves through
@@ -1691,15 +1656,9 @@ guessing at one ([ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md
   the part's rating — certain for a two-terminal part (`design.current-exceeded`, error), a warning
   for a part with more pins (`design.current-below-rating`, because its rating names no terminal
   yet, D4).
-- The former `current <net> <max>` schematic form and `design.current-rail` note were retired by
-  F88 / ADR-0081. A PCB `rules current` row now records the stated rail maximum, minimum declared
-  trace width and source; it checks only same-net trace declarations and does not infer current
-  allocation or physical ampacity (F82).
+- The former `current <net> <max>` schematic form and `design.current-rail` note were retired with the move to the PCB rule. A PCB `rules current` row records the stated rail maximum, minimum declared trace width and source; it checks only same-net trace declarations and does not infer current allocation or physical ampacity.
 
-The reference project once stated both forms: `current ADAPTER_P 4A` (rail) and
-`current J1.1 4A` (pin). Those rail values were later converted to `TODO(F88)` comments rather than
-promoted to active PCB rules, because their values, widths and evidence had not been jointly reviewed.
-The pin requirement remains a distinct fact and continues to be checked against the part rating.
+The reference project once stated both forms: `current ADAPTER_P 4A` (rail) and `current J1.1 4A` (pin). The rail values were later converted to comments rather than promoted to active PCB rules, because their values, widths and evidence had not been jointly reviewed. The pin requirement remains a distinct fact and continues to be checked against the part rating.
 
 **Why it matters**: a PCB current rule now checks an explicit minimum declaration, but does not
 prove the physical copper can carry the stated maximum or assign it to branches. Those derivation,
@@ -1709,18 +1668,12 @@ branch-split and ampacity gaps remain open; they are not a missing consumer for 
 
 1. **The split.** A rail with parallel branches divides its current between them, and nothing
    derives the division (the impedances and the entry direction are not in the language).
-2. **A two-subject current limit**, the way `diff` and `skew` name a pair of nets: "the current
-   that flows from this net to that one". It names the path, so the part between the two nets is
-   the one that carries it, and the comparison becomes definite. This is the construct F80 was
-   written for; the pin subject is the cheap approximation of it. This is a separate design
-   question from F82's PCB trace-width declaration check.
+2. **A two-subject current limit**, the way `diff` and `skew` name a pair of nets: "the current that flows from this net to that one". It names the path, so the part between the two nets is the one that carries it, and the comparison becomes definite. This is a separate design question from the PCB trace-width declaration check.
 
 **Acceptance**:
 
-- F82 provides a PCB consumer for the stated maximum/minimum-width rule; `spec/teda.md` §7.3
-  specifies that schematic `current` is pin-only and pin requirements are compared with part
-  ratings. The remaining F80 question is branch/path attribution, not where a rail maximum is
-  declared or whether a PCB trace obeys its stated minimum width.
+- The PCB rule specifies the stated maximum/minimum-width consumer, while the remaining F80 question is branch/path attribution.
+- The specification and implementation do not claim that the PCB rule derives current allocation or physical ampacity.
 
 **Note**: this is the open half of the fourth note of the 2026-11-16 design-method review
 (`docs/reviews/2026-11-16-design-method-r1.md`). There is a second route to the same fact — an
@@ -1766,402 +1719,17 @@ warning is the same colour as the 195 other warnings the reference project produ
 (`docs/reviews/2026-11-16-design-method-r1.md`).
 
 ---
-
-## F82. The copper is never checked against the current the design declares — Settled
-
-**Status**: Settled (2026-11-19) by [ADR-0081](adr/05-pcb/0081-rail-current-is-a-pcb-rule.md), which
-implements the rule shape proposed here without embedding a manufacturing ampacity table.
-
-**What landed**:
-
-- PCB rules accept `current <net> <max_current> <min_width> <source>`. The current is retained as
-  reviewed design context; the checker does not calculate a width from it or apply IPC/manufacturer
-  rules.
-- Every same-net trace declaration is compared with `min_width`; a narrower trace is an error and
-  equality passes. A trace-only note names the unverified ordinary/stitching-via and zone capacity
-  and branch-current distribution. This does not prove physical current capacity.
-- The old schematic rail-current surface and `design.current-rail` note were removed by F88; pin
-  current requirements remain in the schematic. The reference project retains unresolved historical
-  values as `TODO(F88)` and has no active rule without reviewed values and a source.
-
-**Acceptance**: the rule exists and the trace-width comparison is covered by parser/core tests; an active
-rule is represented in the cases corpus and IR schema fixtures; `bun run cases:check` and the full test
-suite pass. The remaining ampacity and branch-distribution questions are tracked by F80.
-
-**Note**: this is the seventh note of the 2026-11-16 design-method review
-(`docs/reviews/2026-11-16-design-method-r1.md`).
-
----
-
 ## F83. A rail's capability is the target; an analysis can gate it
 
-**Status**: Proposed (2026-11-17). The shape is already on record; the rule is not. **Shelved on
-2026-11-17**: the analysis route is not pursued for now, so this stays as a written idea rather
-than a plan.
+**Status**: Proposed; shelved on 2026-11-17. The analysis route is not pursued for now.
 
-**Current state**: three halves of the idea are decided, and one is not.
+**Current state**: an analysis is design-external evidence bound to `source_hash`; the stale-analysis check in F74 is not implemented. If this route is reopened, an analysis should report **per-path currents**, not per-net currents, so the checker can compare observed paths with the rail capability it is meant to gate.
 
-- **A capability is a limit, a demand is a requirement.** That is ADR-0026's pair: a part states
-  what it is rated for, the design states what it needs, and the checker asks whether the limit
-  covers the requirement (D8, D11, D14). The part's `rated_current` remains a datasheet fact and
-  schematic `current <pin> <max>` remains a component requirement. The former schematic
-  `current <net>` form was removed by F88 / ADR-0081; a PCB `rules current` row now records a rail
-  maximum and a declared trace-width minimum, but does not attribute
-  the current to branches or parts. That attribution remains open (F80).
-- **An analysis is a reference, not part of the design** ([ADR-0040](adr/10-process/0040-process-entities-outside-the-language.md)
-  D3): it is not in the IR tree, not in the manifest, it does not change the project hash; it
-  points at the design version it verified (`source_hash`), plus the tool and the corner. When the
-  hash no longer matches, the checker says so — a **warning**, not an error, because the design
-  is not wrong, the evidence is old (D4). The header is decided but not built (F74).
-- **Models and results are different things** ([ADR-0008](adr/03-project/0008-project-tree-has-owners.md)):
-  `external/simulation/` holds third-party models; a simulation *result* is evidence this project
-  produced.
+**Open questions**:
 
-**Why it matters**: an analysis that reports currents settles the attribution question without
-touching the language — "which member carries how much" is an analysis question, not a syntax
-question. It also gives the checker the one thing it cannot have otherwise: a number per path, to
-compare with a limit the design states. And the gate has a cost worth naming: the analysis is not
-in the design's hash, so the hash binding says which design version the evidence was made for but
-nothing detects that the evidence file itself was replaced.
+- Does the rail's target/capability belong in the PCB rule, the analysis result, or both?
+- What machine-readable result shape records paths, current, assumptions and provenance?
+- Is a violation an error, warning or advisory when the analysis is stale or incomplete?
 
-**To do**: three things, and the first is a decision.
+**Reopen when**: F74 exists and a concrete analysis producer needs to gate a declared rail capability.
 
-1. **What the target is, and where it lives.** A rail's capability is not a property of a part on
-   the rail's net. On the reference project the LDO's OUT pin is on `V3V3` and typed `power_out`,
-   so "the part with a `power_out` pin on this net" finds it — 300 mA against the rail's declared
-   300 mA. The buck is a different shape: its output pin (`PH`) sits on the switch node, the
-   inductor separates that from `VOUT`, and `PH` is typed `passive` — the rule finds nothing, and
-   the TPS5430's 3 A is a part-level rating about a path the language does not name
-   ([ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D4). So the capability has to
-   be **declared** — most plausibly by the module that produces the rail, since the root's net
-   section already says which module owns which rail — or the comparison stays limited to the
-   implemented direct pin-requirement versus part-rating check; no rail-to-member current comparison
-   is performed today.
-2. **What an analysis has to report.** A net's current is not the current through a member: it is
-   the sum of the branches, and a member carries the net's current only when it is the sole path.
-   So the analysis must report **per-path currents** (per branch or per pin), not per net.
-   ADR-0040 D3's header carries only the hash, the tool and the corner — the numbers need a
-   machine-readable home of their own, which is a new artifact shape.
-3. **What a simulation may gate, and how loudly.** Comparing a reported number with a limit the
-   design states is not judging the simulation (ADR-0040 D4's "never 'is the conclusion true'");
-   it is applying the design's own rule to a number. But the severity is a decision: a design
-   whose *model* says 4 A through a 500 mA connector is a different statement from a design that
-   is known to do it. The margin stays the project's (ADR-0026 D14).
-
-**Not "ignore", but "hint"**: ADR-0026 D13 counts what was not compared, and the report already
-says it — the check's last line reads "Not fully checked: 1 of 32 instances a current limit
-speaks about were compared with a rated_current". That is the hint. Ignoring the gap is the one
-thing the policy forbids.
-
-**Acceptance**:
-
-- A design with an analysis that reports per-path currents is checked against the limits the
-  design states, and the report says which analysis it used and whether its hash still matches.
-- A design without one says so, and is not treated as checked.
-- The severity of a violation found through an analysis is decided and written down.
-
-**Note**: this is the analysis route to the attribution hole in F80; the language route stays open
-for the designs that have no analysis. The stale-analysis half is F74.
-
----
-
-## F84. A directed rating names one polarity, and the other polarity has no role
-
-**Status**: Settled (2026-11-18). Neither of the two shapes below was taken: **the polarity is the
-role's**, and the two MOSFET roles became `symmetric` ([ADR-0075](adr/07-devices/0075-a-ratings-polarity-is-the-roles.md)).
-The vocabulary did not grow and the language gained no column. The record below is the proposal of
-2026-11-18, before the decision.
-
-**The decision (2026-11-18)**: a datasheet's `V_DS` and `V_GS` bound the difference in **either**
-direction (`V_GS` is even written with an explicit `±`), so the polarity those two roles cover is
-both — not "drain above source" and not "gate above source". `reverse_voltage` stays directed: a
-diode's reverse rating is a reverse-only rating, and its forward voltage is a characteristic, not a
-limit. The polarity is a device-world fact, so it lives in the role table
-(`packages/core/src/devices/rules.ts`) and not in the part's file.
-
-**What landed**:
-
-- `drain_source_voltage` and `gate_source_voltage` are `symmetric` in the role table; the checker
-  takes the larger of the two polarities (`packages/core/src/design/ratings.ts`).
-- The reference project's input stage is compared for the first time: `Q1` and `Q2` are P-channel
-  MOSFETs whose source sits at the adapter rail and whose gate is pulled to ground, so the stress is
-  the polarity the directed role could not see. With the windows declared (`ADAPTER_P`,
-  `AC_COMMON`, `ACP`, `AC_GATE` = 0 V..19 V) and the ratings read off the datasheets, `|V_GS|` is
-  19 V against Si7617DN's ±25 V, and `|V_DS|` 19 V against its 30 V.
-- The published role table and the stress comparison were corrected with it (`spec/teda.md` §6.2.1 and §7.3), and [ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D5 carries the
-  correction.
-- The corpus case `examples/cases/directed-ratings/` is unchanged in its numbers — the N-channel
-  part's stress is the same under either reading — and the branch is pinned by the unit tests in
-  `packages/core/test/ratings.test.ts`.
-
-**Current state**: the three directed voltage roles read one polarity each —
-`drain_source_voltage` (from = drain, to = source), `gate_source_voltage` (from = gate, to = source)
-and `reverse_voltage` (from = anode, to = cathode). The checker computes the stress in that
-polarity only, and a polarity that never occurs is neither a violation nor an unknown: it counts as
-compared ([ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) D12).
-
-That is right for the parts the roles were written for, and wrong for a P-channel MOSFET. As a
-high-side switch its drain sits **below** its source, so `drain_source_voltage` never occurs; the
-checker compares nothing, the instance counts as compared, and the report says nothing. The
-polarity the part really sees — source above drain — has no role at all, so nothing compares it.
-
-**Why it matters**: "compared" is a claim the report makes to a reader. For a P-FET the claim is
-about a polarity the design never exercises, and the polarity it does exercise is invisible. A
-reader who trusts the coverage number is trusting a statement about the wrong thing.
-
-The same shape shows up on the gate side: the datasheet's `V_GS` is ±20 V, and
-`gate_source_voltage` covers the gate-above-source half only. The check is narrower than the
-datasheet, which is safe (no false alarm) but incomplete (the other half is unchecked).
-
-**To do**: one decision, in two possible shapes.
-
-1. **A role for the other polarity.** Add `source_drain_voltage` and `source_gate_voltage`, so a
-   P-FET states its ratings the way its datasheet reads them. Cost: two more role names in the
-   closed vocabulary, and the same question for every other device family that inverts a
-   convention.
-2. **The part says which polarity its rating covers.** Give the role a *pair* of polarities, or let
-   the row say `from`/`to` is the pair and the polarity is the role's `kind`. Cost: the row grows
-   another piece of syntax, and the ambiguity returns to the file that was supposed to avoid it.
-
-Either way, the report must stop claiming "compared" for an instance whose rated polarity never
-occurs: either it counts as unknown, or the note says "compared, nothing in that polarity".
-
-**Acceptance**:
-
-- A design with a P-channel MOSFET either has a role its ratings can use, or the report says the
-  part's stress direction was not compared.
-- The coverage number and the note agree about which instances were really checked.
-
-**Note**: this is the gap the directed model opened; it is recorded as an open point in
-[ADR-0026](adr/07-devices/0026-a-part-states-its-own-ratings.md) and it is the reason the corpus
-case `examples/cases/directed-ratings/` uses an N-channel part: a case that used a P-FET would
-have pinned a silent gap as if it were a result.
-
----
-
-## F85. A polarized generic's requirement is read as a magnitude — **已落地（2026-11-18）**
-
-**Status**: Settled (2026-11-18). The open point of
-[ADR-0075](adr/07-devices/0075-a-ratings-polarity-is-the-roles.md), closed by
-[ADR-0078](adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md).
-
-**Current state**: a generic states its requirements in the instances row, and the stress check
-reads the `voltage` requirement as a magnitude across the part's two pins, with no polarity
-(`packages/core/src/design/ratings.ts`, the generic branch of `stressFactsOf`: `direction:
-"symmetric"`).
-
-The file already knows more than the check does. A generic declares `polarized yes | no`
-([ADR-0024](adr/07-devices/0024-the-device-kind-is-part-or-generic.md)) and its pins are typed
-`polarized` (`spec/teda.md` §6.3 — `1 P polarized`, `2 N polarized` in `cap-tantalum-7343`). The
-design says which of the two pins is the positive one; nothing reads it.
-
-**Why it matters**: for a polarized part the two polarities are not the same quantity. A tantalum
-capacitor with 10 V on P and 0 V on N is within its requirement; the same part with 10 V on N is
-destroyed. The symmetric reading compares the same |ΔV| in both cases, so it cannot tell a mounted
-part from a reversed one — and the report says "compared" either way. This is the shape F84 closed
-for a part's rating, one level down: the fact is in the file, the comparison does not use it.
-
-**To do**: one decision, in three shapes.
-
-1. **The class says which pin is positive.** The polarity of a generic class is a device-world
-   fact, and it belongs where the class is described — the same reasoning as ADR-0075 D1, where a
-   rating's polarity belongs to the role. Cost: the check has to read the pin type (or a fact that
-   says the same thing) instead of assuming; this may need no new syntax at all.
-2. **The instance row states the polarity.** `voltage` plus a polarity column. Cost: the same fact
-   repeated in every row of every polarized instance, and a column the language would have to
-   define, migrate and pin with a hard case.
-3. **A role for the reversed polarity.** Vocabulary work rather than a comparison change
-   ([ADR-0025](adr/07-devices/0025-device-vocabulary-and-parameter-roles.md)); and a requirement is
-   not a rating, so the roles of `spec/teda.md` §6.2.1 may not be the right home for it.
-
-**Involved files**: `packages/core/src/design/ratings.ts` (the generic branch of `stressFactsOf`),
-`packages/core/src/devices/rules.ts` (the role table), `packages/core/src/erc/**` (if the reversal
-belongs to the connectivity check rather than to the stress comparison),
-`packages/parser/src/component.ts` (what reaches the IR: the `polarized` fact and the pin types),
-`spec/teda.md` §6.3, §7.3.
-
-**What changed**: a polarised class names its positive pole with a new scalar, `positive_pin
-<pin number>` (language 0.17, ADR-0078 D1). The poles are the pins typed `polarized`, and the
-class names which of the two is the positive one (D2). The requirement is then read in the
-class's own direction: the **forward** stress (positive pole above the negative one) is compared
-with the requirement, and the **reverse** stress is compared with zero — a reverse stress above
-zero is a part mounted the wrong way round and is reported as `design.polarity-reversed` (D3).
-An unpolarised class is untouched: its requirement stays a magnitude across its two pins.
-
-The language moves to **0.17.0** and the IR contract to **v0.21** (`component.positive_pin`).
-A file below 0.17 may not name a positive pin, so a polarised class written against an older
-language says only that it is polarised and its requirement stays a magnitude — the reading that
-language had.
-
-**Acceptance** — all four hold:
-
-- A polarized generic whose positive pin sits at a lower potential than its negative pin is
-  reported, naming both nets and both potentials. (Pinned by
-  `packages/core/test/ratings.test.ts`: the report names both nets, both windows and both poles.)
-- The same part with the correct polarity is not reported.
-- An unpolarized generic is unaffected: its requirement stays a magnitude.
-- The report states which polarity it compared, so that "compared" is not a claim about the wrong
-  half again. (The two comparisons report two different things: the forward one is "is the
-  requirement enough", the reverse one is "is it the right way round".)
-
-The reference project's jack is compared for the first time — it has three contacts, so the old
-two-pin inference could not pair its requirement with two nets — and the coverage goes from 28 of
-83 instances to 29. The corpus gains `examples/cases/polarized-class/`.
-
-**Note**: this is the counterpart of F84. F84 asked what a rating's polarity is and decided that
-it is the role's; this asks the same question about the requirement a generic states in the
-instances row, where the answer may be "the class's" — because the class file already says which
-pin is positive.
-
----
-
-## F86. A colour has no closed vocabulary, so it is a second spelling waiting to happen — **已落地（2026-11-18）**
-
-**Status**: Settled (2026-11-18). The open point of
-[ADR-0077](adr/07-devices/0077-a-jack-and-an-led-are-classes.md), closed by
-[ADR-0079](adr/07-devices/0079-a-colour-has-a-closed-vocabulary.md).
-
-**Current state**: an `indicator`'s `value` is a plain `string`. `green` parses, `GREEN` parses,
-`Grün` parses, and each is a different BOM line, because the BOM line key is the generic's id
-plus the parameter values
-([ADR-0025](adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) D1). The comparison
-between a line and a part is an equality ([ADR-0077](adr/07-devices/0077-a-jack-and-an-led-are-classes.md)
-D3), so a misspelling does not merely split the BOM — it makes the part unsuitable, and the
-report says the value class is not the one the line asks for.
-
-**Why it matters**: this is the failure mode the `dielectric` value set exists to prevent
-([ADR-0025](adr/07-devices/0025-device-vocabulary-and-parameter-roles.md) D5): a closed set of
-legal spellings, no aliases, no normalisation. A colour is now a class value in the same
-position, and the set that would catch the typo is not written. The reference project happens to
-spell `green` once; nothing keeps it spelling it that way.
-
-**To do**: one decision, and it is a device-world question rather than a language question.
-
-1. **A closed colour set**, in the same table that holds the constructions and the roles
-   (`packages/core/src/devices/rules.ts`). Cost: the set is global, so a project that needs a
-   colour the table does not know waits for a tool upgrade — the same trade the construction set
-   already makes, and the same open point ADR-0025 records for the whole vocabulary.
-2. **The set is a `codes` value set** rather than a new parameter type, so a project that needs
-   another colour has to change the tool rather than the file.
-
-**Involved files**: `packages/core/src/devices/rules.ts` (the construction table and the closed
-value sets), `packages/core/src/procurement/rules.ts` (the class equality comparison),
-`packages/parser/src/component.ts` (the value-set check on a parameter column),
-`spec/teda.md` §6.2.1, §6.2.2.
-
-**What changed**: the colour set is closed and lives in the tool's device table next to
-`dielectric`'s (ADR-0079 D1). The set holds seven members — `red`, `amber`, `yellow`, `green`,
-`cyan`, `blue`, `white` — and `orange` is deliberately **not** one of them: amber and orange are
-the same colour in two spellings, and a set holding both would be the failure mode a closed set
-exists to prevent (D3). The closed sets are now keyed by the role **and** the quantity: `value` +
-`string` is a colour, `value` + `capacitance` is a capacitance and has no set (D2) — one key per
-role would have read a capacitance as a colour.
-
-**Acceptance** — all three hold:
-
-- A colour outside the set is an error at the file, with the legal spellings listed.
-- `green` and `GREEN` are one BOM line, or the second one is an error — never two lines.
-- The set does not silently normalise: the file says what it means.
-
-The check reaches all three places a colour is written — the instance row, the procurement
-selection and the part's own `value` rating — because all three are read by the same column
-reader. The reference project and the corpus already spell `green`, so nothing in the tree
-changes; a file that spells a colour outside the set is now an error, and the diagnostic lists
-the legal spellings.
-
-**Note**: this is deliberately not decided here. The set of colours a class may take is a
-device-world fact, and the table that would hold it is global; writing it in a project file would
-put a vocabulary in the wrong place. The reason it is written down now is that the indicator
-class landed with the hole open, and the hole is the kind that shows up as a wrong BOM line
-rather than as an error.
-
----
-
-## F87. `value.procurement-generic-unsourced` is reported against part rows too — **已落地（2026-11-18）**
-
-**Status**: Settled (2026-11-18). Found while replacing the reference project's jack with a
-class and a part ([ADR-0077](adr/07-devices/0077-a-jack-and-an-led-are-classes.md)).
-
-**What was wrong**: the check reported `value.procurement-generic-unsourced` for every row of
-the procurement file that has no selection — including rows whose left side is a `kind: part`. A
-part is its own answer ([ADR-0029](adr/07-devices/0029-the-procurement-layer.md) D3): it needs
-no selection, so there is nothing unsourced about it. In the reference project 13 of the 45
-warnings were for part rows — `bq24610rger`, `ch32v307vct6`, `d-b340a`, `d-bat54c`,
-`ihlp2525czer6r8m01`, `ihlp4040dzer150m11`, `ntc-103at`, `q-si7617dn`, `q-sis412dn`,
-`sw-ts-1187`, `tps5430ddar`, `tps7a2033pdbvr`, `xtal-8mhz-3225`.
-
-**Why it mattered**: the check and the BOM **contradicted each other** on the same project.
-`texteda bom examples/reference-project charger-buck` writes
-`bq24610rger,BQ24610RGER,,1,bought,M1.U1,` — the part is bought, it has a part number — while
-`texteda check` warned that `bq24610rger` is used by `M1.U1` but no part is selected for it. Two
-outputs of one tool on one project answered the same question differently, and the warning's own
-text said "generic" about a part.
-
-**What changed**: the unsourced rule skips a line whose component is a `kind: part`
-(`packages/core/src/procurement/rules.ts`). **The record did not move** — the spec already said
-what the tool now does: "a device the design names as a part is already bought as itself …
-only generic lines appear in the selection table" (`spec/procurement.md` §3.1), and "every
-unsourced **generic** line" (`spec/procurement.md` §5.2). It was the implementation that had
-drifted.
-
-**Acceptance** — all four hold:
-
-- A part row nobody selected produces no warning.
-- A generic line with no selection still reports `value.procurement-generic-unsourced`.
-- A generic line that says `not-required` still reports nothing.
-- The check and the BOM agree on every row: a row is `unsourced` in one iff it is `unsourced` in
-  the other.
-
-The reference project now reports **179** warnings instead of 192; the 32 that remain are all
-generic lines nobody has chosen a part for.
-
----
-
-## F88. The schematic does not carry a net's current; the PCB layer sizes the copper from the reviewed maximum — Settled
-
-**Status**: Settled (2026-11-19) by [ADR-0081](adr/05-pcb/0081-rail-current-is-a-pcb-rule.md).
-
-**Decision**: language 0.19 removes `current <net> <max>` from schematic constraints. The schematic keeps
-`current <pin> <max>` for component requirements and continues comparing those requirements with part
-ratings. A PCB `rules current <net> <max_current> <min_width> <source>` row records the reviewed rail
-maximum, the designer-declared minimum trace width, and the provenance text. The source is stored
-verbatim; TextEDA does not fetch or validate it, and the current value is not used to derive a width.
-
-**What landed**:
-
-- PCB parsing, formatting, IR v0.23 and schema support the current rule; duplicate rules for one net
-  are rejected and the rule's net participates in PCB binding checks.
-- The checker compares every same-net trace's declared width with `min_width` (below is an error,
-  equality passes). It reports a trace-only note and explicitly leaves via/pour capacity, geometric
-  ampacity and branch-current distribution outside the check.
-- `bun run migrate:0.19 <project dir>` updates language headers, turns recognized old net-current rows
-  into `TODO(F88)` comments without guessing a replacement rule, and preserves pin-current rows.
-  The reference project has no active rail-current rule until its maximum, width and source are
-  reviewed.
-- Parser, checker, migration and corpus/version checks were added; the old IR v0.22 schema remains
-  unchanged.
-
-**Remaining separately**: deriving branch current and proving physical current capacity remain open
-questions tracked by F80; this decision does not make a passing trace-width comparison an ampacity
-verdict.
-
----
-
-## F89. The procurement layer does not compare the polarity of a class with the polarity of the part bought for it — Settled
-
-**Status**: Settled (2026-11-18) by [ADR-0080](adr/07-devices/0080-a-part-names-its-positive-pin-for-procurement-comparison.md), which closes the open point of [ADR-0078](adr/07-devices/0078-a-polarised-class-names-its-positive-pin.md).
-
-**Decision**: a part may optionally state its own `positive_pin` from language 0.18. A directed generic and selected part are compared only when both use the same footprint; their positive pin numbers must match. A missing or different part pin makes the selection unsuitable, with an error for a primary and a warning for an alternative (or an error in strict mode). An undirected generic keeps its existing behaviour, and a different footprint is reported by the footprint check without a polarity comparison.
-
-**What landed**:
-
-- `packages/parser` accepts and validates a part's optional positive pin from language 0.18; older part descriptions remain valid without it.
-- `packages/core` applies the exact same-footprint comparison with the existing `value.procurement-part-unsuitable` diagnostic and severity rules.
-- The IR contract is now v0.22; it copies v0.21 with updated version identifiers and a clarified `component.positive_pin` description. v0.21 is unchanged.
-- `examples/cases/class-devices/` pins matching jack and LED orientations; unit tests pin opposite and missing values, alternative severity, different footprints and undirected generics. The reference project's jack and LED parts also state their orientations.
-
-**Acceptance**:
-
-- A same-footprint part bought for a directed generic states the same positive pin, and the selection compares it with the class.
-- A part with the opposite or unstated polarity is unsuitable and the report identifies the mismatch.
-- A part for an undirected generic is unaffected.
