@@ -25,7 +25,7 @@ rules
   clearance  0.2
   width  0.3
   via  0.6  0.3
-  current  VDD_IN  1A  0.3mm  docs/power-domains/README.md#illustrative-current-rule
+  current  VDD_IN  1A  0.3  docs/power-domains/README.md#illustrative-current-rule
 
 physical_only
   S1  stitching  [10,10]  VDD_IN  0.6  0.3

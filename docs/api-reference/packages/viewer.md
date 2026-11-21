@@ -11,7 +11,7 @@ Public exports for this workspace package. This is implementation navigation, no
 | Import path | Source | Named exports |
 |---|---|---:|
 | <code>@texteda/viewer</code> | [packages/viewer/src/types.ts](../../../packages/viewer/src/types.ts) | 20 |
-| <code>@texteda/viewer/app</code> | [packages/viewer/src/app.ts](../../../packages/viewer/src/app.ts) | 7 |
+| <code>@texteda/viewer/app</code> | [packages/viewer/src/app.ts](../../../packages/viewer/src/app.ts) | 9 |
 | <code>@texteda/viewer/build</code> | [packages/viewer/src/build.ts](../../../packages/viewer/src/build.ts) | 1 |
 | <code>@texteda/viewer/client</code> | [packages/viewer/src/client.ts](../../../packages/viewer/src/client.ts) | 0 |
 | <code>@texteda/viewer/sketch</code> | [packages/viewer/src/sketch.ts](../../../packages/viewer/src/sketch.ts) | 19 |
@@ -51,12 +51,14 @@ Source module: [packages/viewer/src/app.ts](../../../packages/viewer/src/app.ts)
 | Export | Kind | Signature / type | Summary | Declaration |
 |---|---|---|---|---|
 | <code>Highlight</code> | interface | <code>Highlight</code> | The object under the pointer, as the app selects it. A printed text is its own kind rather than one `text` bucket: a label names a net and a port names a board port, and only th… | [packages/viewer/src/app.ts#L50](../../../packages/viewer/src/app.ts#L50) |
-| <code>KeyHint</code> | interface | <code>KeyHint</code> | One key in the hint: the glyph in its box, and what it does in the current state. | [packages/viewer/src/app.ts#L1079](../../../packages/viewer/src/app.ts#L1079) |
-| <code>KeyHintState</code> | interface | <code>KeyHintState</code> | The state the keyboard hint is derived from. Everything the hint decides is here, so the decision can be tested without a browser: which drawing is on screen, what is selected, … | [packages/viewer/src/app.ts#L1091](../../../packages/viewer/src/app.ts#L1091) |
-| <code>ReviewHandle</code> | interface | <code>ReviewHandle</code> | What a mounted app hands back to whoever mounted it. | [packages/viewer/src/app.ts#L2958](../../../packages/viewer/src/app.ts#L2958) |
-| <code>keyHints</code> | function | <code>(state: KeyHintState): KeyHint[]</code> | The keys that do something right now. The hint is state-derived rather than a fixed list: with nothing selected `m`/`r`/`Enter` would be dead, and a hint that names dead keys te… | [packages/viewer/src/app.ts#L1115](../../../packages/viewer/src/app.ts#L1115) |
-| <code>mountReview</code> | function | <code>(rootElement: HTMLElement, reviewModel: ReviewModel, reviewApi: ReviewApi): ReviewHandle</code> | Mount the review app. The root is where the app draws, the model is what it shows, and the api is how it asks its host for a write — the standalone app's CLI routes, or a plugin… | [packages/viewer/src/app.ts#L2970](../../../packages/viewer/src/app.ts#L2970) |
-| <code>moveStatus</code> | function | <code>(highlight: Highlight, moved: boolean, symbolName: string &#124; undefined): string</code> | What the status line says after a move. The line answers two things at once: which object is still selected, and that the move is local until Apply. The object comes first, so t… | [packages/viewer/src/app.ts#L1153](../../../packages/viewer/src/app.ts#L1153) |
+| <code>KeyHint</code> | interface | <code>KeyHint</code> | One key in the hint: the glyph in its box, and what it does in the current state. | [packages/viewer/src/app.ts#L1082](../../../packages/viewer/src/app.ts#L1082) |
+| <code>KeyHintState</code> | interface | <code>KeyHintState</code> | The state the keyboard hint is derived from. Everything the hint decides is here, so the decision can be tested without a browser: which drawing is on screen, what is selected, … | [packages/viewer/src/app.ts#L1094](../../../packages/viewer/src/app.ts#L1094) |
+| <code>ReviewHandle</code> | interface | <code>ReviewHandle</code> | What a mounted app hands back to whoever mounted it. | [packages/viewer/src/app.ts#L2989](../../../packages/viewer/src/app.ts#L2989) |
+| <code>appliedLayoutStatus</code> | function | <code>(places: number, fieldChanges: number, file: string, conflicts: readonly string[], stale: readonly string[], reseated: readonly string[]): string</code> | — | [packages/viewer/src/app.ts#L1167](../../../packages/viewer/src/app.ts#L1167) |
+| <code>keyHints</code> | function | <code>(state: KeyHintState): KeyHint[]</code> | The keys that do something right now. The hint is state-derived rather than a fixed list: with nothing selected `m`/`r`/`Enter` would be dead, and a hint that names dead keys te… | [packages/viewer/src/app.ts#L1118](../../../packages/viewer/src/app.ts#L1118) |
+| <code>mountReview</code> | function | <code>(rootElement: HTMLElement, reviewModel: ReviewModel, reviewApi: ReviewApi): ReviewHandle</code> | Mount the review app. The root is where the app draws, the model is what it shows, and the api is how it asks its host for a write — the standalone app's CLI routes, or a plugin… | [packages/viewer/src/app.ts#L3001](../../../packages/viewer/src/app.ts#L3001) |
+| <code>moveStatus</code> | function | <code>(highlight: Highlight, moved: boolean, symbolName: string &#124; undefined): string</code> | What the status line says after a move. The line answers two things at once: which object is still selected, and that the move is local until Apply. The object comes first, so t… | [packages/viewer/src/app.ts#L1190](../../../packages/viewer/src/app.ts#L1190) |
+| <code>previewLayoutStatus</code> | function | <code>(conflicts: readonly string[], stale: readonly string[], reseated: readonly string[]): string &#124; undefined</code> | — | [packages/viewer/src/app.ts#L1158](../../../packages/viewer/src/app.ts#L1158) |
 
 ## <code>@texteda/viewer/build</code>
 
